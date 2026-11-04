@@ -2,13 +2,14 @@
 /* Copyright (c) 2026 Meta Platforms, Inc. and affiliates. */
 #include <vmlinux.h>
 #include <bpf/bpf_helpers.h>
+#include "bpf_misc.h"
 
 struct int128_arg {
 	__int128 v;
 };
 
 __u64 base;
-__u64 ret_odd, ret_stack, ret_split, ret_unreliable;
+__u64 ret_odd, ret_stack, ret_split, ret_unreliable, ret_takes_more;
 
 #if defined(__clang__)
 
@@ -68,6 +69,24 @@ static __noinline __u64 callee_unreliable(__u64 *p, __u64 b, __u64 c, __u64 d,
 	return *p + b * 2 + c * 3 + d * 4 + e * 5 + f * 6;
 }
 
+/* BTF has 'a'. The code also takes the 6th argument, on the stack. */
+static __naked __noinline __used __u64 callee_takes_6th(__u64 a)
+{
+	asm volatile ("r0 = *(u64 *)(r11 + 8); r0 += r1; exit;");
+}
+
+/* BTF has 'a'. The code also takes r5. It returns in r0 and r2. */
+static __naked __noinline __used __int128 callee_takes_r5(__u64 a)
+{
+	asm volatile ("r0 = r1; r0 += r5; r2 = r5; exit;");
+}
+
+static __naked __noinline __u64 call_takes_more(void)
+{
+	asm volatile ("r1 = 1; *(u64 *)(r11 - 8) = 6; call callee_takes_6th;"
+		      "r1 = r0; r5 = 2; call callee_takes_r5; r0 += r2; exit;");
+}
+
 #else
 
 const volatile bool has_stack_arg = false;
@@ -93,6 +112,7 @@ int run(void *ctx)
 		ret_unreliable = callee_unreliable(&x, base + 2, base + 3,
 						   base + 4, base + 5, base + 6);
 	}
+	ret_takes_more = call_takes_more();
 #endif
 #endif
 	return 0;

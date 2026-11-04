@@ -159,11 +159,11 @@ __success __log_level(2)
  * This is quite fragile: if verifier checkpointing heuristic changes, this
  * might need adjusting.
  */
-__msg("2: (07) r0 += 1                       ; R0=6")
+__msg("2: (47) r0 |= 0                       ; R0=6")
 __msg("3: (35) if r0 >= 0xa goto pc+1")
 __msg("mark_precise: frame0: last_idx 3 first_idx 3 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r0 stack= before 2: (07) r0 += 1")
-__msg("mark_precise: frame0: regs=r0 stack= before 1: (07) r0 += 1")
+__msg("mark_precise: frame0: regs=r0 stack= before 2: (47) r0 |= 0")
+__msg("mark_precise: frame0: regs=r0 stack= before 1: (07) r0 += 2")
 __msg("mark_precise: frame0: regs=r0 stack= before 4: (05) goto pc-4")
 __msg("mark_precise: frame0: regs=r0 stack= before 3: (35) if r0 >= 0xa goto pc+1")
 __msg("mark_precise: frame0: parent state regs= stack=:  R0=P4")
@@ -173,8 +173,9 @@ __naked int state_loop_first_last_equal(void)
 	asm volatile (
 		"r0 = 0;"
 	"l0_%=:"
-		"r0 += 1;"
-		"r0 += 1;"
+		"r0 += 2;"
+		/* scalar evolution has no formula for it: the loop is not counted */
+		"r0 |= 0;"
 		/* every few iterations we'll have a checkpoint here with
 		 * first_idx == last_idx, potentially confusing precision
 		 * backtracking logic

@@ -1008,12 +1008,19 @@ static_assert(__BPF_RET_TYPE_MAX <= BPF_BASE_TYPE_LIMIT);
 /* The longest tracepoint has 12 args.
  * See include/trace/bpf_probe.h
  *
- * Also reuse this macro for maximum number of arguments a BPF function
- * or a kfunc can have. Args 1-5 are passed in registers, args 6-12 via
- * stack arg slots. The JIT may map some stack arg slots to registers based
- * on the native calling convention (e.g., arg 6 to R9 on x86-64).
+ * Also reuse this macro for maximum number of arguments a kfunc can have and
+ * BTF of a BPF function can describe. Args 1-5 are passed in registers, args
+ * 6-12 via stack arg slots. The JIT may map some stack arg slots to registers
+ * based on the native calling convention (e.g., arg 6 to R9 on x86-64).
  */
 #define MAX_BPF_FUNC_ARGS 12
+
+/*
+ * A static BPF function is called by BPF code only, with what the compiler
+ * makes of its arguments. A slice or a trait object of Rust takes two slots. The
+ * function that derive(Debug) calls for a struct with five fields takes 23.
+ */
+#define MAX_BPF_STATIC_FUNC_ARGS 24
 
 /* The maximum number of arguments passed through registers
  * a single function may have.
@@ -1763,6 +1770,10 @@ struct bpf_subprog_arg_info {
 struct bpf_func_info_aux {
 	u16 linkage;
 	bool unreliable;
+	/* The function returns in R0:R2 */
+	bool ret_reg_pair;
+	/* The code of a static function loads stack arguments */
+	bool stack_args;
 	bool called[BPF_FUNC_CTX_CNT];
 	bool verified[BPF_FUNC_CTX_CNT];
 	bool called_with_pkt_ptrs;

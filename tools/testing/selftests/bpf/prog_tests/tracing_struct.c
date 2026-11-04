@@ -198,6 +198,10 @@ static void test_int128_tgt_prog(void)
 							     "callee_split");
 		err = err ?: bpf_program__set_attach_target(tracer->progs.split_exit, fd,
 							     "callee_split");
+		/* The trampoline has to keep r5, which BTF doesn't have. */
+		bpf_program__set_autoload(tracer->progs.unreliable_entry, true);
+		err = err ?: bpf_program__set_attach_target(tracer->progs.unreliable_entry, fd,
+							     "callee_takes_r5");
 	} else {
 		bpf_program__set_autoload(tracer->progs.stack_entry, false);
 		bpf_program__set_autoload(tracer->progs.stack_exit, false);
@@ -239,6 +243,8 @@ static void test_int128_tgt_prog(void)
 		ASSERT_EQ(tracer->bss->split_i, 10, "split:i");
 		ASSERT_EQ(tgt->bss->ret_split, 246, "split ret");
 		ASSERT_EQ(tracer->bss->split_ret, 246, "split fexit ret");
+		ASSERT_EQ(tracer->bss->unreliable_r5, 2, "takes more:r5");
+		ASSERT_EQ(tgt->bss->ret_takes_more, 11, "takes more ret");
 	}
 
 out:
@@ -252,14 +258,15 @@ out:
 /*
  * A static function whose BTF is unreliable gets a trampoline that only knows
  * of the register arguments, so one taking stack arguments must be refused.
+ * It only knows of r0 too, so fexit to one returning in r0 and r2 must be refused.
  */
-static void test_tgt_prog_unreliable(void)
+static void test_tgt_prog_unreliable(const char *name, const char *func, const char *msg)
 {
 #if defined(__x86_64__) || defined(__aarch64__)
 	struct tracing_struct_int128_tracer *tracer = NULL;
 	struct tracing_struct_int128_tgt *tgt;
+	struct bpf_program *prog, *entry;
 	char log_buf[4096] = {};
-	struct bpf_program *prog;
 	int err, fd;
 
 	tgt = tracing_struct_int128_tgt__open_and_load();
@@ -277,16 +284,16 @@ static void test_tgt_prog_unreliable(void)
 
 	bpf_object__for_each_program(prog, tracer->obj)
 		bpf_program__set_autoload(prog, false);
-	bpf_program__set_autoload(tracer->progs.unreliable_entry, true);
-	bpf_program__set_log_buf(tracer->progs.unreliable_entry, log_buf, sizeof(log_buf));
-	err = bpf_program__set_attach_target(tracer->progs.unreliable_entry, fd,
-					     "callee_unreliable");
+	entry = bpf_object__find_program_by_name(tracer->obj, name);
+	bpf_program__set_autoload(entry, true);
+	bpf_program__set_log_buf(entry, log_buf, sizeof(log_buf));
+	err = bpf_program__set_attach_target(entry, fd, func);
 	if (!ASSERT_OK(err, "set_attach_target"))
 		goto out;
 
 	err = tracing_struct_int128_tracer__load(tracer);
 	ASSERT_ERR(err, "tracer__load");
-	ASSERT_HAS_SUBSTR(log_buf, "unreliable BTF and stack arguments", "log");
+	ASSERT_HAS_SUBSTR(log_buf, msg, "log");
 
 out:
 	tracing_struct_int128_tracer__destroy(tracer);
@@ -389,7 +396,14 @@ void test_tracing_struct(void)
 	if (test__start_subtest("int128_tgt_prog"))
 		test_int128_tgt_prog();
 	if (test__start_subtest("tgt_prog_unreliable"))
-		test_tgt_prog_unreliable();
+		test_tgt_prog_unreliable("unreliable_entry", "callee_unreliable",
+					 "unreliable BTF and stack arguments");
+	if (test__start_subtest("tgt_prog_takes_6th"))
+		test_tgt_prog_unreliable("unreliable_entry", "callee_takes_6th",
+					 "unreliable BTF and stack arguments");
+	if (test__start_subtest("tgt_prog_returns_pair"))
+		test_tgt_prog_unreliable("odd_exit", "callee_takes_r5",
+					 "with a >8 byte return value");
 	if (test__start_subtest("stack_arg_tailcall"))
 		test_stack_arg_tailcall();
 	if (test__start_subtest("union_args"))

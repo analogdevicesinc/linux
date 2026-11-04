@@ -304,28 +304,95 @@ int bpf_loop_at_index(struct bpf_verifier_env *env, u32 idx)
 	return aux[idx].loop ? idx : aux[idx].loop_header;
 }
 
+/* @known: the registers that hold the constant @val behind @insn. False: a jump or the like. */
+static bool track_consts(const struct bpf_insn *insn, u16 *known, s32 *val)
+{
+	u8 class = BPF_CLASS(insn->code);
+
+	if (class == BPF_ST || (class == BPF_STX && BPF_MODE(insn->code) == BPF_MEM))
+		return true;
+	/* r6 - r9 are what they were when the call returns */
+	if (insn->code == (BPF_JMP | BPF_CALL)) {
+		*known &= ~GENMASK(BPF_REG_5, BPF_REG_0);
+		return true;
+	}
+	if (class != BPF_ALU && class != BPF_ALU64 && class != BPF_LDX)
+		return false;
+	*known &= ~BIT(insn->dst_reg);
+	if (class != BPF_LDX && BPF_OP(insn->code) == BPF_MOV && BPF_SRC(insn->code) == BPF_K) {
+		*known |= BIT(insn->dst_reg);
+		val[insn->dst_reg] = insn->imm;
+	}
+	return true;
+}
+
 /*
- * Collect conditional jumps within n's loop that dominate 'n' and have
- * a successor outside the loop, nearest first.
+ * Does the program leave the loop at @h when the conditional jump at @n goes on at @t?
+ * It does when @t is not in the loop. A compiler also makes
+ *	w2 = 1; if w1 == 0 goto l; w2 = 0; l: ...; if w2 != 1 goto head;
+ * of 'while (n--)'. So follow the constants that are set next to the jump for as long as there
+ * is one way to go.
+ */
+bool bpf_edge_leaves_loop(struct bpf_verifier_env *env, int h, int n, int t)
+{
+	struct bpf_insn *insns = env->prog->insnsi, *insn;
+	s32 val[MAX_BPF_REG];
+	u16 known = 0;
+	int i, l;
+	u8 op;
+
+	/* the insns in front of the jump, for as long as nothing else leads to the next one */
+	for (i = n; i && i > n - 4 && !env->insn_aux_data[i].loop && env->idoms[i] == i - 1; i--)
+		;
+	for (; i < n; i++)
+		if (!track_consts(&insns[i], &known, val))
+			known = 0;
+	for (i = 0; i < 16; i++, t++) {
+		l = bpf_loop_at_index(env, t);
+		if (l != h && !bpf_is_nested_loop(env, l, h))
+			return true;
+		insn = &insns[t];
+		op = BPF_OP(insn->code);
+		if (t == h) {
+			return false;
+		} else if (insn->code == (BPF_JMP | BPF_JA)) {
+			t += insn->off;
+		} else if (is_cond_jmp_insn(insn)) {
+			/* a 32-bit and a 64-bit jump agree on a number that is not negative */
+			if (!(known & BIT(insn->dst_reg)) || val[insn->dst_reg] < 0 ||
+			    BPF_SRC(insn->code) != BPF_K || (op != BPF_JEQ && op != BPF_JNE))
+				return false;
+			if ((val[insn->dst_reg] == insn->imm) == (op == BPF_JEQ))
+				t += insn->off;
+		} else if (!track_consts(insn, &known, val)) {
+			return false;
+		}
+	}
+	return false;
+}
+
+/*
+ * Collect conditional jumps within n's loop that dominate 'n' and leave
+ * the loop on one edge, see bpf_edge_leaves_loop(), nearest first.
  */
 static void find_dominating_conditions(struct bpf_verifier_env *env, int n,
 				       struct bpf_backedge *backedge)
 {
 	struct bpf_insn *insns = env->prog->insnsi;
 	bool t_exits_loop, f_exits_loop;
-	int n_loop, t_loop, f_loop;
 	int *idoms = env->idoms;
+	int n_loop;
 
 	n_loop = bpf_loop_at_index(env, n);
 	if (idoms_intersect(env, n, n_loop) != n_loop)
 		return;
 	while (n >= 0) {
 		if (is_cond_jmp_insn(&insns[n]) && bpf_loop_at_index(env, n) == n_loop) {
-			t_loop = bpf_loop_at_index(env, n + insns[n].off + 1);
-			f_loop = bpf_loop_at_index(env, n + 1);
-			t_exits_loop = t_loop != n_loop && !bpf_is_nested_loop(env, t_loop, n_loop);
-			f_exits_loop = f_loop != n_loop && !bpf_is_nested_loop(env, f_loop, n_loop);
-			if (t_exits_loop || f_exits_loop) {
+			t_exits_loop = bpf_edge_leaves_loop(env, n_loop, n, n + insns[n].off + 1);
+			f_exits_loop = bpf_edge_leaves_loop(env, n_loop, n, n + 1);
+			/* latches[0] is the latch: it has to leave the loop itself */
+			if ((t_exits_loop || f_exits_loop) &&
+			    (backedge->latches_cnt || bpf_jump_leaves_loop(env, n_loop, n))) {
 				if (backedge->latches_cnt == MAX_LATCHES)
 					return;
 				backedge->latches[backedge->latches_cnt++] = n;
@@ -457,6 +524,22 @@ bool bpf_is_nested_loop(struct bpf_verifier_env *env, int inner_header, int oute
 	return false;
 }
 
+/* Whether the conditional jump at @n, in the loop @h or in a loop nested in it, leaves @h */
+bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[n];
+	u8 class = BPF_CLASS(insn->code), op = BPF_OP(insn->code);
+	int t, f;
+
+	if ((class != BPF_JMP && class != BPF_JMP32) || op == BPF_JA || op == BPF_CALL ||
+	    op == BPF_EXIT || op == BPF_JCOND)
+		return false;
+	t = bpf_loop_at_index(env, n + insn->off + 1);
+	f = bpf_loop_at_index(env, n + 1);
+	return (t != h && !bpf_is_nested_loop(env, t, h)) ||
+	       (f != h && !bpf_is_nested_loop(env, f, h));
+}
+
 int bpf_compute_loops(struct bpf_verifier_env *env)
 {
 	int i, j, k, s, t, iloop, sloop, err = 0, len = env->prog->len;
@@ -555,7 +638,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				 *  s: ...
 				 *   }
 				 */
-				/* Enclosing loops inherit the overflow, see below */
+				/* Enclosing loops get nested_exits_overflow, see below */
 				if (aux[t].loop->exits_overflow)
 					break;
 				err = add_exit(aux[t].loop, i, s);
@@ -572,7 +655,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 		if (!loop || !loop->exits_overflow)
 			continue;
 		for (t = aux[i].loop_header; t >= 0; t = aux[t].loop_header)
-			aux[t].loop->exits_overflow = true;
+			aux[t].loop->nested_exits_overflow = true;
 	}
 
 	if (env->log.level & BPF_LOG_LEVEL2) {
@@ -587,6 +670,8 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				bpf_log(log, ", irreducible");
 			if (loop->exits_overflow)
 				bpf_log(log, ", too many exits");
+			if (loop->nested_exits_overflow)
+				bpf_log(log, ", too many exits of a nested loop");
 			bpf_log(log, "\n");
 			for (j = 0; j < loop->backedges_cnt; j++) {
 				backedge = &loop->backedges[j];

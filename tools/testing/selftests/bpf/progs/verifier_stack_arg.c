@@ -3,6 +3,7 @@
 
 #include <linux/bpf.h>
 #include <bpf/bpf_helpers.h>
+#include "../../../include/linux/filter.h"
 #include "bpf_misc.h"
 
 struct {
@@ -11,6 +12,45 @@ struct {
 	__type(key, long long);
 	__type(value, long long);
 } map_hash_8b SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 4096);
+} ringbuf SEC(".maps");
+
+#if defined(__BPF_FEATURE_STACK_ARGUMENT)
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(max_entries, 1);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u32));
+} jmp_table SEC(".maps");
+
+/* BTF has what the source says. The compiler dropped the arguments that are not used. */
+static __naked __noinline __used
+long takes_5_says_7(long a, long b, long c, long d, long e, long f, long g)
+{
+	asm volatile ("r0 = r1; r0 += r2; r0 += r3; r0 += r4; r0 += r5; exit;" ::: __clobber_all);
+}
+
+#define CALL_TAKES_5_SAYS_7(stores) \
+	"r1 = 1; r2 = 2; r3 = 3; r4 = 4; r5 = 5;" stores "call takes_5_says_7; exit;"
+
+/* No insn uses r11: the JIT needs no stack arguments, and a tail call is allowed */
+SEC("tc")
+__description("stack_arg: static subprog takes less than its prototype says")
+__success __retval(15)
+__load_if_JITed()
+__arch_x86_64 __arch_arm64 __arch_riscv64 __arch_s390x __arch_loongarch
+__naked void less_than_prototype(void)
+{
+	asm volatile ("r2 = %[jmp_table] ll; r3 = 0; call %[bpf_tail_call];"
+		      CALL_TAKES_5_SAYS_7("")
+		      :: __imm_addr(jmp_table), __imm(bpf_tail_call) : __clobber_all);
+}
+
+#endif
 
 #if (defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64) || \
 	(defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64)) && \
@@ -92,6 +132,52 @@ __naked void stack_arg_read_uninitialized(void)
 		"exit;"
 		::: __clobber_all
 	);
+}
+
+/* BTF has 'a'. The code also takes the 6th argument. It passes none: rsp stays where it is. */
+static __naked __noinline __used long takes_6th_says_1(long a)
+{
+	asm volatile ("r0 = *(u64 *)(r11 + 8); r0 += r1; exit;" ::: __clobber_all);
+}
+
+SEC("tc")
+__description("stack_arg: static subprog takes more than its prototype says")
+__success __retval(7)
+__load_if_JITed()
+__arch_x86_64
+__jited("func #1")
+__jited("...")
+__jited("	movq	%r9, %rax")
+__jited("	addq	%rdi, %rax")
+__jited("	leave")
+__arch_arm64 __arch_riscv64
+__naked void more_than_prototype(void)
+{
+	asm volatile ("r1 = 1; *(u64 *)(r11 - 8) = 6; call takes_6th_says_1; exit;"
+		      ::: __clobber_all);
+}
+
+SEC("tc")
+__description("stack_arg: static subprog takes more than its prototype says, no store")
+__failure __msg("callee expects 6 args, stack arg1 is not initialized")
+__naked void more_than_prototype_no_store(void)
+{
+	asm volatile ("r1 = 1; call takes_6th_says_1; exit;" ::: __clobber_all);
+}
+
+/* BTF is the only source for a global subprog: it has no stack arguments. */
+__noinline __used long global_loads_6th(long a)
+{
+	asm volatile ("%0 = *(u64 *)(r11 + 8);" : "=r"(a));
+	return a;
+}
+
+SEC("tc")
+__description("stack_arg: global subprog loads the 6th argument")
+__failure __msg("invalid read from stack arg off 8 depth 0")
+__naked void global_more_than_prototype(void)
+{
+	asm volatile ("r1 = 1; call global_loads_6th; exit;" ::: __clobber_all);
 }
 
 SEC("tc")
@@ -359,10 +445,222 @@ __naked void stack_arg_shared_store(void)
 	);
 }
 
+/* r1 - r5 and all 19 slots. Its prototype has no parameters: what it takes is seen in its code. */
+__naked __noinline __used
+static unsigned long subprog_24args(void)
+{
+	asm volatile (
+		"r0 = r1;"
+		"r0 += r2;"
+		"r0 += r3;"
+		"r0 += r4;"
+		"r0 += r5;"
+		"r1 = *(u64 *)(r11 + 8);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 16);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 24);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 32);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 40);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 48);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 56);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 64);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 72);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 80);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 88);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 96);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 104);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 112);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 120);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 128);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 136);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 144);"
+		"r0 += r1;"
+		"r1 = *(u64 *)(r11 + 152);"
+		"r0 += r1;"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+SEC("tc")
+__description("stack_arg: static subprog with 24 args")
+__success __retval(300)
+__naked void stack_arg_24args(void)
+{
+	asm volatile (
+		"r1 = 1;"
+		"r2 = 2;"
+		"r3 = 3;"
+		"r4 = 4;"
+		"r5 = 5;"
+		"*(u64 *)(r11 - 152) = 24;"
+		"*(u64 *)(r11 - 144) = 23;"
+		"*(u64 *)(r11 - 136) = 22;"
+		"*(u64 *)(r11 - 128) = 21;"
+		"*(u64 *)(r11 - 120) = 20;"
+		"*(u64 *)(r11 - 112) = 19;"
+		"*(u64 *)(r11 - 104) = 18;"
+		"*(u64 *)(r11 - 96) = 17;"
+		"*(u64 *)(r11 - 88) = 16;"
+		"*(u64 *)(r11 - 80) = 15;"
+		"*(u64 *)(r11 - 72) = 14;"
+		"*(u64 *)(r11 - 64) = 13;"
+		"*(u64 *)(r11 - 56) = 12;"
+		"*(u64 *)(r11 - 48) = 11;"
+		"*(u64 *)(r11 - 40) = 10;"
+		"*(u64 *)(r11 - 32) = 9;"
+		"*(u64 *)(r11 - 24) = 8;"
+		"*(u64 *)(r11 - 16) = 7;"
+		"*(u64 *)(r11 - 8) = 6;"
+		"call subprog_24args;"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+__naked __noinline __used
+static unsigned long returns_arg22(void)
+{
+	asm volatile (
+		"r0 = *(u64 *)(r11 + 136);"
+		"exit;"
+		::: __clobber_all
+	);
+}
+
+/* A dynptr and a slice of it, which has two ids: its own and the one of the dynptr */
+#define SLICE(dynptr, slice)			\
+	"r1 = r6;"				\
+	"r2 = 8;"				\
+	"r3 = 0;"				\
+	"r4 = r10;"				\
+	"r4 += -" #dynptr ";"			\
+	"call %[bpf_dynptr_from_mem];"		\
+	"r1 = r10;"				\
+	"r1 += -" #dynptr ";"			\
+	"r2 = 0;"				\
+	"r3 = 8;"				\
+	"call %[bpf_dynptr_data];"		\
+	"*(u64 *)(r10 - " #slice ") = r0;"
+
+#define SLICE_ARG(slice, arg)			\
+	"r1 = *(u64 *)(r10 - " #slice ");"	\
+	"*(u64 *)(r11 - " #arg ") = r1;"
+
+/*
+ * The 16 slices in front of it have 32 ids. What the subprog returns is still the slice of
+ * the dynptr that is submitted.
+ */
+SEC("tc")
+__description("stack_arg: ids of the last of 17 slices")
+__failure __msg("R6 invalid mem access 'scalar'")
+__naked void stack_arg_ids_of_17_slices(void)
+{
+	asm volatile (
+		"r1 = 0;"
+		"*(u64 *)(r10 - 408) = r1;"
+		"r2 = r10;"
+		"r2 += -408;"
+		"r1 = %[map_hash_8b] ll;"
+		"call %[bpf_map_lookup_elem];"
+		"if r0 == 0 goto 2f;"
+		"r6 = r0;"
+		SLICE(16, 280)
+		SLICE(32, 288)
+		SLICE(48, 296)
+		SLICE(64, 304)
+		SLICE(80, 312)
+		SLICE(96, 320)
+		SLICE(112, 328)
+		SLICE(128, 336)
+		SLICE(144, 344)
+		SLICE(160, 352)
+		SLICE(176, 360)
+		SLICE(192, 368)
+		SLICE(208, 376)
+		SLICE(224, 384)
+		SLICE(240, 392)
+		SLICE(256, 400)
+		"r1 = %[ringbuf] ll;"
+		"r2 = 8;"
+		"r3 = 0;"
+		"r4 = r10;"
+		"r4 += -272;"
+		"call %[bpf_ringbuf_reserve_dynptr];"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"r3 = 8;"
+		"call %[bpf_dynptr_data];"
+		"if r0 == 0 goto 1f;"
+		"*(u64 *)(r11 - 136) = r0;"
+		SLICE_ARG(400, 128)
+		SLICE_ARG(392, 120)
+		SLICE_ARG(384, 112)
+		SLICE_ARG(376, 104)
+		SLICE_ARG(368, 96)
+		SLICE_ARG(360, 88)
+		SLICE_ARG(352, 80)
+		SLICE_ARG(344, 72)
+		SLICE_ARG(336, 64)
+		SLICE_ARG(328, 56)
+		SLICE_ARG(320, 48)
+		SLICE_ARG(312, 40)
+		SLICE_ARG(304, 32)
+		SLICE_ARG(296, 24)
+		SLICE_ARG(288, 16)
+		SLICE_ARG(280, 8)
+		"call returns_arg22;"
+		"r6 = r0;"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"call %[bpf_ringbuf_submit_dynptr];"
+		"r1 = 0;"
+		"*(u64 *)(r6 + 0) = r1;"
+		"r0 = 0;"
+		"exit;"
+	"1:"
+		"r1 = r10;"
+		"r1 += -272;"
+		"r2 = 0;"
+		"call %[bpf_ringbuf_discard_dynptr];"
+	"2:"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_map_lookup_elem),
+		  __imm(bpf_dynptr_from_mem),
+		  __imm(bpf_dynptr_data),
+		  __imm(bpf_ringbuf_reserve_dynptr),
+		  __imm(bpf_ringbuf_submit_dynptr),
+		  __imm(bpf_ringbuf_discard_dynptr),
+		  __imm_addr(map_hash_8b),
+		  __imm_addr(ringbuf)
+		: __clobber_all
+	);
+}
+
 SEC("tc")
 __description("stack_arg: write beyond max outgoing depth")
 __failure
-__msg("stack arg write offset -80 exceeds max 7 stack args")
+__msg("stack arg write offset -160 exceeds max 19 stack args")
 __naked void stack_arg_write_beyond_max(void)
 {
 	asm volatile (
@@ -371,8 +669,8 @@ __naked void stack_arg_write_beyond_max(void)
 		"r3 = 3;"
 		"r4 = 4;"
 		"r5 = 5;"
-		/* Write to offset -80, way beyond any callee's needs */
-		"*(u64 *)(r11 - 80) = 99;"
+		/* Write to offset -160, way beyond any callee's needs */
+		"*(u64 *)(r11 - 160) = 99;"
 		"*(u64 *)(r11 - 16) = 20;"
 		"*(u64 *)(r11 - 8) = 10;"
 		"call subprog_7args;"
@@ -403,6 +701,16 @@ __naked void stack_arg_write_unused_slot(void)
 		"exit;"
 		::: __clobber_all
 	);
+}
+
+SEC("tc")
+__description("stack_arg: write the slots of the prototype, the callee loads none")
+__success __retval(15)
+__load_if_JITed()
+__naked void stack_arg_write_prototype_slots(void)
+{
+	asm volatile (CALL_TAKES_5_SAYS_7("*(u64 *)(r11 - 8) = 6; *(u64 *)(r11 - 16) = 7;")
+		      ::: __clobber_all);
 }
 
 SEC("tc")
@@ -668,6 +976,17 @@ __naked void stack_arg_precision_fallback(void)
 }
 
 #else
+
+/* No BTF tells about this store. The insn is what JIT has to deal with. */
+SEC("tc")
+__description("stack_arg: r11 where JIT has no stack arguments")
+__failure __msg("JIT does not support stack arguments")
+__arch_s390x __arch_loongarch
+__naked void r11_no_jit_support(void)
+{
+	asm volatile (".8byte %[st_r11]; r0 = 0; exit;"
+		      :: __imm_insn(st_r11, BPF_ST_MEM(BPF_DW, 11, -8, 1)) : __clobber_all);
+}
 
 SEC("socket")
 __description("stack_arg is not supported by compiler or jit, use a dummy test")
