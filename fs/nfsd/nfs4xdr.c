@@ -5303,14 +5303,12 @@ static __be32 nfsd4_encode_readv(struct nfsd4_compoundres *resp,
 				 unsigned long maxcount)
 {
 	struct xdr_stream *xdr = resp->xdr;
-	unsigned int base = xdr->buf->page_len & ~PAGE_MASK;
 	unsigned int starting_len = xdr->buf->len;
 	__be32 zero = xdr_zero;
 	__be32 nfserr;
 
 	nfserr = nfsd_iter_read(resp->rqstp, read->rd_fhp, read->rd_nf,
-				read->rd_offset, &maxcount, base,
-				&read->rd_eof);
+				read->rd_offset, &maxcount, &read->rd_eof);
 	read->rd_length = maxcount;
 	if (nfserr)
 		return nfserr;
@@ -6711,6 +6709,7 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 	struct svc_rqst *rqstp = resp->rqstp;
 	const struct nfsd4_operation *opdesc = op->opdesc;
 	unsigned int op_status_offset;
+	struct page **next_page;
 	nfsd4_enc encoder;
 
 	/*
@@ -6768,7 +6767,13 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 		 */
 		warn_on_nonidempotent_op(op);
 		xdr_truncate_encode(xdr, op_status_offset + XDR_UNIT);
-	} else if (so) {
+		/* Keep a truncated reply out of so_replay. */
+		so = NULL;
+	}
+status:
+	op->status = nfsd4_map_status(op->status,
+				      resp->cstate.minorversion);
+	if (so) {
 		int len = xdr->buf->len - (op_status_offset + XDR_UNIT);
 
 		so->so_replay.rp_status = op->status;
@@ -6779,8 +6784,8 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 			if (buf) {
 				so->so_replay.rp_buf = buf;
 			} else {
-				/* rp_buflen already zeroed; skip caching */
-				goto status;
+				/* A body this long would overrun rp_ibuf. */
+				len = 0;
 			}
 		} else if (so->so_replay.rp_buf != so->so_replay.rp_ibuf) {
 			nfs4_replay_free_cache(&so->so_replay);
@@ -6790,17 +6795,26 @@ nfsd4_encode_operation(struct nfsd4_compoundres *resp, struct nfsd4_op *op)
 					op_status_offset + XDR_UNIT,
 					so->so_replay.rp_buf, len);
 	}
-status:
-	op->status = nfsd4_map_status(op->status,
-				      resp->cstate.minorversion);
 	write_bytes_to_xdr_buf(xdr->buf, op_status_offset,
 			       &op->status, XDR_UNIT);
 release:
 	/*
-	 * Account for pages consumed while encoding this operation.
-	 * The xdr_stream primitives don't manage rq_next_page.
+	 * Account for pages consumed while encoding this operation. The
+	 * xdr_stream primitives don't manage rq_next_page, and
+	 * xdr->page_ptr does not account for page_base. XDR padding can
+	 * carry page_base + page_len past rq_page_end.
 	 */
-	rqstp->rq_next_page = xdr->page_ptr + 1;
+	next_page = xdr->buf->pages +
+		DIV_ROUND_UP(xdr->buf->page_base + xdr->buf->page_len,
+			     PAGE_SIZE);
+	next_page = min(next_page, rqstp->rq_page_end);
+	/*
+	 * A failed splice read leaves page cache pages in rq_respages
+	 * above the truncated payload. Keep them below rq_next_page so
+	 * that svc_rqst_release_pages() releases them.
+	 */
+	if (!op->status || next_page > rqstp->rq_next_page)
+		rqstp->rq_next_page = next_page;
 }
 
 /**

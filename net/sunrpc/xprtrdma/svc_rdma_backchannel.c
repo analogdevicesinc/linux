@@ -85,10 +85,14 @@ static int svc_rdma_bc_sendto(struct svcxprt_rdma *rdma,
 	if (ret < 0)
 		return -EIO;
 
-	/* Bump page refcnt so Send completion doesn't release
-	 * the rq_buffer before all retransmits are complete.
+	/* The RPC client frees rq_buffer when the callback task ends,
+	 * whether or not the Send has completed. Hold the page until the
+	 * send context is released after Send completion.
 	 */
-	get_page(virt_to_page(rqst->rq_buffer));
+	sctxt->sc_pages[0] = virt_to_page(rqst->rq_buffer);
+	get_page(sctxt->sc_pages[0]);
+	sctxt->sc_page_count = 1;
+
 	sctxt->sc_send_wr.opcode = IB_WR_SEND;
 	return svc_rdma_post_send(rdma, sctxt);
 }

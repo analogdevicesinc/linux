@@ -221,7 +221,7 @@ nlmsvc_create_block(struct svc_rqst *rqstp, struct nlm_host *host,
 	block->b_daemon = rqstp->rq_server;
 	block->b_host   = host;
 	block->b_file   = file;
-	file->f_count++;
+	atomic_inc(&file->f_count);
 
 	/* Add to file's list of blocks */
 	list_add(&block->b_flist, &file->f_blocks);

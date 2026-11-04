@@ -235,6 +235,24 @@ void svc_rdma_recv_ctxt_put(struct svcxprt_rdma *rdma,
 }
 
 /**
+ * svc_rdma_recv_ctxts_stranded_release - Release stranded recv_ctxts
+ * @rdma: svcxprt_rdma being torn down
+ *
+ * Context: transport destructor only, after the QP has been drained
+ * and before its rw contexts and recv_ctxts are destroyed.
+ */
+void svc_rdma_recv_ctxts_stranded_release(struct svcxprt_rdma *rdma)
+{
+	struct svc_rdma_recv_ctxt *ctxt;
+	struct llist_node *node;
+
+	while ((node = llist_del_first(&rdma->sc_recv_stranded_ctxts)) != NULL) {
+		ctxt = llist_entry(node, struct svc_rdma_recv_ctxt, rc_node);
+		svc_rdma_recv_ctxt_put(rdma, ctxt);
+	}
+}
+
+/**
  * svc_rdma_release_ctxt - Release transport-specific per-rqst resources
  * @xprt: the transport which owned the context
  * @vctxt: the context from rqstp->rq_xprt_ctxt or dr->xprt_ctxt
