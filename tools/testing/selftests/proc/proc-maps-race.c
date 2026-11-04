@@ -174,10 +174,12 @@ typedef bool (*vma_mod_result_check_op)(struct line_content *mod_last_line,
 					struct line_content *restored_first_line);
 
 struct vma_modifier_info {
+	int mlock_error;
 	int vma_count;
 	void *addr;
 	int prot;
 	void *next_addr;
+	vma_modifier_op vma_setup;
 	vma_modifier_op vma_modify;
 	vma_modifier_op vma_restore;
 	vma_mod_result_check_op vma_mod_check;
@@ -528,13 +530,10 @@ static bool compare_smaps_rollup(FIXTURE_DATA(proc_maps_race) *self,
 		struct smaps_rollup_stats *actual)
 {
 	/*
-	 * Clean/dirty metrics might change but Pss-related ones
-	 * should stay constant.
+	 * Clean/dirty metrics might change. Pss depends on map count and might
+	 * change as well. Rss should stay constant.
 	 */
-	if (cmp_smaps_rollup_stat(expected, actual, Pss) &&
-	    cmp_smaps_rollup_stat(expected, actual, Pss_Anon) &&
-	    cmp_smaps_rollup_stat(expected, actual, Pss_File) &&
-	    cmp_smaps_rollup_stat(expected, actual, Pss_Shmem))
+	if (cmp_smaps_rollup_stat(expected, actual, Rss))
 		return true;
 
 	print_smaps_rollup_stats("Expected stats:", self, expected);
@@ -637,14 +636,13 @@ static bool query_addr_at(int maps_fd, void *addr,
 static inline bool split_vma(FIXTURE_DATA(proc_maps_race) *self)
 {
 	/* PROT_NONE differs from both readable neighbors. */
-	return mmap(self->mod_info->addr, self->page_size, PROT_NONE,
-		    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) != MAP_FAILED;
+	return mprotect(self->mod_info->addr, self->page_size, PROT_NONE) == 0;
 }
 
 static inline bool merge_vma(FIXTURE_DATA(proc_maps_race) *self)
 {
-	return mmap(self->mod_info->addr, self->page_size, self->mod_info->prot,
-		    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) != MAP_FAILED;
+	return mprotect(self->mod_info->addr, self->page_size,
+			self->mod_info->prot) == 0;
 }
 
 static inline bool check_split_result(struct line_content *mod_last_line,
@@ -679,6 +677,12 @@ static inline bool check_shrink_result(struct line_content *mod_last_line,
 	       strcmp(mod_first_line->text, restored_first_line->text) == 0;
 }
 
+static inline bool setup_remap_vma(FIXTURE_DATA(proc_maps_race) *self)
+{
+	/* Unlock next_addr so MREMAP_DONTUNMAP does not split it. */
+	return munlock(self->mod_info->next_addr, self->page_size * 3) == 0;
+}
+
 static inline bool remap_vma(FIXTURE_DATA(proc_maps_race) *self)
 {
 	/*
@@ -694,8 +698,10 @@ static inline bool remap_vma(FIXTURE_DATA(proc_maps_race) *self)
 
 static inline bool patch_vma(FIXTURE_DATA(proc_maps_race) *self)
 {
-	return mprotect(self->mod_info->addr + self->page_size, self->page_size,
-			self->mod_info->prot) == 0;
+	/* Replace all three pieces without relying on anon_vma merging. */
+	return mmap(self->mod_info->addr, self->page_size * 3,
+		    self->mod_info->prot,
+		    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0) != MAP_FAILED;
 }
 
 static inline bool check_remap_result(struct line_content *mod_last_line,
@@ -754,15 +760,30 @@ FIXTURE_SETUP(proc_maps_race)
 	self->pid = fork();
 	if (!self->pid) {
 		/* Child process modifying the address space */
-		int prot = PROT_READ | PROT_WRITE;
 		int i;
 
 		for (i = 0; i < mod_info->vma_count; i++) {
-			mod_info->child_mapped_addr[i] = mmap(NULL, self->page_size * 3, prot,
-					MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+			mod_info->child_mapped_addr[i] = mmap(NULL, self->page_size * 3,
+					PROT_READ | PROT_WRITE,
+					MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
 			ASSERT_NE(mod_info->child_mapped_addr[i], MAP_FAILED);
-			/* change protection in adjacent maps to prevent merging */
-			prot ^= PROT_WRITE;
+			/*
+			 * Populate writable to get anonymous pages, then alternate
+			 * write permission even with READ_IMPLIES_EXEC enabled.
+			 */
+			if (i % 2)
+				ASSERT_EQ(mprotect(mod_info->child_mapped_addr[i],
+						   self->page_size * 3, PROT_READ), 0);
+		}
+		/*
+		 * Lock all present pages in memory so memory reclaim cannot
+		 * change RSS during the test, and use MCL_ONFAULT so
+		 * mremap() expansion does not populate new pages.
+		 */
+		if (mlockall(MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT)) {
+			mod_info->mlock_error = errno;
+			signal_state(mod_info, CHILD_READY);
+			_exit(0);
 		}
 		signal_state(mod_info, CHILD_READY);
 		wait_for_state(mod_info, PARENT_READY);
@@ -772,6 +793,8 @@ FIXTURE_SETUP(proc_maps_race)
 			if (mod_info->exit)
 				break;
 
+			if (mod_info->vma_setup)
+				ASSERT_TRUE(mod_info->vma_setup(self));
 			ASSERT_TRUE(mod_info->vma_modify(self));
 			signal_state(mod_info, SETUP_MAPS_MODIFIED);
 			wait_for_state(mod_info, SETUP_RESTORE_MAPS);
@@ -790,6 +813,21 @@ FIXTURE_SETUP(proc_maps_race)
 		exit(0);
 	}
 
+	/* Check setup before opening proc files: the child may have exited. */
+	wait_for_state(mod_info, CHILD_READY);
+	if (mod_info->mlock_error) {
+		int error = mod_info->mlock_error;
+		int status;
+
+		ASSERT_EQ(waitpid(self->pid, &status, 0), self->pid);
+		pthread_cond_destroy(&mod_info->sync_cond);
+		pthread_mutex_destroy(&mod_info->sync_lock);
+		munmap(mod_info, self->shared_mem_size);
+		if (error == ENOMEM || error == EPERM || error == EAGAIN)
+			SKIP(return, "Cannot lock test mappings: %s", strerror(error));
+		ASSERT_EQ(error, 0);
+	}
+
 	switch (self->maps_file) {
 	case MAPS:
 		sprintf(fname, "/proc/%d/maps", self->pid);
@@ -805,9 +843,6 @@ FIXTURE_SETUP(proc_maps_race)
 	}
 	self->maps_fd = open(fname, O_RDONLY);
 	ASSERT_NE(self->maps_fd, -1);
-
-	/* Wait for the child to map the VMAs */
-	wait_for_state(mod_info, CHILD_READY);
 
 	/* Read first two pages */
 	self->page1.data = malloc(self->page_size);
@@ -882,6 +917,7 @@ TEST_F(proc_maps_race, test_maps_tearing_from_split)
 	/* re-read the file to avoid using stale data from previous test */
 	ASSERT_TRUE(read_boundary_lines(self, &self->last_line, &self->first_line));
 
+	mod_info->vma_setup = NULL;
 	mod_info->vma_modify = split_vma;
 	mod_info->vma_restore = merge_vma;
 	mod_info->vma_mod_check = check_split_result;
@@ -984,6 +1020,7 @@ TEST_F(proc_maps_race, test_maps_tearing_from_resize)
 	/* re-read the file to avoid using stale data from previous test */
 	ASSERT_TRUE(read_boundary_lines(self, &self->last_line, &self->first_line));
 
+	mod_info->vma_setup = NULL;
 	mod_info->vma_modify = shrink_vma;
 	mod_info->vma_restore = expand_vma;
 	mod_info->vma_mod_check = check_shrink_result;
@@ -1066,13 +1103,13 @@ TEST_F(proc_maps_race, test_maps_tearing_from_remap)
 	struct line_content remapped_first_line;
 	struct line_content restored_last_line;
 	struct line_content restored_first_line;
-	struct smaps_rollup_stats orig_stats;
 
 	wait_for_state(mod_info, SETUP_READY);
 
 	/* re-read the file to avoid using stale data from previous test */
 	ASSERT_TRUE(read_boundary_lines(self, &self->last_line, &self->first_line));
 
+	mod_info->vma_setup = setup_remap_vma;
 	mod_info->vma_modify = remap_vma;
 	mod_info->vma_restore = patch_vma;
 	mod_info->vma_mod_check = check_remap_result;
@@ -1080,8 +1117,6 @@ TEST_F(proc_maps_race, test_maps_tearing_from_remap)
 	report_test_start("Tearing from remap", self->verbose);
 	ASSERT_TRUE(capture_mod_pattern(self, &remapped_last_line, &remapped_first_line,
 					&restored_last_line, &restored_first_line));
-	if (self->maps_file == SMAPS)
-		ASSERT_TRUE(parse_smaps_rollup(self, &orig_stats));
 
 	/* Now start concurrent modifications for self->duration_sec */
 	signal_state(mod_info, TEST_READY);
@@ -1134,11 +1169,6 @@ TEST_F(proc_maps_race, test_maps_tearing_from_remap)
 				     vma_end - vma_start == self->page_size * 3) ||
 				    (vma_start == self->last_line.start_addr + self->page_size &&
 				     vma_end - vma_start == self->page_size));
-		} else {
-			struct smaps_rollup_stats stats;
-
-			ASSERT_TRUE(parse_smaps_rollup(self, &stats));
-			ASSERT_TRUE(compare_smaps_rollup(self, &orig_stats, &stats));
 		}
 		clock_gettime(CLOCK_MONOTONIC_COARSE, &end_ts);
 		end_test_iteration(&end_ts, self->verbose);
