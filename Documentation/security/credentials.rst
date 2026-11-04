@@ -422,6 +422,25 @@ magic.  This may not be used for pointer members as what they point to may
 disappear the moment the RCU read lock is dropped.
 
 
+Comparing the Ids of Two Tasks
+------------------------------
+
+Whether one task may act on another because both belong to the same user must not
+be decided by comparing the ids of their credentials by hand.  The rules for that
+are kept in one place:
+
+.. kernel-doc:: kernel/cred.c
+   :doc: One task acting on another on the strength of its ids
+
+.. kernel-doc:: kernel/cred.c
+   :identifiers: cred_ids_allow_signal cred_ids_allow_sigio
+                 cred_ids_allow_sched cred_ids_allow_ioprio
+                 cred_ids_allow_move cred_ids_allow_control
+
+.. kernel-doc:: include/linux/cred.h
+   :identifiers: cred_ids
+
+
 Altering Credentials
 --------------------
 

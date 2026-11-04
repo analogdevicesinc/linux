@@ -19,6 +19,7 @@
 #include <linux/binfmts.h>
 #include <linux/cn_proc.h>
 #include <linux/uidgid.h>
+#include <linux/vfsdebug.h>
 
 #if 0
 #define kdebug(FMT, ...)						\
@@ -539,6 +540,167 @@ void __init cred_init(void)
 	cred_jar = KMEM_CACHE(cred,
 			      SLAB_HWCACHE_ALIGN | SLAB_PANIC | SLAB_ACCOUNT |
 			      SLAB_NO_MERGE);
+}
+
+/**
+ * DOC: One task acting on another on the strength of its ids
+ *
+ * A number of operations let one task act on another without any capability,
+ * because the two belong to the same user. What "the same user" means has grown
+ * separately for each of them and cannot be changed now. All of it is kept
+ * here, side by side, so that there is one place to read it.
+ *
+ * =======  ================  =================  ======  =====================
+ * Rule     Of the subject    Of the object      euid 0  Used for
+ * =======  ================  =================  ======  =====================
+ * signal   euid or uid       suid or uid        no      kill()
+ * sigio    euid or uid       suid or uid        yes     SIGIO, SIGURG
+ * sched    euid              euid or uid        no      scheduler, nice
+ * ioprio   euid or uid       uid                no      ioprio_set()
+ * move     euid              uid or suid        yes     cgroup v1, resctrl
+ * control  one uid, one gid  all three of each  no      ptrace, prlimit, keys
+ * =======  ================  =================  ======  =====================
+ *
+ * Where it says so, a subject with euid 0 may act on anybody. That is a
+ * capability by another name, from before there were any.
+ *
+ * These functions only speak for the ids. A capability that does as well, and
+ * the LSM hook that goes with the operation, remain with the caller.
+ *
+ * Do not compare the ids of two credentials by hand to decide whether one task
+ * may act on another. Use one of these, or add one.
+ */
+
+#define CRED_RUID	BIT(0)
+#define CRED_EUID	BIT(1)
+#define CRED_SUID	BIT(2)
+
+static bool cred_euid_is_root(const struct cred *subj)
+{
+	return uid_eq(subj->euid, GLOBAL_ROOT_UID);
+}
+
+static bool cred_has_uid(const struct cred *cred, unsigned int ids, kuid_t uid)
+{
+	return ((ids & CRED_RUID) && uid_eq(cred->uid, uid)) ||
+	       ((ids & CRED_EUID) && uid_eq(cred->euid, uid)) ||
+	       ((ids & CRED_SUID) && uid_eq(cred->suid, uid));
+}
+
+/*
+ * Is any of the @subj_ids of @subj any of the @obj_ids of @obj? No rule looks at
+ * the saved uid of the subject.
+ */
+static bool cred_uid_match_any(const struct cred *subj, unsigned int subj_ids,
+			       const struct cred *obj, unsigned int obj_ids)
+{
+	return ((subj_ids & CRED_RUID) && cred_has_uid(obj, obj_ids, subj->uid)) ||
+	       ((subj_ids & CRED_EUID) && cred_has_uid(obj, obj_ids, subj->euid));
+}
+
+/**
+ * cred_ids_allow_signal - do its ids allow a subject to signal an object?
+ * @subj: the credentials of whoever sends the signal
+ * @obj:  the credentials of the task it is for
+ *
+ * Return: true if the euid or the uid of @subj is the suid or the uid of @obj.
+ */
+bool cred_ids_allow_signal(const struct cred *subj, const struct cred *obj)
+{
+	return cred_uid_match_any(subj, CRED_EUID | CRED_RUID,
+				  obj, CRED_SUID | CRED_RUID);
+}
+
+/**
+ * cred_ids_allow_sigio - do its ids allow a subject to have SIGIO sent?
+ * @subj: the credentials of whoever made the object the owner of a file
+ * @obj:  the credentials of the task that SIGIO or SIGURG is for
+ *
+ * Return: true if cred_ids_allow_signal() says so, or the euid of @subj is 0.
+ */
+bool cred_ids_allow_sigio(const struct cred *subj, const struct cred *obj)
+{
+	return cred_euid_is_root(subj) || cred_ids_allow_signal(subj, obj);
+}
+
+/**
+ * cred_ids_allow_sched - do its ids allow a subject to schedule an object?
+ * @subj: the credentials of whoever asks
+ * @obj:  the credentials of the task whose policy, affinity or nice value is
+ *        to change
+ *
+ * Return: true if the euid of @subj is the euid or the uid of @obj.
+ */
+bool cred_ids_allow_sched(const struct cred *subj, const struct cred *obj)
+{
+	return cred_uid_match_any(subj, CRED_EUID, obj, CRED_EUID | CRED_RUID);
+}
+
+/**
+ * cred_ids_allow_ioprio - do its ids allow a subject to set an I/O priority?
+ * @subj: the credentials of whoever asks
+ * @obj:  the credentials of the task whose I/O priority is to change
+ *
+ * Return: true if the euid or the uid of @subj is the uid of @obj.
+ */
+bool cred_ids_allow_ioprio(const struct cred *subj, const struct cred *obj)
+{
+	return cred_uid_match_any(subj, CRED_EUID | CRED_RUID, obj, CRED_RUID);
+}
+
+/**
+ * cred_ids_allow_move - do its ids allow a subject to move an object about?
+ * @subj: the credentials of whoever asks
+ * @obj:  the credentials of the task that is to be moved to another group of a
+ *        cgroup v1 hierarchy or of resctrl
+ *
+ * Return: true if the euid of @subj is the uid or the suid of @obj, or is 0.
+ */
+bool cred_ids_allow_move(const struct cred *subj, const struct cred *obj)
+{
+	return cred_euid_is_root(subj) ||
+	       cred_uid_match_any(subj, CRED_EUID, obj, CRED_RUID | CRED_SUID);
+}
+
+/**
+ * cred_ids_allow_control - do its ids give a subject the run of an object?
+ * @subj:  the credentials of whoever asks
+ * @which: which of its ids @subj acts with
+ * @obj:   the credentials of the task that is to be traced, limited or the like
+ *
+ * The strictest of the rules, for what amounts to taking the object over. It
+ * fails for an object that has changed any of its ids, a set-id program say.
+ *
+ * Return: true if the uid @subj acts with is the uid, the euid and the suid of
+ * @obj, and the gid it acts with is the gid, the egid and the sgid of @obj.
+ */
+bool cred_ids_allow_control(const struct cred *subj, enum cred_ids which,
+			    const struct cred *obj)
+{
+	kuid_t uid;
+	kgid_t gid;
+
+	switch (which) {
+	case CRED_IDS_REAL:
+		uid = subj->uid;
+		gid = subj->gid;
+		break;
+	case CRED_IDS_EFFECTIVE:
+		uid = subj->euid;
+		gid = subj->egid;
+		break;
+	case CRED_IDS_FS:
+		uid = subj->fsuid;
+		gid = subj->fsgid;
+		break;
+	default:
+		VFS_WARN_ON_ONCE(1);
+		return false;
+	}
+
+	return uid_eq(uid, obj->uid) && uid_eq(uid, obj->euid) &&
+	       uid_eq(uid, obj->suid) && gid_eq(gid, obj->gid) &&
+	       gid_eq(gid, obj->egid) && gid_eq(gid, obj->sgid);
 }
 
 /**
