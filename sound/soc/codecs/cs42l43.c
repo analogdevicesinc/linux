@@ -1736,97 +1736,82 @@ static int cs42l43_hp_ev(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+struct decim_info {
+	unsigned int vreg;
+	unsigned int vmask;
+};
+
+static const struct decim_info cs42l43_decim_info[] = {
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM3_VD_RAMP_MASK | CS42L43_DECIM3_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM4_VD_RAMP_MASK | CS42L43_DECIM4_MUTE_MASK,
+	}
+};
+
+static const struct decim_info cs42l43b_decim_info[] = {
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM3_VD_RAMP_MASK | CS42L43_DECIM3_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM4_VD_RAMP_MASK | CS42L43_DECIM4_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6,
+		.vmask = CS42L43B_DECIM5_PATH1_VOL_FALL_RATE_MASK | CS42L43B_DECIM5_MUTE_MASK,
+	},
+	{
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6,
+		.vmask = CS42L43B_DECIM6_PATH1_VOL_FALL_RATE_MASK | CS42L43B_DECIM6_MUTE_MASK,
+	}
+};
+
 static int cs42l43_mic_ev(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
 	struct cs42l43_codec *priv = snd_soc_component_get_drvdata(component);
+	const struct decim_info *info = &cs42l43_decim_info[w->shift];
 	struct cs42l43 *cs42l43 = priv->core;
-	unsigned int reg, ramp, mute;
-	unsigned int *val;
+	unsigned int vval = CS42L43_DECIM1_MUTE_MASK | CS42L43_DECIM2_MUTE_MASK;
 	int ret;
 
-	if (cs42l43->variant_id == CS42L43_DEVID_VAL) {
-		switch (w->shift) {
-		case CS42L43_ADC1_EN_SHIFT:
-		case CS42L43_PDM1_DIN_L_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM1_VD_RAMP_MASK;
-			mute = CS42L43_DECIM1_MUTE_MASK;
-			val = &priv->decim_cache[0];
-			break;
-		case CS42L43_ADC2_EN_SHIFT:
-		case CS42L43_PDM1_DIN_R_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM2_VD_RAMP_MASK;
-			mute = CS42L43_DECIM2_MUTE_MASK;
-			val = &priv->decim_cache[1];
-			break;
-		case CS42L43_PDM2_DIN_L_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH3_CH4;
-			ramp  = CS42L43_DECIM3_VD_RAMP_MASK;
-			mute = CS42L43_DECIM3_MUTE_MASK;
-			val = &priv->decim_cache[2];
-			break;
-		case CS42L43_PDM2_DIN_R_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH3_CH4;
-			ramp = CS42L43_DECIM4_VD_RAMP_MASK;
-			mute = CS42L43_DECIM4_MUTE_MASK;
-			val = &priv->decim_cache[3];
-			break;
-		default:
-			dev_err(priv->dev, "Invalid microphone shift: %d\n", w->shift);
-			return -EINVAL;
-		}
-	} else if (cs42l43->variant_id == CS42L43B_DEVID_VAL) {
-		switch (w->shift) {
-		case CS42L43_ADC1_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM1_VD_RAMP_MASK;
-			mute = CS42L43_DECIM1_MUTE_MASK;
-			val = &priv->decim_cache[0];
-			break;
-		case CS42L43_ADC2_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM2_VD_RAMP_MASK;
-			mute = CS42L43_DECIM2_MUTE_MASK;
-			val = &priv->decim_cache[1];
-			break;
-		case CS42L43_PDM1_DIN_L_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4;
-			ramp  = CS42L43_DECIM3_VD_RAMP_MASK;
-			mute = CS42L43_DECIM3_MUTE_MASK;
-			val = &priv->decim_cache[2];
-			break;
-		case CS42L43_PDM1_DIN_R_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4;
-			ramp = CS42L43_DECIM4_VD_RAMP_MASK;
-			mute = CS42L43_DECIM4_MUTE_MASK;
-			val = &priv->decim_cache[3];
-			break;
-		case CS42L43_PDM2_DIN_L_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6;
-			ramp  = CS42L43B_DECIM5_PATH1_VOL_FALL_RATE_MASK;
-			mute = CS42L43B_DECIM5_MUTE_MASK;
-			val = &priv->decim_cache[4];
-			break;
-		case CS42L43_PDM2_DIN_R_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6;
-			ramp = CS42L43B_DECIM6_PATH1_VOL_FALL_RATE_MASK;
-			mute = CS42L43B_DECIM6_MUTE_MASK;
-			val = &priv->decim_cache[5];
-			break;
-		default:
-			dev_err(priv->dev, "Invalid microphone shift: %d\n", w->shift);
-			return -EINVAL;
-		}
-	} else {
-		return -EINVAL;
-	}
+	if (cs42l43->variant_id == CS42L43B_DEVID_VAL)
+		info = &cs42l43b_decim_info[w->shift];
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ret = regmap_read(cs42l43->regmap, reg, val);
+		ret = regmap_read(cs42l43->regmap, info->vreg,
+				  &priv->decim_cache[w->shift]);
 		if (ret) {
 			dev_err(priv->dev,
 				"Failed to cache decimator settings: %d\n",
@@ -1834,10 +1819,11 @@ static int cs42l43_mic_ev(struct snd_soc_dapm_widget *w,
 			return ret;
 		}
 
-		regmap_update_bits(cs42l43->regmap, reg, mute | ramp, mute);
+		regmap_update_bits(cs42l43->regmap, info->vreg,  info->vmask, vval);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		regmap_update_bits(cs42l43->regmap, reg, mute | ramp, *val);
+		regmap_update_bits(cs42l43->regmap, info->vreg, info->vmask,
+				   priv->decim_cache[w->shift]);
 		break;
 	default:
 		break;
