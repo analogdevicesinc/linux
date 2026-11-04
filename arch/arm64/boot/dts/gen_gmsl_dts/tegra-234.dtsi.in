@@ -18,7 +18,8 @@
 {% set num_cams = des_cfg.links | length %}
 {% set serial_suffixes = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] %}
 {% set tegra_sinterface = 'serial_' ~ serial_suffixes[port_index] %}
-{% set positions = ['rear', 'front', 'left', 'right'] %}
+{# Positions Argus accepts; plain 'left'/'right' make it reject the module. #}
+{% set positions = ['rear', 'front', 'centerleft', 'centerright'] %}
 {% macro csi_in_label_x(x) -%}
 	{{ "csi" ~ x ~ '_ep' }}
 {%- endmacro %}
