@@ -7,7 +7,7 @@
  * Runtime-configurable TLV-based debug collection framework for loading and
  * parsing the optional YoYo firmware configuration used to enable debug
  * regions, triggers, HCI commands, and configuration sets. Also provides
- * debug INI configuration.
+ * debug INI configuration and fatal-error injection testmode.
  */
 
 #include <linux/errno.h>
@@ -18,6 +18,7 @@
 #include <linux/string.h>
 #include <linux/unaligned.h>
 #include <net/bluetooth/bluetooth.h>
+#include <net/bluetooth/hci_core.h>
 #include "btintel_pcie.h"
 #include "btintel_pcie_debug.h"
 
@@ -152,6 +153,158 @@ void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
 	kfree(buf);
 }
 EXPORT_SYMBOL_GPL(btintel_pcie_load_dbg_path_from_ini);
+
+void btintel_pcie_fatal_err_init(struct btintel_pcie_data *data)
+{
+	data->fatal_err.testmode_enabled = false;
+	data->fatal_err.context = BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_THREAD;
+	data->fatal_err.type = BTINTEL_PCIE_DEBUG_EXCEPTION_FAILURE_TYPE_DEFAULT;
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_init);
+
+void btintel_pcie_fatal_err_load(struct btintel_pcie_data *data)
+{
+	char *buf, *cursor, *key, *val;
+	u32 parsed;
+
+	WRITE_ONCE(data->fatal_err.testmode_enabled, false);
+	clear_bit(BTINTEL_PCIE_FATAL_ERR_POST_SETUP_PENDING, &data->flags);
+	buf = btintel_pcie_read_debug_ini(data);
+	if (IS_ERR(buf)) {
+		BT_DBG("%s unavailable (%ld); fatal-error testmode disabled",
+		       BTINTEL_PCIE_DBG_INI_FILE, PTR_ERR(buf));
+		return;
+	}
+
+	cursor = buf;
+	while ((val = btintel_pcie_ini_next(&cursor, &key))) {
+		if (strcasecmp(key, "FATAL_ERR_TESTMODE"))
+			continue;
+
+		if (kstrtou32(val, 0, &parsed) ||
+		    BTINTEL_PCIE_FATAL_ERR_ENABLE(parsed) > 1 ||
+		    BTINTEL_PCIE_FATAL_ERR_CONTEXT(parsed) >
+				BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_RFKILL ||
+		    parsed >> 24) {
+			BT_ERR("Invalid FATAL_ERR_TESTMODE='%s' in %s; testmode disabled",
+			       val, BTINTEL_PCIE_DBG_INI_FILE);
+			break;
+		}
+
+		data->fatal_err.context = BTINTEL_PCIE_FATAL_ERR_CONTEXT(parsed);
+		data->fatal_err.type = BTINTEL_PCIE_FATAL_ERR_TYPE(parsed);
+		WRITE_ONCE(data->fatal_err.testmode_enabled,
+			   BTINTEL_PCIE_FATAL_ERR_ENABLE(parsed));
+		BT_INFO("FATAL_ERR_TESTMODE accepted: 0x%08x", parsed);
+		break;
+	}
+
+	kfree(buf);
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_load);
+
+void btintel_pcie_fatal_err_check_api_lock(struct btintel_pcie_data *data,
+					   bool api_lock)
+{
+	if (api_lock) {
+		if (READ_ONCE(data->fatal_err.testmode_enabled))
+			bt_dev_info(data->hdev,
+				    "OPFW API lock enabled; disabling fatal-error testmode");
+		WRITE_ONCE(data->fatal_err.testmode_enabled, false);
+	} else if (READ_ONCE(data->fatal_err.testmode_enabled)) {
+		bt_dev_info(data->hdev, "fatal-error testmode active: ctx=0x%02x type=0x%02x",
+			    data->fatal_err.context, data->fatal_err.type);
+	}
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_check_api_lock);
+
+static int btintel_pcie_inject_fatal_err(struct btintel_pcie_data *data,
+					 u8 context)
+{
+	struct hci_dev *hdev = data->hdev;
+	struct sk_buff *skb;
+	u8 param[2];
+	int err = 0;
+
+	/* Setup and the rest of HCI initialization hold req_lock. Wait for
+	 * them before testing HCI_UP; a delayed worker alone is not enough.
+	 */
+	hci_req_sync_lock(hdev);
+	if (!test_bit(HCI_UP, &hdev->flags) ||
+	    hci_dev_test_flag(hdev, HCI_UNREGISTER)) {
+		err = -ENETDOWN;
+		goto unlock;
+	}
+
+	if (!READ_ONCE(data->fatal_err.testmode_enabled))
+		goto unlock;
+
+	param[0] = data->fatal_err.type;
+	param[1] = context;
+	skb = __hci_cmd_sync(hdev, 0xfc4d, sizeof(param), param, HCI_CMD_TIMEOUT);
+	if (IS_ERR(skb)) {
+		err = PTR_ERR(skb);
+		goto unlock;
+	}
+
+	kfree_skb(skb);
+unlock:
+	hci_req_sync_unlock(hdev);
+	if (err && err != -ENETDOWN)
+		bt_dev_err(hdev, "fatal-error inject failed (ctx=0x%02x err=%d)",
+			   context, err);
+	return err;
+}
+
+bool btintel_pcie_fatal_err_handle_rfkill(struct btintel_pcie_data *data,
+					  bool rfkill_on)
+{
+	if (!READ_ONCE(data->fatal_err.testmode_enabled))
+		return false;
+
+	if (rfkill_on) {
+		/* HCI down: nothing to inject, use the normal handling */
+		if (btintel_pcie_inject_fatal_err(data, data->fatal_err.context) ==
+		    -ENETDOWN)
+			return false;
+		return true;
+	}
+
+	/* Release of an assertion handled by the normal path: let it through */
+	if (test_bit(BTINTEL_PCIE_HWRFKILL_ON, &data->flags))
+		return false;
+
+	bt_dev_dbg(data->hdev, "fatal-error testmode active: ignoring RF-KILL OFF");
+	return true;
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_handle_rfkill);
+
+bool btintel_pcie_fatal_err_post_setup_pending(struct btintel_pcie_data *data)
+{
+	int err;
+
+	if (!test_bit(BTINTEL_PCIE_FATAL_ERR_POST_SETUP_PENDING, &data->flags))
+		return false;
+
+	/* Intentional: RFKILL context tells the controller testmode is enabled */
+	err = btintel_pcie_inject_fatal_err(data,
+					    BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_RFKILL);
+	/* HCI is down: keep the injection pending for a later pass and let
+	 * the normal rfkill handling run.
+	 */
+	if (err == -ENETDOWN)
+		return false;
+
+	clear_bit(BTINTEL_PCIE_FATAL_ERR_POST_SETUP_PENDING, &data->flags);
+	return true;
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_post_setup_pending);
+
+bool btintel_pcie_fatal_err_testmode_active(struct btintel_pcie_data *data)
+{
+	return READ_ONCE(data->fatal_err.testmode_enabled);
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_fatal_err_testmode_active);
 
 /* TLV-specific parser DEBUG_INFO TLV type */
 static int btintel_pcie_yoyo_parse_dbg_info(struct btintel_pcie_yoyo_ctx *ctx,

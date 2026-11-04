@@ -18,7 +18,31 @@ struct btintel_pcie_data;
 
 #define BTINTEL_PCIE_DBG_INI_FILE	"ibt_bt_dbg_cfg.ini"
 
+/* FATAL_ERR_TESTMODE: B0 enable, B1 context, B2 type, B3 reserved. */
+#define BTINTEL_PCIE_FATAL_ERR_ENABLE(v)	((u8)((v) & 0xff))
+#define BTINTEL_PCIE_FATAL_ERR_CONTEXT(v)	((u8)(((v) >> 8) & 0xff))
+#define BTINTEL_PCIE_FATAL_ERR_TYPE(v)	((u8)(((v) >> 16) & 0xff))
+
+#define BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_THREAD	0x00
+#define BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_IRQ		0x01
+#define BTINTEL_PCIE_DEBUG_EXCEPTION_CONTEXT_RFKILL	0x02
+#define BTINTEL_PCIE_DEBUG_EXCEPTION_FAILURE_TYPE_DEFAULT	0x00
+
+struct btintel_pcie_fatal_err_cfg {
+	bool	testmode_enabled;
+	u8	context;
+	u8	type;
+};
+
 void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data);
+void btintel_pcie_fatal_err_init(struct btintel_pcie_data *data);
+void btintel_pcie_fatal_err_load(struct btintel_pcie_data *data);
+void btintel_pcie_fatal_err_check_api_lock(struct btintel_pcie_data *data,
+					   bool api_lock);
+bool btintel_pcie_fatal_err_handle_rfkill(struct btintel_pcie_data *data,
+					  bool rfkill_on);
+bool btintel_pcie_fatal_err_post_setup_pending(struct btintel_pcie_data *data);
+bool btintel_pcie_fatal_err_testmode_active(struct btintel_pcie_data *data);
 
 /* External YoYo binary file */
 #define BTINTEL_PCIE_YOYO_FW_NAME	"intel/ibt_debug_yoyo.bin"
