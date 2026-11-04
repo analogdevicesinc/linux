@@ -23,12 +23,17 @@ Worker Pools
 
 Lists all worker pools indexed by their ID. For each pool:
 
+  flags     pool flags in hex
   ref       number of pool_workqueue's associated with this pool
   nice      nice value of the worker threads in the pool
   idle      number of idle workers
   workers   number of all workers
   cpu       CPU the pool is associated with (per-cpu pool)
   cpus      CPUs the workers in the pool can run on (unbound pool)
+  state     pool state (bh, bh-hi, draining, disassociated)
+
+  If -b|--busy is specified, lists all busy workers currently executing
+  work items, their task PID/comm, workqueue, callback function, and duration.
 
 Workqueue CPU -> pool
 =====================
@@ -49,18 +54,24 @@ import sys
 import argparse
 parser = argparse.ArgumentParser(description=desc,
                                  formatter_class=argparse.RawTextHelpFormatter)
+parser.add_argument('-b', '--busy', action='store_true',
+                    help='Show busy workers currently executing work items')
 args = parser.parse_args()
 
 import drgn
-from drgn.helpers.linux.list import list_for_each_entry,list_empty
+from drgn.helpers.linux.list import list_for_each_entry, list_empty, hlist_for_each_entry
 from drgn.helpers.linux.percpu import per_cpu_ptr
-from drgn.helpers.linux.cpumask import for_each_cpu,for_each_possible_cpu
+from drgn.helpers.linux.cpumask import for_each_cpu, for_each_possible_cpu
 from drgn.helpers.linux.nodemask import for_each_node
 from drgn.helpers.linux.idr import idr_for_each
 
 def err(s):
     print(s, file=sys.stderr, flush=True)
     sys.exit(1)
+
+def get_hz():
+    cs = prog['clocksource_jiffies']
+    return round(1000000000 / (cs.mult.value_() >> cs.shift.value_()))
 
 def cpumask_str(cpumask):
     output = ""
@@ -83,6 +94,12 @@ def wq_attrs(wq):
         return wq.attrs
     except AttributeError:
         return wq.unbound_attrs
+
+def worker_current_start(worker):
+    try:
+        return worker.current_start.value_()
+    except AttributeError:
+        return 0
 
 def wq_type_str(wq):
     if wq.flags & WQ_BH:
@@ -118,9 +135,15 @@ WQ_AFFN_NUMA            = prog['WQ_AFFN_NUMA']
 WQ_AFFN_SYSTEM          = prog['WQ_AFFN_SYSTEM']
 
 POOL_BH                 = prog['POOL_BH']
+POOL_BH_DRAINING        = prog['POOL_BH_DRAINING']
+POOL_DISASSOCIATED      = prog['POOL_DISASSOCIATED']
+HIGHPRI_NICE_LEVEL      = prog['HIGHPRI_NICE_LEVEL']
+WORKER_IDLE             = prog['WORKER_IDLE']
 
 WQ_NAME_LEN             = prog['WQ_NAME_LEN'].value_()
 cpumask_str_len         = len(cpumask_str(wq_unbound_cpumask))
+hz                      = get_hz()
+jiffies_mask            = (1 << (prog['jiffies'].type_.size * 8)) - 1 if 'jiffies' in prog else 0
 
 print('Affinity Scopes')
 print('===============')
@@ -165,16 +188,71 @@ for pi, pool in idr_for_each(worker_pool_idr):
     pool = drgn.Object(prog, 'struct worker_pool', address=pool)
     print(f'pool[{pi:0{max_pool_id_len}}] flags=0x{pool.flags.value_():02x} ref={pool.refcnt.value_():{max_ref_len}} nice={pool.attrs.nice.value_():3} ', end='')
     print(f'idle/workers={pool.nr_idle.value_():3}/{pool.nr_workers.value_():3} ', end='')
+    bh_type = None
     if pool.cpu >= 0:
         print(f'cpu={pool.cpu.value_():3}', end='')
         if pool.flags & POOL_BH:
-            print(' bh', end='')
+            bh_type = 'bh-hi' if pool.attrs.nice == HIGHPRI_NICE_LEVEL else 'bh'
+            print(f' {bh_type}', end='')
+            if pool.flags & POOL_BH_DRAINING:
+                print(' draining', end='')
+        elif pool.flags & POOL_DISASSOCIATED:
+            print(' disassociated', end='')
     else:
         print(f'cpus={cpumask_str(pool.attrs.cpumask)}', end='')
         print(f' pod_cpus={cpumask_str(pool.attrs.__pod_cpumask)}', end='')
         if pool.attrs.affn_strict:
             print(' strict', end='')
     print('')
+
+    if args.busy:
+        incomplete = False
+        for bkt in pool.busy_hash:
+            seen = set()
+            try:
+                for worker in hlist_for_each_entry('struct worker', bkt.address_of_(), 'hentry'):
+                    addr = worker.value_()
+                    if addr in seen or (worker.flags & WORKER_IDLE):
+                        incomplete = True
+                        break
+                    seen.add(addr)
+
+                    for _ in range(3):
+                        try:
+                            pwq = worker.current_pwq
+                            func = worker.current_func.value_()
+                            if not pwq.value_() or not func:
+                                continue
+
+                            wq_name = pwq.wq.name.string_().decode(errors='replace')
+                            try:
+                                fn_name = prog.symbol(func).name
+                            except LookupError:
+                                fn_name = hex(func)
+
+                            dur_str = ''
+                            start = worker_current_start(worker)
+                            if 'jiffies' in prog and start:
+                                jiffies = prog['jiffies'].value_()
+                                dur_s = ((jiffies - start) & jiffies_mask) // hz
+                                dur_str = f' for {dur_s}s'
+
+                            if bh_type:
+                                w_id = bh_type
+                            else:
+                                w_id = f'PID {worker.task.pid.value_():<6} ({worker.task.comm.string_().decode(errors="replace")})'
+
+                            desc = worker.desc.string_().decode(errors='replace')
+                            desc_str = f' desc="{desc}"' if desc and desc != wq_name else ''
+                            print(f'    busy: {w_id}: {wq_name}:{fn_name}{dur_str}{desc_str}')
+                            break
+                        except drgn.FaultError:
+                            continue
+            except (drgn.FaultError, LookupError):
+                incomplete = True
+
+        if incomplete:
+            print(f'    warning: pool[{pi:02}] busy worker dump incomplete, please retry')
 
 print('')
 print('Workqueue CPU -> pool')

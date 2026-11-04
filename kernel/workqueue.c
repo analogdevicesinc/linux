@@ -386,6 +386,7 @@ struct workqueue_struct {
 	struct worker		*rescuer;	/* MD: rescue worker */
 
 	int			nr_drainers;	/* WQ: drain in progress */
+	atomic_t		drain_seq;	/* see drain_workqueue() */
 
 	/* See alloc_workqueue() function comment for info on min/max_active */
 	int			max_active;	/* WO: max active works */
@@ -2432,22 +2433,31 @@ static void __queue_work(int cpu, struct workqueue_struct *wq,
 	 * allowed. The __WQ_DESTROYING helps to spot the issue that
 	 * queues a new work item to a wq after destroy_workqueue(wq).
 	 */
-	if (unlikely(wq->flags & (__WQ_DESTROYING | __WQ_DRAINING) &&
-		     WARN_ONCE(!is_chained_work(wq), "workqueue: cannot queue %ps on wq %s\n",
-			       work->func, wq->name))) {
-		struct work_offq_data offqd;
+	if (unlikely(wq->flags & (__WQ_DESTROYING | __WQ_DRAINING))) {
+		if (WARN_ONCE(!is_chained_work(wq), "workqueue: cannot queue %ps on wq %s\n",
+			      work->func, wq->name)) {
+			struct work_offq_data offqd;
+
+			/*
+			 * State on entry: PENDING is set, work is off-queue (no
+			 * insert_work() has run).
+			 *
+			 * Returning without clearing PENDING would leave the
+			 * work in a weird state (PENDING=1, PWQ=0, entry empty)
+			 */
+			work_offqd_unpack(&offqd, *work_data_bits(work));
+			set_work_pool_and_clear_pending(work, offqd.pool_id,
+							work_offqd_pack_flags(&offqd));
+			return;
+		}
 
 		/*
-		 * State on entry: PENDING is set, work is off-queue (no
-		 * insert_work() has run).
-		 *
-		 * Returning without clearing PENDING would leave the work
-		 * in a weird state (PENDING=1, PWQ=0, entry empty)
+		 * Pairs with the two smp_mb()s in drain_workqueue(), which
+		 * retries its check pass if @wq->drain_seq changed.
 		 */
-		work_offqd_unpack(&offqd, *work_data_bits(work));
-		set_work_pool_and_clear_pending(work, offqd.pool_id,
-						work_offqd_pack_flags(&offqd));
-		return;
+		smp_mb__before_atomic();
+		atomic_inc(&wq->drain_seq);
+		smp_mb__after_atomic();
 	}
 	rcu_read_lock();
 retry:
@@ -4464,6 +4474,8 @@ void drain_workqueue(struct workqueue_struct *wq)
 {
 	unsigned int flush_cnt = 0;
 	struct pool_workqueue *pwq;
+	bool drained;
+	int seq;
 
 	/*
 	 * __queue_work() needs to test whether there are drainers, is much
@@ -4474,21 +4486,42 @@ void drain_workqueue(struct workqueue_struct *wq)
 	if (!wq->nr_drainers++)
 		wq->flags |= __WQ_DRAINING;
 	mutex_unlock(&wq->mutex);
+
+	/*
+	 * A chained work item can land on a pwq the check pass below has
+	 * already found empty. __queue_work() counts chained queueings in
+	 * @wq->drain_seq. Retry if it changed across the flush and the pass.
+	 */
 reflush:
+	seq = atomic_read(&wq->drain_seq);
+
+	/*
+	 * Pairs with smp_mb__before_atomic() in __queue_work(). For each
+	 * chained queueing, either the read above doesn't see its increment or
+	 * the flush sees the queueing work item and waits for it.
+	 */
+	smp_mb();
 	__flush_workqueue(wq);
 
 	mutex_lock(&wq->mutex);
 
+	drained = true;
 	for_each_pwq(pwq, wq) {
-		bool drained;
-
 		raw_spin_lock_irq(&pwq->pool->lock);
 		drained = pwq_is_empty(pwq);
 		raw_spin_unlock_irq(&pwq->pool->lock);
 
-		if (drained)
-			continue;
+		if (!drained)
+			break;
+	}
 
+	/*
+	 * Pairs with smp_mb__after_atomic() in __queue_work(). For the earliest
+	 * queueing the pass missed, either the pass sees the queueing work item
+	 * in flight or the read below sees its increment.
+	 */
+	smp_mb();
+	if (!drained || atomic_read(&wq->drain_seq) != seq) {
 		if (++flush_cnt == 10 ||
 		    (flush_cnt % 100 == 0 && flush_cnt <= 1000))
 			pr_warn("workqueue %s: %s() isn't complete after %u tries\n",
@@ -6179,6 +6212,7 @@ static struct workqueue_struct *__alloc_workqueue(const char *fmt,
 	wq->saved_max_active = max_active;
 	mutex_init(&wq->mutex);
 	atomic_set(&wq->nr_pwqs_to_flush, 0);
+	atomic_set(&wq->drain_seq, 0);
 	INIT_LIST_HEAD(&wq->pwqs);
 	INIT_LIST_HEAD(&wq->flusher_queue);
 	INIT_LIST_HEAD(&wq->flusher_overflow);
