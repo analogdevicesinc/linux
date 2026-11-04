@@ -124,21 +124,22 @@ int global_func_many_chains(void *ctx)
 }
 
 /*
- * r1 is the number of calls that follow, so main -> fs7 .. fs0 and main -> fs15 .. fs8
- * are executed: 9 frames each. main -> fs15 .. fs0 is in the call graph: 17 frames.
- * libbpf puts fs7() .. fs0() in front of their second caller fs8().
+ * r1 is the number of calls that follow, so main -> fs15 .. fs0 and main -> fs31 .. fs16
+ * are executed: 17 frames each. main -> fs31 .. fs0 is in the call graph: 33 frames.
+ * libbpf puts fs15() .. fs0() in front of their second caller fs16().
  */
 #undef F_0
 #undef FN
 #define F_0 ASM_FUNC(static, fs0, "")
 #define FN(n, prev) ASM_FUNC(static, fs##n, "if r1 == 0 goto +2; r1 += -1; call fs" #prev ";")
-F(15)
+F(31)
 
 SEC("syscall")
-__failure __msg("the call stack of 16 frames is too deep !")
+__failure __msg("the call stack of 32 frames is too deep !")
+__load_if_JITed()
 __naked int static_func_deep_stack_second_caller(void)
 {
-	asm volatile ("r1 = 7; call fs7; r1 = 7; call fs15; exit;" ::: __clobber_all);
+	asm volatile ("r1 = 15; call fs15; r1 = 15; call fs31; exit;" ::: __clobber_all);
 }
 
 /* Ensure that even 32 levels deep, the function verifies. */

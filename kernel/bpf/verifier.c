@@ -3656,8 +3656,8 @@ static void mark_non_stack_access(struct bpf_verifier_env *env, int idx)
 }
 
 /* Layout of one packed linked register in the jump history, see linked_regs_pack() */
-#define LR_FRAMENO_BITS	4
-#define LR_INDEX_BITS	11
+#define LR_FRAMENO_BITS	5
+#define LR_INDEX_BITS	10
 #define LR_FRAMENO_MASK	((1u << LR_FRAMENO_BITS) - 1)
 #define LR_IS_REG	BIT(LR_FRAMENO_BITS)
 #define LR_INDEX_OFF	(LR_FRAMENO_BITS + 1)
@@ -3693,9 +3693,9 @@ static struct linked_reg *linked_regs_push(struct linked_regs *s)
 
 /*
  * Pack linked registers for a jump history entry, one u16 each:
- * - 4 bits frameno
+ * - 5 bits frameno
  * - 1 bit  is_reg
- * - 11 bits register or stack slot index
+ * - 10 bits register or stack slot index
  */
 static void linked_regs_pack(const struct linked_regs *s, u16 *packed)
 {
@@ -6125,6 +6125,16 @@ static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph 
 			verbose(env, "the call stack of %d frames is too deep !\n",
 				dinfo[s].frame);
 			goto out;
+		}
+
+		err = -EOPNOTSUPP;
+		if (dinfo[s].frame >= MAX_CALL_FRAMES_INTERP) {
+			if (!env->prog->jit_requested) {
+				verbose(env, "JIT is required for a call stack of more than %d frames\n",
+					MAX_CALL_FRAMES_INTERP);
+				goto out;
+			}
+			env->prog->jit_required = true;
 		}
 
 		err = -EACCES;

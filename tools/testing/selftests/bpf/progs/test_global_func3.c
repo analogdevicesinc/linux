@@ -101,9 +101,105 @@ int f16(struct __sk_buff *skb)
 	return f15(skb);
 }
 
-SEC("tc")
-__failure __msg("the call stack of 17 frames")
-int global_func3(struct __sk_buff *skb)
+static __attribute__ ((noinline))
+int f17(struct __sk_buff *skb)
 {
 	return f16(skb);
+}
+
+static __attribute__ ((noinline))
+int f18(struct __sk_buff *skb)
+{
+	return f17(skb);
+}
+
+static __attribute__ ((noinline))
+int f19(struct __sk_buff *skb)
+{
+	return f18(skb);
+}
+
+static __attribute__ ((noinline))
+int f20(struct __sk_buff *skb)
+{
+	return f19(skb);
+}
+
+static __attribute__ ((noinline))
+int f21(struct __sk_buff *skb)
+{
+	return f20(skb);
+}
+
+static __attribute__ ((noinline))
+int f22(struct __sk_buff *skb)
+{
+	return f21(skb);
+}
+
+static __attribute__ ((noinline))
+int f23(struct __sk_buff *skb)
+{
+	return f22(skb);
+}
+
+static __attribute__ ((noinline))
+int f24(struct __sk_buff *skb)
+{
+	return f23(skb);
+}
+
+static __attribute__ ((noinline))
+int f25(struct __sk_buff *skb)
+{
+	return f24(skb);
+}
+
+static __attribute__ ((noinline))
+int f26(struct __sk_buff *skb)
+{
+	return f25(skb);
+}
+
+static __attribute__ ((noinline))
+int f27(struct __sk_buff *skb)
+{
+	return f26(skb);
+}
+
+static __attribute__ ((noinline))
+int f28(struct __sk_buff *skb)
+{
+	return f27(skb);
+}
+
+static __attribute__ ((noinline))
+int f29(struct __sk_buff *skb)
+{
+	return f28(skb);
+}
+
+static __attribute__ ((noinline))
+int f30(struct __sk_buff *skb)
+{
+	return f29(skb);
+}
+
+static __attribute__ ((noinline))
+int f31(struct __sk_buff *skb)
+{
+	return f30(skb);
+}
+
+static __attribute__ ((noinline))
+int f32(struct __sk_buff *skb)
+{
+	return f31(skb);
+}
+
+SEC("tc")
+__failure __msg("the call stack of {{3[23]}} frames")
+int global_func3(struct __sk_buff *skb)
+{
+	return f32(skb);
 }
