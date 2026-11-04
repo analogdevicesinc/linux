@@ -5,10 +5,8 @@ menuconfig ARCH_SC5XX
 	select ARM_GIC
 	select PINCTRL
 	select COUNTER
-	select GPIOLIB
 	select SERIAL_ADI_UART4
-	select ADI_ADSP_IRQ
-	select GPIO_ADI_ADSP_PORT
+	select ADI_ADSP_PINT
 	select COMMON_CLK
 	select GENERIC_IRQ_MULTI_HANDLER
 	select VFP
@@ -16,10 +14,9 @@ menuconfig ARCH_SC5XX
 	select MIGHT_HAVE_CACHE_L2X0
 	select OF
 	select HAVE_CLK
-	select IRQ_DOMAIN
 	select SPARSE_IRQ
 	select GENERIC_CLOCKEVENTS
-	select PINCTRL_ADSP_SC5XX
+	select PINCTRL_ADSP
 
 config ARCH_SC59X
 	bool "ADI SC59x SoCs (Cortex-A5-based)"
