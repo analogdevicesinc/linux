@@ -528,18 +528,7 @@ static struct platform_driver uwire_driver = {
 	// resume ... use ck
 };
 
-static int __init omap_uwire_init(void)
-{
-	return platform_driver_register(&uwire_driver);
-}
-
-static void __exit omap_uwire_exit(void)
-{
-	platform_driver_unregister(&uwire_driver);
-}
-
-subsys_initcall(omap_uwire_init);
-module_exit(omap_uwire_exit);
+subsys_platform_driver(uwire_driver);
 
 MODULE_DESCRIPTION("MicroWire interface driver for OMAP");
 MODULE_LICENSE("GPL");
