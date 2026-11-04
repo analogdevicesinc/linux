@@ -248,8 +248,9 @@ static int imx_irqsteer_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	data->domain = irq_domain_create_linear(dev_fwnode(&pdev->dev), data->reg_num * 32,
-						&imx_irqsteer_domain_ops, data);
+	data->domain = devm_irq_domain_create_linear(&pdev->dev, dev_fwnode(&pdev->dev),
+						     data->reg_num * 32,
+						     &imx_irqsteer_domain_ops, data);
 	if (!data->domain) {
 		dev_err(&pdev->dev, "failed to create IRQ domain\n");
 		return -ENOMEM;
@@ -294,8 +295,6 @@ static void imx_irqsteer_remove(struct platform_device *pdev)
 
 	for (unsigned int hwirq = 0; hwirq < irqsteer_data->reg_num * 32; hwirq++)
 		irq_dispose_mapping(irq_find_mapping(irqsteer_data->domain, hwirq));
-
-	irq_domain_remove(irqsteer_data->domain);
 
 	if (ret >= 0)
 		pm_runtime_put_noidle(&pdev->dev);
