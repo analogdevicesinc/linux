@@ -378,7 +378,9 @@ int mempool_resize(struct mempool *pool, int new_min_nr)
 			pool->free(element, pool->pool_data);
 			spin_lock_irqsave(&pool->lock, flags);
 		}
-		pool->min_nr = new_min_nr;
+		/* Raced, the array may now be smaller than new_min_nr */
+		if (new_min_nr <= pool->min_nr)
+			pool->min_nr = new_min_nr;
 		goto out_unlock;
 	}
 	spin_unlock_irqrestore(&pool->lock, flags);
