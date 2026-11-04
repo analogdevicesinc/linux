@@ -24,7 +24,8 @@ properties:
   clock-latency:
     $ref: /schemas/types.yaml#/definitions/uint32
     description:
-      The latency in nanoseconds for clock changes. Use OPP tables for new
+      The latency in nanoseconds for clock changes. This also applies when
+      operating points are populated dynamically. Use OPP tables for new
       designs instead.
 
   voltage-tolerance:
@@ -41,7 +42,6 @@ properties:
         - description: Voltage for OPP in uV
 
 dependencies:
-  clock-latency: [ operating-points ]
   voltage-tolerance: [ operating-points ]
 
 additionalProperties: true
