@@ -200,7 +200,7 @@ int zstd_alloc_workspace_manager(struct btrfs_fs_info *fs_info)
 
 	ws = zstd_alloc_workspace(fs_info, ZSTD_BTRFS_MAX_LEVEL);
 	if (IS_ERR(ws)) {
-		btrfs_warn(NULL, "cannot preallocate zstd compression workspace");
+		btrfs_warn(fs_info, "cannot preallocate zstd compression workspace");
 	} else {
 		set_bit(ZSTD_BTRFS_MAX_LEVEL - 1, &zwsm->active_map);
 		list_add(ws, &zwsm->idle_ws[ZSTD_BTRFS_MAX_LEVEL - 1]);
@@ -347,7 +347,8 @@ void zstd_put_workspace(struct btrfs_fs_info *fs_info, struct list_head *ws)
 	/* A node is only taken off the lru if we are the corresponding level */
 	if (clip_level(workspace->req_level) == workspace->level) {
 		/* Hide a max level workspace from reclaim */
-		if (list_empty(&zwsm->idle_ws[ZSTD_BTRFS_MAX_LEVEL - 1])) {
+		if (workspace->level == ZSTD_BTRFS_MAX_LEVEL - 1 &&
+		    list_empty(&zwsm->idle_ws[ZSTD_BTRFS_MAX_LEVEL - 1])) {
 			INIT_LIST_HEAD(&workspace->lru_list);
 		} else {
 			workspace->last_used = jiffies;

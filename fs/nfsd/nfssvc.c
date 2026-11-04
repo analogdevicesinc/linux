@@ -55,18 +55,25 @@ static __be32			nfsd_init_request(struct svc_rqst *,
 						struct svc_process_info *);
 
 /*
- * nfsd_mutex protects nn->nfsd_serv -- both the pointer itself and some members
- * of the svc_serv struct such as ->sv_temp_socks and ->sv_permsocks.
+ * NFSD's control plane is serialized by two mutexes.
  *
- * Finally, the nfsd_mutex also protects some of the global variables that are
- * accessed when nfsd starts and that are settable via the write_* routines in
- * nfsctl.c. In particular:
+ * Nearly everything is per-namespace and belongs to nn->nfsd_mutex: the
+ * nn->nfsd_serv pointer and the svc_serv members that hang off it
+ * (->sv_permsocks, ->sv_temp_socks, per-pool thread counts), the
+ * NFSD_NET_* flags, and the nfsd_net settables that may only change while
+ * that namespace's server is down (->nfsd_versions, ->nfsd4_lease,
+ * ->nfsd4_grace, ->max_blksize, ...).
  *
- *	user_recovery_dirname
- *	user_lease_time
- *	nfsd_versions
+ * nfsd_global_mutex covers only what is genuinely shared between
+ * namespaces: the nfsd_users refcount and the host-wide resources it
+ * brings up and tears down (the NFSv4 global tables, and the open file
+ * cache -- which guards its own internals with nfsd_file_cache_mutex),
+ * and the address-notifier registration.
+ *
+ * Lock ordering is nn->nfsd_mutex outside nfsd_global_mutex outside
+ * nfsd_file_cache_mutex.  Nothing takes two namespaces' nfsd_mutexes.
  */
-DEFINE_MUTEX(nfsd_mutex);
+DEFINE_MUTEX(nfsd_global_mutex);
 
 #if IS_ENABLED(CONFIG_NFS_LOCALIO)
 static const struct svc_version *localio_versions[] = {
@@ -251,19 +258,22 @@ int nfsd_nrthreads(struct net *net)
 	int rv = 0;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	/* nfsd_mutex keeps nn->nfsd_serv valid across the read. */
-	mutex_lock(&nfsd_mutex);
+	/* nn->nfsd_mutex keeps nn->nfsd_serv valid across the read. */
+	mutex_lock(&nn->nfsd_mutex);
 	if (nn->nfsd_serv)
 		rv = svc_serv_maxthreads(nn->nfsd_serv);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }
 
+/* Number of namespaces holding the host-wide resources up */
 static int nfsd_users = 0;
 
-static int nfsd_startup_generic(void)
+static int __nfsd_startup_generic(void)
 {
 	int ret;
+
+	lockdep_assert_held(&nfsd_global_mutex);
 
 	if (nfsd_users++)
 		return 0;
@@ -284,13 +294,24 @@ dec_users:
 	return ret;
 }
 
+static int nfsd_startup_generic(void)
+{
+	int ret;
+
+	mutex_lock(&nfsd_global_mutex);
+	ret = __nfsd_startup_generic();
+	mutex_unlock(&nfsd_global_mutex);
+	return ret;
+}
+
 static void nfsd_shutdown_generic(void)
 {
-	if (--nfsd_users)
-		return;
-
-	nfs4_state_shutdown();
-	nfsd_file_cache_shutdown();
+	mutex_lock(&nfsd_global_mutex);
+	if (!--nfsd_users) {
+		nfs4_state_shutdown();
+		nfsd_file_cache_shutdown();
+	}
+	mutex_unlock(&nfsd_global_mutex);
 }
 
 static bool nfsd_needs_lockd(struct nfsd_net *nn)
@@ -433,9 +454,13 @@ static void nfsd_shutdown_net(struct net *net)
 
 	percpu_ref_exit(&nn->nfsd_net_ref);
 
-	if (test_bit(NFSD_NET_UP, &nn->flags))
+	/*
+	 * Clear NFSD_NET_UP before dropping this namespace's reference on
+	 * the generic (host-wide) resources, so that the bit never claims
+	 * they are available once they may already be gone.
+	 */
+	if (test_and_clear_bit(NFSD_NET_UP, &nn->flags))
 		nfsd_shutdown_generic();
-	clear_bit(NFSD_NET_UP, &nn->flags);
 }
 
 static DEFINE_SPINLOCK(nfsd_notifier_lock);
@@ -501,8 +526,32 @@ static struct notifier_block nfsd_inet6addr_notifier = {
 };
 #endif
 
-/* Only used under nfsd_mutex, so this atomic may be overkill: */
-static atomic_t nfsd_notifier_refcount = ATOMIC_INIT(0);
+/* Number of namespaces with a serv, guarded by nfsd_global_mutex */
+static int nfsd_notifier_users;
+
+static void nfsd_register_notifiers(void)
+{
+	mutex_lock(&nfsd_global_mutex);
+	if (!nfsd_notifier_users++) {
+		register_inetaddr_notifier(&nfsd_inetaddr_notifier);
+#if IS_ENABLED(CONFIG_IPV6)
+		register_inet6addr_notifier(&nfsd_inet6addr_notifier);
+#endif
+	}
+	mutex_unlock(&nfsd_global_mutex);
+}
+
+static void nfsd_unregister_notifiers(void)
+{
+	mutex_lock(&nfsd_global_mutex);
+	if (!--nfsd_notifier_users) {
+		unregister_inetaddr_notifier(&nfsd_inetaddr_notifier);
+#if IS_ENABLED(CONFIG_IPV6)
+		unregister_inet6addr_notifier(&nfsd_inet6addr_notifier);
+#endif
+	}
+	mutex_unlock(&nfsd_global_mutex);
+}
 
 /**
  * nfsd_destroy_serv - tear down NFSD's svc_serv for a namespace
@@ -513,19 +562,13 @@ void nfsd_destroy_serv(struct net *net)
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 	struct svc_serv *serv = nn->nfsd_serv;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	spin_lock(&nfsd_notifier_lock);
 	nn->nfsd_serv = NULL;
 	spin_unlock(&nfsd_notifier_lock);
 
-	/* check if the notifier still has clients */
-	if (atomic_dec_return(&nfsd_notifier_refcount) == 0) {
-		unregister_inetaddr_notifier(&nfsd_inetaddr_notifier);
-#if IS_ENABLED(CONFIG_IPV6)
-		unregister_inet6addr_notifier(&nfsd_inet6addr_notifier);
-#endif
-	}
+	nfsd_unregister_notifiers();
 
 	/*
 	 * write_ports can create the server without actually starting
@@ -582,17 +625,17 @@ void nfsd_shutdown_threads(struct net *net)
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 	struct svc_serv *serv;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	serv = nn->nfsd_serv;
 	if (serv == NULL) {
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		return;
 	}
 
 	/* Kill outstanding nfsd threads */
 	svc_set_num_threads(serv, 0, 0);
 	nfsd_destroy_serv(net);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 }
 
 struct svc_rqst *nfsd_current_rqst(void)
@@ -615,7 +658,7 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 	struct svc_serv *serv;
 
-	WARN_ON(!mutex_is_locked(&nfsd_mutex));
+	WARN_ON(!mutex_is_locked(&nn->nfsd_mutex));
 	if (nn->nfsd_serv)
 		return 0;
 
@@ -626,16 +669,17 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 	init_completion(&nn->nfsd_net_free_done);
 	init_completion(&nn->nfsd_net_confirm_done);
 
-	if (nfsd_max_blksize == 0)
-		nfsd_max_blksize = nfsd_get_default_max_blksize();
+	if (nn->max_blksize == 0)
+		nn->max_blksize = nfsd_get_default_max_blksize();
 	nfsd_reset_versions(nn);
 	serv = svc_create_pooled(nfsd_programs, ARRAY_SIZE(nfsd_programs),
 				 &nn->nfsd_svcstats,
-				 nfsd_max_blksize, nfsd);
+				 nn->max_blksize, nfsd);
 	if (serv == NULL) {
 		percpu_ref_exit(&nn->nfsd_net_ref);
 		return -ENOMEM;
 	}
+	serv->sv_tls = true;
 
 	/* svc_bind() reads this, so set it first. */
 	serv->sv_no_rpcbind = no_rpcbind;
@@ -646,17 +690,18 @@ int nfsd_create_serv(struct net *net, bool no_rpcbind)
 		percpu_ref_exit(&nn->nfsd_net_ref);
 		return error;
 	}
+	/*
+	 * Register before publishing nn->nfsd_serv.  Namespaces are only
+	 * serialized against each other by nfsd_global_mutex here, so taking
+	 * the reference first is what guarantees a visible nn->nfsd_serv
+	 * never coincides with an unregistered notifier.
+	 */
+	nfsd_register_notifiers();
+
 	spin_lock(&nfsd_notifier_lock);
 	nn->nfsd_serv = serv;
 	spin_unlock(&nfsd_notifier_lock);
 
-	/* check if the notifier is already set */
-	if (atomic_inc_return(&nfsd_notifier_refcount) == 1) {
-		register_inetaddr_notifier(&nfsd_inetaddr_notifier);
-#if IS_ENABLED(CONFIG_IPV6)
-		register_inet6addr_notifier(&nfsd_inet6addr_notifier);
-#endif
-	}
 	nfsd_reset_write_verifier(nn);
 	return 0;
 }
@@ -703,7 +748,7 @@ int nfsd_set_nrthreads(int n, int *nthreads, struct net *net)
 	int err = 0;
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	if (nn->nfsd_serv == NULL || n <= 0)
 		return 0;
@@ -773,7 +818,7 @@ nfsd_svc(int n, int *nthreads, struct net *net, const struct cred *cred, const c
 	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 	struct svc_serv *serv;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	dprintk("nfsd: creating service\n");
 
@@ -951,13 +996,13 @@ nfsd(void *vrqstp)
 		switch (svc_recv(rqstp, 5 * HZ)) {
 		case -ETIMEDOUT:
 			/* No work arrived within the timeout window */
-			if (mutex_trylock(&nfsd_mutex)) {
+			if (mutex_trylock(&nn->nfsd_mutex)) {
 				if (pool->sp_nrthreads > pool->sp_nrthrmin) {
 					trace_nfsd_dynthread_kill(net, pool);
 					set_bit(RQ_VICTIM, &rqstp->rq_flags);
 					have_mutex = true;
 				} else {
-					mutex_unlock(&nfsd_mutex);
+					mutex_unlock(&nn->nfsd_mutex);
 				}
 			} else {
 				trace_nfsd_dynthread_trylock_fail(net, pool);
@@ -966,7 +1011,7 @@ nfsd(void *vrqstp)
 		case -EBUSY:
 			/* No idle threads; consider spawning another */
 			if (pool->sp_nrthreads < pool->sp_nrthrmax) {
-				if (mutex_trylock(&nfsd_mutex)) {
+				if (mutex_trylock(&nn->nfsd_mutex)) {
 					if (pool->sp_nrthreads < pool->sp_nrthrmax) {
 						int ret;
 
@@ -976,7 +1021,7 @@ nfsd(void *vrqstp)
 							pr_notice_ratelimited("%s: unable to spawn new thread: %d\n",
 									      __func__, ret);
 					}
-					mutex_unlock(&nfsd_mutex);
+					mutex_unlock(&nn->nfsd_mutex);
 				} else {
 					trace_nfsd_dynthread_trylock_fail(net, pool);
 				}
@@ -994,7 +1039,7 @@ nfsd(void *vrqstp)
 	/* Release the thread */
 	svc_exit_thread(rqstp);
 	if (have_mutex)
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 	return 0;
 }
 

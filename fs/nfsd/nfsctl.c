@@ -57,7 +57,6 @@ enum {
 	NFSD_Filecache,
 	NFSD_Leasetime,
 	NFSD_Gracetime,
-	NFSD_RecoveryDir,
 	NFSD_V4EndGrace,
 	NFSD_MaxReserved
 };
@@ -76,9 +75,6 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size);
 #ifdef CONFIG_NFSD_V4
 static ssize_t write_leasetime(struct file *file, char *buf, size_t size);
 static ssize_t write_gracetime(struct file *file, char *buf, size_t size);
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-static ssize_t write_recoverydir(struct file *file, char *buf, size_t size);
-#endif
 static ssize_t write_v4_end_grace(struct file *file, char *buf, size_t size);
 #endif
 
@@ -94,9 +90,6 @@ static ssize_t (*const write_op[])(struct file *, char *, size_t) = {
 #ifdef CONFIG_NFSD_V4
 	[NFSD_Leasetime] = write_leasetime,
 	[NFSD_Gracetime] = write_gracetime,
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-	[NFSD_RecoveryDir] = write_recoverydir,
-#endif
 	[NFSD_V4EndGrace] = write_v4_end_grace,
 #endif
 };
@@ -302,15 +295,15 @@ static ssize_t write_unlock_fs(struct file *file, char *buf, size_t size)
 	 * 3.  Is that directory the root of an exported file system?
 	 */
 	error = nlmsvc_unlock_all_by_sb(path.dentry->d_sb);
-	mutex_lock(&nfsd_mutex);
 	nn = net_generic(netns(file), nfsd_net_id);
+	mutex_lock(&nn->nfsd_mutex);
 	if (test_bit(NFSD_NET_UP, &nn->flags)) {
 		nfsd4_cancel_copy_by_sb(netns(file), path.dentry->d_sb);
 		nfsd4_revoke_states(nn, path.dentry->d_sb);
 	} else {
 		error = -EINVAL;
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	path_put(&path);
 	return error;
@@ -436,12 +429,12 @@ static ssize_t write_threads(struct file *file, char *buf, size_t size)
 		if (newthreads < 0)
 			return -EINVAL;
 		trace_nfsd_ctl_threads(net, newthreads);
-		mutex_lock(&nfsd_mutex);
+		mutex_lock(&nn->nfsd_mutex);
 		if (newthreads > 0 || nn->nfsd_serv != NULL)
 			rv = nfsd_svc(1, &newthreads, net, file->f_cred, NULL);
 		else
 			rv = 0;
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		if (rv < 0)
 			return rv;
 	} else
@@ -484,8 +477,9 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	int npools;
 	int *nthreads;
 	struct net *net = netns(file);
+	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	npools = nfsd_nrpools(net);
 	if (npools == 0) {
 		/*
@@ -493,7 +487,7 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 		 * writing to the threads file but NOT the pool_threads
 		 * file, sorry.  Report zero threads.
 		 */
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		strcpy(buf, "0\n");
 		return strlen(buf);
 	}
@@ -503,7 +497,8 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	if (nthreads == NULL)
 		goto out_free;
 
-	if (size > 0) {
+	/* Threads started now would run without NFSv4 state. */
+	if (size > 0 && test_bit(NFSD_NET_UP, &nn->flags)) {
 		for (i = 0; i < npools; i++) {
 			rv = get_int(&mesg, &nthreads[i]);
 			if (rv == -ENOENT)
@@ -547,7 +542,7 @@ static ssize_t write_pool_threads(struct file *file, char *buf, size_t size)
 	rv = mesg - buf;
 out_free:
 	kfree(nthreads);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }
 
@@ -710,11 +705,12 @@ out:
  */
 static ssize_t write_versions(struct file *file, char *buf, size_t size)
 {
+	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
 	ssize_t rv;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	rv = __write_versions(file, buf, size);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }
 
@@ -876,16 +872,15 @@ static ssize_t __write_ports(struct file *file, char *buf, size_t size,
  */
 static ssize_t write_ports(struct file *file, char *buf, size_t size)
 {
+	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
 	ssize_t rv;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	rv = __write_ports(file, buf, size, netns(file));
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }
 
-
-int nfsd_max_blksize;
 
 /*
  * write_maxblksize - Set or report the current NFS blksize
@@ -912,12 +907,15 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 {
 	char *mesg = buf;
 	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
+	ssize_t rv;
 
+	mutex_lock(&nn->nfsd_mutex);
 	if (size > 0) {
 		int bsize;
-		int rv = get_int(&mesg, &bsize);
+
+		rv = get_int(&mesg, &bsize);
 		if (rv)
-			return rv;
+			goto out_unlock;
 		trace_nfsd_ctl_maxblksize(netns(file), bsize);
 
 		/* force bsize into allowed range and
@@ -926,17 +924,18 @@ static ssize_t write_maxblksize(struct file *file, char *buf, size_t size)
 		bsize = max_t(int, bsize, 1024);
 		bsize = min_t(int, bsize, NFSSVC_MAXBLKSIZE);
 		bsize &= ~(1024-1);
-		mutex_lock(&nfsd_mutex);
 		if (nn->nfsd_serv) {
-			mutex_unlock(&nfsd_mutex);
-			return -EBUSY;
+			rv = -EBUSY;
+			goto out_unlock;
 		}
-		nfsd_max_blksize = bsize;
-		mutex_unlock(&nfsd_mutex);
+		nn->max_blksize = bsize;
 	}
 
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%d\n",
-							nfsd_max_blksize);
+	rv = scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%u\n",
+		       nn->max_blksize);
+out_unlock:
+	mutex_unlock(&nn->nfsd_mutex);
+	return rv;
 }
 
 #ifdef CONFIG_NFSD_V4
@@ -981,9 +980,9 @@ static ssize_t nfsd4_write_time(struct file *file, char *buf, size_t size,
 {
 	ssize_t rv;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	rv = __nfsd4_write_time(file, buf, size, time, nn);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	return rv;
 }
 
@@ -1029,69 +1028,6 @@ static ssize_t write_gracetime(struct file *file, char *buf, size_t size)
 	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
 	return nfsd4_write_time(file, buf, size, &nn->nfsd4_grace, nn);
 }
-
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-static ssize_t __write_recoverydir(struct file *file, char *buf, size_t size,
-				   struct nfsd_net *nn)
-{
-	char *mesg = buf;
-	char *recdir;
-	int len, status;
-
-	if (size > 0) {
-		if (nn->nfsd_serv)
-			return -EBUSY;
-		if (size > PATH_MAX || buf[size-1] != '\n')
-			return -EINVAL;
-		buf[size-1] = 0;
-
-		recdir = mesg;
-		len = qword_get(&mesg, recdir, size);
-		if (len <= 0)
-			return -EINVAL;
-		trace_nfsd_ctl_recoverydir(netns(file), recdir);
-
-		status = nfs4_reset_recoverydir(recdir);
-		if (status)
-			return status;
-	}
-
-	return scnprintf(buf, SIMPLE_TRANSACTION_LIMIT, "%s\n",
-							nfs4_recoverydir());
-}
-
-/*
- * write_recoverydir - Set or report the pathname of the recovery directory
- *
- * Input:
- *			buf:		ignored
- *			size:		zero
- *
- * OR
- *
- * Input:
- *			buf:		C string containing the pathname
- *					of the directory on a local file
- *					system containing permanent NFSv4
- *					recovery data
- *			size:		non-zero length of C string in @buf
- * Output:
- *	On success:	passed-in buffer filled with '\n'-terminated C string
- *			containing the current recovery pathname setting;
- *			return code is the size in bytes of the string
- *	On error:	return code is zero or a negative errno value
- */
-static ssize_t write_recoverydir(struct file *file, char *buf, size_t size)
-{
-	ssize_t rv;
-	struct nfsd_net *nn = net_generic(netns(file), nfsd_net_id);
-
-	mutex_lock(&nfsd_mutex);
-	rv = __write_recoverydir(file, buf, size, nn);
-	mutex_unlock(&nfsd_mutex);
-	return rv;
-}
-#endif
 
 /*
  * write_v4_end_grace - release grace period for nfsd's v4.x lock manager
@@ -1335,9 +1271,6 @@ static int nfsd_fill_super(struct super_block *sb, struct fs_context *fc)
 #ifdef CONFIG_NFSD_V4
 		[NFSD_Leasetime] = {"nfsv4leasetime", &transaction_ops, S_IWUSR|S_IRUSR},
 		[NFSD_Gracetime] = {"nfsv4gracetime", &transaction_ops, S_IWUSR|S_IRUSR},
-#ifdef CONFIG_NFSD_LEGACY_CLIENT_TRACKING
-		[NFSD_RecoveryDir] = {"nfsv4recoverydir", &transaction_ops, S_IWUSR|S_IRUSR},
-#endif
 		[NFSD_V4EndGrace] = {"v4_end_grace", &transaction_ops, S_IWUSR|S_IRUGO},
 #endif
 		/* last one */ {""}
@@ -1532,9 +1465,9 @@ int nfsd_nl_rpc_status_get_dumpit(struct sk_buff *skb,
 	int i, ret, rqstp_index = 0;
 	struct nfsd_net *nn;
 
-	mutex_lock(&nfsd_mutex);
-
 	nn = net_generic(sock_net(skb->sk), nfsd_net_id);
+
+	mutex_lock(&nn->nfsd_mutex);
 	if (!nn->nfsd_serv) {
 		ret = -ENODEV;
 		goto out_unlock;
@@ -1651,7 +1584,7 @@ int nfsd_nl_rpc_status_get_dumpit(struct sk_buff *skb,
 out:
 	rcu_read_unlock();
 out_unlock:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	return ret;
 }
@@ -1661,7 +1594,7 @@ out_unlock:
  * @attr: nlattr NFSD_A_SERVER_FH_KEY
  * @nn: nfsd_net
  *
- * Callers should hold nfsd_mutex, returns 0 on success or negative errno.
+ * Callers should hold nn->nfsd_mutex, returns 0 on success or negative errno.
  * Callers must ensure the server is shut down (sv_nrthreads == 0),
  * userspace documentation asserts the key may only be set when the server
  * is not running.
@@ -1716,7 +1649,7 @@ int nfsd_nl_threads_set_doit(struct sk_buff *skb, struct genl_info *info)
 				 GENL_HDRLEN, rem)
 		nrpools++;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 
 	nthreads = kzalloc_objs(int, nrpools);
 	if (!nthreads) {
@@ -1781,7 +1714,7 @@ int nfsd_nl_threads_set_doit(struct sk_buff *skb, struct genl_info *info)
 	if (ret > 0)
 		ret = 0;
 out_unlock:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	kfree(nthreads);
 	return ret;
 }
@@ -1810,7 +1743,7 @@ int nfsd_nl_threads_get_doit(struct sk_buff *skb, struct genl_info *info)
 		goto err_free_msg;
 	}
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 
 	err = nla_put_u32(skb, NFSD_A_SERVER_GRACETIME,
 			  nn->nfsd4_grace) ||
@@ -1840,14 +1773,14 @@ int nfsd_nl_threads_get_doit(struct sk_buff *skb, struct genl_info *info)
 			goto err_unlock;
 	}
 
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	genlmsg_end(skb, hdr);
 
 	return genlmsg_reply(skb, info);
 
 err_unlock:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 err_free_msg:
 	nlmsg_free(skb);
 
@@ -1870,11 +1803,11 @@ int nfsd_nl_version_set_doit(struct sk_buff *skb, struct genl_info *info)
 	if (GENL_REQ_ATTR_CHECK(info, NFSD_A_SERVER_PROTO_VERSION))
 		return -EINVAL;
 
-	mutex_lock(&nfsd_mutex);
-
 	nn = net_generic(genl_info_net(info), nfsd_net_id);
+
+	mutex_lock(&nn->nfsd_mutex);
 	if (nn->nfsd_serv) {
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		return -EBUSY;
 	}
 
@@ -1917,7 +1850,7 @@ int nfsd_nl_version_set_doit(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	return 0;
 }
@@ -1945,9 +1878,9 @@ int nfsd_nl_version_get_doit(struct sk_buff *skb, struct genl_info *info)
 		goto err_free_msg;
 	}
 
-	mutex_lock(&nfsd_mutex);
 	nn = net_generic(genl_info_net(info), nfsd_net_id);
 
+	mutex_lock(&nn->nfsd_mutex);
 	for (i = 2; i <= 4; i++) {
 		int j;
 
@@ -1989,13 +1922,13 @@ int nfsd_nl_version_get_doit(struct sk_buff *skb, struct genl_info *info)
 		}
 	}
 
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	genlmsg_end(skb, hdr);
 
 	return genlmsg_reply(skb, info);
 
 err_nfsd_unlock:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 err_free_msg:
 	nlmsg_free(skb);
 
@@ -2006,7 +1939,7 @@ err_free_msg:
  * Transport classes NFSD knows how to instantiate. Vetting the name here
  * keeps a bogus string from reaching svc_xprt_create_from_sa(), where an
  * unknown name triggers a request_module("svc%s", name) upcall under
- * nfsd_mutex.
+ * nn->nfsd_mutex.
  */
 static bool nfsd_nl_transport_supported(const char *name)
 {
@@ -2087,14 +2020,15 @@ static int nfsd_nl_validate_listeners(struct genl_info *info)
 	return count;
 }
 
-static size_t nfsd_nl_listener_set_msgsize(struct svc_serv *serv)
+static size_t nfsd_nl_listener_set_msgsize(struct nfsd_net *nn,
+					   struct svc_serv *serv)
 {
 	size_t size = GENL_HDRLEN +		    /* genlmsg_iput() */
 		      nla_total_size(0);	    /* userspace-rpcbind */
 	struct svc_xprt *xprt;
 	unsigned int p;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
 	for (p = 0; p < serv->sv_nprogs; p++)
 		size += serv->sv_programs[p].pg_nvers *
@@ -2120,15 +2054,16 @@ static struct sk_buff *
 nfsd_nl_listener_set_msg(struct genl_info *info, struct net *net,
 			 struct svc_serv *serv)
 {
+	struct nfsd_net *nn = net_generic(net, nfsd_net_id);
 	struct svc_xprt *xprt;
 	struct sk_buff *skb;
 	unsigned int p, i;
 	void *hdr;
 	int err;
 
-	lockdep_assert_held(&nfsd_mutex);
+	lockdep_assert_held(&nn->nfsd_mutex);
 
-	skb = genlmsg_new(nfsd_nl_listener_set_msgsize(serv), GFP_KERNEL);
+	skb = genlmsg_new(nfsd_nl_listener_set_msgsize(nn, serv), GFP_KERNEL);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
@@ -2246,9 +2181,9 @@ int nfsd_nl_listener_set_doit(struct sk_buff *skb, struct genl_info *info)
 
 	userspace_rpcbind = nla_get_flag(info->attrs[NFSD_A_SERVER_SOCK_USERSPACE_RPCBIND]);
 
-	mutex_lock(&nfsd_mutex);
-
 	nn = net_generic(net, nfsd_net_id);
+
+	mutex_lock(&nn->nfsd_mutex);
 
 	/*
 	 * An empty list destroys the serv, and nfsd_destroy_serv() drops
@@ -2260,13 +2195,13 @@ int nfsd_nl_listener_set_doit(struct sk_buff *skb, struct genl_info *info)
 	    nn->nfsd_serv->sv_no_rpcbind != userspace_rpcbind) {
 		NL_SET_ERR_MSG(info->extack,
 			       "cannot change rpcbind ownership while a server exists");
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		return -EBUSY;
 	}
 
 	err = nfsd_create_serv(net, userspace_rpcbind);
 	if (err) {
-		mutex_unlock(&nfsd_mutex);
+		mutex_unlock(&nn->nfsd_mutex);
 		return err;
 	}
 
@@ -2435,7 +2370,7 @@ int nfsd_nl_listener_set_doit(struct sk_buff *skb, struct genl_info *info)
 		nfsd_destroy_serv(net);
 
 out_unlock_mtx:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	/* rskb is only built once err is known to be zero. */
 	if (rskb)
@@ -2469,9 +2404,9 @@ int nfsd_nl_listener_get_doit(struct sk_buff *skb, struct genl_info *info)
 		goto err_free_msg;
 	}
 
-	mutex_lock(&nfsd_mutex);
 	nn = net_generic(genl_info_net(info), nfsd_net_id);
 
+	mutex_lock(&nn->nfsd_mutex);
 	/* no nfs server? Just send empty socket list */
 	if (!nn->nfsd_serv)
 		goto out_unlock_mtx;
@@ -2500,14 +2435,14 @@ int nfsd_nl_listener_get_doit(struct sk_buff *skb, struct genl_info *info)
 	}
 	spin_unlock_bh(&serv->sv_lock);
 out_unlock_mtx:
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 	genlmsg_end(skb, hdr);
 
 	return genlmsg_reply(skb, info);
 
 err_serv_unlock:
 	spin_unlock_bh(&serv->sv_lock);
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 err_free_msg:
 	nlmsg_free(skb);
 
@@ -2591,7 +2526,7 @@ int nfsd_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info)
 	if (info->attrs[NFSD_A_CACHE_FLUSH_MASK])
 		mask = nla_get_u32(info->attrs[NFSD_A_CACHE_FLUSH_MASK]);
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 
 	if ((mask & NFSD_CACHE_TYPE_SVC_EXPORT) &&
 	    nn->svc_export_cache)
@@ -2601,7 +2536,7 @@ int nfsd_nl_cache_flush_doit(struct sk_buff *skb, struct genl_info *info)
 	    nn->svc_expkey_cache)
 		cache_purge(nn->svc_expkey_cache);
 
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	return 0;
 }
@@ -2949,14 +2884,14 @@ int nfsd_nl_unlock_filesystem_doit(struct sk_buff *skb,
 
 	error = nlmsvc_unlock_all_by_sb(path.dentry->d_sb);
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	if (test_bit(NFSD_NET_UP, &nn->flags)) {
 		nfsd4_cancel_copy_by_sb(net, path.dentry->d_sb);
 		nfsd4_revoke_states(nn, path.dentry->d_sb);
 	} else {
 		error = -EINVAL;
 	}
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	path_put(&path);
 	return error;
@@ -2996,13 +2931,13 @@ int nfsd_nl_unlock_export_doit(struct sk_buff *skb, struct genl_info *info)
 	if (error)
 		return error;
 
-	mutex_lock(&nfsd_mutex);
+	mutex_lock(&nn->nfsd_mutex);
 	if (test_bit(NFSD_NET_UP, &nn->flags)) {
 		nfsd_file_close_export(net, &path);
 		nfsd4_revoke_export_states(nn, &path);
 	} else
 		error = -EINVAL;
-	mutex_unlock(&nfsd_mutex);
+	mutex_unlock(&nn->nfsd_mutex);
 
 	path_put(&path);
 	return error;
@@ -3059,7 +2994,8 @@ static __net_init int nfsd_net_init(struct net *net)
 		nn->nfsd_versions[i] = nfsd_support_version(i);
 	for (i = 0; i < sizeof(nn->nfsd4_minorversions); i++)
 		nn->nfsd4_minorversions[i] = nfsd_support_version(4);
-	nn->nfsd_info.mutex = &nfsd_mutex;
+	mutex_init(&nn->nfsd_mutex);
+	nn->nfsd_info.mutex = &nn->nfsd_mutex;
 	nn->nfsd_serv = NULL;
 	nfsd4_init_leases_net(nn);
 	get_random_bytes(&nn->siphash_key, sizeof(nn->siphash_key));
@@ -3123,6 +3059,7 @@ static __net_exit void nfsd_net_exit(struct net *net)
 	percpu_counter_destroy_many(nn->counter, NFSD_STATS_COUNTERS_NUM);
 	nfsd_idmap_shutdown(net);
 	nfsd_export_shutdown(net);
+	mutex_destroy(&nn->nfsd_mutex);
 }
 
 static struct pernet_operations nfsd_net_ops = {

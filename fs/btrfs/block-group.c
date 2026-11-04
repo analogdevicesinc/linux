@@ -2296,13 +2296,14 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 	if (IS_ERR(map))
 		return -EIO;
 
-	data_stripe_length = map->stripe_size;
-	io_stripe_size = BTRFS_STRIPE_LEN;
+	data_stripe_length = map->dev_extent_size;
+	io_stripe_size = map->stripe_len;
 	chunk_start = map->start;
 
 	/* For RAID5/6 adjust to a full IO stripe length */
 	if (map->type & BTRFS_BLOCK_GROUP_RAID56_MASK)
-		io_stripe_size = btrfs_stripe_nr_to_offset(nr_data_stripes(map));
+		io_stripe_size = btrfs_stripe_nr_to_offset(nr_data_stripes(map),
+							   map->stripe_len);
 
 	buf = kzalloc_objs(u64, map->num_stripes, GFP_NOFS);
 	if (!buf) {
@@ -2321,9 +2322,9 @@ int btrfs_rmap_block(struct btrfs_fs_info *fs_info, u64 chunk_start,
 			continue;
 
 		stripe_nr = (physical - map->stripes[i].physical) >>
-			    BTRFS_STRIPE_LEN_SHIFT;
+			    map->stripe_shift;
 		offset = (physical - map->stripes[i].physical) &
-			 BTRFS_STRIPE_LEN_MASK;
+			 (map->stripe_len - 1);
 
 		if (map->type & (BTRFS_BLOCK_GROUP_RAID0 |
 				 BTRFS_BLOCK_GROUP_RAID10))
@@ -2585,7 +2586,7 @@ static int read_one_block_group(struct btrfs_fs_info *info,
 	}
 
 	trace_btrfs_add_block_group(info, cache, 0);
-	btrfs_add_bg_to_space_info(info, cache);
+	btrfs_add_bg_to_space_info(cache);
 
 	set_avail_alloc_bits(info, cache->flags);
 	if (btrfs_chunk_writeable(info, cache->start)) {
@@ -2645,7 +2646,7 @@ static int fill_dummy_bgs(struct btrfs_fs_info *fs_info)
 			break;
 		}
 
-		btrfs_add_bg_to_space_info(fs_info, bg);
+		btrfs_add_bg_to_space_info(bg);
 
 		set_avail_alloc_bits(fs_info, bg->flags);
 	}
@@ -2890,7 +2891,7 @@ static int insert_dev_extents(struct btrfs_trans_handle *trans,
 		dev_offset = map->stripes[i].physical;
 
 		ret = insert_dev_extent(trans, device, chunk_offset, dev_offset,
-					map->stripe_size);
+					map->dev_extent_size);
 		if (ret)
 			break;
 	}
@@ -3090,7 +3091,7 @@ struct btrfs_block_group *btrfs_make_block_group(struct btrfs_trans_handle *tran
 	 * the rbtree, update the space info's counters.
 	 */
 	trace_btrfs_add_block_group(fs_info, cache, 1);
-	btrfs_add_bg_to_space_info(fs_info, cache);
+	btrfs_add_bg_to_space_info(cache);
 	btrfs_update_global_block_rsv(fs_info);
 
 #ifdef CONFIG_BTRFS_DEBUG
@@ -3727,7 +3728,7 @@ void btrfs_free_reserved_bytes(struct btrfs_block_group *cache, u64 num_bytes,
 	if (bg_ro)
 		space_info->bytes_readonly += num_bytes;
 	else if (btrfs_is_zoned(cache->fs_info))
-		space_info->bytes_zone_unusable += num_bytes;
+		btrfs_space_info_update_bytes_zone_unusable(space_info, num_bytes);
 
 	space_info->bytes_reserved -= num_bytes;
 	space_info->max_extent_size = 0;
