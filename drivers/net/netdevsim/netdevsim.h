@@ -476,6 +476,7 @@ int nsim_setup_tc(struct net_device *dev, enum tc_setup_type type,
 #define NSIM_BUS_DEV_MAX_VFS 4
 struct nsim_bus_dev {
 	struct device dev;
+	struct device_dma_parameters dma_parms;
 	struct list_head list;
 	unsigned int port_count;
 	unsigned int num_queues; /* Number of queues for each port on this bus */

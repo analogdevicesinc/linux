@@ -1476,20 +1476,9 @@ void netdev_nl_sock_priv_destroy(struct netdev_nl_sock *priv)
 
 	mutex_lock(&priv->lock);
 	list_for_each_entry_safe(binding, temp, &priv->bindings, list) {
-		mutex_lock(&binding->lock);
-		dev = binding->dev;
-		if (!dev) {
-			mutex_unlock(&binding->lock);
-			net_devmem_unbind_dmabuf(binding);
-			continue;
-		}
-		netdev_hold(dev, &dev_tracker, GFP_KERNEL);
-		mutex_unlock(&binding->lock);
-
-		netdev_lock(dev);
+		dev = net_devmem_lock_dev(binding, &dev_tracker);
 		net_devmem_unbind_dmabuf(binding);
-		netdev_unlock(dev);
-		netdev_put(dev, &dev_tracker);
+		net_devmem_unlock_dev(dev, &dev_tracker);
 	}
 	mutex_unlock(&priv->lock);
 }
@@ -1513,6 +1502,7 @@ static int netdev_genl_netdevice_event(struct notifier_block *nb,
 		if (READ_ONCE(netdev->reg_state) == NETREG_UNREGISTERED)
 			break;
 		netdev_lock(netdev);
+		net_devmem_dev_unregister(netdev);
 		netdev_genl_dev_notify(netdev, NETDEV_CMD_DEV_DEL_NTF);
 		netdev_unlock(netdev);
 		break;
