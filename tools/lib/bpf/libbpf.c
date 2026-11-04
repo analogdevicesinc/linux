@@ -552,6 +552,12 @@ struct bpf_struct_ops {
 #define STRUCT_OPS_SEC ".struct_ops"
 #define STRUCT_OPS_LINK_SEC ".struct_ops.link"
 #define ARENA_SEC ".addr_space.1"
+/*
+ * The size of the arena map when max_entries is not set: the largest one.
+ * It's in bytes: max_entries of arena is in pages and the size of a page
+ * depends on the kernel. What an empty arena costs doesn't depend on its size.
+ */
+#define ARENA_DEFAULT_SZ (1ULL << 32)
 
 enum libbpf_map_type {
 	LIBBPF_MAP_UNSPEC,
@@ -3165,6 +3171,8 @@ static int bpf_object__init_user_btf_maps(struct bpf_object *obj, bool strict,
 			return -EINVAL;
 		}
 		obj->arena_map_idx = i;
+		if (!map->def.max_entries)
+			map->def.max_entries = ARENA_DEFAULT_SZ / sysconf(_SC_PAGE_SIZE);
 
 		if (obj->efile.arena_data) {
 			err = init_arena_map_data(obj, map, obj->efile.arena_data->d_buf,
