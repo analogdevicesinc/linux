@@ -376,6 +376,11 @@ int ata_acpi_gtm(struct ata_port *ap, struct ata_acpi_gtm *gtm)
 	}
 
 	out_obj = output.pointer;
+	if (!out_obj || !output.length) {
+		ata_port_dbg(ap, "_GTM returned no object\n");
+		goto out_free;
+	}
+
 	if (out_obj->type != ACPI_TYPE_BUFFER) {
 		ata_port_warn(ap, "_GTM returned unexpected object type 0x%x\n",
 			      out_obj->type);
