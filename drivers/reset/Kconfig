@@ -467,4 +467,9 @@ source "drivers/reset/starfive/Kconfig"
 source "drivers/reset/sti/Kconfig"
 source "drivers/reset/tegra/Kconfig"
 
+config RESET_KUNIT_TEST
+	tristate "KUnit tests for reset controller" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+
 endif
