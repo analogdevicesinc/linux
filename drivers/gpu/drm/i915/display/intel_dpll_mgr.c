@@ -3815,7 +3815,7 @@ static void icl_dpll_write(struct intel_display *display,
 			   const struct icl_dpll_hw_state *hw_state)
 {
 	const enum intel_dpll_id id = pll->info->id;
-	intel_reg_t cfgcr0_reg, cfgcr1_reg, div0_reg = INVALID_MMIO_REG;
+	intel_reg_t cfgcr0_reg, cfgcr1_reg, div0_reg = INTEL_REG_INVALID;
 
 	if (display->platform.alderlake_s) {
 		cfgcr0_reg = ADLS_DPLL_CFGCR0(id);

@@ -1689,7 +1689,7 @@ static int intel_dmc_debugfs_status_show(struct seq_file *m, void *unused)
 	struct intel_display *display = m->private;
 	struct intel_dmc *dmc = display_to_dmc(display);
 	struct ref_tracker *wakeref;
-	intel_reg_t dc5_reg, dc6_reg = INVALID_MMIO_REG;
+	intel_reg_t dc5_reg, dc6_reg = INTEL_REG_INVALID;
 	u32 dc6_allowed_count;
 
 	if (!HAS_DMC(display))

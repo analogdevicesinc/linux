@@ -112,8 +112,8 @@ struct intel_digital_port *intel_dig_port_alloc(void)
 	if (!dig_port)
 		return NULL;
 
-	dig_port->hdmi.hdmi_reg = INVALID_MMIO_REG;
-	dig_port->dp.output_reg = INVALID_MMIO_REG;
+	dig_port->hdmi.hdmi_reg = INTEL_REG_INVALID;
+	dig_port->dp.output_reg = INTEL_REG_INVALID;
 	dig_port->aux_ch = AUX_CH_NONE;
 	dig_port->max_lanes = 4;
 

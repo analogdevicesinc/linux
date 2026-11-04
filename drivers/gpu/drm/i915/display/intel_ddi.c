@@ -4988,7 +4988,7 @@ static int intel_ddi_init_hdmi_connector(struct intel_digital_port *dig_port)
 		 * pins or not having enough lanes. Handle them gracefully, but
 		 * don't fail the entire DDI init.
 		 */
-		dig_port->hdmi.hdmi_reg = INVALID_MMIO_REG;
+		dig_port->hdmi.hdmi_reg = INTEL_REG_INVALID;
 		kfree(connector);
 	}
 
