@@ -138,22 +138,23 @@ static inline void tegra_pwm_writel(struct pwm_device *pwm, unsigned int offset,
 }
 
 static int tegra_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
-			    int duty_ns, int period_ns)
+			    u64 duty_ns, u64 period_ns)
 {
 	struct tegra_pwm_chip *pc = to_tegra_pwm_chip(chip);
-	unsigned long long c = duty_ns;
-	unsigned long rate, required_clk_rate;
+	u64 c, rate;
 	u32 val = 0;
 	int err;
 
 	/*
 	 * Convert from duty_ns / period_ns to a fixed number of duty ticks
-	 * per TEGRA_PWM_DEPTH cycles and make sure to round to the
-	 * nearest integer during division.
+	 * per TEGRA_PWM_DEPTH cycles.
 	 */
-	c *= TEGRA_PWM_DEPTH;
-	c = DIV_ROUND_CLOSEST_ULL(c, period_ns);
+	c = mul_u64_u64_div_u64(duty_ns, TEGRA_PWM_DEPTH, period_ns);
 
+	/*
+	 * The cast here is fine as c ≤ TEGRA_PWM_DEPTH given that we have
+	 * duty_ns ≤ period_ns above.
+	 */
 	val = (u32)c << TEGRA_PWM_DUTY_SHIFT;
 
 	/*
@@ -176,6 +177,7 @@ static int tegra_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * dynamically (e.g. Tegra186 or Tegra194).
 	 */
 	if (pc->soc->num_channels == 1) {
+		u64 required_clk_rate;
 		/*
 		 * Rate is multiplied with TEGRA_PWM_DEPTH so that it matches
 		 * with the maximum possible rate that the controller can
@@ -187,10 +189,18 @@ static int tegra_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 		 * source clock rate as required_clk_rate, PWM controller will
 		 * be able to configure the requested period.
 		 */
-		required_clk_rate = DIV_ROUND_UP_ULL((u64)NSEC_PER_SEC * TEGRA_PWM_DEPTH,
-						     period_ns);
+		required_clk_rate = mul_u64_u64_div_u64_roundup(NSEC_PER_SEC, TEGRA_PWM_DEPTH,
+								period_ns);
 
-		if (required_clk_rate > clk_round_rate(pc->clk, required_clk_rate))
+		/*
+		 * clk_round_rate() and dev_pm_opp_set_rate() both take an unsigned
+		 * long as frequency parameter, so cap required_clk_rate
+		 * accordingly.
+		 */
+		if (required_clk_rate > ULONG_MAX)
+			required_clk_rate = ULONG_MAX;
+
+		if (required_clk_rate > clk_round_rate(pc->clk, required_clk_rate)) {
 			/*
 			 * required_clk_rate is a lower bound for the input
 			 * rate; for lower rates there is no value for PWM_SCALE
@@ -200,6 +210,10 @@ static int tegra_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 			 * the requested period.
 			 */
 			required_clk_rate *= 2;
+
+			if (required_clk_rate > ULONG_MAX)
+				required_clk_rate = ULONG_MAX;
+		}
 
 		err = dev_pm_opp_set_rate(pwmchip_parent(chip), required_clk_rate);
 		if (err < 0)
