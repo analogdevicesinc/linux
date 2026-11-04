@@ -2519,7 +2519,6 @@ static struct irq_chip intcapxt_controller = {
 	.irq_unmask		= intcapxt_unmask_irq,
 	.irq_mask		= intcapxt_mask_irq,
 	.irq_ack		= irq_chip_ack_parent,
-	.irq_retrigger		= irq_chip_retrigger_hierarchy,
 	.irq_set_affinity       = intcapxt_set_affinity,
 	.irq_set_wake		= intcapxt_set_wake,
 	.flags			= IRQCHIP_MASK_ON_SUSPEND | IRQCHIP_MOVE_DEFERRED,
