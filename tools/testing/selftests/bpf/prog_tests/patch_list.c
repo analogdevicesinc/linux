@@ -256,14 +256,22 @@ out:
 
 /*
  * Serial: the xlated code is another one and there are no poke descriptors
- * while another test sets bpf_jit_harden, and classic_filter sets it.
+ * while another test sets bpf_jit_harden, and classic_filter sets it. Keep
+ * the sysctl at 0 for the subtests that need the code unblinded.
  */
 void serial_test_patch_list(void)
 {
+	const char *harden = "/proc/sys/net/core/bpf_jit_harden";
+	char old[16] = {};
+
+	if (sysctl_set_or_fail(harden, old, "0"))
+		return;
 	if (test__start_subtest("line_and_func_info"))
 		test_line_and_func_info();
 	if (test__start_subtest("poke_descriptor"))
 		test_poke_descriptor();
+	sysctl_set_or_fail(harden, NULL, old);
+
 	if (test__start_subtest("classic_filter"))
 		test_classic_filter();
 }

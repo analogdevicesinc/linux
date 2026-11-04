@@ -132,7 +132,7 @@ __naked void patch_list_may_goto(void)
  */
 SEC("raw_tp")
 __description("patch list: jump pushed out of range by patches")
-__failure __msg("cannot be patched due to 16-bit range")
+__failure __msg("insn 2 cannot be patched due to 16-bit range")
 __naked void patch_list_jump_out_of_range(void)
 {
 	asm volatile ("					\
@@ -454,6 +454,45 @@ __naked void patch_list_goto_over_nop_and_insn(void)
 "l1_%=:"
 	"exit;"
 	::: __clobber_all);
+}
+
+/*
+ * Load skb->ifindex where a mispredicted path through l1 has a scalar instead
+ * of the ctx, so that the verifier puts a barrier in front of the load. The
+ * load becomes a second patch of 3 insns behind the barrier, and its jump must
+ * still skip one insn. Only a prog without CAP_PERFMON gets the barrier.
+ */
+SEC("socket")
+__description("patch list: second patch with a jump behind a barrier")
+__success __success_unpriv
+__caps_unpriv(CAP_BPF)
+#ifdef SPEC_V1
+__xlated_unpriv("nospec")
+__xlated_unpriv("r0 = *(u64 *)(r2 +{{[0-9]+}})")
+__xlated_unpriv("if r0 == 0x0 goto pc+1")
+__xlated_unpriv("r0 = *(u32 *)(r0 +{{[0-9]+}})")
+__xlated_unpriv("exit")
+#endif
+__naked void patch_list_second_patch_jump(void)
+{
+	asm volatile ("					\
+	r8 = 0;						\
+	r8 ^= r8;					\
+	r9 = 0;						\
+	r9 ^= r9;					\
+	r0 = 0;						\
+	r2 = r1;					\
+	if r8 != 0 goto l1_%=;				\
+	goto l2_%=;					\
+l1_%=:	if r9 == 0 goto l3_%=;				\
+	r2 = r0;					\
+l2_%=:	r0 = *(u32 *)(r2 + %[ifindex]);			\
+	goto l4_%=;					\
+l3_%=:	r0 = 0;						\
+l4_%=:	exit;						\
+"	:
+	: __imm_const(ifindex, offsetof(struct __sk_buff, ifindex))
+	: __clobber_all);
 }
 
 char _license[] SEC("license") = "GPL";
