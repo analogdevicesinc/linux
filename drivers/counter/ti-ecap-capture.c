@@ -254,10 +254,8 @@ static int ecap_cnt_pol_write(struct counter_device *counter,
 	struct ecap_cnt_dev *ecap_dev = counter_priv(counter);
 
 	pm_runtime_get_sync(counter->parent);
-	if (pol == COUNTER_SIGNAL_POLARITY_NEGATIVE)
-		regmap_set_bits(ecap_dev->regmap, ECAP_ECCTL_REG, ECAP_CAPPOL_BIT(idx));
-	else
-		regmap_clear_bits(ecap_dev->regmap, ECAP_ECCTL_REG, ECAP_CAPPOL_BIT(idx));
+	regmap_assign_bits(ecap_dev->regmap, ECAP_ECCTL_REG, ECAP_CAPPOL_BIT(idx),
+			   pol == COUNTER_SIGNAL_POLARITY_NEGATIVE);
 	pm_runtime_put_sync(counter->parent);
 
 	return 0;
