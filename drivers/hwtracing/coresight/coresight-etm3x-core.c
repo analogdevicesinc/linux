@@ -484,7 +484,11 @@ static int etm_enable_perf(struct coresight_device *csdev,
 		return -EBUSY;
 
 	/* Configure the tracer based on the session's specifics */
-	etm_parse_event_config(drvdata, event);
+	ret = etm_parse_event_config(drvdata, event);
+	if (ret) {
+		coresight_set_mode(csdev, CS_MODE_DISABLED);
+		return ret;
+	}
 	drvdata->traceid = path->trace_id;
 
 	/* And enable it */
