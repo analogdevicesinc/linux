@@ -272,14 +272,13 @@ out:
 static void imx_irqsteer_remove(struct platform_device *pdev)
 {
 	struct irqsteer_data *irqsteer_data = platform_get_drvdata(pdev);
-	int i;
 
-	for (i = 0; i < irqsteer_data->irq_count; i++) {
+	for (int i = 0; i < irqsteer_data->irq_count; i++) {
 		if (!irqsteer_data->irq[i])
 			break;
 
-		irq_set_chained_handler_and_data(irqsteer_data->irq[i],
-						 NULL, NULL);
+		irq_set_chained_handler_and_data(irqsteer_data->irq[i], NULL, NULL);
+		irq_dispose_mapping(irqsteer_data->irq[i]);
 	}
 
 	irq_domain_remove(irqsteer_data->domain);
