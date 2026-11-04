@@ -97,18 +97,7 @@ static struct platform_driver tps6105x_regulator_driver = {
 	},
 	.probe = tps6105x_regulator_probe,
 };
-
-static __init int tps6105x_regulator_init(void)
-{
-	return platform_driver_register(&tps6105x_regulator_driver);
-}
-subsys_initcall(tps6105x_regulator_init);
-
-static __exit void tps6105x_regulator_exit(void)
-{
-	platform_driver_unregister(&tps6105x_regulator_driver);
-}
-module_exit(tps6105x_regulator_exit);
+subsys_platform_driver(tps6105x_regulator_driver);
 
 MODULE_AUTHOR("Linus Walleij <linus.walleij@linaro.org>");
 MODULE_DESCRIPTION("TPS6105x regulator driver");

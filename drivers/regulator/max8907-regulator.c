@@ -378,19 +378,7 @@ static struct platform_driver max8907_regulator_driver = {
 	.probe = max8907_regulator_probe,
 };
 
-static int __init max8907_regulator_init(void)
-{
-	return platform_driver_register(&max8907_regulator_driver);
-}
-
-subsys_initcall(max8907_regulator_init);
-
-static void __exit max8907_reg_exit(void)
-{
-	platform_driver_unregister(&max8907_regulator_driver);
-}
-
-module_exit(max8907_reg_exit);
+subsys_platform_driver(max8907_regulator_driver);
 
 MODULE_DESCRIPTION("MAX8907 regulator driver");
 MODULE_AUTHOR("Gyungoh Yoo <jack.yoo@maxim-ic.com>");

@@ -515,18 +515,7 @@ static struct platform_driver tps65090_regulator_driver = {
 	},
 	.probe		= tps65090_regulator_probe,
 };
-
-static int __init tps65090_regulator_init(void)
-{
-	return platform_driver_register(&tps65090_regulator_driver);
-}
-subsys_initcall(tps65090_regulator_init);
-
-static void __exit tps65090_regulator_exit(void)
-{
-	platform_driver_unregister(&tps65090_regulator_driver);
-}
-module_exit(tps65090_regulator_exit);
+subsys_platform_driver(tps65090_regulator_driver);
 
 MODULE_DESCRIPTION("tps65090 regulator driver");
 MODULE_AUTHOR("Venu Byravarasu <vbyravarasu@nvidia.com>");

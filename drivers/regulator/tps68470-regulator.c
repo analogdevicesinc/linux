@@ -185,17 +185,7 @@ static struct platform_driver tps68470_regulator_driver = {
  * registering before the drivers for the camera-sensors which use them bind.
  * subsys_initcall() ensures this when the drivers are builtin.
  */
-static int __init tps68470_regulator_init(void)
-{
-	return platform_driver_register(&tps68470_regulator_driver);
-}
-subsys_initcall(tps68470_regulator_init);
-
-static void __exit tps68470_regulator_exit(void)
-{
-	platform_driver_unregister(&tps68470_regulator_driver);
-}
-module_exit(tps68470_regulator_exit);
+subsys_platform_driver(tps68470_regulator_driver);
 
 MODULE_ALIAS("platform:tps68470-regulator");
 MODULE_DESCRIPTION("TPS68470 voltage regulator driver");

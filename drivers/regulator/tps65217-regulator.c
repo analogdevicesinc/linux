@@ -262,18 +262,7 @@ static struct platform_driver tps65217_regulator_driver = {
 	},
 	.probe = tps65217_regulator_probe,
 };
-
-static int __init tps65217_regulator_init(void)
-{
-	return platform_driver_register(&tps65217_regulator_driver);
-}
-subsys_initcall(tps65217_regulator_init);
-
-static void __exit tps65217_regulator_exit(void)
-{
-	platform_driver_unregister(&tps65217_regulator_driver);
-}
-module_exit(tps65217_regulator_exit);
+subsys_platform_driver(tps65217_regulator_driver);
 
 MODULE_AUTHOR("AnilKumar Ch <anilkumar@ti.com>");
 MODULE_DESCRIPTION("TPS65217 voltage regulator driver");

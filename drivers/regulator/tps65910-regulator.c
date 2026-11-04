@@ -1259,18 +1259,7 @@ static struct platform_driver tps65910_driver = {
 	.probe = tps65910_probe,
 	.shutdown = tps65910_shutdown,
 };
-
-static int __init tps65910_init(void)
-{
-	return platform_driver_register(&tps65910_driver);
-}
-subsys_initcall(tps65910_init);
-
-static void __exit tps65910_cleanup(void)
-{
-	platform_driver_unregister(&tps65910_driver);
-}
-module_exit(tps65910_cleanup);
+subsys_platform_driver(tps65910_driver);
 
 MODULE_AUTHOR("Graeme Gregory <gg@slimlogic.co.uk>");
 MODULE_DESCRIPTION("TPS65910/TPS65911 voltage regulator driver");

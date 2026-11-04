@@ -1064,18 +1064,7 @@ static struct platform_driver da9063_regulator_driver = {
 	},
 	.probe = da9063_regulator_probe,
 };
-
-static int __init da9063_regulator_init(void)
-{
-	return platform_driver_register(&da9063_regulator_driver);
-}
-subsys_initcall(da9063_regulator_init);
-
-static void __exit da9063_regulator_cleanup(void)
-{
-	platform_driver_unregister(&da9063_regulator_driver);
-}
-module_exit(da9063_regulator_cleanup);
+subsys_platform_driver(da9063_regulator_driver);
 
 
 /* Module information */
