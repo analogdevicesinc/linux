@@ -395,13 +395,11 @@ static int sx9324_read_gain(struct sx_common_data *data,
 		return ret;
 
 	regval = FIELD_GET(SX9324_REG_PROX_CTRL0_GAIN_MASK, regval);
-	if (regval)
-		regval--;
-	else if (regval == SX9324_REG_PROX_CTRL0_GAIN_RSVD ||
-		 regval > SX9324_REG_PROX_CTRL0_GAIN_8)
+	if (regval == SX9324_REG_PROX_CTRL0_GAIN_RSVD ||
+	    regval > SX9324_REG_PROX_CTRL0_GAIN_8)
 		return -EINVAL;
 
-	*val = 1 << regval;
+	*val = 1 << (regval - 1);
 
 	return IIO_VAL_INT;
 }
