@@ -24266,11 +24266,6 @@ skip_full_check:
 	print_verification_stats(env);
 	env->prog->aux->verified_insns = env->insn_processed;
 
-	/* preserve original error even if log finalization is successful */
-	err = bpf_log_attr_finalize(attr_log, &env->log);
-	if (err)
-		ret = err;
-
 	if (ret)
 		goto err_release_maps;
 
@@ -24321,6 +24316,14 @@ skip_full_check:
 	env->prog = __bpf_prog_select_runtime(env, env->prog, &ret);
 
 err_release_maps:
+	/*
+	 * Finalize the log after the runtime is selected, which blinds the
+	 * constants of a prog of one function and can log an error. Preserve
+	 * the original error even if log finalization is successful.
+	 */
+	err = bpf_log_attr_finalize(attr_log, &env->log);
+	if (err)
+		ret = err;
 	if (ret)
 		release_insn_arrays(env);
 	if (!env->prog->aux->used_maps)

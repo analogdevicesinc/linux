@@ -1975,6 +1975,12 @@ struct bpf_prog_aux {
 	 * using the linfo_idx.
 	 */
 	void **jited_linfo;
+	/*
+	 * linfo->insn_off of the prog before constant blinding, while the
+	 * blinded clone is JITed. The kernel puts it back when it falls back
+	 * to the prog that isn't blinded.
+	 */
+	u32 *linfo_unblinded;
 	u32 func_info_cnt;
 	u32 nr_linfo;
 	/* subprog can use linfo_idx to access its first linfo and

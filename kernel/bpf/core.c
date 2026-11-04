@@ -1765,6 +1765,17 @@ static void bpf_prog_clone_free(struct bpf_prog *fp)
 
 void bpf_jit_prog_release_other(struct bpf_prog *fp, struct bpf_prog *fp_other)
 {
+	struct bpf_prog_aux *aux = fp->aux;
+	u32 i;
+
+	/* The line info moved with the blinded insns, move it back. */
+	if (aux->linfo_unblinded && !fp->blinded) {
+		for (i = 0; i < aux->nr_linfo; i++)
+			aux->linfo[i].insn_off = aux->linfo_unblinded[i];
+	}
+	kvfree(aux->linfo_unblinded);
+	aux->linfo_unblinded = NULL;
+
 	/* We have to repoint aux->prog to self, as we don't
 	 * know whether fp here is the clone or the original.
 	 */
@@ -1811,6 +1822,7 @@ static struct bpf_prog *bpf_patch_list_apply(struct bpf_prog *prog, struct bpf_p
 struct bpf_prog *bpf_jit_blind_constants(struct bpf_verifier_env *env, struct bpf_prog *prog)
 {
 	struct bpf_insn insn_buff[16], aux[2], *last;
+	u32 *linfo_unblinded = NULL, nr_linfo;
 	struct bpf_patch_list pl = {};
 	struct bpf_prog *clone, *tmp;
 	struct bpf_insn *insn;
@@ -1819,9 +1831,22 @@ struct bpf_prog *bpf_jit_blind_constants(struct bpf_verifier_env *env, struct bp
 	if (WARN_ON_ONCE(env && env->prog != prog))
 		return ERR_PTR(-EINVAL);
 
+	/* keep where the line info is, for a fallback to 'prog' */
+	nr_linfo = prog->aux->nr_linfo;
+	if (nr_linfo) {
+		linfo_unblinded = kvmalloc_array(nr_linfo, sizeof(*linfo_unblinded),
+						 GFP_USER);
+		if (!linfo_unblinded)
+			return ERR_PTR(-ENOMEM);
+		for (i = 0; i < nr_linfo; i++)
+			linfo_unblinded[i] = prog->aux->linfo[i].insn_off;
+	}
+
 	clone = bpf_prog_clone_create(prog, GFP_USER);
-	if (!clone)
+	if (!clone) {
+		kvfree(linfo_unblinded);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	/* make sure the patches go to the clone */
 	if (env)
@@ -1886,11 +1911,13 @@ struct bpf_prog *bpf_jit_blind_constants(struct bpf_verifier_env *env, struct bp
 		 * 'clone' is still valid.
 		 */
 		bpf_jit_prog_release_other(prog, clone);
+		kvfree(linfo_unblinded);
 		if (env && fatal_signal_pending(current))
 			return ERR_PTR(-EINTR);
 		return ERR_PTR(err);
 	}
 
+	tmp->aux->linfo_unblinded = linfo_unblinded;
 	tmp->blinded = 1;
 	return tmp;
 }
