@@ -78,6 +78,7 @@ static const char * const supply_names[ES8328_SUPPLY_NUM] = {
 struct es8328_priv {
 	struct regmap *regmap;
 	struct clk *clk;
+	enum es8328_type type;
 	int playback_fs;
 	bool deemph;
 	int mclkdiv2;
@@ -819,6 +820,7 @@ static int es8328_component_probe(struct snd_soc_component *component)
 {
 	struct es8328_priv *es8328;
 	int ret;
+	const struct regmap_config *config;
 
 	es8328 = snd_soc_component_get_drvdata(component);
 
@@ -835,8 +837,61 @@ static int es8328_component_probe(struct snd_soc_component *component)
 		goto clk_fail;
 	}
 
+	/*
+	 * Put the codec into a known state: the supplies may already be on,
+	 * a warm reboot or a kexec keeps the registers alive, and a driver
+	 * rebind leaves whatever the previous instance programmed.  Without
+	 * this every read-modify-write in the driver works from a value the
+	 * hardware never had.  SCP_RESET is not self-clearing.
+	 */
+	ret = snd_soc_component_write(component, ES8328_CONTROL1,
+				      ES8328_CONTROL1_SCP_RESET);
+	if (ret) {
+		dev_err(component->dev, "unable to reset the codec\n");
+		goto err_clk;
+	}
+	usleep_range(1000, 5000);
+	ret = snd_soc_component_write(component, ES8328_CONTROL1,
+				      ES8328_CONTROL1_ENREF |
+				      ES8328_CONTROL1_VMIDSEL_500k);
+	if (ret) {
+		dev_err(component->dev, "unable to clear the codec reset\n");
+		goto err_clk;
+	}
+
+	/*
+	 * The reset put the codec back to its documented power-on values, so
+	 * rebuild the cache from the same table instead of dropping it: a
+	 * drop would send every later read-modify-write to the bus, and this
+	 * part does not read back reliably, registers 0x28 and 0x29 return
+	 * their power-on value whatever has been written to them.
+	 */
+	config = es8328->type == ES8328_TYPE_ES8388 ? &es8388_regmap_config
+						    : &es8328_regmap_config;
+	ret = regmap_reinit_cache(es8328->regmap, config);
+	if (ret) {
+		dev_err(component->dev, "unable to reinitialise the register cache\n");
+		goto err_clk;
+	}
+
+	/*
+	 * The ES8388 has a single LRCK pin, so the DAC and the ADC must
+	 * share it: without SLRCK the capture path never gets a frame
+	 * clock and records digital silence while playback still works.
+	 * Bit 7 of DAC Control 21 is SLRCK on the ES8388 and LD2MO (left
+	 * DAC to the mono mixer) on the ES8328.
+	 */
+	if (es8328->type == ES8328_TYPE_ES8388) {
+		ret = snd_soc_component_write(component, ES8328_DACCONTROL21,
+					      ES8328_DACCONTROL21_SLRCK);
+		if (ret)
+			goto err_clk;
+	}
+
 	return 0;
 
+err_clk:
+	clk_disable_unprepare(es8328->clk);
 clk_fail:
 	regulator_bulk_disable(ARRAY_SIZE(es8328->supplies),
 			       es8328->supplies);
@@ -855,15 +910,149 @@ static void es8328_remove(struct snd_soc_component *component)
 			       es8328->supplies);
 }
 
+/*
+ * Power-on defaults from the ES8328 datasheet, Revision 1.0, sections
+ * 6.1.1 to 6.3.30.
+ */
+static const struct reg_default es8328_reg_defaults[] = {
+	{ ES8328_CONTROL1,	0x06 },
+	{ ES8328_CONTROL2,	0x1c },
+	{ ES8328_CHIPPOWER,	0xc3 },
+	{ ES8328_ADCPOWER,	0xfc },
+	{ ES8328_DACPOWER,	0xc0 },
+	{ ES8328_CHIPLOPOW1,	0x00 },
+	{ ES8328_CHIPLOPOW2,	0x00 },
+	{ ES8328_ANAVOLMANAG,	0x7c },
+	{ ES8328_MASTERMODE,	0x80 },
+	{ ES8328_ADCCONTROL1,	0x00 },
+	{ ES8328_ADCCONTROL2,	0x00 },
+	{ ES8328_ADCCONTROL3,	0x06 },
+	{ ES8328_ADCCONTROL4,	0x00 },
+	{ ES8328_ADCCONTROL5,	0x06 },
+	{ ES8328_ADCCONTROL6,	0x30 },
+	{ ES8328_ADCCONTROL7,	0x30 },
+	{ ES8328_ADCCONTROL8,	0xc0 },
+	{ ES8328_ADCCONTROL9,	0xc0 },
+	{ ES8328_ADCCONTROL10,	0x38 },
+	{ ES8328_ADCCONTROL11,	0xb0 },
+	{ ES8328_ADCCONTROL12,	0x32 },
+	{ ES8328_ADCCONTROL13,	0x06 },
+	{ ES8328_ADCCONTROL14,	0x00 },
+	{ ES8328_DACCONTROL1,	0x00 },
+	{ ES8328_DACCONTROL2,	0x06 },
+	{ ES8328_DACCONTROL3,	0x32 },
+	{ ES8328_DACCONTROL4,	0xc0 },
+	{ ES8328_DACCONTROL5,	0xc0 },
+	{ ES8328_DACCONTROL6,	0x08 },
+	{ ES8328_DACCONTROL7,	0x06 },
+	{ ES8328_DACCONTROL8,	0x1f },
+	{ ES8328_DACCONTROL9,	0xf7 },
+	{ ES8328_DACCONTROL10,	0xfd },
+	{ ES8328_DACCONTROL11,	0xff },
+	{ ES8328_DACCONTROL12,	0x1f },
+	{ ES8328_DACCONTROL13,	0xf7 },
+	{ ES8328_DACCONTROL14,	0xfd },
+	{ ES8328_DACCONTROL15,	0xff },
+	{ ES8328_DACCONTROL16,	0x00 },
+	{ ES8328_DACCONTROL17,	0x38 },
+	{ ES8328_DACCONTROL18,	0x38 },
+	{ ES8328_DACCONTROL19,	0x38 },
+	{ ES8328_DACCONTROL20,	0x38 },
+	{ ES8328_DACCONTROL21,	0x38 },
+	{ ES8328_DACCONTROL22,	0x38 },
+	{ ES8328_DACCONTROL23,	0x00 },
+	{ ES8328_LOUT1VOL,	0x00 },
+	{ ES8328_ROUT1VOL,	0x00 },
+	{ ES8328_LOUT2VOL,	0x00 },
+	{ ES8328_ROUT2VOL,	0x00 },
+	{ ES8328_MONOOUTVOL,	0x00 },
+	{ ES8328_DACCONTROL29,	0x00 },
+	{ ES8328_DACCONTROL30,	0x00 },
+};
+
+/*
+ * Power-on defaults from the ES8388 datasheet, Revision 5.0, sections
+ * 6.1.1 to 6.3.30.
+ */
+static const struct reg_default es8388_reg_defaults[] = {
+	{ ES8328_CONTROL1,	0x06 },
+	{ ES8328_CONTROL2,	0x5c },
+	{ ES8328_CHIPPOWER,	0xc3 },
+	{ ES8328_ADCPOWER,	0xfc },
+	{ ES8328_DACPOWER,	0xc0 },
+	{ ES8328_CHIPLOPOW1,	0x00 },
+	{ ES8328_CHIPLOPOW2,	0x00 },
+	{ ES8328_ANAVOLMANAG,	0x7c },
+	{ ES8328_MASTERMODE,	0x80 },
+	{ ES8328_ADCCONTROL1,	0x00 },
+	{ ES8328_ADCCONTROL2,	0x00 },
+	{ ES8328_ADCCONTROL3,	0x02 },
+	{ ES8328_ADCCONTROL4,	0x00 },
+	{ ES8328_ADCCONTROL5,	0x06 },
+	{ ES8328_ADCCONTROL6,	0x30 },
+	{ ES8328_ADCCONTROL7,	0x20 },
+	{ ES8328_ADCCONTROL8,	0xc0 },
+	{ ES8328_ADCCONTROL9,	0xc0 },
+	{ ES8328_ADCCONTROL10,	0x38 },
+	{ ES8328_ADCCONTROL11,	0xb0 },
+	{ ES8328_ADCCONTROL12,	0x32 },
+	{ ES8328_ADCCONTROL13,	0x06 },
+	{ ES8328_ADCCONTROL14,	0x00 },
+	{ ES8328_DACCONTROL1,	0x00 },
+	{ ES8328_DACCONTROL2,	0x06 },
+	{ ES8328_DACCONTROL3,	0x22 },
+	{ ES8328_DACCONTROL4,	0xc0 },
+	{ ES8328_DACCONTROL5,	0xc0 },
+	{ ES8328_DACCONTROL6,	0x08 },
+	{ ES8328_DACCONTROL7,	0x00 },
+	{ ES8328_DACCONTROL8,	0x1f },
+	{ ES8328_DACCONTROL9,	0xf7 },
+	{ ES8328_DACCONTROL10,	0xfd },
+	{ ES8328_DACCONTROL11,	0xff },
+	{ ES8328_DACCONTROL12,	0x1f },
+	{ ES8328_DACCONTROL13,	0xf7 },
+	{ ES8328_DACCONTROL14,	0xfd },
+	{ ES8328_DACCONTROL15,	0xff },
+	{ ES8328_DACCONTROL16,	0x00 },
+	{ ES8328_DACCONTROL17,	0x38 },
+	{ ES8328_DACCONTROL18,	0x28 },
+	{ ES8328_DACCONTROL19,	0x28 },
+	{ ES8328_DACCONTROL20,	0x38 },
+	{ ES8328_DACCONTROL21,	0x00 },
+	{ ES8328_DACCONTROL22,	0x00 },
+	{ ES8328_DACCONTROL23,	0x00 },
+	{ ES8328_LOUT1VOL,	0x00 },
+	{ ES8328_ROUT1VOL,	0x00 },
+	{ ES8328_LOUT2VOL,	0x00 },
+	{ ES8328_ROUT2VOL,	0x00 },
+	{ ES8328_MONOOUTVOL,	0x00 },
+	{ ES8328_DACCONTROL29,	0xaa },
+	{ ES8328_DACCONTROL30,	0xaa },
+};
+
 const struct regmap_config es8328_regmap_config = {
-	.reg_bits	= 8,
-	.val_bits	= 8,
-	.max_register	= ES8328_REG_MAX,
-	.cache_type	= REGCACHE_MAPLE,
-	.use_single_read = true,
-	.use_single_write = true,
+	.reg_bits		= 8,
+	.val_bits		= 8,
+	.max_register		= ES8328_REG_MAX,
+	.cache_type		= REGCACHE_MAPLE,
+	.reg_defaults		= es8328_reg_defaults,
+	.num_reg_defaults	= ARRAY_SIZE(es8328_reg_defaults),
+	.use_single_read	= true,
+	.use_single_write	= true,
 };
 EXPORT_SYMBOL_GPL(es8328_regmap_config);
+
+const struct regmap_config es8388_regmap_config = {
+	.reg_bits		= 8,
+	.val_bits		= 8,
+	.max_register		= ES8328_REG_MAX,
+	.cache_type		= REGCACHE_MAPLE,
+	.reg_defaults		= es8388_reg_defaults,
+	.num_reg_defaults	= ARRAY_SIZE(es8388_reg_defaults),
+	.use_single_read	= true,
+	.use_single_write	= true,
+};
+EXPORT_SYMBOL_GPL(es8388_regmap_config);
 
 static const struct snd_soc_component_driver es8328_component_driver = {
 	.probe			= es8328_component_probe,
@@ -883,7 +1072,8 @@ static const struct snd_soc_component_driver es8328_component_driver = {
 	.endianness		= 1,
 };
 
-int es8328_probe(struct device *dev, struct regmap *regmap)
+int es8328_probe(struct device *dev, struct regmap *regmap,
+		 enum es8328_type type)
 {
 	struct es8328_priv *es8328;
 	int ret;
@@ -897,6 +1087,7 @@ int es8328_probe(struct device *dev, struct regmap *regmap)
 		return -ENOMEM;
 
 	es8328->regmap = regmap;
+	es8328->type = type;
 
 	es8328->clk = devm_clk_get(dev, NULL);
 	if (IS_ERR(es8328->clk))

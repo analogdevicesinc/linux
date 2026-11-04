@@ -75,6 +75,7 @@ struct rt5663_priv {
 
 	int jack_type;
 	unsigned int irq;
+	bool suspend_irq_disabled;
 };
 
 static const struct reg_sequence rt5663_patch_list[] = {
@@ -3187,8 +3188,10 @@ static int rt5663_suspend(struct snd_soc_component *component)
 {
 	struct rt5663_priv *rt5663 = snd_soc_component_get_drvdata(component);
 
-	if (rt5663->irq)
+	if (rt5663->irq && !rt5663->suspend_irq_disabled) {
 		disable_irq(rt5663->irq);
+		rt5663->suspend_irq_disabled = true;
+	}
 
 	cancel_delayed_work_sync(&rt5663->jack_detect_work);
 	cancel_delayed_work_sync(&rt5663->jd_unplug_work);
@@ -3202,14 +3205,22 @@ static int rt5663_suspend(struct snd_soc_component *component)
 static int rt5663_resume(struct snd_soc_component *component)
 {
 	struct rt5663_priv *rt5663 = snd_soc_component_get_drvdata(component);
+	int ret;
 
 	regcache_cache_only(rt5663->regmap, false);
-	regcache_sync(rt5663->regmap);
+	ret = regcache_sync(rt5663->regmap);
+	if (ret) {
+		regcache_cache_only(rt5663->regmap, true);
+		regcache_mark_dirty(rt5663->regmap);
+		return ret;
+	}
 
 	rt5663_irq(0, rt5663);
 
-	if (rt5663->irq)
+	if (rt5663->suspend_irq_disabled) {
+		rt5663->suspend_irq_disabled = false;
 		enable_irq(rt5663->irq);
+	}
 
 	return 0;
 }

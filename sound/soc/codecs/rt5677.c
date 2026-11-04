@@ -885,6 +885,9 @@ static void rt5677_dsp_work(struct work_struct *work)
 	bool enable = rt5677->dsp_vad_en;
 	int i, val;
 
+	/* DAPM may request VAD even after component resume has failed. */
+	if (READ_ONCE(rt5677->cache_restore_pending))
+		return;
 
 	dev_info(rt5677->component->dev, "DSP VAD: enable=%d, activity=%d\n",
 			enable, activity);
@@ -4939,10 +4942,14 @@ static int rt5677_suspend(struct snd_soc_component *component)
 
 	if (rt5677->irq) {
 		cancel_delayed_work_sync(&rt5677->resume_irq_check);
-		disable_irq(rt5677->irq);
+		if (!rt5677->suspend_irq_disabled) {
+			disable_irq(rt5677->irq);
+			rt5677->suspend_irq_disabled = true;
+		}
 	}
 
 	if (!rt5677->dsp_vad_en) {
+		WRITE_ONCE(rt5677->cache_restore_pending, true);
 		regcache_cache_only(rt5677->regmap, true);
 		regcache_mark_dirty(rt5677->regmap);
 
@@ -4956,8 +4963,11 @@ static int rt5677_suspend(struct snd_soc_component *component)
 static int rt5677_resume(struct snd_soc_component *component)
 {
 	struct rt5677_priv *rt5677 = snd_soc_component_get_drvdata(component);
+	bool restore_cache = !rt5677->dsp_vad_en ||
+			     READ_ONCE(rt5677->cache_restore_pending);
+	int ret;
 
-	if (!rt5677->dsp_vad_en) {
+	if (restore_cache) {
 		rt5677->pll_src = 0;
 		rt5677->pll_in = 0;
 		rt5677->pll_out = 0;
@@ -4967,11 +4977,28 @@ static int rt5677_resume(struct snd_soc_component *component)
 			msleep(10);
 
 		regcache_cache_only(rt5677->regmap, false);
-		regcache_sync(rt5677->regmap);
+		ret = regcache_sync(rt5677->regmap);
+		if (ret) {
+			WRITE_ONCE(rt5677->cache_restore_pending, true);
+			regcache_cache_only(rt5677->regmap, true);
+			regcache_mark_dirty(rt5677->regmap);
+			gpiod_set_value_cansleep(rt5677->reset_pin, 1);
+			gpiod_set_value_cansleep(rt5677->pow_ldo2, 0);
+			return ret;
+		}
+		WRITE_ONCE(rt5677->cache_restore_pending, false);
+		if (rt5677->dsp_vad_en) {
+			/* Allow MCLK to settle, as when leaving bias OFF. */
+			schedule_delayed_work(&rt5677->dsp_work,
+					     msecs_to_jiffies(1000));
+		}
 	}
 
 	if (rt5677->irq) {
-		enable_irq(rt5677->irq);
+		if (rt5677->suspend_irq_disabled) {
+			rt5677->suspend_irq_disabled = false;
+			enable_irq(rt5677->irq);
+		}
 		schedule_delayed_work(&rt5677->resume_irq_check, 0);
 	}
 
@@ -5021,7 +5048,7 @@ static int rt5677_write(void *context, unsigned int reg, unsigned int val)
 			rt5677_dsp_mode_i2c_write(rt5677, reg, val);
 		}
 	} else {
-		regmap_write(rt5677->regmap_physical, reg, val);
+		return regmap_write(rt5677->regmap_physical, reg, val);
 	}
 
 	return 0;

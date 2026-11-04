@@ -6,6 +6,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/err.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
@@ -13,9 +14,9 @@
 #include <linux/mfd/twl4030-audio.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
-#include <linux/of.h>
 #include <linux/pm.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/slab.h>
 #include <sound/core.h>
 #include <sound/initval.h>
@@ -198,41 +199,53 @@ static void twl4030_codec_enable(struct snd_soc_component *component, int enable
 	udelay(10);
 }
 
-static void
-twl4030_get_board_param_values(struct twl4030_board_params *board_params,
-			       struct device_node *node)
+static struct twl4030_board_params *twl4030_get_board_params(struct device *dev)
 {
-	of_property_read_u32(node, "ti,digimic_delay", &board_params->digimic_delay);
-	of_property_read_u32(node, "ti,ramp_delay_value", &board_params->ramp_delay_value);
-	of_property_read_u32(node, "ti,offset_cncl_path", &board_params->offset_cncl_path);
-	board_params->hs_extmute = of_property_read_bool(node, "ti,hs_extmute");
+	struct twl4030_board_params *params;
+	int error;
 
-	if (of_property_present(node, "ti,hs_extmute_gpio"))
-		board_params->hs_extmute = 1;
-}
+	struct fwnode_handle *codec_node __free(fwnode_handle) =
+		device_get_named_child_node(dev->parent, "codec");
+	if (!codec_node)
+		return NULL;
 
-static struct twl4030_board_params*
-twl4030_get_board_params(struct device *dev)
-{
-	struct twl4030_board_params *board_params = NULL;
-	struct device_node *twl4030_codec_node = NULL;
+	params = devm_kzalloc(dev, sizeof(*params), GFP_KERNEL);
+	if (!params)
+		return ERR_PTR(-ENOMEM);
 
-	twl4030_codec_node = of_get_child_by_name(dev->parent->of_node,
-						  "codec");
+	fwnode_property_read_u32(codec_node, "ti,digimic_delay",
+				 &params->digimic_delay);
+	fwnode_property_read_u32(codec_node, "ti,ramp_delay_value",
+				 &params->ramp_delay_value);
+	fwnode_property_read_u32(codec_node, "ti,offset_cncl_path",
+				 &params->offset_cncl_path);
 
-	if (twl4030_codec_node) {
-		board_params = devm_kzalloc(dev,
-					    sizeof(struct twl4030_board_params),
-					    GFP_KERNEL);
-		if (!board_params) {
-			of_node_put(twl4030_codec_node);
-			return ERR_PTR(-ENOMEM);
-		}
-		twl4030_get_board_param_values(board_params, twl4030_codec_node);
-		of_node_put(twl4030_codec_node);
+	/*
+	 * Headset external mute can be controlled either via TWL4030's
+	 * dedicated GPIO6/EXTMUTE pin (enabled by the boolean "ti,hs_extmute"
+	 * property) or via a separate GPIO line ("ti,hs_extmute-gpios" or
+	 * legacy "ti,hs_extmute_gpio"), which implies external mute is active.
+	 */
+	params->hs_extmute = fwnode_property_read_bool(codec_node, "ti,hs_extmute");
+
+	/*
+	 * This will attempt to parse "ti,hs_extmute-gpios" or
+	 * "ti,hs_extmute_gpio".
+	 */
+	params->hs_extmute_gpio = devm_fwnode_gpiod_get_optional(dev, codec_node,
+								 "ti,hs_extmute",
+								 GPIOD_OUT_LOW,
+								 "hs_extmute");
+	error = PTR_ERR_OR_ZERO(params->hs_extmute_gpio);
+	if (error) {
+		dev_err_probe(dev, error, "Failed to get hs_extmute GPIO\n");
+		return ERR_PTR(error);
 	}
 
-	return board_params;
+	if (params->hs_extmute_gpio)
+		params->hs_extmute = 1;
+
+	return params;
 }
 
 static int twl4030_get_hw_params(struct device *dev,
@@ -244,30 +257,19 @@ static int twl4030_get_hw_params(struct device *dev,
 	if (IS_ERR(board_params))
 		return PTR_ERR(board_params);
 
-	if (board_params && board_params->hs_extmute) {
-		board_params->hs_extmute_gpio = devm_gpiod_get_optional(dev,
-									"ti,hs_extmute",
-									GPIOD_OUT_LOW);
-		if (IS_ERR(board_params->hs_extmute_gpio))
-			return dev_err_probe(dev,
-					     PTR_ERR(board_params->hs_extmute_gpio),
-					     "Failed to get hs_extmute GPIO\n");
+	if (board_params && board_params->hs_extmute &&
+	    !board_params->hs_extmute_gpio) {
+		u8 pin_mux;
 
-		if (board_params->hs_extmute_gpio) {
-			gpiod_set_consumer_name(board_params->hs_extmute_gpio, "hs_extmute");
-		} else {
-			u8 pin_mux;
+		dev_info(dev, "use TWL4030 GPIO6\n");
 
-			dev_info(dev, "use TWL4030 GPIO6\n");
-
-			/* Set TWL4030 GPIO6 as EXTMUTE signal */
-			twl_i2c_read_u8(TWL4030_MODULE_INTBR, &pin_mux,
-					TWL4030_PMBR1_REG);
-			pin_mux &= ~TWL4030_GPIO6_PWM0_MUTE(0x03);
-			pin_mux |= TWL4030_GPIO6_PWM0_MUTE(0x02);
-			twl_i2c_write_u8(TWL4030_MODULE_INTBR, pin_mux,
-					 TWL4030_PMBR1_REG);
-		}
+		/* Set TWL4030 GPIO6 as EXTMUTE signal */
+		twl_i2c_read_u8(TWL4030_MODULE_INTBR, &pin_mux,
+				TWL4030_PMBR1_REG);
+		pin_mux &= ~TWL4030_GPIO6_PWM0_MUTE(0x03);
+		pin_mux |= TWL4030_GPIO6_PWM0_MUTE(0x02);
+		twl_i2c_write_u8(TWL4030_MODULE_INTBR, pin_mux,
+				 TWL4030_PMBR1_REG);
 	}
 
 	twl4030->board_params = board_params;

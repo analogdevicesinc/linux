@@ -437,6 +437,7 @@ struct nau8824 {
 	struct clk *mclk;
 	int fs;
 	int irq;
+	bool suspend_irq_disabled;
 	int resume_lock;
 	int micbias_voltage;
 	int vref_impedance;

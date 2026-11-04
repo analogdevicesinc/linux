@@ -6,6 +6,7 @@
 // Author: Yingkun Meng <mengyingkun@loongson.cn>
 //
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
@@ -69,6 +70,7 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 	u32 fs = params_rate(params);
 	u32 bclk_ratio, mclk_ratio;
 	u32 mclk_ratio_frac;
+	u32 mask;
 	u32 val = 0;
 
 	switch (i2s->rev_id) {
@@ -78,10 +80,10 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		mclk_ratio = DIV_ROUND_CLOSEST(clk_rate, (sysclk * 2)) - 1;
 
 		/* According to 2k1000LA user manual, set bits == depth */
-		val |= (bits << 24);
-		val |= (bits << 16);
-		val |= (bclk_ratio << 8);
-		val |= mclk_ratio;
+		val = FIELD_PREP(LS_I2S_CFG_LR_LEN_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_TX_RES_DEPTH_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_BCLK_RATIO_MASK, bclk_ratio) |
+		      FIELD_PREP(LS_I2S_CFG_MCLK_RATIO_MASK, mclk_ratio);
 		regmap_write(i2s->regmap, LS_I2S_CFG, val);
 
 		break;
@@ -92,16 +94,20 @@ static int loongson_i2s_hw_params(struct snd_pcm_substream *substream,
 		mclk_ratio_frac = DIV_ROUND_CLOSEST_ULL(((u64)clk_rate << 16),
 						    sysclk) - (mclk_ratio << 16);
 
-		regmap_read(i2s->regmap, LS_I2S_CFG, &val);
-		val |= (bits << 24);
-		val |= (bclk_ratio << 8);
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-			val |= (bits << 16);
-		else
-			val |= bits;
-		regmap_write(i2s->regmap, LS_I2S_CFG, val);
+		mask = LS_I2S_CFG_LR_LEN_MASK | LS_I2S_CFG_BCLK_RATIO_MASK;
+		val = FIELD_PREP(LS_I2S_CFG_LR_LEN_MASK, bits) |
+		      FIELD_PREP(LS_I2S_CFG_BCLK_RATIO_MASK, bclk_ratio);
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			mask |= LS_I2S_CFG_TX_RES_DEPTH_MASK;
+			val |= FIELD_PREP(LS_I2S_CFG_TX_RES_DEPTH_MASK, bits);
+		} else {
+			mask |= LS_I2S_CFG_RX_RES_DEPTH_MASK;
+			val |= FIELD_PREP(LS_I2S_CFG_RX_RES_DEPTH_MASK, bits);
+		}
+		regmap_update_bits(i2s->regmap, LS_I2S_CFG, mask, val);
 
-		val = (mclk_ratio_frac << 16) | mclk_ratio;
+		val = FIELD_PREP(LS_I2S_CFG1_MCLK_RATIO_FRAC_MASK, mclk_ratio_frac) |
+		      FIELD_PREP(LS_I2S_CFG1_MCLK_RATIO_MASK, mclk_ratio);
 		regmap_write(i2s->regmap, LS_I2S_CFG1, val);
 
 		break;
@@ -179,34 +185,50 @@ static int loongson_i2s_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
 		regmap_update_bits(i2s->regmap, LS_I2S_CTRL, I2S_CTRL_MASTER,
 				   I2S_CTRL_MASTER);
 		ret = loongson_i2s_enable_bclk(i2s);
-		if (ret < 0)
+		if (ret == -ETIMEDOUT)
 			dev_warn(dai->dev, "wait BCLK ready timeout\n");
+		else if (ret)
+			goto err;
 		break;
 	case SND_SOC_DAIFMT_BC_FP:
 		/* Enable MCLK */
 		ret = loongson_i2s_enable_mclk(i2s);
-		if (ret < 0)
+		if (ret == -ETIMEDOUT)
 			dev_warn(dai->dev, "wait MCLK ready timeout\n");
+		else if (ret)
+			goto err;
 		break;
 	case SND_SOC_DAIFMT_BP_FP:
 		/* Enable MCLK */
 		ret = loongson_i2s_enable_mclk(i2s);
-		if (ret < 0)
+		if (ret == -ETIMEDOUT)
 			dev_warn(dai->dev, "wait MCLK ready timeout\n");
+		else if (ret)
+			goto err;
 
 		/* Enable master mode */
 		regmap_update_bits(i2s->regmap, LS_I2S_CTRL, I2S_CTRL_MASTER,
 				   I2S_CTRL_MASTER);
 
 		ret = loongson_i2s_enable_bclk(i2s);
-		if (ret < 0)
+		if (ret == -ETIMEDOUT)
 			dev_warn(dai->dev, "wait BCLK ready timeout\n");
+		else if (ret)
+			goto err;
 		break;
 	default:
-		return -EINVAL;
+		ret = -EINVAL;
+		goto err;
 	}
 
 	return 0;
+
+err:
+	regmap_update_bits(i2s->regmap, LS_I2S_CTRL, I2S_CTRL_MASTER, 0);
+	regmap_update_bits(i2s->regmap, LS_I2S_CTRL, I2S_CTRL_MCLK_EN, 0);
+	regmap_update_bits(i2s->regmap, LS_I2S_CTRL, I2S_CTRL_MSB, 0);
+
+	return ret;
 }
 
 static int loongson_i2s_dai_probe(struct snd_soc_dai *cpu_dai)

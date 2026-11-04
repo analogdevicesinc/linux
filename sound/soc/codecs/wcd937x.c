@@ -8,12 +8,15 @@
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/of_graph.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
+#include <linux/usb/typec_mux.h>
+#include <linux/usb/typec_altmode.h>
 #include <sound/jack.h>
 #include <sound/pcm_params.h>
 #include <sound/pcm.h>
@@ -82,6 +85,13 @@ struct wcd937x_priv {
 	struct regmap *regmap;
 	/* micb setup lock */
 	struct mutex micb_lock;
+	/* typec handling */
+	bool typec_analog_mux;
+#if IS_ENABLED(CONFIG_TYPEC)
+	enum typec_orientation typec_orientation;
+	unsigned long typec_mode;
+	struct typec_switch *typec_switch;
+#endif /* CONFIG_TYPEC */
 	/* mbhc module */
 	struct wcd_mbhc *wcd_mbhc;
 	struct wcd_mbhc_config mbhc_cfg;
@@ -1869,7 +1879,7 @@ static void wcd937x_mbhc_moisture_config(struct snd_soc_component *component)
 {
 	struct wcd937x_priv *wcd937x = snd_soc_component_get_drvdata(component);
 
-	if (wcd937x->mbhc_cfg.moist_rref == R_OFF) {
+	if (wcd937x->mbhc_cfg.moist_rref == R_OFF || wcd937x->typec_analog_mux) {
 		snd_soc_component_write_field(component, WCD937X_MBHC_NEW_CTL_2,
 					      WCD937X_M_RTH_CTL_MASK, R_OFF);
 		return;
@@ -1905,7 +1915,7 @@ static bool wcd937x_mbhc_get_moisture_status(struct snd_soc_component *component
 	struct wcd937x_priv *wcd937x = snd_soc_component_get_drvdata(component);
 	bool ret = false;
 
-	if (wcd937x->mbhc_cfg.moist_rref == R_OFF) {
+	if (wcd937x->mbhc_cfg.moist_rref == R_OFF || wcd937x->typec_analog_mux) {
 		snd_soc_component_write_field(component, WCD937X_MBHC_NEW_CTL_2,
 					      WCD937X_M_RTH_CTL_MASK, R_OFF);
 		goto done;
@@ -2005,6 +2015,7 @@ static int wcd937x_mbhc_init(struct snd_soc_component *component)
 {
 	struct wcd937x_priv *wcd937x = snd_soc_component_get_drvdata(component);
 	struct wcd_mbhc_intr *intr_ids = &wcd937x->intr_ids;
+	struct wcd_mbhc *mbhc;
 
 	intr_ids->mbhc_sw_intr = regmap_irq_get_virq(wcd937x->irq_chip,
 						     WCD937X_IRQ_MBHC_SW_DET);
@@ -2021,9 +2032,12 @@ static int wcd937x_mbhc_init(struct snd_soc_component *component)
 	intr_ids->hph_right_ocp = regmap_irq_get_virq(wcd937x->irq_chip,
 						      WCD937X_IRQ_HPHR_OCP_INT);
 
-	wcd937x->wcd_mbhc = wcd_mbhc_init(component, &mbhc_cb, intr_ids, wcd_mbhc_fields, true);
-	if (IS_ERR(wcd937x->wcd_mbhc))
-		return PTR_ERR(wcd937x->wcd_mbhc);
+	mbhc = wcd_mbhc_init(component, &mbhc_cb, intr_ids, wcd_mbhc_fields, true);
+	if (IS_ERR(mbhc))
+		return PTR_ERR(mbhc);
+
+	/* May be accessed by platform dev typec callbacks, only set if valid */
+	wcd937x->wcd_mbhc = mbhc;
 
 	snd_soc_add_component_controls(component, impedance_detect_controls,
 				       ARRAY_SIZE(impedance_detect_controls));
@@ -2036,8 +2050,11 @@ static int wcd937x_mbhc_init(struct snd_soc_component *component)
 static void wcd937x_mbhc_deinit(struct snd_soc_component *component)
 {
 	struct wcd937x_priv *wcd937x = snd_soc_component_get_drvdata(component);
+	struct wcd_mbhc *mbhc = wcd937x->wcd_mbhc;
 
-	wcd_mbhc_deinit(wcd937x->wcd_mbhc);
+	/* May be accessed by platform dev typec callbacks, clear it first */
+	wcd937x->wcd_mbhc = NULL;
+	wcd_mbhc_deinit(mbhc);
 }
 
 /* END MBHC */
@@ -2634,6 +2651,40 @@ static const struct snd_soc_component_driver soc_codec_dev_wcd937x = {
 	.endianness = 1,
 };
 
+#if IS_ENABLED(CONFIG_TYPEC)
+/* Get USB-C plug orientation to provide swap event for MBHC */
+static int wcd937x_typec_switch_set(struct typec_switch_dev *sw,
+				    enum typec_orientation orientation)
+{
+	struct wcd937x_priv *wcd937x = typec_switch_get_drvdata(sw);
+
+	wcd937x->typec_orientation = orientation;
+
+	return 0;
+}
+
+static int wcd937x_typec_mux_set(struct typec_mux_dev *mux,
+				 struct typec_mux_state *state)
+{
+	struct wcd937x_priv *wcd937x = typec_mux_get_drvdata(mux);
+	unsigned int previous_mode = wcd937x->typec_mode;
+
+	if (!wcd937x->wcd_mbhc)
+		return -EINVAL;
+
+	if (wcd937x->typec_mode != state->mode) {
+		wcd937x->typec_mode = state->mode;
+
+		if (wcd937x->typec_mode == TYPEC_MODE_AUDIO)
+			return wcd_mbhc_typec_report_plug(wcd937x->wcd_mbhc);
+		else if (previous_mode == TYPEC_MODE_AUDIO)
+			return wcd_mbhc_typec_report_unplug(wcd937x->wcd_mbhc);
+	}
+
+	return 0;
+}
+#endif /* CONFIG_TYPEC */
+
 static bool wcd937x_swap_gnd_mic(struct snd_soc_component *component)
 {
 	int value;
@@ -2643,6 +2694,13 @@ static bool wcd937x_swap_gnd_mic(struct snd_soc_component *component)
 
 	value = gpiod_get_value(wcd937x->us_euro_gpio);
 	gpiod_set_value(wcd937x->us_euro_gpio, !value);
+
+#if IS_ENABLED(CONFIG_TYPEC)
+	if (wcd937x->typec_analog_mux && wcd937x->typec_switch)
+		typec_switch_set(wcd937x->typec_switch,
+				 wcd937x->typec_orientation == TYPEC_ORIENTATION_REVERSE ?
+					TYPEC_ORIENTATION_NORMAL : TYPEC_ORIENTATION_REVERSE);
+#endif /* CONFIG_TYPEC */
 
 	return true;
 }
@@ -2761,10 +2819,24 @@ static int wcd937x_bind(struct device *dev)
 	/* Give the SDW subdevices some more time to settle */
 	usleep_range(5000, 5010);
 
+#if IS_ENABLED(CONFIG_TYPEC)
+	/*
+	 * Get the USB Type-C switch to send GND/MIC swap events.
+	 * typec_switch is fetched now to avoid a probe deadlock since
+	 * the switch depends on the typec_mux register in wcd937x_probe()
+	 */
+	if (wcd937x->typec_analog_mux) {
+		wcd937x->typec_switch = fwnode_typec_switch_get(dev->fwnode);
+		if (IS_ERR(wcd937x->typec_switch))
+			return dev_err_probe(dev, PTR_ERR(wcd937x->typec_switch),
+					     "failed to acquire orientation-switch\n");
+	}
+#endif /* CONFIG_TYPEC */
+
 	ret = component_bind_all(dev, wcd937x);
 	if (ret) {
 		dev_err(dev, "Slave bind failed, ret = %d\n", ret);
-		return ret;
+		goto err_put_typec_switch;
 	}
 
 	wcd937x->rxdev = of_sdw_find_device_by_node(wcd937x->rxnode);
@@ -2852,6 +2924,12 @@ err_put_rxdev:
 	put_device(wcd937x->rxdev);
 err_component_unbind:
 	component_unbind_all(dev, wcd937x);
+err_put_typec_switch:
+#if IS_ENABLED(CONFIG_TYPEC)
+	if (wcd937x->typec_analog_mux)
+		typec_switch_put(wcd937x->typec_switch);
+#endif /* CONFIG_TYPEC */
+
 	return ret;
 }
 
@@ -2867,12 +2945,71 @@ static void wcd937x_unbind(struct device *dev)
 	mutex_destroy(&wcd937x->micb_lock);
 	put_device(wcd937x->txdev);
 	put_device(wcd937x->rxdev);
+#if IS_ENABLED(CONFIG_TYPEC)
+	if (wcd937x->typec_analog_mux)
+		typec_switch_put(wcd937x->typec_switch);
+#endif /* CONFIG_TYPEC */
 }
 
 static const struct component_master_ops wcd937x_comp_ops = {
 	.bind = wcd937x_bind,
 	.unbind = wcd937x_unbind,
 };
+
+#if IS_ENABLED(CONFIG_TYPEC)
+static void wcd937x_typec_mux_unregister(void *data)
+{
+	struct typec_mux_dev *typec_mux = data;
+
+	typec_mux_unregister(typec_mux);
+}
+
+static void wcd937x_typec_switch_unregister(void *data)
+{
+	struct typec_switch_dev *typec_sw = data;
+
+	typec_switch_unregister(typec_sw);
+}
+
+static int wcd937x_add_typec(struct wcd937x_priv *wcd937x, struct device *dev)
+{
+	int ret;
+	struct typec_mux_dev *typec_mux;
+	struct typec_switch_dev *typec_sw;
+	struct typec_mux_desc mux_desc = {
+		.drvdata = wcd937x,
+		.fwnode = dev_fwnode(dev),
+		.set = wcd937x_typec_mux_set,
+	};
+	struct typec_switch_desc sw_desc = {
+		.drvdata = wcd937x,
+		.fwnode = dev_fwnode(dev),
+		.set = wcd937x_typec_switch_set,
+	};
+
+	typec_mux = typec_mux_register(dev, &mux_desc);
+	if (IS_ERR(typec_mux))
+		return dev_err_probe(dev, PTR_ERR(typec_mux),
+				     "failed to register typec mux\n");
+
+	ret = devm_add_action_or_reset(dev, wcd937x_typec_mux_unregister,
+				       typec_mux);
+	if (ret)
+		return ret;
+
+	typec_sw = typec_switch_register(dev, &sw_desc);
+	if (IS_ERR(typec_sw))
+		return dev_err_probe(dev, PTR_ERR(typec_sw),
+				     "failed to register typec switch\n");
+
+	ret = devm_add_action_or_reset(dev, wcd937x_typec_switch_unregister,
+				       typec_sw);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+#endif
 
 static int wcd937x_add_slave_components(struct wcd937x_priv *wcd937x,
 					struct device *dev,
@@ -2907,6 +3044,9 @@ static int wcd937x_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct wcd937x_priv *wcd937x;
 	struct wcd_mbhc_config *cfg;
+#if IS_ENABLED(CONFIG_TYPEC)
+	struct device_node *np __free(device_node) = NULL;
+#endif /* CONFIG_TYPEC */
 	int ret;
 
 	wcd937x = devm_kzalloc(dev, sizeof(*wcd937x), GFP_KERNEL);
@@ -2950,6 +3090,22 @@ static int wcd937x_probe(struct platform_device *pdev)
 	cfg->hph_thr = 50;
 
 	wcd_dt_parse_mbhc_data(dev, &wcd937x->mbhc_cfg);
+
+#if IS_ENABLED(CONFIG_TYPEC)
+	/*
+	 * If the node has a port and a valid remote endpoint,
+	 * consider HP lines as connected to a USB-C SBU mux
+	 */
+	np = of_graph_get_remote_node(dev->of_node, 0, 0);
+	if (np) {
+		wcd937x->typec_analog_mux = true;
+		cfg->typec_analog_mux = true;
+
+		ret = wcd937x_add_typec(wcd937x, dev);
+		if (ret)
+			return ret;
+	}
+#endif /* CONFIG_TYPEC */
 
 	ret = wcd937x_add_slave_components(wcd937x, dev, &match);
 	if (ret)

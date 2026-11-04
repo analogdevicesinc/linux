@@ -2021,6 +2021,47 @@ struct snd_kcontrol *snd_soc_cnew(const struct snd_kcontrol_new *_template,
 }
 EXPORT_SYMBOL_GPL(snd_soc_cnew);
 
+/*
+ * Two controls that write part of the same register field each change the
+ * other. Identical fields are allowed, as some drivers expose one field
+ * under two names.
+ */
+static void soc_check_control_overlap(struct snd_card *card,
+				      struct device *dev,
+				      struct snd_kcontrol *new)
+{
+	struct snd_soc_control_field a[2], b[2];
+	struct snd_kcontrol *kctl;
+	int na, nb, i, j;
+
+	na = snd_soc_control_fields(new, a);
+	if (!na)
+		return;
+
+	guard(rwsem_read)(&card->controls_rwsem);
+
+	list_for_each_entry(kctl, &card->controls, list) {
+		if (kctl->private_data != new->private_data)
+			continue;
+
+		nb = snd_soc_control_fields(kctl, b);
+		for (i = 0; i < na; i++) {
+			for (j = 0; j < nb; j++) {
+				if (a[i].reg != b[j].reg ||
+				    a[i].reg == SND_SOC_NOPM ||
+				    !(a[i].mask & b[j].mask) ||
+				    a[i].mask == b[j].mask)
+					continue;
+
+				dev_warn(dev,
+					 "ASoC: %s (%#x) overlaps %s (%#x) in register %#x\n",
+					 new->id.name, a[i].mask, kctl->id.name,
+					 b[j].mask, a[i].reg);
+			}
+		}
+	}
+}
+
 int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 			 const struct snd_kcontrol_new *controls, int num_controls,
 			 const char *prefix, void *data)
@@ -2029,8 +2070,14 @@ int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 
 	for (i = 0; i < num_controls; i++) {
 		const struct snd_kcontrol_new *control = &controls[i];
-		int err = snd_ctl_add(card, snd_soc_cnew(control, data,
-							 control->name, prefix));
+		struct snd_kcontrol *kctl;
+		int err;
+
+		kctl = snd_soc_cnew(control, data, control->name, prefix);
+		if (kctl)
+			soc_check_control_overlap(card, dev, kctl);
+
+		err = snd_ctl_add(card, kctl);
 		if (err < 0) {
 			dev_err(dev, "ASoC: Failed to add %s: %d\n",
 				control->name, err);
