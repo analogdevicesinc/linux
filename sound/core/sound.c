@@ -184,6 +184,18 @@ static int snd_find_free_minor(int type, struct snd_card *card, int dev)
 	if (type == SNDRV_DEVICE_TYPE_TIMER)
 		return SNDRV_MINOR_TIMER;
 
+	switch (type) {
+	case SNDRV_DEVICE_TYPE_CONTROL:
+	case SNDRV_DEVICE_TYPE_HWDEP:
+	case SNDRV_DEVICE_TYPE_RAWMIDI:
+	case SNDRV_DEVICE_TYPE_PCM_PLAYBACK:
+	case SNDRV_DEVICE_TYPE_PCM_CAPTURE:
+	case SNDRV_DEVICE_TYPE_COMPRESS:
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	for (minor = 0; minor < ARRAY_SIZE(snd_minors); ++minor) {
 		/* skip static minors still used for module auto loading */
 		if (SNDRV_MINOR_DEVICE(minor) == SNDRV_MINOR_CONTROL)
