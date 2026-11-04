@@ -57,12 +57,19 @@
 {% set cam_addr_padded = ("0000" ~ cam_addr_hex)[-4:] %}
 {% set adapter = platform_cfg.sensor_i2c_base + ser_idx %}
 			cam_module{{mod_idx}}: module{{mod_idx}} {
-				badge = "gmsl_{{cam_drv}}_{{mod_idx}}";
+{#- Argus picks the NITO file by sensor model and the knob set inside it by the
+    last part of the badge (<board>_<position>_<module>). Default to NVIDIA's
+    module names for sensors that have a NITO file in nvidia-l4t-camera. -#}
+{% set nito_modules = {'imx219': 'RBP194'} %}
+{% set default_badge = ('adi_' ~ positions[ser_idx] ~ '_' ~ nito_modules[cam_drv]) if cam_drv in nito_modules else ('gmsl_' ~ cam_drv ~ '_' ~ mod_idx) %}
+				badge = "{{cam_cfg.badge | d(default_badge)}}";
 				position = "{{positions[ser_idx]}}";
 				orientation = "1";
 				cam_module{{mod_idx}}_drivernode0: drivernode0 {
 					pcl_id = "v4l2_sensor";
 					devname = "{{cam_drv}} {{adapter}}-{{cam_addr_padded}}";
+					/* tegra_camera_platform creates sysfs-device-tree from this */
+					sysfs-device-tree-target = <&{{des_label}}_ser_{{ser_idx}}_cam_{{cam_idx}}>;
 					proc-device-tree = "/proc/device-tree/bus@0/cam_i2cmux/i2c@{{mux_ch}}/gmsl-deserializer@{{des_addr_hex}}/i2c-atr/i2c@{{ser_idx}}/gmsl-serializer@{{ser_addr_hex}}/i2c-atr/i2c@0/{{cam_drv}}@{{cam_addr_hex}}";
 				};
 			};
