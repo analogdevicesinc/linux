@@ -31,6 +31,7 @@
 #include "xe_exec_queue.h"
 #include "xe_gt.h"
 #include "xe_migrate.h"
+#include "xe_module.h"
 #include "xe_pagefault.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -272,8 +273,15 @@ int xe_vm_add_compute_exec_queue(struct xe_vm *vm, struct xe_exec_queue *q)
 	 * Check to see if a preemption on VM is in flight or userptr
 	 * invalidation, if so trigger this preempt fence to sync state with
 	 * other preempt fences on the VM.
+	 *
+	 * Also trigger it if eviction or rebinding is pending. BOs evicted
+	 * before the first exec queue was added had no preempt fence to
+	 * trigger. Suspend this queue until the rebind worker restores
+	 * the mappings.
 	 */
-	wait = __xe_vm_userptr_needs_repin(vm) || preempt_fences_waiting(vm);
+	wait = __xe_vm_userptr_needs_repin(vm) || preempt_fences_waiting(vm) ||
+		!list_empty(&vm->gpuvm.evict.list) ||
+		!list_empty(&vm->rebind_list);
 	if (wait)
 		dma_fence_enable_signaling(pfence);
 
@@ -701,7 +709,7 @@ static void xe_vm_clear_fault_entries(struct xe_vm *vm)
 	vm->faults.len = 0;
 }
 
-static int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
+static noinline int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
 {
 	int i;
 
@@ -1269,7 +1277,14 @@ static void vma_destroy_cb(struct dma_fence *fence,
 	struct xe_vma *vma = container_of(cb, struct xe_vma, destroy_cb);
 
 	INIT_WORK(&vma->destroy_work, vma_destroy_work_func);
-	queue_work(system_dfl_wq, &vma->destroy_work);
+
+	/*
+	 * The destroy work puts a vm reference which may put the last
+	 * device reference. Hence we can't queue this work on the device
+	 * destroy queue since that may deadlock. Use the module-wide
+	 * destroy queue.
+	 */
+	xe_destroy_wq_queue(&vma->destroy_work);
 }
 
 static void xe_vm_assert_write_mode_or_garbage_collector(struct xe_vm *vm)
@@ -2071,8 +2086,12 @@ static void xe_vm_free(struct drm_gpuvm *gpuvm)
 {
 	struct xe_vm *vm = container_of(gpuvm, struct xe_vm, gpuvm);
 
-	/* To destroy the VM we need to be able to sleep */
-	queue_work(system_dfl_wq, &vm->destroy_work);
+	/*
+	 * To destroy the VM we need to be able to sleep.
+	 * drm_gpuvm keeps at least one device reference at this
+	 * point so xe->destroy_wq must still be alive.
+	 */
+	queue_work(vm->xe->destroy_wq, &vm->destroy_work);
 }
 
 struct xe_vm *xe_vm_lookup(struct xe_file *xef, u32 id)
@@ -3800,14 +3819,15 @@ static int vm_bind_ioctl_check_args(struct xe_device *xe, struct xe_vm *vm,
 
 		pat_index = array_index_nospec(pat_index, xe->pat.n_entries);
 		(*bind_ops)[i].pat_index = pat_index;
-		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
-		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
-		if (XE_IOCTL_DBG(xe, !coh_mode)) { /* hw reserved */
+		if (XE_IOCTL_DBG(xe, !xe_pat_index_is_valid(xe, pat_index))) {
 			err = -EINVAL;
 			goto free_bind_ops;
 		}
 
-		if (XE_WARN_ON(coh_mode > XE_COH_2WAY)) {
+		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
+		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
+
+		if (XE_IOCTL_DBG(xe, xe_pat_wa_14026539277_reserved(xe, pat_index))) {
 			err = -EINVAL;
 			goto free_bind_ops;
 		}

@@ -9,10 +9,57 @@
 #include <linux/ktime.h>
 #include <linux/mutex.h>
 
+#include "regs/xe_reg_defs.h"
 #include "xe_hw_engine_types.h"
 
 struct xe_device;
 struct xe_gt;
+
+/**
+ * struct xe_reg_desc - Register descriptor struct to make reg list
+ *
+ * This struct is used as descriptor containing reg address and name
+ * of the register to dump its value during coredump for debug purpose.
+ */
+struct xe_reg_desc {
+	union {
+		/** @reg: The register */
+		struct xe_reg reg;
+		/** @mcr_reg: The mcr register */
+		struct xe_reg_mcr mcr_reg;
+	};
+	/** @name: Name of the register */
+	const char *name;
+};
+
+/**
+ * struct xe_reg_desc_list - Struct for register descriptor list
+ *
+ * This struct is used to reference the corresponding reglist of
+ * various component
+ */
+struct xe_reg_desc_list {
+	/** @regs: Pointer to an array of register descriptors. */
+	const struct xe_reg_desc *regs;
+	/** @num_regs: number of registers in the descriptor list*/
+	u32 num_regs;
+};
+
+/**
+ * struct xe_dbg_reg_snapshot - Register snapshot
+ *
+ * This struct contains the register values captured at the time of the crash.
+ * It is used to store the register values in a human-readable format for
+ * debugging purposes.
+ */
+struct xe_dbg_reg_snapshot {
+	/** @desc: register descriptor list. */
+	const struct xe_reg_desc_list *desc;
+	/** @num_regs: Number of registers needed for capture. */
+	u32 num_regs;
+	/** @values: register values*/
+	u32 values[];
+};
 
 /**
  * struct xe_devcoredump_snapshot - Crash snapshot
@@ -35,6 +82,21 @@ struct xe_devcoredump_snapshot {
 
 	/** @gt: Affected GT, used by forcewake for delayed capture */
 	struct xe_gt *gt;
+
+	/** @gt_fuse: Fuse snapshot */
+	struct xe_dbg_reg_snapshot *gt_fuse;
+	/** @media_fuse: Media Fuse snapshot */
+	struct xe_dbg_reg_snapshot *media_fuse;
+	/** @gt_rpm: GT RPM snapshot */
+	struct xe_dbg_reg_snapshot *gt_rpm;
+	/** @media_gt_rpm: Media GT RPM snapshot */
+	struct xe_dbg_reg_snapshot *media_gt_rpm;
+
+	/** @gt_guc_reg: gt guc reg snapshot */
+	struct xe_dbg_reg_snapshot *gt_guc_reg;
+	/** @media_gt_guc_reg: media gt guc reg snapshot */
+	struct xe_dbg_reg_snapshot *media_gt_guc_reg;
+
 	/** @work: Workqueue for deferred capture outside of signaling context */
 	struct work_struct work;
 
@@ -45,6 +107,11 @@ struct xe_devcoredump_snapshot {
 		/** @guc.log: GuC log snapshot */
 		struct xe_guc_log_snapshot *log;
 	} guc;
+
+	/** @gam_pf_report: GAM PF report snapshot */
+	struct xe_dbg_reg_snapshot *gam_pf_report;
+	/** @ns: Node status snapshot */
+	struct xe_dbg_reg_snapshot *ns;
 
 	/** @ge: GuC Submission Engine snapshot */
 	struct xe_guc_submit_exec_queue_snapshot *ge;

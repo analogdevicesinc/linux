@@ -14,6 +14,24 @@
 struct xe_bo;
 
 /**
+ * struct xe_guc_dump_cache - cached compressed copy of a dump blob
+ *
+ * A snapshot is printed more than once: __xe_devcoredump_read() walks it first
+ * with a NULL buffer to measure the output size, then again - once per chunk -
+ * to fill the user buffer. Compressing on every pass would be both wasteful and
+ * unsafe, as any difference between the measured size and the emitted bytes
+ * corrupts the dump. So compress at most once and replay the result.
+ */
+struct xe_guc_dump_cache {
+	/** @data: compressed bytes, allocation padded up to a u32 boundary */
+	char *data;
+	/** @size: number of valid compressed bytes in @data */
+	size_t size;
+	/** @attempted: compression has been attempted; @data is final either way */
+	bool attempted;
+};
+
+/**
  * struct xe_guc_log_snapshot:
  * Capture of the GuC log plus various state useful for decoding the log
  */
@@ -36,6 +54,8 @@ struct xe_guc_log_snapshot {
 	struct xe_uc_fw_version ver_want;
 	/** @path: Path of GuC firmware blob */
 	const char *path;
+	/** @dump_cache: compressed copy of @copy, built on first print */
+	struct xe_guc_dump_cache dump_cache;
 };
 
 /**

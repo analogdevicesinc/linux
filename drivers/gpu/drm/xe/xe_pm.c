@@ -186,7 +186,7 @@ int xe_pm_suspend(struct xe_device *xe)
 	if (err)
 		goto err;
 
-	xe_late_bind_wait_for_worker_completion(&xe->late_bind);
+	xe_late_bind_pm_suspend(&xe->late_bind);
 
 	for_each_gt(gt, xe, id)
 		xe_gt_suspend_prepare(gt);
@@ -241,15 +241,15 @@ int xe_pm_resume(struct xe_device *xe)
 	drm_dbg(&xe->drm, "Resuming device\n");
 	trace_xe_pm_resume(xe, __builtin_return_address(0));
 
-	for_each_gt(gt, xe, id)
-		xe_gt_idle_disable_c6(gt);
-
 	for_each_tile(tile, xe, id)
 		xe_wa_apply_tile_workarounds(tile);
 
 	err = xe_pcode_ready(xe, true);
 	if (err)
 		return err;
+
+	for_each_gt(gt, xe, id)
+		xe_gt_resume_early(gt);
 
 	xe_display_pm_resume_early(xe);
 
@@ -290,7 +290,7 @@ int xe_pm_resume(struct xe_device *xe)
 	if (IS_VF_CCS_READY(xe))
 		xe_sriov_vf_ccs_register_context(xe);
 
-	xe_late_bind_fw_load(&xe->late_bind);
+	xe_late_bind_pm_resume(&xe->late_bind);
 
 	drm_dbg(&xe->drm, "Device resumed\n");
 	xe_pm_block_end_signalling();
@@ -698,12 +698,12 @@ int xe_pm_runtime_resume(struct xe_device *xe)
 	xe_rpm_lockmap_acquire(xe);
 
 	if (xe->d3cold.allowed) {
-		for_each_gt(gt, xe, id)
-			xe_gt_idle_disable_c6(gt);
-
 		err = xe_pcode_ready(xe, true);
 		if (err)
 			goto out;
+
+		for_each_gt(gt, xe, id)
+			xe_gt_resume_early(gt);
 
 		xe_display_pm_resume_early(xe);
 
@@ -751,7 +751,7 @@ int xe_pm_runtime_resume(struct xe_device *xe)
 		xe_sriov_vf_ccs_register_context(xe);
 
 	if (xe->d3cold.allowed)
-		xe_late_bind_fw_load(&xe->late_bind);
+		xe_late_bind_pm_resume(&xe->late_bind);
 
 out:
 	xe_rpm_lockmap_release(xe);

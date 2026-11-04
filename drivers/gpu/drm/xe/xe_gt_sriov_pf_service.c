@@ -114,6 +114,7 @@ static const struct xe_reg ver_35_runtime_regs[] = {
 	XE3P_XPC_GT_GEOMETRY_DSS_3,	/* _MMIO(0x915c) */
 	XE3P_XPC_GT_COMPUTE_DSS_3,	/* _MMIO(0x9160) */
 	SERVICE_COPY_ENABLE,		/* _MMIO(0x9170) */
+	RESOURCE_COPY_ENABLE,		/* _MMIO(0x9174) */
 };
 
 static const struct xe_reg *pick_runtime_regs(struct xe_device *xe, unsigned int *count)

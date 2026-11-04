@@ -15,6 +15,7 @@
 #include "xe_pcode_api.h"
 #include "xe_pcode.h"
 #include "xe_pm.h"
+#include "xe_shrinker.h"
 
 /**
  * DOC: Xe device sysfs
@@ -31,6 +32,12 @@
  *
  * lb_voltage_regulator_version - Voltage regulator version provisioned by late
  * binding. Exposed only if supported by the device.
+ *
+ * shrinker_non_purgeable_seeks - Report/change the cost, relative to
+ * purgeable buffer objects, of recreating non-purgeable buffer objects
+ * reclaimed by the shrinker. Higher values reduce reclaim pressure on
+ * non-purgeable buffer objects. Valid values are 1 to 64. Defaults to
+ * CONFIG_DRM_XE_SHRINKER_NON_PURGEABLE_SEEKS.
  */
 
 static ssize_t
@@ -294,10 +301,53 @@ static const struct attribute_group device_uid_attr_group = {
 	.attrs = device_uid_attrs,
 };
 
+static ssize_t
+shrinker_non_purgeable_seeks_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct xe_device *xe = pdev_to_xe_device(to_pci_dev(dev));
+
+	return sysfs_emit(buf, "%d\n",
+			  xe_shrinker_non_purgeable_seeks(xe->mem.shrinker));
+}
+
+static ssize_t
+shrinker_non_purgeable_seeks_store(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t count)
+{
+	struct xe_device *xe = pdev_to_xe_device(to_pci_dev(dev));
+	unsigned int seeks;
+	int ret;
+
+	ret = kstrtouint(buf, 0, &seeks);
+	if (ret)
+		return ret;
+
+	ret = xe_shrinker_set_non_purgeable_seeks(xe->mem.shrinker, seeks);
+
+	return ret ?: count;
+}
+
+static DEVICE_ATTR_RW(shrinker_non_purgeable_seeks);
+
+static struct attribute *shrinker_attrs[] = {
+	&dev_attr_shrinker_non_purgeable_seeks.attr,
+	NULL
+};
+
+static const struct attribute_group shrinker_attr_group = {
+	.attrs = shrinker_attrs,
+};
+
 int xe_device_sysfs_init(struct xe_device *xe)
 {
 	struct device *dev = xe->drm.dev;
 	int ret;
+
+	ret = devm_device_add_group(dev, &shrinker_attr_group);
+	if (ret)
+		return ret;
 
 	if (xe->d3cold.capable) {
 		ret = devm_device_add_group(dev, &vram_attr_group);

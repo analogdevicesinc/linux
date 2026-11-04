@@ -316,6 +316,11 @@ struct gsc_cpd_entry {
 	u8 reserved[4];
 } __packed;
 
+struct ocode_manifest_data {
+	u16 sdk_api_version;
+	u8 reserved[22];
+} __packed;
+
 struct gsc_manifest_header {
 	u32 header_type; /* 0x4 for manifest type */
 	u32 header_length; /* in dwords */
@@ -331,7 +336,11 @@ struct gsc_manifest_header {
 	struct gsc_version meu_kit_version;
 	u32 meu_manifest_version;
 	u8 general_data[4];
-	u8 reserved3[56];
+	union {
+		u8 ip_specific_data[24];
+		struct ocode_manifest_data ocode_data;
+	};
+	u8 reserved3[32];
 	u32 modulus_size; /* in dwords */
 	u32 exponent_size; /* in dwords */
 } __packed;

@@ -14,6 +14,7 @@
 #include <linux/xarray.h>
 
 #include "abi/guc_communication_ctb_abi.h"
+#include "xe_guc_log_types.h"
 
 struct xe_bo;
 
@@ -75,6 +76,8 @@ struct xe_guc_ct_snapshot {
 	size_t ctb_size;
 	/** @ctb: snapshot of the entire CTB */
 	void *ctb;
+	/** @dump_cache: compressed copy of @ctb, built on first print */
+	struct xe_guc_dump_cache dump_cache;
 };
 
 /**

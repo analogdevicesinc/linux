@@ -849,9 +849,11 @@ static int xe_eu_stall_enable_locked(struct xe_eu_stall_data_stream *stream)
 	if (stream->enabled)
 		return ret;
 
-	stream->enabled = true;
-
 	ret = xe_eu_stall_stream_enable(stream);
+	if (ret)
+		return ret;
+
+	stream->enabled = true;
 
 	queue_delayed_work(gt->eu_stall->buf_ptr_poll_wq,
 			   &stream->buf_poll_work,
