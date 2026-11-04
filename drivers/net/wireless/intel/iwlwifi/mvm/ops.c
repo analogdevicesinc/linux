@@ -986,9 +986,7 @@ static void iwl_mvm_frob_txf(void *ctx, void *buf, size_t buflen)
 	if (iwl_mvm_has_new_tx_api(mvm))
 		return;
 
-	rcu_read_lock();
-	ieee80211_iter_keys_rcu(mvm->hw, NULL, iwl_mvm_frob_txf_key_iter, &txf);
-	rcu_read_unlock();
+	ieee80211_iter_keys_atomic(mvm->hw, NULL, iwl_mvm_frob_txf_key_iter, &txf);
 }
 
 static void iwl_mvm_frob_hcmd(void *ctx, void *hcmd, size_t len)

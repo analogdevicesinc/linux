@@ -5,7 +5,7 @@
  * Copyright 2007	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
  * Copyright(c) 2016 Intel Deutschland GmbH
- * Copyright (C) 2018 - 2023 Intel Corporation
+ * Copyright (C) 2018 - 2023, 2026 Intel Corporation
  */
 
 #include <linux/debugfs.h>
@@ -1221,6 +1221,21 @@ out:
 }
 LINK_STA_OPS(eht_capa);
 
+static ssize_t link_sta_tx_bandwidth_read(struct file *file,
+					  char __user *userbuf,
+					  size_t count, loff_t *ppos)
+{
+	struct link_sta_info *link_sta = file->private_data;
+	char buf[4];
+	int len;
+
+	len = scnprintf(buf, sizeof(buf), "%d\n",
+			link_sta->pub->bandwidth);
+
+	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+}
+LINK_STA_OPS(tx_bandwidth);
+
 #define DEBUGFS_ADD(name) \
 	debugfs_create_file(#name, 0400, \
 		sta->debugfs_dir, sta, &sta_ ##name## _ops)
@@ -1315,6 +1330,7 @@ void ieee80211_link_sta_debugfs_add(struct link_sta_info *link_sta)
 	DEBUGFS_ADD(vht_capa);
 	DEBUGFS_ADD(he_capa);
 	DEBUGFS_ADD(eht_capa);
+	DEBUGFS_ADD(tx_bandwidth);
 
 	DEBUGFS_ADD_COUNTER(rx_duplicates, rx_stats.num_duplicates);
 	DEBUGFS_ADD_COUNTER(rx_fragments, rx_stats.fragments);

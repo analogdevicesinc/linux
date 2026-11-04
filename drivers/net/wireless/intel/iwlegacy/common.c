@@ -3583,11 +3583,6 @@ il_is_ht40_tx_allowed(struct il_priv *il, struct ieee80211_sta_ht_cap *ht_cap)
 	if (ht_cap && !ht_cap->ht_supported)
 		return false;
 
-#ifdef CONFIG_IWLEGACY_DEBUGFS
-	if (il->disable_ht40)
-		return false;
-#endif
-
 	return il_is_channel_extension(il, il->band,
 				       le16_to_cpu(il->staging.channel),
 				       il->ht.extension_chan_offset);
@@ -4772,9 +4767,7 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
 		return 0;
 	}
 
-	timeout =
-	    txq->time_stamp +
-	    msecs_to_jiffies(il->cfg->wd_timeout);
+	timeout = txq->time_stamp + msecs_to_jiffies(IL_WD_TIMEOUT);
 
 	if (time_after(now, timeout)) {
 		IL_ERR("Queue %d stuck for %u ms.\n", q->id,
@@ -4787,12 +4780,6 @@ il_check_stuck_queue(struct il_priv *il, int cnt)
 }
 
 /*
- * Making watchdog tick be a quarter of timeout assure we will
- * discover the queue hung between timeout and 1.25*timeout
- */
-#define IL_WD_TICK(timeout) ((timeout) / 4)
-
-/*
  * Watchdog timer callback, we check each tx queue for stuck, if hung
  * we reset the firmware. If everything is fine just rearm the timer.
  */
@@ -4801,13 +4788,8 @@ il_bg_watchdog(struct timer_list *t)
 {
 	struct il_priv *il = timer_container_of(il, t, watchdog);
 	int cnt;
-	unsigned long timeout;
 
 	if (test_bit(S_EXIT_PENDING, &il->status))
-		return;
-
-	timeout = il->cfg->wd_timeout;
-	if (timeout == 0)
 		return;
 
 	/* monitor and check for stuck cmd queue */
@@ -4823,23 +4805,9 @@ il_bg_watchdog(struct timer_list *t)
 			return;
 	}
 
-	mod_timer(&il->watchdog,
-		  jiffies + msecs_to_jiffies(IL_WD_TICK(timeout)));
+	mod_timer(&il->watchdog, jiffies + msecs_to_jiffies(IL_WD_TICK));
 }
 EXPORT_SYMBOL(il_bg_watchdog);
-
-void
-il_setup_watchdog(struct il_priv *il)
-{
-	unsigned int timeout = il->cfg->wd_timeout;
-
-	if (timeout)
-		mod_timer(&il->watchdog,
-			  jiffies + msecs_to_jiffies(IL_WD_TICK(timeout)));
-	else
-		timer_delete(&il->watchdog);
-}
-EXPORT_SYMBOL(il_setup_watchdog);
 
 /*
  * extended beacon time format

@@ -614,8 +614,7 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 	case NL80211_IFTYPE_AP_VLAN:
 		list_del(&sdata->u.vlan.list);
 		RCU_INIT_POINTER(sdata->vif.bss_conf.chanctx_conf, NULL);
-		/* see comment in the default case below */
-		ieee80211_free_keys(sdata, true);
+		ieee80211_free_keys(sdata);
 		/* increased by AP value on ifup, so reset on ifdown */
 		sdata->crypto_tx_tailroom_needed_cnt = 0;
 		/* no need to tell driver */
@@ -662,7 +661,7 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 		 * Free the remaining keys that might be associated with the
 		 * NAN interface, e.g., IGTK and BIGTK used for Tx.
 		 */
-		ieee80211_free_keys(sdata, true);
+		ieee80211_free_keys(sdata);
 		break;
 	case NL80211_IFTYPE_NAN_DATA:
 		RCU_INIT_POINTER(sdata->u.nan_data.nmi, NULL);
@@ -674,13 +673,8 @@ static void ieee80211_do_stop(struct ieee80211_sub_if_data *sdata, bool going_do
 		 * Free the remaining keys, if there are any
 		 * (which can happen in AP mode if userspace sets
 		 * keys before the interface is operating)
-		 *
-		 * Force the key freeing to always synchronize_net()
-		 * to wait for the RX path in case it is using this
-		 * interface enqueuing frames at this very time on
-		 * another CPU.
 		 */
-		ieee80211_free_keys(sdata, true);
+		ieee80211_free_keys(sdata);
 		skb_queue_purge(&sdata->skb_queue);
 		skb_queue_purge(&sdata->status_queue);
 	}
@@ -906,7 +900,7 @@ static void ieee80211_teardown_sdata(struct ieee80211_sub_if_data *sdata)
 		wiphy_work_cancel(sdata->local->hw.wiphy, &sdata->work);
 
 	/* free extra data */
-	ieee80211_free_keys(sdata, false);
+	ieee80211_free_keys(sdata);
 
 	ieee80211_debugfs_remove_netdev(sdata);
 
@@ -2373,9 +2367,6 @@ int ieee80211_if_add(struct ieee80211_local *local, const char *name,
 	ieee80211_sdata_init(local, sdata);
 
 	ieee80211_init_frag_cache(&sdata->frags);
-
-	wiphy_delayed_work_init(&sdata->dec_tailroom_needed_wk,
-				ieee80211_delayed_tailroom_dec);
 
 	for (i = 0; i < NUM_NL80211_BANDS; i++) {
 		struct ieee80211_supported_band *sband;

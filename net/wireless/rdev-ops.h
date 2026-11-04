@@ -86,6 +86,12 @@ static inline int rdev_add_key(struct cfg80211_registered_device *rdev,
 			   mac_addr, params->mode);
 	ret = rdev->ops->add_key(&rdev->wiphy, wdev, link_id, key_index,
 				  type, mac_addr, params);
+	if (!ret &&
+	    (wdev->iftype == NL80211_IFTYPE_STATION ||
+	     wdev->iftype == NL80211_IFTYPE_P2P_CLIENT) &&
+	    (params->cipher == WLAN_CIPHER_SUITE_WEP40 ||
+	     params->cipher == WLAN_CIPHER_SUITE_WEP104))
+		wdev->u.client.wep_used = true;
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }

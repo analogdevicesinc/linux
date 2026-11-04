@@ -62,7 +62,7 @@ struct ieee80211_key {
 	struct ieee80211_sub_if_data *sdata;
 	struct sta_info *sta;
 
-	/* for sdata list */
+	/* for sdata list - note reuse and local->key_lock locking */
 	struct list_head list;
 
 	/* protected by key mutex */
@@ -131,12 +131,54 @@ struct ieee80211_key {
 
 	unsigned int color;
 
+	struct rcu_work free_work;
+
 	/*
 	 * key config, must be last because it contains key
 	 * material as variable length member
 	 */
 	struct ieee80211_key_conf conf;
 };
+
+/* from sta_info.h, but cannot include that */
+struct link_sta_info;
+
+struct ieee80211_key_slot {
+	struct ieee80211_key __rcu **key;
+
+	struct sta_info *sta;
+	struct link_sta_info *link_sta;
+
+	struct ieee80211_link_data *link;
+};
+
+/**
+ * ieee80211_key_slot_lookup - look up a key installation slot
+ * @sdata: the interface
+ * @link_id: The link ID, or -1.
+ * @key_idx: The key ID.
+ * @cipher: The cipher suite, may be 0 if not known, which implies
+ *	the lookup is for getting key information or deleting a key,
+ *	which in turn implies the function should return a used slot.
+ *	Note this is all only relevant for distinguishing AP-side
+ *	group keys (TX only) and WEP/WPA-NONE keys.
+ * @type: the key type (from nl80211)
+ * @mac_addr: the station's MAC address, if any
+ * @slot: the output data filled by the function
+ *
+ * Return: an error code, or zero on success, in which case
+ *	the slot information is filled:
+ *	- the key pointer is always given
+ *	- the sta for keys related to a station
+ *	  (pairwise, RX group keys)
+ *	- the link_sta for RX group keys
+ *	- the link for TX group keys (and WEP)
+ */
+int ieee80211_key_slot_lookup(struct ieee80211_sub_if_data *sdata,
+			      int link_id, u8 key_idx, u32 cipher,
+			      enum nl80211_key_type type,
+			      const u8 *mac_addr,
+			      struct ieee80211_key_slot *slot);
 
 struct ieee80211_key *
 ieee80211_key_alloc(u32 cipher, int idx, size_t key_len,
@@ -146,11 +188,12 @@ ieee80211_key_alloc(u32 cipher, int idx, size_t key_len,
  * Insert a key into data structures (sdata, sta if necessary)
  * to make it used, free old key. On failure, also free the new key.
  */
-int ieee80211_key_link(struct ieee80211_key *key,
-		       struct ieee80211_link_data *link,
-		       struct sta_info *sta);
+int ieee80211_key_link(struct ieee80211_sub_if_data *sdata,
+		       struct ieee80211_key_slot *slot,
+		       struct ieee80211_key *key);
 int ieee80211_set_tx_key(struct ieee80211_key *key);
-void ieee80211_key_free(struct ieee80211_key *key, bool delay_tailroom);
+void ieee80211_key_free(struct ieee80211_sub_if_data *sdata,
+			struct ieee80211_key_slot *slot);
 void ieee80211_key_free_unused(struct ieee80211_key *key);
 void ieee80211_set_default_key(struct ieee80211_link_data *link, int idx,
 			       bool uni, bool multi);
@@ -162,15 +205,14 @@ void ieee80211_remove_link_keys(struct ieee80211_link_data *link,
 				struct list_head *keys);
 void ieee80211_free_key_list(struct ieee80211_local *local,
 			     struct list_head *keys);
-void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata,
-			 bool force_synchronize);
+void ieee80211_free_keys(struct ieee80211_sub_if_data *sdata);
+void ieee80211_unlink_link_sta_keys(struct ieee80211_local *local,
+				    struct link_sta_info *link_sta);
 void ieee80211_free_sta_keys(struct ieee80211_local *local,
 			     struct sta_info *sta);
 void ieee80211_reenable_keys(struct ieee80211_sub_if_data *sdata);
 int ieee80211_key_switch_links(struct ieee80211_sub_if_data *sdata,
 			       unsigned long del_links_mask,
 			       unsigned long add_links_mask);
-void ieee80211_delayed_tailroom_dec(struct wiphy *wiphy,
-				    struct wiphy_work *wk);
 
 #endif /* IEEE80211_KEY_H */

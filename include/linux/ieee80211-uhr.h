@@ -84,6 +84,15 @@ struct ieee80211_uhr_npca_info {
 	__le16 dis_subch_bmap[];
 } __packed;
 
+static inline int
+ieee80211_uhr_npca_info_size(const struct ieee80211_uhr_npca_info *npca)
+{
+	if (npca->params & cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES))
+		return sizeof(*npca) + sizeof(npca->dis_subch_bmap[0]);
+
+	return sizeof(*npca);
+}
+
 #define IEEE80211_UHR_DPS_PADDING_DELAY			0x0000003F
 #define IEEE80211_UHR_DPS_TRANSITION_DELAY		0x00003F00
 #define IEEE80211_UHR_DPS_ICF_REQUIRED			0x00010000
@@ -161,6 +170,18 @@ struct ieee80211_uhr_dps_info {
 	__le32 params;
 } __packed;
 
+enum ieee80211_uhr_duo_params {
+	IEEE80211_UHR_DUO_PARAMS_MAX_STANDALONE_DUO_BSPR	= 0x1f,
+};
+
+/**
+ * struct ieee80211_uhr_duo_info - DUO information
+ * @params: the parameters, see &enum ieee80211_uhr_duo_params
+ */
+struct ieee80211_uhr_duo_info {
+	u8 params;
+} __packed;
+
 #define IEEE80211_UHR_DBE_OPER_BANDWIDTH			0x07
 #define IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES	0x08
 
@@ -234,6 +255,15 @@ struct ieee80211_uhr_dbe_info {
 	__le16 dis_subch_bmap[];
 } __packed;
 
+static inline int
+ieee80211_uhr_dbe_info_size(const struct ieee80211_uhr_dbe_info *dbe)
+{
+	if (dbe->params & IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES)
+		return sizeof(*dbe) + sizeof(dbe->dis_subch_bmap[0]);
+
+	return sizeof(*dbe);
+}
+
 #define IEEE80211_UHR_P_EDCA_ECWMIN		0x0007
 #define IEEE80211_UHR_P_EDCA_ECWMAX		0x0038
 #define IEEE80211_UHR_P_EDCA_AIFSN		0x01C0
@@ -282,21 +312,23 @@ static inline bool ieee80211_uhr_oper_size_ok(const u8 *data, u8 len)
 			return false;
 	}
 
+	if (oper->params & cpu_to_le16(IEEE80211_UHR_OPER_PARAMS_DUO_PRES)) {
+		needed += 1;
+		if (len < needed)
+			return false;
+	}
+
 	/* NPCA Operation Parameters (fixed 4 bytes + optional 2 bytes) */
 	if (oper->params & cpu_to_le16(IEEE80211_UHR_OPER_PARAMS_NPCA_PRES)) {
 		const struct ieee80211_uhr_npca_info *npca =
 			(const void *)(data + needed);
 
-		needed += sizeof(*npca);
-		if (len < needed)
+		if (len < needed + sizeof(*npca))
 			return false;
 
-		if (npca->params &
-		    cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES)) {
-			needed += sizeof(npca->dis_subch_bmap[0]);
-			if (len < needed)
-				return false;
-		}
+		needed += ieee80211_uhr_npca_info_size(npca);
+		if (len < needed)
+			return false;
 	}
 
 	/* P-EDCA Operation Parameters */
@@ -311,16 +343,12 @@ static inline bool ieee80211_uhr_oper_size_ok(const u8 *data, u8 len)
 		const struct ieee80211_uhr_dbe_info *dbe =
 			(const void *)(data + needed);
 
-		needed += sizeof(*dbe);
-		if (len < needed)
+		if (len < needed + sizeof(*dbe))
 			return false;
 
-		if (dbe->params &
-		    IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES) {
-			needed += sizeof(dbe->dis_subch_bmap[0]);
-			if (len < needed)
-				return false;
-		}
+		needed += ieee80211_uhr_dbe_info_size(dbe);
+		if (len < needed)
+			return false;
 	}
 
 	return len >= needed;
@@ -444,7 +472,7 @@ struct ieee80211_uhr_cap_dbe {
 	u8 max_switch_time_period;
 	u8 mode_change_intvl;
 	/* present 0, 1 or 2 times depending on _PRES bits */
-	struct {
+	struct ieee80211_uhr_cap_dbe_bwcap {
 		struct ieee80211_eht_mcs_nss_supp_bw eht_mcs_map;
 		u8 cap;
 	} __packed bwcap[];
@@ -618,11 +646,14 @@ enum ieee80211_uhr_link_reconfig_notify_type {
 };
 
 enum ieee80211_uhr_mode_change_control {
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID		= 0x003f,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE		= 0x0040,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_UPDATE		= 0x0080,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_LENGTH		= 0x0f00,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_SPECIFIC		= 0xf000,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID		= 0x3f,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE		= 0x40,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_UPDATE		= 0x80,
+};
+
+enum ieee80211_uhr_mode_change_mode_length_specific_ctrl {
+	IEEE80211_UHR_MODE_CHANGE_MODE_LENGTH		= 0x0f,
+	IEEE80211_UHR_MODE_CHANGE_MODE_SPECIFIC_CTRL	= 0xf0,
 };
 
 enum ieee80211_uhr_mode_change_mode_id {
@@ -641,24 +672,162 @@ enum ieee80211_uhr_mode_change_mode_id {
 };
 
 struct ieee80211_uhr_mode_change_tuple {
-	__le16 control;
+	u8 control;
 	u8 variable[];
 } __packed;
 
-static inline int
-ieee80211_uhr_mode_change_tuple_size(const struct ieee80211_uhr_mode_change_tuple *tuple)
+static inline const struct ieee80211_uhr_mode_change_tuple *
+ieee80211_uhr_mode_change_tuple_next(const struct ieee80211_uhr_mode_change_tuple *tuple,
+				     size_t remaining)
 {
-	return sizeof(*tuple) +
-	       le16_get_bits(tuple->control,
-			     IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_LENGTH);
+	size_t needed = sizeof(*tuple);
+
+	if (remaining < needed)
+		return NULL;
+
+	if (tuple->control & IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE) {
+		needed += 1;
+		if (remaining < needed)
+			return NULL;
+
+		needed += u8_get_bits(tuple->variable[0],
+				      IEEE80211_UHR_MODE_CHANGE_MODE_LENGTH);
+		if (remaining < needed)
+			return NULL;
+	}
+
+	return (const void *)((const u8 *)tuple + needed);
 }
 
 #define for_each_uhr_mode_change_tuple(data, len, tuple)		\
 	for (tuple = (const void *)(data);				\
-	     (len) - ((const u8 *)tuple - (data)) >= sizeof(*tuple) &&	\
-	     (len) - ((const u8 *)tuple - (data)) >=			\
-		ieee80211_uhr_mode_change_tuple_size(tuple);		\
+	     ieee80211_uhr_mode_change_tuple_next(			\
+			tuple, (len) - ((const u8 *)tuple - (data)));	\
+	     tuple = ieee80211_uhr_mode_change_tuple_next(		\
+			tuple, (len) - ((const u8 *)tuple - (data))))
+
+struct ieee80211_uhr_parameters_update {
+	u8 countdown;
+	u8 tuples[];
+} __packed;
+
+enum ieee80211_uhr_param_update_tuple_control {
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ID		= 0x3f,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE	= 0x40,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_UPDATE	= 0x80,
+};
+
+enum ieee80211_uhr_param_update_mode_id {
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DPS			= 0,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_NPCA			= 1,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DUO			= 2,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_P_EDCA		= 3,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DBE			= 4,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_AP_PUO		= 5,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_ELR_RX		= 6,
+};
+
+struct ieee80211_uhr_param_update_tuple {
+	u8 control;
+	/* mode length followed by mode specific */
+	u8 variable[];
+} __packed;
+
+static inline int
+ieee80211_uhr_param_update_tuple_size(const struct ieee80211_uhr_param_update_tuple *tuple)
+{
+	if (!(tuple->control & IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE))
+		return sizeof(*tuple);
+
+	/* fixed size (control) + length field + value of length field */
+	return sizeof(*tuple) + 1 + tuple->variable[0];
+}
+
+/* this also serves as a type-check for the macro */
+static inline size_t
+ieee80211_uhr_param_upd_tuples_rem(const struct ieee80211_uhr_parameters_update *upd,
+				   size_t len,
+				   const struct ieee80211_uhr_param_update_tuple *tuple)
+{
+	return len - ((const u8 *)tuple - (const u8 *)upd);
+}
+
+#define for_each_uhr_param_update_tuple(elem, len, tuple)		\
+	for (tuple = (const void *)((elem) ? (elem)->tuples : NULL);	\
+	     (elem) &&							\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		sizeof(*tuple) &&					\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		sizeof(*tuple) +					\
+		!!(tuple->control &					\
+		   IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE) &&	\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		ieee80211_uhr_param_update_tuple_size(tuple);		\
 	     tuple = (const void *)((const u8 *)tuple +			\
-				    ieee80211_uhr_mode_change_tuple_size(tuple)))
+				    ieee80211_uhr_param_update_tuple_size(tuple)))
+
+static inline bool
+ieee80211_uhr_param_update_ok(const void *elem, size_t len)
+{
+	const struct ieee80211_uhr_parameters_update *upd = elem;
+	const struct ieee80211_uhr_param_update_tuple *tuple;
+
+	/* the loop checks, but also check here for our after-the-loop check */
+	if (len < sizeof(*upd) + sizeof(*tuple))
+		return false;
+
+	for_each_uhr_param_update_tuple(upd, len, tuple) {
+		u8 params_len;
+
+		/* no further checks for disabled modes */
+		if (!(tuple->control & IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE))
+			continue;
+
+		params_len = tuple->variable[0];
+
+		switch (u8_get_bits(tuple->control,
+				    IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ID)) {
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DPS:
+			if (params_len < sizeof(struct ieee80211_uhr_dps_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_NPCA:
+			if (params_len < sizeof(struct ieee80211_uhr_npca_info))
+				return false;
+			if (params_len <
+			    ieee80211_uhr_npca_info_size((const void *)(tuple->variable + 1)))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DUO:
+			/*
+			 * This one is defined very strangely in the spec,
+			 * having a reserved (!) enable bit and always
+			 * including the parameters. Let's hope it'll get
+			 * unified with the others and implement that.
+			 */
+			if (params_len < sizeof(struct ieee80211_uhr_duo_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_P_EDCA:
+			if (params_len < sizeof(struct ieee80211_uhr_p_edca_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DBE:
+			if (params_len < sizeof(struct ieee80211_uhr_dbe_info))
+				return false;
+			if (params_len <
+			    ieee80211_uhr_dbe_info_size((const void *)(tuple->variable + 1)))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_AP_PUO:
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_ELR_RX:
+			/* no further length checks */
+			break;
+		}
+	}
+
+	/* valid only if the whole data was consumed by tuples */
+	return (const u8 *)tuple == (const u8 *)elem + len;
+}
 
 #endif /* LINUX_IEEE80211_UHR_H */

@@ -621,12 +621,10 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 			     const u8 *mac_addr, struct key_params *params)
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
-	struct ieee80211_link_data *link =
-		ieee80211_link_or_deflink(sdata, link_id, false);
 	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	bool cigtk = type == NL80211_KEYTYPE_CIGTK;
 	struct ieee80211_local *local = sdata->local;
-	struct sta_info *sta = NULL;
+	struct ieee80211_key_slot slot;
 	struct ieee80211_key *key;
 	int err;
 
@@ -634,9 +632,6 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 
 	if (!ieee80211_sdata_running(sdata))
 		return -ENETDOWN;
-
-	if (IS_ERR(link))
-		return PTR_ERR(link);
 
 	if (WARN_ON(pairwise && link_id >= 0))
 		return -EINVAL;
@@ -658,6 +653,27 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 		break;
 	}
 
+	err = ieee80211_key_slot_lookup(sdata, link_id, key_idx, params->cipher,
+					type, mac_addr, &slot);
+	if (err)
+		return err;
+	if (WARN_ON(!slot.key))
+		return -EINVAL;
+
+	/*
+	 * The ASSOC test makes sure the driver is ready to receive the key.
+	 * When wpa_supplicant has roamed using FT, it attempts to set the
+	 * key before association has completed, this rejects that attempt
+	 * so it will set the key again after association.
+	 *
+	 * With (re)association frame encryption enabled, wpa_supplicant may
+	 * deliver keys to mac80211 before the station has associated. Accept
+	 * that if the station is an Enhanced Privacy Protection (EPP) peer.
+	 */
+	if (slot.sta && !slot.sta->sta.epp_peer &&
+	    !test_sta_flag(slot.sta, WLAN_STA_ASSOC))
+		return -EINVAL;
+
 	key = ieee80211_key_alloc(params->cipher, key_idx, params->key_len,
 				  params->key, params->seq_len, params->seq);
 	if (IS_ERR(key))
@@ -666,44 +682,33 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	if (pairwise) {
 		key->conf.flags |= IEEE80211_KEY_FLAG_PAIRWISE;
 		key->conf.link_id = -1;
-	} else {
-		key->conf.link_id = link->link_id;
+	} else if (slot.link_sta) {
+		key->conf.link_id = slot.link_sta->link_id;
 
 		if (cigtk)
 			key->conf.flags |= IEEE80211_KEY_FLAG_CIP;
+	} else if (slot.link) {
+		key->conf.link_id = slot.link->link_id;
+
+		if (cigtk)
+			key->conf.flags |= IEEE80211_KEY_FLAG_CIP;
+	} else {
+		/* not reached - slot.link is set even for WEP/WPA-NONE */
+		WARN_ON(1);
+		ieee80211_key_free_unused(key);
+		return -EINVAL;
 	}
 
 	if (params->mode == NL80211_KEY_NO_TX)
 		key->conf.flags |= IEEE80211_KEY_FLAG_NO_AUTO_TX;
 
-	if (mac_addr) {
-		sta = sta_info_get_bss(sdata, mac_addr);
-		/*
-		 * The ASSOC test makes sure the driver is ready to
-		 * receive the key. When wpa_supplicant has roamed
-		 * using FT, it attempts to set the key before
-		 * association has completed, this rejects that attempt
-		 * so it will set the key again after association.
-		 *
-		 * With (re)association frame encryption enabled, cfg80211
-		 * may deliver keys to mac80211 before the station has
-		 * associated. In that case, accept the key if the station
-		 * is an Enhanced Privacy Protection (EPP) peer.
-		 * If (re)association frame encryption support is not present,
-		 * cfg80211 will not allow key installation in non‑AP STA mode.
-		 *
-		 * TODO: accept the key if we have a station entry and
-		 *	 add it to the device after the station associates.
-		 */
-		if (!sta || (!sta->sta.epp_peer &&
-			     !test_sta_flag(sta, WLAN_STA_ASSOC))) {
-			ieee80211_key_free_unused(key);
-			return -ENOENT;
-		}
-	}
-
 	switch (sdata->vif.type) {
 	case NL80211_IFTYPE_STATION:
+		/* mostly handled by cfg80211, but make sure */
+		if (pairwise && !mac_addr) {
+			ieee80211_key_free_unused(key);
+			return -EINVAL;
+		}
 		if (sdata->u.mgd.mfp != IEEE80211_MFP_DISABLED)
 			key->conf.flags |= IEEE80211_KEY_FLAG_RX_MGMT;
 		break;
@@ -712,7 +717,7 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	case NL80211_IFTYPE_NAN:
 	case NL80211_IFTYPE_NAN_DATA:
 		/* Keys without a station are used for TX only */
-		if (sta && test_sta_flag(sta, WLAN_STA_MFP))
+		if (slot.sta && test_sta_flag(slot.sta, WLAN_STA_MFP))
 			key->conf.flags |= IEEE80211_KEY_FLAG_RX_MGMT;
 		break;
 	case NL80211_IFTYPE_ADHOC:
@@ -735,84 +740,16 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	case NL80211_IFTYPE_OCB:
 		/* shouldn't happen */
 		WARN_ON_ONCE(1);
-		break;
+		ieee80211_key_free_unused(key);
+		return -EINVAL;
 	}
 
-	err = ieee80211_key_link(key, link, sta);
+	err = ieee80211_key_link(sdata, &slot, key);
 	/* KRACK protection, shouldn't happen but just silently accept key */
 	if (err == -EALREADY)
 		err = 0;
 
 	return err;
-}
-
-static struct ieee80211_key *
-ieee80211_lookup_key(struct ieee80211_sub_if_data *sdata, int link_id,
-		     u8 key_idx, enum nl80211_key_type type,
-		     const u8 *mac_addr)
-{
-	struct ieee80211_local *local __maybe_unused = sdata->local;
-	struct ieee80211_link_data *link = &sdata->deflink;
-	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
-	bool cigtk = type == NL80211_KEYTYPE_CIGTK;
-	struct ieee80211_key *key;
-
-	if (link_id >= 0) {
-		link = sdata_dereference(sdata->link[link_id], sdata);
-		if (!link)
-			return NULL;
-	}
-
-	if (mac_addr) {
-		struct sta_info *sta;
-		struct link_sta_info *link_sta;
-
-		sta = sta_info_get_bss(sdata, mac_addr);
-		if (!sta)
-			return NULL;
-
-		if (link_id >= 0) {
-			link_sta = rcu_dereference_check(sta->link[link_id],
-							 lockdep_is_held(&local->hw.wiphy->mtx));
-			if (!link_sta)
-				return NULL;
-		} else {
-			link_sta = &sta->deflink;
-		}
-
-		if (pairwise && key_idx < NUM_DEFAULT_KEYS)
-			return wiphy_dereference(local->hw.wiphy,
-						 sta->ptk[key_idx]);
-
-		if (cigtk && key_idx < NUM_CTRL_KEYS)
-			return wiphy_dereference(local->hw.wiphy,
-						 link_sta->cigtk[key_idx]);
-
-		if (!pairwise && !cigtk &&
-		    key_idx < NUM_DEFAULT_KEYS +
-			      NUM_DEFAULT_MGMT_KEYS +
-			      NUM_DEFAULT_BEACON_KEYS)
-			return wiphy_dereference(local->hw.wiphy,
-						 link_sta->gtk[key_idx]);
-
-		return NULL;
-	}
-
-	if (pairwise && key_idx < NUM_DEFAULT_KEYS)
-		return wiphy_dereference(local->hw.wiphy, sdata->keys[key_idx]);
-
-	if (cigtk)
-		return wiphy_dereference(local->hw.wiphy, link->cigtk[key_idx]);
-
-	key = wiphy_dereference(local->hw.wiphy, link->gtk[key_idx]);
-	if (key)
-		return key;
-
-	/* or maybe it was a WEP key */
-	if (key_idx < NUM_DEFAULT_KEYS)
-		return wiphy_dereference(local->hw.wiphy, sdata->keys[key_idx]);
-
-	return NULL;
 }
 
 static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
@@ -821,15 +758,22 @@ static int ieee80211_del_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 {
 	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
 	struct ieee80211_local *local = sdata->local;
-	struct ieee80211_key *key;
+	struct ieee80211_key_slot slot;
+	int err;
 
 	lockdep_assert_wiphy(local->hw.wiphy);
 
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
-	if (!key)
+	err = ieee80211_key_slot_lookup(sdata, link_id, key_idx, 0,
+					type, mac_addr, &slot);
+	if (err)
+		return err;
+	if (WARN_ON(!slot.key))
 		return -ENOENT;
 
-	ieee80211_key_free(key, sdata->vif.type == NL80211_IFTYPE_STATION);
+	if (!rcu_access_pointer(*slot.key))
+		return -ENOENT;
+
+	ieee80211_key_free(sdata, &slot);
 
 	return 0;
 }
@@ -841,25 +785,27 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 			     void (*callback)(void *cookie,
 					      struct key_params *params))
 {
-	struct ieee80211_sub_if_data *sdata;
-	u8 seq[6] = {0};
-	struct key_params params;
+	struct ieee80211_sub_if_data *sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
+	struct ieee80211_key_seq kseq = {};
+	struct ieee80211_key_slot slot;
+	struct key_params params = {};
 	struct ieee80211_key *key;
+	u8 seq[6] = {0};
 	u64 pn64;
 	u32 iv32;
 	u16 iv16;
-	int err = -ENOENT;
-	struct ieee80211_key_seq kseq = {};
+	int err;
 
-	sdata = IEEE80211_WDEV_TO_SUB_IF(wdev);
+	err = ieee80211_key_slot_lookup(sdata, link_id, key_idx, 0,
+					type, mac_addr, &slot);
+	if (err)
+		return err;
+	if (WARN_ON(!slot.key))
+		return -ENOENT;
 
-	rcu_read_lock();
-
-	key = ieee80211_lookup_key(sdata, link_id, key_idx, type, mac_addr);
+	key = wiphy_dereference(wiphy, *slot.key);
 	if (!key)
-		goto out;
-
-	memset(&params, 0, sizeof(params));
+		return -ENOENT;
 
 	params.cipher = key->conf.cipher;
 
@@ -930,11 +876,7 @@ static int ieee80211_get_key(struct wiphy *wiphy, struct wireless_dev *wdev,
 	}
 
 	callback(cookie, &params);
-	err = 0;
-
- out:
-	rcu_read_unlock();
-	return err;
+	return 0;
 }
 
 static int ieee80211_config_default_key(struct wiphy *wiphy,
@@ -2118,6 +2060,13 @@ static int ieee80211_change_beacon(struct wiphy *wiphy, struct net_device *dev,
 		changed |= BSS_CHANGED_HE_BSS_COLOR;
 	}
 
+	if (params->he_obss_pd.enable && link_conf->he_support &&
+	    memcmp(&params->he_obss_pd, &link_conf->he_obss_pd,
+		   sizeof(params->he_obss_pd))) {
+		link_conf->he_obss_pd = params->he_obss_pd;
+		changed |= BSS_CHANGED_HE_OBSS_PD;
+	}
+
 	ieee80211_link_info_change_notify(sdata, link, changed);
 	return 0;
 }
@@ -2407,10 +2356,7 @@ static int ieee80211_stop_ap(struct wiphy *wiphy, struct net_device *dev,
 	ieee80211_link_info_change_notify(sdata, link, changes);
 
 	ieee80211_remove_link_keys(link, &keys);
-	if (!list_empty(&keys)) {
-		synchronize_net();
-		ieee80211_free_key_list(local, &keys);
-	}
+	ieee80211_free_key_list(local, &keys);
 
 	if (sdata->wdev.links[link_id].cac_started) {
 		chandef = link_conf->chanreq.oper;
@@ -2711,8 +2657,7 @@ static int sta_link_apply_parameters(struct ieee80211_local *local,
 	if (params->uhr_capa)
 		ieee80211_uhr_cap_ie_to_sta_uhr_cap(sdata, sband,
 						    params->uhr_capa,
-						    params->uhr_capa_len,
-						    link_sta);
+						    false, link_sta);
 
 	if (params->s1g_capa)
 		ieee80211_s1g_cap_to_sta_s1g_cap(sdata, params->s1g_capa,
@@ -5226,7 +5171,7 @@ static int ieee80211_set_antenna(struct wiphy *wiphy, int radio_idx,
 	int ret;
 
 	if (local->started)
-		return -EOPNOTSUPP;
+		return -EBUSY;
 
 	ret = drv_set_antenna(local, tx_ant, rx_ant);
 	if (ret)

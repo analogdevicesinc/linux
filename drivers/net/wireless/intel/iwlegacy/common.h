@@ -1085,9 +1085,9 @@ struct traffic_stats {
 #define IL_DELAY_NEXT_FORCE_FW_RELOAD (HZ*5)
 
 /* TX queue watchdog timeouts in mSecs */
-#define IL_DEF_WD_TIMEOUT	(2000)
-#define IL_LONG_WD_TIMEOUT	(10000)
-#define IL_MAX_WD_TIMEOUT	(120000)
+#define IL_WD_TIMEOUT 2000
+/* Discover the queue hung between timeout and 1.25*timeout */
+#define IL_WD_TICK (IL_WD_TIMEOUT / 4)
 
 struct il_force_reset {
 	int reset_request_count;
@@ -1418,7 +1418,6 @@ struct il_priv {
 	u8 *rx_traffic;
 	struct dentry *debugfs_dir;
 	u32 dbgfs_sram_offset, dbgfs_sram_len;
-	bool disable_ht40;
 #endif				/* CONFIG_IWLEGACY_DEBUGFS */
 
 	struct work_struct txpower_work;
@@ -1683,7 +1682,6 @@ struct il_cfg {
 
 	u16 led_compensation;
 	int chain_noise_num_beacons;
-	unsigned int wd_timeout;
 	bool temperature_kelvin;
 	const bool ucode_tracing;
 	const bool sensitivity_calib_by_driver;
@@ -1764,7 +1762,7 @@ int il_tx_queue_init(struct il_priv *il, u32 txq_id);
 void il_tx_queue_reset(struct il_priv *il, u32 txq_id);
 void il_tx_queue_unmap(struct il_priv *il, int txq_id);
 void il_tx_queue_free(struct il_priv *il, int txq_id);
-void il_setup_watchdog(struct il_priv *il);
+
 /*****************************************************
  * TX power
  ****************************************************/

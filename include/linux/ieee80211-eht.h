@@ -1189,7 +1189,14 @@ static inline bool ieee80211_mle_reconf_sta_prof_size_ok(const u8 *data,
 	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_AP_REM_TIMER_PRESENT)
 		info_len += 2;
 	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_PARAMS_PRESENT)
-		info_len += 2;
+		info_len += 3;
+	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_IND_BMAP_PRES)
+		info_len += 1 + !!(control &
+				   IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_BMAP_SIZE);
+	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_DSO_INFO_PRESENT) {
+		/* "Offered 80 MHz DSO Subband" OR "DSO Confirmation" */
+		info_len += 1;
+	}
 
 	return prof->sta_info_len >= info_len &&
 	       fixed + prof->sta_info_len - 1 <= len;

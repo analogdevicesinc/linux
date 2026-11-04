@@ -1584,12 +1584,6 @@ err:
 	return ret;
 }
 
-int ath12k_mac_op_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
-{
-	return 0;
-}
-EXPORT_SYMBOL(ath12k_mac_op_config);
-
 static int ath12k_mac_setup_bcn_p2p_ie(struct ath12k_link_vif *arvif,
 				       struct sk_buff *bcn)
 {

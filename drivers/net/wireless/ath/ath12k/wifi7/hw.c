@@ -1183,7 +1183,6 @@ static const struct ieee80211_ops ath12k_ops_wifi7 = {
 	.add_interface                  = ath12k_mac_op_add_interface,
 	.remove_interface		= ath12k_mac_op_remove_interface,
 	.update_vif_offload		= ath12k_mac_op_update_vif_offload,
-	.config                         = ath12k_mac_op_config,
 	.link_info_changed              = ath12k_mac_op_link_info_changed,
 	.vif_cfg_changed		= ath12k_mac_op_vif_cfg_changed,
 	.change_vif_links               = ath12k_mac_op_change_vif_links,

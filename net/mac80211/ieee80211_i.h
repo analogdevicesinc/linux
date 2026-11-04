@@ -54,6 +54,17 @@ struct ieee80211_mesh_fast_tx;
 #define IEEE80211_ENCRYPT_HEADROOM 8
 #define IEEE80211_ENCRYPT_TAILROOM 26 /* current max: GMAC/CMAC-256 MME */
 
+/* tailroom accounting can race with TX, expand if needed */
+static inline int ieee80211_crypto_tx_tailroom(struct sk_buff *skb, int tail)
+{
+	int tail_need = tail - skb_tailroom(skb);
+
+	if (!tail || likely(tail_need <= 0 && !skb_cloned(skb)))
+		return 0;
+
+	return pskb_expand_head(skb, 0, max(tail_need, 0), GFP_ATOMIC);
+}
+
 /* power level hasn't been configured (or set to automatic) */
 #define IEEE80211_UNSET_POWER_LEVEL	INT_MIN
 
@@ -1114,10 +1125,10 @@ struct ieee80211_link_data {
 	unsigned int link_id;
 
 	/* multicast keys only */
-	struct ieee80211_key __rcu *gtk[NUM_DEFAULT_KEYS +
-					NUM_DEFAULT_MGMT_KEYS +
-					NUM_DEFAULT_BEACON_KEYS];
-	struct ieee80211_key __rcu *cigtk[NUM_CTRL_KEYS];
+	struct ieee80211_key __rcu *tx_gtk[NUM_DEFAULT_KEYS +
+					   NUM_DEFAULT_MGMT_KEYS +
+					   NUM_DEFAULT_BEACON_KEYS];
+	struct ieee80211_key __rcu *tx_cigtk[NUM_CTRL_KEYS];
 	struct ieee80211_key __rcu *default_multicast_key;
 	struct ieee80211_key __rcu *default_mgmt_key;
 	struct ieee80211_key __rcu *default_beacon_key;
@@ -1196,8 +1207,6 @@ struct ieee80211_sub_if_data {
 
 	/* count for keys needing tailroom space allocation */
 	int crypto_tx_tailroom_needed_cnt;
-	int crypto_tx_tailroom_pending_dec;
-	struct wiphy_delayed_work dec_tailroom_needed_wk;
 
 	struct net_device *dev;
 	struct ieee80211_local *local;
@@ -1533,6 +1542,9 @@ struct ieee80211_local {
 	/* protects the aggregated multicast list and filter calls */
 	spinlock_t filter_lock;
 
+	/* protects atomic iteration of each sdata key_list */
+	spinlock_t key_lock;
+
 	/* used for uploading changed mc list */
 	struct wiphy_work reconfig_filter;
 
@@ -1823,11 +1835,12 @@ struct ieee80211_csa_ie {
 };
 
 enum ieee80211_elems_parse_error {
-	IEEE80211_PARSE_ERR_INVALID_END		= BIT(0),
-	IEEE80211_PARSE_ERR_DUP_ELEM		= BIT(1),
-	IEEE80211_PARSE_ERR_BAD_ELEM_SIZE	= BIT(2),
-	IEEE80211_PARSE_ERR_UNEXPECTED_ELEM	= BIT(3),
-	IEEE80211_PARSE_ERR_DUP_NEST_ML_BASIC	= BIT(4),
+	IEEE80211_PARSE_ERR_INVALID_END			= BIT(0),
+	IEEE80211_PARSE_ERR_DUP_ELEM			= BIT(1),
+	IEEE80211_PARSE_ERR_BAD_ELEM_SIZE		= BIT(2),
+	IEEE80211_PARSE_ERR_UNEXPECTED_ELEM		= BIT(3),
+	IEEE80211_PARSE_ERR_DUP_NEST_ML_BASIC		= BIT(4),
+	IEEE80211_PARSE_ERR_INVALID_UHR_PARAM_UPD	= BIT(5),
 };
 
 /* Parsed Information Elements */
@@ -1902,6 +1915,7 @@ struct ieee802_11_elems {
 	const struct ieee80211_uhr_cap *uhr_cap;
 	const struct ieee80211_uhr_operation *uhr_operation;
 	const struct ieee80211_cip_cap *cip_cap;
+	const struct ieee80211_uhr_parameters_update *uhr_param_upd;
 
 	/* not the order in the psd values is per element, not per chandef */
 	struct ieee80211_parsed_tpe tpe;
@@ -1933,6 +1947,8 @@ struct ieee802_11_elems {
 	size_t ml_basic_len;
 	size_t ml_reconf_len;
 	size_t ml_epcs_len;
+	/* same for UHR parameters update */
+	size_t uhr_param_upd_len;
 
 	u8 ttlm_num;
 
@@ -3017,7 +3033,7 @@ void
 ieee80211_uhr_cap_ie_to_sta_uhr_cap(struct ieee80211_sub_if_data *sdata,
 				    struct ieee80211_supported_band *sband,
 				    const struct ieee80211_uhr_cap *uhr_cap,
-				    u8 uhr_cap_len,
+				    bool from_ap,
 				    struct link_sta_info *link_sta);
 
 #if IS_ENABLED(CONFIG_MAC80211_KUNIT_TEST)

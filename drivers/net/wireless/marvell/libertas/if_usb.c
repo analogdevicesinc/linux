@@ -319,6 +319,12 @@ static void if_usb_disconnect(struct usb_interface *intf)
 
 	/* Unlink and free urb */
 	if_usb_free(cardp);
+
+	/* A firmware download in progress can re-arm fw_timeout from the RX
+	 * completion path, so make sure it is gone before freeing the card.
+	 */
+	timer_delete_sync(&cardp->fw_timeout);
+
 	kfree(cardp);
 
 	usb_set_intfdata(intf, NULL);

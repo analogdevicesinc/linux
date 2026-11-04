@@ -483,6 +483,8 @@ bool cfg80211_cigtk_supported(struct wireless_dev *wdev,
 bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
 			    int key_idx, enum nl80211_key_type type,
 			    const u8 *mac_addr);
+const u8 *cfg80211_get_key_mac_addr(struct wireless_dev *wdev, u32 cipher,
+				    bool pairwise, const u8 *mac_addr);
 int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 				   struct wireless_dev *wdev,
 				   struct key_params *params, int key_idx,

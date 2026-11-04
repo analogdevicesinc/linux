@@ -909,7 +909,8 @@ ieee80211_rx_monitor(struct ieee80211_local *local, struct sk_buff *origskb,
 
 		chandef = &sdata->vif.bss_conf.chanreq.oper;
 		if (chandef->chan &&
-		    chandef->chan->center_freq != status->freq)
+		    ieee80211_channel_to_khz(chandef->chan) !=
+		    ieee80211_rx_status_to_khz(status))
 			continue;
 
 		if (ieee80211_hw_check(&local->hw, NO_VIRTUAL_MONITOR) &&
@@ -1969,37 +1970,34 @@ ieee80211_rx_h_sta_process(struct ieee80211_rx_data *rx)
 } /* ieee80211_rx_h_sta_process */
 
 static struct ieee80211_key *
-ieee80211_rx_get_bigtk(struct ieee80211_rx_data *rx, int idx)
+ieee80211_rx_get_igtk_bigtk(struct ieee80211_rx_data *rx, bool beacon, int idx)
 {
-	struct ieee80211_key *key = NULL;
+	struct ieee80211_key *key;
 	int idx2;
 
-	/* Make sure key gets set if either BIGTK key index is set so that
+	/* Make sure key gets set if either (B)IGTK key index is set so that
 	 * ieee80211_drop_unencrypted_mgmt() can properly drop both unprotected
-	 * Beacon frames and Beacon frames that claim to use another BIGTK key
+	 * mgmt/beacon frames and frames that claim to use another (B)IGTK key
 	 * index (i.e., a key that we do not have).
 	 */
 
 	if (idx < 0) {
-		idx = NUM_DEFAULT_KEYS + NUM_DEFAULT_MGMT_KEYS;
+		idx = NUM_DEFAULT_KEYS + beacon * NUM_DEFAULT_MGMT_KEYS;
 		idx2 = idx + 1;
 	} else {
-		if (idx == NUM_DEFAULT_KEYS + NUM_DEFAULT_MGMT_KEYS)
+		if (idx == NUM_DEFAULT_KEYS + beacon * NUM_DEFAULT_MGMT_KEYS)
 			idx2 = idx + 1;
 		else
 			idx2 = idx - 1;
 	}
 
-	if (rx->link_sta)
-		key = rcu_dereference(rx->link_sta->gtk[idx]);
-	if (!key)
-		key = rcu_dereference(rx->link->gtk[idx]);
-	if (!key && rx->link_sta)
-		key = rcu_dereference(rx->link_sta->gtk[idx2]);
-	if (!key)
-		key = rcu_dereference(rx->link->gtk[idx2]);
+	if (!rx->link_sta)
+		return NULL;
 
-	return key;
+	key = rcu_dereference(rx->link_sta->rx_gtk[idx]);
+	if (key)
+		return key;
+	return rcu_dereference(rx->link_sta->rx_gtk[idx2]);
 }
 
 static ieee80211_rx_result debug_noinline
@@ -2092,7 +2090,7 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
 			return RX_DROP_U_BAD_BCN_KEYIDX;
 		}
 
-		rx->key = ieee80211_rx_get_bigtk(rx, mmie_keyidx);
+		rx->key = ieee80211_rx_get_igtk_bigtk(rx, true, mmie_keyidx);
 		if (!rx->key)
 			return RX_CONTINUE; /* Beacon protection not in use */
 	} else if (mmie_keyidx >= 0) {
@@ -2109,10 +2107,8 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
 			    test_sta_flag(rx->sta, WLAN_STA_MFP))
 				return RX_DROP_U_UNPROTECTED;
 
-			rx->key = rcu_dereference(rx->link_sta->gtk[mmie_keyidx]);
+			rx->key = rcu_dereference(rx->link_sta->rx_gtk[mmie_keyidx]);
 		}
-		if (!rx->key)
-			rx->key = rcu_dereference(rx->link->gtk[mmie_keyidx]);
 	} else if (!ieee80211_has_protected(fc)) {
 		/*
 		 * The frame was not protected, so skip decryption. However, we
@@ -2124,24 +2120,15 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
 		int i;
 
 		if (ieee80211_is_beacon(fc)) {
-			key = ieee80211_rx_get_bigtk(rx, -1);
+			key = ieee80211_rx_get_igtk_bigtk(rx, true, -1);
 		} else if (ieee80211_is_mgmt(fc) &&
 			   is_multicast_ether_addr(hdr->addr1)) {
-			key = rcu_dereference(rx->link->default_mgmt_key);
-		} else {
-			if (rx->link_sta) {
-				for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
-					key = rcu_dereference(rx->link_sta->gtk[i]);
-					if (key)
-						break;
-				}
-			}
-			if (!key) {
-				for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
-					key = rcu_dereference(rx->link->gtk[i]);
-					if (key)
-						break;
-				}
+			key = ieee80211_rx_get_igtk_bigtk(rx, false, -1);
+		} else if (rx->link_sta) {
+			for (i = 0; i < NUM_DEFAULT_KEYS; i++) {
+				key = rcu_dereference(rx->link_sta->rx_gtk[i]);
+				if (key)
+					break;
 			}
 		}
 		if (key)
@@ -2168,26 +2155,11 @@ ieee80211_rx_h_decrypt(struct ieee80211_rx_data *rx)
 
 		/* check per-station GTK first, if multicast packet */
 		if (is_multicast_ether_addr(hdr->addr1) && rx->link_sta)
-			rx->key = rcu_dereference(rx->link_sta->gtk[keyidx]);
+			rx->key = rcu_dereference(rx->link_sta->rx_gtk[keyidx]);
 
-		/* if not found, try default key */
-		if (!rx->key) {
-			if (is_multicast_ether_addr(hdr->addr1))
-				rx->key = rcu_dereference(rx->link->gtk[keyidx]);
-			if (!rx->key)
-				rx->key = rcu_dereference(rx->sdata->keys[keyidx]);
-
-			/*
-			 * RSNA-protected unicast frames should always be
-			 * sent with pairwise or station-to-station keys,
-			 * but for WEP we allow using a key index as well.
-			 */
-			if (rx->key &&
-			    rx->key->conf.cipher != WLAN_CIPHER_SUITE_WEP40 &&
-			    rx->key->conf.cipher != WLAN_CIPHER_SUITE_WEP104 &&
-			    !is_multicast_ether_addr(hdr->addr1))
-				rx->key = NULL;
-		}
+		/* if not found, try WEP/WPA-NONE */
+		if (!rx->key)
+			rx->key = rcu_dereference(rx->sdata->keys[keyidx]);
 	}
 
 	if (rx->key) {
@@ -4854,6 +4826,7 @@ void ieee80211_check_fast_rx(struct sta_info *sta)
 
 	rcu_read_lock();
 	key = rcu_dereference(sta->ptk[sta->ptk_idx]);
+	/* check WEP key to not erroneously consider it as no encryption */
 	if (!key)
 		key = rcu_dereference(sdata->default_unicast_key);
 	if (key) {
@@ -5333,11 +5306,12 @@ drop:
 	dev_kfree_skb(skb);
 }
 
-static bool ieee80211_rx_valid_freq(int freq, struct ieee80211_link_data *link)
+static bool ieee80211_rx_valid_freq(struct ieee80211_rx_status *status,
+				    struct ieee80211_link_data *link)
 {
 	struct ieee80211_chanctx_conf *conf;
 
-	if (!freq || link->sdata->vif.type == NL80211_IFTYPE_NAN ||
+	if (!status->freq || link->sdata->vif.type == NL80211_IFTYPE_NAN ||
 	    link->sdata->vif.type == NL80211_IFTYPE_NAN_DATA)
 		return true;
 
@@ -5345,7 +5319,8 @@ static bool ieee80211_rx_valid_freq(int freq, struct ieee80211_link_data *link)
 	if (!conf || !conf->def.chan)
 		return false;
 
-	return freq == conf->def.chan->center_freq;
+	return ieee80211_rx_status_to_khz(status) ==
+	       ieee80211_channel_to_khz(conf->def.chan);
 }
 
 /*
@@ -5445,7 +5420,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 				continue;
 
 			link = &sta->sdata->deflink;
-			if (!ieee80211_rx_valid_freq(status->freq, link))
+			if (!ieee80211_rx_valid_freq(status, link))
 				continue;
 
 			if (rx_data_pending) {
@@ -5469,7 +5444,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 			sdata =	sta->sdata;
 			link = rcu_dereference(sdata->link[link_sta->link_id]);
 
-			if (!ieee80211_rx_valid_freq(status->freq, link))
+			if (!ieee80211_rx_valid_freq(status, link))
 				continue;
 
 			if (rx_data_pending) {
@@ -5539,7 +5514,7 @@ static void __ieee80211_rx_handle_packet(struct ieee80211_hw *hw,
 		 * RX using the station.
 		 */
 		if (link_sta && link &&
-		    ieee80211_rx_valid_freq(status->freq, link)) {
+		    ieee80211_rx_valid_freq(status, link)) {
 			if (rx_data_pending) {
 				ieee80211_prepare_and_rx_handle(&rx, skb, false);
 				rx_data_pending = false;

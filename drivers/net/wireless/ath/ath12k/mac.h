@@ -218,7 +218,6 @@ void ath12k_mac_op_remove_interface(struct ieee80211_hw *hw,
 				    struct ieee80211_vif *vif);
 void ath12k_mac_op_update_vif_offload(struct ieee80211_hw *hw,
 				      struct ieee80211_vif *vif);
-int ath12k_mac_op_config(struct ieee80211_hw *hw, int radio_idx, u32 changed);
 void ath12k_mac_op_link_info_changed(struct ieee80211_hw *hw,
 				     struct ieee80211_vif *vif,
 				     struct ieee80211_bss_conf *info,

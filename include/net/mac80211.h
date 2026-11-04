@@ -2918,11 +2918,13 @@ struct ieee80211_txq {
  *	dtim_period).
  *
  * @IEEE80211_HW_SUPPORTS_PER_STA_GTK: The device's crypto engine supports
- *	per-station GTKs as used by IBSS RSN or during fast transition. If
- *	the device doesn't support per-station GTKs, but can be asked not
- *	to decrypt group addressed frames, then IBSS RSN support is still
- *	possible but software crypto will be used. Advertise the wiphy flag
- *	only in that case.
+ *	per-station GTKs as used by IBSS RSN and mesh. If the device doesn't
+ *	support per-station GTKs, but can be asked not to decrypt group
+ *	addressed frames, then IBSS RSN support is still possible but
+ *	software crypto must be used. Drivers advertise the wiphy flag
+ *	(%WIPHY_FLAG_IBSS_RSN) instead in that case.
+ *	For mesh, it's assumed that either this flag is set or SW crypto
+ *	can be used, regardless of additional wiphy flags.
  *
  * @IEEE80211_HW_AP_LINK_PS: When operating in AP mode the device
  *	autonomously manages the PS status of connected stations. When
@@ -3095,6 +3097,9 @@ struct ieee80211_txq {
  * @IEEE80211_HW_SUPPORTS_NDP_BLOCKACK: HW can transmit/receive S1G NDP
  *	BlockAck frames.
  *
+ * @IEEE80211_HW_PER_STA_AP_GTK: Install GTKs to the AP STA entry instead
+ *	of with %NULL sta.
+ *
  * @NUM_IEEE80211_HW_FLAGS: number of hardware flags, used for sizing arrays
  */
 enum ieee80211_hw_flags {
@@ -3156,6 +3161,7 @@ enum ieee80211_hw_flags {
 	IEEE80211_HW_HANDLES_QUIET_CSA,
 	IEEE80211_HW_STRICT,
 	IEEE80211_HW_SUPPORTS_NDP_BLOCKACK,
+	IEEE80211_HW_PER_STA_AP_GTK,
 
 	/* keep last, obviously */
 	NUM_IEEE80211_HW_FLAGS
@@ -4162,7 +4168,7 @@ struct ieee80211_prep_tx_info {
  * @config: Handler for configuration requests. IEEE 802.11 code calls this
  *	function to change hardware configuration, e.g., channel.
  *	This function should never fail but returns a negative error code
- *	if it does. The callback can sleep.
+ *	if it does. The callback is optional and can sleep.
  *
  * @bss_info_changed: Handler for configuration requests related to BSS
  *	parameters that may vary during BSS's lifespan, and may affect low
@@ -6962,7 +6968,7 @@ void ieee80211_iter_keys(struct ieee80211_hw *hw,
 			 void *iter_data);
 
 /**
- * ieee80211_iter_keys_rcu - iterate keys programmed into the device
+ * ieee80211_iter_keys_atomic - iterate keys programmed into the device
  * @hw: pointer obtained from ieee80211_alloc_hw()
  * @vif: virtual interface to iterate, may be %NULL for all
  * @iter: iterator function that will be called for each key
@@ -6973,17 +6979,17 @@ void ieee80211_iter_keys(struct ieee80211_hw *hw,
  * the device. Note that due to locking reasons, keys of station
  * in removal process will be skipped.
  *
- * This function requires being called in an RCU critical section,
- * and thus iter must be atomic.
+ * This function is atomic, so the iter must be as well. Cannot
+ * be used from hardirq context.
  */
-void ieee80211_iter_keys_rcu(struct ieee80211_hw *hw,
-			     struct ieee80211_vif *vif,
-			     void (*iter)(struct ieee80211_hw *hw,
-					  struct ieee80211_vif *vif,
-					  struct ieee80211_sta *sta,
-					  struct ieee80211_key_conf *key,
-					  void *data),
-			     void *iter_data);
+void ieee80211_iter_keys_atomic(struct ieee80211_hw *hw,
+				struct ieee80211_vif *vif,
+				void (*iter)(struct ieee80211_hw *hw,
+					     struct ieee80211_vif *vif,
+					     struct ieee80211_sta *sta,
+					     struct ieee80211_key_conf *key,
+					     void *data),
+				void *iter_data);
 
 /**
  * ieee80211_iter_chan_contexts_atomic - iterate channel contexts

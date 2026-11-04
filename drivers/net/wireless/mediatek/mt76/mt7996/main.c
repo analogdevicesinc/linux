@@ -752,11 +752,6 @@ static int mt7996_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 	return err;
 }
 
-static int mt7996_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
-{
-	return 0;
-}
-
 static int
 mt7996_conf_tx(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	       unsigned int link_id, u16 queue,
@@ -3052,7 +3047,6 @@ const struct ieee80211_ops mt7996_ops = {
 	.stop = mt7996_stop,
 	.add_interface = mt7996_add_interface,
 	.remove_interface = mt7996_remove_interface,
-	.config = mt7996_config,
 	.conf_tx = mt7996_conf_tx,
 	.configure_filter = mt7996_configure_filter,
 	.vif_cfg_changed = mt7996_vif_cfg_changed,

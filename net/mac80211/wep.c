@@ -3,7 +3,7 @@
  * Software WEP encryption implementation
  * Copyright 2002, Jouni Malinen <jkmaline@cc.hut.fi>
  * Copyright 2003, Instant802 Networks, Inc.
- * Copyright (C) 2023 Intel Corporation
+ * Copyright (C) 2023, 2026 Intel Corporation
  */
 
 #include <linux/netdevice.h>
@@ -137,7 +137,7 @@ int ieee80211_wep_encrypt(struct ieee80211_local *local,
 	size_t len;
 	u8 rc4key[3 + WLAN_KEY_LEN_WEP104];
 
-	if (WARN_ON(skb_tailroom(skb) < IEEE80211_WEP_ICV_LEN))
+	if (ieee80211_crypto_tx_tailroom(skb, IEEE80211_WEP_ICV_LEN))
 		return -1;
 
 	iv = ieee80211_wep_add_iv(local, skb, keylen, keyidx);

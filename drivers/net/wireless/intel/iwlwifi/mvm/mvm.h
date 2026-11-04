@@ -2704,11 +2704,6 @@ int iwl_mvm_mac_start(struct ieee80211_hw *hw);
 void iwl_mvm_mac_reconfig_complete(struct ieee80211_hw *hw,
 				   enum ieee80211_reconfig_type reconfig_type);
 void iwl_mvm_mac_stop(struct ieee80211_hw *hw, bool suspend);
-static inline int iwl_mvm_mac_config(struct ieee80211_hw *hw, int radio_idx,
-				     u32 changed)
-{
-	return 0;
-}
 
 u64 iwl_mvm_prepare_multicast(struct ieee80211_hw *hw,
 			      struct netdev_hw_addr_list *mc_list);

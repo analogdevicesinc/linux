@@ -271,10 +271,10 @@ ieee80211_rx_uhr_link_reconfig_req(struct ieee80211_sub_if_data *sdata,
 			for_each_uhr_mode_change_tuple(chg->data + 1,
 						       chg->datalen - 1,
 						       tuple) {
-				u8 id = le16_get_bits(tuple->control,
-						      IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID);
-				bool enabled = le16_get_bits(tuple->control,
-							     IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE);
+				u8 id = u8_get_bits(tuple->control,
+						    IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID);
+				bool enabled = u8_get_bits(tuple->control,
+							   IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE);
 
 				/* only handle DBE (for now?) */
 				if (id != IEEE80211_UHR_MODE_CHANGE_MODE_ID_DBE)

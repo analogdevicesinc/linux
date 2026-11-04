@@ -494,85 +494,6 @@ il_dbgfs_nvm_read(struct file *file, char __user *user_buf, size_t count,
 }
 
 static ssize_t
-il_dbgfs_channels_read(struct file *file, char __user *user_buf, size_t count,
-		       loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	struct ieee80211_channel *channels = NULL;
-	const struct ieee80211_supported_band *supp_band = NULL;
-	int pos = 0, i, bufsz = PAGE_SIZE;
-	char *buf;
-	ssize_t ret;
-
-	if (!test_bit(S_GEO_CONFIGURED, &il->status))
-		return -EAGAIN;
-
-	buf = kzalloc(bufsz, GFP_KERNEL);
-	if (!buf) {
-		IL_ERR("Can not allocate Buffer\n");
-		return -ENOMEM;
-	}
-
-	supp_band = il_get_hw_mode(il, NL80211_BAND_2GHZ);
-	if (supp_band) {
-		channels = supp_band->channels;
-
-		pos +=
-		    scnprintf(buf + pos, bufsz - pos,
-			      "Displaying %d channels in 2.4GHz band 802.11bg):\n",
-			      supp_band->n_channels);
-
-		for (i = 0; i < supp_band->n_channels; i++)
-			pos +=
-			    scnprintf(buf + pos, bufsz - pos,
-				      "%d: %ddBm: BSS%s%s, %s.\n",
-				      channels[i].hw_value,
-				      channels[i].max_power,
-				      channels[i].
-				      flags & IEEE80211_CHAN_RADAR ?
-				      " (IEEE 802.11h required)" : "",
-				      ((channels[i].
-					flags & IEEE80211_CHAN_NO_IR) ||
-				       (channels[i].
-					flags & IEEE80211_CHAN_RADAR)) ? "" :
-				      ", IBSS",
-				      channels[i].
-				      flags & IEEE80211_CHAN_NO_IR ?
-				      "passive only" : "active/passive");
-	}
-	supp_band = il_get_hw_mode(il, NL80211_BAND_5GHZ);
-	if (supp_band) {
-		channels = supp_band->channels;
-
-		pos +=
-		    scnprintf(buf + pos, bufsz - pos,
-			      "Displaying %d channels in 5.2GHz band (802.11a)\n",
-			      supp_band->n_channels);
-
-		for (i = 0; i < supp_band->n_channels; i++)
-			pos +=
-			    scnprintf(buf + pos, bufsz - pos,
-				      "%d: %ddBm: BSS%s%s, %s.\n",
-				      channels[i].hw_value,
-				      channels[i].max_power,
-				      channels[i].
-				      flags & IEEE80211_CHAN_RADAR ?
-				      " (IEEE 802.11h required)" : "",
-				      ((channels[i].
-					flags & IEEE80211_CHAN_NO_IR) ||
-				       (channels[i].
-					flags & IEEE80211_CHAN_RADAR)) ? "" :
-				      ", IBSS",
-				      channels[i].
-				      flags & IEEE80211_CHAN_NO_IR ?
-				      "passive only" : "active/passive");
-	}
-	ret = simple_read_from_buffer(user_buf, count, ppos, buf, pos);
-	kfree(buf);
-	return ret;
-}
-
-static ssize_t
 il_dbgfs_status_read(struct file *file, char __user *user_buf, size_t count,
 		     loff_t *ppos)
 {
@@ -758,55 +679,13 @@ il_dbgfs_qos_read(struct file *file, char __user *user_buf, size_t count,
 	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
 }
 
-static ssize_t
-il_dbgfs_disable_ht40_write(struct file *file, const char __user *user_buf,
-			    size_t count, loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	char buf[8];
-	int buf_size;
-	int ht40;
-
-	memset(buf, 0, sizeof(buf));
-	buf_size = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	if (sscanf(buf, "%d", &ht40) != 1)
-		return -EFAULT;
-	if (!il_is_any_associated(il))
-		il->disable_ht40 = ht40 ? true : false;
-	else {
-		IL_ERR("Sta associated with AP - "
-		       "Change to 40MHz channel support is not allowed\n");
-		return -EINVAL;
-	}
-
-	return count;
-}
-
-static ssize_t
-il_dbgfs_disable_ht40_read(struct file *file, char __user *user_buf,
-			   size_t count, loff_t *ppos)
-{
-	struct il_priv *il = file->private_data;
-	char buf[100];
-	int pos = 0;
-	const size_t bufsz = sizeof(buf);
-
-	pos +=
-	    scnprintf(buf + pos, bufsz - pos, "11n 40MHz Mode: %s\n",
-		      il->disable_ht40 ? "Disabled" : "Enabled");
-	return simple_read_from_buffer(user_buf, count, ppos, buf, pos);
-}
 
 DEBUGFS_READ_WRITE_FILE_OPS(sram);
 DEBUGFS_READ_FILE_OPS(nvm);
 DEBUGFS_READ_FILE_OPS(stations);
-DEBUGFS_READ_FILE_OPS(channels);
 DEBUGFS_READ_FILE_OPS(status);
 DEBUGFS_READ_WRITE_FILE_OPS(interrupt);
 DEBUGFS_READ_FILE_OPS(qos);
-DEBUGFS_READ_WRITE_FILE_OPS(disable_ht40);
 
 static ssize_t
 il_dbgfs_tx_queue_read(struct file *file, char __user *user_buf, size_t count,
@@ -1265,30 +1144,6 @@ il_dbgfs_force_reset_write(struct file *file, const char __user *user_buf,
 	return ret ? ret : count;
 }
 
-static ssize_t
-il_dbgfs_wd_timeout_write(struct file *file, const char __user *user_buf,
-			  size_t count, loff_t *ppos)
-{
-
-	struct il_priv *il = file->private_data;
-	char buf[8];
-	int buf_size;
-	int timeout;
-
-	memset(buf, 0, sizeof(buf));
-	buf_size = min(count, sizeof(buf) - 1);
-	if (copy_from_user(buf, user_buf, buf_size))
-		return -EFAULT;
-	if (sscanf(buf, "%d", &timeout) != 1)
-		return -EINVAL;
-	if (timeout < 0 || timeout > IL_MAX_WD_TIMEOUT)
-		timeout = IL_DEF_WD_TIMEOUT;
-
-	il->cfg->wd_timeout = timeout;
-	il_setup_watchdog(il);
-	return count;
-}
-
 DEBUGFS_READ_FILE_OPS(rx_stats);
 DEBUGFS_READ_FILE_OPS(tx_stats);
 DEBUGFS_READ_FILE_OPS(rx_queue);
@@ -1306,7 +1161,6 @@ DEBUGFS_READ_WRITE_FILE_OPS(missed_beacon);
 DEBUGFS_READ_WRITE_FILE_OPS(force_reset);
 DEBUGFS_READ_FILE_OPS(rxon_flags);
 DEBUGFS_READ_FILE_OPS(rxon_filter_flags);
-DEBUGFS_WRITE_FILE_OPS(wd_timeout);
 
 /*
  * Create the debugfs files and directories
@@ -1328,11 +1182,9 @@ il_dbgfs_register(struct il_priv *il, const char *name)
 	DEBUGFS_ADD_FILE(nvm, dir_data, 0400);
 	DEBUGFS_ADD_FILE(sram, dir_data, 0600);
 	DEBUGFS_ADD_FILE(stations, dir_data, 0400);
-	DEBUGFS_ADD_FILE(channels, dir_data, 0400);
 	DEBUGFS_ADD_FILE(status, dir_data, 0400);
 	DEBUGFS_ADD_FILE(interrupt, dir_data, 0600);
 	DEBUGFS_ADD_FILE(qos, dir_data, 0400);
-	DEBUGFS_ADD_FILE(disable_ht40, dir_data, 0600);
 	DEBUGFS_ADD_FILE(rx_stats, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(tx_stats, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(rx_queue, dir_debug, 0400);
@@ -1353,7 +1205,6 @@ il_dbgfs_register(struct il_priv *il, const char *name)
 		DEBUGFS_ADD_FILE(chain_noise, dir_debug, 0400);
 	DEBUGFS_ADD_FILE(rxon_flags, dir_debug, 0200);
 	DEBUGFS_ADD_FILE(rxon_filter_flags, dir_debug, 0200);
-	DEBUGFS_ADD_FILE(wd_timeout, dir_debug, 0200);
 	if (il->cfg->sensitivity_calib_by_driver)
 		DEBUGFS_ADD_BOOL(disable_sensitivity, dir_rf,
 				 &il->disable_sens_cal);

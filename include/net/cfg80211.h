@@ -1668,12 +1668,15 @@ struct cfg80211_ap_settings {
  * @fils_discovery: FILS discovery transmission parameters
  * @unsol_bcast_probe_resp: Unsolicited broadcast probe response parameters
  * @s1g_short_beacon: S1G short beacon data
+ * @he_obss_pd: OBSS Packet Detection settings, applied if @he_obss_pd.enable
+ *	is set
  */
 struct cfg80211_ap_update {
 	struct cfg80211_beacon_data beacon;
 	struct cfg80211_fils_discovery fils_discovery;
 	struct cfg80211_unsol_bcast_probe_resp unsol_bcast_probe_resp;
 	struct cfg80211_s1g_short_beacon s1g_short_beacon;
+	struct ieee80211_he_obss_pd he_obss_pd;
 };
 
 /**
@@ -5789,6 +5792,10 @@ struct cfg80211_ops {
  *	set this flag to update channels on beacon hints.
  * @WIPHY_FLAG_SUPPORTS_NSTR_NONPRIMARY: support connection to non-primary link
  *	of an NSTR mobile AP MLD.
+ * @WIPHY_FLAG_CLIENT_AP_STA_GTK: Handle C/B/I/GTK installation on a STA (AP
+ *	STA) basis for station and P2P client interfaces.
+ *	(Note that if userspace doesn't give the MAC address, the AP's address
+ *	is substituted to allow for older userspace versions.)
  */
 enum wiphy_flags {
 	WIPHY_FLAG_SUPPORTS_EXT_KEK_KCK		= BIT(0),
@@ -5800,7 +5807,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_4ADDR_STATION		= BIT(6),
 	WIPHY_FLAG_CONTROL_PORT_PROTOCOL	= BIT(7),
 	WIPHY_FLAG_IBSS_RSN			= BIT(8),
-	/* reuse bit 9 */
+	WIPHY_FLAG_CLIENT_AP_STA_GTK		= BIT(9),
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_EXT_KCK_32          = BIT(11),
 	WIPHY_FLAG_SUPPORTS_NSTR_NONPRIMARY	= BIT(12),
@@ -7385,6 +7392,7 @@ struct wireless_dev {
 			u8 connected_addr[ETH_ALEN] __aligned(2);
 			u8 ssid[IEEE80211_MAX_SSID_LEN];
 			u8 ssid_len;
+			bool wep_used;
 		} client;
 		struct {
 			int beacon_interval;

@@ -6359,7 +6359,6 @@ const struct ieee80211_ops iwl_mvm_hw_ops = {
 	.stop = iwl_mvm_mac_stop,
 	.add_interface = iwl_mvm_mac_add_interface,
 	.remove_interface = iwl_mvm_mac_remove_interface,
-	.config = iwl_mvm_mac_config,
 	.prepare_multicast = iwl_mvm_prepare_multicast,
 	.configure_filter = iwl_mvm_configure_filter,
 	.config_iface_filter = iwl_mvm_config_iface_filter,

@@ -274,6 +274,39 @@ bool cfg80211_cigtk_supported(struct wireless_dev *wdev,
 	return false;
 }
 
+const u8 *cfg80211_get_key_mac_addr(struct wireless_dev *wdev, u32 cipher,
+				    bool pairwise, const u8 *mac_addr)
+{
+	if (pairwise || mac_addr)
+		return mac_addr;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return NULL;
+
+	/*
+	 * For client side, historically the RX B/I/GTKs were set for
+	 * the AP without a MAC address parameter, just for the current
+	 * AP. With WIPHY_FLAG_CLIENT_AP_STA_GTK this has changed, and
+	 * B/I/GTK is set for RX just like other types of interfaces,
+	 * with the AP (MLD) address (for MLO the link ID was already
+	 * required.)
+	 *
+	 * For WEP, however, the address is still (required to be) NULL
+	 * since WEP keys are used for both TX and RX.
+	 */
+
+	if (!(wdev->wiphy->flags & WIPHY_FLAG_CLIENT_AP_STA_GTK))
+		return NULL;
+	if (!wdev->connected)
+		return NULL;
+	if (cipher == WLAN_CIPHER_SUITE_WEP40 ||
+	    cipher == WLAN_CIPHER_SUITE_WEP104 ||
+	    wdev->u.client.wep_used)
+		return NULL;
+	return wdev->u.client.connected_addr;
+}
+
 bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
 			    int key_idx, enum nl80211_key_type type,
 			    const u8 *mac_addr)
@@ -310,7 +343,9 @@ bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
 	 * For group keys, mac_addr==NULL means setting a group key
 	 * for TX, which is only supported on some interface types,
 	 * except for STATION/P2P_CLIENT, where it's setting the RX
-	 * key with the current AP (for legacy reasons.)
+	 * key with the current AP (for legacy reasons). If the
+	 * WIPHY_FLAG_CLIENT_AP_STA_GTK flag is set, userspace may
+	 * set the group key with address (except for WEP.)
 	 *
 	 * Apart from that exception, a non-NULL mac_addr means RX
 	 * key being set.
@@ -339,8 +374,12 @@ bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
 	case NL80211_IFTYPE_STATION:
 	case NL80211_IFTYPE_P2P_CLIENT:
 		/* see note about exception above */
-		if (mac_addr)
+		if (mac_addr &&
+		    !(wdev->wiphy->flags & WIPHY_FLAG_CLIENT_AP_STA_GTK))
 			return false;
+		/* MAC address is OK, continue checks without */
+		if (wdev->wiphy->flags & WIPHY_FLAG_CLIENT_AP_STA_GTK)
+			mac_addr = NULL;
 		/* BIGTK support implies IGTK support */
 		if (wiphy_ext_feature_isset(wdev->wiphy,
 					    NL80211_EXT_FEATURE_BEACON_PROTECTION_CLIENT))
@@ -419,6 +458,10 @@ int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 		break;
 	case WLAN_CIPHER_SUITE_WEP40:
 	case WLAN_CIPHER_SUITE_WEP104:
+		if (mac_addr && !pairwise &&
+		    (wdev->iftype == NL80211_IFTYPE_STATION ||
+		     wdev->iftype == NL80211_IFTYPE_P2P_CLIENT))
+			return -EINVAL;
 		if (key_idx > 3)
 			return -EINVAL;
 		break;
