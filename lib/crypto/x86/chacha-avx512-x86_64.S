@@ -127,59 +127,37 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 	sub		$2,%r8d
 	jnz		.Ldoubleround
 
-	# o0 = i0 ^ (x0 + s0)
-	vpaddd		%ymm8,%ymm0,%ymm7
-	cmp		$0x10,%rcx
-	jl		.Lxorpart2
-	vpxord		0x00(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x00(%rsi)
-	vextracti128	$1,%ymm7,%xmm0
-	# o1 = i1 ^ (x1 + s1)
-	vpaddd		%ymm9,%ymm1,%ymm7
-	cmp		$0x20,%rcx
-	jl		.Lxorpart2
-	vpxord		0x10(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x10(%rsi)
-	vextracti128	$1,%ymm7,%xmm1
-	# o2 = i2 ^ (x2 + s2)
-	vpaddd		%ymm10,%ymm2,%ymm7
-	cmp		$0x30,%rcx
-	jl		.Lxorpart2
-	vpxord		0x20(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x20(%rsi)
-	vextracti128	$1,%ymm7,%xmm2
-	# o3 = i3 ^ (x3 + s3)
-	vpaddd		%ymm11,%ymm3,%ymm7
-	cmp		$0x40,%rcx
-	jl		.Lxorpart2
-	vpxord		0x30(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x30(%rsi)
-	vextracti128	$1,%ymm7,%xmm3
+	# x0 += s0, x1 += s1, x2 += s2, x3 += s3
+	vpaddd		%ymm8,%ymm0,%ymm0
+	vpaddd		%ymm9,%ymm1,%ymm1
+	vpaddd		%ymm10,%ymm2,%ymm2
+	vpaddd		%ymm11,%ymm3,%ymm3
 
-	# xor and write second block
-	vmovdqa		%xmm0,%xmm7
-	cmp		$0x50,%rcx
-	jl		.Lxorpart2
-	vpxord		0x40(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x40(%rsi)
+	# xor the data with the keystream
 
-	vmovdqa		%xmm1,%xmm7
-	cmp		$0x60,%rcx
+	vperm2i128	$0x20, %ymm1, %ymm0, %ymm4
+	cmp		$1*32,%rcx
 	jl		.Lxorpart2
-	vpxord		0x50(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x50(%rsi)
+	vpxor		0*32(%rdx),%ymm4,%ymm4
+	vmovdqu		%ymm4,0*32(%rsi)
 
-	vmovdqa		%xmm2,%xmm7
-	cmp		$0x70,%rcx
+	vperm2i128	$0x20, %ymm3, %ymm2, %ymm4
+	cmp		$2*32,%rcx
 	jl		.Lxorpart2
-	vpxord		0x60(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x60(%rsi)
+	vpxor		1*32(%rdx),%ymm4,%ymm4
+	vmovdqu		%ymm4,1*32(%rsi)
 
-	vmovdqa		%xmm3,%xmm7
-	cmp		$0x80,%rcx
+	vperm2i128	$0x31, %ymm1, %ymm0, %ymm4
+	cmp		$3*32,%rcx
 	jl		.Lxorpart2
-	vpxord		0x70(%rdx),%xmm7,%xmm6
-	vmovdqu		%xmm6,0x70(%rsi)
+	vpxor		2*32(%rdx),%ymm4,%ymm4
+	vmovdqu		%ymm4,2*32(%rsi)
+
+	vperm2i128	$0x31, %ymm3, %ymm2, %ymm4
+	cmp		$4*32,%rcx
+	jl		.Lxorpart2
+	vpxor		3*32(%rdx),%ymm4,%ymm4
+	vmovdqu		%ymm4,3*32(%rsi)
 
 .Ldone2:
 	vzeroupper
@@ -188,17 +166,17 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 .Lxorpart2:
 	# xor remaining bytes from partial register into output
 	mov		%rcx,%r9
-	and		$~0xf,%r9
-	and		$0xf,%rcx
+	and		$~31,%r9
+	and		$31,%rcx
 	jz		.Ldone2
 
 	mov		$-1,%rax
 	bzhi		%rcx,%rax,%rax
 	kmovq		%rax,%k1
 
-	vmovdqu8	(%rdx,%r9),%xmm1{%k1}{z}
-	vpxord		%xmm7,%xmm1,%xmm1
-	vmovdqu8	%xmm1,(%rsi,%r9){%k1}
+	vmovdqu8	(%rdx,%r9),%ymm0{%k1}{z}
+	vpxor		%ymm4,%ymm0,%ymm0
+	vmovdqu8	%ymm0,(%rsi,%r9){%k1}
 
 	jmp		.Ldone2
 
@@ -335,113 +313,65 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 	sub		$2,%r8d
 	jnz		.Ldoubleround4
 
-	# o0 = i0 ^ (x0 + s0), first block
-	vpaddd		%ymm11,%ymm0,%ymm10
-	cmp		$0x10,%rcx
-	jl		.Lxorpart4
-	vpxord		0x00(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x00(%rsi)
-	vextracti128	$1,%ymm10,%xmm0
-	# o1 = i1 ^ (x1 + s1), first block
-	vpaddd		%ymm12,%ymm1,%ymm10
-	cmp		$0x20,%rcx
-	jl		.Lxorpart4
-	vpxord		0x10(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x10(%rsi)
-	vextracti128	$1,%ymm10,%xmm1
-	# o2 = i2 ^ (x2 + s2), first block
-	vpaddd		%ymm13,%ymm2,%ymm10
-	cmp		$0x30,%rcx
-	jl		.Lxorpart4
-	vpxord		0x20(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x20(%rsi)
-	vextracti128	$1,%ymm10,%xmm2
-	# o3 = i3 ^ (x3 + s3), first block
-	vpaddd		%ymm14,%ymm3,%ymm10
-	cmp		$0x40,%rcx
-	jl		.Lxorpart4
-	vpxord		0x30(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x30(%rsi)
-	vextracti128	$1,%ymm10,%xmm3
+	# x0 += s0, x1 += s1, x2 += s2, x3 += s3
+	vpaddd		%ymm11,%ymm0,%ymm0
+	vpaddd		%ymm12,%ymm1,%ymm1
+	vpaddd		%ymm13,%ymm2,%ymm2
+	vpaddd		%ymm14,%ymm3,%ymm3
+	vpaddd		%ymm11,%ymm4,%ymm4
+	vpaddd		%ymm12,%ymm5,%ymm5
+	vpaddd		%ymm13,%ymm6,%ymm6
+	vpaddd		%ymm15,%ymm7,%ymm7
 
-	# xor and write second block
-	vmovdqa		%xmm0,%xmm10
-	cmp		$0x50,%rcx
-	jl		.Lxorpart4
-	vpxord		0x40(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x40(%rsi)
+	# xor the data with the keystream
 
-	vmovdqa		%xmm1,%xmm10
-	cmp		$0x60,%rcx
+	vperm2i128	$0x20, %ymm1, %ymm0, %ymm8
+	cmp		$1*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0x50(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x50(%rsi)
+	vpxor		0*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,0*32(%rsi)
 
-	vmovdqa		%xmm2,%xmm10
-	cmp		$0x70,%rcx
+	vperm2i128	$0x20, %ymm3, %ymm2, %ymm8
+	cmp		$2*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0x60(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x60(%rsi)
+	vpxor		1*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,1*32(%rsi)
 
-	vmovdqa		%xmm3,%xmm10
-	cmp		$0x80,%rcx
+	vperm2i128	$0x31, %ymm1, %ymm0, %ymm8
+	cmp		$3*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0x70(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x70(%rsi)
+	vpxor		2*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,2*32(%rsi)
 
-	# o0 = i0 ^ (x0 + s0), third block
-	vpaddd		%ymm11,%ymm4,%ymm10
-	cmp		$0x90,%rcx
+	vperm2i128	$0x31, %ymm3, %ymm2, %ymm8
+	cmp		$4*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0x80(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x80(%rsi)
-	vextracti128	$1,%ymm10,%xmm4
-	# o1 = i1 ^ (x1 + s1), third block
-	vpaddd		%ymm12,%ymm5,%ymm10
-	cmp		$0xa0,%rcx
-	jl		.Lxorpart4
-	vpxord		0x90(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0x90(%rsi)
-	vextracti128	$1,%ymm10,%xmm5
-	# o2 = i2 ^ (x2 + s2), third block
-	vpaddd		%ymm13,%ymm6,%ymm10
-	cmp		$0xb0,%rcx
-	jl		.Lxorpart4
-	vpxord		0xa0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xa0(%rsi)
-	vextracti128	$1,%ymm10,%xmm6
-	# o3 = i3 ^ (x3 + s3), third block
-	vpaddd		%ymm15,%ymm7,%ymm10
-	cmp		$0xc0,%rcx
-	jl		.Lxorpart4
-	vpxord		0xb0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xb0(%rsi)
-	vextracti128	$1,%ymm10,%xmm7
+	vpxor		3*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,3*32(%rsi)
 
-	# xor and write fourth block
-	vmovdqa		%xmm4,%xmm10
-	cmp		$0xd0,%rcx
+	vperm2i128	$0x20, %ymm5, %ymm4, %ymm8
+	cmp		$5*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0xc0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xc0(%rsi)
+	vpxor		4*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,4*32(%rsi)
 
-	vmovdqa		%xmm5,%xmm10
-	cmp		$0xe0,%rcx
+	vperm2i128	$0x20, %ymm7, %ymm6, %ymm8
+	cmp		$6*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0xd0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xd0(%rsi)
+	vpxor		5*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,5*32(%rsi)
 
-	vmovdqa		%xmm6,%xmm10
-	cmp		$0xf0,%rcx
+	vperm2i128	$0x31, %ymm5, %ymm4, %ymm8
+	cmp		$7*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0xe0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xe0(%rsi)
+	vpxor		6*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,6*32(%rsi)
 
-	vmovdqa		%xmm7,%xmm10
-	cmp		$0x100,%rcx
+	vperm2i128	$0x31, %ymm7, %ymm6, %ymm8
+	cmp		$8*32,%rcx
 	jl		.Lxorpart4
-	vpxord		0xf0(%rdx),%xmm10,%xmm9
-	vmovdqu		%xmm9,0xf0(%rsi)
+	vpxor		7*32(%rdx),%ymm8,%ymm8
+	vmovdqu		%ymm8,7*32(%rsi)
 
 .Ldone4:
 	vzeroupper
@@ -450,17 +380,17 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 .Lxorpart4:
 	# xor remaining bytes from partial register into output
 	mov		%rcx,%r9
-	and		$~0xf,%r9
-	and		$0xf,%rcx
+	and		$~31,%r9
+	and		$31,%rcx
 	jz		.Ldone4
 
 	mov		$-1,%rax
 	bzhi		%rcx,%rax,%rax
 	kmovq		%rax,%k1
 
-	vmovdqu8	(%rdx,%r9),%xmm1{%k1}{z}
-	vpxord		%xmm10,%xmm1,%xmm1
-	vmovdqu8	%xmm1,(%rsi,%r9){%k1}
+	vmovdqu8	(%rdx,%r9),%ymm0{%k1}{z}
+	vpxor		%ymm8,%ymm0,%ymm0
+	vmovdqu8	%ymm0,(%rsi,%r9){%k1}
 
 	jmp		.Ldone4
 
