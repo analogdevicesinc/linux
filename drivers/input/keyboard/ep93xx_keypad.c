@@ -259,16 +259,11 @@ static int ep93xx_keypad_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, keypad);
 
 	device_init_wakeup(&pdev->dev, 1);
-	err = dev_pm_set_wake_irq(&pdev->dev, keypad->irq);
+	err = devm_pm_set_wake_irq(&pdev->dev, keypad->irq);
 	if (err)
 		dev_warn(&pdev->dev, "failed to set up wakeup irq: %d\n", err);
 
 	return 0;
-}
-
-static void ep93xx_keypad_remove(struct platform_device *pdev)
-{
-	dev_pm_clear_wake_irq(&pdev->dev);
 }
 
 static const struct of_device_id ep93xx_keypad_of_ids[] = {
@@ -284,7 +279,6 @@ static struct platform_driver ep93xx_keypad_driver = {
 		.of_match_table = ep93xx_keypad_of_ids,
 	},
 	.probe		= ep93xx_keypad_probe,
-	.remove		= ep93xx_keypad_remove,
 };
 module_platform_driver(ep93xx_keypad_driver);
 
