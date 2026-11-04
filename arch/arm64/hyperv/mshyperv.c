@@ -11,13 +11,18 @@
 
 #include <linux/types.h>
 #include <linux/acpi.h>
+#include <linux/arm-rsi-cmds.h>
 #include <linux/export.h>
 #include <linux/errno.h>
+#include <linux/slab.h>
 #include <linux/version.h>
 #include <linux/cpuhotplug.h>
 #include <asm/mshyperv.h>
 
 static bool hyperv_initialized;
+
+struct rsi_host_call *hv_hostcall_array;
+EXPORT_SYMBOL_GPL(hv_hostcall_array);
 
 int hv_get_hypervisor_version(union hv_hypervisor_version_info *info)
 {
@@ -60,12 +65,36 @@ static bool __init hyperv_detect_via_acpi(void)
 
 #endif
 
+/*
+ * In a Realm, the SMCCC call is handled by the RMM rather than by
+ * Hyper-V, so the vendor hypervisor UID query must be forwarded to the
+ * host with RSI_HOST_CALL, in the same way as hypercalls.
+ */
+static bool __init hyperv_realm_has_uuid(const uuid_t *hyperv_uuid)
+{
+	static struct rsi_host_call hc __initdata;
+	uuid_t uuid;
+
+	hc.gprs[0] = ARM_SMCCC_VENDOR_HYP_CALL_UID_FUNC_ID;
+
+	if (rsi_host_call(__pa_symbol(&hc)) != RSI_SUCCESS ||
+	    hc.gprs[0] == SMCCC_RET_NOT_SUPPORTED)
+		return false;
+
+	uuid = smccc_res_to_uuid(hc.gprs[0], hc.gprs[1], hc.gprs[2],
+				 hc.gprs[3]);
+	return uuid_equal(&uuid, hyperv_uuid);
+}
+
 static bool __init hyperv_detect_via_smccc(void)
 {
 	uuid_t hyperv_uuid = UUID_INIT(
 		0x58ba324d, 0x6447, 0x24cd,
 		0x75, 0x6c, 0xef, 0x8e,
 		0x24, 0x70, 0x59, 0x16);
+
+	if (is_realm_world())
+		return hyperv_realm_has_uuid(&hyperv_uuid);
 
 	return arm_smccc_hypervisor_has_uuid(&hyperv_uuid);
 }
@@ -84,6 +113,20 @@ static int __init hyperv_init(void)
 	 */
 	if (!hyperv_detect_via_acpi() && !hyperv_detect_via_smccc())
 		return 0;
+
+	/*
+	 * The RSI host-call buffers are only ever used when
+	 * is_realm_world() is true. Skip the allocation on non-Realm
+	 * guests. A single contiguous array of nr_cpu_ids entries is
+	 * allocated; each CPU indexes into it by its processor ID.
+	 */
+	if (is_realm_world()) {
+		hv_hostcall_array = kcalloc(nr_cpu_ids,
+					    sizeof(struct rsi_host_call),
+					    GFP_KERNEL);
+		if (!hv_hostcall_array)
+			return -ENOMEM;
+	}
 
 	/* Setup the guest ID */
 	guest_id = hv_generate_guest_id(LINUX_VERSION_CODE);
@@ -106,13 +149,13 @@ static int __init hyperv_init(void)
 
 	ret = hv_common_init();
 	if (ret)
-		return ret;
+		goto free_hostcall_mem;
 
 	ret = cpuhp_setup_state(CPUHP_AP_HYPERV_ONLINE, "arm64/hyperv_init:online",
 				hv_common_cpu_init, hv_common_cpu_die);
 	if (ret < 0) {
 		hv_common_free();
-		return ret;
+		goto free_hostcall_mem;
 	}
 
 	if (ms_hyperv.priv_high & HV_ACCESS_PARTITION_ID)
@@ -125,6 +168,11 @@ static int __init hyperv_init(void)
 
 	hyperv_initialized = true;
 	return 0;
+
+free_hostcall_mem:
+	kfree(hv_hostcall_array);
+	hv_hostcall_array = NULL;
+	return ret;
 }
 
 early_initcall(hyperv_init);
@@ -134,3 +182,13 @@ bool hv_is_hyperv_initialized(void)
 	return hyperv_initialized;
 }
 EXPORT_SYMBOL_GPL(hv_is_hyperv_initialized);
+
+bool hv_isolation_type_cca(void)
+{
+	return is_realm_world();
+}
+
+bool hv_is_isolation_supported(void)
+{
+	return is_realm_world();
+}
