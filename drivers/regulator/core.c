@@ -1842,6 +1842,7 @@ static int set_supply(struct regulator_dev *rdev,
 		err = -ENOMEM;
 		return err;
 	}
+	get_device(&supply_rdev->dev);
 	supply_rdev->open_count++;
 
 	return 0;
@@ -2290,22 +2291,20 @@ static int regulator_resolve_supply(struct regulator_dev *rdev)
 		supply = rdev->supply;
 
 		regulator_unlock_two(rdev, r, &ww_ctx);
-		put_device(&r->dev);
 
 		/*
 		 * Supply resolved by concurrent task, and constraints set as
 		 * well (or not required): fast path.
 		 */
 		if (done)
-			goto out;
+			goto out_put;
 
 		do_final_setup = false;
 	} else {
 		ret = set_supply(rdev, r);
 		if (ret < 0) {
 			regulator_unlock_two(rdev, r, &ww_ctx);
-			put_device(&r->dev);
-			goto out;
+			goto out_put;
 		}
 
 		supply = rdev->supply;
@@ -2342,7 +2341,7 @@ static int regulator_resolve_supply(struct regulator_dev *rdev)
 			 */
 			regulator_unlock_dependent(rdev, &ww_ctx);
 			ret = -EPROBE_DEFER;
-			goto out;
+			goto out_put;
 		}
 
 		ret = set_machine_constraints(rdev, true);
@@ -2364,7 +2363,7 @@ static int regulator_resolve_supply(struct regulator_dev *rdev)
 				 * that again via unset_supply.
 				 */
 				regulator_unlock_two(rdev, r, &ww_ctx);
-				goto out;
+				goto out_put;
 			}
 
 			unregister_regulator_event_forwarding(rdev);
@@ -2376,11 +2375,13 @@ static int regulator_resolve_supply(struct regulator_dev *rdev)
 	regulator_unlock_dependent(rdev, &ww_ctx);
 
 	if (!do_final_setup)
-		goto out;
+		goto out_put;
 
 	/* rdev->supply was created in set_supply() */
 	link_and_create_debugfs(rdev->supply, rdev->supply->rdev, &rdev->dev);
 
+out_put:
+	put_device(&r->dev);
 out:
 	return ret;
 
@@ -2391,6 +2392,7 @@ unset_supply:
 	regulator_unlock_two(rdev, supply->rdev, &ww_ctx);
 
 	regulator_put(supply);
+	put_device(&r->dev);
 
 	return ret;
 }
