@@ -61,6 +61,8 @@ static const int bpf2a64[] = {
 	[BPF_REG_9] = A64_R(22),
 	/* read-only frame pointer to access stack */
 	[BPF_REG_FP] = A64_R(25),
+	/* callee saved register for the pointer to the stack in arena */
+	[BPF_REG_ARENA_SP] = A64_R(23),
 	/* temporary registers for BPF JIT */
 	[TMP_REG_1] = A64_R(10),
 	[TMP_REG_2] = A64_R(11),
@@ -429,6 +431,11 @@ static void find_used_callee_regs(struct jit_ctx *ctx)
 
 	if (ctx->arena_vm_start)
 		ctx->used_callee_reg[i++] = bpf2a64[ARENA_VM_START];
+
+	/* subprogs get it from the caller and leave it as it was, unless the kernel calls them */
+	if (prog->aux->arena_stack_size &&
+	    (!bpf_is_subprog(prog) || prog->aux->arena_stack_entry))
+		ctx->used_callee_reg[i++] = bpf2a64[BPF_REG_ARENA_SP];
 
 	ctx->nr_used_callee_reg = i;
 }
@@ -2562,6 +2569,11 @@ out_free_hdr:
 }
 
 bool bpf_jit_supports_private_stack(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_arena_stack(void)
 {
 	return true;
 }
