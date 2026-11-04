@@ -126,7 +126,7 @@ xfs_failaddr_t xfs_refcount_check_irec(struct xfs_perag *pag,
 xfs_failaddr_t xfs_rtrefcount_check_irec(struct xfs_rtgroup *rtg,
 		const struct xfs_refcount_irec *irec);
 extern int xfs_refcount_insert(struct xfs_btree_cur *cur,
-		struct xfs_refcount_irec *irec, int *stat);
+		struct xfs_refcount_irec *irec);
 
 extern struct kmem_cache	*xfs_refcount_intent_cache;
 
