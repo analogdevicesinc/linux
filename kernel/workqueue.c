@@ -5706,6 +5706,28 @@ static void apply_wqattrs_cleanup(struct apply_wqattrs_ctx *ctx)
 	}
 }
 
+/*
+ * Sanitize attributes derived from the workqueue flags and which need to be
+ * enforced on every attribute application.
+ */
+static void
+sanitize_immutable_workqueue_attrs(struct workqueue_struct *wq, struct workqueue_attrs *attrs)
+{
+	if (wq->flags & __WQ_ORDERED)
+		attrs->ordered = true;
+}
+
+/*
+ * Sanitize attributes derived from the workqueue flags and which need to be
+ * enforced only on workqueue creation.
+ */
+static void
+sanitize_mutable_workqueue_attrs(struct workqueue_struct *wq, struct workqueue_attrs *attrs)
+{
+	if (wq->flags & WQ_HIGHPRI)
+		attrs->nice = HIGHPRI_NICE_LEVEL;
+}
+
 /* allocate the attrs and pwqs for later installation */
 static struct apply_wqattrs_ctx *
 apply_wqattrs_prepare(struct workqueue_struct *wq,
@@ -5735,6 +5757,7 @@ apply_wqattrs_prepare(struct workqueue_struct *wq,
 	 * every possible CPU and never falls back, so it has no default.
 	 */
 	copy_workqueue_attrs(new_attrs, attrs);
+	sanitize_immutable_workqueue_attrs(wq, new_attrs);
 	wqattrs_actualize_cpumask(new_attrs, unbound_cpumask);
 	cpumask_copy(new_attrs->__pod_cpumask, new_attrs->cpumask);
 	if (!(wq->flags & WQ_PERCPU)) {
@@ -5757,6 +5780,7 @@ apply_wqattrs_prepare(struct workqueue_struct *wq,
 
 	/* save the user configured attrs and sanitize it. */
 	copy_workqueue_attrs(new_attrs, attrs);
+	sanitize_immutable_workqueue_attrs(wq, new_attrs);
 	cpumask_and(new_attrs->cpumask, new_attrs->cpumask, cpu_possible_mask);
 	cpumask_copy(new_attrs->__pod_cpumask, new_attrs->cpumask);
 	ctx->attrs = new_attrs;
@@ -5919,24 +5943,6 @@ out_unlock:
 	put_pwq_unlocked(old_pwq);
 }
 
-/* the attrs @wq asked for, as spelled by its flags */
-static struct workqueue_attrs *alloc_wq_std_attrs(struct workqueue_struct *wq)
-{
-	struct workqueue_attrs *attrs;
-
-	attrs = alloc_workqueue_attrs();
-	if (!attrs)
-		return NULL;
-
-	if (wq->flags & WQ_HIGHPRI)
-		attrs->nice = HIGHPRI_NICE_LEVEL;
-
-	if (wq->flags & __WQ_ORDERED)
-		attrs->ordered = true;
-
-	return attrs;
-}
-
 static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 {
 	struct workqueue_attrs *attrs;
@@ -5948,10 +5954,11 @@ static int alloc_and_link_pwqs(struct workqueue_struct *wq)
 	if (!wq->cpu_pwq)
 		goto enomem;
 
-	attrs = alloc_wq_std_attrs(wq);
+	attrs = alloc_workqueue_attrs();
 	if (!attrs)
 		goto enomem;
 
+	sanitize_mutable_workqueue_attrs(wq, attrs);
 	ret = apply_workqueue_attrs_locked(wq, attrs);
 	free_workqueue_attrs(attrs);
 	if (ret)
