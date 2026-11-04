@@ -79,6 +79,7 @@ static int storm_parse_of(struct device *dev)
 	dai_link->codecs->of_node = of_parse_phandle(np, "codec", 0);
 	if (!dai_link->codecs->of_node) {
 		dev_err(dev, "error getting codec phandle\n");
+		of_node_put(dai_link->cpus->of_node);
 		return -EINVAL;
 	}
 

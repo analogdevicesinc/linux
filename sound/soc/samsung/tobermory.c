@@ -193,7 +193,7 @@ static int tobermory_late_probe(struct snd_soc_card *card)
 	if (ret)
 		return ret;
 
-	wm8962_mic_detect(component, &tobermory_headset);
+	snd_soc_component_set_jack(component, &tobermory_headset, NULL);
 
 	return 0;
 }

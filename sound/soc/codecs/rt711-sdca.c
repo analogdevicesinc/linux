@@ -184,10 +184,10 @@ _cali_fail_:
 	return ret;
 }
 
-static unsigned int rt711_sdca_button_detect(struct rt711_sdca_priv *rt711)
+static int rt711_sdca_button_detect(struct rt711_sdca_priv *rt711)
 {
-	unsigned int btn_type = 0, offset, idx, val, owner;
-	int ret;
+	unsigned int offset, idx, val, owner;
+	int btn_type = 0, ret;
 	unsigned char buf[3];
 
 	/* get current UMP message owner */
@@ -195,7 +195,7 @@ static unsigned int rt711_sdca_button_detect(struct rt711_sdca_priv *rt711)
 		SDW_SDCA_CTL(FUNC_NUM_HID, RT711_SDCA_ENT_HID01, RT711_SDCA_CTL_HIDTX_CURRENT_OWNER, 0),
 		&owner);
 	if (ret < 0)
-		return 0;
+		return ret;
 
 	/* if owner is device then there is no button event from device */
 	if (owner == 1)
@@ -258,6 +258,9 @@ _end_btn_det_:
 		regmap_write(rt711->regmap,
 			SDW_SDCA_CTL(FUNC_NUM_HID, RT711_SDCA_ENT_HID01,
 				RT711_SDCA_CTL_HIDTX_SET_OWNER_TO_DEVICE, 0), 0x01);
+
+	if (ret < 0)
+		return ret;
 
 	return btn_type;
 }
@@ -329,6 +332,17 @@ static void rt711_sdca_jack_detect_handler(struct work_struct *work)
 	/* SDW_SCP_SDCA_INT_SDCA_8 is used for button detection */
 	if (rt711->scp_sdca_stat2 & SDW_SCP_SDCA_INT_SDCA_8)
 		btn_type = rt711_sdca_button_detect(rt711);
+
+	if (btn_type < 0) {
+		unsigned int mask = SND_JACK_HEADSET;
+
+		if (rt711->jack_type != SND_JACK_HEADSET)
+			mask |= SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+				SND_JACK_BTN_2 | SND_JACK_BTN_3;
+
+		snd_soc_jack_report(rt711->hs_jack, rt711->jack_type, mask);
+		return;
+	}
 
 	if (rt711->jack_type == 0)
 		btn_type = 0;

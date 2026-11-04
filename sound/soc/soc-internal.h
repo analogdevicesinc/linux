@@ -25,6 +25,17 @@ int snd_soc_add_controls(struct snd_card *card, struct device *dev,
 			 const char *prefix, void *data);
 
 /*
+ * In soc-ops
+ */
+struct snd_soc_control_field {
+	unsigned int reg;
+	unsigned int mask;
+};
+
+int snd_soc_control_fields(const struct snd_kcontrol *kctl,
+			   struct snd_soc_control_field *fields);
+
+/*
  * In soc-dai
  */
 void snd_soc_dai_symmetric_set_params(struct snd_soc_dai *dai,

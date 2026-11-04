@@ -2890,20 +2890,18 @@ void snd_soc_dapm_free_widget(struct snd_soc_dapm_widget *w)
 
 	dapm_debugfs_free_widget(w);
 
-	if (w->dapm) {
-		if (w->dapm->card) {
-			for_each_card_dapms(w->dapm->card, d) {
-				if (d->wcache_sink == w)
-					d->wcache_sink = NULL;
-				if (d->wcache_source == w)
-					d->wcache_source = NULL;
-			}
-		} else {
-			if (w->dapm->wcache_sink == w)
-				w->dapm->wcache_sink = NULL;
-			if (w->dapm->wcache_source == w)
-				w->dapm->wcache_source = NULL;
+	if (w->dapm->card) {
+		for_each_card_dapms(w->dapm->card, d) {
+			if (d->wcache_sink == w)
+				d->wcache_sink = NULL;
+			if (d->wcache_source == w)
+				d->wcache_source = NULL;
 		}
+	} else {
+		if (w->dapm->wcache_sink == w)
+			w->dapm->wcache_sink = NULL;
+		if (w->dapm->wcache_source == w)
+			w->dapm->wcache_source = NULL;
 	}
 
 	kfree(w->kcontrols);

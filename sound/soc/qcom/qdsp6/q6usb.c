@@ -322,22 +322,26 @@ static int q6usb_component_probe(struct snd_soc_component *component)
 	struct snd_soc_usb *usb;
 	int ret;
 
-	/* Add the QC USB SND aux device */
-	ret = q6usb_dai_add_aux_device(data, &data->uauxdev);
-	if (ret < 0)
-		return ret;
-
 	usb = snd_soc_usb_allocate_port(component, &data->priv);
 	if (IS_ERR(usb))
-		return -ENOMEM;
+		return PTR_ERR(usb);
 
 	usb->connection_status_cb = q6usb_alsa_connection_cb;
 	usb->update_offload_route_info = q6usb_update_offload_route;
+
+	/* Add the QC USB SND aux device */
+	ret = q6usb_dai_add_aux_device(data, &data->uauxdev);
+	if (ret < 0)
+		goto free_usb_port;
 
 	snd_soc_usb_add_port(usb);
 	data->usb = usb;
 
 	return 0;
+
+free_usb_port:
+	snd_soc_usb_free_port(usb);
+	return ret;
 }
 
 static void q6usb_component_remove(struct snd_soc_component *component)

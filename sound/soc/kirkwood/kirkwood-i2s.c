@@ -59,11 +59,11 @@ static int armada_38x_i2s_init_quirk(struct platform_device *pdev,
 
 	priv->pll_config = devm_platform_ioremap_resource_byname(pdev, "pll_regs");
 	if (IS_ERR(priv->pll_config))
-		return -ENOMEM;
+		return PTR_ERR(priv->pll_config);
 
 	priv->soc_control = devm_platform_ioremap_resource_byname(pdev, "soc_ctrl");
 	if (IS_ERR(priv->soc_control))
-		return -ENOMEM;
+		return PTR_ERR(priv->soc_control);
 
 	/* Select one of exceptive modes: I2S or S/PDIF */
 	reg_val = readl(priv->soc_control);
@@ -687,10 +687,9 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 	}
 
 	priv->clk = devm_clk_get(&pdev->dev, np ? "internal" : NULL);
-	if (IS_ERR(priv->clk)) {
-		dev_err(&pdev->dev, "no clock\n");
-		return PTR_ERR(priv->clk);
-	}
+	if (IS_ERR(priv->clk))
+		return dev_err_probe(&pdev->dev, PTR_ERR(priv->clk),
+				     "no clock\n");
 
 	priv->extclk = devm_clk_get(&pdev->dev, "extclk");
 	if (IS_ERR(priv->extclk)) {
@@ -702,14 +701,16 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 			priv->extclk = ERR_PTR(-EINVAL);
 		} else {
 			dev_info(&pdev->dev, "found external clock\n");
-			clk_prepare_enable(priv->extclk);
+			err = clk_prepare_enable(priv->extclk);
+			if (err < 0)
+				return err;
 			soc_dai = kirkwood_i2s_dai_extclk;
 		}
 	}
 
 	err = clk_prepare_enable(priv->clk);
 	if (err < 0)
-		return err;
+		goto err_clk;
 
 	/* Some sensible defaults - this reflects the powerup values */
 	priv->ctl_play = KIRKWOOD_PLAYCTL_SIZE_24;
@@ -726,19 +727,18 @@ static int kirkwood_i2s_dev_probe(struct platform_device *pdev)
 
 	err = snd_soc_register_component(&pdev->dev, &kirkwood_soc_component,
 					 soc_dai, 2);
-	if (err) {
-		dev_err(&pdev->dev, "snd_soc_register_component failed\n");
+	if (err)
 		goto err_component;
-	}
 
 	kirkwood_i2s_init(priv);
 
 	return 0;
 
- err_component:
+err_component:
+	clk_disable_unprepare(priv->clk);
+err_clk:
 	if (!IS_ERR(priv->extclk))
 		clk_disable_unprepare(priv->extclk);
-	clk_disable_unprepare(priv->clk);
 
 	return err;
 }
@@ -748,9 +748,9 @@ static void kirkwood_i2s_dev_remove(struct platform_device *pdev)
 	struct kirkwood_dma_data *priv = dev_get_drvdata(&pdev->dev);
 
 	snd_soc_unregister_component(&pdev->dev);
+	clk_disable_unprepare(priv->clk);
 	if (!IS_ERR(priv->extclk))
 		clk_disable_unprepare(priv->extclk);
-	clk_disable_unprepare(priv->clk);
 }
 
 #ifdef CONFIG_OF

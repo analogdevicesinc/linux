@@ -502,6 +502,7 @@ struct nau8825 {
 	struct semaphore xtalk_sem;
 	int sw_id;
 	int irq;
+	bool suspend_irq_disabled;
 	int mclk_freq; /* 0 - mclk is disabled */
 	int button_pressed;
 	int micbias_voltage;

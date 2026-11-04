@@ -147,10 +147,6 @@ static int hi6210_i2s_startup(struct snd_pcm_substream *substream,
 	val = hi6210_read_reg(i2s, HII2S_MISC_CFG);
 	/* mux 11/12 = APB not i2s */
 	val &= ~HII2S_MISC_CFG__ST_DL_TEST_SEL;
-	/* BT R ch  0 = mixer op of DACR ch */
-	val &= ~HII2S_MISC_CFG__S2_DOUT_RIGHT_SEL;
-	val &= ~HII2S_MISC_CFG__S2_DOUT_TEST_SEL;
-
 	val |= HII2S_MISC_CFG__S2_DOUT_RIGHT_SEL;
 	/* BT L ch = 1 = mux 7 = "mixer output of DACL */
 	val |= HII2S_MISC_CFG__S2_DOUT_TEST_SEL;
@@ -172,9 +168,9 @@ static void hi6210_i2s_shutdown(struct snd_pcm_substream *substream,
 				struct snd_soc_dai *cpu_dai)
 {
 	struct hi6210_i2s *i2s = dev_get_drvdata(cpu_dai->dev);
-	int n;
+	int n = i2s->clocks;
 
-	for (n = 0; n < i2s->clocks; n++)
+	while (n--)
 		clk_disable_unprepare(i2s->clk[n]);
 
 	regmap_write(i2s->sysctrl, SC_PERIPH_RSTEN1, BIT(5));

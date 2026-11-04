@@ -321,7 +321,7 @@ static int ntp8835_hw_params(struct snd_pcm_substream *substream,
 
 	ret = snd_soc_component_update_bits(component, NTP8835_MCLK_FREQ_CTRL,
 					    NTP8835_MCLK_FREQ_MCF, mcf);
-	if (ret)
+	if (ret < 0)
 		return ret;
 
 	switch (ntp8835->format) {
@@ -341,8 +341,10 @@ static int ntp8835_hw_params(struct snd_pcm_substream *substream,
 					    NTP8835_INPUT_FMT_GSA_MODE,
 					    input_fmt);
 
-	if (!(input_fmt & NTP8835_INPUT_FMT_GSA_MODE) || ret < 0)
+	if (ret < 0)
 		return ret;
+	if (!(input_fmt & NTP8835_INPUT_FMT_GSA_MODE))
+		return 0;
 
 	switch (params_width(params)) {
 	case 24:
@@ -364,8 +366,17 @@ static int ntp8835_hw_params(struct snd_pcm_substream *substream,
 	gsa_fmt_mask = NTP8835_GSA_BS_MASK |
 		       NTP8835_GSA_RIGHT_J |
 		       NTP8835_GSA_LSB;
-	return snd_soc_component_update_bits(component, NTP8835_GSA_FMT,
-					     gsa_fmt_mask, gsa_fmt);
+	ret = snd_soc_component_update_bits(component, NTP8835_GSA_FMT,
+					    gsa_fmt_mask, gsa_fmt);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI hw_params as done when .hw_params() returns 0.
+	 * Since snd_soc_component_update_bits() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked.
+	 */
+	return 0;
 }
 
 static int ntp8835_set_fmt(struct snd_soc_dai *dai, unsigned int fmt)
