@@ -298,23 +298,6 @@ __arch_arm64
 __arch_riscv64
 __arch_loongarch
 __success
-/* The verifier adds two zero extensions for these JITs. */
-#if defined(__TARGET_ARCH_s390) || defined(__TARGET_ARCH_riscv)
-__xlated("25: call pc+7")
-__xlated("...")
-__xlated("32: exit")
-__xlated("33: r0 = ")
-__xlated("35: r0 = &(void __percpu *)(r0)")
-__xlated("36: r0 = *(u64 *)(r0 +0)")
-__xlated("37: if r0 != 0x0 goto pc+2")
-__xlated("38: r0 = 1")
-__xlated("39: exit")
-__xlated("40: r1 += -1")
-__xlated("...")
-__xlated("51: if r1 != 0x0 goto pc-12")
-__xlated("52: r0 = 0")
-__xlated("53: exit")
-#else
 __xlated("23: call pc+7")
 __xlated("...")
 __xlated("30: exit")
@@ -329,7 +312,6 @@ __xlated("...")
 __xlated("49: if r1 != 0x0 goto pc-12")
 __xlated("50: r0 = 0")
 __xlated("51: exit")
-#endif
 __naked void patch_list_insert_in_front(void)
 {
 	asm volatile (

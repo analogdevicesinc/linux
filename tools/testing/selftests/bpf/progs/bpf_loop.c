@@ -66,14 +66,16 @@ SEC("fentry/" SYS_PREFIX "sys_nanosleep")
 int test_prog(void *ctx)
 {
 	struct callback_ctx data = {};
+	long ret;
 
 	if (bpf_get_current_pid_tgid() >> 32 != pid)
 		return 0;
 
-	nr_loops_returned = bpf_loop(nr_loops, callback, &data, 0);
+	ret = bpf_loop(nr_loops, callback, &data, 0);
+	nr_loops_returned = ret;
 
-	if (nr_loops_returned < 0)
-		err = nr_loops_returned;
+	if (ret < 0)
+		err = ret;
 	else
 		g_output = data.output;
 
