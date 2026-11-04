@@ -163,11 +163,15 @@ EXPORT_SYMBOL_GPL(reset_controller_register);
 static void __reset_control_release(struct kref *kref);
 static void __reset_control_free(struct reset_control *rstc);
 
+/*
+ * Removes rstc from its list and drops the references on rcdev's owner module
+ * and device.  The caller must ensure rstc->list access is serialized (e.g.,
+ * by holding rcdev->lock or moving rstc to a private list) and that no
+ * operations on rcdev via rstc are in flight.
+ */
 static void reset_controller_remove(struct reset_controller_dev *rcdev,
 				    struct reset_control *rstc)
 {
-	lockdep_assert_held(&rcdev->lock);
-
 	list_del(&rstc->list);
 	module_put(rcdev->owner);
 	put_device(rcdev->dev);
@@ -180,6 +184,7 @@ static void reset_controller_remove(struct reset_controller_dev *rcdev,
 void reset_controller_unregister(struct reset_controller_dev *rcdev)
 {
 	struct reset_control *rstc, *pos;
+	LIST_HEAD(reset_control_head);
 
 	scoped_guard(mutex, &reset_list_mutex)
 		list_del(&rcdev->list);
@@ -196,11 +201,20 @@ void reset_controller_unregister(struct reset_controller_dev *rcdev)
 		list_for_each_entry_safe(rstc, pos, &rcdev->reset_control_head, list) {
 			kref_get(&rstc->refcnt);
 			rcu_assign_pointer(rstc->rcdev, NULL);
-			synchronize_srcu(&rstc->srcu);
-			reset_controller_remove(rcdev, rstc);
-			if (kref_put(&rstc->refcnt, __reset_control_release))
-				__reset_control_free(rstc);
+			list_move(&rstc->list, &reset_control_head);
 		}
+	}
+
+	/*
+	 * Run synchronize_srcu() outside rcdev->lock to avoid a circular
+	 * locking dependency with paths that acquire rcdev->lock inside
+	 * the rstc->srcu read-side critical section.
+	 */
+	list_for_each_entry_safe(rstc, pos, &reset_control_head, list) {
+		synchronize_srcu(&rstc->srcu);
+		reset_controller_remove(rcdev, rstc);
+		if (kref_put(&rstc->refcnt, __reset_control_release))
+			__reset_control_free(rstc);
 	}
 
 	mutex_destroy(&rcdev->lock);
