@@ -485,10 +485,18 @@ int btintel_read_version(struct hci_dev *hdev, struct intel_version *ver)
 }
 EXPORT_SYMBOL_GPL(btintel_read_version);
 
+/* FIPS self-test status is only reported by ScP2 onwards, except BlazarIW */
+static bool btintel_fips_status_supported(u8 hw_variant)
+{
+	return hw_variant >= BTINTEL_HWID_SCP2 && hw_variant != BTINTEL_HWID_BZRIW;
+}
+
 int btintel_version_info_tlv(struct hci_dev *hdev,
 			     struct intel_version_tlv *version)
 {
 	const char *variant;
+	bool fips_status = false;
+	u8 hw_variant;
 
 	/* The hardware platform number has a fixed value of 0x37 and
 	 * for now only accept this single value.
@@ -505,7 +513,8 @@ int btintel_version_info_tlv(struct hci_dev *hdev,
 	 * This check has been put in place to ensure correct forward
 	 * compatibility options when newer hardware variants come along.
 	 */
-	switch (INTEL_HW_VARIANT(version->cnvi_bt)) {
+	hw_variant = INTEL_HW_VARIANT(version->cnvi_bt);
+	switch (hw_variant) {
 	case 0x17:	/* TyP */
 	case 0x18:	/* Slr */
 	case 0x19:	/* Slr-F */
@@ -521,9 +530,12 @@ int btintel_version_info_tlv(struct hci_dev *hdev,
 		break;
 	default:
 		bt_dev_err(hdev, "Unsupported Intel hardware variant (0x%x)",
-			   INTEL_HW_VARIANT(version->cnvi_bt));
+			   hw_variant);
 		return -EINVAL;
 	}
+
+	fips_status = btintel_fips_status_supported(hw_variant) &&
+		version->img_type == BTINTEL_IMG_BOOTLOADER;
 
 	switch (version->img_type) {
 	case BTINTEL_IMG_BOOTLOADER:
@@ -584,6 +596,9 @@ int btintel_version_info_tlv(struct hci_dev *hdev,
 
 	bt_dev_info(hdev, "Unlock policy: 0x%2.2x", version->unlock_policy);
 
+	if (fips_status)
+		bt_dev_info(hdev, "crc status: %u security status: %u patch status: %u",
+			    version->crc_sts, version->sec_sts, version->patch_sts);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(btintel_version_info_tlv);
@@ -612,6 +627,7 @@ static u8 btintel_version_tlv_min_len(u8 type)
 	case INTEL_TLV_UNLOCK_POLICY:
 		return sizeof(u8);
 	case INTEL_TLV_MIN_FW:
+	case INTEL_TLV_FIPS_STS:
 		return 3;
 	case INTEL_TLV_OTP_BDADDR:
 		return sizeof(bdaddr_t);
@@ -719,6 +735,11 @@ int btintel_parse_version_tlv(struct hci_dev *hdev,
 			break;
 		case INTEL_TLV_GIT_SHA1:
 			version->git_sha1 = get_unaligned_le32(tlv->val);
+			break;
+		case INTEL_TLV_FIPS_STS:
+			version->crc_sts = tlv->val[0];
+			version->sec_sts = tlv->val[1];
+			version->patch_sts = tlv->val[2];
 			break;
 		case INTEL_TLV_FW_ID:
 			snprintf(version->fw_id, sizeof(version->fw_id),
@@ -3853,6 +3874,43 @@ void btintel_print_fseq_info(struct hci_dev *hdev)
 }
 EXPORT_SYMBOL_GPL(btintel_print_fseq_info);
 
+int btintel_check_fips_status(struct hci_dev *hdev,
+			      struct intel_version_tlv *ver)
+{
+	u8 hw_variant;
+
+	/* FIPS status is reported only in the bootloader image */
+	if (ver->img_type != BTINTEL_IMG_BOOTLOADER)
+		return 0;
+
+	hw_variant = INTEL_HW_VARIANT(ver->cnvi_bt);
+
+	if (!btintel_fips_status_supported(hw_variant))
+		return 0;
+
+	/* 0 -> Test not executed
+	 * 1 -> Test executed and it passed
+	 * any other value -> Test failed
+	 */
+	if (ver->crc_sts > 1) {
+		bt_dev_err(hdev, "crc test failed: %u", ver->crc_sts);
+		return -ENOEXEC;
+	}
+
+	if (ver->sec_sts > 1) {
+		bt_dev_err(hdev, "security test failed: %u", ver->sec_sts);
+		return -EAGAIN;
+	}
+
+	if (ver->patch_sts > 1) {
+		bt_dev_err(hdev, "patch test failed: %u", ver->patch_sts);
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(btintel_check_fips_status);
+
 static int btintel_setup_combined(struct hci_dev *hdev)
 {
 	const u8 param[1] = { 0xFF };
@@ -4076,6 +4134,10 @@ static int btintel_setup_combined(struct hci_dev *hdev)
 	case 0x23:
 		/* Display version information of TLV type */
 		btintel_version_info_tlv(hdev, &ver_tlv);
+
+		err = btintel_check_fips_status(hdev, &ver_tlv);
+		if (err)
+			goto exit_error;
 
 		/* Apply the device specific HCI quirks for TLV based devices
 		 *

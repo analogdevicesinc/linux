@@ -229,12 +229,8 @@ static int btmtkuart_recv_event(struct hci_dev *hdev, struct sk_buff *skb)
 		goto err_free_skb;
 
 	if (hdr->evt == HCI_EV_WMT) {
-		if (test_and_clear_bit(BTMTKUART_TX_WAIT_VND_EVT,
-				       &bdev->tx_state)) {
-			/* Barrier to sync with other CPUs */
-			smp_mb__after_atomic();
-			wake_up_bit(&bdev->tx_state, BTMTKUART_TX_WAIT_VND_EVT);
-		}
+		test_and_clear_wake_up_bit(BTMTKUART_TX_WAIT_VND_EVT,
+				       &bdev->tx_state);
 	}
 
 	return 0;

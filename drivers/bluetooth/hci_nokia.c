@@ -531,12 +531,9 @@ static int nokia_enqueue(struct hci_uart *hu, struct sk_buff *skb)
 	memcpy(skb_push(skb, 1), &bt_cb(skb)->pkt_type, 1);
 
 	/* Packets must be word aligned */
-	if (skb->len % 2) {
-		err = skb_pad(skb, 1);
-		if (err)
-			return err;
-		skb_put(skb, 1);
-	}
+	err = skb_put_padto(skb, round_up(skb->len, 2));
+	if (err)
+		return err;
 
 	skb_queue_tail(&btdev->txq, skb);
 
