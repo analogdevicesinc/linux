@@ -495,6 +495,7 @@ void __init reserve_crashkernel_cma(unsigned long long cma_size)
 			continue;
 		}
 
+		cma_reserve_pages_on_error(res);
 		crashk_cma_ranges[crashk_cma_cnt].start = cma_get_base(res);
 		crashk_cma_ranges[crashk_cma_cnt].end =
 			crashk_cma_ranges[crashk_cma_cnt].start +
