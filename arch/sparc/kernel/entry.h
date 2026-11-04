@@ -82,7 +82,7 @@ void do_notify_resume(struct pt_regs *regs,
 		      unsigned long orig_i0,
 		      unsigned long thread_info_flags);
 
-asmlinkage int syscall_trace_enter(struct pt_regs *regs);
+asmlinkage long syscall_trace_enter(struct pt_regs *regs);
 asmlinkage void syscall_trace_leave(struct pt_regs *regs);
 
 void bad_trap_tl1(struct pt_regs *regs, long lvl);

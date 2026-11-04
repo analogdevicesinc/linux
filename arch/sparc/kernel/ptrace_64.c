@@ -38,6 +38,7 @@
 #include <asm/page.h>
 #include <asm/cpudata.h>
 #include <asm/cacheflush.h>
+#include <asm/syscall.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/syscalls.h>
@@ -1082,18 +1083,27 @@ long arch_ptrace(struct task_struct *child, long request,
 	return ret;
 }
 
-asmlinkage int syscall_trace_enter(struct pt_regs *regs)
+/*
+ * Returns 0 to let the syscall through, or -1 to skip it.  On skip the
+ * return value and the carry bit have already been set in pt_regs; the
+ * assembler caller must return through the syscall exit work without
+ * writing to them.
+ */
+asmlinkage long syscall_trace_enter(struct pt_regs *regs)
 {
-	int ret = 0;
-
-	/* do the secure computing check first */
-	secure_computing_strict(regs->u_regs[UREG_G1]);
-
 	if (test_thread_flag(TIF_NOHZ))
 		user_exit();
 
-	if (test_thread_flag(TIF_SYSCALL_TRACE))
-		ret = !ptrace_report_syscall_permit_entry(regs);
+	if (test_thread_flag(TIF_SYSCALL_TRACE) &&
+	    !ptrace_report_syscall_permit_entry(regs)) {
+		/* The tracer aborted the syscall. */
+		syscall_set_return_value(current, regs, -ENOSYS, 0);
+		return -1;
+	}
+
+	/* Do seccomp after ptrace, to catch any tracer changes. */
+	if (!seccomp_permit_syscall())
+		return -1;
 
 	if (unlikely(test_thread_flag(TIF_SYSCALL_TRACEPOINT)))
 		trace_sys_enter(regs, regs->u_regs[UREG_G1]);
@@ -1102,7 +1112,7 @@ asmlinkage int syscall_trace_enter(struct pt_regs *regs)
 			    regs->u_regs[UREG_I1], regs->u_regs[UREG_I2],
 			    regs->u_regs[UREG_I3]);
 
-	return ret;
+	return 0;
 }
 
 asmlinkage void syscall_trace_leave(struct pt_regs *regs)

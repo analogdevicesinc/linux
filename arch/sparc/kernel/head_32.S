@@ -69,7 +69,7 @@ sun4e_notsup:
  */
 	.ascii	"HdrS"
 	.word	LINUX_VERSION_CODE
-	.half	0x0203		/* HdrS version */
+	.half	0x0300		/* HdrS version */
 root_flags:
 	.half	1
 root_dev:

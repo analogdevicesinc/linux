@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#include <asm/asi.h>
 #include <asm/thread_info.h>
 #include <asm/trap_block.h>
 #include <asm/spitfire.h>
@@ -31,6 +32,15 @@ user_rtt_fill_fixup_common:
 
 		sethi	%hi(KERNBASE), %g1
 		flush	%g1
+
+		/* Restore the kernel's ASI_AIUS invariant, which etrap
+		 * would have re-established had we passed through it.
+		 * rtrap set %asi to ASI_AIUP for the window fill, and
+		 * the primary context is now the kernel's, so a leftover
+		 * ASI_AIUP would make %asi-based user accesses (put_user,
+		 * get_user) translate in the kernel context.
+		 */
+		wr	%g0, ASI_AIUS, %asi
 
 		mov	%g4, %l4
 		mov	%g5, %l5
