@@ -45,6 +45,8 @@ static struct snd_soc_dai_link_component cs35l41_components[CS35L41_MAX_AMPS];
  */
 static struct snd_soc_codec_conf cs35l41_codec_conf[CS35L41_MAX_AMPS];
 
+static char cs35l41_physdev_names[CS35L41_MAX_AMPS][64];
+
 static int cs35l41_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_card *card = rtd->card;
@@ -175,9 +177,11 @@ static int cs35l41_compute_codec_conf(void)
 					uid, cs35l41_name_prefixes[uid]);
 			return 0;
 		}
-		cs35l41_components[sz].name = dev_name(physdev);
+		strscpy(cs35l41_physdev_names[sz], dev_name(physdev));
+		put_device(physdev);
+		cs35l41_components[sz].name = cs35l41_physdev_names[sz];
 		cs35l41_components[sz].dai_name = CS35L41_CODEC_DAI;
-		cs35l41_codec_conf[sz].dlc.name = dev_name(physdev);
+		cs35l41_codec_conf[sz].dlc.name = cs35l41_physdev_names[sz];
 		cs35l41_codec_conf[sz].name_prefix = cs35l41_name_prefixes[uid];
 		sz++;
 	}
