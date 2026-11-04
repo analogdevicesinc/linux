@@ -70,6 +70,46 @@ __naked void no_private_stack_nested(void)
 "	::: __clobber_all);
 }
 
+#ifdef __BPF_FEATURE_STACK_ARGUMENT
+__used
+__naked static long subprog_6args(long a, long b, long c, long d, long e, long f)
+{
+	asm volatile ("			\
+	r0 = *(u64 *)(r11 + 8);		\
+	*(u64 *)(r10 - 64) = r0;	\
+	exit;				\
+"	::: __clobber_all);
+}
+
+/* x86-64 has one register for the private stack and for the sixth argument */
+SEC("raw_tp")
+__description("No private stack, stack arguments")
+__success
+__load_if_JITed()
+__arch_x86_64
+__log_level(4) __msg("stack depth max 128")
+__naked void no_private_stack_stack_args(void)
+{
+	asm volatile ("			\
+	r1 = 42;			\
+	*(u64 *)(r10 - 64) = r1;	\
+	*(u64 *)(r11 - 8) = r1;		\
+	call subprog_6args;		\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+#else
+SEC("raw_tp")
+__description("No private stack, stack arguments")
+__skip("stack_arg is not supported by compiler")
+__success
+int no_private_stack_stack_args(void)
+{
+	return 0;
+}
+#endif
+
 __used
 __naked static void cumulative_stack_depth_subprog(void)
 {

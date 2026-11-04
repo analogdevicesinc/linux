@@ -92,6 +92,55 @@ int XCAT(f, n)(unsigned long a)                  \
 
 F(37)
 
+#define ASM_FUNC(linkage, name, insns)					\
+linkage __naked __noinline __used int name(void)			\
+{									\
+	asm volatile (insns "r0 = 0; exit;"				\
+		      :: __imm(bpf_get_prandom_u32) : __clobber_all);	\
+}
+
+/*
+ * Every function calls the next one in both branches of an 'if': 32 calls are
+ * executed, and there are 2^32 chains of calls.
+ */
+#undef F_0
+#undef FN
+#define F_0 ASM_FUNC(, either0, "")
+#define FN(n, prev)							\
+	ASM_FUNC(, either##n,						\
+		 "call %[bpf_get_prandom_u32];"				\
+		 "if r0 == 0 goto +2;"					\
+		 "call either" #prev ";"				\
+		 "goto +1;"						\
+		 "call either" #prev ";")
+F(32)
+
+SEC("syscall")
+__success
+__load_if_JITed()
+int global_func_many_chains(void *ctx)
+{
+	return either32();
+}
+
+/*
+ * r1 is the number of calls that follow, so main -> fs7 .. fs0 and main -> fs15 .. fs8
+ * are executed: 9 frames each. main -> fs15 .. fs0 is in the call graph: 17 frames.
+ * libbpf puts fs7() .. fs0() in front of their second caller fs8().
+ */
+#undef F_0
+#undef FN
+#define F_0 ASM_FUNC(static, fs0, "")
+#define FN(n, prev) ASM_FUNC(static, fs##n, "if r1 == 0 goto +2; r1 += -1; call fs" #prev ";")
+F(15)
+
+SEC("syscall")
+__failure __msg("the call stack of 16 frames is too deep !")
+__naked int static_func_deep_stack_second_caller(void)
+{
+	asm volatile ("r1 = 7; call fs7; r1 = 7; call fs15; exit;" ::: __clobber_all);
+}
+
 /* Ensure that even 32 levels deep, the function verifies. */
 SEC("syscall")
 __success

@@ -745,6 +745,65 @@ __naked void callback_names_backward(void)
 	: __clobber_all);
 }
 
+/* adds 10 to what the context points to. callee_with_frame() is two calls away */
+static __naked __noinline __used long far_from_r12_cb(void)
+{
+	asm volatile (
+	"r6 = r2;"
+	"call callee_in_the_middle;"
+	"r1 = *(u64 *)(r6 + 0);"
+	"r1 += r0;"
+	"*(u64 *)(r6 + 0) = r1;"
+	"r0 = 0;"
+	"exit;"
+	::: __clobber_all);
+}
+
+static __naked __noinline __used long loops_far_from_r12_cb(void)
+{
+	asm volatile (
+	"r3 = r2;"
+	"r1 = 2;"
+	"r2 = far_from_r12_cb ll;"
+	"r4 = 0;"
+	"call %[bpf_loop];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_loop)
+	: __clobber_all);
+}
+
+SEC("syscall")
+__description("arena stack: the callback that is next to r12 takes a stack")
+__success __retval(60)
+__load_if_JITed()
+/* the end of the main program, the first insn of loops_far_from_r12_cb() */
+__xlated("r0 = r6")
+__xlated("exit")
+__xlated("r3 = r2")
+__xlated("...")
+/* the end of the code that takes a stack, the first insn of far_from_r12_cb() */
+__xlated("r12 = *(u32 *)(r{{[0-9]}} +8)")
+__xlated("r6 = r2")
+__naked void callback_in_callback(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r1 = 3;"
+	"r2 = loops_far_from_r12_cb ll;"
+	"r3 = r10;"
+	"r3 += -8;"
+	"r4 = 0;"
+	"call %[bpf_loop];"
+	"r0 = *(u64 *)(r10 - 8);"
+	"exit;"
+	:
+	: __imm(bpf_loop)
+	: __clobber_all);
+}
+
 SEC("syscall")
 __description("arena stack: call of a callback that uses r12")
 __failure __msg("loop_cb() uses R12 and is both called and a callback")
@@ -1009,10 +1068,12 @@ __naked void depth_max(void)
 SEC("syscall")
 __description("arena stack: more than 32K")
 __failure __msg("combined size of the frames in the stack in arena is 32784. Too large")
+/* frame_16() has two callers. The one that has more in the stack in arena counts */
 __naked void depth_too_large(void)
 {
 	asm volatile (
 	".8byte %[adj];"
+	"call frame_16;"
 	"call frame_16k_calls_16;"
 	"exit;"
 	:
