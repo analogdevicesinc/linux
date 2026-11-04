@@ -10,6 +10,7 @@
 #include <linux/page-flags.h>
 #include <linux/memcontrol.h>
 #include "internal.h"
+#include "memory-failure.h"
 
 static u32 hwpoison_filter_enable;
 static u32 hwpoison_filter_dev_major = ~0U;

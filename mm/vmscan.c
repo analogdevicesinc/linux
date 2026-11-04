@@ -67,6 +67,7 @@
 #include <linux/sched/sysctl.h>
 
 #include "internal.h"
+#include "memory-failure.h"
 #include "page_alloc.h"
 #include "swap.h"
 

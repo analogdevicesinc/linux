@@ -57,6 +57,7 @@
 #include <linux/pgalloc_tag.h>
 #include <asm/div64.h>
 #include "internal.h"
+#include "memory-failure.h"
 #include "mm_init.h"
 #include "page_alloc.h"
 #include "shuffle.h"
