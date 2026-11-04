@@ -2123,6 +2123,17 @@ static int linker_append_elf_sym(struct bpf_linker *linker, struct src_obj *obj,
 		if (!glob_sym->is_extern && sym_bind == STB_WEAK)
 			return 0;
 
+		/*
+		 * The symbol has an entry in the DATASEC of a different section.
+		 * var_idx is an index in that section. linker_append_btf() reports
+		 * the same when the definition is first.
+		 */
+		if (glob_sym->var_idx >= 0 && glob_sym->sec_id != dst_sec->id) {
+			pr_warn("global '%s': section mismatch %d vs %d\n",
+				sym_name, glob_sym->sec_id, dst_sec->id);
+			return -EINVAL;
+		}
+
 		/* At this point, new symbol is strong non-extern,
 		 * so overwrite glob_sym with new symbol information.
 		 * Preserve binding and visibility.

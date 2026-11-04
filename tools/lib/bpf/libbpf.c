@@ -553,6 +553,11 @@ struct bpf_struct_ops {
 #define STRUCT_OPS_LINK_SEC ".struct_ops.link"
 #define ARENA_SEC ".addr_space.1"
 /*
+ * Variables in arena that are zero. The name starts with .bss, so compilers make
+ * it SHT_NOBITS and it takes no space in the file. It's placed after ARENA_SEC.
+ */
+#define ARENA_BSS_SEC ".bss.addr_space.1"
+/*
  * The size of the arena map when max_entries is not set: the largest one.
  * It's in bytes: max_entries of arena is in pages and the size of a page
  * depends on the kernel. What an empty arena costs doesn't depend on its size.
@@ -697,6 +702,8 @@ struct elf_state {
 	Elf64_Ehdr *ehdr;
 	Elf_Data *symbols;
 	Elf_Data *arena_data;
+	Elf_Data *arena_bss;
+	size_t arena_bss_align;
 	size_t shstrndx; /* section index for section name strings */
 	size_t strtabidx;
 	struct elf_sec_desc *secs;
@@ -707,6 +714,7 @@ struct elf_state {
 	int symbols_shndx;
 	bool has_st_ops;
 	int arena_data_shndx;
+	int arena_bss_shndx;
 	int jumptables_data_shndx;
 };
 
@@ -788,6 +796,7 @@ struct bpf_object {
 	void *arena_data;
 	size_t arena_data_sz;
 	size_t arena_data_off;
+	size_t arena_bss_off; /* from the start of arena_data */
 
 	void *jumptables_data;
 	size_t jumptables_data_sz;
@@ -1629,6 +1638,7 @@ static struct bpf_object *bpf_object__new(const char *path,
 	obj->efile.obj_buf = obj_buf;
 	obj->efile.obj_buf_sz = obj_buf_sz;
 	obj->efile.btf_maps_shndx = -1;
+	obj->efile.arena_bss_shndx = -1;
 	obj->kconfig_map_idx = -1;
 	obj->arena_map_idx = -1;
 
@@ -1648,6 +1658,7 @@ static void bpf_object__elf_finish(struct bpf_object *obj)
 	obj->efile.ehdr = NULL;
 	obj->efile.symbols = NULL;
 	obj->efile.arena_data = NULL;
+	obj->efile.arena_bss = NULL;
 
 	zfree(&obj->efile.secs);
 	obj->efile.sec_cnt = 0;
@@ -3095,13 +3106,20 @@ static int bpf_object__init_user_btf_map(struct bpf_object *obj,
 	return 0;
 }
 
-static int init_arena_map_data(struct bpf_object *obj, struct bpf_map *map,
-			       void *data, size_t data_sz)
+static int init_arena_map_data(struct bpf_object *obj, struct bpf_map *map)
 {
-	obj->arena_data = malloc(data_sz);
+	Elf_Data *data = obj->efile.arena_data, *bss = obj->efile.arena_bss;
+	size_t data_sz = data ? data->d_size : 0;
+
+	if (bss) {
+		obj->arena_bss_off = roundup(data_sz, obj->efile.arena_bss_align);
+		data_sz = obj->arena_bss_off + bss->d_size;
+	}
+	obj->arena_data = calloc(1, data_sz);
 	if (!obj->arena_data)
 		return -ENOMEM;
-	memcpy(obj->arena_data, data, data_sz);
+	if (data)
+		memcpy(obj->arena_data, data->d_buf, data->d_size);
 	obj->arena_data_sz = data_sz;
 
 	/* make bpf_map__init_value() work for ARENA maps */
@@ -3174,14 +3192,13 @@ static int bpf_object__init_user_btf_maps(struct bpf_object *obj, bool strict,
 		if (!map->def.max_entries)
 			map->def.max_entries = ARENA_DEFAULT_SZ / sysconf(_SC_PAGE_SIZE);
 
-		if (obj->efile.arena_data) {
-			err = init_arena_map_data(obj, map, obj->efile.arena_data->d_buf,
-						  obj->efile.arena_data->d_size);
+		if (obj->efile.arena_data || obj->efile.arena_bss) {
+			err = init_arena_map_data(obj, map);
 			if (err)
 				return err;
 		}
 	}
-	if (obj->efile.arena_data && obj->arena_map_idx < 0) {
+	if ((obj->efile.arena_data || obj->efile.arena_bss) && obj->arena_map_idx < 0) {
 		pr_warn("elf: sec '%s': to use global __arena variables the ARENA map should be explicitly declared in SEC(\".maps\")\n",
 			ARENA_SEC);
 		return -ENOENT;
@@ -4176,6 +4193,10 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 			sec_desc->sec_type = SEC_RELO;
 			sec_desc->shdr = sh;
 			sec_desc->data = data;
+		} else if (sh->sh_type == SHT_NOBITS && strcmp(name, ARENA_BSS_SEC) == 0) {
+			obj->efile.arena_bss = data;
+			obj->efile.arena_bss_align = sh->sh_addralign ?: 1;
+			obj->efile.arena_bss_shndx = idx;
 		} else if (sh->sh_type == SHT_NOBITS && (strcmp(name, BSS_SEC) == 0 ||
 							 str_has_pfx(name, BSS_SEC "."))) {
 			sec_desc->sec_type = SEC_BSS;
@@ -4826,7 +4847,7 @@ static int bpf_program__record_reloc(struct bpf_program *prog,
 	sym_sec_name = elf_sec_name(obj, elf_sec_by_idx(obj, shdr_idx));
 
 	/* arena data relocation */
-	if (shdr_idx == obj->efile.arena_data_shndx) {
+	if (shdr_idx == obj->efile.arena_data_shndx || shdr_idx == obj->efile.arena_bss_shndx) {
 		if (obj->arena_map_idx < 0) {
 			pr_warn("prog '%s': bad arena data relocation at insn %u, no arena maps defined\n",
 				prog->name, insn_idx);
@@ -4836,6 +4857,8 @@ static int bpf_program__record_reloc(struct bpf_program *prog,
 		reloc_desc->insn_idx = insn_idx;
 		reloc_desc->map_idx = obj->arena_map_idx;
 		reloc_desc->sym_off = sym->st_value;
+		if (shdr_idx == obj->efile.arena_bss_shndx)
+			reloc_desc->sym_off += obj->arena_bss_off;
 
 		map = &obj->maps[obj->arena_map_idx];
 		pr_debug("prog '%s': found arena map %d (%s, sec %d, off %zu) for insn %u\n",
