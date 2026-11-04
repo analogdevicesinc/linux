@@ -9129,7 +9129,7 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
 
 	/*
 	 * SIPI_RECEIVED is obsolete and no longer used internally; KVM instead
-	 * leaves the vCPU in INIT_RECIEVED (Wait-For-SIPI) and pends the SIPI.
+	 * leaves the vCPU in INIT_RECEIVED (Wait-For-SIPI) and pends the SIPI.
 	 * Translate SIPI_RECEIVED as appropriate for backwards compatibility.
 	 */
 	if (mp_state->mp_state == KVM_MP_STATE_SIPI_RECEIVED) {
