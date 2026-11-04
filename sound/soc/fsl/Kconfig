@@ -140,6 +140,7 @@ config SND_SOC_FSL_RPMSG
 config SND_SOC_FSL_LPC3XXX
 	tristate "SoC Audio for NXP LPC32XX CPUs"
 	depends on ARCH_LPC32XX || COMPILE_TEST
+	select REGMAP_MMIO
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 	help
 	  Say Y or M if you want to add support for the LPC3XXX I2S interface.
