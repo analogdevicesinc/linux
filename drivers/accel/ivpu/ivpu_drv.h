@@ -38,7 +38,8 @@
 /* SSID 1 is used by the VPU to represent reserved context */
 #define IVPU_RESERVED_CONTEXT_MMU_SSID 1
 #define IVPU_USER_CONTEXT_MIN_SSID     2
-#define IVPU_USER_CONTEXT_MAX_SSID     (IVPU_USER_CONTEXT_MIN_SSID + 128)
+#define IVPU_USER_CONTEXT_MAX_SSID     127
+#define IVPU_NON_ROOT_USER_MAX_CONTEXTS 64
 
 #define IVPU_MIN_DB 1
 #define IVPU_MAX_DB 255

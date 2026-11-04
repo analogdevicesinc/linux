@@ -127,7 +127,7 @@ static struct ivpu_user_limits *ivpu_user_limits_alloc(struct ivpu_device *vdev,
 		limits->max_ctx_count = ivpu_get_context_count(vdev);
 		limits->max_db_count = ivpu_get_doorbell_count(vdev);
 	} else {
-		limits->max_ctx_count = ivpu_get_context_count(vdev) / 2;
+		limits->max_ctx_count = IVPU_NON_ROOT_USER_MAX_CONTEXTS;
 		limits->max_db_count = ivpu_get_doorbell_count(vdev) / 2;
 	}
 
