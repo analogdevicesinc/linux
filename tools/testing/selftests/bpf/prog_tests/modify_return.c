@@ -11,6 +11,10 @@
 #define LOWER(x) ((x) & 0xffff)
 #define UPPER(x) ((x) >> 16)
 
+#define MAX_INSTANCE_PATH_LEN	128
+#define TRACEFS_DEFAULT		"/sys/kernel/tracing"
+#define TRACEFS_IN_DEBUGFS	"/sys/kernel/debug/tracing"
+#define TRACE_FTRACE_DEFAULT	TRACEFS_DEFAULT "/trace"
 
 static void run_test(__u32 input_retval, __u16 want_side_effect, __s16 want_ret)
 {
@@ -60,4 +64,32 @@ void test_modify_return(void)
 	run_test(-EINVAL /* input_retval */,
 		 0 /* want_side_effect */,
 		 -EINVAL * 2 /* want_ret */);
+}
+
+void test_modify_return_graph(void)
+{
+	char instance[MAX_INSTANCE_PATH_LEN];
+	char *ftrace_dir;
+	int ret;
+
+	ftrace_dir = access(TRACE_FTRACE_DEFAULT, F_OK) ? TRACEFS_IN_DEBUGFS :
+							  TRACEFS_DEFAULT;
+
+	ret = snprintf(instance, MAX_INSTANCE_PATH_LEN,
+		       "%s/instances/bpf-XXXXXX", ftrace_dir);
+	if (ret < 0)
+		return;
+
+	if (!ASSERT_OK_PTR(mkdtemp(instance), "mkdtemp"))
+		return;
+
+	SYS(out, "echo 'bpf_modify_return_test*' > %s/set_ftrace_filter",
+	    instance);
+	SYS(out, "echo function_graph > %s/current_tracer", instance);
+
+	test_modify_return();
+
+	SYS(out, "grep -q bpf_modify_return_test2 %s/trace", instance);
+out:
+	ASSERT_OK(rmdir(instance), "rmdir");
 }
