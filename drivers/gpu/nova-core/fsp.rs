@@ -50,7 +50,6 @@ use crate::{
         NvdmHeader,
         NvdmType, //
     },
-    num,
     regs, //
 };
 
@@ -288,7 +287,7 @@ impl FspCotMessage {
         };
 
         let version = hal.cot_version();
-        let size = num::usize_into_u16::<{ core::mem::size_of::<NvdmPayloadCot>() }>();
+        let size = cv!(core::mem::size_of::<NvdmPayloadCot>() => u16);
 
         Ok(init!(Self {
             header: FspMessageHeader::new(NvdmType::Cot),
