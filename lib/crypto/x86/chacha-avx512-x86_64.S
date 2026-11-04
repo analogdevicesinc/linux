@@ -699,137 +699,14 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	vpunpckldq	V15,V14,V30
 	vpunpckhdq	V15,V14,V31
 
-.if VL == 32
 	# interleave 64-bit words in state n, n+2
-	vpunpcklqdq	V18,V16,V0
-	vpunpcklqdq	V19,V17,V1
-	vpunpckhqdq	V18,V16,V2
-	vpunpckhqdq	V19,V17,V3
-	vpunpcklqdq	V22,V20,V4
-	vpunpcklqdq	V23,V21,V5
-	vpunpckhqdq	V22,V20,V6
-	vpunpckhqdq	V23,V21,V7
-	vpunpcklqdq	V26,V24,V8
-	vpunpcklqdq	V27,V25,V9
-	vpunpckhqdq	V26,V24,V10
-	vpunpckhqdq	V27,V25,V11
-	vpunpcklqdq	V30,V28,V12
-	vpunpcklqdq	V31,V29,V13
-	vpunpckhqdq	V30,V28,V14
-	vpunpckhqdq	V31,V29,V15
-
-	# interleave 128-bit words in state n, n+4
-	# xor/write first four blocks
-	vmovdqa64	V0,V16
-	vperm2i128	$0x20,V4,V0,V0
-	cmp		$0x0020,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0000(%rdx),V0,V0
-	vmovdqu64	V0,0x0000(%rsi)
-	vmovdqa64	V16,V0
-	vperm2i128	$0x31,V4,V0,V4
-
-	vperm2i128	$0x20,V12,V8,V0
-	cmp		$0x0040,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0020(%rdx),V0,V0
-	vmovdqu64	V0,0x0020(%rsi)
-	vperm2i128	$0x31,V12,V8,V12
-
-	vperm2i128	$0x20,V6,V2,V0
-	cmp		$0x0060,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0040(%rdx),V0,V0
-	vmovdqu64	V0,0x0040(%rsi)
-	vperm2i128	$0x31,V6,V2,V6
-
-	vperm2i128	$0x20,V14,V10,V0
-	cmp		$0x0080,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0060(%rdx),V0,V0
-	vmovdqu64	V0,0x0060(%rsi)
-	vperm2i128	$0x31,V14,V10,V14
-
-	vperm2i128	$0x20,V5,V1,V0
-	cmp		$0x00a0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0080(%rdx),V0,V0
-	vmovdqu64	V0,0x0080(%rsi)
-	vperm2i128	$0x31,V5,V1,V5
-
-	vperm2i128	$0x20,V13,V9,V0
-	cmp		$0x00c0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x00a0(%rdx),V0,V0
-	vmovdqu64	V0,0x00a0(%rsi)
-	vperm2i128	$0x31,V13,V9,V13
-
-	vperm2i128	$0x20,V7,V3,V0
-	cmp		$0x00e0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x00c0(%rdx),V0,V0
-	vmovdqu64	V0,0x00c0(%rsi)
-	vperm2i128	$0x31,V7,V3,V7
-
-	vperm2i128	$0x20,V15,V11,V0
-	cmp		$0x0100,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x00e0(%rdx),V0,V0
-	vmovdqu64	V0,0x00e0(%rsi)
-	vperm2i128	$0x31,V15,V11,V15
-
-	# xor remaining blocks, write to output
-	vmovdqa64	V4,V0
-	cmp		$0x0120,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0100(%rdx),V0,V0
-	vmovdqu64	V0,0x0100(%rsi)
-
-	vmovdqa64	V12,V0
-	cmp		$0x0140,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0120(%rdx),V0,V0
-	vmovdqu64	V0,0x0120(%rsi)
-
-	vmovdqa64	V6,V0
-	cmp		$0x0160,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0140(%rdx),V0,V0
-	vmovdqu64	V0,0x0140(%rsi)
-
-	vmovdqa64	V14,V0
-	cmp		$0x0180,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0160(%rdx),V0,V0
-	vmovdqu64	V0,0x0160(%rsi)
-
-	vmovdqa64	V5,V0
-	cmp		$0x01a0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x0180(%rdx),V0,V0
-	vmovdqu64	V0,0x0180(%rsi)
-
-	vmovdqa64	V13,V0
-	cmp		$0x01c0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x01a0(%rdx),V0,V0
-	vmovdqu64	V0,0x01a0(%rsi)
-
-	vmovdqa64	V7,V0
-	cmp		$0x01e0,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x01c0(%rdx),V0,V0
-	vmovdqu64	V0,0x01c0(%rsi)
-
-	vmovdqa64	V15,V0
-	cmp		$0x0200,%rcx
-	jl		.Lxorpart\@
-	vpxord		0x01e0(%rdx),V0,V0
-	vmovdqu64	V0,0x01e0(%rsi)
+.if VL == 32
+	vpunpckhqdq	V18,V16,V1
+	vpunpcklqdq	V18,V16,V16 # leave V0 free to use as temporary register
 .else
-	# interleave 64-bit words in state n, n+2 -> zmm0..15
 	vpunpcklqdq	V18,V16,V0
 	vpunpckhqdq	V18,V16,V1
+.endif
 	vpunpcklqdq	V19,V17,V2
 	vpunpckhqdq	V19,V17,V3
 	vpunpcklqdq	V22,V20,V4
@@ -845,6 +722,106 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	vpunpcklqdq	V31,V29,V14
 	vpunpckhqdq	V31,V29,V15
 
+.if VL == 32
+	# interleave 128-bit words in state n, n+4
+	# xor/write first four blocks
+	vshufi64x2	$0x0,V4,V16,V0
+	cmp		$0x0020,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0000(%rdx),V0,V0
+	vmovdqu64	V0,0x0000(%rsi)
+
+	vperm2i128	$0x20,V12,V8,V0
+	cmp		$0x0040,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0020(%rdx),V0,V0
+	vmovdqu64	V0,0x0020(%rsi)
+
+	vperm2i128	$0x20,V5,V1,V0
+	cmp		$0x0060,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0040(%rdx),V0,V0
+	vmovdqu64	V0,0x0040(%rsi)
+
+	vperm2i128	$0x20,V13,V9,V0
+	cmp		$0x0080,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0060(%rdx),V0,V0
+	vmovdqu64	V0,0x0060(%rsi)
+
+	vperm2i128	$0x20,V6,V2,V0
+	cmp		$0x00a0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0080(%rdx),V0,V0
+	vmovdqu64	V0,0x0080(%rsi)
+
+	vperm2i128	$0x20,V14,V10,V0
+	cmp		$0x00c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x00a0(%rdx),V0,V0
+	vmovdqu64	V0,0x00a0(%rsi)
+
+	vperm2i128	$0x20,V7,V3,V0
+	cmp		$0x00e0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x00c0(%rdx),V0,V0
+	vmovdqu64	V0,0x00c0(%rsi)
+
+	vperm2i128	$0x20,V15,V11,V0
+	cmp		$0x0100,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x00e0(%rdx),V0,V0
+	vmovdqu64	V0,0x00e0(%rsi)
+
+	# xor remaining blocks, write to output
+	vshufi64x2	$0x3,V4,V16,V0
+	cmp		$0x0120,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0100(%rdx),V0,V0
+	vmovdqu64	V0,0x0100(%rsi)
+
+	vperm2i128	$0x31,V12,V8,V0
+	cmp		$0x0140,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0120(%rdx),V0,V0
+	vmovdqu64	V0,0x0120(%rsi)
+
+	vperm2i128	$0x31,V5,V1,V0
+	cmp		$0x0160,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0140(%rdx),V0,V0
+	vmovdqu64	V0,0x0140(%rsi)
+
+	vperm2i128	$0x31,V13,V9,V0
+	cmp		$0x0180,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0160(%rdx),V0,V0
+	vmovdqu64	V0,0x0160(%rsi)
+
+	vperm2i128	$0x31,V6,V2,V0
+	cmp		$0x01a0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x0180(%rdx),V0,V0
+	vmovdqu64	V0,0x0180(%rsi)
+
+	vperm2i128	$0x31,V14,V10,V0
+	cmp		$0x01c0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x01a0(%rdx),V0,V0
+	vmovdqu64	V0,0x01a0(%rsi)
+
+	vperm2i128	$0x31,V7,V3,V0
+	cmp		$0x01e0,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x01c0(%rdx),V0,V0
+	vmovdqu64	V0,0x01c0(%rsi)
+
+	vperm2i128	$0x31,V15,V11,V0
+	cmp		$0x0200,%rcx
+	jl		.Lxorpart\@
+	vpxord		0x01e0(%rdx),V0,V0
+	vmovdqu64	V0,0x01e0(%rsi)
+.else
 	# interleave 128-bit lanes in state n, n+4 -> zmm16..31
 	vshufi64x2	$0x88,V4,V0,V16
 	vshufi64x2	$0x88,V12,V8,V20
