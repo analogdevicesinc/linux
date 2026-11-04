@@ -557,8 +557,7 @@ struct ahci_host_priv *ahci_platform_get_resources(struct platform_device *pdev,
 	hpriv->ahci_regulator = devm_regulator_get(dev, "ahci");
 	if (IS_ERR(hpriv->ahci_regulator)) {
 		rc = PTR_ERR(hpriv->ahci_regulator);
-		if (rc != 0)
-			goto err_out;
+		goto err_out;
 	}
 
 	hpriv->phy_regulator = devm_regulator_get(dev, "phy");
