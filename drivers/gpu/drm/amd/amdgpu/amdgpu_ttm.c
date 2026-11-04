@@ -195,6 +195,7 @@ amdgpu_ttm_job_submit(struct amdgpu_device *adev, struct amdgpu_ttm_buffer_entit
  * @addr: resulting address inside the MC address space
  * @vm_needs_flush: out, set true if a GART window was programmed (VMID 0 flush
  *		    needed) or false for a direct address
+ * @readonly: true if the mapping should be created with non-writeable pages
  *
  * Setup one of the GART windows to access a specific piece of memory or return
  * the physical address for local memory.
