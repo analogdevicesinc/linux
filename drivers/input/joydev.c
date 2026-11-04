@@ -358,8 +358,8 @@ static ssize_t joydev_0x_read(struct joydev_client *client,
 	for (data.buttons = i = 0; i < 32 && i < joydev->nkey; i++)
 		data.buttons |=
 			test_bit(joydev->keypam[i], input->key) ? (1 << i) : 0;
-	data.x = (joydev->abs[0] / 256 + 128) >> joydev->glue.JS_CORR.x;
-	data.y = (joydev->abs[1] / 256 + 128) >> joydev->glue.JS_CORR.y;
+	data.x = (joydev->abs[0] / 256 + 128) >> clamp(joydev->glue.JS_CORR.x, 0, 31);
+	data.y = (joydev->abs[1] / 256 + 128) >> clamp(joydev->glue.JS_CORR.y, 0, 31);
 
 	/*
 	 * Reset reader's event queue
