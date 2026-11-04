@@ -8,12 +8,3 @@
 &adf4382 {
 	clocks = <&clkin_125>;
 };
-
-/* RevB-1 aligns to the master only without the ADF4030 receiver termination. */
-&adf4030 {
-	channel@9 {
-		/delete-property/ adi,ac-coupled-en;
-		/delete-property/ adi,link-rx-en;
-		/delete-property/ adi,float-rx-en;
-	};
-};

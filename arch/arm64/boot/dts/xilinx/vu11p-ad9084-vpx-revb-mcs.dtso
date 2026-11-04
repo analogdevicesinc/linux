@@ -41,15 +41,13 @@
 	adi,bsync-autoalign-reference-channel = <9>;
 
 	/*
-	 * DC-coupled input from the master ADF4030 through R783/R784. With the
-	 * master's voltage-mode driver it only toggles with the receiver's
-	 * AC-coupled bias enabled.
+	 * DC-coupled input from the master ADF4030 through R783/R784, set up like
+	 * the Triton reference input (J46_J47_UFL): no receiver termination or
+	 * AC-coupled bias. The bias moved rev B's MCS timing by 200 ps against
+	 * rev B-1.
 	 */
 	channel@9 {
 		/delete-property/ adi,output-en;
-		adi,ac-coupled-en;
-		adi,link-rx-en;
-		adi,float-rx-en;
 	};
 };
 
