@@ -1,0 +1,193 @@
+soc/arm
+	khilman/omap
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/soc-signed
+	frank.li/imx-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-soc-7.4
+	iwamatsu/visconti
+		https://git.kernel.org/pub/scm/linux/kernel/git/iwamatsu/linux-visconti tags/visconti-soc-7.4
+	tegra/arm-core
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm-core
+	gclement/mvebu
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-arm-7.4-1
+	krzk/samsung-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-soc-7.4
+	sudeep.holla/vexpress-fixes
+		git://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/vexpress-fixes-7.4
+	dinguyen/socfpga-maintainer
+		git://git.kernel.org/pub/scm/linux/kernel/git/dinguyen/linux tags/socfpga_maintainer_update_for_v7.4
+	at91/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
+	ti/k3-maintainer
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-maintainer-for-v7.4
+
+soc/dt
+	renesas/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.4-tag1
+		contains renesas/fixes-2
+		contains renesas/fixes
+	rockchip/dts64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-1
+	qcom/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4
+	mediatek/dt64
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts64-for-v7.4
+	mediatek/dt32
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-dts32-for-v7.4
+	arm-juno/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/juno-updates-7.4
+	ste/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-for-7.4
+	gemini/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-integrator tags/gemini-dts-for-7.4
+	omap/dt32
+		https://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/dt-signed
+	stm32/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/atorgue/stm32 tags/stm32-dt-for-v7.4-1
+	imx/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt-7.4
+	imx/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-dt64-7.4
+	marvell/dt64
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt64-7.4-1
+	rockchip/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-2
+	krzk/dt-google
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/google-lga-7.4
+	krzk/samsung-dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt64-7.4
+	krzk/samsung-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-dt-7.4
+	krzk/dt64-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt64-cleanup-7.4
+	krzk/dt-cleanup
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-dt tags/dt-cleanup-7.4
+	geert/renesas-dts
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-dts-for-v7.4-tag2
+	sven/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-dt-7.4
+	broadcom/dts64
+		https://github.com/Broadcom/stblinux tags/arm-soc/for-7.4/devicetree-arm64
+	tegra/dt-bindings
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-dt-bindings
+	ti/k3-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-dt-for-v7.4
+	ti/keystone-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-keystone-dt-for-v7.4
+	linusw/ux500-dts
+		git://git.kernel.org/pub/scm/linux/kernel/git/linusw/linux-nomadik tags/ux500-dts-for-7.4-2
+	amlogic/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-arm64-dt-for-v7.4
+	sunxi/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/sunxi/linux tags/sunxi-dt-for-7.4
+	nuvoton/dt64
+		https://git.kernel.org/pub/scm/linux/kernel/git/bmc/linux tags/nuvoton-arm64-7.4-devicetree-0
+	at91/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/microchip-dt64-7.4
+	marvell/dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/gclement/mvebu tags/mvebu-dt-7.4-2
+	soc/rockchip/dt64-3
+		https://git.kernel.org/pub/scm/linux/kernel/git/mmind/linux-rockchip tags/v7.4-rockchip-dts64-3
+	xilinx/zynqmp-dt
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-dt-for-7.4
+	qcom/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm32-for-7.4
+	qcom/dt64-2
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-for-7.4-2
+	fustini/thead-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/fustini/linux tags/thead-dt-for-v7.4
+	spacemit/dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/spacemit/linux tags/spacemit-dt-for-7.4-1
+	sophgo/dt
+		https://github.com/sophgo/linux tags/riscv-sophgo-dt-for-v7.4
+	soc/conor/riscv-dt
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-for-v7.4
+	tegra/arm-dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm-dt
+	tegra/arm64-dt
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm64-dt
+
+soc/drivers
+	renesas/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.4-tag1
+	patch
+		platform: cznic: turris-omnia-mcu: Add missing MODULE_DEVICE_TABLE()
+	mediatek/drivers
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/mediatek/linux tags/mtk-soc-for-v7.4
+	scmi/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sudeep.holla/linux tags/scmi-updates-7.4
+		contains scmi/fixes
+	qcom/drivers-fixes
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-fixes-for-7.3
+	qcom/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.4-2
+	qcom/drivers-3
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-drivers-for-7.4-3
+	frank.li/imx-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/frank.li/linux tags/imx-drivers-7.4
+	geert/renesas-drivers
+		git://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-drivers-for-v7.4-tag2
+	sven/apple-soc-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/sven/linux tags/apple-soc-drivers-7.4
+	krzk/samsung-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux tags/samsung-drivers-7.4
+	krzk/mem-ctrl
+		https://git.kernel.org/pub/scm/linux/kernel/git/krzk/linux-mem-ctrl tags/memory-controller-drv-7.4
+	ti/driver
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-driver-soc-for-v7.4
+	amlogic/drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/amlogic/linux tags/amlogic-drivers-for-v7.4
+	patch
+		bus: arm-cci: Drop CPU node reference in cci_ace_init_ports()
+		bus: arm-cci: Drop cci-control-port node reference in __cci_ace_get_port()
+		arm64: enable HAVE_SHARED_GPIOS for all ARM64 platforms
+	tegra/soc
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-soc
+	jenswi/tee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/tee-for-v7.4
+	jenswi/qcomtee
+		git://git.kernel.org/pub/scm/linux/kernel/git/jenswi/linux-tee tags/qcomtee-for-v7.4
+	at91/soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-soc-7.4
+	chleroy/soc-fsl
+		https://git.kernel.org/pub/scm/linux/kernel/git/chleroy/linux tags/soc_fsl-7.4-1
+	xilinx/soc
+		https://github.com/Xilinx/linux-xlnx tags/zynqmp-soc-for-7.4
+	conor/riscv-firmware
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-firmware-for-v7.4
+	conor/riscv-soc
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-soc-drivers-for-v7.4
+	conor/cache-drivers
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/cache-for-v7.4
+	patch
+		platform: cznic: turris-omnia-mcu: stop button emulation producers
+
+soc/defconfig
+	renesas/defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/geert/renesas-devel tags/renesas-arm-defconfig-for-v7.4-tag1
+	qcom/defconfig
+		ssh://gitolite.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.4
+	patch
+		arm64: defconfig: Update coreboot firmware symbols
+	khilman/omap-defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.4/defconfig-signed
+	tegra/defconfig
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.4-arm64-defconfig
+	ti/k3-config
+		https://git.kernel.org/pub/scm/linux/kernel/git/ti/linux tags/ti-k3-config-for-v7.4
+	qcom/arm64-defconfig
+		https://git.kernel.org/pub/scm/linux/kernel/git/qcom/linux tags/qcom-arm64-defconfig-for-7.4-2
+
+soc/late
+
+arm/fixes
+	<no branch> (c5c95dbdc9011a56359df4dc00be829bbcc0b036)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-soc-fixes
+	<no branch> (0f70fd6f4c1d6c1f2ea298d8dd07c4a4d5dff9af)
+		https://git.kernel.org/pub/scm/linux/kernel/git/conor/linux tags/riscv-dt-fixes-for-v7.3-rc
+	<no branch> (2fabd2f406d0cf787be47b3bbeea99b30004033d)
+		git://git.kernel.org/pub/scm/linux/kernel/git/khilman/linux-omap tags/omap-for-v7.3/fixes-signed
+	<no branch> (b86eaddf467a9ddb69dbaa46eea9dda7f93347a3)
+		git://git.kernel.org/pub/scm/linux/kernel/git/tegra/linux tags/tegra-for-7.3-arm64-dt-fixes
+	<no branch> (afb1ecfeda3fc31d6300a176f4854cc62e289bf3)
+		https://git.kernel.org/pub/scm/linux/kernel/git/at91/linux tags/at91-fixes-7.3
+
