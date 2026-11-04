@@ -63,9 +63,15 @@ static void __init vexpress_smp_dt_prepare_cpus(unsigned int max_cpus)
 {
 	struct device_node *scu __free(device_node) =
 		of_find_matching_node(NULL, vexpress_smp_dt_scu_match);
+	void __iomem *scu_base;
 
-	if (scu)
-		scu_enable(of_iomap(scu, 0));
+	if (scu) {
+		scu_base = of_iomap(scu, 0);
+		if (scu_base) {
+			scu_enable(scu_base);
+			iounmap(scu_base);
+		}
+	}
 
 	/*
 	 * Write the address of secondary startup into the
