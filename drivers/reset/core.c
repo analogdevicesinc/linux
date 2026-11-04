@@ -51,7 +51,9 @@ static DEFINE_IDA(reset_gpio_ida);
  * @triggered_count: Number of times this reset line has been reset. Currently
  *                   only used for shared resets, which means that the value
  *                   will be either 0 or 1.
- * @lock: serializes the internals of reset_control_acquire()
+ * @shared_lock: serializes the shared refcount update and the hardware op for
+ *               controllers whose ops may sleep (rcdev->can_sleep); taken only
+ *               inside the SRCU read-side critical section
  */
 struct reset_control {
 	struct reset_controller_dev __rcu *rcdev;
@@ -64,7 +66,8 @@ struct reset_control {
 	bool array;
 	atomic_t deassert_count;
 	atomic_t triggered_count;
-	struct mutex lock;
+	/* serializes the shared refcount update with its hardware op */
+	struct mutex shared_lock;
 };
 
 /**
@@ -355,38 +358,10 @@ static inline bool reset_control_is_array(struct reset_control *rstc)
 	return rstc->array;
 }
 
-/**
- * reset_control_reset - reset the controlled device
- * @rstc: reset controller
- *
- * On a shared reset line the actual reset pulse is only triggered once for the
- * lifetime of the reset_control instance: for all but the first caller this is
- * a no-op.
- * Consumers must not use reset_control_(de)assert on shared reset lines when
- * reset_control_reset has been used.
- *
- * If rstc is NULL it is an optional reset and the function will just
- * return 0.
- */
-int reset_control_reset(struct reset_control *rstc)
+static int __reset_control_reset(struct reset_control *rstc,
+				 struct reset_controller_dev *rcdev)
 {
-	struct reset_controller_dev *rcdev;
 	int ret;
-
-	if (!rstc)
-		return 0;
-
-	if (WARN_ON(IS_ERR(rstc)))
-		return -EINVAL;
-
-	if (reset_control_is_array(rstc))
-		return reset_control_array_reset(rstc_to_array(rstc));
-
-	guard(srcu)(&rstc->srcu);
-
-	rcdev = srcu_dereference(rstc->rcdev, &rstc->srcu);
-	if (!rcdev)
-		return -ENODEV;
 
 	if (!rcdev->ops->reset)
 		return -ENOTSUPP;
@@ -407,6 +382,56 @@ int reset_control_reset(struct reset_control *rstc)
 		atomic_dec(&rstc->triggered_count);
 
 	return ret;
+}
+
+/**
+ * reset_control_reset - reset the controlled device
+ * @rstc: reset controller
+ *
+ * On a shared reset line the actual reset pulse is only triggered once for the
+ * lifetime of the reset_control instance: for all but the first caller this is
+ * a no-op.
+ *
+ * After calling this function, the reset line is guaranteed to have seen a
+ * reset pulse at any point in the past, not necessarily during the function
+ * call.
+ * Consumers must not use reset_control_(de)assert on shared reset lines when
+ * reset_control_reset has been used.
+ *
+ * If rstc is NULL it is an optional reset and the function will just
+ * return 0.
+ */
+int reset_control_reset(struct reset_control *rstc)
+{
+	struct reset_controller_dev *rcdev;
+
+	if (!rstc)
+		return 0;
+
+	if (WARN_ON(IS_ERR(rstc)))
+		return -EINVAL;
+
+	if (reset_control_is_array(rstc))
+		return reset_control_array_reset(rstc_to_array(rstc));
+
+	guard(srcu)(&rstc->srcu);
+
+	rcdev = srcu_dereference(rstc->rcdev, &rstc->srcu);
+	if (!rcdev)
+		return -ENODEV;
+
+	/*
+	 * For a shared reset only the first caller runs the hardware op while
+	 * concurrent callers bump the refcount and return. If the op may sleep
+	 * (rcdev->can_sleep), serialize the refcount update and the op so a
+	 * concurrent caller cannot return before the op has finished.
+	 */
+	if (rstc->shared && rcdev->can_sleep) {
+		guard(mutex)(&rstc->shared_lock);
+		return __reset_control_reset(rstc, rcdev);
+	}
+
+	return __reset_control_reset(rstc, rcdev);
 }
 EXPORT_SYMBOL_GPL(reset_control_reset);
 
@@ -474,6 +499,44 @@ int reset_control_rearm(struct reset_control *rstc)
 }
 EXPORT_SYMBOL_GPL(reset_control_rearm);
 
+static int __reset_control_assert(struct reset_control *rstc,
+				  struct reset_controller_dev *rcdev)
+{
+	if (rstc->shared) {
+		if (WARN_ON(atomic_read(&rstc->triggered_count) != 0))
+			return -EINVAL;
+
+		if (WARN_ON(atomic_read(&rstc->deassert_count) == 0))
+			return -EINVAL;
+
+		if (atomic_dec_return(&rstc->deassert_count) != 0)
+			return 0;
+
+		/*
+		 * Shared reset controls allow the reset line to be in any state
+		 * after this call, so doing nothing is a valid option.
+		 */
+		if (!rcdev->ops->assert)
+			return 0;
+	} else {
+		/*
+		 * If the reset controller does not implement .assert(), there
+		 * is no way to guarantee that the reset line is asserted after
+		 * this call.
+		 */
+		if (!rcdev->ops->assert)
+			return -ENOTSUPP;
+
+		if (!rstc->acquired) {
+			WARN(1, "reset %s (ID: %u) is not acquired\n",
+			     rcdev_name(rcdev), rstc->id);
+			return -EPERM;
+		}
+	}
+
+	return rcdev->ops->assert(rcdev, rstc->id);
+}
+
 /**
  * reset_control_assert - asserts the reset line
  * @rstc: reset controller
@@ -509,39 +572,18 @@ int reset_control_assert(struct reset_control *rstc)
 	if (!rcdev)
 		return -ENODEV;
 
-	if (rstc->shared) {
-		if (WARN_ON(atomic_read(&rstc->triggered_count) != 0))
-			return -EINVAL;
-
-		if (WARN_ON(atomic_read(&rstc->deassert_count) == 0))
-			return -EINVAL;
-
-		if (atomic_dec_return(&rstc->deassert_count) != 0)
-			return 0;
-
-		/*
-		 * Shared reset controls allow the reset line to be in any state
-		 * after this call, so doing nothing is a valid option.
-		 */
-		if (!rcdev->ops->assert)
-			return 0;
-	} else {
-		/*
-		 * If the reset controller does not implement .assert(), there
-		 * is no way to guarantee that the reset line is asserted after
-		 * this call.
-		 */
-		if (!rcdev->ops->assert)
-			return -ENOTSUPP;
-
-		if (!rstc->acquired) {
-			WARN(1, "reset %s (ID: %u) is not acquired\n",
-			     rcdev_name(rcdev), rstc->id);
-			return -EPERM;
-		}
+	/*
+	 * For a shared reset the last caller runs the hardware op while the
+	 * other callers just drop the refcount and return. If the op may sleep
+	 * (rcdev->can_sleep), serialize the refcount update and the op against
+	 * a concurrent reset_control_deassert() so the two cannot interleave.
+	 */
+	if (rstc->shared && rcdev->can_sleep) {
+		guard(mutex)(&rstc->shared_lock);
+		return __reset_control_assert(rstc, rcdev);
 	}
 
-	return rcdev->ops->assert(rcdev, rstc->id);
+	return __reset_control_assert(rstc, rcdev);
 }
 EXPORT_SYMBOL_GPL(reset_control_assert);
 
@@ -575,6 +617,36 @@ err:
 }
 EXPORT_SYMBOL_GPL(reset_control_bulk_assert);
 
+static int __reset_control_deassert(struct reset_control *rstc,
+				    struct reset_controller_dev *rcdev)
+{
+	if (rstc->shared) {
+		if (WARN_ON(atomic_read(&rstc->triggered_count) != 0))
+			return -EINVAL;
+
+		if (atomic_inc_return(&rstc->deassert_count) != 1)
+			return 0;
+	} else {
+		if (!rstc->acquired) {
+			WARN(1, "reset %s (ID: %u) is not acquired\n",
+			     rcdev_name(rcdev), rstc->id);
+			return -EPERM;
+		}
+	}
+
+	/*
+	 * If the reset controller does not implement .deassert(), we assume
+	 * that it handles self-deasserting reset lines via .reset(). In that
+	 * case, the reset lines are deasserted by default. If that is not the
+	 * case, the reset controller driver should implement .deassert() and
+	 * return -ENOTSUPP.
+	 */
+	if (!rcdev->ops->deassert)
+		return 0;
+
+	return rcdev->ops->deassert(rcdev, rstc->id);
+}
+
 /**
  * reset_control_deassert - deasserts the reset line
  * @rstc: reset controller
@@ -605,31 +677,18 @@ int reset_control_deassert(struct reset_control *rstc)
 	if (!rcdev)
 		return -ENODEV;
 
-	if (rstc->shared) {
-		if (WARN_ON(atomic_read(&rstc->triggered_count) != 0))
-			return -EINVAL;
-
-		if (atomic_inc_return(&rstc->deassert_count) != 1)
-			return 0;
-	} else {
-		if (!rstc->acquired) {
-			WARN(1, "reset %s (ID: %u) is not acquired\n",
-			     rcdev_name(rcdev), rstc->id);
-			return -EPERM;
-		}
+	/*
+	 * For a shared reset only the first caller runs the hardware op while
+	 * concurrent callers bump the refcount and return. If the op may sleep
+	 * (rcdev->can_sleep), serialize the refcount update and the op so a
+	 * concurrent caller cannot return before the op has finished.
+	 */
+	if (rstc->shared && rcdev->can_sleep) {
+		guard(mutex)(&rstc->shared_lock);
+		return __reset_control_deassert(rstc, rcdev);
 	}
 
-	/*
-	 * If the reset controller does not implement .deassert(), we assume
-	 * that it handles self-deasserting reset lines via .reset(). In that
-	 * case, the reset lines are deasserted by default. If that is not the
-	 * case, the reset controller driver should implement .deassert() and
-	 * return -ENOTSUPP.
-	 */
-	if (!rcdev->ops->deassert)
-		return 0;
-
-	return rcdev->ops->deassert(rcdev, rstc->id);
+	return __reset_control_deassert(rstc, rcdev);
 }
 EXPORT_SYMBOL_GPL(reset_control_deassert);
 
@@ -726,8 +785,6 @@ int reset_control_acquire(struct reset_control *rstc)
 	if (reset_control_is_array(rstc))
 		return reset_control_array_acquire(rstc_to_array(rstc));
 
-	guard(mutex)(&rstc->lock);
-
 	if (rstc->acquired)
 		return 0;
 
@@ -744,9 +801,9 @@ int reset_control_acquire(struct reset_control *rstc)
 					return -EBUSY;
 			}
 		}
-	}
 
-	rstc->acquired = true;
+		rstc->acquired = true;
+	}
 
 	return 0;
 }
@@ -878,7 +935,7 @@ __reset_control_get_internal(struct reset_controller_dev *rcdev,
 	list_add(&rstc->list, &rcdev->reset_control_head);
 	rstc->id = index;
 	kref_init(&rstc->refcnt);
-	mutex_init(&rstc->lock);
+	mutex_init(&rstc->shared_lock);
 	rstc->acquired = acquired;
 	rstc->shared = shared;
 	get_device(rcdev->dev);
@@ -900,7 +957,7 @@ static void __reset_control_release(struct kref *kref)
 		reset_controller_remove(rcdev, rstc);
 	}
 
-	mutex_destroy(&rstc->lock);
+	mutex_destroy(&rstc->shared_lock);
 }
 
 static void reset_control_put_internal(struct reset_control *rstc)
