@@ -1387,6 +1387,11 @@ properties:
           - const: vicharak,axon
           - const: rockchip,rk3588
 
+      - description: Vicharak Axon Lite
+        items:
+          - const: vicharak,axon-lite
+          - const: rockchip,rk3576
+
       - description: Vicharak Vaaman
         items:
           - const: vicharak,vaaman
