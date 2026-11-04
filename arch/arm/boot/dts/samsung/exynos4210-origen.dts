@@ -55,41 +55,42 @@
 		key-up {
 			label = "Up";
 			gpios = <&gpx2 0 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_UP>;
 			wakeup-source;
+			linux,code = <KEY_UP>;
 		};
 
 		key-down {
 			label = "Down";
 			gpios = <&gpx2 1 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_DOWN>;
 			wakeup-source;
+			linux,code = <KEY_DOWN>;
 		};
 
 		key-back {
 			label = "Back";
 			gpios = <&gpx1 7 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_BACK>;
 			wakeup-source;
+			linux,code = <KEY_BACK>;
 		};
 
 		key-home {
 			label = "Home";
 			gpios = <&gpx1 6 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_HOME>;
 			wakeup-source;
+			linux,code = <KEY_HOME>;
 		};
 
 		key-menu {
 			label = "Menu";
 			gpios = <&gpx1 5 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_MENU>;
 			wakeup-source;
+			linux,code = <KEY_MENU>;
 		};
 	};
 
 	leds {
 		compatible = "gpio-leds";
+
 		led-status {
 			gpios = <&gpx1 3 GPIO_ACTIVE_LOW>;
 			function = LED_FUNCTION_HEARTBEAT;
@@ -118,6 +119,7 @@
 
 	display-timings {
 		native-mode = <&timing0>;
+
 		timing0: timing {
 			clock-frequency = <47500000>;
 			hactive = <1024>;
@@ -142,6 +144,7 @@
 			/* Corresponds to 800MHz */
 			cooling-device = <&cpu0 2 2>;
 		};
+
 		map1 {
 			/* Corresponds to 200MHz */
 			cooling-device = <&cpu0 4 4>;
@@ -156,11 +159,13 @@
 &fimd {
 	pinctrl-0 = <&lcd_en &lcd_clk &lcd_data24 &pwm0_out>;
 	pinctrl-names = "default";
+
 	status = "okay";
 };
 
 &gpu {
 	mali-supply = <&buck3_reg>;
+
 	status = "okay";
 };
 
@@ -168,23 +173,25 @@
 	vusb_d-supply = <&ldo3_reg>;
 	vusb_a-supply = <&ldo8_reg>;
 	dr_mode = "peripheral";
+
 	status = "okay";
 };
 
 &i2c_0 {
-	status = "okay";
-	samsung,i2c-sda-delay = <100>;
-	samsung,i2c-max-bus-freq = <20000>;
 	pinctrl-0 = <&i2c0_bus>;
 	pinctrl-names = "default";
+	samsung,i2c-sda-delay = <100>;
+	samsung,i2c-max-bus-freq = <20000>;
+
+	status = "okay";
 
 	pmic@66 {
 		compatible = "maxim,max8997-pmic";
 		reg = <0x66>;
 		interrupt-parent = <&gpx0>;
 		interrupts = <4 IRQ_TYPE_NONE>, <3 IRQ_TYPE_NONE>;
-		pinctrl-names = "default";
 		pinctrl-0 = <&max8997_irq>;
+		pinctrl-names = "default";
 
 		max8997,pmic-buck1-dvs-voltage = <1350000>;
 		max8997,pmic-buck2-dvs-voltage = <1100000>;
@@ -334,6 +341,7 @@
 	pinctrl-0 = <&sd0_clk &sd0_cmd &sd0_bus4 &sd0_cd>;
 	pinctrl-names = "default";
 	vmmc-supply = <&mmc_reg>;
+
 	status = "okay";
 };
 
@@ -342,6 +350,7 @@
 	pinctrl-0 = <&sd2_clk &sd2_cmd &sd2_bus4 &sd2_cd>;
 	pinctrl-names = "default";
 	vmmc-supply = <&mmc_reg>;
+
 	status = "okay";
 };
 
@@ -362,9 +371,10 @@
 };
 
 &rtc {
-	status = "okay";
 	clocks = <&clock CLK_RTC>, <&pmic_ap_clk>;
 	clock-names = "rtc", "rtc_src";
+
+	status = "okay";
 };
 
 &tmu {

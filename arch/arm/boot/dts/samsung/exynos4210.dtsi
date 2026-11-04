@@ -33,6 +33,7 @@
 		clocks = <&clock CLK_DIV_ACP>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_acp_opp_table>;
+
 		status = "disabled";
 
 		bus_acp_opp_table: opp-table {
@@ -42,9 +43,11 @@
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
+
 			opp-160000000 {
 				opp-hz = /bits/ 64 <160000000>;
 			};
+
 			opp-200000000 {
 				opp-hz = /bits/ 64 <200000000>;
 			};
@@ -56,6 +59,7 @@
 		clocks = <&clock CLK_ACLK160>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_display_opp_table>;
+
 		status = "disabled";
 
 		bus_display_opp_table: opp-table {
@@ -65,9 +69,11 @@
 			opp-100000000 {
 				opp-hz = /bits/ 64 <100000000>;
 			};
+
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
+
 			opp-160000000 {
 				opp-hz = /bits/ 64 <160000000>;
 			};
@@ -79,6 +85,7 @@
 		clocks = <&clock CLK_DIV_DMC>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_dmc_opp_table>;
+
 		status = "disabled";
 
 		bus_dmc_opp_table: opp-table {
@@ -89,10 +96,12 @@
 				opp-hz = /bits/ 64 <134000000>;
 				opp-microvolt = <1025000>;
 			};
+
 			opp-267000000 {
 				opp-hz = /bits/ 64 <267000000>;
 				opp-microvolt = <1050000>;
 			};
+
 			opp-400000000 {
 				opp-hz = /bits/ 64 <400000000>;
 				opp-microvolt = <1150000>;
@@ -106,6 +115,7 @@
 		clocks = <&clock CLK_ACLK133>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_fsys_opp_table>;
+
 		status = "disabled";
 
 		bus_fsys_opp_table: opp-table {
@@ -115,6 +125,7 @@
 			opp-10000000 {
 				opp-hz = /bits/ 64 <10000000>;
 			};
+
 			opp-134000000 {
 				opp-hz = /bits/ 64 <134000000>;
 			};
@@ -126,6 +137,7 @@
 		clocks = <&clock CLK_ACLK200>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -134,6 +146,7 @@
 		clocks = <&clock CLK_DIV_GDL>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -142,6 +155,7 @@
 		clocks = <&clock CLK_SCLK_MFC>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -150,6 +164,7 @@
 		clocks = <&clock CLK_ACLK100>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_peri_opp_table>;
+
 		status = "disabled";
 
 		bus_peri_opp_table: opp-table {
@@ -159,6 +174,7 @@
 			opp-5000000 {
 				opp-hz = /bits/ 64 <5000000>;
 			};
+
 			opp-100000000 {
 				opp-hz = /bits/ 64 <100000000>;
 			};
@@ -170,6 +186,7 @@
 		clocks = <&clock CLK_DIV_GDR>;
 		clock-names = "bus";
 		operating-points-v2 = <&bus_leftbus_opp_table>;
+
 		status = "disabled";
 	};
 
@@ -182,6 +199,7 @@
 				core0 {
 					cpu = <&cpu0>;
 				};
+
 				core1 {
 					cpu = <&cpu1>;
 				};
@@ -194,16 +212,8 @@
 			reg = <0x900>;
 			clocks = <&clock CLK_ARM_CLK>;
 			clock-names = "cpu";
-			clock-latency = <160000>;
 
-			operating-points = <
-				1200000 1250000
-				1000000 1150000
-				800000	1075000
-				500000	975000
-				400000	975000
-				200000	950000
-			>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
 		};
 
@@ -213,16 +223,8 @@
 			reg = <0x901>;
 			clocks = <&clock CLK_ARM_CLK>;
 			clock-names = "cpu";
-			clock-latency = <160000>;
 
-			operating-points = <
-				1200000 1250000
-				1000000 1150000
-				800000	1075000
-				500000	975000
-				400000	975000
-				200000	950000
-			>;
+			operating-points-v2 = <&cpu_opp_table>;
 			#cooling-cells = <2>; /* min followed by max */
 		};
 	};
@@ -234,12 +236,55 @@
 		opp-100000000 {
 			opp-hz = /bits/ 64 <100000000>;
 		};
+
 		opp-160000000 {
 			opp-hz = /bits/ 64 <160000000>;
 		};
+
 		opp-200000000 {
 			opp-hz = /bits/ 64 <200000000>;
 			opp-suspend;
+		};
+	};
+
+	cpu_opp_table: opp-table-1 {
+		compatible = "operating-points-v2";
+		opp-shared;
+
+		opp-200000000 {
+			opp-hz = /bits/ 64 <200000000>;
+			opp-microvolt = <950000>;
+			clock-latency-ns = <160000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <975000>;
+			clock-latency-ns = <160000>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <975000>;
+			clock-latency-ns = <160000>;
+		};
+
+		opp-800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <1075000>;
+			clock-latency-ns = <160000>;
+		};
+
+		opp-1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <1150000>;
+			clock-latency-ns = <160000>;
+		};
+
+		opp-1200000000 {
+			opp-hz = /bits/ 64 <1200000000>;
+			opp-microvolt = <1250000>;
+			clock-latency-ns = <160000>;
 		};
 	};
 
@@ -247,9 +292,9 @@
 		sysram: sram@2020000 {
 			compatible = "mmio-sram";
 			reg = <0x02020000 0x20000>;
+			ranges = <0 0x02020000 0x20000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			ranges = <0 0x02020000 0x20000>;
 
 			smp-sram@0 {
 				compatible = "samsung,exynos4210-sysram";
@@ -269,15 +314,10 @@
 			label = "LCD1";
 		};
 
-		l2c: cache-controller@10502000 {
-			compatible = "arm,pl310-cache";
-			reg = <0x10502000 0x1000>;
-			cache-unified;
-			cache-level = <2>;
-			prefetch-data = <1>;
-			prefetch-instr = <1>;
-			arm,tag-latency = <2 2 1>;
-			arm,data-latency = <2 2 1>;
+		clock: clock-controller@10030000 {
+			compatible = "samsung,exynos4210-clock";
+			reg = <0x10030000 0x20000>;
+			#clock-cells = <1>;
 		};
 
 		mct: timer@10050000 {
@@ -301,10 +341,22 @@
 			clock-names = "watchdog";
 		};
 
-		clock: clock-controller@10030000 {
-			compatible = "samsung,exynos4210-clock";
-			reg = <0x10030000 0x20000>;
-			#clock-cells = <1>;
+		l2c: cache-controller@10502000 {
+			compatible = "arm,pl310-cache";
+			reg = <0x10502000 0x1000>;
+			cache-unified;
+			cache-level = <2>;
+			prefetch-data = <1>;
+			prefetch-instr = <1>;
+			arm,tag-latency = <2 2 1>;
+			arm,data-latency = <2 2 1>;
+		};
+
+		ppmu_acp: ppmu@10ae0000 {
+			compatible = "samsung,exynos-ppmu";
+			reg = <0x10ae0000 0x2000>;
+
+			status = "disabled";
 		};
 
 		pinctrl_0: pinctrl@11400000 {
@@ -330,6 +382,26 @@
 			reg = <0x03860000 0x1000>;
 		};
 
+		sysmmu_fimd1: sysmmu@12220000 {
+			compatible = "samsung,exynos-sysmmu";
+			reg = <0x12220000 0x1000>;
+			interrupt-parent = <&combiner>;
+			interrupts = <5 3>;
+			clocks = <&clock CLK_SMMU_FIMD1>, <&clock CLK_FIMD1>;
+			clock-names = "sysmmu", "master";
+			power-domains = <&pd_lcd1>;
+			#iommu-cells = <0>;
+		};
+
+		ppmu_lcd1: ppmu@12240000 {
+			compatible = "samsung,exynos-ppmu";
+			reg = <0x12240000 0x2000>;
+			clocks = <&clock CLK_PPMULCD1>;
+			clock-names = "ppmu";
+
+			status = "disabled";
+		};
+
 		g2d: g2d@12800000 {
 			compatible = "samsung,s5pv210-g2d";
 			reg = <0x12800000 0x1000>;
@@ -340,39 +412,14 @@
 			iommus = <&sysmmu_g2d>;
 		};
 
-		ppmu_acp: ppmu@10ae0000 {
-			compatible = "samsung,exynos-ppmu";
-			reg = <0x10ae0000 0x2000>;
-			status = "disabled";
-		};
-
-		ppmu_lcd1: ppmu@12240000 {
-			compatible = "samsung,exynos-ppmu";
-			reg = <0x12240000 0x2000>;
-			clocks = <&clock CLK_PPMULCD1>;
-			clock-names = "ppmu";
-			status = "disabled";
-		};
-
 		sysmmu_g2d: sysmmu@12a20000 {
 			compatible = "samsung,exynos-sysmmu";
 			reg = <0x12a20000 0x1000>;
 			interrupt-parent = <&combiner>;
 			interrupts = <4 7>;
-			clock-names = "sysmmu", "master";
 			clocks = <&clock CLK_SMMU_G2D>, <&clock CLK_G2D>;
-			power-domains = <&pd_lcd0>;
-			#iommu-cells = <0>;
-		};
-
-		sysmmu_fimd1: sysmmu@12220000 {
-			compatible = "samsung,exynos-sysmmu";
-			interrupt-parent = <&combiner>;
-			reg = <0x12220000 0x1000>;
-			interrupts = <5 3>;
 			clock-names = "sysmmu", "master";
-			clocks = <&clock CLK_SMMU_FIMD1>, <&clock CLK_FIMD1>;
-			power-domains = <&pd_lcd1>;
+			power-domains = <&pd_lcd0>;
 			#iommu-cells = <0>;
 		};
 	};
@@ -414,7 +461,6 @@
 };
 
 &combiner {
-	samsung,combiner-nr = <16>;
 	interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>,
@@ -431,6 +477,7 @@
 		     <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
+	samsung,combiner-nr = <16>;
 };
 
 &fimc_0 {
@@ -488,6 +535,7 @@
 			opp-hz = /bits/ 64 <160000000>;
 			opp-microvolt = <950000>;
 		};
+
 		opp-267000000 {
 			opp-hz = /bits/ 64 <267000000>;
 			opp-microvolt = <1050000>;
@@ -500,25 +548,26 @@
 };
 
 &mixer {
-	clock-names = "mixer", "hdmi", "sclk_hdmi", "vp", "mout_mixer",
-		      "sclk_mixer";
 	clocks = <&clock CLK_MIXER>, <&clock CLK_HDMI>,
 		 <&clock CLK_SCLK_HDMI>, <&clock CLK_VP>,
 		 <&clock CLK_MOUT_MIXER>, <&clock CLK_SCLK_MIXER>;
+	clock-names = "mixer", "hdmi", "sclk_hdmi", "vp", "mout_mixer",
+		      "sclk_mixer";
 };
 
 &pmu {
 	interrupts = <2 2>, <3 2>;
 	interrupt-affinity = <&cpu0>, <&cpu1>;
+
 	status = "okay";
 };
 
 &pmu_system_controller {
-	clock-names = "clkout0", "clkout1", "clkout2", "clkout3",
-			"clkout4", "clkout8", "clkout9";
 	clocks = <&clock CLK_OUT_DMC>, <&clock CLK_OUT_TOP>,
-		<&clock CLK_OUT_LEFTBUS>, <&clock CLK_OUT_RIGHTBUS>,
-		<&clock CLK_OUT_CPU>, <&clock CLK_XXTI>, <&clock CLK_XUSBXTI>;
+		 <&clock CLK_OUT_LEFTBUS>, <&clock CLK_OUT_RIGHTBUS>,
+		 <&clock CLK_OUT_CPU>, <&clock CLK_XXTI>, <&clock CLK_XUSBXTI>;
+	clock-names = "clkout0", "clkout1", "clkout2", "clkout3",
+		      "clkout4", "clkout8", "clkout9";
 	#clock-cells = <1>;
 };
 
