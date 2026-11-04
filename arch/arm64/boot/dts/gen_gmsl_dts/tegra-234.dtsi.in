@@ -18,8 +18,14 @@
 {% set num_cams = des_cfg.links | length %}
 {% set serial_suffixes = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] %}
 {% set tegra_sinterface = 'serial_' ~ serial_suffixes[port_index] %}
-{# Positions Argus accepts; plain 'left'/'right' make it reject the module. #}
-{% set positions = ['rear', 'front', 'centerleft', 'centerright'] %}
+{#- Module positions must be ones Argus knows (plain 'left'/'right' are rejected),
+    and front/rear must not be mixed with the multi-camera positions: with
+    rear, front, centerleft Argus maps two sources onto the same camera. -#}
+{% if (des_cfg.links | length) <= 2 %}
+{% set positions = ['rear', 'front'] %}
+{% else %}
+{% set positions = ['bottomleft', 'bottomright', 'centerleft', 'centerright'] %}
+{% endif %}
 {% macro csi_in_label_x(x) -%}
 	{{ "csi" ~ x ~ '_ep' }}
 {%- endmacro %}
