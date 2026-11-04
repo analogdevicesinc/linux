@@ -515,6 +515,7 @@ struct btrfs_discard_stripe {
  */
 struct btrfs_io_context {
 	refcount_t refs;
+	u32 stripe_len;
 	struct btrfs_fs_info *fs_info;
 	/* Taken from struct btrfs_chunk_map::type. */
 	u64 map_type;
@@ -623,12 +624,12 @@ extern const struct btrfs_raid_attr btrfs_raid_array[BTRFS_NR_RAID_TYPES];
 
 struct btrfs_chunk_map {
 	struct rb_node rb_node;
-	/* For mount time dev extent verification. */
-	int verified_stripes;
 	refcount_t refs;
+	u16 num_stripes;
+	u16 sub_stripes;
 	u64 start;
 	u64 chunk_len;
-	u64 stripe_size;
+	u64 dev_extent_size;
 	/*
 	 * The real type that is utilized during logical address mapping.
 	 *
@@ -638,8 +639,10 @@ struct btrfs_chunk_map {
 	 */
 	u64 type;
 	u64 on_disk_type;
-	int num_stripes;
-	int sub_stripes;
+	/* For mount time dev extent verification. */
+	u16 verified_stripes;
+	u8 stripe_shift;
+	u32 stripe_len;
 	struct btrfs_io_stripe stripes[];
 };
 
@@ -719,9 +722,10 @@ static inline unsigned long btrfs_chunk_item_size(int num_stripes)
  * @stripe_nr is u32, with left shift it can overflow u32 for chunks larger
  * than 4G.  This does the proper type cast to avoid overflow.
  */
-static inline u64 btrfs_stripe_nr_to_offset(u32 stripe_nr)
+static inline u64 btrfs_stripe_nr_to_offset(u32 stripe_nr, u32 stripe_len)
 {
-	return (u64)stripe_nr << BTRFS_STRIPE_LEN_SHIFT;
+	ASSERT(is_power_of_2(stripe_len) && stripe_len <= BTRFS_STRIPE_LEN);
+	return (u64)stripe_nr << ilog2(stripe_len);
 }
 
 void btrfs_get_bioc(struct btrfs_io_context *bioc);
@@ -772,8 +776,8 @@ struct btrfs_device *btrfs_find_device(const struct btrfs_fs_devices *fs_devices
 				       const struct btrfs_dev_lookup_args *args);
 int btrfs_shrink_device(struct btrfs_device *device, u64 new_size);
 int btrfs_init_new_device(struct btrfs_fs_info *fs_info, const char *path);
-struct file *btrfs_open_device_deny_freeze(const char *path,
-					   struct super_block *sb);
+struct file *btrfs_open_device_deny_freeze(struct btrfs_fs_info *fs_info,
+					   const char *path);
 int btrfs_balance(struct btrfs_fs_info *fs_info,
 		  struct btrfs_balance_control *bctl,
 		  struct btrfs_ioctl_balance_args *bargs);
@@ -799,7 +803,7 @@ void btrfs_destroy_dev_replace_tgtdev(struct btrfs_device *tgtdev,
 void btrfs_free_device(struct btrfs_device *device);
 unsigned long btrfs_full_stripe_len(struct btrfs_fs_info *fs_info,
 				    u64 logical);
-u64 btrfs_calc_stripe_length(const struct btrfs_chunk_map *map);
+u64 btrfs_calc_dev_extent_size(const struct btrfs_chunk_map *map);
 int btrfs_nr_parity_stripes(u64 type);
 int btrfs_chunk_alloc_add_chunk_item(struct btrfs_trans_handle *trans,
 				     struct btrfs_block_group *bg);

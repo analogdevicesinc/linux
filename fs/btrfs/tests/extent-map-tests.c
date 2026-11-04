@@ -1029,7 +1029,7 @@ static int test_rmap_block(struct btrfs_fs_info *fs_info,
 	/* Start at 4GiB logical address */
 	map->start = SZ_4G;
 	map->chunk_len = test->data_stripe_size * test->num_data_stripes;
-	map->stripe_size = test->data_stripe_size;
+	map->dev_extent_size = test->data_stripe_size;
 	map->num_stripes = test->num_stripes;
 	map->type = test->raid_type;
 
