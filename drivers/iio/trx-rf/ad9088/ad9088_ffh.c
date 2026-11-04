@@ -324,7 +324,7 @@ ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		index = phy->ffh.dir[dir].fnco.index[fnco_num];
 		if (index >= ADI_APOLLO_FNCO_PROFILE_NUM)
 			return -EINVAL;
-		return sysfs_emit(buf, "%llu\n",
+		return sysfs_emit(buf, "%lld\n",
 				  phy->ffh.dir[dir].fnco.frequency[fnco_num][index]);
 	case FFH_FNCO_SELECT:
 		/* Stored incremented by 1 so that 0 flags "not selected" */
@@ -338,7 +338,7 @@ ssize_t ad9088_ext_info_read_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		index = phy->ffh.dir[dir].cnco.index[cnco_num];
 		if (index >= ADI_APOLLO_CNCO_PROFILE_NUM)
 			return -EINVAL;
-		return sysfs_emit(buf, "%llu\n",
+		return sysfs_emit(buf, "%lld\n",
 				  phy->ffh.dir[dir].cnco.frequency[cnco_num][index]);
 	case FFH_CNCO_SELECT:
 		return sysfs_emit(buf, "%u\n", phy->ffh.dir[dir].cnco.select[cnco_num]);
@@ -369,7 +369,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 	u64 val;
 	u64 ftw_u64, f, tmp;
 	int ret;
-	s64 sel;
+	s64 sel, freq;
 	u8 mode;
 
 	if (!map)
@@ -394,7 +394,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		phy->ffh.dir[dir].fnco.index[fnco_num] = val;
 		return len;
 	case FFH_FNCO_FREQUENCY:
-		ret = kstrtou64(buf, 10, &val);
+		ret = kstrtos64(buf, 10, &freq);
 		if (ret)
 			return -EINVAL;
 
@@ -429,7 +429,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 			f = phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
 		}
 
-		adi_ad9088_calc_nco_ftw(phy, f, val, cddc_dcm, 32, &ftw_u64, &tmp, &tmp);
+		adi_ad9088_calc_nco_ftw(phy, f, freq, cddc_dcm, 32, &ftw_u64, &tmp, &tmp);
 		ftw_u32 = ftw_u64;
 		fnco_chan_config.drc_phase_inc = ftw_u32;
 
@@ -440,7 +440,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (ret)
 			return ret;
 
-		phy->ffh.dir[dir].fnco.frequency[fnco_num][index] = val;
+		phy->ffh.dir[dir].fnco.frequency[fnco_num][index] = freq;
 
 		/* Restore state */
 		ret = adi_apollo_fnco_hop_enable(&phy->ad9088, dir, fnco_en,
@@ -528,7 +528,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		phy->ffh.dir[dir].cnco.index[cnco_num] = val;
 		return len;
 	case FFH_CNCO_FREQUENCY:
-		ret = kstrtou64(buf, 10, &val);
+		ret = kstrtos64(buf, 10, &freq);
 		if (ret)
 			return -EINVAL;
 
@@ -538,7 +538,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 
 		f = chan->output ? phy->profile.dac_cfg[map->side].dac_sampling_rate_Hz :
 				   phy->profile.adc_cfg[map->side].adc_sampling_rate_Hz;
-		adi_ad9088_calc_nco_ftw(phy, f, val, 1, 32, &ftw_u64, &tmp, &tmp);
+		adi_ad9088_calc_nco_ftw(phy, f, freq, 1, 32, &ftw_u64, &tmp, &tmp);
 		ftw_u32 = ftw_u64;
 
 		ret = adi_apollo_cnco_profile_load(&phy->ad9088, dir, cnco_en,
@@ -549,7 +549,7 @@ ssize_t ad9088_ext_info_write_ffh(struct iio_dev *indio_dev, uintptr_t private,
 		if (ret)
 			return ret;
 
-		phy->ffh.dir[dir].cnco.frequency[cnco_num][index] = val;
+		phy->ffh.dir[dir].cnco.frequency[cnco_num][index] = freq;
 		return len;
 	case FFH_CNCO_SELECT:
 		ret = kstrtou64(buf, 10, &val);

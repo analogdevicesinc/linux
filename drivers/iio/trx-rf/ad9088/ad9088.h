@@ -154,14 +154,14 @@ struct ad9088_clock {
 struct _ad9088_ffh {
 	struct {
 		u8 index[ADI_APOLLO_FNCO_NUM];
-		u64 frequency[ADI_APOLLO_FNCO_NUM][ADI_APOLLO_FNCO_PROFILE_NUM];
+		s64 frequency[ADI_APOLLO_FNCO_NUM][ADI_APOLLO_FNCO_PROFILE_NUM];
 		u8 select[ADI_APOLLO_FNCO_NUM];
 		bool en[ADI_APOLLO_FNCO_NUM];
 		u8 mode[ADI_APOLLO_FNCO_NUM];
 	} fnco;
 	struct {
 		u8 index[ADI_APOLLO_CNCO_NUM];
-		u64 frequency[ADI_APOLLO_CNCO_NUM][ADI_APOLLO_CNCO_PROFILE_NUM];
+		s64 frequency[ADI_APOLLO_CNCO_NUM][ADI_APOLLO_CNCO_PROFILE_NUM];
 		u8 select[ADI_APOLLO_CNCO_NUM];
 		u8 mode[ADI_APOLLO_CNCO_NUM];
 	} cnco;
