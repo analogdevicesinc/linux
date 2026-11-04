@@ -797,6 +797,12 @@ struct bpf_object {
 	size_t arena_data_sz;
 	size_t arena_data_off;
 	size_t arena_bss_off; /* from the start of arena_data */
+	/* pointers to variables in arena that are stored in variables in arena */
+	struct arena_ptr {
+		size_t off;	 /* where the pointer is, from the start of arena_data */
+		size_t targ_off; /* the symbol it points to, from the start of arena_data */
+	} *arena_ptrs;
+	size_t arena_ptr_cnt;
 
 	void *jumptables_data;
 	size_t jumptables_data_sz;
@@ -4171,10 +4177,11 @@ static int bpf_object__elf_collect(struct bpf_object *obj)
 
 			/*
 			 * Only do relo for section with exec instructions,
-			 * struct_ops, maps, and read-only data that might
-			 * have pointers to functions.
+			 * struct_ops, maps, read-only data that might
+			 * have pointers to functions, and arena.
 			 */
 			if (!section_have_execinstr(obj, targ_sec_idx) &&
+			    strcmp(name, ".rel" ARENA_SEC) &&
 			    strcmp(name, ".rel" RODATA_SEC) &&
 			    !str_has_pfx(name, ".rel" RODATA_SEC ".") &&
 			    strcmp(name, ".rel" DATA_REL_RO_SEC) &&
@@ -5430,6 +5437,21 @@ bpf_object__reuse_map(struct bpf_map *map)
 	return 0;
 }
 
+/* The arena is mapped. The address of a variable is the same for the program and for user space. */
+static void relocate_arena_ptrs(struct bpf_object *obj, const struct bpf_map *arena)
+{
+	void *data = arena->mmaped + obj->arena_data_off;
+	struct arena_ptr *p = obj->arena_ptrs;
+	__u64 val;
+	size_t i;
+
+	for (i = 0; i < obj->arena_ptr_cnt; i++, p++) {
+		memcpy(&val, data + p->off, sizeof(val));
+		val += (__u64)(unsigned long)data + p->targ_off;
+		memcpy(data + p->off, &val, sizeof(val));
+	}
+}
+
 static int
 bpf_object__populate_internal_map(struct bpf_object *obj, struct bpf_map *map)
 {
@@ -5856,6 +5878,7 @@ retry:
 					memcpy(map->mmaped + obj->arena_data_off, obj->arena_data,
 						obj->arena_data_sz);
 					zfree(&obj->arena_data);
+					relocate_arena_ptrs(obj, map);
 				}
 			}
 			if (map->init_slots_sz && map->def.type != BPF_MAP_TYPE_PROG_ARRAY) {
@@ -8223,6 +8246,59 @@ static int bpf_object__collect_rodata_relos(struct bpf_object *obj,
 	return 0;
 }
 
+/*
+ * Collect pointers that are stored in variables in arena, like
+ *   int __arena * __arena p = &var;
+ * They are R_BPF_64_ABS64 relocations. The addend is stored in place.
+ */
+static int bpf_object__collect_arena_relos(struct bpf_object *obj,
+					   Elf64_Shdr *shdr, Elf_Data *data)
+{
+	int i, nrels = shdr->sh_size / shdr->sh_entsize;
+	struct arena_ptr *ptrs;
+	const char *sym_name;
+	size_t sym_idx;
+	Elf64_Sym *sym;
+	Elf64_Rel *rel;
+
+	ptrs = libbpf_reallocarray(NULL, nrels, sizeof(*ptrs));
+	if (!ptrs)
+		return -ENOMEM;
+	obj->arena_ptrs = ptrs;
+
+	for (i = 0; i < nrels; i++, ptrs++) {
+		rel = elf_rel_by_idx(data, i);
+		if (!rel) {
+			pr_warn("sec '.rel%s': failed to get relo #%d\n", ARENA_SEC, i);
+			return -LIBBPF_ERRNO__FORMAT;
+		}
+
+		sym_idx = ELF64_R_SYM(rel->r_info);
+		sym = elf_sym_by_idx(obj, sym_idx);
+		if (!sym) {
+			pr_warn("sec '.rel%s': symbol #%zu not found for relo #%d\n",
+				ARENA_SEC, sym_idx, i);
+			return -LIBBPF_ERRNO__FORMAT;
+		}
+
+		if (ELF64_R_TYPE(rel->r_info) != R_BPF_64_ABS64 ||
+		    (sym->st_shndx != obj->efile.arena_data_shndx &&
+		     sym->st_shndx != obj->efile.arena_bss_shndx)) {
+			sym_name = elf_sym_str(obj, sym->st_name) ?: "<?>";
+			pr_warn("sec '%s': pointer to '%s' at offset %zu: it's not in arena\n",
+				ARENA_SEC, sym_name, (size_t)rel->r_offset);
+			return -LIBBPF_ERRNO__RELOC;
+		}
+
+		ptrs->off = rel->r_offset;
+		ptrs->targ_off = sym->st_value;
+		if (sym->st_shndx == obj->efile.arena_bss_shndx)
+			ptrs->targ_off += obj->arena_bss_off;
+		obj->arena_ptr_cnt++;
+	}
+	return 0;
+}
+
 static int cmp_func_ptrs(const void *_a, const void *_b)
 {
 	const struct func_ptr *a = _a;
@@ -8263,6 +8339,8 @@ static int bpf_object__collect_relos(struct bpf_object *obj)
 			err = bpf_object__collect_st_ops_relos(obj, shdr, data);
 		else if (idx == obj->efile.btf_maps_shndx)
 			err = bpf_object__collect_map_relos(obj, shdr, data);
+		else if (idx == obj->efile.arena_data_shndx)
+			err = bpf_object__collect_arena_relos(obj, shdr, data);
 		else
 			err = bpf_object__collect_prog_relos(obj, shdr, data);
 		if (err)
@@ -10384,6 +10462,7 @@ void bpf_object__close(struct bpf_object *obj)
 		close(obj->token_fd);
 
 	zfree(&obj->arena_data);
+	zfree(&obj->arena_ptrs);
 
 	zfree(&obj->jumptables_data);
 	obj->jumptables_data_sz = 0;

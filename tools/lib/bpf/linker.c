@@ -2291,12 +2291,14 @@ static int linker_append_elf_relos(struct bpf_linker *linker, struct src_obj *ob
 					else
 						insn->imm += sec->dst_off;
 				} else if (sym_type == R_BPF_64_ABS64 &&
-					   (sec->shdr->sh_flags & SHF_EXECINSTR)) {
+					   ((sec->shdr->sh_flags & SHF_EXECINSTR) ||
+					    !strcmp(src_linked_sec->sec_name, ".addr_space.1"))) {
 					/*
 					 * A pointer to a static function in a data section,
-					 * which is stored in place as an offset of the
-					 * function in its section. Data sections are kept
-					 * in the byte order of the object.
+					 * or a pointer in arena to a static variable. It's
+					 * stored in place as an offset of the function or
+					 * the variable in its section. Data sections are
+					 * kept in the byte order of the object.
 					 */
 					void *ptr = dst_linked_sec->raw_data + dst_rel->r_offset;
 					__u64 off;
