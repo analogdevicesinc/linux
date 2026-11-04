@@ -3654,7 +3654,7 @@
 			interrupt-controller;
 			#interrupt-cells = <2>;
 
-			gpio-ranges = <&tlmm 0 0 184>;
+			gpio-ranges = <&tlmm 0 0 186>;
 			wakeup-parent = <&pdc>;
 
 			pcie0_default_state: pcie0-default-state {
