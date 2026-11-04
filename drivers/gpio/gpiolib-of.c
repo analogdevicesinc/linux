@@ -135,8 +135,8 @@ of_find_gpio_device_by_xlate(const struct of_phandle_args *gpiospec)
 }
 
 static struct gpio_desc *of_xlate_and_get_gpiod_flags(struct gpio_chip *chip,
-					struct of_phandle_args *gpiospec,
-					enum of_gpio_flags *flags)
+						      struct of_phandle_args *gpiospec,
+						      enum of_gpio_flags *flags)
 {
 	int ret;
 
@@ -333,7 +333,7 @@ static void of_gpio_set_polarity_by_property(const struct device_node *np,
 		if (of_device_is_compatible(np_compat, gpios[i].compatible) &&
 		    !strcmp(propname, gpios[i].gpio_propname)) {
 			active_high = of_property_read_bool(np_propname,
-						gpios[i].polarity_propname);
+							    gpios[i].polarity_propname);
 			of_gpio_quirk_polarity(np, active_high, flags);
 			break;
 		}
@@ -415,7 +415,8 @@ static void of_gpio_flags_quirks(const struct device_node *np,
  * in flags for the GPIO.
  */
 static struct gpio_desc *of_get_named_gpiod_flags(const struct device_node *np,
-		     const char *propname, int index, enum of_gpio_flags *flags)
+						  const char *propname, int index,
+						  enum of_gpio_flags *flags)
 {
 	struct of_phandle_args gpiospec;
 	struct gpio_desc *desc;
@@ -425,21 +426,21 @@ static struct gpio_desc *of_get_named_gpiod_flags(const struct device_node *np,
 					     &gpiospec);
 	if (ret) {
 		pr_debug("%s: can't parse '%s' property of node '%pOF[%d]'\n",
-			__func__, propname, np, index);
+			 __func__, propname, np, index);
 		return ERR_PTR(ret);
 	}
 
+	struct device_node *chip_np __free(device_node) = gpiospec.np;
+
 	struct gpio_device *gdev __free(gpio_device_put) =
 				of_find_gpio_device_by_xlate(&gpiospec);
-	if (!gdev) {
-		desc = ERR_PTR(-EPROBE_DEFER);
-		goto out;
-	}
+	if (!gdev)
+		return ERR_PTR(-EPROBE_DEFER);
 
 	desc = of_xlate_and_get_gpiod_flags(gpio_device_get_chip(gdev),
 					    &gpiospec, flags);
 	if (IS_ERR(desc))
-		goto out;
+		return desc;
 
 	if (flags)
 		of_gpio_flags_quirks(np, propname, flags, index);
@@ -447,9 +448,6 @@ static struct gpio_desc *of_get_named_gpiod_flags(const struct device_node *np,
 	pr_debug("%s: parsed '%s' property of node '%pOF[%d]' - status (%d)\n",
 		 __func__, propname, np, index,
 		 PTR_ERR_OR_ZERO(desc));
-
-out:
-	of_node_put(gpiospec.np);
 
 	return desc;
 }
@@ -629,9 +627,6 @@ static struct gpio_desc *of_find_mt2701_gpio(struct device_node *np,
 	struct gpio_desc *desc;
 	const char *legacy_id;
 
-	if (!IS_ENABLED(CONFIG_SND_SOC_MT2701_CS42448))
-		return ERR_PTR(-ENOENT);
-
 	if (!of_device_is_compatible(np, "mediatek,mt2701-cs42448-machine"))
 		return ERR_PTR(-ENOENT);
 
@@ -654,6 +649,7 @@ static struct gpio_desc *of_find_mt2701_gpio(struct device_node *np,
 }
 #endif
 
+#if IS_ENABLED(CONFIG_LEDS_TRIGGER_GPIO)
 /*
  * Trigger sources are special, they allow us to use any GPIO as a LED trigger
  * and have the name "trigger-sources" no matter which kind of phandle it is
@@ -667,9 +663,6 @@ static struct gpio_desc *of_find_trigger_gpio(struct device_node *np,
 {
 	struct gpio_desc *desc;
 
-	if (!IS_ENABLED(CONFIG_LEDS_TRIGGER_GPIO))
-		return ERR_PTR(-ENOENT);
-
 	if (!con_id || strcmp(con_id, "trigger-sources"))
 		return ERR_PTR(-ENOENT);
 
@@ -679,7 +672,37 @@ static struct gpio_desc *of_find_trigger_gpio(struct device_node *np,
 
 	return desc;
 }
+#endif
 
+#if IS_ENABLED(CONFIG_SND_SOC_TWL4030)
+static struct gpio_desc *of_find_twl4030_gpio(struct device_node *np,
+					      const char *con_id,
+					      unsigned int idx,
+					      enum of_gpio_flags *of_flags)
+{
+	const char *legacy_id = "ti,hs_extmute_gpio";
+	struct gpio_desc *desc;
+
+	if (!con_id || strcmp(con_id, "ti,hs_extmute"))
+		return ERR_PTR(-ENOENT);
+
+	if (!of_node_name_eq(np, "codec"))
+		return ERR_PTR(-ENOENT);
+
+	struct device_node *parent __free(device_node) = of_get_parent(np);
+	if (!parent)
+		return ERR_PTR(-ENOENT);
+
+	if (!of_device_is_compatible(parent, "ti,twl4030-audio"))
+		return ERR_PTR(-ENOENT);
+
+	desc = of_get_named_gpiod_flags(np, legacy_id, idx, of_flags);
+	if (!gpiod_not_found(desc))
+		pr_info("%s is using legacy gpio name '%s' instead of '%s-gpios'\n",
+			of_node_full_name(np), legacy_id, con_id);
+	return desc;
+}
+#endif
 
 typedef struct gpio_desc *(*of_find_gpio_quirk)(struct device_node *np,
 						const char *con_id,
@@ -690,7 +713,12 @@ static const of_find_gpio_quirk of_find_gpio_quirks[] = {
 #if IS_ENABLED(CONFIG_SND_SOC_MT2701_CS42448)
 	of_find_mt2701_gpio,
 #endif
+#if IS_ENABLED(CONFIG_LEDS_TRIGGER_GPIO)
 	of_find_trigger_gpio,
+#endif
+#if IS_ENABLED(CONFIG_SND_SOC_TWL4030)
+	of_find_twl4030_gpio,
+#endif
 	NULL
 };
 
@@ -937,8 +965,8 @@ static int of_gpiochip_add_pin_range(struct gpio_chip *chip)
 		 * This is why we parse chip->of_gpio_n_cells + 1 cells
 		 */
 		ret = of_parse_phandle_with_fixed_args(np, "gpio-ranges",
-				chip->of_gpio_n_cells + 1,
-				index, &pinspec);
+						       chip->of_gpio_n_cells + 1,
+						       index, &pinspec);
 		if (ret)
 			break;
 
@@ -963,7 +991,7 @@ static int of_gpiochip_add_pin_range(struct gpio_chip *chip)
 		 * right instance.
 		 */
 		if (chip->of_node_instance_match &&
-		    (chip->of_gpio_n_cells == 3) &&
+		    chip->of_gpio_n_cells == 3 &&
 		    !chip->of_node_instance_match(chip, pinspec.args[0]))
 			continue;
 
@@ -976,12 +1004,11 @@ static int of_gpiochip_add_pin_range(struct gpio_chip *chip)
 		if (count) {
 			/* npins != 0: linear range */
 			if (has_group_names) {
-				of_property_read_string_index(np,
-						group_names_propname,
-						index, &name);
+				of_property_read_string_index(np, group_names_propname,
+							      index, &name);
 				if (strlen(name)) {
 					pr_err("%pOF: Group name of numeric GPIO ranges must be the empty string.\n",
-						np);
+					       np);
 					break;
 				}
 			}
@@ -998,41 +1025,35 @@ static int of_gpiochip_add_pin_range(struct gpio_chip *chip)
 			if ((offset + count) > chip->ngpio)
 				count = chip->ngpio - offset;
 
-			ret = gpiochip_add_pin_range(chip,
-					pinctrl_dev_get_devname(pctldev),
-					offset,
-					pin,
-					count);
+			ret = gpiochip_add_pin_range(chip, pinctrl_dev_get_devname(pctldev),
+						     offset, pin, count);
 			if (ret)
 				return ret;
 		} else {
 			/* npins == 0: special range */
 			if (pin) {
-				pr_err("%pOF: Illegal gpio-range format.\n",
-					np);
+				pr_err("%pOF: Illegal gpio-range format.\n", np);
 				break;
 			}
 
 			if (!has_group_names) {
 				pr_err("%pOF: GPIO group range requested but no %s property.\n",
-					np, group_names_propname);
+				       np, group_names_propname);
 				break;
 			}
 
-			ret = of_property_read_string_index(np,
-						group_names_propname,
-						index, &name);
+			ret = of_property_read_string_index(np, group_names_propname,
+							    index, &name);
 			if (ret)
 				break;
 
 			if (!strlen(name)) {
 				pr_err("%pOF: Group name of GPIO group range cannot be the empty string.\n",
-				np);
+				       np);
 				break;
 			}
 
-			ret = gpiochip_add_pingroup_range(chip, pctldev,
-						offset, name);
+			ret = gpiochip_add_pingroup_range(chip, pctldev, offset, name);
 			if (ret)
 				return ret;
 		}

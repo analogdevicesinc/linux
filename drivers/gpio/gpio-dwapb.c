@@ -42,6 +42,12 @@
 #define GPIO_EXT_PORTB		0x54
 #define GPIO_EXT_PORTC		0x58
 #define GPIO_EXT_PORTD		0x5c
+/*
+ * Native hardware both-edge control register. Only present when the DW APB
+ * GPIO IP instance was synthesized with the GPIO_INT_BOTH_EDGE feature; the
+ * offset does not change between the V1 and V2 register layouts.
+ */
+#define GPIO_INT_BOTHEDGE	0x68
 
 #define DWAPB_DRIVER_NAME	"gpio-dwapb"
 #define DWAPB_MAX_PORTS		4
@@ -62,6 +68,8 @@
 #define GPIO_PORTA_EOI_V2	0x40
 
 #define DWAPB_NR_CLOCKS		2
+
+#define DWAPB_FLAG_NATIVE_BOTHEDGE	BIT(1)
 
 struct dwapb_gpio;
 
@@ -87,6 +95,7 @@ struct dwapb_context {
 	u32 int_mask;
 	u32 int_type;
 	u32 int_pol;
+	u32 int_bothedge;
 	u32 int_deb;
 	u32 wake_en;
 };
@@ -178,6 +187,11 @@ static struct dwapb_gpio_port *dwapb_offs_to_port(struct dwapb_gpio *gpio, unsig
 	return NULL;
 }
 
+static inline bool dwapb_native_both_edge(struct dwapb_gpio *gpio)
+{
+	return !!(gpio->flags & DWAPB_FLAG_NATIVE_BOTHEDGE);
+}
+
 static void dwapb_toggle_trigger(struct dwapb_gpio *gpio, unsigned int offs)
 {
 	struct dwapb_gpio_port *port = dwapb_offs_to_port(gpio, offs);
@@ -229,7 +243,12 @@ static u32 dwapb_do_irq(struct dwapb_gpio *gpio)
 
 		generic_handle_irq(gpio_irq);
 
-		if ((irq_type & IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH)
+		/*
+		 * In native both-edge mode the hardware latches both edges on
+		 * its own; toggling the polarity here would defeat that.
+		 */
+		if (!dwapb_native_both_edge(gpio) &&
+		    (irq_type & IRQ_TYPE_SENSE_MASK) == IRQ_TYPE_EDGE_BOTH)
 			dwapb_toggle_trigger(gpio, hwirq);
 	}
 
@@ -333,17 +352,31 @@ static int dwapb_irq_set_type(struct irq_data *d, u32 type)
 	struct gpio_generic_chip *gen_gc = to_gpio_generic_chip(gc);
 	struct dwapb_gpio *gpio = to_dwapb_gpio(gc);
 	irq_hw_number_t bit = irqd_to_hwirq(d);
-	unsigned long level, polarity;
+	unsigned long level, polarity, bothedge;
 
 	guard(gpio_generic_lock_irqsave)(gen_gc);
 
 	level = dwapb_read(gpio, GPIO_INTTYPE_LEVEL);
 	polarity = dwapb_read(gpio, GPIO_INT_POLARITY);
 
+	/*
+	 * GPIO_INT_BOTHEDGE only exists on IP instances that were synthesized
+	 * with the feature, so it must not be touched otherwise. Clear it
+	 * unconditionally first: it must not remain set when the line is
+	 * reconfigured to a non-both-edge type.
+	 */
+	bothedge = 0;
+	if (dwapb_native_both_edge(gpio))
+		bothedge = dwapb_read(gpio, GPIO_INT_BOTHEDGE);
+	bothedge &= ~BIT(bit);
+
 	switch (type) {
 	case IRQ_TYPE_EDGE_BOTH:
 		level |= BIT(bit);
-		dwapb_toggle_trigger(gpio, bit);
+		if (dwapb_native_both_edge(gpio))
+			bothedge |= BIT(bit);
+		else
+			dwapb_toggle_trigger(gpio, bit);
 		break;
 	case IRQ_TYPE_EDGE_RISING:
 		level |= BIT(bit);
@@ -371,6 +404,8 @@ static int dwapb_irq_set_type(struct irq_data *d, u32 type)
 	dwapb_write(gpio, GPIO_INTTYPE_LEVEL, level);
 	if (type != IRQ_TYPE_EDGE_BOTH)
 		dwapb_write(gpio, GPIO_INT_POLARITY, polarity);
+	if (dwapb_native_both_edge(gpio))
+		dwapb_write(gpio, GPIO_INT_BOTHEDGE, bothedge);
 
 	return 0;
 }
@@ -761,6 +796,8 @@ static int dwapb_gpio_probe(struct platform_device *pdev)
 		return err;
 
 	gpio->flags = (uintptr_t)device_get_match_data(dev);
+	if (device_property_read_bool(dev, "snps,native-both-edge"))
+		gpio->flags |= DWAPB_FLAG_NATIVE_BOTHEDGE;
 
 	for (i = 0; i < gpio->nr_ports; i++) {
 		err = dwapb_gpio_add_port(gpio, &pdata->properties[i], i);
@@ -802,6 +839,9 @@ static int dwapb_gpio_suspend(struct device *dev)
 				ctx->int_en = dwapb_read(gpio, GPIO_INTEN);
 				ctx->int_pol = dwapb_read(gpio, GPIO_INT_POLARITY);
 				ctx->int_type = dwapb_read(gpio, GPIO_INTTYPE_LEVEL);
+				if (dwapb_native_both_edge(gpio))
+					ctx->int_bothedge =
+						dwapb_read(gpio, GPIO_INT_BOTHEDGE);
 				ctx->int_deb = dwapb_read(gpio, GPIO_PORTA_DEBOUNCE);
 			}
 		}
@@ -884,6 +924,9 @@ static int dwapb_gpio_resume(struct device *dev)
 		if (idx == 0) {
 			dwapb_write(gpio, GPIO_INTTYPE_LEVEL, ctx->int_type);
 			dwapb_write(gpio, GPIO_INT_POLARITY, ctx->int_pol);
+			if (dwapb_native_both_edge(gpio))
+				dwapb_write(gpio, GPIO_INT_BOTHEDGE,
+					    ctx->int_bothedge);
 			dwapb_write(gpio, GPIO_PORTA_DEBOUNCE, ctx->int_deb);
 			dwapb_write(gpio, GPIO_INTEN, ctx->int_en);
 			dwapb_write(gpio, GPIO_INTMASK, ctx->int_mask);

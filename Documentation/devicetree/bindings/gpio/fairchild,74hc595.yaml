@@ -7,9 +7,9 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Generic 8-bit shift register
 
 description: |
-  NOTE: These chips nominally don't have a chip select pin. They do however
-  have a rising-edge triggered latch clock (or storage register clock) pin,
-  which behaves like an active-low chip select.
+  NOTE: These chips nominally don't have a chip select pin. 59x chip family
+  do however have a rising-edge triggered latch clock (or storage register
+  clock) pin, which behaves like an active-low chip select.
 
   After the bits are shifted into the shift register, CS# is driven high, which
   the 74HC595 sees as a rising edge on the latch clock that results in a
@@ -22,6 +22,9 @@ description: |
                  ___                     ________
   chip select#      |___________________|
 
+  Other chip family (namely 164) directly change the outputs as bits are shifted
+  in.
+
 maintainers:
   - Maxime Ripard <mripard@kernel.org>
 
@@ -29,6 +32,7 @@ properties:
   compatible:
     enum:
       - fairchild,74hc595
+      - nxp,74lv164
       - nxp,74lvc594
 
   reg:
@@ -76,6 +80,14 @@ required:
 
 allOf:
   - $ref: /schemas/spi/spi-peripheral-props.yaml#
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: nxp,74lv164
+    then:
+      properties:
+        enable-gpios: false
 
 unevaluatedProperties: false
 
