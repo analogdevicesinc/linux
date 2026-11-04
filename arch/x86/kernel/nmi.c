@@ -85,6 +85,7 @@ static DEFINE_PER_CPU(struct nmi_stats, nmi_stats);
 static int ignore_nmis __read_mostly;
 
 int unknown_nmi_panic;
+static unsigned long toolong_nmi_panic;
 int panic_on_unrecovered_nmi;
 int panic_on_io_nmi;
 
@@ -101,6 +102,20 @@ static int __init setup_unknown_nmi_panic(char *str)
 }
 __setup("unknown_nmi_panic", setup_unknown_nmi_panic);
 
+static int __init setup_toolong_nmi_panic(char *str)
+{
+	int ret;
+
+	ret = kstrtoul(str, 0, &toolong_nmi_panic);
+	if (ret) {
+		pr_alert("%s: %s on '%s', disabling to zero.\n",
+			 __func__, ret == -ERANGE ? "Overflow" : "Parse error", str);
+		toolong_nmi_panic = 0;
+	}
+	return 1;
+}
+__setup("toolong_nmi_panic=", setup_toolong_nmi_panic);
+
 static u64 nmi_longest_ns = 1 * NSEC_PER_MSEC;
 
 static int __init nmi_warning_debugfs(void)
@@ -111,7 +126,7 @@ static int __init nmi_warning_debugfs(void)
 }
 fs_initcall(nmi_warning_debugfs);
 
-static void nmi_check_duration(struct nmiaction *action, u64 duration)
+static void nmi_check_duration(struct nmiaction *action, u64 duration, struct pt_regs *regs)
 {
 	int remainder_ns, decimal_msecs;
 
@@ -126,6 +141,8 @@ static void nmi_check_duration(struct nmiaction *action, u64 duration)
 
 	pr_info_ratelimited("INFO: NMI handler (%ps) took too long to run: %lld.%03d msecs\n",
 			    action->handler, duration, decimal_msecs);
+	if (toolong_nmi_panic && duration >= toolong_nmi_panic)
+		nmi_panic(regs, "Panic per toolong_nmi_panic");
 }
 
 static int nmi_handle(unsigned int type, struct pt_regs *regs)
@@ -165,7 +182,7 @@ static int nmi_handle(unsigned int type, struct pt_regs *regs)
 		delta = sched_clock() - delta;
 		trace_nmi_handler(a->handler, (int)delta, thishandled);
 
-		nmi_check_duration(a, delta);
+		nmi_check_duration(a, delta, regs);
 	}
 
 	rcu_read_unlock();
