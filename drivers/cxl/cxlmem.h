@@ -6,6 +6,7 @@
 #include <linux/pci.h>
 #include <linux/cdev.h>
 #include <linux/uuid.h>
+#include <linux/array_size.h>
 #include <linux/node.h>
 #include <cxl/event.h>
 #include <cxl/mailbox.h>
@@ -206,13 +207,18 @@ static const
 struct cxl_mbox_cmd_rc cxl_mbox_cmd_rctable[] ={ CMD_CMD_RC_TABLE };
 #undef C
 
+/* The return code comes from the device and may be one this table lacks */
 static inline const char *cxl_mbox_cmd_rc2str(struct cxl_mbox_cmd *mbox_cmd)
 {
+	if (mbox_cmd->return_code >= ARRAY_SIZE(cxl_mbox_cmd_rctable))
+		return "unknown return code";
 	return cxl_mbox_cmd_rctable[mbox_cmd->return_code].desc;
 }
 
 static inline int cxl_mbox_cmd_rc2errno(struct cxl_mbox_cmd *mbox_cmd)
 {
+	if (mbox_cmd->return_code >= ARRAY_SIZE(cxl_mbox_cmd_rctable))
+		return -ENXIO;
 	return cxl_mbox_cmd_rctable[mbox_cmd->return_code].err;
 }
 
