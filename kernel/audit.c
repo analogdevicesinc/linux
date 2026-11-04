@@ -247,7 +247,7 @@ int auditd_test_task(struct task_struct *task)
 void audit_ctl_lock(void)
 {
 	mutex_lock(&audit_cmd_mutex.lock);
-	audit_cmd_mutex.owner = current;
+	WRITE_ONCE(audit_cmd_mutex.owner, current);
 }
 
 /**
@@ -255,7 +255,7 @@ void audit_ctl_lock(void)
  */
 void audit_ctl_unlock(void)
 {
-	audit_cmd_mutex.owner = NULL;
+	WRITE_ONCE(audit_cmd_mutex.owner, NULL);
 	mutex_unlock(&audit_cmd_mutex.lock);
 }
 
@@ -268,7 +268,7 @@ void audit_ctl_unlock(void)
  */
 static bool audit_ctl_owner_current(void)
 {
-	return (current == audit_cmd_mutex.owner);
+	return (current == READ_ONCE(audit_cmd_mutex.owner));
 }
 
 /**
