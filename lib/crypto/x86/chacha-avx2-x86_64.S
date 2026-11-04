@@ -46,8 +46,6 @@ SYM_FUNC_START(chacha_2block_xor_avx2)
 	# on four words in each matrix in parallel, but requires shuffling to
 	# rearrange the words after each round.
 
-	vzeroupper
-
 	# x0..3[0-2] = s0..3
 	vbroadcasti128	0x00(%rdi),%ymm0
 	vbroadcasti128	0x10(%rdi),%ymm1
@@ -239,8 +237,6 @@ SYM_FUNC_START(chacha_4block_xor_avx2)
 	# to the operations on the four words of the other two matrices. The
 	# required word shuffling has a rather high latency, we can do the
 	# arithmetic on two matrix-pairs without much slowdown.
-
-	vzeroupper
 
 	# x0..3[0-4] = s0..3
 	vbroadcasti128	0x00(%rdi),%ymm0
@@ -548,7 +544,6 @@ SYM_FUNC_START(chacha_8block_xor_avx2)
 	# rotation is done with the slightly better performing byte shuffling,
 	# 7/12-bit word rotation uses traditional shift+OR.
 
-	vzeroupper
 	# 4 * 32 byte stack, 32-byte aligned
 	lea		8(%rsp),%r10
 	and		$~31, %rsp

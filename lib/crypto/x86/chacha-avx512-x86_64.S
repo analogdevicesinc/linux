@@ -55,8 +55,6 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 	# on four words in each matrix in parallel, but requires shuffling to
 	# rearrange the words after each round.
 
-	vzeroupper
-
 	# x0..3[0-2] = s0..3
 	vbroadcasti128	0x00(%rdi),%ymm0
 	vbroadcasti128	0x10(%rdi),%ymm1
@@ -219,8 +217,6 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 	# to the operations on the four words of the other two matrices. The
 	# required word shuffling has a rather high latency, we can do the
 	# arithmetic on two matrix-pairs without much slowdown.
-
-	vzeroupper
 
 	# x0..3[0-4] = s0..3
 	vbroadcasti128	0x00(%rdi),%ymm0
@@ -488,8 +484,6 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	#
 	# VL=32 encrypts eight blocks in 256-bit ymm registers.
 	# VL=64 encrypts sixteen blocks in 512-bit zmm registers.
-
-	vzeroupper
 
 	# x0..15[0-VL/4] = s[0..15]
 	vpbroadcastd	0x00(%rdi),V0
