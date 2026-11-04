@@ -483,7 +483,7 @@ static int __sprint_symbol(char *buffer, unsigned long address,
 	len = kallsyms_lookup_buildid(address, &size, &offset, &modname, &buildid,
 				       buffer);
 	if (!len)
-		return sprintf(buffer, "0x%lx", address - symbol_offset);
+		return sprintf(buffer, "0x%p", (void *)(address - symbol_offset));
 
 	offset -= symbol_offset;
 
