@@ -137,7 +137,8 @@ LAST_PRESENT_CPU=$(cat /sys/devices/system/cpu/present | sed -e "s/.*[,-]//")
 # If isolated CPUs have been reserved at boot time (as shown in
 # /sys/devices/system/cpu/isolated), these isolated CPUs should be outside of
 # CPUs 0-8 that will be used by this script for testing purpose. If not, some
-# of the tests may fail incorrectly.
+# of the tests may fail incorrectly. The first boot isolated CPU should be
+# 10 or above.
 #
 # The current set of isolated CPUs (as shown in cpuset.cpus.isolated) should
 # be the same as the boot value. If not, wait a bit and retry again just in
@@ -156,7 +157,7 @@ TEST_ISOLCPUS=
 [[ -n "$BOOT_ISOLCPUS" ]] && {
 	FIRST_ISOLCPUS=$(echo $BOOT_ISOLCPUS | sed -e "s/[,-].*//")
 	echo "Boot isolated CPUs: $BOOT_ISOLCPUS"
-	[[ $FIRST_ISOLCPUS -le 8 ]] &&
+	[[ $FIRST_ISOLCPUS -le 9 ]] &&
 		skip_test "Boot isolated CPUs overlap CPUs to be tested"
 }
 
@@ -531,6 +532,21 @@ TEST_MATRIX=(
 	" C1-4:P1 C3-4:P2   .      .    T:C4-6   .      .      .     0 A1:5-6|A2:4 A1:P1|A2:P2 4"
 	" C1-4:P1 C1-2:P2   .      .    T:C4-6   .      .      .     0 A1:4-6|A2:4-6 A1:P1|A2:P-2 ."
 
+	# The extra CPUs gained by a child partition when its parent expands the
+	# exclusive CPUs have to be taken away from the parent.
+	" C2-6:X2-5:P1 CX3-6:P1 \
+	                    .      .    X2-6     .      .      .     0 A1:2|A2:3-6|XA2:3-6 A1:P1|A2:P1 ."
+	" C2-6:X2-5:P1 CX3-6:P2 \
+	                    .      .    X2-6     .      .      .     0 A1:2|A2:3-6|XA2:3-6 A1:P1|A2:P2 3-6"
+
+	# Both expansion and contraction of parent's effective_xcpus will be
+	# correctly handled in child partition and the child can be invalidated
+	# if a populated parent could lose all its effective_cpus.
+	" C2-6:X2-5:P1 CX3,5-6:P2 \
+	                    .      .    X4-6     .      .      .     0 A1:4|A2:5-6|XA2:5-6 A1:P1|A2:P2 5-6"
+	" C2-6:X2-5:P1 CX3-6:P2 \
+	                    .      .   T:X4-6    .      .      .     0 A1:4-6|A2:4-6 A1:P1|A2:P-2 ."
+
 	#
 	#  old-A1 old-A2 old-A3 old-B1 new-A1 new-A2 new-A3 new-B1 fail ECPUs Pstate ISOLCPUS
 	#  ------ ------ ------ ------ ------ ------ ------ ------ ---- ----- ------ --------
@@ -587,6 +603,7 @@ ISOLCPUS_TEST_MATRIX=(
 )
 
 # Test matrix to be run when boot time nohz_full CPUs cover all CPUs except CPUs 0-7
+# This also means that CPU 8 is available and is a nohz_full CPU.
 NOHZ_FULL_TEST_MATRIX=(
 	#  old-A1 old-A2 old-A3 old-B1 new-A1 new-A2 new-A3 new-B1 fail ECPUs Pstate ISOLCPUS
 	#  ------ ------ ------ ------ ------ ------ ------ ------ ---- ----- ------ --------
@@ -595,6 +612,10 @@ NOHZ_FULL_TEST_MATRIX=(
 	" C2-7:P2    .      .      .     C0-4    .      .      .     0 A1:0-4 A1:P2 0-4"
 	" C1-7:P2 C5-7:P2   .      .       .     .      .    C0:P2   0 A1:1-4|A2:5-7|B1:0
 								       A1:P2|A2:P2|B1:P-2 1-7"
+	# An isolated child partition cannot grow to take over the last
+	# housekeeping CPU when its parent expands the exclusive CPUs.
+	" C0-8:X1-8:P1 CX0-8:P2 .  .     X0-7    .      .      .     0 A1:0-7|A2:0-7 A1:P1|A2:P-2 ."
+	" C0-8:X0-6:P1 CX0-8:P2 .  .     X2-8    .      .      .     0 A1:|A2:2-8 A1:P1|A2:P2 2-8"
 )
 
 #

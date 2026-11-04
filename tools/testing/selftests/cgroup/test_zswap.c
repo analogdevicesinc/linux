@@ -31,7 +31,7 @@ static int read_int(const char *path, size_t *value)
 	file = fopen(path, "r");
 	if (!file)
 		return -1;
-	if (fscanf(file, "%ld", value) != 1)
+	if (fscanf(file, "%zu", value) != 1)
 		ret = -1;
 	fclose(file);
 	return ret;
@@ -45,7 +45,7 @@ static int set_min_free_kb(size_t value)
 	file = fopen("/proc/sys/vm/min_free_kbytes", "w");
 	if (!file)
 		return -1;
-	ret = fprintf(file, "%ld\n", value);
+	ret = fprintf(file, "%zu\n", value);
 	fclose(file);
 	return ret;
 }
