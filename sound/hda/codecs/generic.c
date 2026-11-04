@@ -5324,14 +5324,12 @@ static int playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 				struct snd_pcm_substream *substream)
 {
 	struct hda_gen_spec *spec = codec->spec;
-	int err;
 
-	err = snd_hda_multi_out_analog_prepare(codec, &spec->multiout,
-					       stream_tag, format, substream);
-	if (!err)
-		call_pcm_playback_hook(hinfo, codec, substream,
-				       HDA_GEN_PCM_ACT_PREPARE);
-	return err;
+	snd_hda_multi_out_analog_prepare(codec, &spec->multiout,
+					 stream_tag, format, substream);
+	call_pcm_playback_hook(hinfo, codec, substream,
+			       HDA_GEN_PCM_ACT_PREPARE);
+	return 0;
 }
 
 static int playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
@@ -5339,13 +5337,11 @@ static int playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 				struct snd_pcm_substream *substream)
 {
 	struct hda_gen_spec *spec = codec->spec;
-	int err;
 
-	err = snd_hda_multi_out_analog_cleanup(codec, &spec->multiout);
-	if (!err)
-		call_pcm_playback_hook(hinfo, codec, substream,
-				       HDA_GEN_PCM_ACT_CLEANUP);
-	return err;
+	snd_hda_multi_out_analog_cleanup(codec, &spec->multiout);
+	call_pcm_playback_hook(hinfo, codec, substream,
+			       HDA_GEN_PCM_ACT_CLEANUP);
+	return 0;
 }
 
 static int playback_pcm_close(struct hda_pcm_stream *hinfo,

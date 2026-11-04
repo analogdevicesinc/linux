@@ -58,6 +58,13 @@ extern struct snd_ice1712_card_info snd_ice1712_ews_cards[];
 #define ICE1712_EWS88MT_OUTPUT_SENSE	0x40	/* mask */
 #define ICE1712_EWS88D_PCF_ADDR		(0x40>>1)
 
+/* TerraTec PHASE 88 configuration definitions */
+#define ICE1712_PHASE88_OUTPUT_ADDR	(0x42>>1)
+#define ICE1712_PHASE88_OUTPUT_PAGE	0x01	/* output register */
+#define ICE1712_PHASE88_OUTPUT_INIT	0x20	/* initial output state */
+#define ICE1712_PHASE88_INPUT_PAGE	0x03	/* input register */
+#define ICE1712_PHASE88_INPUT_INIT	0x00	/* line inputs */
+
 /* TerraTec DMX 6Fire configuration definitions */
 #define ICE1712_6FIRE_AK4524_CS_MASK	0x07	/* AK4524 chip select #1-#3 */
 #define ICE1712_6FIRE_RW		0x08	/* read/write switch for i2c; high = write  */

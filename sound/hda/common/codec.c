@@ -3798,11 +3798,11 @@ EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_open);
  * Set up the i/o for analog out.
  * When the digital out is available, copy the front out to digital out, too.
  */
-int snd_hda_multi_out_analog_prepare(struct hda_codec *codec,
-				     struct hda_multi_out *mout,
-				     unsigned int stream_tag,
-				     unsigned int format,
-				     struct snd_pcm_substream *substream)
+void snd_hda_multi_out_analog_prepare(struct hda_codec *codec,
+				      struct hda_multi_out *mout,
+				      unsigned int stream_tag,
+				      unsigned int format,
+				      struct snd_pcm_substream *substream)
 {
 	const hda_nid_t *nids = mout->dac_nids;
 	int chs = substream->runtime->channels;
@@ -3865,7 +3865,6 @@ int snd_hda_multi_out_analog_prepare(struct hda_codec *codec,
 					   stream_tag, ch, format);
 	}
 
-	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_prepare);
 
@@ -3874,8 +3873,8 @@ EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_prepare);
  * @codec: the HDA codec
  * @mout: hda_multi_out object
  */
-int snd_hda_multi_out_analog_cleanup(struct hda_codec *codec,
-				     struct hda_multi_out *mout)
+void snd_hda_multi_out_analog_cleanup(struct hda_codec *codec,
+				      struct hda_multi_out *mout)
 {
 	const hda_nid_t *nids = mout->dac_nids;
 	int i;
@@ -3897,7 +3896,6 @@ int snd_hda_multi_out_analog_cleanup(struct hda_codec *codec,
 		cleanup_dig_out_stream(codec, mout->dig_out_nid);
 		mout->dig_out_used = 0;
 	}
-	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_cleanup);
 

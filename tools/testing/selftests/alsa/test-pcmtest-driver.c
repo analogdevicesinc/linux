@@ -5,7 +5,9 @@
  *
  * Copyright 2023 Ivan Orlov <ivan.orlov0322@gmail.com>
  */
+#include <errno.h>
 #include <string.h>
+#include <unistd.h>
 #include <alsa/asoundlib.h>
 #include "kselftest_harness.h"
 
@@ -58,6 +60,20 @@ static int read_patterns(void)
 	return 0;
 }
 
+static int set_param(const char *name, int value)
+{
+	char path[128];
+	FILE *f;
+
+	sprintf(path, "/sys/module/snd_pcmtest/parameters/%s", name);
+	f = fopen(path, "w");
+	if (!f)
+		return -1;
+	fprintf(f, "%d", value);
+
+	return fclose(f) ? -1 : 0;
+}
+
 static int get_test_results(char *debug_name)
 {
 	int result;
@@ -80,6 +96,25 @@ static int get_test_results(char *debug_name)
 static size_t get_sec_buf_len(unsigned int rate, unsigned long channels, snd_pcm_format_t format)
 {
 	return rate * channels * snd_pcm_format_physical_width(format) / 8;
+}
+
+/*
+ * Check interleaved capture data against the patterns. Return the offset of the first wrong
+ * byte, or -1 if all bytes match.
+ */
+static long find_capture_mismatch(const unsigned char *it, struct pcmtest_test_params *params)
+{
+	size_t i, cur_ch, pos_in_ch;
+
+	for (i = 0; i < params->sec_buf_len * params->time; i++) {
+		cur_ch = (i / params->sample_size) % CH_NUM;
+		pos_in_ch = i / params->sample_size / CH_NUM * params->sample_size
+			    + (i % params->sample_size);
+		if (it[i] != patterns[cur_ch].buf[pos_in_ch % patterns[cur_ch].len])
+			return i;
+	}
+
+	return -1;
 }
 
 static int setup_handle(snd_pcm_t **handle, snd_pcm_sw_params_t *swparams,
@@ -122,6 +157,10 @@ FIXTURE(pcmtest) {
 };
 
 FIXTURE_TEARDOWN(pcmtest) {
+	set_param("inject_open_err", 0);
+	set_param("inject_hwpars_err", 0);
+	set_param("inject_prepare_err", 0);
+	set_param("inject_trigger_err", 0);
 }
 
 FIXTURE_SETUP(pcmtest) {
@@ -207,9 +246,7 @@ TEST_F(pcmtest, playback) {
  */
 TEST_F(pcmtest, capture) {
 	snd_pcm_t *handle;
-	unsigned char *it;
 	snd_pcm_sframes_t read_res;
-	int i, cur_ch, pos_in_ch;
 	void *samples;
 	struct pcmtest_test_params *params = &self->params;
 
@@ -226,13 +263,7 @@ TEST_F(pcmtest, capture) {
 	read_res = snd_pcm_readi(handle, samples, params->rate * params->time);
 	ASSERT_EQ(read_res, params->rate * params->time);
 	snd_pcm_close(handle);
-	it = (unsigned char *)samples;
-	for (i = 0; i < self->params.sec_buf_len * self->params.time; i++) {
-		cur_ch = (i / params->sample_size) % CH_NUM;
-		pos_in_ch = i / params->sample_size / CH_NUM * params->sample_size
-			    + (i % params->sample_size);
-		ASSERT_EQ(it[i], patterns[cur_ch].buf[pos_in_ch % patterns[cur_ch].len]);
-	}
+	ASSERT_EQ(find_capture_mismatch(samples, params), -1);
 	free(samples);
 }
 
@@ -329,6 +360,124 @@ TEST_F(pcmtest, reset_ioctl) {
 	snd_pcm_reset(handle);
 	test_res = get_test_results("ioctl_test");
 	ASSERT_EQ(test_res, 1);
+	snd_pcm_close(handle);
+}
+
+/*
+ * Here we pause a capture stream halfway. The core does not read the hardware pointer while
+ * the stream is paused, so a driver that keeps running only shows up after the release, as a
+ * jump of the pointer. The data must also continue where it stopped, so the whole buffer still
+ * matches the patterns.
+ */
+TEST_F(pcmtest, capture_pause) {
+	snd_pcm_t *handle;
+	snd_pcm_sframes_t read_res, paused_avail, avail, frames, half;
+	unsigned char *samples;
+	struct pcmtest_test_params *params = &self->params;
+
+	samples = calloc(params->sec_buf_len * params->time, 1);
+	ASSERT_NE(samples, NULL);
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, params,
+			       self->card, SND_PCM_STREAM_CAPTURE), 0);
+
+	frames = params->rate * params->time;
+	half = frames / 2;
+	read_res = snd_pcm_readi(handle, samples, half);
+	ASSERT_EQ(read_res, half);
+
+	ASSERT_EQ(snd_pcm_pause(handle, 1), 0);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_PAUSED);
+	paused_avail = snd_pcm_avail(handle);
+	ASSERT_GE(paused_avail, 0);
+	usleep(500000);
+
+	/*
+	 * At 8000 Hz the pause is 4000 frames long. Allow a tenth of a second (800 frames) for
+	 * the release.
+	 */
+	ASSERT_EQ(snd_pcm_pause(handle, 0), 0);
+	avail = snd_pcm_avail(handle);
+	ASSERT_GE(avail, 0);
+	ASSERT_LT(avail - paused_avail, (snd_pcm_sframes_t)params->rate / 10);
+	read_res = snd_pcm_readi(handle, samples + snd_pcm_frames_to_bytes(handle, half),
+				 frames - half);
+	ASSERT_EQ(read_res, frames - half);
+	snd_pcm_close(handle);
+
+	ASSERT_EQ(find_capture_mismatch(samples, params), -1);
+	free(samples);
+}
+
+/*
+ * Here we check that an error from each PCM callback reaches user space. The driver returns
+ * the error while the matching 'inject_*_err' parameter is set, and works again once it is
+ * cleared.
+ */
+TEST_F(pcmtest, open_err) {
+	snd_pcm_t *handle;
+	char pcm_name[32];
+
+	sprintf(pcm_name, "hw:%d,0,0", self->card);
+
+	ASSERT_EQ(set_param("inject_open_err", 1), 0);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), -EBUSY);
+
+	ASSERT_EQ(set_param("inject_open_err", 0), 0);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, hw_params_err) {
+	snd_pcm_t *handle;
+	char pcm_name[32];
+
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	sprintf(pcm_name, "hw:%d,0,0", self->card);
+	ASSERT_EQ(snd_pcm_open(&handle, pcm_name, SND_PCM_STREAM_PLAYBACK, 0), 0);
+	ASSERT_EQ(snd_pcm_hw_params_any(handle, self->hwparams), 0);
+
+	ASSERT_EQ(set_param("inject_hwpars_err", 1), 0);
+	ASSERT_EQ(snd_pcm_hw_params(handle, self->hwparams), -EBUSY);
+
+	ASSERT_EQ(set_param("inject_hwpars_err", 0), 0);
+	ASSERT_EQ(snd_pcm_hw_params(handle, self->hwparams), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, prepare_err) {
+	snd_pcm_t *handle;
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, &self->params,
+			       self->card, SND_PCM_STREAM_PLAYBACK), 0);
+
+	ASSERT_EQ(set_param("inject_prepare_err", 1), 0);
+	ASSERT_EQ(snd_pcm_prepare(handle), -EINVAL);
+
+	ASSERT_EQ(set_param("inject_prepare_err", 0), 0);
+	ASSERT_EQ(snd_pcm_prepare(handle), 0);
+	snd_pcm_close(handle);
+}
+
+TEST_F(pcmtest, trigger_err) {
+	snd_pcm_t *handle;
+
+	snd_pcm_sw_params_alloca(&self->swparams);
+	snd_pcm_hw_params_alloca(&self->hwparams);
+	ASSERT_EQ(setup_handle(&handle, self->swparams, self->hwparams, &self->params,
+			       self->card, SND_PCM_STREAM_CAPTURE), 0);
+
+	ASSERT_EQ(set_param("inject_trigger_err", 1), 0);
+	ASSERT_EQ(snd_pcm_start(handle), -EINVAL);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_PREPARED);
+
+	ASSERT_EQ(set_param("inject_trigger_err", 0), 0);
+	ASSERT_EQ(snd_pcm_start(handle), 0);
+	ASSERT_EQ(snd_pcm_state(handle), SND_PCM_STATE_RUNNING);
 	snd_pcm_close(handle);
 }
 

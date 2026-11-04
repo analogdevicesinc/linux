@@ -236,7 +236,7 @@ static int snd_cs423x_pnp_init_ctrl(int dev, struct pnp_dev *pdev)
 }
 
 /* MPU initialization */
-static int snd_cs423x_pnp_init_mpu(int dev, struct pnp_dev *pdev)
+static void snd_cs423x_pnp_init_mpu(int dev, struct pnp_dev *pdev)
 {
 	if (pnp_activate_dev(pdev) < 0) {
 		dev_err(&pdev->dev, IDENT " MPU401 PnP configure failed for WSS (out of resources?)\n");
@@ -253,7 +253,6 @@ static int snd_cs423x_pnp_init_mpu(int dev, struct pnp_dev *pdev)
 		}
 	}
 	dev_dbg(&pdev->dev, "isapnp MPU: port=0x%lx, irq=%i\n", mpu_port[dev], mpu_irq[dev]);
-	return 0;
 }
 
 static int snd_card_cs423x_pnp(int dev, struct snd_card_cs4236 *acard,
@@ -296,10 +295,8 @@ static int snd_card_cs423x_pnpc(int dev, struct snd_card_cs4236 *acard,
 			return -EBUSY;
 	}
 	/* MPU initialization */
-	if (acard->mpu && mpu_port[dev] > 0) {
-		if (snd_cs423x_pnp_init_mpu(dev, acard->mpu) < 0)
-			return -EBUSY;
-	}
+	if (acard->mpu && mpu_port[dev] > 0)
+		snd_cs423x_pnp_init_mpu(dev, acard->mpu);
 	return 0;
 }
 #endif /* CONFIG_PNP */

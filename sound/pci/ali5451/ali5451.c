@@ -414,7 +414,7 @@ static unsigned short snd_ali_codec_read(struct snd_ac97 *ac97,
  *	AC97 Reset
  */
 
-static int snd_ali_reset_5451(struct snd_ali *codec)
+static void snd_ali_reset_5451(struct snd_ali *codec)
 {
 	struct pci_dev *pci_dev;
 	unsigned short wCount, wReg;
@@ -442,13 +442,12 @@ static int snd_ali_reset_5451(struct snd_ali *codec)
 	while(wCount--) {
 		wReg = snd_ali_codec_peek(codec, 0, AC97_POWERDOWN);
 		if ((wReg & 0x000f) == 0x000f)
-			return 0;
+			return;
 		mdelay(5);
 	}
 
 	/* non-fatal if you have a non PM capable codec */
 	/* dev_warn(codec->card->dev, "ali5451: reset time out\n"); */
-	return 0;
 }
 
 /*
@@ -1901,10 +1900,7 @@ static int snd_ali_chip_init(struct snd_ali *codec)
 
 	dev_dbg(codec->card->dev, "chip initializing ...\n");
 
-	if (snd_ali_reset_5451(codec)) {
-		dev_err(codec->card->dev, "ali_chip_init: reset 5451 error.\n");
-		return -1;
-	}
+	snd_ali_reset_5451(codec);
 
 	if (codec->revision == ALI_5451_V02) {
         	pci_dev = codec->pci_m1533;
