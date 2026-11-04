@@ -22,6 +22,7 @@ Hardware Monitoring Kernel Drivers
    abituguru
    abituguru3
    acbel-fsg032
+   acer-aspire14-ec
    acpi_power_meter
    ad7314
    adc128d818
@@ -81,6 +82,8 @@ Hardware Monitoring Kernel Drivers
    f71805f
    f71882fg
    fam15h_power
+   fs1412
+   fs1603
    fsp-3y
    ftsteutates
    g760a
@@ -263,6 +266,7 @@ Hardware Monitoring Kernel Drivers
    sparx5-temp
    spd5118
    sq24860
+   starfive-pwm-fan
    stpddc60
    surface_fan
    sy7636a-hwmon

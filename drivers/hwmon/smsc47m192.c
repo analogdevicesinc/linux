@@ -87,7 +87,7 @@ struct smsc47m192_data {
 	const struct attribute_group *groups[3];
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[8];		/* Register value */
 	u8 in_max[8];		/* Register value */
@@ -109,8 +109,8 @@ static struct smsc47m192_data *smsc47m192_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-	 || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		u8 sfr = i2c_smbus_read_byte_data(client, SMSC47M192_REG_SFR);
 
 		dev_dbg(&client->dev, "Starting smsc47m192 update\n");
@@ -156,7 +156,7 @@ static struct smsc47m192_data *smsc47m192_update_device(struct device *dev)
 			       (i2c_smbus_read_byte_data(client,
 						SMSC47M192_REG_ALARM2) << 8);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

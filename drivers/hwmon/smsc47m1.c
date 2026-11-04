@@ -120,7 +120,7 @@ struct smsc47m1_data {
 	struct device *hwmon_dev;
 
 	struct mutex update_lock;
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 fan[3];		/* Register value */
 	u8 fan_preload[3];	/* Register value */
@@ -152,7 +152,8 @@ static struct smsc47m1_data *smsc47m1_update_device(struct device *dev,
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2) || init) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    init) {
 		int i, fan_nr;
 		fan_nr = data->type == smsc47m2 ? 3 : 2;
 
@@ -187,7 +188,7 @@ static struct smsc47m1_data *smsc47m1_update_device(struct device *dev,
 						     0x40);
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 	}
 
 	mutex_unlock(&data->update_lock);

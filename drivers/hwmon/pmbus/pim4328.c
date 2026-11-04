@@ -150,11 +150,13 @@ static int pim4328_probe(struct i2c_client *client)
 	if (!data)
 		return -ENOMEM;
 
-	status = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, device_id);
+	status = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+					   sizeof(device_id) - 1, device_id);
 	if (status < 0) {
 		dev_err(&client->dev, "Failed to read Manufacturer Model\n");
 		return status;
 	}
+	device_id[status] = '\0';
 	for (mid = pim4328_id; mid->name[0]; mid++) {
 		if (!strncasecmp(mid->name, device_id, strlen(mid->name)))
 			break;

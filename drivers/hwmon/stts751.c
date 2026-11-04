@@ -18,7 +18,7 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/property.h>
@@ -92,7 +92,7 @@ struct stts751_priv {
 	int therm;
 	int hyst;
 	int temp;
-	unsigned long last_update, last_alert_update;
+	ktime_t last_update, last_alert_update;
 	u8 config;
 	bool min_alert, max_alert, therm_trip;
 	bool data_valid, alert_valid;
@@ -260,13 +260,13 @@ static int stts751_update_alert(struct stts751_priv *priv)
 {
 	int ret;
 	bool conv_done;
-	int cache_time = msecs_to_jiffies(stts751_intervals[priv->interval]);
+	int cache_time_us = stts751_intervals[priv->interval] * USEC_PER_MSEC;
 
 	/*
 	 * Add another 10% because if we run faster than the HW conversion
 	 * rate we will end up in reporting incorrectly alarms.
 	 */
-	cache_time += cache_time / 10;
+	cache_time_us += cache_time_us / 10;
 
 	ret = i2c_smbus_read_byte_data(priv->client, STTS751_REG_STATUS);
 	if (ret < 0)
@@ -286,12 +286,13 @@ static int stts751_update_alert(struct stts751_priv *priv)
 	 * Note that updating the cache timestamp when we get an alarm flag
 	 * is required, otherwise we could incorrectly report alarms to be zero.
 	 */
-	if (time_after(jiffies,	priv->last_alert_update + cache_time) ||
-	    conv_done || !priv->alert_valid) {
+	if (conv_done || !priv->alert_valid ||
+	    ktime_after(ktime_get(),
+			ktime_add_us(priv->last_alert_update, cache_time_us))) {
 		priv->max_alert = false;
 		priv->min_alert = false;
 		priv->alert_valid = true;
-		priv->last_alert_update = jiffies;
+		priv->last_alert_update = ktime_get();
 		dev_dbg(&priv->client->dev, "invalidating alert cache\n");
 	}
 
@@ -354,10 +355,11 @@ static void stts751_alert(struct i2c_client *client,
 static int stts751_update(struct stts751_priv *priv)
 {
 	int ret;
-	int cache_time = msecs_to_jiffies(stts751_intervals[priv->interval]);
+	int cache_time_ms = stts751_intervals[priv->interval];
 
-	if (time_after(jiffies,	priv->last_update + cache_time) ||
-	    !priv->data_valid) {
+	if (!priv->data_valid ||
+	    ktime_after(ktime_get(),
+			ktime_add_ms(priv->last_update, cache_time_ms))) {
 		ret = stts751_update_temp(priv);
 		if (ret)
 			return ret;
@@ -366,7 +368,7 @@ static int stts751_update(struct stts751_priv *priv)
 		if (ret)
 			return ret;
 		priv->data_valid = true;
-		priv->last_update = jiffies;
+		priv->last_update = ktime_get();
 	}
 
 	return 0;

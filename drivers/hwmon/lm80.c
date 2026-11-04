@@ -118,7 +118,7 @@ struct lm80_data {
 	struct mutex update_lock;
 	char error;		/* !=0 if error occurred during last update */
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[i_num_in][7];	/* Register value, 1st index is enum in_index */
 	u8 fan[f_num_fan][2];	/* Register value, 1st index enum fan_index */
@@ -167,7 +167,8 @@ static struct lm80_data *lm80_update_device(struct device *dev)
 	if (data->error)
 		lm80_init_client(client);
 
-	if (time_after(jiffies, data->last_updated + 2 * HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + 2 * HZ) ||
+	    !data->valid) {
 		dev_dbg(dev, "Starting lm80 update\n");
 		for (i = 0; i <= 6; i++) {
 			rv = lm80_read_value(client, LM80_REG_IN(i));
@@ -235,7 +236,7 @@ static struct lm80_data *lm80_update_device(struct device *dev)
 			goto abort;
 		data->alarms = prev_rv + (rv << 8);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 		data->error = 0;
 	}

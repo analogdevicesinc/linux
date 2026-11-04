@@ -79,13 +79,13 @@ struct sch5627_data {
 	u8 control;
 
 	struct mutex update_lock;
-	unsigned long last_battery;	/* In jiffies */
+	u64 last_battery;		/* In jiffies */
 	char temp_valid;		/* !=0 if following fields are valid */
 	char fan_valid;
 	char in_valid;
-	unsigned long temp_last_updated;	/* In jiffies */
-	unsigned long fan_last_updated;
-	unsigned long in_last_updated;
+	u64 temp_last_updated;		/* In jiffies */
+	u64 fan_last_updated;
+	u64 in_last_updated;
 	u16 temp[SCH5627_NO_TEMPS];
 	u16 fan[SCH5627_NO_FANS];
 	u16 in[SCH5627_NO_IN];
@@ -129,7 +129,7 @@ static int sch5627_update_temp(struct sch5627_data *data)
 	mutex_lock(&data->update_lock);
 
 	/* Cache the values for 1 second */
-	if (time_after(jiffies, data->temp_last_updated + HZ) || !data->temp_valid) {
+	if (time_after64(get_jiffies_64(), data->temp_last_updated + HZ) || !data->temp_valid) {
 		for (i = 0; i < SCH5627_NO_TEMPS; i++) {
 			val = sch56xx_read_virtual_reg12(data->addr, SCH5627_REG_TEMP_MSB[i],
 							 SCH5627_REG_TEMP_LSN[i],
@@ -140,7 +140,7 @@ static int sch5627_update_temp(struct sch5627_data *data)
 			}
 			data->temp[i] = val;
 		}
-		data->temp_last_updated = jiffies;
+		data->temp_last_updated = get_jiffies_64();
 		data->temp_valid = 1;
 	}
 abort:
@@ -156,7 +156,7 @@ static int sch5627_update_fan(struct sch5627_data *data)
 	mutex_lock(&data->update_lock);
 
 	/* Cache the values for 1 second */
-	if (time_after(jiffies, data->fan_last_updated + HZ) || !data->fan_valid) {
+	if (time_after64(get_jiffies_64(), data->fan_last_updated + HZ) || !data->fan_valid) {
 		for (i = 0; i < SCH5627_NO_FANS; i++) {
 			val = sch56xx_read_virtual_reg16(data->addr, SCH5627_REG_FAN[i]);
 			if (unlikely(val < 0)) {
@@ -165,7 +165,7 @@ static int sch5627_update_fan(struct sch5627_data *data)
 			}
 			data->fan[i] = val;
 		}
-		data->fan_last_updated = jiffies;
+		data->fan_last_updated = get_jiffies_64();
 		data->fan_valid = 1;
 	}
 abort:
@@ -181,14 +181,14 @@ static int sch5627_update_in(struct sch5627_data *data)
 	mutex_lock(&data->update_lock);
 
 	/* Trigger a Vbat voltage measurement every 5 minutes */
-	if (time_after(jiffies, data->last_battery + 300 * HZ)) {
+	if (time_after64(get_jiffies_64(), data->last_battery + 300 * HZ)) {
 		sch56xx_write_virtual_reg(data->addr, SCH5627_REG_CTRL,
 					  data->control | SCH5627_CTRL_VBAT);
-		data->last_battery = jiffies;
+		data->last_battery = get_jiffies_64();
 	}
 
 	/* Cache the values for 1 second */
-	if (time_after(jiffies, data->in_last_updated + HZ) || !data->in_valid) {
+	if (time_after64(get_jiffies_64(), data->in_last_updated + HZ) || !data->in_valid) {
 		for (i = 0; i < SCH5627_NO_IN; i++) {
 			val = sch56xx_read_virtual_reg12(data->addr, SCH5627_REG_IN_MSB[i],
 							 SCH5627_REG_IN_LSN[i],
@@ -199,7 +199,7 @@ static int sch5627_update_in(struct sch5627_data *data)
 			}
 			data->in[i] = val;
 		}
-		data->in_last_updated = jiffies;
+		data->in_last_updated = get_jiffies_64();
 		data->in_valid = 1;
 	}
 abort:
@@ -594,7 +594,7 @@ static int sch5627_probe(struct platform_device *pdev)
 	/* Trigger a Vbat voltage measurement, so that we get a valid reading
 	   the first time we read Vbat */
 	sch56xx_write_virtual_reg(data->addr, SCH5627_REG_CTRL, data->control | SCH5627_CTRL_VBAT);
-	data->last_battery = jiffies;
+	data->last_battery = get_jiffies_64();
 
 	pr_info("found %s chip at %#hx\n", DEVNAME, data->addr);
 	pr_info("firmware build: code 0x%02X, id 0x%04X, hwmon: rev 0x%02X\n",

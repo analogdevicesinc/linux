@@ -321,7 +321,7 @@ struct w83627ehf_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	/* Register values */
 	u8 bank;		/* current register bank */
@@ -567,8 +567,8 @@ static struct w83627ehf_data *w83627ehf_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ/2)
-	 || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		/* Fan clock dividers */
 		w83627ehf_update_fan_div(data);
 
@@ -687,7 +687,7 @@ static struct w83627ehf_data *w83627ehf_update_device(struct device *dev)
 		data->caseopen = w83627ehf_read_value(data,
 						W83627EHF_REG_CASEOPEN_DET);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 
@@ -775,7 +775,7 @@ store_fan_min(struct device *dev, struct w83627ehf_data *data, int channel,
 		data->fan_div[channel] = new_div;
 		w83627ehf_write_fan_div(data, channel);
 		/* Give the chip time to sample a new speed value */
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 	}
 
 	w83627ehf_write_value(data, W83627EHF_REG_FAN_MIN[channel],

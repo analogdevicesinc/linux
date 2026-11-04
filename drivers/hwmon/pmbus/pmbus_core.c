@@ -101,6 +101,9 @@ struct pmbus_data {
 
 	int exponent[PMBUS_PAGES];
 				/* linear mode: exponent for output voltages */
+	bool vout_mode_relative[PMBUS_PAGES];
+				/* VOUT limits relative to VOUT_COMMAND */
+	int vout_command[PMBUS_PAGES];	/* VOUT_COMMAND in mV, relative mode */
 
 	const struct pmbus_driver_info *info;
 
@@ -559,7 +562,8 @@ int pmbus_read_smbus_i2c_block_data(struct i2c_client *client, u8 reg, char *dat
 	if (i2c_check_functionality(client->adapter,
 				    I2C_FUNC_SMBUS_READ_BLOCK_DATA)) {
 		pmbus_wait(client);
-		ret = i2c_smbus_read_block_data(client, reg, data_buf);
+		ret = i2c_smbus_read_block_data(client, reg,
+						I2C_SMBUS_BLOCK_MAX, data_buf);
 		pmbus_update_ts(client, 0);
 		return ret;
 	}
@@ -823,6 +827,43 @@ static void pmbus_update_sensor_data(struct i2c_client *client, struct pmbus_sen
 						     sensor->phase, sensor->reg);
 }
 
+static bool pmbus_sensor_is_vout_relative(struct pmbus_data *data,
+					  struct pmbus_sensor *sensor)
+{
+	if (sensor->class != PSC_VOLTAGE_OUT ||
+	    !data->vout_mode_relative[sensor->page])
+		return false;
+
+	switch (sensor->reg) {
+	case PMBUS_VOUT_MARGIN_HIGH:
+	case PMBUS_VOUT_MARGIN_LOW:
+	case PMBUS_VOUT_OV_FAULT_LIMIT:
+	case PMBUS_VOUT_OV_WARN_LIMIT:
+	case PMBUS_VOUT_UV_WARN_LIMIT:
+	case PMBUS_VOUT_UV_FAULT_LIMIT:
+		return true;
+	default:
+		return false;
+	}
+}
+
+/*
+ * Convert between a relative VOUT value, a permillage of VOUT_COMMAND, and
+ * mV. VOUT_COMMAND is at most INT_MAX mV, so clamping val to an int keeps
+ * the product within s64.
+ */
+static s64 pmbus_relative_to_abs(struct pmbus_data *data, int page, s64 val)
+{
+	val = clamp_val(val, -INT_MAX, INT_MAX);
+	return DIV_S64_ROUND_CLOSEST(val * data->vout_command[page], 1000);
+}
+
+static s64 pmbus_abs_to_relative(struct pmbus_data *data, int page, s64 val)
+{
+	val = clamp_val(val, -INT_MAX, INT_MAX);
+	return DIV_S64_ROUND_CLOSEST(val * 1000, data->vout_command[page]);
+}
+
 /*
  * Convert ieee754 sensor values to milli- or micro-units
  * depending on sensor type.
@@ -1025,6 +1066,11 @@ static s64 pmbus_reg2data(struct pmbus_data *data, struct pmbus_sensor *sensor)
 		val = pmbus_reg2data_linear(data, sensor);
 		break;
 	}
+
+	/* In relative mode, val is a permillage of VOUT_COMMAND */
+	if (pmbus_sensor_is_vout_relative(data, sensor))
+		val = pmbus_relative_to_abs(data, sensor->page, val);
+
 	return val;
 }
 
@@ -1228,6 +1274,9 @@ static u16 pmbus_data2reg(struct pmbus_data *data,
 
 	if (!sensor->convert)
 		return val;
+
+	if (pmbus_sensor_is_vout_relative(data, sensor))
+		val = pmbus_abs_to_relative(data, sensor->page, val);
 
 	switch (data->info->format[sensor->class]) {
 	case direct:
@@ -2771,6 +2820,28 @@ static int pmbus_init_coefficients(struct i2c_client *client,
 }
 
 /*
+ * Decode a raw VOUT_COMMAND value to mV. It scales the relative limits, so
+ * it must be positive and fit in an int.
+ */
+static int pmbus_vout_command_mv(struct pmbus_data *data, int page,
+				 int vout_command_raw)
+{
+	struct pmbus_sensor s = {
+		.page = page,
+		.reg = PMBUS_VOUT_COMMAND,
+		.class = PSC_VOLTAGE_OUT,
+		.convert = true,
+		.data = vout_command_raw,
+	};
+	s64 vout_mv = pmbus_reg2data(data, &s);
+
+	if (vout_mv <= 0 || vout_mv > INT_MAX)
+		return -EINVAL;
+
+	return vout_mv;
+}
+
+/*
  * Identify chip parameters.
  * This function is called for all chips.
  */
@@ -2787,6 +2858,10 @@ static int pmbus_identify_common(struct i2c_client *client,
 		 * Not all chips support the VOUT_MODE command,
 		 * so a failure to read it is not an error.
 		 */
+		if (vout_mode & 0x80) {
+			data->vout_mode_relative[page] = true;
+			vout_mode &= 0x7f;
+		}
 		switch (vout_mode >> 5) {
 		case 0:	/* linear mode      */
 			if (data->info->format[PSC_VOLTAGE_OUT] != linear)
@@ -2914,7 +2989,7 @@ static int pmbus_init_common(struct i2c_client *client, struct pmbus_data *data,
 			     struct pmbus_driver_info *info)
 {
 	struct device *dev = &client->dev;
-	int page, ret;
+	int page, ret, vout_mv;
 
 	/*
 	 * Figure out if PEC is enabled before accessing any other register.
@@ -3016,6 +3091,22 @@ static int pmbus_init_common(struct i2c_client *client, struct pmbus_data *data,
 		ret = pmbus_init_coefficients(client, info);
 		if (ret < 0)
 			return ret;
+	}
+
+	for (page = 0; page < info->pages; page++) {
+		if (data->vout_mode_relative[page]) {
+			ret = _pmbus_read_word_data(client, page, 0xff,
+						    PMBUS_VOUT_COMMAND);
+			if (ret < 0)
+				return ret;
+			vout_mv = pmbus_vout_command_mv(data, page, ret);
+			if (vout_mv < 0) {
+				dev_err(dev, "Invalid VOUT_COMMAND 0x%04x for relative VOUT mode\n",
+					ret);
+				return -ENODEV;
+			}
+			data->vout_command[page] = vout_mv;
+		}
 	}
 
 	if (client->flags & I2C_CLIENT_PEC) {
@@ -3314,12 +3405,22 @@ static int pmbus_regulator_get_low_margin(struct i2c_client *client, int page)
 	};
 
 	if (data->vout_low[page] < 0) {
-		if (pmbus_check_word_register(client, page, PMBUS_MFR_VOUT_MIN))
+		s.reg = PMBUS_MFR_VOUT_MIN;
+		if (pmbus_check_word_register(client, page, s.reg))
 			s.data = _pmbus_read_word_data(client, page, 0xff,
-						       PMBUS_MFR_VOUT_MIN);
+						       s.reg);
 		if (s.data < 0) {
+			/*
+			 * In relative mode the margin moves with VOUT_COMMAND,
+			 * so it does not bound the output voltage.
+			 */
+			if (data->vout_mode_relative[page]) {
+				data->vout_low[page] = 0;
+				return data->vout_low[page];
+			}
+			s.reg = PMBUS_VOUT_MARGIN_LOW;
 			s.data = _pmbus_read_word_data(client, page, 0xff,
-						       PMBUS_VOUT_MARGIN_LOW);
+						       s.reg);
 			if (s.data < 0)
 				return s.data;
 		}
@@ -3340,12 +3441,22 @@ static int pmbus_regulator_get_high_margin(struct i2c_client *client, int page)
 	};
 
 	if (data->vout_high[page] < 0) {
-		if (pmbus_check_word_register(client, page, PMBUS_MFR_VOUT_MAX))
+		s.reg = PMBUS_MFR_VOUT_MAX;
+		if (pmbus_check_word_register(client, page, s.reg))
 			s.data = _pmbus_read_word_data(client, page, 0xff,
-						       PMBUS_MFR_VOUT_MAX);
+						       s.reg);
 		if (s.data < 0) {
+			/*
+			 * In relative mode the margin moves with VOUT_COMMAND,
+			 * so it does not bound the output voltage.
+			 */
+			if (data->vout_mode_relative[page]) {
+				data->vout_high[page] = INT_MAX;
+				return data->vout_high[page];
+			}
+			s.reg = PMBUS_VOUT_MARGIN_HIGH;
 			s.data = _pmbus_read_word_data(client, page, 0xff,
-						       PMBUS_VOUT_MARGIN_HIGH);
+						       s.reg);
 			if (s.data < 0)
 				return s.data;
 		}
@@ -3390,7 +3501,7 @@ static int pmbus_regulator_set_voltage(struct regulator_dev *rdev, int min_uv,
 		.data = -1,
 	};
 	int val = DIV_ROUND_CLOSEST(min_uv, 1000); /* convert to mV */
-	int low, high;
+	int low, high, ret, vout_mv = 0;
 
 	*selector = 0;
 
@@ -3412,7 +3523,20 @@ static int pmbus_regulator_set_voltage(struct regulator_dev *rdev, int min_uv,
 
 	val = pmbus_data2reg(data, &s, val);
 
-	return _pmbus_write_word_data(client, s.page, PMBUS_VOUT_COMMAND, (u16)val);
+	if (data->vout_mode_relative[s.page]) {
+		vout_mv = pmbus_vout_command_mv(data, s.page, val);
+		if (vout_mv < 0)
+			return vout_mv;
+	}
+
+	ret = _pmbus_write_word_data(client, s.page, PMBUS_VOUT_COMMAND, (u16)val);
+	if (ret < 0)
+		return ret;
+
+	if (data->vout_mode_relative[s.page])
+		data->vout_command[s.page] = vout_mv;
+
+	return 0;
 }
 
 static int pmbus_regulator_list_voltage(struct regulator_dev *rdev,

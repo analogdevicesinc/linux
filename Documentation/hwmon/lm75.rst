@@ -66,15 +66,17 @@ Supported chips:
 
 	       http://www.microchip.com/
 
-  * Analog Devices ADT75
+  * Analog Devices ADT75, MAX31875
 
-    Prefix: 'adt75'
+    Prefix: 'adt75', 'max31875'
 
     Addresses scanned: none
 
     Datasheet: Publicly available at the Analog Devices website
 
 	       https://www.analog.com/adt75
+
+	       https://www.analog.com/max31875
 
   * ST Microelectronics STDS75
 
@@ -149,6 +151,12 @@ Supported chips:
     Datasheet: Publicly available at the AMS website
 
                https://ams.com/documents/20143/36005/AS6200_DS000449_4-00.pdf
+
+  * Nuvoton NCT7715
+
+    Prefix: 'nct7715'
+
+    Addresses scanned: none
 
 Author: Frodo Looijaard <frodol@dds.nl>
 

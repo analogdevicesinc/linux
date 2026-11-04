@@ -35,7 +35,7 @@
 struct menf21bmc_hwmon {
 	bool valid;
 	struct i2c_client *i2c_client;
-	unsigned long last_update;
+	u64 last_update;
 	int in_val[BMC_VOLT_COUNT];
 	int in_min[BMC_VOLT_COUNT];
 	int in_max[BMC_VOLT_COUNT];
@@ -54,24 +54,23 @@ static struct menf21bmc_hwmon *menf21bmc_hwmon_update(struct device *dev)
 	int i;
 	int val;
 	struct menf21bmc_hwmon *drv_data = dev_get_drvdata(dev);
-	struct menf21bmc_hwmon *data_ret = drv_data;
 
-	if (time_after(jiffies, drv_data->last_update + HZ)
+	guard(hwmon_lock)(dev);
+
+	if (time_after64(get_jiffies_64(), drv_data->last_update + HZ)
 	    || !drv_data->valid) {
 		for (i = 0; i < BMC_VOLT_COUNT; i++) {
 			val = i2c_smbus_read_word_data(drv_data->i2c_client,
 						       IDX_TO_VOLT_INP_CMD(i));
-			if (val < 0) {
-				data_ret = ERR_PTR(val);
-				goto abort;
-			}
+			if (val < 0)
+				return ERR_PTR(val);
 			drv_data->in_val[i] = val;
 		}
-		drv_data->last_update = jiffies;
+		drv_data->last_update = get_jiffies_64();
 		drv_data->valid = true;
 	}
-abort:
-	return data_ret;
+
+	return drv_data;
 }
 
 static int menf21bmc_hwmon_get_volt_limits(struct menf21bmc_hwmon *drv_data)

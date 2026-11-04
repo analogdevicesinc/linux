@@ -12,6 +12,7 @@
  *  similar parts.  The other devices are supported by different drivers.
  *
  *  Supports: IT8603E  Super I/O chip w/LPC interface
+ *            IT8607E  Super I/O chip w/LPC interface
  *            IT8620E  Super I/O chip w/LPC interface
  *            IT8622E  Super I/O chip w/LPC interface
  *            IT8623E  Super I/O chip w/LPC interface
@@ -66,7 +67,7 @@
 
 enum chips { it87, it8712, it8716, it8718, it8720, it8721, it8728, it8732,
 	     it8771, it8772, it8781, it8782, it8783, it8786, it8790,
-	     it8792, it8603, it8613, it8620, it8622, it8628, it8689, it87952 };
+	     it8792, it8603, it8607, it8613, it8620, it8622, it8628, it8689, it87952 };
 
 static struct platform_device *it87_pdev[2];
 
@@ -160,6 +161,7 @@ static inline void superio_exit(int ioreg, bool noexit)
 #define IT8786E_DEVID 0x8786
 #define IT8790E_DEVID 0x8790
 #define IT8603E_DEVID 0x8603
+#define IT8607E_DEVID 0x8607
 #define IT8613E_DEVID 0x8613
 #define IT8620E_DEVID 0x8620
 #define IT8622E_DEVID 0x8622
@@ -530,6 +532,16 @@ static const struct it87_devices it87_devices[] = {
 		.num_temp_map = 6,
 		.peci_mask = 0x07,
 	},
+	[it8607] = {
+		.name = "it8607",
+		.model = "IT8607E",
+		.features = FEAT_NEWER_AUTOPWM | FEAT_12MV_ADC | FEAT_16BIT_FANS
+		  | FEAT_TEMP_OFFSET | FEAT_TEMP_PECI | FEAT_IN7_INTERNAL
+		  | FEAT_AVCC3 | FEAT_PWM_FREQ2,
+		.reg_pwm = IT87_REG_PWM,
+		.num_temp_map = 4,
+		.peci_mask = 0x07,
+	},
 	[it8620] = {
 		.name = "it8620",
 		.model = "IT8620E",
@@ -668,7 +680,7 @@ struct it87_data {
 	const char *name;
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u16 in_scaled;		/* Internal voltage sensors are scaled */
 	u16 in_internal;	/* Bitfield, internal sensors (for labels) */
@@ -1038,8 +1050,8 @@ static struct it87_data *it87_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2) ||
-		       !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		err = smbus_disable(data);
 		if (err) {
 			ret = ERR_PTR(err);
@@ -1145,7 +1157,7 @@ static struct it87_data *it87_update_device(struct device *dev)
 			 */
 			data->vid &= 0x3f;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 		smbus_enable(data);
 	}
@@ -2941,6 +2953,9 @@ static int __init it87_find(int sioaddr, unsigned short *address,
 	case IT8613E_DEVID:
 		sio_data->type = it8613;
 		break;
+	case IT8607E_DEVID:
+		sio_data->type = it8607;
+		break;
 	case IT8620E_DEVID:
 		sio_data->type = it8620;
 		break;
@@ -3095,7 +3110,7 @@ static int __init it87_find(int sioaddr, unsigned short *address,
 
 		sio_data->beep_pin = superio_inb(sioaddr,
 						 IT87_SIO_BEEP_PIN_REG) & 0x3f;
-	} else if (sio_data->type == it8603) {
+	} else if (sio_data->type == it8603 || sio_data->type == it8607) {
 		int reg27, reg29;
 
 		superio_select(sioaddr, GPIO);

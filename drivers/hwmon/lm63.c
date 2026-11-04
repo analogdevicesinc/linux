@@ -27,7 +27,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/i2c.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/hwmon.h>
@@ -156,8 +156,8 @@ struct lm63_data {
 	const struct attribute_group *groups[5];
 	bool valid; /* false until following fields are valid */
 	char lut_valid; /* zero until lut fields are valid */
-	unsigned long last_updated; /* in jiffies */
-	unsigned long lut_last_updated; /* in jiffies */
+	ktime_t last_updated;
+	ktime_t lut_last_updated;
 	enum chips kind;
 	int temp2_offset;
 
@@ -222,7 +222,8 @@ static void lm63_update_lut(struct lm63_data *data)
 	struct i2c_client *client = data->client;
 	int i;
 
-	if (time_after(jiffies, data->lut_last_updated + 5 * HZ) ||
+	if (ktime_after(ktime_get(),
+			ktime_add_ms(data->lut_last_updated, 5000)) ||
 	    !data->lut_valid) {
 		for (i = 0; i < data->lut_size; i++) {
 			data->pwm1[1 + i] = i2c_smbus_read_byte_data(client,
@@ -233,7 +234,7 @@ static void lm63_update_lut(struct lm63_data *data)
 		data->lut_temp_hyst = i2c_smbus_read_byte_data(client,
 				      LM63_REG_LUT_TEMP_HYST);
 
-		data->lut_last_updated = jiffies;
+		data->lut_last_updated = ktime_get();
 		data->lut_valid = 1;
 	}
 }
@@ -242,14 +243,13 @@ static struct lm63_data *lm63_update_device(struct device *dev)
 {
 	struct lm63_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
-	unsigned long next_update;
+	ktime_t next_update;
 	int msb, lsb;
 
 	mutex_lock(&data->update_lock);
 
-	next_update = data->last_updated +
-		      msecs_to_jiffies(data->update_interval);
-	if (time_after(jiffies, next_update) || !data->valid) {
+	next_update = ktime_add_ms(data->last_updated, data->update_interval);
+	if (ktime_after(ktime_get(), next_update) || !data->valid) {
 		if (data->config & 0x04) { /* tachometer enabled  */
 			/* order matters for fan1_input */
 			data->fan[0] = i2c_smbus_read_byte_data(client,
@@ -321,7 +321,7 @@ static struct lm63_data *lm63_update_device(struct device *dev)
 		data->alarms = i2c_smbus_read_byte_data(client,
 			       LM63_REG_ALERT_STATUS) & 0x7F;
 
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 

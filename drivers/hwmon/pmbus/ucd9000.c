@@ -44,10 +44,13 @@ enum chips { ucd9000, ucd90120, ucd90124, ucd90160, ucd90320, ucd9090,
 #define UCD9000_MON_TYPE(x)	(((x) >> 5) & 0x07)
 #define UCD9000_MON_PAGE(x)	((x) & 0x1f)
 
-#define UCD9000_MON_VOLTAGE	1
-#define UCD9000_MON_TEMPERATURE	2
-#define UCD9000_MON_CURRENT	3
-#define UCD9000_MON_VOLTAGE_HW	4
+#define UCD9000_MON_VOLTAGE		1
+#define UCD9000_MON_TEMPERATURE		2
+#define UCD9000_MON_CURRENT		3
+#define UCD9000_MON_VOLTAGE_HW		4
+#define UCD9000_MON_INPUT_VOLTAGE	5
+#define UCD9000_MON_VOLTAGE_AVS		6
+#define UCD9000_MON_INPUT_VOLTAGE_AVS	7
 
 #define UCD9000_NUM_FAN		4
 
@@ -390,7 +393,8 @@ static int ucd9000_get_mfr_status(struct i2c_client *client, u8 *buffer)
 	if (ret < 0)
 		return ret;
 
-	return i2c_smbus_read_block_data(client, UCD9000_MFR_STATUS, buffer);
+	return i2c_smbus_read_block_data(client, UCD9000_MFR_STATUS,
+					  I2C_SMBUS_BLOCK_MAX, buffer);
 }
 
 static int ucd9000_debugfs_show_mfr_status_bit(void *data, u64 *val)
@@ -515,7 +519,7 @@ static int ucd9000_probe(struct i2c_client *client)
 		return -ENODEV;
 
 	ret = i2c_smbus_read_block_data(client, UCD9000_DEVICE_ID,
-					block_buffer);
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret < 0) {
 		dev_err(&client->dev, "Failed to read device ID\n");
 		return ret;
@@ -565,7 +569,7 @@ static int ucd9000_probe(struct i2c_client *client)
 
 	/* Everything else is configurable */
 	ret = i2c_smbus_read_block_data(client, UCD9000_MONITOR_CONFIG,
-					block_buffer);
+					sizeof(block_buffer) - 1, block_buffer);
 	if (ret <= 0) {
 		dev_err(&client->dev, "Failed to read configuration data\n");
 		return -ENODEV;
@@ -579,6 +583,9 @@ static int ucd9000_probe(struct i2c_client *client)
 		switch (UCD9000_MON_TYPE(block_buffer[i])) {
 		case UCD9000_MON_VOLTAGE:
 		case UCD9000_MON_VOLTAGE_HW:
+		case UCD9000_MON_INPUT_VOLTAGE:
+		case UCD9000_MON_VOLTAGE_AVS:
+		case UCD9000_MON_INPUT_VOLTAGE_AVS:
 			info->func[page] |= PMBUS_HAVE_VOUT
 			  | PMBUS_HAVE_STATUS_VOUT;
 			break;
@@ -602,6 +609,7 @@ static int ucd9000_probe(struct i2c_client *client)
 						  UCD9000_FAN_CONFIG_INDEX, i);
 			ret = i2c_smbus_read_block_data(client,
 							UCD9000_FAN_CONFIG,
+							sizeof(data->fan_data[i]),
 							data->fan_data[i]);
 			if (ret < 0)
 				return ret;

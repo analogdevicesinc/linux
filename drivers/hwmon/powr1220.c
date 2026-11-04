@@ -77,7 +77,7 @@ struct powr1220_data {
 	u8 max_channels;
 	bool adc_valid[MAX_POWR1220_ADC_VALUES];
 	 /* the next value is in jiffies */
-	unsigned long adc_last_updated[MAX_POWR1220_ADC_VALUES];
+	u64 adc_last_updated[MAX_POWR1220_ADC_VALUES];
 
 	/* values */
 	int adc_maxes[MAX_POWR1220_ADC_VALUES];
@@ -109,7 +109,7 @@ static int powr1220_read_adc(struct device *dev, int ch_num)
 	int result;
 	int adc_range = 0;
 
-	if (time_after(jiffies, data->adc_last_updated[ch_num] + HZ) ||
+	if (time_after64(get_jiffies_64(), data->adc_last_updated[ch_num] + HZ) ||
 	    !data->adc_valid[ch_num]) {
 		/*
 		 * figure out if we need to use the attenuator for
@@ -151,7 +151,7 @@ static int powr1220_read_adc(struct device *dev, int ch_num)
 		reading *= ADC_STEP_MV;
 		data->adc_values[ch_num] = reading;
 		data->adc_valid[ch_num] = true;
-		data->adc_last_updated[ch_num] = jiffies;
+		data->adc_last_updated[ch_num] = get_jiffies_64();
 		result = reading;
 
 		if (reading > data->adc_maxes[ch_num])

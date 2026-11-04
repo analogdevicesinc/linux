@@ -36,7 +36,7 @@ struct hih6130 {
 	struct i2c_client *client;
 	struct mutex lock;
 	bool valid;
-	unsigned long last_update;
+	u64 last_update;
 	int temperature;
 	int humidity;
 	size_t write_length;
@@ -107,7 +107,8 @@ static int hih6130_update_measurements(struct device *dev)
 	 * than it can react against better response times in conditions more
 	 * favourable than specified in the datasheet.
 	 */
-	if (time_after(jiffies, hih6130->last_update + HZ) || !hih6130->valid) {
+	if (time_after64(get_jiffies_64(), hih6130->last_update + HZ) ||
+	    !hih6130->valid) {
 
 		/*
 		 * Write to slave address to request a measurement.
@@ -140,7 +141,7 @@ static int hih6130_update_measurements(struct device *dev)
 		t = (tmp[2] << 8) + tmp[3];
 		hih6130->temperature = hih6130_temp_ticks_to_millicelsius(t);
 
-		hih6130->last_update = jiffies;
+		hih6130->last_update = get_jiffies_64();
 		hih6130->valid = true;
 	}
 out:
