@@ -34,7 +34,7 @@
 
 		mode0 { /* IMX219_MODE_3280x2464_21FPS */
 			mclk_khz = "24000";
-			num_lanes = "2";
+			num_lanes = "{{bus_width}}";
 			tegra_sinterface = "{{tegra_sinterface}}";
 			vc_id = "{{ser_idx}}";
 			phy_mode = "DPHY";
@@ -75,7 +75,7 @@
 		};
 		mode1 { /* IMX219_MODE_3280x1848_28FPS */
 			mclk_khz = "24000";
-			num_lanes = "2";
+			num_lanes = "{{bus_width}}";
 			tegra_sinterface = "{{tegra_sinterface}}";
 			vc_id = "{{ser_idx}}";
 			phy_mode = "DPHY";
@@ -116,7 +116,7 @@
 		};
 		mode2 { /* IMX219_MODE_1920x1080_30FPS */
 			mclk_khz = "24000";
-			num_lanes = "2";
+			num_lanes = "{{bus_width}}";
 			tegra_sinterface = "{{tegra_sinterface}}";
 			vc_id = "{{ser_idx}}";
 			phy_mode = "DPHY";
@@ -157,7 +157,7 @@
 		};
 		mode3 { /* IMX219_MODE_1640x1232_30FPS */
 			mclk_khz = "24000";
-			num_lanes = "2";
+			num_lanes = "{{bus_width}}";
 			tegra_sinterface = "{{tegra_sinterface}}";
 			vc_id = "{{ser_idx}}";
 			phy_mode = "DPHY";
@@ -198,7 +198,7 @@
 		};
 		mode4 { /* IMX219_MODE_1280x720_60FPS */
 			mclk_khz = "24000";
-			num_lanes = "2";
+			num_lanes = "{{bus_width}}";
 			tegra_sinterface = "{{tegra_sinterface}}";
 			vc_id = "{{ser_idx}}";
 			phy_mode = "DPHY";
