@@ -1698,7 +1698,7 @@ static int set_machine_constraints(struct regulator_dev *rdev,
 		if (rdev->constraints->always_on)
 			rdev->use_count++;
 	} else if (rdev->desc->off_on_delay) {
-		rdev->last_off = ktime_get();
+		rdev->last_off = ktime_get_boottime();
 	}
 
 	if (!rdev->constraints->pw_budget_mW)
