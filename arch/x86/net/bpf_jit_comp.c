@@ -1625,7 +1625,10 @@ static int emit_atomic_rmw(u8 **pprog, u32 atomic_op,
 {
 	u8 *prog = *pprog;
 
-	if (atomic_op != BPF_XCHG)
+	/* one insn is atomic for what runs on this cpu */
+	if (atomic_op & BPF_ATOMIC_LOCAL)
+		atomic_op &= ~BPF_ATOMIC_LOCAL;
+	else if (atomic_op != BPF_XCHG)
 		EMIT1(0xF0); /* lock prefix */
 
 	maybe_emit_mod(&prog, dst_reg, src_reg, bpf_size == BPF_DW);
@@ -5183,6 +5186,11 @@ bool bpf_jit_supports_exceptions(void)
 }
 
 bool bpf_jit_supports_private_stack(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_local_atomics(void)
 {
 	return true;
 }

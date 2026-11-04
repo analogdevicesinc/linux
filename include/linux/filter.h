@@ -81,6 +81,13 @@ struct ctl_table_header;
 /* unused opcode to mark special atomic instruction */
 #define BPF_PROBE_ATOMIC 0xe0
 
+/*
+ * Flag in imm of BPF_ATOMIC fetch_add: atomic for what runs on this cpu only,
+ * an interrupt or another task. The memory is per-cpu and the program
+ * doesn't migrate. It's cheaper where one insn without a lock does it.
+ */
+#define BPF_ATOMIC_LOCAL 0x1000
+
 /* unused opcode to mark special ldsx instruction. Same as BPF_NOSPEC */
 #define BPF_PROBE_MEM32SX 0xc0
 
@@ -1330,6 +1337,7 @@ bool bpf_jit_supports_ptr_xchg(void);
 bool bpf_jit_supports_arena(void);
 bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena);
 bool bpf_jit_supports_private_stack(void);
+bool bpf_jit_supports_local_atomics(void);
 bool bpf_jit_supports_large_stack(void);
 bool bpf_jit_supports_timed_may_goto(void);
 bool bpf_jit_supports_fsession(void);
