@@ -292,6 +292,9 @@ static void imx_irqsteer_remove(struct platform_device *pdev)
 		irq_dispose_mapping(irqsteer_data->irq[i]);
 	}
 
+	for (unsigned int hwirq = 0; hwirq < irqsteer_data->reg_num * 32; hwirq++)
+		irq_dispose_mapping(irq_find_mapping(irqsteer_data->domain, hwirq));
+
 	irq_domain_remove(irqsteer_data->domain);
 
 	if (ret >= 0)
