@@ -1419,6 +1419,9 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 				    struct kfd_iolink_properties, list);
 
 	for (i = 0; i < num_cpu; i++) {
+		if (!node_online(i))
+			continue;
+
 		/* CPU <--> GPU */
 		if (gpu_link->node_to == i)
 			continue;
@@ -1437,7 +1440,7 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 		}
 
 		if (!cpu_link)
-			return -ENOMEM;
+			continue;
 
 		/* CPU <--> CPU <--> GPU, GPU node*/
 		props = kfd_alloc_struct(props);
@@ -1459,8 +1462,8 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 		if (ret < 0)
 			return ret;
 
-		/* for small Bar, no CPU --> GPU in-direct links */
-		if (kfd_dev_is_large_bar(kdev->gpu)) {
+		/* for small Bar or CPU-less NUMA nodes, no CPU --> GPU in-direct links */
+		if (kfd_dev_is_large_bar(kdev->gpu) && node_state(i, N_CPU)) {
 			/* CPU <--> CPU <--> GPU, CPU node*/
 			props2 = kfd_alloc_struct(props2);
 			if (!props2)
