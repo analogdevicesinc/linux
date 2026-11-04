@@ -301,6 +301,58 @@ class CToMan(unittest.TestCase):
         self.assertEqual(result, expected)
 
 
+class ManFilterTail(unittest.TestCase):
+    """
+    Symbols dropped by the output filters must not leave a man page tail.
+    """
+
+    source = dedent("""
+        /**
+         * foo - First function
+         * @a: an argument
+         */
+        int foo(int a) { return 0; };
+
+        /**
+         * bar - Second function
+         * @b: an argument
+         */
+        int bar(int b) { return 0; };
+    """)
+
+    def setUp(self):
+        config = MockKdocConfig()
+        kernel_doc = KernelDoc(config, "mock.c", CTransforms())
+
+        with patch('builtins.open', new_callable=mock_open,
+                   read_data=self.source):
+            _, self.entries = kernel_doc.parse_kdoc()
+
+        self.out_style = ManFormat()
+        self.out_style.set_config(config)
+
+    def run_filter(self, **kwargs):
+        args = {"export": False, "internal": False, "symbol": None,
+                "nosymbol": None, "function_table": set(),
+                "enable_lineno": False, "no_doc_sections": False}
+        args.update(kwargs)
+
+        self.out_style.set_filter(**args)
+
+        return self.out_style.output_symbols("mock.c", self.entries)
+
+    def test_symbol_filter(self):
+        """Only the selected symbol gets a page, with a single tail."""
+        result = self.run_filter(symbol=["foo"], function_table={"foo"})
+
+        self.assertEqual(result.count(".TH "), 1)
+        self.assertEqual(result.count('.SH "SEE ALSO"'), 1)
+
+    def test_all_filtered_out(self):
+        """No exported symbols: no output at all."""
+        self.assertEqual(self.run_filter(export=True), "")
+
+
 class CToRest(unittest.TestCase):
     out_style = RestFormat()
     config = MockKdocConfig()

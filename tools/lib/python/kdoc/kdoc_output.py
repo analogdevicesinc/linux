@@ -763,7 +763,10 @@ class ManFormat(OutputFormat):
         Add a tail at the end of man pages output.
         """
         super().msg(fname, name, args)
-        self.out_tail(fname, name, args)
+
+        # Symbols dropped by the output filters produce no page
+        if self.data:
+            self.out_tail(fname, name, args)
 
         return self.data
 

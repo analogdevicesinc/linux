@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_development_process:
+
 Como funciona o processo de desenvolvimento
 ===========================================
 
@@ -32,14 +34,14 @@ juntamente com suas datas, podem ser encontrados na `Wikipedia
        incrementado apenas se x for considerado grande o suficiente
        (por exemplo, o Linux 5.0 foi lançado após o Linux 4.20).
 
-O processo de integração (*merging*) de patches segue um fluxo simples a
-cada lançamento. No início de cada ciclo de desenvolvimento, abre-se a
-**"janela de integração" (*merge window*)**. Durante esse período, todo
-código considerado estável e aprovado pela comunidade é unificado ao
-kernel principal (*mainline*). A maior parte das novidades  e todas as
-grandes mudanças estruturais — entra obrigatoriamente nessa fase, em um
-ritmo frenético que chega a **1.000 patches (ou conjuntos de alterações)
-por dia**.
+O processo de integração (*merging*) de patches segue um fluxo relativamente
+simples a cada lançamento. No início de cada ciclo de desenvolvimento, abre-se
+a "janela de integração" (*merge window*). Durante esse período, o código
+considerado suficientemente estável (e aprovado pela comunidade de
+desenvolvimento) é integrado ao kernel principal (*mainline*). A maior parte
+das mudanças de um novo ciclo de desenvolvimento (e todas as grandes
+mudanças) entra nessa fase, em um ritmo que se aproxima de 1.000 mudanças
+("patches" ou "conjuntos de alterações") por dia.
 
 (Como observação secundária, vale destacar que as mudanças integradas durante
 a janela de integração não surgem do nada; elas foram coletadas, testadas e
@@ -102,7 +104,7 @@ projeto deste tamanho. Chega um ponto em que adiar o lançamento final apenas
 torna o problema pior; o volume de mudanças esperando pela próxima janela de
 integração crescerá ainda mais, criando ainda mais regressões no ciclo
 seguinte. Portanto, a maioria dos kernels é lançada com um pequeno número de
-regressões conhecidas, embora, felizmente, nenhuma delas seja grave.
+regressões conhecidas, embora, com sorte, nenhuma delas seja grave.
 
 Assim que um lançamento estável é feito, sua manutenção contínua é passada
 para a "equipe estável" (*stable team*), atualmente composta por Greg
@@ -176,7 +178,8 @@ As etapas pelas quais um patch passa são, geralmente:
    pronto para inclusão no mainline, ele deve ser aceito por um mantenedor de
    subsistema relevante — embora essa aceitação não seja uma garantia de que
    o patch chegará até o kernel principal. O patch aparecerá na árvore de
-   subsistema do mantenedor e nas árvores -next. Quando o processo funciona,
+   subsistema do mantenedor e nas árvores -next (descritas abaixo). Quando o
+   processo funciona,
    esta etapa leva a uma revisão mais ampla do patch e à descoberta de
    quaisquer problemas resultantes da integração deste patch com o trabalho
    que está sendo feito por outros.
@@ -191,7 +194,7 @@ As etapas pelas quais um patch passa são, geralmente:
    atual (garantindo que ele seja aplicado de forma limpa) e continuar
    enviando-o para revisão e integração.
 
- - Integração no mainline. Eventualmente, um
+ - Integração no mainline. Por fim, um
    patch bem-sucedido será integrado ao repositório principal (*mainline*)
    gerenciado por Linus Torvalds. Mais comentários e/ou problemas podem surgir
    neste momento; é importante que o desenvolvedor seja responsivo a eles e
@@ -207,7 +210,7 @@ As etapas pelas quais um patch passa são, geralmente:
    desenvolvimento. Integrar o código elimina parte do fardo de manutenção,
    já que outros corrigirão problemas causados por mudanças de API. No entanto,
    o desenvolvedor original deve continuar assumindo a responsabilidade pelo
-   código se ele quiser que este permaneça útil no longo prazo.
+   código para que ele permaneça útil no longo prazo.
 
 Um dos maiores erros cometidos por desenvolvedores do kernel (ou por seus
 empregadores) é tentar reduzir todo o processo a uma única etapa de
@@ -244,8 +247,9 @@ autoria e outros metadados. A qualquer momento, o mantenedor pode identificar
 quais patches em seu repositório não são encontrados no mainline.
 
 Quando a janela de integração se abre, os mantenedores de
-alto nível pedirão a Linus para realizar o pull de seus repositórios os patches
-que selecionaram para integração. Se Linus concordar, o fluxo de patches
+alto nível pedirão a Linus para realizar o "pull", a partir de seus
+repositórios, dos patches que selecionaram para integração. Se Linus
+concordar, o fluxo de patches
 subirá para o seu repositório, tornando-se parte do kernel principal. A
 quantidade de atenção que Linus dedica a patches específicos
 recebidos em uma operação de pull varia. Está claro que, às vezes, ele os
@@ -266,7 +270,7 @@ encontrar o mantenedor correto. Enviar patches diretamente para Linus
 normalmente não é o caminho certo a seguir.
 
 
-Árvore -next
+Árvores -next
 -------------
 
 A cadeia de árvores de subsistemas orienta o fluxo de patches para o kernel,
@@ -295,7 +299,7 @@ para a qual não existe uma árvore de subsistema designada. Como resultado, a
 -mm opera como uma espécie de árvore de subsistema de "último recurso"; se
 não houver outro caminho óbvio para um patch entrar no mainline, é provável
 que ele acabe na -mm. Patches diversos que se acumulam na
--mm eventualmente serão encaminhados para uma árvore de subsistema adequada
+-mm por fim serão encaminhados para uma árvore de subsistema adequada
 ou enviados diretamente para Linus. Em um ciclo de desenvolvimento típico,
 aproximadamente 5% a 10% do total de patches que entram no mainline chegam
 lá por meio da -mm.
@@ -306,7 +310,7 @@ em:
 	https://www.ozlabs.org/~akpm/mmotm/
 
 O uso da árvore MMOTM, no entanto, provavelmente será uma experiência
-frustrante; existe uma chance real de que ela sequer compile.
+frustrante; existe uma chance real de que ela nem sequer compile.
 
 A árvore primária para a integração de patches do próximo ciclo é a
 linux-next, mantida por Mark Brown. A árvore linux-next é, por design, um
@@ -319,7 +323,7 @@ quando são montadas; elas podem ser baixadas em:
 
 A linux-next tornou-se uma parte integrante do processo de desenvolvimento
 do kernel; todos os patches integrados durante uma determinada janela de
-integração devem, idealmente, ter encontrado seu caminho para a linux-next algum
+integração devem realmente ter encontrado seu caminho para a linux-next algum
 tempo antes da abertura da janela de integração.
 
 
@@ -347,7 +351,7 @@ O staging pode ser uma maneira relativamente fácil de colocar novos drivers
 no mainline onde, com sorte, eles chamarão a atenção de outros desenvolvedores
 e melhorarão rapidamente. No entanto, a entrada no staging não é o fim da
 história; o código no staging que não apresentar progresso regular será,
-eventualmente, removido. Os distribuidores também tendem a ser relativamente
+com o tempo, removido. Os distribuidores também tendem a ser relativamente
 relutantes em habilitar drivers do staging. Portanto, o staging é, na melhor
 das hipóteses, uma parada no caminho para se tornar um driver mainline adequado.
 
@@ -452,7 +456,7 @@ Existem algumas dicas que podem ajudar na sobrevivência na lista linux-kernel:
   perguntas. Alguns desenvolvedores podem ficar impacientes com pessoas que
   claramente não fizeram sua lição de casa.
 
-- Use respostas intercaladas, o que torna sua resposta mais fácil
+- Use respostas intercaladas ("inline"), o que torna sua resposta mais fácil
   de ler. (ou seja, evite o "top-posting" — a prática de colocar sua resposta
   acima do texto citado ao qual você está respondendo). Para mais detalhes, veja
   :ref:`Documentation/process/submitting-patches.rst <pt_BR_interleaved_replies>`.
@@ -461,8 +465,8 @@ Existem algumas dicas que podem ajudar na sobrevivência na lista linux-kernel:
   ponto de encontro geral, mas não é o melhor lugar para encontrar desenvolvedores
   de todos os subsistemas.
 
-O último ponto, encontrar a lista de discussão correta, é um lugar comum
-onde os desenvolvedores iniciantes costumam errar. Alguém que faça uma pergunta
+O último ponto, encontrar a lista de discussão correta, é onde os
+desenvolvedores iniciantes costumam errar. Alguém que faça uma pergunta
 relacionada a redes na lista linux-kernel quase certamente receberá uma
 sugestão educada para perguntar na lista netdev em seu lugar, já que essa é a
 lista frequentada pela maioria dos desenvolvedores de redes. Existem outras

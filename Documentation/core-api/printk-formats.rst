@@ -89,10 +89,6 @@ more information for debugging, use %p and boot the kernel with the
 addresses unmodified. If you *really* always want the unmodified address, see
 %px below.
 
-If (and only if) you are printing addresses as a content of a virtual file in
-e.g. procfs or sysfs (using e.g. seq_printf(), not printk()) read by a
-userspace process, use the %pK modifier described below instead of %p or %px.
-
 Error Pointers
 --------------
 
@@ -151,22 +147,6 @@ either kernel memory (k) or user memory (u). The subsequent ``s`` specifier
 results in printing a string. For direct use in regular vsnprintf() the (k)
 and (u) annotation is ignored, however, when used out of BPF's bpf_trace_printk(),
 for example, it reads the memory it is pointing to without faulting.
-
-Kernel Pointers
----------------
-
-::
-
-	%pK	01234567 or 0123456789abcdef
-
-For printing kernel pointers which should be hidden from unprivileged
-users. The behaviour of %pK depends on the kptr_restrict sysctl - see
-Documentation/admin-guide/sysctl/kernel.rst for more details.
-
-This modifier is *only* intended when producing content of a file read by
-userspace from e.g. procfs or sysfs, not for dmesg. Please refer to the
-section about %p above for discussion about how to manage hashing pointers
-in printk().
 
 Unmodified Addresses
 --------------------

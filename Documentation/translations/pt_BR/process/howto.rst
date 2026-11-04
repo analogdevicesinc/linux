@@ -124,7 +124,7 @@ que são de leitura obrigatória:
     estão sujeitos a um escrutínio de conteúdo e estilo), mas não segui-las
     quase sempre o impedirá.
 
-Outras excelentes descrições de como criar patches adequadamente são:
+    Outras excelentes descrições de como criar patches adequadamente são:
 
 	"O Patch Perfeito"
 		https://www.ozlabs.org/~akpm/stuff/tpp.txt
@@ -132,7 +132,7 @@ Outras excelentes descrições de como criar patches adequadamente são:
 	"Formato de Submissão de Patch do Kernel Linux"
 		https://web.archive.org/web/20180829112450/http://linux.yyz.us/patch-format.html
 
-  :ref:`Documentation/process/stable-api-nonsense.rst <stable_api_nonsense>`
+  :ref:`Documentation/translations/pt_BR/process/stable-api-nonsense.rst <pt_BR_stable_api_nonsense>`
     Este arquivo descreve a justificativa por trás da decisão consciente de
     não ter uma API estável dentro do kernel, incluindo pontos como:
 

@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_development_advancedtopics:
+
 Tópicos avançados
 =================
 
@@ -151,6 +153,8 @@ respeito; ele formatará a solicitação da maneira que outros desenvolvedores
 esperam e também verificará se você se lembrou de dar push nessas alterações
 para o servidor público.
 
+
+.. _pt_BR_development_advancedtopics_reviews:
 
 Revisão de patches
 ------------------

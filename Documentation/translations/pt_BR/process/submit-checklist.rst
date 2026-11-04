@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_submitchecklist:
+
 ==============================================================
 Lista de verificação para submissão de patches do kernel Linux
 ==============================================================
@@ -59,7 +61,7 @@ Forneça documentação
 
 5) Todas as novas interfaces com o espaço de usuário (userspace) devem ser
    documentadas em ``Documentation/ABI/``. Consulte
-   ``Documentation/admin-guide/abi.rst`` (ou ``Documentation/ABI/README``)
+   Documentation/admin-guide/abi.rst (ou ``Documentation/ABI/README``)
    para obter mais informações. Patches que alteram interfaces de espaço
    de usuário devem incluir em cópia (CC) linux-api@vger.kernel.org.
 

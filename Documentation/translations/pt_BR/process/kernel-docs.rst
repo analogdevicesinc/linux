@@ -78,7 +78,7 @@ Documentação on-line
 Livros Publicados
 -----------------
 
-    * Title: **The Linux Memory Manager**
+    * Título: **The Linux Memory Manager**
 
       :Autor: Lorenzo Stoakes
       :Editora: No Starch Press
@@ -86,11 +86,11 @@ Livros Publicados
       :Páginas: 1300
       :ISBN: 978-1718504462
       :Notas: Gerenciamento de memória. Rascunho completo disponível como acesso
-        antecipado para ré-venda, lançamento completo agendado para o
+        antecipado para pré-venda, lançamento completo agendado para o
         outono de 2025. Veja https://nostarch.com/linux-memory-manager
         para mais informações.
 
-    * Title: **Practical Linux System Administration: A Guide to Installation, Configuration, and Management, 1st Edition**
+    * Título: **Practical Linux System Administration: A Guide to Installation, Configuration, and Management, 1st Edition**
 
       :Autor: Kenneth Hess
       :Editora: O'Reilly Media
@@ -99,7 +99,7 @@ Livros Publicados
       :ISBN: 978-1098109035
       :Notas: Administração de sistemas
 
-    * Title: **Linux Kernel Debugging: Leverage proven tools and advanced techniques to effectively debug Linux kernels and kernel modules**
+    * Título: **Linux Kernel Debugging: Leverage proven tools and advanced techniques to effectively debug Linux kernels and kernel modules**
 
       :Autor: Kaiwan N Billimoria
       :Editora: Packt Publishing Ltd
@@ -108,7 +108,7 @@ Livros Publicados
       :ISBN: 978-1801075039
       :Notas: Livro sobre depuração (debugging)
 
-    * Title: **Linux Kernel Programming: A Comprehensive Guide to Kernel Internals, Writing Kernel Modules, and Kernel Synchronization**
+    * Título: **Linux Kernel Programming: A Comprehensive Guide to Kernel Internals, Writing Kernel Modules, and Kernel Synchronization**
 
       :Autor: Kaiwan N Billimoria
       :Editora: Packt Publishing Ltd
@@ -116,7 +116,7 @@ Livros Publicados
       :Páginas: 754
       :ISBN: 978-1789953435 (O ISBN da segunda edição é 978-1803232225)
 
-    * Title: **Linux Kernel Programming Part 2 - Char Device Drivers and Kernel Synchronization: Create user-kernel interfaces, work with peripheral I/O, and handle hardware interrupts**
+    * Título: **Linux Kernel Programming Part 2 - Char Device Drivers and Kernel Synchronization: Create user-kernel interfaces, work with peripheral I/O, and handle hardware interrupts**
 
       :Autor: Kaiwan N Billimoria
       :Editora: Packt Publishing Ltd
@@ -124,7 +124,7 @@ Livros Publicados
       :Páginas: 452
       :ISBN: 978-1801079518
 
-    * Title: **Linux System Programming: Talking Directly to the Kernel and C Library**
+    * Título: **Linux System Programming: Talking Directly to the Kernel and C Library**
 
       :Autor: Robert Love
       :Editora: O'Reilly Media
@@ -231,7 +231,7 @@ Rust
       :URL: https://rust-for-linux.com/
       :Data: versão contínua (rolling)
       :Palavras-chave: glossário, termos, linux-kernel, rust.
-      :Descrição Do site: "Rust for Linux é o projeto que adiciona suporte à
+      :Descrição: Do site: "Rust for Linux é o projeto que adiciona suporte à
         linguagem Rust ao kernel Linux. Este site pretende ser um hub de links,
         documentação e recursos relacionados ao projeto".
 

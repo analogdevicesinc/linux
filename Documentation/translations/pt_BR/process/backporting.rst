@@ -93,7 +93,7 @@ O que fazer agora?
 
 Em geral, os conflitos aparecem quando o contexto do patch (ou seja, as linhas
 que estão sendo alteradas e/ou as linhas que cercam as alterações) não
-corresponde ao que está na árvore à qual você está tentando aplicar o patch.
+corresponde ao que está na árvore *à qual* você está tentando aplicar o patch.
 
 No caso de backports, o que provavelmente aconteceu foi que a ramificação
 (branch) a partir da qual você está fazendo o backport contém patches que não
@@ -137,8 +137,8 @@ Patches pré-requisitos
 ----------------------
 
 A maioria dos conflitos acontece porque a ramificação para a qual você está
-fazendo o backport não possui alguns patches em comparação com a ramificação a
-partir da qual você está fazendo o backport. No caso mais geral (como a
+fazendo o backport não possui alguns patches em comparação com a ramificação
+*a partir da qual* você está fazendo o backport. No caso mais geral (como a
 mesclagem de duas ramificações independentes), o desenvolvimento poderia ter
 ocorrido em qualquer uma das ramificações, ou as ramificações simplesmente
 divergiram -- talvez a sua ramificação mais antiga tenha recebido alguns outros

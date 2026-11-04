@@ -384,7 +384,7 @@ Em contraste, se diz
 
 você consegue dizer o que ``a`` é.
 
-Muitas pessoas pensam que ``typedef``s ``ajudam na legibilidade``. Não é bem
+Muitas pessoas pensam que typedefs ``ajudam na legibilidade``. Não é bem
 assim. Eles são úteis apenas para:
 
  (a) objetos totalmente opacos (onde o ``typedef`` é usado ativamente para
@@ -926,7 +926,7 @@ que você deve usar para garantir que as mensagens sejam correspondidas ao
 dispositivo e driver corretos e sejam marcadas com o nível certo: ``dev_err()``,
 ``dev_warn()``, ``dev_info()`` e assim por diante. Para mensagens que não
 estão associadas a um device específico, <linux/printk.h> define
-``pr_notice()``, ``pr_info()``, ``pr_warn()``, ``pr_err()`` etc. Quando os
+pr_notice(), pr_info(), pr_warn(), pr_err() etc. Quando os
 drivers funcionam corretamente, eles ficam silenciosos, então prefira usar
 ``dev_dbg``/``pr_debug`` a menos que algo esteja errado.
 
@@ -934,7 +934,7 @@ Encontrar boas mensagens de depuração pode ser um desafio; e, uma vez que
 você tenha essas mensagens, elas podem ajudar bastante para solução de
 problemas remota. No entanto, a impressão de mensagens de depuração é tratada
 diferentemente da impressão de outras mensagens não de depuração. Enquanto as
-outras funções ``pr_XXX()`` imprimem incondicionalmente, ``pr_debug()`` não;
+outras funções ``pr_XXX()`` imprimem incondicionalmente, pr_debug() não;
 ela é compilada fora por padrão, a menos que ``DEBUG`` seja definido ou
 ``CONFIG_DYNAMIC_DEBUG`` esteja configurado. Isso também vale para
 ``dev_dbg()``, e uma convenção relacionada usa ``VERBOSE_DEBUG`` para adicionar
@@ -951,8 +951,8 @@ incondicionalmente, por exemplo, se ela já estiver dentro de uma seção
 --------------------
 
 O kernel fornece os seguintes alocadores de memória de uso geral:
-``kmalloc()``, ``kzalloc()``, ``kmalloc_objs()``, ``kzalloc_objs()``,
-``vmalloc()`` e ``vzalloc()``. Consulte a documentação da API para obter mais
+kmalloc(), kzalloc(), kmalloc_objs(), kzalloc_objs(),
+vmalloc() e vzalloc(). Consulte a documentação da API para obter mais
 informações sobre eles. :ref:`Documentation/core-api/memory-allocation.rst
 <memory_allocation>`
 
@@ -1008,7 +1008,7 @@ linhas de código. Uma exceção a essa regra são os casos em que um parâmetro
 conhecido como uma constante em tempo de compilação, e como resultado dessa
 constância você *sabe* que o compilador será capaz de otimizar grande parte da
 sua função em tempo de compilação. Para um bom exemplo desse caso posterior,
-veja a função inline ``kmalloc()``.
+veja a função inline kmalloc().
 
 Muitas pessoas argumentam que adicionar ``inline`` a funções ``static`` usadas
 apenas uma vez é sempre uma vantagem, porque não há custo de espaço. Embora
@@ -1037,7 +1037,7 @@ ajudar a evitar esses bugs, siga sempre esta convenção::
 
 Por exemplo, ``add work`` é um comando, e a função ``add_work()`` retorna 0
 para sucesso ou -EBUSY para falha. Da mesma forma, ``PCI device present`` é um
-predicado, e a função ``pci_dev_present()`` retorna 1 se encontrar um device
+predicado, e a função pci_dev_present() retorna 1 se encontrar um device
 correspondente ou 0 se não encontrar.
 
 Todas as funções ``EXPORT`` devem respeitar esta convenção, e assim também

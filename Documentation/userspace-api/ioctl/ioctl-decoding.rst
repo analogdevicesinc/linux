@@ -11,10 +11,10 @@ uses 3 bits to encode read/write and 13 bits for size.
  ====== ==================================
  bits   meaning
  ====== ==================================
- 31-30	00 - no parameters: uses _IO macro
-	10 - read: _IOR
-	01 - write: _IOW
-	11 - read/write: _IOWR
+ 31-30	* 00 - no parameters: uses _IO macro
+	* 10 - read: _IOR
+	* 01 - write: _IOW
+	* 11 - read/write: _IOWR
 
  29-16	size of arguments
 
