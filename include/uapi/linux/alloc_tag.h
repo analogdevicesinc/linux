@@ -68,13 +68,25 @@ enum {
 #define ALLOCINFO_FILTER_MASKS \
 	((1 << (__ALLOCINFO_FILTER_LAST + 1)) - 1)
 
+#define ALLOCINFO_FILTER_FLAG_INACCURATE	(1ULL << 0)
+
 struct allocinfo_filter {
 	__u64 mask; /* bitmask of the filter fields used */
 	struct allocinfo_tag fields;
 	__u64 min_size;
 	__u64 max_size;
-	/* filter criteria only; see allocinfo_counter.accurate for actual accuracy */
-	__u64 inaccurate;
+	/*
+	 * Filter criteria only; see allocinfo_counter for the actual state.
+	 * Set ALLOCINFO_FILTER_FLAG_* bits in flags for the criteria selected
+	 * in mask. inaccurate is kept as an alias of flags so that userspace
+	 * built against the older API still compiles. Note that only
+	 * ALLOCINFO_FILTER_FLAG_INACCURATE is checked, so a non-zero value
+	 * with bit 0 clear no longer selects inaccurate tags.
+	 */
+	union {
+		__u64 inaccurate;
+		__u64 flags;
+	};
 };
 
 struct allocinfo_get_at {

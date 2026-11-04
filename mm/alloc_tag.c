@@ -306,7 +306,7 @@ static bool matches_filter(struct codetag *ct, struct allocinfo_filter *filter,
 
 	if (filter->mask & ALLOCINFO_FILTER_MASK_INACCURATE) {
 		inaccurate = alloc_tag_is_inaccurate(ct_to_alloc_tag(ct));
-		if (inaccurate != !!(filter->inaccurate))
+		if (inaccurate != !!(filter->flags & ALLOCINFO_FILTER_FLAG_INACCURATE))
 			return false;
 	}
 
