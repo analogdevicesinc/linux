@@ -5810,6 +5810,7 @@ struct bpf_call_graph {
 	unsigned long *live; /* what the kernel calls and what that gets to */
 	unsigned long *in_cb; /* callbacks and what they get to */
 	unsigned long *tail_calls; /* subprogs that have a tail call */
+	unsigned long *arena_sp; /* subprogs that count on r12 of the caller */
 };
 
 static unsigned long *subprog_calls(struct bpf_call_graph *cg, int s)
@@ -5838,13 +5839,14 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 
 	cg->cnt = cnt;
 	cg->words = words;
-	cg->calls = kvcalloc((2 * cnt + 3) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	cg->calls = kvcalloc((2 * cnt + 4) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
 	if (!cg->calls)
 		return -ENOMEM;
 	cg->reach = cg->calls + cnt * words;
 	cg->live = cg->reach + cnt * words;
 	cg->in_cb = cg->live + words;
 	cg->tail_calls = cg->in_cb + words;
+	cg->arena_sp = cg->tail_calls + words;
 
 	for (s = 0; s < cnt; s++) {
 		for (i = si[s].start; i < si[s + 1].start; i++) {
@@ -6008,6 +6010,35 @@ static int check_tail_calls(struct bpf_verifier_env *env, struct bpf_call_graph 
 	return 0;
 }
 
+/*
+ * The kernel calls a callback. It knows nothing about r12. So a callback takes a
+ * stack in arena, like the main prog does, when it uses r12 or calls what
+ * does. The callbacks below it are not its business: they take their own.
+ */
+static void mark_arena_stack_entries(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	bool changed;
+	int s;
+
+	do {
+		changed = false;
+		for_each_set_bit(s, cg->live, cg->cnt) {
+			if (test_bit(s, cg->arena_sp) || si[s].arena_stack_entry)
+				continue;
+			if (!si[s].uses_arena_sp &&
+			    !bitmap_intersects(subprog_calls(cg, s), cg->arena_sp, cg->cnt))
+				continue;
+			if (si[s].is_cb) {
+				si[s].arena_stack_entry = true;
+				continue;
+			}
+			__set_bit(s, cg->arena_sp);
+			changed = true;
+		}
+	} while (changed);
+}
+
 /* temporary state used for call frame depth calculation */
 struct bpf_subprog_call_depth_info {
 	int ret_insn; /* caller instruction where we return to. */
@@ -6060,15 +6091,6 @@ process_func:
 	 * tailcall will unwind the current stack frame but it will not get rid
 	 * of caller's stack as shown on the example above.
 	 */
-	/* The kernel calls a callback. It knows nothing about r12. */
-	if (subprog[idx].uses_arena_sp) {
-		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
-			if (!subprog[tmp].is_cb)
-				continue;
-			subprog[tmp].arena_stack_entry = true;
-			break;
-		}
-	}
 	arena_depth += subprog[idx].arena_stack_depth;
 	if (arena_depth > env->max_arena_stack_depth)
 		env->max_arena_stack_depth = arena_depth;
@@ -6233,6 +6255,7 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 	ret = ret ?: check_tail_calls(env, &cg);
 	if (ret)
 		goto out;
+	mark_arena_stack_entries(env, &cg);
 
 	dinfo = kvzalloc_objs(*dinfo, env->subprog_cnt, GFP_KERNEL_ACCOUNT);
 	if (!dinfo) {
