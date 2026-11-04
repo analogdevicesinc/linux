@@ -584,6 +584,16 @@ recheck:
 		goto unlock;
 
 	/*
+	 * Reject SCHED_DEADLINE on exited tasks. A zombie will never be
+	 * scheduled again, so sched_dl_overflow() would charge total_bw
+	 * that nothing will ever release.
+	 */
+	if (dl_policy(policy) && p->exit_state) {
+		retval = -ESRCH;
+		goto unlock;
+	}
+
+	/*
 	 * If not changing anything there's no need to proceed further,
 	 * but store a possible modification of reset_on_fork.
 	 */
@@ -675,8 +685,19 @@ change:
 	prev_class = p->sched_class;
 	next_class = __setscheduler_class(policy, newprio);
 
-	if (prev_class != next_class)
+	if (prev_class != next_class) {
+		/*
+		 * SCHED_FLAG_KEEP_PARAMS prevents the class change from
+		 * actually happening (it skips __setscheduler_params and
+		 * the sched_class assignment). Reject contradictory
+		 * requests that ask for a class change with KEEP_PARAMS.
+		 */
+		if (attr->sched_flags & SCHED_FLAG_KEEP_PARAMS) {
+			retval = -EINVAL;
+			goto unlock;
+		}
 		queue_flags |= DEQUEUE_CLASS;
+	}
 
 	scx_prepare_setscheduler(p, policy);
 
