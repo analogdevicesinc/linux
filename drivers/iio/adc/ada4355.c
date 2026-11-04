@@ -474,6 +474,17 @@ static int ada4355_post_setup(struct iio_dev *indio_dev)
 		 axiadc_read(axi_adc_st, ADI_AXI_REG_ID), cfg,
 		 (cfg & ADI_DELAY_CONTROL_DISABLE) ? " [IDELAY CONTROL DISABLED]" : "");
 	ada4355_log_clk_mon(dev, axi_adc_st);
+	/*
+	 * Attention: the axi_ada4355 HDL core holds its BUFR /4 divider and its
+	 * ISERDES in reset from configuration until ADI_MMCM_RSTN (ADI_REG_RSTN
+	 * bit 1) is set, so the divider cannot pick its word boundary from a DCO
+	 * that is not yet stable. Until then adc_clk does not run and the core
+	 * returns no data. This driver does not write ADI_REG_RSTN itself: it
+	 * relies on the reset sequence in cf_axi_adc_core probe, which sets
+	 * ADI_RSTN | ADI_MMCM_RSTN before calling post_setup. Any other software
+	 * driving this core must set both bits, and must not clear ADI_MMCM_RSTN
+	 * afterwards, or the core stops. RSTN below should read 0x00000003.
+	 */
 	dev_info(dev, "  RSTN 0x%08X  CNTRL 0x%08X  STATUS 0x%08X\n",
 		 axiadc_read(axi_adc_st, ADI_REG_RSTN),
 		 axiadc_read(axi_adc_st, ADI_REG_CNTRL),
