@@ -410,6 +410,8 @@ static void cscfg_remove_owned_csdev_features(struct coresight_device *csdev, vo
 	if (list_empty(&csdev->feature_csdev_list))
 		return;
 
+	guard(raw_spinlock_irqsave)(&csdev->cscfg_csdev_lock);
+
 	list_for_each_entry_safe(feat_csdev, tmp, &csdev->feature_csdev_list, node) {
 		if (feat_csdev->feat_desc->load_owner == load_owner)
 			list_del(&feat_csdev->node);
