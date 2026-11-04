@@ -554,12 +554,16 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		bool active_low = gpiod_is_active_low(bdata->gpiod);
 
 		if (button->debounce_interval) {
-			error = gpiod_set_debounce(bdata->gpiod,
-					button->debounce_interval * 1000);
-			/* use timer if gpiolib doesn't provide debounce */
-			if (error < 0)
-				bdata->software_debounce =
-						button->debounce_interval;
+			/* do not rely on non-gpio irqs being subject to debouncing measures */
+			if (button->irq || button->wakeirq) {
+				bdata->software_debounce = button->debounce_interval;
+			} else {
+				error = gpiod_set_debounce(bdata->gpiod,
+							   button->debounce_interval * 1000);
+				/* use timer if gpiolib doesn't provide debounce */
+				if (error)
+					bdata->software_debounce = button->debounce_interval;
+			}
 
 			/*
 			 * If reading the GPIO won't sleep, we can use a
