@@ -10,36 +10,45 @@
 #include <linux/kernel.h>
 #include <linux/sizes.h>
 
-asmlinkage void chacha_block_xor_ssse3(const struct chacha_state *state,
-				       u8 *dst, const u8 *src, size_t len,
-				       int nrounds);
-asmlinkage void chacha_4block_xor_ssse3(const struct chacha_state *state,
+/* This supports lengths of 0 to 1 blocks inclusive. */
+asmlinkage void chacha_0to1blocks_ssse3(const struct chacha_state *state,
+					u8 *dst, const u8 *src, size_t len,
+					int nrounds);
+/* This supports lengths of 1 to 4 blocks inclusive. */
+asmlinkage void chacha_1to4blocks_ssse3(const struct chacha_state *state,
 					u8 *dst, const u8 *src, size_t len,
 					int nrounds);
 asmlinkage void hchacha_block_ssse3(const struct chacha_state *state,
 				    u32 out[HCHACHA_OUT_WORDS], int nrounds);
 
-asmlinkage void chacha_2block_xor_avx2(const struct chacha_state *state,
+/* This supports lengths of 1 to 2 blocks inclusive. */
+asmlinkage void chacha_1to2blocks_avx2(const struct chacha_state *state,
 				       u8 *dst, const u8 *src, size_t len,
 				       int nrounds);
-asmlinkage void chacha_4block_xor_avx2(const struct chacha_state *state,
+/* This supports lengths of 2 to 4 blocks inclusive. */
+asmlinkage void chacha_2to4blocks_avx2(const struct chacha_state *state,
 				       u8 *dst, const u8 *src, size_t len,
 				       int nrounds);
-asmlinkage void chacha_8block_xor_avx2(const struct chacha_state *state,
+/* This supports lengths of 4 to 8 blocks inclusive. */
+asmlinkage void chacha_4to8blocks_avx2(const struct chacha_state *state,
 				       u8 *dst, const u8 *src, size_t len,
 				       int nrounds);
 
-asmlinkage void chacha_2block_xor_avx512vl(const struct chacha_state *state,
+/* This supports lengths of 0 to 2 blocks inclusive. */
+asmlinkage void chacha_0to2blocks_avx512vl(const struct chacha_state *state,
 					   u8 *dst, const u8 *src, size_t len,
 					   int nrounds);
-asmlinkage void chacha_4block_xor_avx512vl(const struct chacha_state *state,
+/* This supports lengths of 2 to 4 blocks inclusive. */
+asmlinkage void chacha_2to4blocks_avx512vl(const struct chacha_state *state,
 					   u8 *dst, const u8 *src, size_t len,
 					   int nrounds);
-asmlinkage void chacha_8block_xor_avx512vl(const struct chacha_state *state,
+/* This supports lengths of 4 to 8 blocks inclusive. */
+asmlinkage void chacha_4to8blocks_avx512vl(const struct chacha_state *state,
 					   u8 *dst, const u8 *src, size_t len,
 					   int nrounds);
 
-asmlinkage void chacha_16block_xor_avx512(const struct chacha_state *state,
+/* This supports lengths of 8 to 16 blocks inclusive. */
+asmlinkage void chacha_8to16blocks_avx512(const struct chacha_state *state,
 					  u8 *dst, const u8 *src, size_t len,
 					  int nrounds);
 
@@ -48,13 +57,24 @@ static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx2);
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512vl);
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(chacha_use_avx512);
 
+/*
+ * Dispatch to the appropriate assembly functions, depending on the available
+ * CPU features and the data length.
+ *
+ * Each assembly function supports a specific range of lengths, e.g. 2 to 4
+ * blocks.  chacha_dosimd() ensures that it passes each assembly function a
+ * supported length.  It also makes sure not to call functions wider than
+ * needed; e.g., for 4 blocks it calls a 2to4 function rather than 4to8.
+ *
+ * The counter is always incremented here in the C code, not in the assembly.
+ */
 static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			  size_t bytes, int nrounds)
 {
 	if (static_branch_likely(&chacha_use_avx512vl)) {
 		if (static_branch_likely(&chacha_use_avx512)) {
 			while (bytes >= CHACHA_BLOCK_SIZE * 16) {
-				chacha_16block_xor_avx512(
+				chacha_8to16blocks_avx512(
 					state, dst, src, CHACHA_BLOCK_SIZE * 16,
 					nrounds);
 				bytes -= CHACHA_BLOCK_SIZE * 16;
@@ -63,7 +83,7 @@ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 				state->x[12] += 16;
 			}
 			if (bytes > CHACHA_BLOCK_SIZE * 8) {
-				chacha_16block_xor_avx512(state, dst, src,
+				chacha_8to16blocks_avx512(state, dst, src,
 							  bytes, nrounds);
 				state->x[12] +=
 					DIV_ROUND_UP(bytes, CHACHA_BLOCK_SIZE);
@@ -71,7 +91,7 @@ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			}
 		} else {
 			while (bytes >= CHACHA_BLOCK_SIZE * 8) {
-				chacha_8block_xor_avx512vl(
+				chacha_4to8blocks_avx512vl(
 					state, dst, src, CHACHA_BLOCK_SIZE * 8,
 					nrounds);
 				bytes -= CHACHA_BLOCK_SIZE * 8;
@@ -81,18 +101,18 @@ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			}
 		}
 		if (bytes > CHACHA_BLOCK_SIZE * 4)
-			chacha_8block_xor_avx512vl(state, dst, src, bytes,
+			chacha_4to8blocks_avx512vl(state, dst, src, bytes,
 						   nrounds);
 		else if (bytes > CHACHA_BLOCK_SIZE * 2)
-			chacha_4block_xor_avx512vl(state, dst, src, bytes,
+			chacha_2to4blocks_avx512vl(state, dst, src, bytes,
 						   nrounds);
 		else if (bytes)
-			chacha_2block_xor_avx512vl(state, dst, src, bytes,
+			chacha_0to2blocks_avx512vl(state, dst, src, bytes,
 						   nrounds);
 		state->x[12] += DIV_ROUND_UP(bytes, CHACHA_BLOCK_SIZE);
 	} else if (static_branch_likely(&chacha_use_avx2)) {
 		while (bytes >= CHACHA_BLOCK_SIZE * 8) {
-			chacha_8block_xor_avx2(state, dst, src,
+			chacha_4to8blocks_avx2(state, dst, src,
 					       CHACHA_BLOCK_SIZE * 8, nrounds);
 			bytes -= CHACHA_BLOCK_SIZE * 8;
 			src += CHACHA_BLOCK_SIZE * 8;
@@ -100,17 +120,18 @@ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			state->x[12] += 8;
 		}
 		if (bytes > CHACHA_BLOCK_SIZE * 4)
-			chacha_8block_xor_avx2(state, dst, src, bytes, nrounds);
+			chacha_4to8blocks_avx2(state, dst, src, bytes, nrounds);
 		else if (bytes > CHACHA_BLOCK_SIZE * 2)
-			chacha_4block_xor_avx2(state, dst, src, bytes, nrounds);
+			chacha_2to4blocks_avx2(state, dst, src, bytes, nrounds);
 		else if (bytes > CHACHA_BLOCK_SIZE)
-			chacha_2block_xor_avx2(state, dst, src, bytes, nrounds);
+			chacha_1to2blocks_avx2(state, dst, src, bytes, nrounds);
 		else if (bytes)
-			chacha_block_xor_ssse3(state, dst, src, bytes, nrounds);
+			chacha_0to1blocks_ssse3(state, dst, src, bytes,
+						nrounds);
 		state->x[12] += DIV_ROUND_UP(bytes, CHACHA_BLOCK_SIZE);
 	} else {
 		while (bytes >= CHACHA_BLOCK_SIZE * 4) {
-			chacha_4block_xor_ssse3(state, dst, src,
+			chacha_1to4blocks_ssse3(state, dst, src,
 						CHACHA_BLOCK_SIZE * 4, nrounds);
 			bytes -= CHACHA_BLOCK_SIZE * 4;
 			src += CHACHA_BLOCK_SIZE * 4;
@@ -118,10 +139,11 @@ static void chacha_dosimd(struct chacha_state *state, u8 *dst, const u8 *src,
 			state->x[12] += 4;
 		}
 		if (bytes > CHACHA_BLOCK_SIZE)
-			chacha_4block_xor_ssse3(state, dst, src, bytes,
+			chacha_1to4blocks_ssse3(state, dst, src, bytes,
 						nrounds);
 		else if (bytes)
-			chacha_block_xor_ssse3(state, dst, src, bytes, nrounds);
+			chacha_0to1blocks_ssse3(state, dst, src, bytes,
+						nrounds);
 		state->x[12] += DIV_ROUND_UP(bytes, CHACHA_BLOCK_SIZE);
 	}
 }

@@ -111,11 +111,11 @@ SYM_FUNC_START_LOCAL(chacha_permute)
 	RET
 SYM_FUNC_END(chacha_permute)
 
-SYM_FUNC_START(chacha_block_xor_ssse3)
+SYM_FUNC_START(chacha_0to1blocks_ssse3)
 	# %rdi: Input state matrix, s
-	# %rsi: up to 1 data block output, o
-	# %rdx: up to 1 data block input, i
-	# %rcx: input/output length in bytes
+	# %rsi: output data, o
+	# %rdx: input data, i
+	# %rcx: input/output data length in bytes: 0 to 1 blocks inclusive
 	# %r8d: nrounds
 	FRAME_BEGIN
 
@@ -197,7 +197,7 @@ SYM_FUNC_START(chacha_block_xor_ssse3)
 	lea		-8(%r10),%rsp
 	jmp		.Ldone
 
-SYM_FUNC_END(chacha_block_xor_ssse3)
+SYM_FUNC_END(chacha_0to1blocks_ssse3)
 
 SYM_FUNC_START(hchacha_block_ssse3)
 	# %rdi: Input state matrix, s
@@ -220,11 +220,11 @@ SYM_FUNC_START(hchacha_block_ssse3)
 	RET
 SYM_FUNC_END(hchacha_block_ssse3)
 
-SYM_FUNC_START(chacha_4block_xor_ssse3)
+SYM_FUNC_START(chacha_1to4blocks_ssse3)
 	# %rdi: Input state matrix, s
-	# %rsi: up to 4 data blocks output, o
-	# %rdx: up to 4 data blocks input, i
-	# %rcx: input/output length in bytes
+	# %rsi: output data, o
+	# %rdx: input data, i
+	# %rcx: input/output data length in bytes: 1 to 4 blocks inclusive
 	# %r8d: nrounds
 
 	# This function encrypts four consecutive ChaCha blocks by loading the
@@ -647,35 +647,24 @@ SYM_FUNC_START(chacha_4block_xor_ssse3)
 	punpckhqdq	%xmm15,%xmm0
 	movdqa		%xmm0,%xmm15
 
-	# xor with corresponding input, write to output
-	movdqa		0x00(%rsp),%xmm0
-	cmp		$0x10,%rax
-	jl		.Lxorpart4
-	movdqu		0x00(%rdx),%xmm1
-	pxor		%xmm1,%xmm0
+	# XOR the first data block with the generated keystream.
+	movdqu		0x00(%rdx),%xmm0
+	pxor		0x00(%rsp),%xmm0
 	movdqu		%xmm0,0x00(%rsi)
 
-	movdqu		%xmm4,%xmm0
-	cmp		$0x20,%rax
-	jl		.Lxorpart4
 	movdqu		0x10(%rdx),%xmm1
-	pxor		%xmm1,%xmm0
-	movdqu		%xmm0,0x10(%rsi)
+	pxor		%xmm1,%xmm4
+	movdqu		%xmm4,0x10(%rsi)
 
-	movdqu		%xmm8,%xmm0
-	cmp		$0x30,%rax
-	jl		.Lxorpart4
 	movdqu		0x20(%rdx),%xmm1
-	pxor		%xmm1,%xmm0
-	movdqu		%xmm0,0x20(%rsi)
+	pxor		%xmm1,%xmm8
+	movdqu		%xmm8,0x20(%rsi)
 
-	movdqu		%xmm12,%xmm0
-	cmp		$0x40,%rax
-	jl		.Lxorpart4
 	movdqu		0x30(%rdx),%xmm1
-	pxor		%xmm1,%xmm0
-	movdqu		%xmm0,0x30(%rsi)
+	pxor		%xmm1,%xmm12
+	movdqu		%xmm12,0x30(%rsi)
 
+	# XOR up to 3 additional data blocks with the generated keystream.
 	movdqa		0x20(%rsp),%xmm0
 	cmp		$0x50,%rax
 	jl		.Lxorpart4
@@ -788,4 +777,4 @@ SYM_FUNC_START(chacha_4block_xor_ssse3)
 
 	jmp		.Ldone4
 
-SYM_FUNC_END(chacha_4block_xor_ssse3)
+SYM_FUNC_END(chacha_1to4blocks_ssse3)

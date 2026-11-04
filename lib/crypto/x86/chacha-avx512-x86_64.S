@@ -43,11 +43,11 @@ CTRBL:	.octa 0x00000003000000020000000100000000
 .endr
 .endm
 
-SYM_FUNC_START(chacha_2block_xor_avx512vl)
+SYM_FUNC_START(chacha_0to2blocks_avx512vl)
 	# %rdi: Input state matrix, s
-	# %rsi: up to 2 data blocks output, o
-	# %rdx: up to 2 data blocks input, i
-	# %rcx: input/output length in bytes
+	# %rsi: output data, o
+	# %rdx: input data, i
+	# %rcx: input/output data length in bytes: 0 to 2 blocks inclusive
 	# %r8d: nrounds
 
 	# This function encrypts two ChaCha blocks by loading the state
@@ -133,8 +133,7 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 	vpaddd		%ymm10,%ymm2,%ymm2
 	vpaddd		%ymm11,%ymm3,%ymm3
 
-	# xor the data with the keystream
-
+	# XOR up to 2 data blocks with the generated keystream.
 	vperm2i128	$0x20, %ymm1, %ymm0, %ymm4
 	cmp		$1*32,%rcx
 	jl		.Lxorpart2
@@ -180,13 +179,13 @@ SYM_FUNC_START(chacha_2block_xor_avx512vl)
 
 	jmp		.Ldone2
 
-SYM_FUNC_END(chacha_2block_xor_avx512vl)
+SYM_FUNC_END(chacha_0to2blocks_avx512vl)
 
-SYM_FUNC_START(chacha_4block_xor_avx512vl)
+SYM_FUNC_START(chacha_2to4blocks_avx512vl)
 	# %rdi: Input state matrix, s
-	# %rsi: up to 4 data blocks output, o
-	# %rdx: up to 4 data blocks input, i
-	# %rcx: input/output length in bytes
+	# %rsi: output data, o
+	# %rdx: input data, i
+	# %rcx: input/output data length in bytes: 2 to 4 blocks inclusive
 	# %r8d: nrounds
 
 	# This function encrypts four ChaCha blocks by loading the state
@@ -323,32 +322,24 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 	vpaddd		%ymm13,%ymm6,%ymm6
 	vpaddd		%ymm15,%ymm7,%ymm7
 
-	# xor the data with the keystream
-
+	# XOR the first 2 data blocks with the generated keystream.
 	vperm2i128	$0x20, %ymm1, %ymm0, %ymm8
-	cmp		$1*32,%rcx
-	jl		.Lxorpart4
 	vpxor		0*32(%rdx),%ymm8,%ymm8
 	vmovdqu		%ymm8,0*32(%rsi)
 
 	vperm2i128	$0x20, %ymm3, %ymm2, %ymm8
-	cmp		$2*32,%rcx
-	jl		.Lxorpart4
 	vpxor		1*32(%rdx),%ymm8,%ymm8
 	vmovdqu		%ymm8,1*32(%rsi)
 
 	vperm2i128	$0x31, %ymm1, %ymm0, %ymm8
-	cmp		$3*32,%rcx
-	jl		.Lxorpart4
 	vpxor		2*32(%rdx),%ymm8,%ymm8
 	vmovdqu		%ymm8,2*32(%rsi)
 
 	vperm2i128	$0x31, %ymm3, %ymm2, %ymm8
-	cmp		$4*32,%rcx
-	jl		.Lxorpart4
 	vpxor		3*32(%rdx),%ymm8,%ymm8
 	vmovdqu		%ymm8,3*32(%rsi)
 
+	# XOR up to 2 additional data blocks with the generated keystream.
 	vperm2i128	$0x20, %ymm5, %ymm4, %ymm8
 	cmp		$5*32,%rcx
 	jl		.Lxorpart4
@@ -394,7 +385,7 @@ SYM_FUNC_START(chacha_4block_xor_avx512vl)
 
 	jmp		.Ldone4
 
-SYM_FUNC_END(chacha_4block_xor_avx512vl)
+SYM_FUNC_END(chacha_2to4blocks_avx512vl)
 
 .macro _chacha_words	vl
 	.set	VL,		\vl
@@ -402,9 +393,10 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	_define_aliases
 
 	# %rdi: Input state matrix, s
-	# %rsi: up to VL/4 data blocks output, o
-	# %rdx: up to VL/4 data blocks input, i
-	# %rcx: input/output length in bytes
+	# %rsi: output data, o
+	# %rdx: input data, i
+	# %rcx: input/output data length in bytes: 4 to 8 blocks inclusive for
+	#       VL=32, or 8 to 16 blocks inclusive for VL=64.
 	# %r8d: nrounds
 
 	# This encrypts VL/4 consecutive ChaCha blocks by loading the state
@@ -653,57 +645,42 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	vpunpckhqdq	V31,V29,V15
 
 .if VL == 32
-	# interleave 128-bit words in state n, n+4
-	# xor/write first four blocks
+	# Do the final 128-bit interleave within the XOR sequence.
+
+	# XOR the first 4 data blocks with the generated keystream.
 	vshufi64x2	$0x0,V4,V16,V0
-	cmp		$0x0020,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0000(%rdx),V0,V0
 	vmovdqu64	V0,0x0000(%rsi)
 
 	vperm2i128	$0x20,V12,V8,V0
-	cmp		$0x0040,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0020(%rdx),V0,V0
 	vmovdqu64	V0,0x0020(%rsi)
 
 	vperm2i128	$0x20,V5,V1,V0
-	cmp		$0x0060,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0040(%rdx),V0,V0
 	vmovdqu64	V0,0x0040(%rsi)
 
 	vperm2i128	$0x20,V13,V9,V0
-	cmp		$0x0080,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0060(%rdx),V0,V0
 	vmovdqu64	V0,0x0060(%rsi)
 
 	vperm2i128	$0x20,V6,V2,V0
-	cmp		$0x00a0,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0080(%rdx),V0,V0
 	vmovdqu64	V0,0x0080(%rsi)
 
 	vperm2i128	$0x20,V14,V10,V0
-	cmp		$0x00c0,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x00a0(%rdx),V0,V0
 	vmovdqu64	V0,0x00a0(%rsi)
 
 	vperm2i128	$0x20,V7,V3,V0
-	cmp		$0x00e0,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x00c0(%rdx),V0,V0
 	vmovdqu64	V0,0x00c0(%rsi)
 
 	vperm2i128	$0x20,V15,V11,V0
-	cmp		$0x0100,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x00e0(%rdx),V0,V0
 	vmovdqu64	V0,0x00e0(%rsi)
 
-	# xor remaining blocks, write to output
+	# XOR up to 4 additional data blocks with the generated keystream.
 	vshufi64x2	$0x3,V4,V16,V0
 	cmp		$0x0120,%rcx
 	jl		.Lxorpart\@
@@ -770,55 +747,42 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	vshufi64x2	$0xdd,V7,V3,V27
 	vshufi64x2	$0xdd,V15,V11,V31
 
-	# fuse the final 256-bit interleave into the xor/store ladder
+	# Do the final 256-bit interleave within the XOR sequence.
+
+	# XOR the first 8 data blocks with the generated keystream.
 	vshufi64x2	$0x88,V20,V16,V0
-	cmp		$0x0040,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0000(%rdx),V0,V0
 	vmovdqu64	V0,0x0000(%rsi)
 
 	vshufi64x2	$0x88,V21,V17,V0
-	cmp		$0x0080,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0040(%rdx),V0,V0
 	vmovdqu64	V0,0x0040(%rsi)
 
 	vshufi64x2	$0x88,V22,V18,V0
-	cmp		$0x00c0,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0080(%rdx),V0,V0
 	vmovdqu64	V0,0x0080(%rsi)
 
 	vshufi64x2	$0x88,V23,V19,V0
-	cmp		$0x0100,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x00c0(%rdx),V0,V0
 	vmovdqu64	V0,0x00c0(%rsi)
 
 	vshufi64x2	$0x88,V28,V24,V0
-	cmp		$0x0140,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0100(%rdx),V0,V0
 	vmovdqu64	V0,0x0100(%rsi)
 
 	vshufi64x2	$0x88,V29,V25,V0
-	cmp		$0x0180,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0140(%rdx),V0,V0
 	vmovdqu64	V0,0x0140(%rsi)
 
 	vshufi64x2	$0x88,V30,V26,V0
-	cmp		$0x01c0,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x0180(%rdx),V0,V0
 	vmovdqu64	V0,0x0180(%rsi)
 
 	vshufi64x2	$0x88,V31,V27,V0
-	cmp		$0x0200,%rcx
-	jl		.Lxorpart\@
 	vpxord		0x01c0(%rdx),V0,V0
 	vmovdqu64	V0,0x01c0(%rsi)
 
+	# XOR up to 8 additional data blocks with the generated keystream.
 	vshufi64x2	$0xdd,V20,V16,V0
 	cmp		$0x0240,%rcx
 	jl		.Lxorpart\@
@@ -890,10 +854,10 @@ SYM_FUNC_END(chacha_4block_xor_avx512vl)
 	jmp		.Ldone\@
 .endm
 
-SYM_FUNC_START(chacha_8block_xor_avx512vl)
+SYM_FUNC_START(chacha_4to8blocks_avx512vl)
 	_chacha_words	vl=32
-SYM_FUNC_END(chacha_8block_xor_avx512vl)
+SYM_FUNC_END(chacha_4to8blocks_avx512vl)
 
-SYM_FUNC_START(chacha_16block_xor_avx512)
+SYM_FUNC_START(chacha_8to16blocks_avx512)
 	_chacha_words	vl=64
-SYM_FUNC_END(chacha_16block_xor_avx512)
+SYM_FUNC_END(chacha_8to16blocks_avx512)
