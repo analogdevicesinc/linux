@@ -250,6 +250,8 @@ static int tc_rfs_init(struct stmmac_priv *priv)
 	if (!priv->rfs_entries)
 		return -ENOMEM;
 
+	INIT_LIST_HEAD(&priv->vlan_prio);
+
 	dev_info(priv->device, "Enabled RFS Flow TC (entries=%d)\n",
 		 priv->rfs_entries_total);
 
@@ -685,6 +687,45 @@ static struct stmmac_rfs_entry *tc_find_rfs(struct stmmac_priv *priv,
 
 #define VLAN_PRIO_FULL_MASK (0x07)
 
+static void tc_update_vlan_prio(struct stmmac_priv *priv, u8 prio)
+{
+	u8 prios[MTL_MAX_RX_QUEUES] = {};
+	struct stmmac_rfs_entry *entry;
+	unsigned int queue, i;
+
+	/* Restore platform assignments with the same precedence as setup. */
+	for (queue = 0; queue < priv->plat->rx_queues_to_use; queue++) {
+		if (!priv->plat->rx_queues_cfg[queue].use_prio)
+			continue;
+
+		prios[queue] = priv->plat->rx_queues_cfg[queue].prio;
+		for (i = 0; i < queue; i++)
+			prios[i] &= ~prios[queue];
+	}
+
+	/*
+	 * Flower installs a replacement before destroying the old cookie.
+	 * Preserve the latest assignment while both rules are present.
+	 */
+	list_for_each_entry(entry, &priv->vlan_prio, vlan_node) {
+		/* The RX queue count may have been reduced with ethtool. */
+		if (entry->tc >= priv->plat->rx_queues_to_use)
+			continue;
+
+		for (queue = 0; queue < priv->plat->rx_queues_to_use; queue++)
+			prios[queue] &= ~entry->vlan_prio;
+		prios[entry->tc] |= entry->vlan_prio;
+	}
+
+	/* Install the new assignment before clearing the previous queue. */
+	for (queue = 0; queue < priv->plat->rx_queues_to_use; queue++)
+		if (prios[queue] & prio)
+			stmmac_rx_queue_prio(priv, priv->hw, prios[queue], queue);
+	for (queue = 0; queue < priv->plat->rx_queues_to_use; queue++)
+		if (!(prios[queue] & prio))
+			stmmac_rx_queue_prio(priv, priv->hw, prios[queue], queue);
+}
+
 static int tc_add_vlan_flow(struct stmmac_priv *priv,
 			    struct flow_cls_offload *cls)
 {
@@ -694,13 +735,16 @@ static int tc_add_vlan_flow(struct stmmac_priv *priv,
 	int tc = tc_classid_to_hwtc(priv->dev, cls->classid);
 	struct flow_match_vlan match;
 
+	if (entry && entry->in_use && entry->type != STMMAC_RFS_T_VLAN)
+		return -EINVAL;
+
 	if (!entry) {
 		entry = tc_find_rfs(priv, cls, true);
 		if (!entry)
 			return -ENOENT;
 	}
 
-	if (priv->rfs_entries_cnt[STMMAC_RFS_T_VLAN] >=
+	if (!entry->in_use && priv->rfs_entries_cnt[STMMAC_RFS_T_VLAN] >=
 	    priv->rfs_entries_max[STMMAC_RFS_T_VLAN])
 		return -ENOENT;
 
@@ -708,7 +752,7 @@ static int tc_add_vlan_flow(struct stmmac_priv *priv,
 	if (!dissector_uses_key(dissector, FLOW_DISSECTOR_KEY_VLAN))
 		return -EINVAL;
 
-	if (tc < 0) {
+	if (tc < 0 || tc >= priv->plat->rx_queues_to_use) {
 		netdev_err(priv->dev, "Invalid traffic class\n");
 		return -EINVAL;
 	}
@@ -724,13 +768,18 @@ static int tc_add_vlan_flow(struct stmmac_priv *priv,
 		}
 
 		prio = BIT(match.key->vlan_priority);
-		stmmac_rx_queue_prio(priv, priv->hw, prio, tc);
+		if (entry->in_use)
+			list_del(&entry->vlan_node);
+		else
+			priv->rfs_entries_cnt[STMMAC_RFS_T_VLAN]++;
 
 		entry->in_use = true;
 		entry->cookie = cls->cookie;
 		entry->tc = tc;
 		entry->type = STMMAC_RFS_T_VLAN;
-		priv->rfs_entries_cnt[STMMAC_RFS_T_VLAN]++;
+		entry->vlan_prio = prio;
+		list_add_tail(&entry->vlan_node, &priv->vlan_prio);
+		tc_update_vlan_prio(priv, entry->vlan_prio);
 	}
 
 	return 0;
@@ -744,14 +793,14 @@ static int tc_del_vlan_flow(struct stmmac_priv *priv,
 	if (!entry || !entry->in_use || entry->type != STMMAC_RFS_T_VLAN)
 		return -ENOENT;
 
-	stmmac_rx_queue_prio(priv, priv->hw, 0, entry->tc);
-
+	list_del(&entry->vlan_node);
 	entry->in_use = false;
 	entry->cookie = 0;
 	entry->tc = 0;
 	entry->type = 0;
 
 	priv->rfs_entries_cnt[STMMAC_RFS_T_VLAN]--;
+	tc_update_vlan_prio(priv, entry->vlan_prio);
 
 	return 0;
 }
@@ -784,6 +833,8 @@ static int tc_add_ethtype_flow(struct stmmac_priv *priv,
 
 	if (match.mask->n_proto) {
 		u16 etype = ntohs(match.key->n_proto);
+		enum stmmac_rfs_type type;
+		u8 packet;
 
 		if (match.mask->n_proto != ETHER_TYPE_FULL_MASK) {
 			netdev_err(priv->dev, "Only full mask is supported for EthType filter");
@@ -791,32 +842,30 @@ static int tc_add_ethtype_flow(struct stmmac_priv *priv,
 		}
 		switch (etype) {
 		case ETH_P_LLDP:
-			if (priv->rfs_entries_cnt[STMMAC_RFS_T_LLDP] >=
-			    priv->rfs_entries_max[STMMAC_RFS_T_LLDP])
-				return -ENOENT;
-
-			entry->type = STMMAC_RFS_T_LLDP;
-			priv->rfs_entries_cnt[STMMAC_RFS_T_LLDP]++;
-
-			stmmac_rx_queue_routing(priv, priv->hw,
-						PACKET_DCBCPQ, tc);
+			type = STMMAC_RFS_T_LLDP;
+			packet = PACKET_DCBCPQ;
 			break;
 		case ETH_P_1588:
-			if (priv->rfs_entries_cnt[STMMAC_RFS_T_1588] >=
-			    priv->rfs_entries_max[STMMAC_RFS_T_1588])
-				return -ENOENT;
-
-			entry->type = STMMAC_RFS_T_1588;
-			priv->rfs_entries_cnt[STMMAC_RFS_T_1588]++;
-
-			stmmac_rx_queue_routing(priv, priv->hw,
-						PACKET_PTPQ, tc);
+			type = STMMAC_RFS_T_1588;
+			packet = PACKET_PTPQ;
 			break;
 		default:
 			netdev_err(priv->dev, "EthType(0x%x) is not supported", etype);
 			return -EINVAL;
 		}
 
+		/* Replaying a cookie must preserve its steering type. */
+		if (entry->in_use) {
+			if (entry->type != type)
+				return -EINVAL;
+		} else {
+			if (priv->rfs_entries_cnt[type] >= priv->rfs_entries_max[type])
+				return -ENOENT;
+			priv->rfs_entries_cnt[type]++;
+		}
+
+		stmmac_rx_queue_routing(priv, priv->hw, packet, tc);
+		entry->type = type;
 		entry->in_use = true;
 		entry->cookie = cls->cookie;
 		entry->tc = tc;
