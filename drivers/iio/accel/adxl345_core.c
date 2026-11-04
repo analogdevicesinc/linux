@@ -391,30 +391,47 @@ static int adxl345_set_default_time(struct adxl345_state *st)
 	odr = FIELD_GET(ADXL345_BW_RATE_MSK, regval);
 	val = clamp(max_boundary - adxl345_odr_tbl[odr][0],
 		    min_boundary, max_boundary);
-	st->inact_time_ms = MILLI * val;
 
 	/* Inactivity time in s */
-	return regmap_write(st->regmap, ADXL345_REG_TIME_INACT, val);
+	ret = regmap_write(st->regmap, ADXL345_REG_TIME_INACT, val);
+	if (ret)
+		return ret;
+
+	st->inact_time_ms = MILLI * val;
+
+	return 0;
 }
 
 static int adxl345_set_inactivity_time(struct adxl345_state *st, u32 val_int)
 {
+	int ret;
+
+	ret = regmap_write(st->regmap, ADXL345_REG_TIME_INACT, val_int);
+	if (ret)
+		return ret;
+
 	st->inact_time_ms = MILLI * val_int;
 
-	return regmap_write(st->regmap, ADXL345_REG_TIME_INACT, val_int);
+	return 0;
 }
 
 static int adxl345_set_freefall_time(struct adxl345_state *st, u32 val_fract)
 {
+	int ret;
+
 	/*
 	 * Datasheet max. value is 255 * 5000 us = 1.275000 seconds.
 	 *
 	 * Recommended values between 100ms and 350ms (0x14 to 0x46)
 	 */
+	ret = regmap_write(st->regmap, ADXL345_REG_TIME_FF,
+			   DIV_ROUND_CLOSEST(val_fract, 5));
+	if (ret)
+		return ret;
+
 	st->inact_time_ms = DIV_ROUND_UP(val_fract, MILLI);
 
-	return regmap_write(st->regmap, ADXL345_REG_TIME_FF,
-			    DIV_ROUND_CLOSEST(val_fract, 5));
+	return 0;
 }
 
 /**
@@ -463,27 +480,25 @@ static int adxl345_set_inact_time(struct adxl345_state *st, u32 val_int,
 }
 
 /**
- * adxl345_is_act_inact_ac() - Verify if AC or DC coupling is currently enabled.
- *
+ * adxl345_get_act_inact_ac() - Check the configured coupling.
  * @st: The device data.
  * @type: The activity or inactivity type.
+ * @matches: Whether the configured coupling matches the provided type.
  *
- * Given a type of activity / inactivity combined with either AC coupling set or
- * default to DC, this function verifies if the combination is currently
- * configured, hence enabled or not.
- *
- * Return: true if configured coupling matches the provided type, else a negative
- *         error value.
+ * Return: 0 on success, or a negative error value.
  */
-static int adxl345_is_act_inact_ac(struct adxl345_state *st,
-				   enum adxl345_activity_type type)
+static int adxl345_get_act_inact_ac(struct adxl345_state *st,
+				    enum adxl345_activity_type type,
+				    bool *matches)
 {
 	unsigned int regval;
 	bool coupling;
 	int ret;
 
-	if (type == ADXL345_INACTIVITY_FF)
-		return true;
+	if (type == ADXL345_INACTIVITY_FF) {
+		*matches = true;
+		return 0;
+	}
 
 	ret = regmap_read(st->regmap, ADXL345_REG_ACT_INACT_CTRL, &regval);
 	if (ret)
@@ -494,10 +509,12 @@ static int adxl345_is_act_inact_ac(struct adxl345_state *st,
 	switch (type) {
 	case ADXL345_ACTIVITY:
 	case ADXL345_INACTIVITY:
-		return coupling == ADXL345_COUPLING_DC;
+		*matches = coupling == ADXL345_COUPLING_DC;
+		return 0;
 	case ADXL345_ACTIVITY_AC:
 	case ADXL345_INACTIVITY_AC:
-		return coupling == ADXL345_COUPLING_AC;
+		*matches = coupling == ADXL345_COUPLING_AC;
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -567,13 +584,16 @@ static int adxl345_set_act_inact_ac(struct adxl345_state *st,
 				  adxl345_act_acdc_msk[type], act_inact_ac);
 }
 
-static int adxl345_is_act_inact_en(struct adxl345_state *st,
-				   enum adxl345_activity_type type)
+static int adxl345_get_act_inact_en(struct adxl345_state *st,
+				    enum adxl345_activity_type type,
+				    bool *enabled)
 {
 	unsigned int axis_ctrl;
 	unsigned int regval;
 	bool int_en, en;
 	int ret;
+
+	*enabled = false;
 
 	ret = regmap_read(st->regmap, ADXL345_REG_ACT_INACT_CTRL, &axis_ctrl);
 	if (ret)
@@ -585,13 +605,13 @@ static int adxl345_is_act_inact_en(struct adxl345_state *st,
 	case ADXL345_ACTIVITY_AC:
 		en = FIELD_GET(ADXL345_ACT_XYZ_EN, axis_ctrl);
 		if (!en)
-			return false;
+			return 0;
 		break;
 	case ADXL345_INACTIVITY:
 	case ADXL345_INACTIVITY_AC:
 		en = FIELD_GET(ADXL345_INACT_XYZ_EN, axis_ctrl);
 		if (!en)
-			return false;
+			return 0;
 		break;
 	case ADXL345_INACTIVITY_FF:
 		en = true;
@@ -607,37 +627,39 @@ static int adxl345_is_act_inact_en(struct adxl345_state *st,
 
 	int_en = adxl345_act_int_reg[type] & regval;
 	if (!int_en)
-		return false;
+		return 0;
 
 	/* Check if configured coupling matches provided type */
-	return adxl345_is_act_inact_ac(st, type);
+	return adxl345_get_act_inact_ac(st, type, enabled);
 }
 
 static int adxl345_set_act_inact_linkbit(struct adxl345_state *st,
 					 enum adxl345_activity_type type,
 					 bool en)
 {
-	int act_ac_en, inact_ac_en;
-	int act_en, inact_en;
+	bool act_ac_en, inact_ac_en;
+	bool act_en, inact_en;
+	int ret;
 
-	act_en = adxl345_is_act_inact_en(st, ADXL345_ACTIVITY);
-	if (act_en < 0)
-		return act_en;
+	ret = adxl345_get_act_inact_en(st, ADXL345_ACTIVITY, &act_en);
+	if (ret)
+		return ret;
 
-	act_ac_en = adxl345_is_act_inact_en(st, ADXL345_ACTIVITY_AC);
-	if (act_ac_en < 0)
-		return act_ac_en;
+	ret = adxl345_get_act_inact_en(st, ADXL345_ACTIVITY_AC, &act_ac_en);
+	if (ret)
+		return ret;
 
 	if (type == ADXL345_INACTIVITY_FF) {
 		inact_en = false;
 	} else {
-		inact_en = adxl345_is_act_inact_en(st, ADXL345_INACTIVITY);
-		if (inact_en < 0)
-			return inact_en;
+		ret = adxl345_get_act_inact_en(st, ADXL345_INACTIVITY, &inact_en);
+		if (ret)
+			return ret;
 
-		inact_ac_en = adxl345_is_act_inact_en(st, ADXL345_INACTIVITY_AC);
-		if (inact_ac_en < 0)
-			return inact_ac_en;
+		ret = adxl345_get_act_inact_en(st, ADXL345_INACTIVITY_AC,
+					       &inact_ac_en);
+		if (ret)
+			return ret;
 
 		inact_en = inact_en || inact_ac_en;
 	}
@@ -656,6 +678,7 @@ static int adxl345_set_act_inact_en(struct adxl345_state *st,
 	unsigned int axis_ctrl;
 	unsigned int threshold;
 	unsigned int period;
+	bool matches;
 	int ret;
 
 	if (cmd_en) {
@@ -692,7 +715,10 @@ static int adxl345_set_act_inact_en(struct adxl345_state *st,
 		 * current call attempts to turn off a DC-coupled activity, this
 		 * inconsistency should be detected here.
 		 */
-		if (adxl345_is_act_inact_ac(st, type) <= 0)
+		ret = adxl345_get_act_inact_ac(st, type, &matches);
+		if (ret)
+			return ret;
+		if (!matches)
 			return 0;
 	}
 
@@ -1174,14 +1200,25 @@ static int adxl345_read_mag_config(struct adxl345_state *st,
 				   enum adxl345_activity_type type_act,
 				   enum adxl345_activity_type type_inact)
 {
+	bool enabled;
+	int ret;
+
 	switch (dir) {
 	case IIO_EV_DIR_RISING:
-		return !!adxl345_is_act_inact_en(st, type_act);
+		ret = adxl345_get_act_inact_en(st, type_act, &enabled);
+		if (ret)
+			return ret;
+		break;
 	case IIO_EV_DIR_FALLING:
-		return !!adxl345_is_act_inact_en(st, type_inact);
+		ret = adxl345_get_act_inact_en(st, type_inact, &enabled);
+		if (ret)
+			return ret;
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	return enabled;
 }
 
 static int adxl345_write_mag_config(struct adxl345_state *st,

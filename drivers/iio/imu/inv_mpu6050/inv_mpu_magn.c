@@ -144,10 +144,10 @@ static int inv_magn_init(struct inv_mpu6050_state *st)
  * inv_mpu_magn_probe() - probe and setup magnetometer chip
  * @st: driver internal state
  *
- * Returns 0 on success, a negative error code otherwise
- *
  * It is probing the chip and setting up all needed i2c transfers.
  * Noop if there is no magnetometer in the chip.
+ *
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_magn_probe(struct inv_mpu6050_state *st)
 {
@@ -225,11 +225,11 @@ int inv_mpu_magn_probe(struct inv_mpu6050_state *st)
  * @st: driver internal state
  * @fifo_rate: mpu set fifo rate
  *
- * Returns 0 on success, a negative error code otherwise
- *
  * Limit sampling frequency to the maximum value supported by the
  * magnetometer chip. Resulting in duplicated data for higher frequencies.
  * Noop if there is no magnetometer in the chip.
+ *
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_magn_set_rate(const struct inv_mpu6050_state *st, int fifo_rate)
 {
@@ -255,9 +255,9 @@ int inv_mpu_magn_set_rate(const struct inv_mpu6050_state *st, int fifo_rate)
  * inv_mpu_magn_set_orient() - fill magnetometer mounting matrix
  * @st: driver internal state
  *
- * Returns 0 on success, a negative error code otherwise
- *
  * Fill magnetometer mounting matrix using the provided chip matrix.
+ *
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_magn_set_orient(struct inv_mpu6050_state *st)
 {
@@ -317,7 +317,7 @@ int inv_mpu_magn_set_orient(struct inv_mpu6050_state *st)
  * @axis: IIO modifier axis value
  * @val: store corresponding axis value
  *
- * Returns 0 on success, a negative error code otherwise
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_magn_read(struct inv_mpu6050_state *st, int axis, int *val)
 {

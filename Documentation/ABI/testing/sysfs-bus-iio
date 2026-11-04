@@ -2479,6 +2479,8 @@ Description:
 		* "sinc5+sinc1+pf2" - Sinc5 + Sinc1 + device specific Post Filter 2.
 		* "sinc5+sinc1+pf3" - Sinc5 + Sinc1 + device specific Post Filter 3.
 		* "sinc5+sinc1+pf4" - Sinc5 + Sinc1 + device specific Post Filter 4.
+		* "sinc6" - The digital sinc6 filter. balance between noise
+		  rejection and settling time.
 		* "wideband" - filter with wideband low ripple passband
 		  and sharp transition band.
 

@@ -40,9 +40,9 @@ MODULE_DEVICE_TABLE(i2c, bmi270_i2c_id);
 
 static const struct acpi_device_id bmi270_acpi_match[] = {
 	/* GPD Win Mini, Aya Neo AIR Pro, OXP Mini Pro, etc. */
-	{ "BMI0160",  (kernel_ulong_t)&bmi260_chip_info },
+	{ .id = "BMI0160", .driver_data = (kernel_ulong_t)&bmi260_chip_info },
 	/* GPD Win Max 2 2023(sincice BIOS v0.40), etc. */
-	{ "BMI0260",  (kernel_ulong_t)&bmi260_chip_info },
+	{ .id = "BMI0260", .driver_data = (kernel_ulong_t)&bmi260_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmi270_acpi_match);

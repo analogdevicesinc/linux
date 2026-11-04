@@ -163,8 +163,8 @@ static int mxc6255_probe(struct i2c_client *client)
 }
 
 static const struct acpi_device_id mxc6255_acpi_match[] = {
-	{"MXC6225",	0},
-	{"MXC6255",	0},
+	{ .id = "MXC6225" },
+	{ .id = "MXC6255" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, mxc6255_acpi_match);

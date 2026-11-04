@@ -41,8 +41,8 @@ static const struct spi_device_id bmi160_spi_id[] = {
 MODULE_DEVICE_TABLE(spi, bmi160_spi_id);
 
 static const struct acpi_device_id bmi160_acpi_match[] = {
-	{"BMI0120", 0},
-	{"BMI0160", 0},
+	{ .id = "BMI0120" },
+	{ .id = "BMI0160" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmi160_acpi_match);

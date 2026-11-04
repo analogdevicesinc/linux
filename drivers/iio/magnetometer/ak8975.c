@@ -1112,13 +1112,13 @@ static DEFINE_RUNTIME_DEV_PM_OPS(ak8975_dev_pm_ops, ak8975_runtime_suspend,
 				 ak8975_runtime_resume, NULL);
 
 static const struct acpi_device_id ak_acpi_match[] = {
-	{"AK8963", (kernel_ulong_t)&ak_def_array[AK8963] },
-	{"AK8975", (kernel_ulong_t)&ak_def_array[AK8975] },
-	{"AK009911", (kernel_ulong_t)&ak_def_array[AK09911] },
-	{"AK09911", (kernel_ulong_t)&ak_def_array[AK09911] },
-	{"AK09912", (kernel_ulong_t)&ak_def_array[AK09912] },
-	{"AKM9911", (kernel_ulong_t)&ak_def_array[AK09911] },
-	{"INVN6500", (kernel_ulong_t)&ak_def_array[AK8963] },
+	{ .id = "AK8963", .driver_data = (kernel_ulong_t)&ak_def_array[AK8963] },
+	{ .id = "AK8975", .driver_data = (kernel_ulong_t)&ak_def_array[AK8975] },
+	{ .id = "AK009911", .driver_data = (kernel_ulong_t)&ak_def_array[AK09911] },
+	{ .id = "AK09911", .driver_data = (kernel_ulong_t)&ak_def_array[AK09911] },
+	{ .id = "AK09912", .driver_data = (kernel_ulong_t)&ak_def_array[AK09912] },
+	{ .id = "AKM9911", .driver_data = (kernel_ulong_t)&ak_def_array[AK09911] },
+	{ .id = "INVN6500", .driver_data = (kernel_ulong_t)&ak_def_array[AK8963] },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, ak_acpi_match);

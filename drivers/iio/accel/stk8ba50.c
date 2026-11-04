@@ -528,7 +528,7 @@ static const struct i2c_device_id stk8ba50_i2c_id[] = {
 MODULE_DEVICE_TABLE(i2c, stk8ba50_i2c_id);
 
 static const struct acpi_device_id stk8ba50_acpi_id[] = {
-	{"STK8BA50", 0},
+	{ .id = "STK8BA50" },
 	{ }
 };
 

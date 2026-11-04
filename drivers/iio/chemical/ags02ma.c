@@ -61,6 +61,12 @@ static int ags02ma_register_read(struct i2c_client *client, u8 reg, u16 delay,
 		return ret;
 	}
 
+	if (ret != sizeof(read_buffer)) {
+		dev_err(&client->dev,
+			"Short read from register 0x%x\n", reg);
+		return -EIO;
+	}
+
 	crc = crc8(ags02ma_crc8_table, (u8 *)&read_buffer.data,
 		   sizeof(read_buffer.data), AGS02MA_CRC8_INIT);
 	if (crc != read_buffer.crc) {

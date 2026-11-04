@@ -82,7 +82,7 @@ error_disable_i2c:
  * inv_mpu_aux_init() - init i2c auxiliary bus
  * @st: driver internal state
  *
- * Returns 0 on success, a negative error code otherwise.
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_aux_init(const struct inv_mpu6050_state *st)
 {
@@ -130,7 +130,7 @@ int inv_mpu_aux_init(const struct inv_mpu6050_state *st)
  * @val: buffer for storing read bytes
  * @size: number of bytes to read
  *
- *  Returns 0 on success, a negative error code otherwise.
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_aux_read(const struct inv_mpu6050_state *st, uint8_t addr,
 		     uint8_t reg, uint8_t *val, size_t size)
@@ -170,7 +170,7 @@ int inv_mpu_aux_read(const struct inv_mpu6050_state *st, uint8_t addr,
  * @reg: chip register address
  * @val: 1 byte value to write
  *
- *  Returns 0 on success, a negative error code otherwise.
+ * Return: 0 on success, a negative error code otherwise.
  */
 int inv_mpu_aux_write(const struct inv_mpu6050_state *st, uint8_t addr,
 		      uint8_t reg, uint8_t val)

@@ -270,7 +270,7 @@ static const struct of_device_id adc108s102_of_match[] = {
 MODULE_DEVICE_TABLE(of, adc108s102_of_match);
 
 static const struct acpi_device_id adc108s102_acpi_ids[] = {
-	{ "INT3495", 0 },
+	{ .id = "INT3495" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, adc108s102_acpi_ids);

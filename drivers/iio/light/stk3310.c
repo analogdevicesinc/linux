@@ -18,7 +18,6 @@
 #include <linux/pm.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
-#include <linux/sprintf.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
 
@@ -180,7 +179,7 @@ static ssize_t stk3310_read_near_level(struct iio_dev *indio_dev,
 {
 	struct stk3310_data *data = iio_priv(indio_dev);
 
-	return sprintf(buf, "%u\n", data->ps_near_level);
+	return sysfs_emit(buf, "%u\n", data->ps_near_level);
 }
 
 static const struct iio_chan_spec_ext_info stk3310_ext_info[] = {

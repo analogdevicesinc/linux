@@ -1622,9 +1622,9 @@ static int ltr501_resume(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(ltr501_pm_ops, ltr501_suspend, ltr501_resume);
 
 static const struct acpi_device_id ltr_acpi_match[] = {
-	{ "LTER0301", ltr301 },
+	{ .id = "LTER0301", .driver_data = ltr301 },
 	/* https://www.catalog.update.microsoft.com/Search.aspx?q=lter0303 */
-	{ "LTER0303", ltr303 },
+	{ .id = "LTER0303", .driver_data = ltr303 },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, ltr_acpi_match);

@@ -39,7 +39,7 @@ static void bmg160_i2c_remove(struct i2c_client *client)
 }
 
 static const struct acpi_device_id bmg160_acpi_match[] = {
-	{"BMG0160", 0},
+	{ .id = "BMG0160" },
 	{ }
 };
 

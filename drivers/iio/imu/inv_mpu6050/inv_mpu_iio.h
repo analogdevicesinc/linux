@@ -39,7 +39,7 @@
  *  @int_status:	Interrupt status register.
  *  @pwr_mgmt_1:	Controls chip's power state and clock source.
  *  @pwr_mgmt_2:	Controls power state of individual sensors.
- *  @int_pin_cfg;	Controls interrupt pin configuration.
+ *  @int_pin_cfg:	Controls interrupt pin configuration.
  *  @accl_offset:	Controls the accelerometer calibration offset.
  *  @gyro_offset:	Controls the gyroscope calibration offset.
  *  @i2c_if:		Controls the i2c interface
@@ -114,6 +114,7 @@ enum inv_devices {
  *  @temp_fifo_enable:	enable temp data output
  *  @magn_fifo_enable:	enable magn data output
  *  @divider:		chip sample rate divider (sample rate divider - 1)
+ *  @user_ctrl:		cached value of the USER_CTRL register
  *  @roc_threshold:	save ROC threshold (WoM) set value
  */
 struct inv_mpu6050_chip_config {
@@ -150,6 +151,7 @@ struct inv_mpu6050_chip_config {
  *  @config:    configuration of the chip.
  *  @fifo_size:	size of the FIFO in bytes.
  *  @temp:	offset and scale to apply to raw temperature.
+ *  @startup_time: accel and gyro startup times in milliseconds.
  */
 struct inv_mpu6050_hw {
 	u8 whoami;

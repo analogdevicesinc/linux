@@ -426,9 +426,7 @@ static int atlas_buffer_predisable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	ret = pm_runtime_put_autosuspend(&data->client->dev);
-	if (ret)
-		return ret;
+	pm_runtime_put_autosuspend(&data->client->dev);
 
 	return 0;
 }

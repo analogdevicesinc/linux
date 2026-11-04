@@ -647,7 +647,7 @@ static int tsl2583_read_raw(struct iio_dev *indio_dev,
 			    int *val, int *val2, long mask)
 {
 	struct tsl2583_chip *chip = iio_priv(indio_dev);
-	int ret, pm_ret;
+	int ret;
 
 	ret = pm_runtime_resume_and_get(&chip->client->dev);
 	if (ret < 0)
@@ -716,19 +716,7 @@ static int tsl2583_read_raw(struct iio_dev *indio_dev,
 read_done:
 	mutex_unlock(&chip->als_mutex);
 
-	if (ret < 0) {
-		pm_runtime_put_autosuspend(&chip->client->dev);
-		return ret;
-	}
-
-	/*
-	 * Preserve the ret variable if the call to
-	 * pm_runtime_put_autosuspend() is successful so the reading
-	 * (if applicable) is returned to user space.
-	 */
-	pm_ret = pm_runtime_put_autosuspend(&chip->client->dev);
-	if (pm_ret < 0)
-		return pm_ret;
+	pm_runtime_put_autosuspend(&chip->client->dev);
 
 	return ret;
 }
@@ -780,16 +768,9 @@ static int tsl2583_write_raw(struct iio_dev *indio_dev,
 
 	mutex_unlock(&chip->als_mutex);
 
-	if (ret < 0) {
-		pm_runtime_put_autosuspend(&chip->client->dev);
-		return ret;
-	}
+	pm_runtime_put_autosuspend(&chip->client->dev);
 
-	ret = pm_runtime_put_autosuspend(&chip->client->dev);
-	if (ret < 0)
-		return ret;
-
-	return 0;
+	return ret;
 }
 
 static const struct iio_info tsl2583_info = {

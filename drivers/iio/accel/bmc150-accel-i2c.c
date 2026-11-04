@@ -14,8 +14,8 @@
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id bmc150_acpi_dual_accel_ids[] = {
-	{"BOSC0200"},
-	{"DUAL250E"},
+	{ .id = "BOSC0200" },
+	{ .id = "DUAL250E" },
 	{ }
 };
 
@@ -216,13 +216,13 @@ static void bmc150_accel_remove(struct i2c_client *client)
 }
 
 static const struct acpi_device_id bmc150_accel_acpi_match[] = {
-	{"BMA0255"},
-	{"BMA0280"},
-	{"BMA222"},
-	{"BMA222E"},
-	{"BMA250E"},
-	{"BMC150A"},
-	{"BMI055A"},
+	{ .id = "BMA0255" },
+	{ .id = "BMA0280" },
+	{ .id = "BMA222" },
+	{ .id = "BMA222E" },
+	{ .id = "BMA250E" },
+	{ .id = "BMC150A" },
+	{ .id = "BMI055A" },
 	/*
 	 * The "BOSC0200" identifier used here is not unique to devices using
 	 * bmc150. The same "BOSC0200" identifier is found in the ACPI tables
@@ -236,9 +236,9 @@ static const struct acpi_device_id bmc150_accel_acpi_match[] = {
 	 * seen. This allows the bmi323 driver to take over for ASUS ROG ALLY,
 	 * and other devices using the bmi323 chip.
 	 */
-	{"BOSC0200"},
-	{"BSBA0150"},
-	{"DUAL250E"},
+	{ .id = "BOSC0200" },
+	{ .id = "BSBA0150" },
+	{ .id = "DUAL250E" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, bmc150_accel_acpi_match);

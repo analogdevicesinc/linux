@@ -37,7 +37,7 @@ static int hts221_i2c_probe(struct i2c_client *client)
 }
 
 static const struct acpi_device_id hts221_acpi_match[] = {
-	{"SMO9100", 0},
+	{ .id = "SMO9100" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, hts221_acpi_match);

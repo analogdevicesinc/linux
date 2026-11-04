@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 
+#include <linux/array_size.h>
 #include <linux/bitfield.h>
 #include <linux/cleanup.h>
 #include <linux/clk.h>
@@ -15,10 +16,16 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/kthread.h>
+#include <linux/math.h>
+#include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
+#include <linux/pwrseq/consumer.h>
+#include <linux/reset.h>
+#include <linux/units.h>
+#include <linux/time64.h>
 
 #define RZT2H_ADCSR_REG			0x00
 #define RZT2H_ADCSR_ADIE_MASK		BIT(12)
@@ -29,6 +36,11 @@
 
 #define RZT2H_ADANSA0_REG		0x04
 #define RZT2H_ADANSA0_CH_MASK(x)	BIT(x)
+
+#define RZT2H_ADCER_REG			0x0e
+#define RZT2H_ADCER_ADPRC_MASK		GENMASK(2, 1)
+#define RZT2H_ADCER_ADPRC_12BIT		0b00
+#define RZT2H_ADCER_ADPRC_8BIT		0b10
 
 #define RZT2H_ADDR_REG(x)		(0x20 + 0x2 * (x))
 
@@ -55,14 +67,44 @@
 #define RZT2H_ADC_DMA_PERIODS		64
 #define RZT2H_ADC_DMA_BUFFER_SAMPLES	(RZT2H_ADC_DMA_PERIODS * \
 					 RZT2H_ADC_DMA_PERIOD_SAMPLES)
-#define RZT2H_ADC_DMA_BUFFER_SIZE	(RZT2H_ADC_DMA_BUFFER_SAMPLES * \
-					 RZT2H_ADC_MAX_CHANNELS * \
-					 RZT2H_ADC_CHANNEL_BYTES)
+#define RZT2H_ADC_STOP_CYCLES		2
+
+/*
+ * RZ/V2H has no sample state register, each A/D channel conversion takes a
+ * fixed 20 ADCLK cycles (sampling + comparison), giving a conversion rate of
+ * ADCLK / 20.
+ */
+#define RZV2H_ADC_CONV_CYCLES		20
+
+#define RZT2H_ADC_VREF_mV		1800
+
+#define RZT2H_ADC_FEATURE_CALIBRATION	BIT(0)
+#define RZT2H_ADC_FEATURE_SAMPLE_STATE	BIT(1)
+/* Selectable 12-bit / 8-bit conversion (ADCER.ADPRC) */
+#define RZT2H_ADC_FEATURE_RES_SELECT	BIT(2)
+/* Power-down mode controlled by the SYS power sequencer (SY_MSTP_ADA) */
+#define RZT2H_ADC_FEATURE_POWER_DOWN	BIT(3)
+
+struct rzt2h_adc;
+
+enum rzt2h_adc_resolution {
+	RZT2H_ADC_RES_12BIT,
+	RZT2H_ADC_RES_8BIT,
+};
+
+struct rzt2h_adc_chip_info {
+	const struct iio_chan_spec *chan_template;
+	int (*sst_to_freq)(struct rzt2h_adc *adc, u8 sst);
+	const struct iio_info *info;
+	unsigned int num_channels;
+	u8 features;
+};
 
 struct rzt2h_adc_dma {
 	struct dma_chan *chan;
 	u16 *buf;
 	dma_addr_t addr;
+	size_t buf_size;
 
 	unsigned int period_index;
 	unsigned int period_bytes;
@@ -81,6 +123,9 @@ struct rzt2h_adc_dma {
 struct rzt2h_adc {
 	void __iomem *base;
 	struct device *dev;
+	const struct rzt2h_adc_chip_info *chip_info;
+	struct reset_control *rstc;
+	struct pwrseq_desc *pwrseq;
 
 	phys_addr_t phys_base;
 	struct rzt2h_adc_dma dma;
@@ -89,6 +134,7 @@ struct rzt2h_adc {
 	struct mutex lock;
 
 	const struct iio_chan_spec *channels;
+	enum rzt2h_adc_resolution resolution;
 	unsigned int num_channels;
 	u16 buf[RZT2H_ADC_MAX_CHANNELS];
 
@@ -97,6 +143,11 @@ struct rzt2h_adc {
 	u8 sst[RZT2H_ADC_MAX_CHANNELS];
 
 	int irq;
+};
+
+static const int rzv2h_adc_scale_avail[] = {
+	RZT2H_ADC_VREF_mV, 12,
+	RZT2H_ADC_VREF_mV, 8,
 };
 
 static void rzt2h_adc_start(struct rzt2h_adc *adc, unsigned int conversion_type)
@@ -124,11 +175,40 @@ static void rzt2h_adc_stop(struct rzt2h_adc *adc)
 	reg &= ~(RZT2H_ADCSR_ADIE_MASK | RZT2H_ADCSR_ADST_MASK);
 
 	writew(reg, adc->base + RZT2H_ADCSR_REG);
+
+	/*
+	 * When a conversion is forcibly stopped, the analog part of the A/D
+	 * converter takes up to 2 ADCLK cycles to stop operating. Read back
+	 * ADCSR to make sure the write has reached the hardware before
+	 * starting the delay.
+	 */
+	readw(adc->base + RZT2H_ADCSR_REG);
+	ndelay(DIV_ROUND_UP(RZT2H_ADC_STOP_CYCLES * NSEC_PER_SEC, adc->adclk_rate));
 }
 
 static void rzt2h_adc_set_sst(struct rzt2h_adc *adc, unsigned int ch, u8 sst)
 {
+	if (!(adc->chip_info->features & RZT2H_ADC_FEATURE_SAMPLE_STATE))
+		return;
+
 	writeb(sst, adc->base + RZT2H_ADSSTRn(ch));
+}
+
+static void rzt2h_adc_set_resolution(struct rzt2h_adc *adc)
+{
+	u16 reg;
+
+	if (!(adc->chip_info->features & RZT2H_ADC_FEATURE_RES_SELECT))
+		return;
+
+	reg = readw(adc->base + RZT2H_ADCER_REG);
+
+	if (adc->resolution == RZT2H_ADC_RES_8BIT)
+		FIELD_MODIFY(RZT2H_ADCER_ADPRC_MASK, &reg, RZT2H_ADCER_ADPRC_8BIT);
+	else
+		FIELD_MODIFY(RZT2H_ADCER_ADPRC_MASK, &reg, RZT2H_ADCER_ADPRC_12BIT);
+
+	writew(reg, adc->base + RZT2H_ADCER_REG);
 }
 
 static int rzt2h_adc_read_single(struct rzt2h_adc *adc, unsigned int ch, int *val)
@@ -147,12 +227,14 @@ static int rzt2h_adc_read_single(struct rzt2h_adc *adc, unsigned int ch, int *va
 	writew(RZT2H_ADANSA0_CH_MASK(ch), adc->base + RZT2H_ADANSA0_REG);
 
 	rzt2h_adc_set_sst(adc, ch, adc->sst[ch]);
+	rzt2h_adc_set_resolution(adc);
 
 	rzt2h_adc_start(adc, RZT2H_ADCSR_ADCS_SINGLE);
 
 	/*
 	 * Conversion can take up to ~4.3us at the maximum configurable ADSSTRn
-	 * (ADSSTRn + 13 cycles at 62.5 MHz), which rounds up to 1 jiffy. A bare
+	 * (ADSSTRn + 13 cycles at 62.5 MHz) on RZ/T2H, and up to 4.0us (20
+	 * cycles at 5 MHz) on RZ/V2H, which rounds up to 1 jiffy. A bare
 	 * 1-jiffy timeout can expire almost immediately if it's armed right
 	 * before a tick, so add one more jiffy to guarantee the conversion time
 	 * actually elapses.
@@ -316,7 +398,8 @@ static void rzt2h_adc_dma_callback(void *data)
 static void rzt2h_adc_dma_calc_layout(struct iio_dev *indio_dev)
 {
 	struct rzt2h_adc *adc = iio_priv(indio_dev);
-	unsigned int hi = 0, lo = RZT2H_ADC_MAX_CHANNELS - 1;
+	const struct rzt2h_adc_chip_info *chip_info = adc->chip_info;
+	unsigned int hi = 0, lo = chip_info->num_channels - 1;
 	const struct iio_chan_spec *chan;
 	unsigned int sample_chans;
 	unsigned int first_chan;
@@ -337,7 +420,7 @@ static void rzt2h_adc_dma_calc_layout(struct iio_dev *indio_dev)
 	 * width, so pick the smallest power-of-two-aligned block of channels
 	 * that covers all enabled channels.
 	 */
-	for (sample_chans = 1; sample_chans < RZT2H_ADC_MAX_CHANNELS; sample_chans <<= 1) {
+	for (sample_chans = 1; sample_chans < chip_info->num_channels; sample_chans <<= 1) {
 		first_chan = round_down(lo, sample_chans);
 
 		if (first_chan + sample_chans > hi)
@@ -439,6 +522,8 @@ static int rzt2h_adc_buffer_postenable(struct iio_dev *indio_dev)
 
 	writew(val, adc->base + RZT2H_ADANSA0_REG);
 
+	rzt2h_adc_set_resolution(adc);
+
 	adc->dma.period_index = 0;
 	atomic_set(&adc->dma.pending_periods, 0);
 
@@ -476,6 +561,11 @@ static int rzt2h_adc_sst_to_freq(struct rzt2h_adc *adc, u8 sst)
 	return adc->adclk_rate / (RZT2H_ADC_CONV_CYCLES_BASE + sst);
 }
 
+static int rzv2h_adc_sst_to_freq(struct rzt2h_adc *adc, u8 sst)
+{
+	return DIV_ROUND_CLOSEST(adc->adclk_rate, RZV2H_ADC_CONV_CYCLES);
+}
+
 static u8 rzt2h_adc_freq_to_sst(struct rzt2h_adc *adc, int freq)
 {
 	unsigned int cycles;
@@ -486,6 +576,45 @@ static u8 rzt2h_adc_freq_to_sst(struct rzt2h_adc *adc, int freq)
 			   RZT2H_ADC_CONV_CYCLES_BASE + RZT2H_ADC_SST_MAX);
 
 	return cycles - RZT2H_ADC_CONV_CYCLES_BASE;
+}
+
+static int rzt2h_adc_get_current_scan_type(const struct iio_dev *indio_dev,
+					   const struct iio_chan_spec *chan)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+
+	return adc->resolution;
+}
+
+static int rzt2h_adc_write_scale(struct iio_dev *indio_dev,
+				 struct iio_chan_spec const *chan,
+				 int val, int val2)
+{
+	struct rzt2h_adc *adc = iio_priv(indio_dev);
+	u64 req_scale, scale;
+	unsigned int i;
+
+	if (!(adc->chip_info->features & RZT2H_ADC_FEATURE_RES_SELECT))
+		return -EINVAL;
+
+	req_scale = mul_u32_u32(val, NANO) + val2;
+	for (i = 0; i < chan->num_ext_scan_type; i++) {
+		scale = mul_u32_u32(RZT2H_ADC_VREF_mV, NANO) >>
+			chan->ext_scan_type[i].realbits;
+		if (scale == req_scale)
+			break;
+	}
+	if (i == chan->num_ext_scan_type)
+		return -EINVAL;
+
+	/* The scan type changes with the resolution. */
+	IIO_DEV_ACQUIRE_DIRECT_MODE(indio_dev, claim);
+	if (IIO_DEV_ACQUIRE_FAILED(claim))
+		return -EBUSY;
+
+	adc->resolution = i;
+
+	return 0;
 }
 
 static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
@@ -502,12 +631,20 @@ static int rzt2h_adc_read_raw(struct iio_dev *indio_dev,
 
 		return rzt2h_adc_read_single(adc, chan->channel, val);
 	}
-	case IIO_CHAN_INFO_SCALE:
-		*val = 1800;
-		*val2 = 12;
+	case IIO_CHAN_INFO_SCALE: {
+		const struct iio_scan_type *scan_type;
+
+		scan_type = iio_get_current_scan_type(indio_dev, chan);
+		if (IS_ERR(scan_type))
+			return PTR_ERR(scan_type);
+
+		*val = RZT2H_ADC_VREF_mV;
+		*val2 = scan_type->realbits;
+
 		return IIO_VAL_FRACTIONAL_LOG2;
+	}
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = rzt2h_adc_sst_to_freq(adc, adc->sst[chan->channel]);
+		*val = adc->chip_info->sst_to_freq(adc, adc->sst[chan->channel]);
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -522,6 +659,8 @@ static int rzt2h_adc_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ: {
+		if (!(adc->chip_info->features & RZT2H_ADC_FEATURE_SAMPLE_STATE))
+			return -EINVAL;
 		if (val <= 0)
 			return -EINVAL;
 
@@ -533,8 +672,22 @@ static int rzt2h_adc_write_raw(struct iio_dev *indio_dev,
 
 		return 0;
 	}
+	case IIO_CHAN_INFO_SCALE:
+		return rzt2h_adc_write_scale(indio_dev, chan, val, val2);
 	default:
 		return -EINVAL;
+	}
+}
+
+static int rzt2h_adc_write_raw_get_fmt(struct iio_dev *indio_dev,
+				       struct iio_chan_spec const *chan,
+				       long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		return IIO_VAL_INT_PLUS_NANO;
+	default:
+		return IIO_VAL_INT_PLUS_MICRO;
 	}
 }
 
@@ -551,6 +704,11 @@ static int rzt2h_adc_read_avail(struct iio_dev *indio_dev,
 		*type = IIO_VAL_INT;
 		*length = ARRAY_SIZE(adc->samp_freq_avail);
 		return IIO_AVAIL_RANGE;
+	case IIO_CHAN_INFO_SCALE:
+		*vals = rzv2h_adc_scale_avail;
+		*type = IIO_VAL_FRACTIONAL_LOG2;
+		*length = ARRAY_SIZE(rzv2h_adc_scale_avail);
+		return IIO_AVAIL_LIST;
 	default:
 		return -EINVAL;
 	}
@@ -565,6 +723,14 @@ static const struct iio_info rzt2h_adc_iio_info = {
 	.read_raw = rzt2h_adc_read_raw,
 	.write_raw = rzt2h_adc_write_raw,
 	.read_avail = rzt2h_adc_read_avail,
+};
+
+static const struct iio_info rzv2h_adc_iio_info = {
+	.read_raw = rzt2h_adc_read_raw,
+	.write_raw = rzt2h_adc_write_raw,
+	.write_raw_get_fmt = rzt2h_adc_write_raw_get_fmt,
+	.read_avail = rzt2h_adc_read_avail,
+	.get_current_scan_type = rzt2h_adc_get_current_scan_type,
 };
 
 static irqreturn_t rzt2h_adc_isr(int irq, void *private)
@@ -591,14 +757,41 @@ static const struct iio_chan_spec rzt2h_adc_chan_template = {
 	},
 };
 
+static const struct iio_scan_type rzv2h_adc_scan_types[] = {
+	[RZT2H_ADC_RES_12BIT] = {
+		.sign = 'u',
+		.realbits = 12,
+		.storagebits = 16,
+		.endianness = IIO_CPU,
+	},
+	[RZT2H_ADC_RES_8BIT] = {
+		.sign = 'u',
+		.realbits = 8,
+		.storagebits = 16,
+		.endianness = IIO_CPU,
+	},
+};
+
+static const struct iio_chan_spec rzv2h_adc_chan_template = {
+	.indexed = 1,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SCALE),
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
+	.type = IIO_VOLTAGE,
+	.has_ext_scan_type = 1,
+	.ext_scan_type = rzv2h_adc_scan_types,
+	.num_ext_scan_type = ARRAY_SIZE(rzv2h_adc_scan_types),
+};
+
 static int rzt2h_adc_parse_properties(struct rzt2h_adc *adc)
 {
 	struct iio_chan_spec *chan_array;
 	int ret;
 
 	ret = devm_iio_adc_device_alloc_chaninfo_se(adc->dev,
-						    &rzt2h_adc_chan_template,
-						    RZT2H_ADC_MAX_CHANNELS - 1,
+						    adc->chip_info->chan_template,
+						    adc->chip_info->num_channels - 1,
 						    &chan_array);
 	if (ret < 0)
 		return dev_err_probe(adc->dev, ret, "Failed to read channel info");
@@ -619,7 +812,7 @@ static void rzt2h_adc_free_dma_buf(void *p)
 {
 	struct rzt2h_adc *adc = p;
 
-	dma_free_noncoherent(adc->dev, RZT2H_ADC_DMA_BUFFER_SIZE,
+	dma_free_noncoherent(adc->dev, adc->dma.buf_size,
 			     adc->dma.buf, adc->dma.addr, DMA_FROM_DEVICE);
 }
 
@@ -639,13 +832,16 @@ static int rzt2h_adc_setup_dma(struct iio_dev *indio_dev)
 		return 0;
 	}
 
-	adc->dma.buf = dma_alloc_noncoherent(dev, RZT2H_ADC_DMA_BUFFER_SIZE,
+	adc->dma.buf_size = adc->chip_info->num_channels *
+			    RZT2H_ADC_DMA_BUFFER_SAMPLES *
+			    RZT2H_ADC_CHANNEL_BYTES;
+	adc->dma.buf = dma_alloc_noncoherent(dev, adc->dma.buf_size,
 					     &adc->dma.addr, DMA_FROM_DEVICE,
 					     GFP_KERNEL);
 	if (!adc->dma.buf)
 		return -ENOMEM;
 
-	dma_sync_single_for_device(dev, adc->dma.addr, RZT2H_ADC_DMA_BUFFER_SIZE,
+	dma_sync_single_for_device(dev, adc->dma.addr, adc->dma.buf_size,
 				   DMA_FROM_DEVICE);
 
 	ret = devm_add_action_or_reset(dev, rzt2h_adc_free_dma_buf, adc);
@@ -656,8 +852,24 @@ static int rzt2h_adc_setup_dma(struct iio_dev *indio_dev)
 					       &rzt2h_adc_buffer_setup_ops, NULL);
 }
 
+static int rzt2h_adc_get_pwrseq(struct rzt2h_adc *adc)
+{
+	struct device *dev = adc->dev;
+
+	if (!(adc->chip_info->features & RZT2H_ADC_FEATURE_POWER_DOWN))
+		return 0;
+
+	adc->pwrseq = devm_pwrseq_get(dev, "adc-power");
+	if (IS_ERR(adc->pwrseq))
+		return dev_err_probe(dev, PTR_ERR(adc->pwrseq),
+				     "failed to get power sequencer\n");
+
+	return 0;
+}
+
 static int rzt2h_adc_probe(struct platform_device *pdev)
 {
+	const struct rzt2h_adc_chip_info *chip_info;
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct rzt2h_adc *adc;
@@ -665,11 +877,16 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	struct clk *adclk;
 	int ret;
 
+	chip_info = device_get_match_data(dev);
+	if (!chip_info)
+		return -ENODATA;
+
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*adc));
 	if (!indio_dev)
 		return -ENOMEM;
 
 	adc = iio_priv(indio_dev);
+	adc->chip_info = chip_info;
 	adc->dev = dev;
 	init_completion(&adc->completion);
 	init_waitqueue_head(&adc->dma.wq);
@@ -679,6 +896,14 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, adc);
+
+	adc->rstc = devm_reset_control_get_optional_shared(dev, NULL);
+	if (IS_ERR(adc->rstc))
+		return PTR_ERR(adc->rstc);
+
+	ret = rzt2h_adc_get_pwrseq(adc);
+	if (ret)
+		return ret;
 
 	ret = rzt2h_adc_parse_properties(adc);
 	if (ret)
@@ -698,9 +923,11 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	if (!adc->adclk_rate)
 		return dev_err_probe(dev, -EINVAL, "invalid adclk rate\n");
 
-	adc->samp_freq_avail[0] = rzt2h_adc_sst_to_freq(adc, RZT2H_ADC_SST_MAX);
-	adc->samp_freq_avail[1] = 1;
-	adc->samp_freq_avail[2] = rzt2h_adc_sst_to_freq(adc, RZT2H_ADC_SST_MIN);
+	if (chip_info->features & RZT2H_ADC_FEATURE_SAMPLE_STATE) {
+		adc->samp_freq_avail[0] = chip_info->sst_to_freq(adc, RZT2H_ADC_SST_MAX);
+		adc->samp_freq_avail[1] = 1;
+		adc->samp_freq_avail[2] = chip_info->sst_to_freq(adc, RZT2H_ADC_SST_MIN);
+	}
 
 	pm_runtime_set_autosuspend_delay(dev, 300);
 	pm_runtime_use_autosuspend(dev);
@@ -717,7 +944,7 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 		return ret;
 
 	indio_dev->name = "rzt2h-adc";
-	indio_dev->info = &rzt2h_adc_iio_info;
+	indio_dev->info = chip_info->info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = adc->channels;
 	indio_dev->num_channels = adc->num_channels;
@@ -729,15 +956,65 @@ static int rzt2h_adc_probe(struct platform_device *pdev)
 	return devm_iio_device_register(dev, indio_dev);
 }
 
+static const struct rzt2h_adc_chip_info rzv2h_adc_info = {
+	.chan_template = &rzv2h_adc_chan_template,
+	.sst_to_freq = rzv2h_adc_sst_to_freq,
+	.info = &rzv2h_adc_iio_info,
+	.num_channels = 8,
+	.features = RZT2H_ADC_FEATURE_RES_SELECT | RZT2H_ADC_FEATURE_POWER_DOWN,
+};
+
+static const struct rzt2h_adc_chip_info rzt2h_adc_info = {
+	.chan_template = &rzt2h_adc_chan_template,
+	.sst_to_freq = rzt2h_adc_sst_to_freq,
+	.info = &rzt2h_adc_iio_info,
+	.num_channels = 16,
+	.features = RZT2H_ADC_FEATURE_CALIBRATION | RZT2H_ADC_FEATURE_SAMPLE_STATE,
+};
+
 static const struct of_device_id rzt2h_adc_match[] = {
-	{ .compatible = "renesas,r9a09g077-adc" },
+	{ .compatible = "renesas,r9a09g057-adc", .data = &rzv2h_adc_info },
+	{ .compatible = "renesas,r9a09g077-adc", .data = &rzt2h_adc_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, rzt2h_adc_match);
 
+static int rzt2h_adc_pm_runtime_suspend(struct device *dev)
+{
+	struct rzt2h_adc *adc = dev_get_drvdata(dev);
+	int ret;
+
+	ret = pwrseq_disable(adc->pwrseq);
+	if (ret)
+		return ret;
+
+	ret = reset_control_assert(adc->rstc);
+	if (ret) {
+		pwrseq_enable(adc->pwrseq);
+		return ret;
+	}
+
+	return 0;
+}
+
 static int rzt2h_adc_pm_runtime_resume(struct device *dev)
 {
 	struct rzt2h_adc *adc = dev_get_drvdata(dev);
+	const struct rzt2h_adc_chip_info *chip_info = adc->chip_info;
+	int ret;
+
+	ret = reset_control_deassert(adc->rstc);
+	if (ret)
+		return ret;
+
+	ret = pwrseq_enable(adc->pwrseq);
+	if (ret) {
+		reset_control_assert(adc->rstc);
+		return ret;
+	}
+
+	if (!(chip_info->features & RZT2H_ADC_FEATURE_CALIBRATION))
+		return 0;
 
 	/*
 	 * Datasheet Page 2810, Section 41.5.6:
@@ -746,11 +1023,17 @@ static int rzt2h_adc_pm_runtime_resume(struct device *dev)
 	 */
 	fsleep(1);
 
-	return rzt2h_adc_calibrate(adc);
+	ret = rzt2h_adc_calibrate(adc);
+	if (ret) {
+		pwrseq_disable(adc->pwrseq);
+		reset_control_assert(adc->rstc);
+	}
+
+	return ret;
 }
 
 static const struct dev_pm_ops rzt2h_adc_pm_ops = {
-	RUNTIME_PM_OPS(NULL, rzt2h_adc_pm_runtime_resume, NULL)
+	RUNTIME_PM_OPS(rzt2h_adc_pm_runtime_suspend, rzt2h_adc_pm_runtime_resume, NULL)
 };
 
 static struct platform_driver rzt2h_adc_driver = {

@@ -476,38 +476,23 @@ static int apds9960_set_als_gain(struct apds9960_data *data, int val)
 	return ret;
 }
 
-#ifdef CONFIG_PM
-static int apds9960_set_power_state(struct apds9960_data *data, bool on)
+static void apds9960_power_on(struct apds9960_data *data)
 {
 	struct device *dev = &data->client->dev;
-	int ret = 0;
+	int suspended;
 
 	mutex_lock(&data->lock);
 
-	if (on) {
-		int suspended;
+	suspended = pm_runtime_suspended(dev);
+	pm_runtime_get_sync(dev);
 
-		suspended = pm_runtime_suspended(dev);
-		ret = pm_runtime_get_sync(dev);
-
-		/* Allow one integration cycle before allowing a reading */
-		if (suspended)
-			usleep_range(data->als_adc_int_us,
-				     APDS9960_MAX_INT_TIME_IN_US);
-	} else {
-		ret = pm_runtime_put_autosuspend(dev);
-	}
+	/* Allow one integration cycle before allowing a reading */
+	if (suspended)
+		usleep_range(data->als_adc_int_us,
+			     APDS9960_MAX_INT_TIME_IN_US);
 
 	mutex_unlock(&data->lock);
-
-	return ret;
 }
-#else
-static int apds9960_set_power_state(struct apds9960_data *data, bool on)
-{
-	return 0;
-}
-#endif
 
 static int apds9960_read_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
@@ -522,7 +507,7 @@ static int apds9960_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		apds9960_set_power_state(data, true);
+		apds9960_power_on(data);
 		switch (chan->type) {
 		case IIO_PROXIMITY:
 			ret = regmap_read(data->regmap, chan->address, val);
@@ -540,7 +525,7 @@ static int apds9960_read_raw(struct iio_dev *indio_dev,
 		default:
 			ret = -EINVAL;
 		}
-		apds9960_set_power_state(data, false);
+		pm_runtime_put_autosuspend(&data->client->dev);
 		break;
 	case IIO_CHAN_INFO_INT_TIME:
 		/* RGB + ALS sensors only have integration time */
@@ -767,7 +752,6 @@ static int apds9960_write_event_config(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		data->pxs_int = state;
-		apds9960_set_power_state(data, state);
 		break;
 	case IIO_INTENSITY:
 		if (data->als_int == state)
@@ -777,11 +761,15 @@ static int apds9960_write_event_config(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 		data->als_int = state;
-		apds9960_set_power_state(data, state);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	if (state)
+		apds9960_power_on(data);
+	else
+		pm_runtime_put_autosuspend(&data->client->dev);
 
 	return 0;
 }
@@ -1078,7 +1066,7 @@ static int apds9960_probe(struct i2c_client *client)
 	pm_runtime_set_autosuspend_delay(&client->dev, 5000);
 	pm_runtime_use_autosuspend(&client->dev);
 
-	apds9960_set_power_state(data, true);
+	apds9960_power_on(data);
 
 	ret = apds9960_regfield_init(data);
 	if (ret)
@@ -1105,12 +1093,12 @@ static int apds9960_probe(struct i2c_client *client)
 	if (ret)
 		goto error_power_down;
 
-	apds9960_set_power_state(data, false);
+	pm_runtime_put_autosuspend(&client->dev);
 
 	return 0;
 
 error_power_down:
-	apds9960_set_power_state(data, false);
+	pm_runtime_put_autosuspend(&client->dev);
 
 	return ret;
 }
@@ -1158,7 +1146,7 @@ static const struct i2c_device_id apds9960_id[] = {
 MODULE_DEVICE_TABLE(i2c, apds9960_id);
 
 static const struct acpi_device_id apds9960_acpi_match[] = {
-	{ "MSHW0184" },
+	{ .id = "MSHW0184" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, apds9960_acpi_match);

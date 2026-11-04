@@ -259,7 +259,7 @@ static const struct of_device_id al3320a_of_match[] = {
 MODULE_DEVICE_TABLE(of, al3320a_of_match);
 
 static const struct acpi_device_id al3320a_acpi_match[] = {
-	{"CALS0001"},
+	{ .id = "CALS0001" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, al3320a_acpi_match);

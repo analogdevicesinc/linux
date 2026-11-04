@@ -29,7 +29,7 @@ static const struct spi_device_id fxos8700_spi_id[] = {
 MODULE_DEVICE_TABLE(spi, fxos8700_spi_id);
 
 static const struct acpi_device_id fxos8700_acpi_match[] = {
-	{"FXOS8700", 0},
+	{ .id = "FXOS8700" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, fxos8700_acpi_match);
