@@ -177,6 +177,8 @@ static int imx_sgtl5000_probe(struct platform_device *pdev)
 		goto put_device;
 	}
 
+	put_device(&codec_dev->dev);
+
 	of_node_put(ssi_np);
 	of_node_put(codec_np);
 
