@@ -39,6 +39,15 @@
 #define MAX_NR_TILES 4
 #define PS_HOLD_OFFSET 0x820
 
+/* Register values of one pin group, kept across a hibernation. */
+struct msm_pin_state {
+	u32 ctl;
+	u32 io;
+	u32 intr_cfg;
+	u32 intr_target;
+	bool saved;
+};
+
 /**
  * struct msm_pinctrl - state for a pinctrl-msm device
  * @dev:            device handle.
@@ -58,6 +67,7 @@
  * @soc:            Reference to soc_data of platform specific data.
  * @regs:           Base addresses for the TLMM tiles.
  * @phys_base:      Physical base address
+ * @saved:          Pin registers kept while a hibernation image is taken.
  */
 struct msm_pinctrl {
 	struct device *dev;
@@ -80,6 +90,8 @@ struct msm_pinctrl {
 	const struct msm_pinctrl_soc_data *soc;
 	void __iomem *regs[MAX_NR_TILES];
 	u32 phys_base[MAX_NR_TILES];
+
+	struct msm_pin_state *saved;
 };
 
 #define MSM_ACCESSOR(name) \
@@ -1583,9 +1595,136 @@ static __maybe_unused int msm_pinctrl_resume(struct device *dev)
 	return pinctrl_force_default(pctrl->pctrl);
 }
 
-SIMPLE_DEV_PM_OPS(msm_pinctrl_dev_pm_ops, msm_pinctrl_suspend,
-		  msm_pinctrl_resume);
+static bool msm_pin_has_own_intr_target(struct msm_pinctrl *pctrl,
+					const struct msm_pingroup *g)
+{
+	return !pctrl->intr_target_use_scm && g->intr_target_reg &&
+	       g->intr_target_reg != g->intr_cfg_reg;
+}
 
+/*
+ * A GPIO is only put back when the kernel uses it, as a GPIO, through a mux
+ * function or as an interrupt. Other valid pins may be in use by firmware.
+ * The pads after the GPIOs (SDC) have no GPIO and are configured without a
+ * mux function, so they never have an owner and are always put back.
+ */
+static bool msm_pin_in_use(struct msm_pinctrl *pctrl, unsigned int i)
+{
+	const struct pin_desc *desc;
+
+	if (i >= pctrl->chip.ngpio)
+		return true;
+
+	if (!gpiochip_line_is_valid(&pctrl->chip, i))
+		return false;
+
+	desc = pin_desc_get(pctrl->pctrl, i);
+
+	return desc && (desc->mux_owner || desc->gpio_owner ||
+			gpiochip_line_is_irq(&pctrl->chip, i));
+}
+
+/* Remember how the pins are set up when a hibernation image is taken. */
+static int msm_pinctrl_freeze_noirq(struct device *dev)
+{
+	struct msm_pinctrl *pctrl = dev_get_drvdata(dev);
+	const struct msm_pingroup *g;
+	struct msm_pin_state *s;
+	unsigned int i;
+
+	guard(raw_spinlock_irqsave)(&pctrl->lock);
+
+	for (i = 0; i < pctrl->soc->ngroups; i++) {
+		g = &pctrl->soc->groups[i];
+		s = &pctrl->saved[i];
+		s->saved = msm_pin_in_use(pctrl, i);
+		if (!s->saved)
+			continue;
+
+		s->ctl = msm_readl_ctl(pctrl, g);
+		if (i >= pctrl->chip.ngpio)
+			continue;
+
+		s->io = msm_readl_io(pctrl, g);
+		if (!g->intr_cfg_reg)
+			continue;
+
+		s->intr_cfg = msm_readl_intr_cfg(pctrl, g);
+		if (msm_pin_has_own_intr_target(pctrl, g))
+			s->intr_target = msm_readl_intr_target(pctrl, g);
+	}
+
+	return 0;
+}
+
+/*
+ * The image is restored after a power cycle, when the pins are back at what
+ * the firmware and the kernel that loaded the image made of them. Nothing else
+ * writes the configuration again, so put back what was there.
+ *
+ * A both-edge interrupt that is emulated by flipping the polarity gets the
+ * polarity it had, which is not primed for a line that changed meanwhile. No
+ * SoC with such pins (one-bit detection) uses these callbacks.
+ */
+static int msm_pinctrl_restore_noirq(struct device *dev)
+{
+	struct msm_pinctrl *pctrl = dev_get_drvdata(dev);
+	const struct msm_pingroup *g;
+	struct msm_pin_state *s;
+	unsigned int i;
+	u32 val;
+
+	guard(raw_spinlock_irqsave)(&pctrl->lock);
+
+	for (i = 0; i < pctrl->soc->ngroups; i++) {
+		g = &pctrl->soc->groups[i];
+		s = &pctrl->saved[i];
+		if (!s->saved)
+			continue;
+
+		if (i >= pctrl->chip.ngpio) {
+			msm_writel_ctl(s->ctl, pctrl, g);
+			continue;
+		}
+
+		/* Set the level before the pin starts driving it. */
+		val = msm_readl_io(pctrl, g);
+		val &= ~BIT(g->out_bit);
+		val |= s->io & BIT(g->out_bit);
+		msm_writel_io(val, pctrl, g);
+
+		msm_writel_ctl(s->ctl, pctrl, g);
+		if (!g->intr_cfg_reg)
+			continue;
+
+		if (msm_pin_has_own_intr_target(pctrl, g))
+			msm_writel_intr_target(s->intr_target, pctrl, g);
+
+		/*
+		 * Changing the configuration can latch an interrupt, so write it
+		 * with the interrupt disabled and clear the status before the
+		 * interrupt is enabled again. One that is latched with the
+		 * configuration unchanged is a real one.
+		 */
+		val = msm_readl_intr_cfg(pctrl, g);
+		msm_writel_intr_cfg(s->intr_cfg & ~BIT(g->intr_enable_bit),
+				    pctrl, g);
+		if (val != s->intr_cfg)
+			msm_ack_intr_status(pctrl, g);
+		if (s->intr_cfg & BIT(g->intr_enable_bit))
+			msm_writel_intr_cfg(s->intr_cfg, pctrl, g);
+	}
+
+	return 0;
+}
+
+const struct dev_pm_ops msm_pinctrl_dev_pm_ops = {
+	SYSTEM_SLEEP_PM_OPS(msm_pinctrl_suspend, msm_pinctrl_resume)
+	.freeze_noirq = PTR_IF(IS_ENABLED(CONFIG_HIBERNATE_CALLBACKS),
+			       msm_pinctrl_freeze_noirq),
+	.restore_noirq = PTR_IF(IS_ENABLED(CONFIG_HIBERNATE_CALLBACKS),
+				msm_pinctrl_restore_noirq),
+};
 EXPORT_SYMBOL(msm_pinctrl_dev_pm_ops);
 
 int msm_pinctrl_probe(struct platform_device *pdev,
@@ -1662,6 +1801,13 @@ int msm_pinctrl_probe(struct platform_device *pdev,
 	ret = msm_gpio_init(pctrl);
 	if (ret)
 		return ret;
+
+	if (IS_ENABLED(CONFIG_HIBERNATE_CALLBACKS)) {
+		pctrl->saved = devm_kcalloc(&pdev->dev, pctrl->soc->ngroups,
+					    sizeof(*pctrl->saved), GFP_KERNEL);
+		if (!pctrl->saved)
+			return -ENOMEM;
+	}
 
 	platform_set_drvdata(pdev, pctrl);
 
