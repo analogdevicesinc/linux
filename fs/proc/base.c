@@ -2065,7 +2065,7 @@ out:
 
 static inline bool proc_inode_is_dead(struct inode *inode)
 {
-	return !proc_pid(inode)->tasks[PIDTYPE_PID].first;
+	return !pid_has_task(proc_pid(inode), PIDTYPE_PID);
 }
 
 int pid_delete_dentry(const struct dentry *dentry)

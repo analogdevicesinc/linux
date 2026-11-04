@@ -1442,25 +1442,28 @@ static int __init dynamic_debug_init(void)
 	i = mod_sites = mod_ct = 0;
 
 	for (; iter < __stop___dyndbg; iter++, i++, mod_sites++) {
-
 		if (strcmp(modname, iter->modname)) {
-			mod_ct++;
-			di.num_descs = mod_sites;
 			di.descs = iter_mod_start;
+			di.num_descs = mod_sites;
 			ret = ddebug_add_module(&di, modname);
 			if (ret)
 				goto out_err;
 
-			mod_sites = 0;
-			modname = iter->modname;
+			mod_ct++;
+
 			iter_mod_start = iter;
+			modname = iter->modname;
+			mod_sites = 0;
 		}
 	}
-	di.num_descs = mod_sites;
+
 	di.descs = iter_mod_start;
+	di.num_descs = mod_sites;
 	ret = ddebug_add_module(&di, modname);
 	if (ret)
 		goto out_err;
+
+	mod_ct++;
 
 	ddebug_init_success = 1;
 	vpr_info("%d prdebugs in %d modules, %d KiB in ddebug tables, %d kiB in __dyndbg section\n",

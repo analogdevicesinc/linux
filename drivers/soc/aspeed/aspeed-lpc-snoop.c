@@ -226,7 +226,7 @@ static int aspeed_lpc_snoop_config_irq(struct aspeed_lpc_snoop *lpc_snoop,
 	return 0;
 }
 
-__attribute__((nonnull))
+__nonnull_args()
 static int aspeed_lpc_enable_snoop(struct device *dev,
 				    struct aspeed_lpc_snoop *lpc_snoop,
 				    struct aspeed_lpc_snoop_channel *channel,
@@ -279,7 +279,7 @@ err_free_fifo:
 	return rc;
 }
 
-__attribute__((nonnull))
+__nonnull_args()
 static void aspeed_lpc_disable_snoop(struct aspeed_lpc_snoop *lpc_snoop,
 				     struct aspeed_lpc_snoop_channel *channel)
 {

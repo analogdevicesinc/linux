@@ -235,6 +235,14 @@ static const char *format_timespec(struct __kernel_timespec *ts)
 	if (ts->tv_sec == 0 && ts->tv_nsec == 0)
 		return "N/A";
 
+	/* Avoid Y2038 truncation on 32-bit platforms */
+	if (sizeof(time_sec) < sizeof(ts->tv_sec)) {
+		__s64 max = (__s64)((1ULL << (sizeof(time_sec) * 8 - 1)) - 1);
+
+		if (ts->tv_sec > max || ts->tv_sec < -max - 1)
+			return "N/A";
+	}
+
 	time_sec = ts->tv_sec;
 
 	/* Use thread-safe localtime_r */

@@ -75,13 +75,23 @@
 	{#name, #cmd, \
 	offsetof(struct task_info, name##_delay_total), \
 	offsetof(struct task_info, name##_count), \
+	offsetof(struct task_info, name##_delay_max), \
+	offsetof(struct task_info, name##_delay_max_ts), \
 	modes}
-#define END_FIELD {NULL, 0, 0}
+#define SORT_FIELD_NO_MAX(name, cmd, modes) \
+	{#name, #cmd, \
+	offsetof(struct task_info, name##_delay_total), \
+	offsetof(struct task_info, name##_count), \
+	0, \
+	0, \
+	modes}
+#define END_FIELD {NULL, 0, 0, 0, 0, 0, 0}
 
 /* Display mode types */
 #define MODE_TYPE_ALL	(0xFFFFFFFF)
 #define MODE_DEFAULT	(1 << 0)
 #define MODE_MEMVERBOSE	(1 << 1)
+#define MODE_TYPE	(1 << 2)	/* Display specific type with avg/max */
 
 /* PSI statistics structure */
 struct psi_stats {
@@ -108,20 +118,36 @@ struct task_info {
 	char command[TASK_COMM_LEN];
 	unsigned long long cpu_count;
 	unsigned long long cpu_delay_total;
+	unsigned long long cpu_delay_max;
+	struct __kernel_timespec cpu_delay_max_ts;
 	unsigned long long blkio_count;
 	unsigned long long blkio_delay_total;
+	unsigned long long blkio_delay_max;
+	struct __kernel_timespec blkio_delay_max_ts;
 	unsigned long long swapin_count;
 	unsigned long long swapin_delay_total;
+	unsigned long long swapin_delay_max;
+	struct __kernel_timespec swapin_delay_max_ts;
 	unsigned long long freepages_count;
 	unsigned long long freepages_delay_total;
+	unsigned long long freepages_delay_max;
+	struct __kernel_timespec freepages_delay_max_ts;
 	unsigned long long thrashing_count;
 	unsigned long long thrashing_delay_total;
+	unsigned long long thrashing_delay_max;
+	struct __kernel_timespec thrashing_delay_max_ts;
 	unsigned long long compact_count;
 	unsigned long long compact_delay_total;
+	unsigned long long compact_delay_max;
+	struct __kernel_timespec compact_delay_max_ts;
 	unsigned long long wpcopy_count;
 	unsigned long long wpcopy_delay_total;
+	unsigned long long wpcopy_delay_max;
+	struct __kernel_timespec wpcopy_delay_max_ts;
 	unsigned long long irq_count;
 	unsigned long long irq_delay_total;
+	unsigned long long irq_delay_max;
+	struct __kernel_timespec irq_delay_max_ts;
 	unsigned long long mem_count;
 	unsigned long long mem_delay_total;
 };
@@ -141,6 +167,8 @@ struct field_desc {
 	const char *cmd_char;	/* Interactive command */
 	unsigned long total_offset; /* Offset of total delay in task_info */
 	unsigned long count_offset; /* Offset of count in task_info */
+	unsigned long max_offset;  /* Offset of max delay in task_info */
+	unsigned long max_ts_offset; /* Offset of max delay timestamp in task_info */
 	size_t supported_modes; /* Supported display modes */
 };
 
@@ -153,6 +181,7 @@ struct config {
 	int monitor_pid;		/* Monitor specific PID */
 	char *container_path;	/* Path to container cgroup */
 	const struct field_desc *sort_field;	/* Current sort field */
+	const struct field_desc *type_field;	/* Type field for -t option */
 	size_t display_mode;	/* Current display mode */
 };
 
@@ -164,15 +193,15 @@ static int task_count;
 static int running = 1;
 static struct container_stats container_stats;
 static const struct field_desc sort_fields[] = {
-	SORT_FIELD(cpu,		c,	MODE_DEFAULT),
-	SORT_FIELD(blkio,	i,	MODE_DEFAULT),
-	SORT_FIELD(irq,		q,	MODE_DEFAULT),
-	SORT_FIELD(mem,		m,	MODE_DEFAULT | MODE_MEMVERBOSE),
-	SORT_FIELD(swapin,	s,	MODE_MEMVERBOSE),
-	SORT_FIELD(freepages,	r,	MODE_MEMVERBOSE),
-	SORT_FIELD(thrashing,	t,	MODE_MEMVERBOSE),
-	SORT_FIELD(compact,	p,	MODE_MEMVERBOSE),
-	SORT_FIELD(wpcopy,	w,	MODE_MEMVERBOSE),
+	SORT_FIELD(cpu,		c,	MODE_DEFAULT | MODE_TYPE),
+	SORT_FIELD(blkio,	i,	MODE_DEFAULT | MODE_TYPE),
+	SORT_FIELD(irq,		q,	MODE_DEFAULT | MODE_TYPE),
+	SORT_FIELD_NO_MAX(mem,	m,	MODE_DEFAULT | MODE_MEMVERBOSE),
+	SORT_FIELD(swapin,	s,	MODE_MEMVERBOSE | MODE_TYPE),
+	SORT_FIELD(freepages,	r,	MODE_MEMVERBOSE | MODE_TYPE),
+	SORT_FIELD(thrashing,	t,	MODE_MEMVERBOSE | MODE_TYPE),
+	SORT_FIELD(compact,	p,	MODE_MEMVERBOSE | MODE_TYPE),
+	SORT_FIELD(wpcopy,	w,	MODE_MEMVERBOSE | MODE_TYPE),
 	END_FIELD
 };
 static int sort_selected;
@@ -265,6 +294,8 @@ static void usage(void)
 	"  -p, --pid=PID            Monitor only the specified PID\n"
 	"  -C, --container=PATH     Monitor the container at specified cgroup path\n"
 	"  -s, --sort=FIELD         Sort by delay field (default: cpu)\n"
+	"  -t, --type=FIELD         Display only specified delay type with avg/max/timestamp\n"
+	"                           (rows sorted by MAX for that type, largest first)\n"
 	"  -M, --memverbose         Display memory detailed information\n");
 	exit(0);
 }
@@ -283,6 +314,7 @@ static void parse_args(int argc, char **argv)
 		{"processes", required_argument, 0, 'P'},
 		{"sort", required_argument, 0, 's'},
 		{"container", required_argument, 0, 'C'},
+		{"type", required_argument, 0, 't'},
 		{"memverbose", no_argument, 0, 'M'},
 		{0, 0, 0, 0}
 	};
@@ -292,6 +324,7 @@ static void parse_args(int argc, char **argv)
 	cfg.iterations = 0;
 	cfg.max_processes = 20;
 	cfg.sort_field = &sort_fields[0];	/* Default sorted by CPU delay */
+	cfg.type_field = NULL;				/* No type field by default */
 	cfg.output_one_time = 0;
 	cfg.monitor_pid = 0;	/* 0 means monitor all PIDs */
 	cfg.container_path = NULL;
@@ -300,7 +333,7 @@ static void parse_args(int argc, char **argv)
 	while (1) {
 		int option_index = 0;
 
-		c = getopt_long(argc, argv, "hd:n:p:oP:C:s:M", long_options, &option_index);
+		c = getopt_long(argc, argv, "hd:n:p:oP:C:s:t:M", long_options, &option_index);
 		if (c == -1)
 			break;
 
@@ -363,9 +396,32 @@ static void parse_args(int argc, char **argv)
 
 			cfg.sort_field = field;
 			break;
+		case 't':
+			if (strlen(optarg) == 0) {
+				fprintf(stderr, "Error: empty type field\n");
+				exit(1);
+			}
+
+			field = get_field_by_name(optarg);
+			/* Show available fields if invalid option provided */
+			if (!field || !(field->supported_modes & MODE_TYPE)) {
+				fprintf(stderr, "Error: invalid type field '%s'\n", optarg);
+				display_available_fields(MODE_TYPE);
+				exit(1);
+			}
+
+			cfg.type_field = field;
+			cfg.display_mode = MODE_TYPE;
+			break;
 		case 'M':
 			cfg.display_mode = MODE_MEMVERBOSE;
-			cfg.sort_field = get_field_by_name("mem");
+			/* Find first field supporting MODE_MEMVERBOSE for sorting */
+			for (field = sort_fields; field->name != NULL; field++) {
+				if (field->supported_modes & MODE_MEMVERBOSE) {
+					cfg.sort_field = field;
+					break;
+				}
+			}
 			break;
 		default:
 			fprintf(stderr, "Try 'delaytop --help' for more information.\n");
@@ -690,7 +746,12 @@ static void fetch_and_fill_task_info(int pid, const char *comm)
 			nested_len = NLA_PAYLOAD(na->nla_len);
 			while (nested_len > 0) {
 				if (nested->nla_type == TASKSTATS_TYPE_STATS) {
-					memcpy(&stats, NLA_DATA(nested), sizeof(stats));
+					size_t payload_len = NLA_PAYLOAD(nested->nla_len);
+
+					memset(&stats, 0, sizeof(stats));
+					if (payload_len > sizeof(stats))
+						payload_len = sizeof(stats);
+					memcpy(&stats, NLA_DATA(nested), payload_len);
 					if (task_count < MAX_TASKS) {
 						tasks[task_count].pid = pid;
 						tasks[task_count].tgid = pid;
@@ -699,20 +760,36 @@ static void fetch_and_fill_task_info(int pid, const char *comm)
 						tasks[task_count].command[TASK_COMM_LEN - 1] = '\0';
 						SET_TASK_STAT(task_count, cpu_count);
 						SET_TASK_STAT(task_count, cpu_delay_total);
+						SET_TASK_STAT(task_count, cpu_delay_max);
+						SET_TASK_STAT(task_count, cpu_delay_max_ts);
 						SET_TASK_STAT(task_count, blkio_count);
 						SET_TASK_STAT(task_count, blkio_delay_total);
+						SET_TASK_STAT(task_count, blkio_delay_max);
+						SET_TASK_STAT(task_count, blkio_delay_max_ts);
 						SET_TASK_STAT(task_count, swapin_count);
 						SET_TASK_STAT(task_count, swapin_delay_total);
+						SET_TASK_STAT(task_count, swapin_delay_max);
+						SET_TASK_STAT(task_count, swapin_delay_max_ts);
 						SET_TASK_STAT(task_count, freepages_count);
 						SET_TASK_STAT(task_count, freepages_delay_total);
+						SET_TASK_STAT(task_count, freepages_delay_max);
+						SET_TASK_STAT(task_count, freepages_delay_max_ts);
 						SET_TASK_STAT(task_count, thrashing_count);
 						SET_TASK_STAT(task_count, thrashing_delay_total);
+						SET_TASK_STAT(task_count, thrashing_delay_max);
+						SET_TASK_STAT(task_count, thrashing_delay_max_ts);
 						SET_TASK_STAT(task_count, compact_count);
 						SET_TASK_STAT(task_count, compact_delay_total);
+						SET_TASK_STAT(task_count, compact_delay_max);
+						SET_TASK_STAT(task_count, compact_delay_max_ts);
 						SET_TASK_STAT(task_count, wpcopy_count);
 						SET_TASK_STAT(task_count, wpcopy_delay_total);
+						SET_TASK_STAT(task_count, wpcopy_delay_max);
+						SET_TASK_STAT(task_count, wpcopy_delay_max_ts);
 						SET_TASK_STAT(task_count, irq_count);
 						SET_TASK_STAT(task_count, irq_delay_total);
+						SET_TASK_STAT(task_count, irq_delay_max);
+						SET_TASK_STAT(task_count, irq_delay_max_ts);
 						set_mem_count(&tasks[task_count]);
 						set_mem_delay_total(&tasks[task_count]);
 						task_count++;
@@ -762,12 +839,59 @@ static void get_task_delays(void)
 	closedir(dir);
 }
 
+static void field_delay_max_and_ts(const struct task_info *task,
+				     const struct field_desc *field,
+				     unsigned long long *max_ns,
+				     struct __kernel_timespec *max_ts);
+static void get_field_delay_values(const struct task_info *task,
+				   const struct field_desc *field,
+				   double *avg_ms, double *max_ms,
+				   struct __kernel_timespec *max_ts);
+
 /* Calculate average delay in milliseconds */
 static double average_ms(unsigned long long total, unsigned long long count)
 {
 	if (count == 0)
 		return 0;
 	return (double)total / 1000000.0 / count;
+}
+
+/*
+ * Format __kernel_timespec to human readable string (YYYY-MM-DDTHH:MM:SS)
+ * Returns formatted string or "N/A" if timestamp is zero
+ */
+static const char *format_kernel_timespec(struct __kernel_timespec *ts)
+{
+	static char buffer[32];
+	time_t time_sec;
+	struct tm tm_info;
+
+	/* Check if timestamp is zero (not set) */
+	if (ts->tv_sec == 0 && ts->tv_nsec == 0)
+		return "N/A";
+
+	/* Avoid Y2038 truncation: check if timestamp fits in time_t on 32-bit platforms */
+	if (sizeof(time_t) < sizeof(ts->tv_sec)) {
+		__s64 max = (__s64)((1ULL << (sizeof(time_t) * 8 - 1)) - 1);
+
+		if (ts->tv_sec > max || ts->tv_sec < -max - 1)
+			return "N/A";
+	}
+
+	time_sec = (time_t)ts->tv_sec;
+
+	if (localtime_r(&time_sec, &tm_info) == NULL)
+		return "N/A";
+
+	snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02d",
+		tm_info.tm_year + 1900,
+		tm_info.tm_mon + 1,
+		tm_info.tm_mday,
+		tm_info.tm_hour,
+		tm_info.tm_min,
+		tm_info.tm_sec);
+
+	return buffer;
 }
 
 /* Comparison function for sorting tasks */
@@ -777,14 +901,24 @@ static int compare_tasks(const void *a, const void *b)
 	const struct task_info *t2 = (const struct task_info *)b;
 	unsigned long long total1;
 	unsigned long long total2;
-	unsigned long count1;
-	unsigned long count2;
+	unsigned long long count1;
+	unsigned long long count2;
 	double avg1, avg2;
+	unsigned long long max1, max2;
+
+	/* -t/--type: default sort by MAX column for the selected type (descending) */
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field) {
+		field_delay_max_and_ts(t1, cfg.type_field, &max1, NULL);
+		field_delay_max_and_ts(t2, cfg.type_field, &max2, NULL);
+		if (max1 != max2)
+			return max2 > max1 ? 1 : -1;
+		return 0;
+	}
 
 	total1 = *(unsigned long long *)((char *)t1 + cfg.sort_field->total_offset);
 	total2 = *(unsigned long long *)((char *)t2 + cfg.sort_field->total_offset);
-	count1 = *(unsigned long *)((char *)t1 + cfg.sort_field->count_offset);
-	count2 = *(unsigned long *)((char *)t2 + cfg.sort_field->count_offset);
+	count1 = *(unsigned long long *)((char *)t1 + cfg.sort_field->count_offset);
+	count2 = *(unsigned long long *)((char *)t2 + cfg.sort_field->count_offset);
 
 	avg1 = average_ms(total1, count1);
 	avg2 = average_ms(total2, count2);
@@ -792,6 +926,50 @@ static int compare_tasks(const void *a, const void *b)
 		return avg2 > avg1 ? 1 : -1;
 
 	return 0;
+}
+
+/* Max delay (ns) and timestamp for field (shared by display and sort) */
+static void field_delay_max_and_ts(const struct task_info *task, const struct field_desc *field,
+				     unsigned long long *max_ns, struct __kernel_timespec *max_ts)
+{
+	if (!field || !field->max_offset) {
+		*max_ns = 0;
+		if (max_ts)
+			memset(max_ts, 0, sizeof(*max_ts));
+		return;
+	}
+
+	*max_ns = *(unsigned long long *)((char *)task + field->max_offset);
+
+	if (max_ts) {
+		if (field->max_ts_offset)
+			*max_ts = *(struct __kernel_timespec *)((char *)task +
+							       field->max_ts_offset);
+		else
+			memset(max_ts, 0, sizeof(*max_ts));
+	}
+}
+
+/* Get delay values for a specific field */
+static void get_field_delay_values(const struct task_info *task, const struct field_desc *field,
+				   double *avg_ms, double *max_ms,
+				   struct __kernel_timespec *max_ts)
+{
+	unsigned long long total, count, max;
+
+	if (!field || !field->max_offset) {
+		*avg_ms = 0;
+		*max_ms = 0;
+		memset(max_ts, 0, sizeof(*max_ts));
+		return;
+	}
+
+	total = *(unsigned long long *)((char *)task + field->total_offset);
+	count = *(unsigned long long *)((char *)task + field->count_offset);
+	*avg_ms = average_ms(total, count);
+
+	field_delay_max_and_ts(task, field, &max, max_ts);
+	*max_ms = (double)max / 1000000.0;  /* Convert nanoseconds to milliseconds */
 }
 
 /* Sort tasks by selected field */
@@ -847,7 +1025,12 @@ static void get_container_stats(void)
 	while (nl_len > 0) {
 		if (na->nla_type == CGROUPSTATS_TYPE_CGROUP_STATS) {
 			/* Get the cgroupstats structure */
-			memcpy(&stats, NLA_DATA(na), sizeof(stats));
+			size_t payload_len = NLA_PAYLOAD(na->nla_len);
+
+			memset(&stats, 0, sizeof(stats));
+			if (payload_len > sizeof(stats))
+				payload_len = sizeof(stats);
+			memcpy(&stats, NLA_DATA(na), payload_len);
 
 			/* Fill container stats */
 			container_stats.nr_sleeping = stats.nr_sleeping;
@@ -936,7 +1119,10 @@ static void display_results(int psi_ret)
 	}
 
 	/* Interacive command */
-	suc &= BOOL_FPRINT(out, "[o]sort [M]memverbose [q]quit\n");
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field)
+		suc &= BOOL_FPRINT(out, "[q]quit\n");
+	else
+		suc &= BOOL_FPRINT(out, "[o]sort [M]memverbose [q]quit\n");
 	if (sort_selected) {
 		if (cfg.display_mode == MODE_MEMVERBOSE)
 			suc &= BOOL_FPRINT(out,
@@ -947,32 +1133,55 @@ static void display_results(int psi_ret)
 	}
 
 	/* Task delay output */
-	suc &= BOOL_FPRINT(out, "Top %d processes (sorted by %s delay):\n",
-			cfg.max_processes, get_name_by_field(cfg.sort_field));
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field)
+		suc &= BOOL_FPRINT(out,
+			"Top %d processes (sorted by %s MAX delay, largest first):\n",
+			cfg.max_processes, get_name_by_field(cfg.type_field));
+	else
+		suc &= BOOL_FPRINT(out, "Top %d processes (sorted by %s delay):\n",
+				cfg.max_processes, get_name_by_field(cfg.sort_field));
 
-	suc &= BOOL_FPRINT(out, "%8s  %8s  %-17s", "PID", "TGID", "COMMAND");
-	if (cfg.display_mode == MODE_MEMVERBOSE) {
-		suc &= BOOL_FPRINT(out, "%8s %8s %8s %8s %8s %8s\n",
-			"MEM(ms)", "SWAP(ms)", "RCL(ms)",
-			"THR(ms)", "CMP(ms)", "WP(ms)");
-		suc &= BOOL_FPRINT(out, "-----------------------");
-		suc &= BOOL_FPRINT(out, "-----------------------");
-		suc &= BOOL_FPRINT(out, "-----------------------");
-		suc &= BOOL_FPRINT(out, "---------------------\n");
+	if (cfg.display_mode == MODE_TYPE && cfg.type_field) {
+		/* Display mode for -t option: show only specified type with avg/max/timestamp */
+		suc &= BOOL_FPRINT(out, "%8s  %8s  %-17s %12s %12s %20s\n",
+			"PID", "TGID", "COMMAND",
+			"AVG(ms)", "MAX(ms)", "MAX_TIMESTAMP");
+		suc &= BOOL_FPRINT(out, "--------------------------------------------------------");
+		suc &= BOOL_FPRINT(out, "----------------------------------------\n");
 	} else {
-		suc &= BOOL_FPRINT(out, "%8s %8s %8s %8s\n",
-			"CPU(ms)", "IO(ms)", "IRQ(ms)", "MEM(ms)");
-		suc &= BOOL_FPRINT(out, "-----------------------");
-		suc &= BOOL_FPRINT(out, "-----------------------");
-		suc &= BOOL_FPRINT(out, "--------------------------\n");
+		suc &= BOOL_FPRINT(out, "%8s  %8s  %-17s", "PID", "TGID", "COMMAND");
+		if (cfg.display_mode == MODE_MEMVERBOSE) {
+			suc &= BOOL_FPRINT(out, "%8s %8s %8s %8s %8s %8s\n",
+				"MEM(ms)", "SWAP(ms)", "RCL(ms)",
+				"THR(ms)", "CMP(ms)", "WP(ms)");
+			suc &= BOOL_FPRINT(out, "-----------------------");
+			suc &= BOOL_FPRINT(out, "-----------------------");
+			suc &= BOOL_FPRINT(out, "-----------------------");
+			suc &= BOOL_FPRINT(out, "---------------------\n");
+		} else {
+			suc &= BOOL_FPRINT(out, "%8s %8s %8s %8s\n",
+				"CPU(ms)", "IO(ms)", "IRQ(ms)", "MEM(ms)");
+			suc &= BOOL_FPRINT(out, "-----------------------");
+			suc &= BOOL_FPRINT(out, "-----------------------");
+			suc &= BOOL_FPRINT(out, "--------------------------\n");
+		}
 	}
 
 	count = task_count < cfg.max_processes ? task_count : cfg.max_processes;
 
 	for (i = 0; i < count; i++) {
-		suc &= BOOL_FPRINT(out, "%8d  %8d  %-15s",
+		suc &= BOOL_FPRINT(out, "%8d  %8d  %-17s",
 			tasks[i].pid, tasks[i].tgid, tasks[i].command);
-		if (cfg.display_mode == MODE_MEMVERBOSE) {
+		if (cfg.display_mode == MODE_TYPE && cfg.type_field) {
+			double avg_ms, max_ms;
+			struct __kernel_timespec max_ts;
+
+			get_field_delay_values(&tasks[i], cfg.type_field, &avg_ms,
+					&max_ms, &max_ts);
+
+			suc &= BOOL_FPRINT(out, " %12.2f %12.2f %20s\n",
+				avg_ms, max_ms, format_kernel_timespec(&max_ts));
+		} else if (cfg.display_mode == MODE_MEMVERBOSE) {
 			suc &= BOOL_FPRINT(out, DELAY_FMT_MEMVERBOSE,
 				TASK_AVG(tasks[i], mem),
 				TASK_AVG(tasks[i], swapin),
@@ -1040,9 +1249,13 @@ static void handle_keypress(char ch, int *running)
 	} else {
 		switch (ch) {
 		case 'o':
+			if (cfg.display_mode == MODE_TYPE)
+				break;
 			sort_selected = 1;
 			break;
 		case 'M':
+			if (cfg.display_mode == MODE_TYPE)
+				break;
 			toggle_display_mode();
 			for (field = sort_fields; field->name != NULL; field++) {
 				if (field->supported_modes & cfg.display_mode) {

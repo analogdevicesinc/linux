@@ -159,10 +159,11 @@ static void exe_add_tsk(struct taskstats *stats, struct task_struct *tsk)
 	struct file *exe_file = get_task_exe_file(tsk);
 
 	if (exe_file) {
+		struct inode *inode = file_inode(exe_file);
+
 		/* Following cp_new_stat64() in stat.c . */
-		stats->ac_exe_dev =
-			huge_encode_dev(exe_file->f_inode->i_sb->s_dev);
-		stats->ac_exe_inode = exe_file->f_inode->i_ino;
+		stats->ac_exe_dev = huge_encode_dev(inode->i_sb->s_dev);
+		stats->ac_exe_inode = inode->i_ino;
 		fput(exe_file);
 	} else {
 		stats->ac_exe_dev = 0;
@@ -225,8 +226,7 @@ static void tgid_stats_add_task(struct taskstats *stats,
 	/* calculate task elapsed time in nsec */
 	delta = now_ns - tsk->start_time;
 	/* Convert to micro seconds */
-	do_div(delta, NSEC_PER_USEC);
-	stats->ac_etime += delta;
+	stats->ac_etime += div_u64(delta, NSEC_PER_USEC);
 
 	task_cputime(tsk, &utime, &stime);
 	stats->ac_utime += div_u64(utime, NSEC_PER_USEC);
@@ -386,7 +386,7 @@ static struct taskstats *mk_reply(struct sk_buff *skb, int type, u32 pid)
 	if (!na)
 		goto err;
 
-	if (nla_put(skb, type, sizeof(pid), &pid) < 0) {
+	if (nla_put_u32(skb, type, pid)) {
 		nla_nest_cancel(skb, na);
 		goto err;
 	}
@@ -416,7 +416,7 @@ static int cgroupstats_user_cmd(struct sk_buff *skb, struct genl_info *info)
 	if (!na)
 		return -EINVAL;
 
-	fd = nla_get_u32(info->attrs[CGROUPSTATS_CMD_ATTR_FD]);
+	fd = nla_get_u32(na);
 	CLASS(fd, f)(fd);
 	if (fd_empty(f))
 		return -EBADF;

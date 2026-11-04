@@ -768,6 +768,10 @@ sub self_test {
 	    if ((-d $value)) {
 		$value =~ s@([^/])$@$1/@;
 	    }
+	    if (substr($value, -1) ne "/") {
+		$value .= '$';
+	    }
+
 	    if (!grep(m@^$value@, @lsfiles)) {
 		print("$x->{file}:$x->{linenr}: warning: no file matches\t$x->{line}\n");
 	    }
@@ -1062,7 +1066,7 @@ sub file_match_pattern {
 	    return 1;
 	}
     } else {
-	if ($file =~ m@^$pattern@) {
+	if ($file =~ m@^$pattern$@) {
 	    my $s1 = ($file =~ tr@/@@);
 	    my $s2 = ($pattern =~ tr@/@@);
 	    if ($s1 == $s2 || $pattern =~ /\(\?:/) {
