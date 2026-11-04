@@ -2258,6 +2258,7 @@ static int etm4_add_coresight_dev(struct etm4_init_arg *init_arg)
 	/* register with config infrastructure & load any current features */
 	ret = etm4_cscfg_register(drvdata->csdev);
 	if (ret) {
+		etm_perf_symlink(drvdata->csdev, false);
 		coresight_unregister(drvdata->csdev);
 		return ret;
 	}
