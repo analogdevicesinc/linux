@@ -954,7 +954,15 @@ void truncate_pagecache_range(struct inode *inode, loff_t lstart, loff_t lend)
 {
 	struct address_space *mapping = inode->i_mapping;
 	loff_t unmap_start = round_up(lstart, PAGE_SIZE);
-	loff_t unmap_end = round_down(1 + lend, PAGE_SIZE) - 1;
+	loff_t unmap_end;
+
+	if (lend == -1 || lend == LLONG_MAX)
+		unmap_end = LLONG_MAX;
+	else if (lend < PAGE_SIZE - 1)
+		unmap_end = 0;
+	else
+		unmap_end = round_down(1 + lend, PAGE_SIZE) - 1;
+
 	/*
 	 * This rounding is currently just for example: unmap_mapping_range
 	 * expands its hole outwards, whereas we want it to contract the hole
