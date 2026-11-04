@@ -819,7 +819,17 @@
 &i2c2 {
 	status = "okay";
 
-	/* inv,icm42607 IMU at 0x68 */
+	/*
+	 * Mount matrix relative to panel physical hardware which is
+	 * rotated 270 degrees.
+	 */
+	icm42607p: imu@68 {
+		compatible = "invensense,icm42607p";
+		reg = <0x68>;
+		mount-matrix = "0", "1", "0",
+			       "1", "0", "0",
+			       "0", "0", "-1";
+	};
 };
 
 &i2c3 {

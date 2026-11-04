@@ -948,8 +948,7 @@ static void __init rk3308_clk_init(struct device_node *np)
 				     &rk3308_cpuclk_data, rk3308_cpuclk_rates,
 				     ARRAY_SIZE(rk3308_cpuclk_rates));
 
-	rockchip_register_softrst(np, 10, reg_base + RK3308_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 10, reg_base + RK3308_SOFTRST_CON(0));
 
 	rockchip_register_restart_notifier(ctx, RK3308_GLB_SRST_FST, NULL);
 

@@ -1358,8 +1358,6 @@ void rockchip_clk_protect_critical(const char *const clocks[], int nclocks);
 void rockchip_register_restart_notifier(struct rockchip_clk_provider *ctx,
 					unsigned int reg, void (*cb)(void));
 
-#define ROCKCHIP_SOFTRST_HIWORD_MASK	BIT(0)
-
 struct clk *rockchip_clk_register_halfdiv(const char *name,
 					  const char *const *parent_names,
 					  u8 num_parents, void __iomem *base,
@@ -1375,21 +1373,21 @@ struct clk *rockchip_clk_register_halfdiv(const char *name,
 void rockchip_register_softrst_lut(struct device_node *np,
 				   const int *lookup_table,
 				   unsigned int num_regs,
-				   void __iomem *base, u8 flags);
+				   void __iomem *base);
 #else
 static inline void rockchip_register_softrst_lut(struct device_node *np,
 				   const int *lookup_table,
 				   unsigned int num_regs,
-				   void __iomem *base, u8 flags)
+				   void __iomem *base)
 {
 }
 #endif
 
 static inline void rockchip_register_softrst(struct device_node *np,
 					     unsigned int num_regs,
-					     void __iomem *base, u8 flags)
+					     void __iomem *base)
 {
-	return rockchip_register_softrst_lut(np, NULL, num_regs, base, flags);
+	return rockchip_register_softrst_lut(np, NULL, num_regs, base);
 }
 
 void rv1126b_rst_init(struct device_node *np, void __iomem *reg_base);
