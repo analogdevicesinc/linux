@@ -653,6 +653,9 @@ static struct rpc_clnt *__rpc_clone_client(struct rpc_create_args *args,
 	}
 	args->servername = xprt->servername;
 	args->nodename = clnt->cl_nodename;
+	args->xprtsec = clnt->cl_xprtsec;
+	if (!args->timeout)
+		args->timeout = clnt->cl_timeout;
 
 	new = rpc_new_client(args, xps, xprt, clnt);
 	if (IS_ERR(new))
@@ -1194,7 +1197,7 @@ void rpc_task_set_transport(struct rpc_task *task, struct rpc_clnt *clnt)
 		      (task->tk_flags & RPC_TASK_MOVEABLE)))
 			return;
 		xprt_release(task);
-		xprt_put(task->tk_xprt);
+		rpc_task_release_xprt(clnt, task->tk_xprt);
 	}
 	if (task->tk_flags & RPC_TASK_NO_ROUND_ROBIN)
 		task->tk_xprt = rpc_task_get_first_xprt(clnt);
@@ -2125,8 +2128,10 @@ call_bind_status(struct rpc_task *task)
 		goto retry_timeout;
 	case -ENETDOWN:
 	case -ENETUNREACH:
-		if (task->tk_flags & RPC_TASK_NETUNREACH_FATAL)
+		if (task->tk_flags & RPC_TASK_NETUNREACH_FATAL) {
+			status = task->tk_status;
 			break;
+		}
 		fallthrough;
 	case -ECONNREFUSED:		/* connection problems */
 	case -ECONNRESET:
@@ -2257,6 +2262,7 @@ call_connect_status(struct rpc_task *task)
 
 				xprt_release(task);
 				value = atomic_long_dec_return(&xprt->queuelen);
+				atomic_long_dec(&xps->xps_queuelen);
 				if (value == 0)
 					rpc_xprt_switch_remove_xprt(xps, saved,
 								    true);
