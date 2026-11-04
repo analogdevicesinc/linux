@@ -828,6 +828,19 @@ void __init kcsan_init(void)
 	}
 }
 
+void kcsan_task_init(struct task_struct *task)
+{
+	/*
+	 * dup_task_struct() copies the parent's kcsan_ctx, including a
+	 * reorder_access that is still live in the parent's frame.
+	 */
+	memset(&task->kcsan_ctx, 0, sizeof(task->kcsan_ctx));
+	task->kcsan_ctx.scoped_accesses = (struct list_head){ LIST_POISON1, NULL };
+#ifdef CONFIG_KCSAN_WEAK_MEMORY
+	task->kcsan_stack_depth = 0;
+#endif
+}
+
 /* === Exported interface =================================================== */
 
 void kcsan_disable_current(void)

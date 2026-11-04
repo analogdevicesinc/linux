@@ -98,6 +98,7 @@
 #include <linux/xarray.h>
 #include <net/genetlink.h>
 #include <net/netlink.h>
+#include <trace/events/printk.h>
 #include <trace/events/rust_sample.h>
 
 /*
