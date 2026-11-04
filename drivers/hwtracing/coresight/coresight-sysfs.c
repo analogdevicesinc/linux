@@ -230,7 +230,7 @@ err_source:
 	coresight_disable_path(path);
 
 err_path:
-	coresight_release_path(path);
+	coresight_release_path_locked(path);
 	goto out;
 }
 EXPORT_SYMBOL_GPL(coresight_enable_sysfs);
@@ -256,7 +256,7 @@ void coresight_disable_sysfs(struct coresight_device *csdev)
 		goto out;
 
 	coresight_disable_path(path);
-	coresight_release_path(path);
+	coresight_release_path_locked(path);
 
 out:
 	mutex_unlock(&coresight_mutex);
