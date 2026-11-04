@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADAQ23876 (LTC2387-16) on Zedboard.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#include "zynq-zed-adv7511-adaq2387x.dtsi"
+
+&rx_dma {
+	adi,channels {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		dma-channel@0 {
+			reg = <0>;
+			adi,source-bus-width = <16>;
+			adi,source-bus-type = <2>;
+			adi,destination-bus-width = <64>;
+			adi,destination-bus-type = <0>;
+		};
+	};
+};
+
+&fpga_axi {
+	adaq23876: adc@0 {
+		compatible = "adaq23876";
+		clocks = <&ext_clk>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		vref-supply = <&vref>;
+
+		/* Pin-strapped: 370, 730, 870, 1380 or 2250. */
+		adi,gain-milli = <870>;
+	};
+};
