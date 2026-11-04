@@ -7,7 +7,7 @@ use crate::{
     prelude::*, //
 };
 
-/// Error type for [`Vec::push_within_capacity`].
+/// Error type for a push that fails because there is no spare capacity.
 pub struct PushError<T>(pub T);
 
 impl<T> fmt::Debug for PushError<T> {
@@ -22,6 +22,36 @@ impl<T> From<PushError<T>> for Error {
         // Returning ENOMEM isn't appropriate because the system is not out of memory. The vector
         // is just full and we are refusing to resize it.
         EINVAL
+    }
+}
+
+/// Error type for [`Vec::try_push_init`].
+pub enum TryPushInitError<I, E> {
+    /// The allocation failed. Hand the initializer back.
+    AllocError(I),
+    /// The initializer failed.
+    InitError(E),
+}
+
+impl<I, E> fmt::Debug for TryPushInitError<I, E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TryPushInitError::AllocError(_) => write!(f, "Failed to allocate"),
+            TryPushInitError::InitError(_) => write!(f, "Initializer failed"),
+        }
+    }
+}
+
+impl<I, E> From<TryPushInitError<I, E>> for Error
+where
+    Error: From<E>,
+{
+    #[inline]
+    fn from(e: TryPushInitError<I, E>) -> Error {
+        match e {
+            TryPushInitError::AllocError(_) => ENOMEM,
+            TryPushInitError::InitError(e) => Error::from(e),
+        }
     }
 }
 
