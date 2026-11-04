@@ -484,7 +484,11 @@
 
 			adi,side-b-use-separate-tpl-en;
 #else
-			jesd204-link-ids = <DEFRAMER_LINK_A0_TX FRAMER_LINK_A0_RX>;
+			/*
+			 * One FPGA link carries both sides, but the B0 links must be
+			 * listed for the side B per-link steps (JRx SERDES cal, status).
+			 */
+			jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
 			jesd204-inputs =
 				<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
