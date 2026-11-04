@@ -6045,170 +6045,159 @@ static void mark_arena_stack_entries(struct bpf_verifier_env *env, struct bpf_ca
 
 /* temporary state used for call frame depth calculation */
 struct bpf_subprog_call_depth_info {
-	int ret_insn; /* caller instruction where we return to. */
-	int caller; /* caller subprogram idx */
-	int frame; /* # of consecutive static call stack frames on top of stack */
-	int callx_insn; /* callx instruction whose callees are being walked */
-	int callx_next; /* next callee of callx_insn to walk */
+	int caller; /* the caller that has the most on the stack. -1: the kernel */
+	int depth; /* the most that the frames of the callers take. -1: not known yet */
+	int arena_depth; /* the same in the stack in arena */
+	int frame; /* the most consecutive static call stack frames on top of stack */
 };
 
-/* starting from main bpf function walk all instructions of the function
- * and recursively walk all callees that given function can call.
- * Ignore jump and exit insns.
- */
-static int check_max_stack_depth_subprog(struct bpf_verifier_env *env, int idx,
-					 struct bpf_subprog_call_depth_info *dinfo)
+/* what the frame of the subprog adds to the frames of its callers */
+static int subprog_stack_size(struct bpf_verifier_env *env, int s)
 {
-	struct bpf_subprog_info *subprog = env->subprog_info;
-	struct bpf_insn *insn = env->prog->insnsi;
-	int depth = 0, frame = 0, i, subprog_end, subprog_depth;
-	int arena_depth = 0;
-	int total;
-	int tmp;
+	struct bpf_subprog_info *sub = &env->subprog_info[s];
 
-	/* no caller idx */
-	dinfo[idx].caller = -1;
+	if (sub->priv_stack_mode == PRIV_STACK_ADAPTIVE)
+		return 0;
+	return round_up_stack_depth(env, sub->stack_depth);
+}
 
-	i = subprog[idx].start;
-process_func:
-	dinfo[idx].callx_insn = -1;
+/*
+ * A subprog is entered with no more than what one of its callers is entered with plus
+ * the frame of that caller. The graph has no cycles, so this comes to an end.
+ */
+static void compute_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph *cg,
+			       struct bpf_subprog_call_depth_info *dinfo)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_subprog_call_depth_info *callee;
+	int depth, arena_depth, frame, j, s;
+	bool changed;
 
-	/* protect against potential stack overflow that might happen when
-	 * bpf2bpf calls get combined with tailcalls. Limit the caller's stack
-	 * depth for such case down to 256 so that the worst case scenario
-	 * would result in 8k stack size (32 which is tailcall limit * 256 =
-	 * 8k).
-	 *
-	 * To get the idea what might happen, see an example:
-	 * func1 -> sub rsp, 128
-	 *  subfunc1 -> sub rsp, 256
-	 *  tailcall1 -> add rsp, 256
-	 *   func2 -> sub rsp, 192 (total stack size = 128 + 192 = 320)
-	 *   subfunc2 -> sub rsp, 64
-	 *   subfunc22 -> sub rsp, 128
-	 *   tailcall2 -> add rsp, 128
-	 *    func3 -> sub rsp, 32 (total stack size 128 + 192 + 64 + 32 = 416)
-	 *
-	 * tailcall will unwind the current stack frame but it will not get rid
-	 * of caller's stack as shown on the example above.
-	 */
-	arena_depth += subprog[idx].arena_stack_depth;
-	if (arena_depth > env->max_arena_stack_depth)
-		env->max_arena_stack_depth = arena_depth;
-	if (arena_depth > BPF_ARENA_STACK_MAX) {
-		verbose(env, "combined size of the frames in the stack in arena is %d. Too large\n",
-			arena_depth);
-		return -EACCES;
+	for (s = 0; s < cg->cnt; s++) {
+		dinfo[s].caller = -1;
+		dinfo[s].depth = !s || si[s].is_async_cb ? 0 : -1;
 	}
-
-	if (idx && subprog[idx].has_tail_call && depth >= 256) {
-		verbose(env,
-			"tail_calls are not allowed when call stack of previous frames is %d bytes. Too large\n",
-			depth);
-		return -EACCES;
-	}
-
-	subprog_depth = round_up_stack_depth(env, subprog[idx].stack_depth);
-	if (subprog[idx].priv_stack_mode == PRIV_STACK_ADAPTIVE) {
-		if (subprog_depth > env->max_stack_depth)
-			env->max_stack_depth = subprog_depth;
-		if (subprog_depth > env->stack_limit) {
-			verbose(env, "stack size of subprog %d is %d. Too large\n",
-				idx, subprog_depth);
-			return -EACCES;
+	do {
+		cond_resched();
+		changed = false;
+		for_each_set_bit(s, cg->live, cg->cnt) {
+			if (dinfo[s].depth < 0)
+				continue;
+			depth = dinfo[s].depth + subprog_stack_size(env, s);
+			arena_depth = dinfo[s].arena_depth + si[s].arena_stack_depth;
+			for_each_set_bit(j, subprog_calls(cg, s), cg->cnt) {
+				callee = &dinfo[j];
+				frame = bpf_subprog_is_global(env, j) ? 0 : dinfo[s].frame + 1;
+				if (depth <= callee->depth && arena_depth <= callee->arena_depth &&
+				    frame <= callee->frame)
+					continue;
+				if (depth > callee->depth) {
+					callee->depth = depth;
+					callee->caller = s;
+				}
+				callee->arena_depth = max(callee->arena_depth, arena_depth);
+				callee->frame = max(callee->frame, frame);
+				changed = true;
+			}
 		}
-	} else {
-		depth += subprog_depth;
+	} while (changed);
+}
+
+static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_subprog_call_depth_info *dinfo;
+	int depth, total, tmp, s, err;
+
+	dinfo = kvzalloc_objs(*dinfo, cg->cnt, GFP_KERNEL_ACCOUNT);
+	if (!dinfo)
+		return -ENOMEM;
+	compute_call_depth(env, cg, dinfo);
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		/* A caller of it is over a limit. That one is reported, not what it calls. */
+		if (dinfo[s].frame > MAX_CALL_FRAMES || dinfo[s].depth > env->stack_limit ||
+		    dinfo[s].arena_depth > BPF_ARENA_STACK_MAX)
+			continue;
+
+		err = -E2BIG;
+		if (dinfo[s].frame >= MAX_CALL_FRAMES) {
+			verbose(env, "the call stack of %d frames is too deep !\n",
+				dinfo[s].frame);
+			goto out;
+		}
+
+		err = -EACCES;
+		depth = dinfo[s].arena_depth + si[s].arena_stack_depth;
+		if (depth > env->max_arena_stack_depth)
+			env->max_arena_stack_depth = depth;
+		if (depth > BPF_ARENA_STACK_MAX) {
+			verbose(env, "combined size of the frames in the stack in arena is %d. Too large\n",
+				depth);
+			goto out;
+		}
+
+		/*
+		 * protect against potential stack overflow that might happen when
+		 * bpf2bpf calls get combined with tailcalls. Limit the caller's stack
+		 * depth for such case down to 256 so that the worst case scenario
+		 * would result in 8k stack size (32 which is tailcall limit * 256 =
+		 * 8k).
+		 *
+		 * To get the idea what might happen, see an example:
+		 * func1 -> sub rsp, 128
+		 *  subfunc1 -> sub rsp, 256
+		 *  tailcall1 -> add rsp, 256
+		 *   func2 -> sub rsp, 192 (total stack size = 128 + 192 = 320)
+		 *   subfunc2 -> sub rsp, 64
+		 *   subfunc22 -> sub rsp, 128
+		 *   tailcall2 -> add rsp, 128
+		 *    func3 -> sub rsp, 32 (total stack size 128 + 192 + 64 + 32 = 416)
+		 *
+		 * tailcall will unwind the current stack frame but it will not get rid
+		 * of caller's stack as shown on the example above.
+		 */
+		depth = dinfo[s].depth;
+		if (s && si[s].has_tail_call && depth >= 256) {
+			verbose(env,
+				"tail_calls are not allowed when call stack of previous frames is %d bytes. Too large\n",
+				depth);
+			goto out;
+		}
+
+		if (si[s].priv_stack_mode == PRIV_STACK_ADAPTIVE) {
+			depth = round_up_stack_depth(env, si[s].stack_depth);
+			if (depth > env->max_stack_depth)
+				env->max_stack_depth = depth;
+			if (depth > env->stack_limit) {
+				verbose(env, "stack size of subprog %d is %d. Too large\n",
+					s, depth);
+				goto out;
+			}
+			continue;
+		}
+		depth = dinfo[s].depth + subprog_stack_size(env, s);
 		if (depth > env->max_stack_depth)
 			env->max_stack_depth = depth;
 		if (depth > env->stack_limit) {
 			total = 0;
-			for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller)
+			for (tmp = s; tmp >= 0; tmp = dinfo[tmp].caller)
 				total++;
 
 			verbose(env, "combined stack size of %d calls is %d. Too large\n",
 				total, depth);
-			return -EACCES;
+			goto out;
 		}
 	}
-continue_func:
-	subprog_end = subprog[idx + 1].start;
-	for (; i < subprog_end; i++) {
-		int next_insn, sidx;
-
-		if (bpf_is_callx(insn + i) || bpf_calls_callback(env, i)) {
-			/*
-			 * Walk the callees and the callbacks recorded by
-			 * the main verification pass one by one, returning to
-			 * this insn after each.
-			 */
-			if (dinfo[idx].callx_insn != i) {
-				dinfo[idx].callx_insn = i;
-				dinfo[idx].callx_next = 0;
-			}
-			sidx = next_callx_callee(env, idx, dinfo[idx].callx_next);
-			if (sidx < 0)
-				continue;
-			dinfo[idx].callx_next = sidx + 1;
-			dinfo[idx].ret_insn = i;
-			next_insn = subprog[sidx].start;
-		} else if (bpf_pseudo_call(insn + i) || bpf_pseudo_func(insn + i)) {
-			/* find the callee */
-			next_insn = i + insn[i].imm + 1;
-			sidx = bpf_find_subprog(env, next_insn);
-			if (verifier_bug_if(sidx < 0, env, "callee not found at insn %d", next_insn))
-				return -EFAULT;
-			if (subprog[sidx].is_async_cb) {
-				/* async callbacks don't increase bpf prog stack size unless called directly */
-				if (!bpf_pseudo_call(insn + i))
-					continue;
-			}
-			/* remember insn to return to */
-			dinfo[idx].ret_insn = i + 1;
-		} else {
-			continue;
-		}
-
-		/* store caller info for after we return from callee */
-		dinfo[idx].frame = frame;
-
-		/* push caller idx into callee's dinfo */
-		dinfo[sidx].caller = idx;
-
-		i = next_insn;
-
-		idx = sidx;
-		frame = bpf_subprog_is_global(env, idx) ? 0 : frame + 1;
-		if (frame >= MAX_CALL_FRAMES) {
-			verbose(env, "the call stack of %d frames is too deep !\n",
-				frame);
-			return -E2BIG;
-		}
-		goto process_func;
-	}
-	/* end of for() loop means the last insn of the 'subprog'
-	 * was reached. Doesn't matter whether it was JA or EXIT
-	 */
-	if (frame == 0 && dinfo[idx].caller < 0)
-		return 0;
-	if (subprog[idx].priv_stack_mode != PRIV_STACK_ADAPTIVE)
-		depth -= round_up_stack_depth(env, subprog[idx].stack_depth);
-	arena_depth -= subprog[idx].arena_stack_depth;
-
-	/* pop caller idx from callee */
-	idx = dinfo[idx].caller;
-
-	/* retrieve caller state from its frame */
-	frame = dinfo[idx].frame;
-	i = dinfo[idx].ret_insn;
-
-	goto continue_func;
+	err = 0;
+out:
+	kvfree(dinfo);
+	return err;
 }
 
 static int check_max_stack_depth(struct bpf_verifier_env *env)
 {
 	enum priv_stack_mode priv_stack_mode = PRIV_STACK_UNKNOWN;
-	struct bpf_subprog_call_depth_info *dinfo = NULL;
 	struct bpf_subprog_info *si = env->subprog_info;
 	struct bpf_call_graph cg = {};
 	int s, ret;
@@ -6264,21 +6253,8 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 		}
 	}
 
-	dinfo = kvzalloc_objs(*dinfo, env->subprog_cnt, GFP_KERNEL_ACCOUNT);
-	if (!dinfo) {
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	for (int i = env->subprog_cnt - 1; i >= 0; i--) {
-		if (!i || si[i].is_async_cb) {
-			ret = check_max_stack_depth_subprog(env, i, dinfo);
-			if (ret < 0)
-				goto out;
-		}
-	}
+	ret = check_call_depth(env, &cg);
 out:
-	kvfree(dinfo);
 	kvfree(cg.calls);
 	return ret;
 }
