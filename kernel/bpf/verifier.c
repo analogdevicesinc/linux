@@ -5777,6 +5777,167 @@ static int round_up_stack_depth(struct bpf_verifier_env *env, int stack_depth)
 	return round_up(max_t(u32, stack_depth, 1), 32);
 }
 
+/*
+ * A set of subprogs is a bitmap. The call graph has a set for every subprog:
+ * calls + s * BITS_TO_LONGS(cnt) are the subprogs that s calls. Make it
+ * the subprogs that s gets to, through any number of calls.
+ */
+static void close_call_graph(unsigned long *calls, int cnt)
+{
+	int words = BITS_TO_LONGS(cnt);
+	int j, s;
+
+	for (j = 0; j < cnt; j++)
+		for (s = 0; s < cnt; s++)
+			if (test_bit(j, calls + s * words))
+				bitmap_or(calls + s * words, calls + s * words,
+					  calls + j * words, cnt);
+}
+
+/*
+ * Who calls whom. It's known after the main verification pass, which finds out
+ * what callx and the helpers that take callbacks call.
+ *
+ * What follows for a subprog from its callers, or from what it calls, is computed
+ * over this graph and not by a walk of one chain of calls after another: the
+ * number of chains grows exponentially.
+ */
+struct bpf_call_graph {
+	int cnt; /* subprogs */
+	int words; /* longs in a set of subprogs */
+	unsigned long *calls; /* calls + s * words: the subprogs that s calls */
+	unsigned long *reach; /* reach + s * words: the subprogs that s gets to */
+	unsigned long *live; /* what the kernel calls and what that gets to */
+};
+
+static unsigned long *subprog_calls(struct bpf_call_graph *cg, int s)
+{
+	return cg->calls + s * cg->words;
+}
+
+static unsigned long *subprog_reach(struct bpf_call_graph *cg, int s)
+{
+	return cg->reach + s * cg->words;
+}
+
+/* add the subprog and what it gets to */
+static void add_reach(struct bpf_call_graph *cg, unsigned long *set, int s)
+{
+	__set_bit(s, set);
+	bitmap_or(set, set, subprog_reach(cg, s), cg->cnt);
+}
+
+static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int cnt = env->subprog_cnt, words = BITS_TO_LONGS(cnt);
+	int i, j, s;
+
+	cg->cnt = cnt;
+	cg->words = words;
+	cg->calls = kvcalloc((2 * cnt + 1) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	if (!cg->calls)
+		return -ENOMEM;
+	cg->reach = cg->calls + cnt * words;
+	cg->live = cg->reach + cnt * words;
+
+	for (s = 0; s < cnt; s++) {
+		for (i = si[s].start; i < si[s + 1].start; i++) {
+			/* the subprog that takes the address of a subprog counts as its caller */
+			if (!bpf_pseudo_call(insn + i) && !bpf_pseudo_func(insn + i))
+				continue;
+			j = bpf_find_subprog(env, i + insn[i].imm + 1);
+			if (verifier_bug_if(j < 0, env, "callee not found at insn %d",
+					    i + insn[i].imm + 1))
+				return -EFAULT;
+			/*
+			 * async callbacks don't increase bpf prog stack size
+			 * unless called directly
+			 */
+			if (si[j].is_async_cb && !bpf_pseudo_call(insn + i))
+				continue;
+			__set_bit(j, subprog_calls(cg, s));
+		}
+		/* the callees of callx and the callbacks of helpers, see record_callx_edge() */
+		for (j = next_callx_callee(env, s, 0); j >= 0; j = next_callx_callee(env, s, j + 1))
+			__set_bit(j, subprog_calls(cg, s));
+	}
+	memcpy(cg->reach, cg->calls, cnt * words * sizeof(long));
+	close_call_graph(cg->reach, cnt);
+
+	for (s = 0; s < cnt; s++)
+		if (!s || si[s].is_async_cb)
+			add_reach(cg, cg->live, s);
+	return 0;
+}
+
+/* the insn of subprog 'caller' that is the edge to subprog 'callee' */
+static int find_call_insn(struct bpf_verifier_env *env, int caller, int callee)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int i, end = si[caller + 1].start;
+
+	for (i = si[caller].start; i < end; i++) {
+		if (!bpf_pseudo_call(insn + i) &&
+		    (!bpf_pseudo_func(insn + i) || si[callee].is_async_cb))
+			continue;
+		if (i + insn[i].imm + 1 == si[callee].start)
+			return i;
+	}
+	/* It's not recorded which callx or helper calls what. Take the first one. */
+	for (i = si[caller].start; i < end - 1; i++)
+		if (bpf_is_callx(insn + i) || bpf_calls_callback(env, i))
+			break;
+	return i;
+}
+
+/* The exception callback is an async callback, so only a call is an edge to it */
+static int check_exception_cb(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	int cb = env->exception_callback_subprog, s;
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		if (!cb || !test_bit(cb, subprog_calls(cg, s)))
+			continue;
+		verbose(env, "insn %d cannot call exception cb directly\n",
+			find_call_insn(env, s, cb));
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/*
+ * The DFS of sort_subprogs_topo() follows the address of a function like a call, and
+ * tolerates a cycle only when such address closes it, since it doesn't know what it is
+ * taken for. Such cycle counts as a recursion, unless the function is an async callback:
+ * its address is not an edge of the graph. The main verification pass limits the
+ * depth of the recursion, but it doesn't follow calls of global functions.
+ */
+static int check_recursion(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	int j, s;
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		if (!test_bit(s, subprog_reach(cg, s)))
+			continue;
+		/* the last call of the cycle */
+		for_each_set_bit(j, subprog_reach(cg, s), cg->cnt)
+			if (test_bit(s, subprog_calls(cg, j)))
+				break;
+		verbose(env, "recursive call from %s() to %s()\n",
+			bpf_subprog_name(env, j), bpf_subprog_name(env, s));
+		bpf_diag_program_structure(
+			env, find_call_insn(env, j, s), "recursive subprogram call",
+			"Rewrite the recursion as an explicit bounded loop, or split the logic so subprogram calls do not form a cycle.",
+			"This call or callback would make the subprogram call graph recursive. "
+			"The verifier requires a finite, acyclic call graph so it can bound stack depth and analysis.");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 /* temporary state used for call frame depth calculation */
 struct bpf_subprog_call_depth_info {
 	int ret_insn; /* caller instruction where we return to. */
@@ -5950,36 +6111,11 @@ continue_func:
 				/* async callbacks don't increase bpf prog stack size unless called directly */
 				if (!bpf_pseudo_call(insn + i))
 					continue;
-				if (subprog[sidx].is_exception_cb) {
-					verbose(env, "insn %d cannot call exception cb directly", i);
-					return -EINVAL;
-				}
 			}
 			/* remember insn to return to */
 			dinfo[idx].ret_insn = i + 1;
 		} else {
 			continue;
-		}
-
-		/*
-		 * sort_subprogs_topo() tolerates cycles in the call graph that
-		 * go through the address of a function being taken, since it
-		 * doesn't know what it is taken for. Such cycle is a recursion
-		 * unless it's an async callback, which are skipped above.
-		 * The main verification pass limits the depth of the recursion,
-		 * but it doesn't follow calls of global functions.
-		 */
-		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
-			if (tmp != sidx)
-				continue;
-			verbose(env, "recursive call from %s() to %s()\n",
-				bpf_subprog_name(env, idx), bpf_subprog_name(env, sidx));
-			bpf_diag_program_structure(
-				env, i, "recursive subprogram call",
-				"Rewrite the recursion as an explicit bounded loop, or split the logic so subprogram calls do not form a cycle.",
-				"This call or callback would make the subprogram call graph recursive. "
-				"The verifier requires a finite, acyclic call graph so it can bound stack depth and analysis.");
-			return -EINVAL;
 		}
 
 		/* store caller info for after we return from callee */
@@ -6064,14 +6200,11 @@ continue_func:
 static int check_max_stack_depth(struct bpf_verifier_env *env)
 {
 	enum priv_stack_mode priv_stack_mode = PRIV_STACK_UNKNOWN;
-	struct bpf_subprog_call_depth_info *dinfo;
+	struct bpf_subprog_call_depth_info *dinfo = NULL;
 	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_call_graph cg = {};
 	bool priv_stack_supported;
 	int ret;
-
-	dinfo = kvzalloc_objs(*dinfo, env->subprog_cnt, GFP_KERNEL_ACCOUNT);
-	if (!dinfo)
-		return -ENOMEM;
 
 	for (int i = 0; i < env->subprog_cnt; i++) {
 		if (si[i].has_tail_call) {
@@ -6079,7 +6212,6 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 			if (env->uses_arena_sp) {
 				verbose(env, "tail_calls are not allowed in programs that use R%d\n",
 					BPF_REG_ARENA_SP);
-				kvfree(dinfo);
 				return -EINVAL;
 			}
 			priv_stack_mode = NO_PRIV_STACK;
@@ -6092,6 +6224,18 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 
 	if (priv_stack_mode == PRIV_STACK_UNKNOWN)
 		priv_stack_mode = bpf_enable_priv_stack(env->prog);
+
+	ret = build_call_graph(env, &cg);
+	ret = ret ?: check_exception_cb(env, &cg);
+	ret = ret ?: check_recursion(env, &cg);
+	if (ret)
+		goto out;
+
+	dinfo = kvzalloc_objs(*dinfo, env->subprog_cnt, GFP_KERNEL_ACCOUNT);
+	if (!dinfo) {
+		ret = -ENOMEM;
+		goto out;
+	}
 
 	/* All async_cb subprogs use normal kernel stack. If a particular
 	 * subprog appears in both main prog and async_cb subtree, that
@@ -6106,10 +6250,8 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 			priv_stack_supported = !i && priv_stack_mode == PRIV_STACK_ADAPTIVE;
 			ret = check_max_stack_depth_subprog(env, i, dinfo,
 					priv_stack_supported);
-			if (ret < 0) {
-				kvfree(dinfo);
-				return ret;
-			}
+			if (ret < 0)
+				goto out;
 		}
 	}
 
@@ -6119,10 +6261,10 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 			break;
 		}
 	}
-
+out:
 	kvfree(dinfo);
-
-	return 0;
+	kvfree(cg.calls);
+	return ret;
 }
 
 static int __check_buffer_access(struct bpf_verifier_env *env,
