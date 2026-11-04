@@ -591,18 +591,7 @@ static struct platform_driver pm8xxx_driver = {
 		.of_match_table = pm8xxx_id_table,
 	},
 };
-
-static int __init pm8xxx_init(void)
-{
-	return platform_driver_register(&pm8xxx_driver);
-}
-subsys_initcall(pm8xxx_init);
-
-static void __exit pm8xxx_exit(void)
-{
-	platform_driver_unregister(&pm8xxx_driver);
-}
-module_exit(pm8xxx_exit);
+subsys_platform_driver(pm8xxx_driver);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("PMIC 8xxx core driver");

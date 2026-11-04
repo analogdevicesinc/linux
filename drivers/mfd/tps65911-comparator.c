@@ -156,18 +156,7 @@ static struct platform_driver tps65911_comparator_driver = {
 	.probe = tps65911_comparator_probe,
 	.remove = tps65911_comparator_remove,
 };
-
-static int __init tps65911_comparator_init(void)
-{
-	return platform_driver_register(&tps65911_comparator_driver);
-}
-subsys_initcall(tps65911_comparator_init);
-
-static void __exit tps65911_comparator_exit(void)
-{
-	platform_driver_unregister(&tps65911_comparator_driver);
-}
-module_exit(tps65911_comparator_exit);
+subsys_platform_driver(tps65911_comparator_driver);
 
 MODULE_AUTHOR("Jorge Eduardo Candelaria <jedu@slimlogic.co.uk>");
 MODULE_DESCRIPTION("TPS65911 comparator driver");
