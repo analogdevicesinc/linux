@@ -395,6 +395,10 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 		err = -EINVAL;
 		goto done;
 	}
+	psl = sock_dereference(pmc->sflist, sk);
+	if (!add && !psl)
+		goto done;	/* err = -EADDRNOTAVAIL */
+
 	/* if a source filter was set, must be the same mode as before */
 	if (rcu_access_pointer(pmc->sflist)) {
 		if (pmc->sfmode != omode) {
@@ -408,10 +412,7 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
 		pmc->sfmode = omode;
 	}
 
-	psl = sock_dereference(pmc->sflist, sk);
 	if (!add) {
-		if (!psl)
-			goto done;	/* err = -EADDRNOTAVAIL */
 		for (i = 0; i < psl->sl_count; i++) {
 			if (ipv6_addr_equal(&psl->sl_addr[i], source))
 				break;

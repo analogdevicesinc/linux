@@ -2520,6 +2520,10 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
 		err = -EINVAL;
 		goto done;
 	}
+	psl = rtnl_dereference(pmc->sflist);
+	if (!add && !psl)
+		goto done;	/* err = -EADDRNOTAVAIL */
+
 	/* if a source filter was set, must be the same mode as before */
 	if (pmc->sflist) {
 		if (pmc->sfmode != omode) {
@@ -2534,10 +2538,7 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
 		pmc->sfmode = omode;
 	}
 
-	psl = rtnl_dereference(pmc->sflist);
 	if (!add) {
-		if (!psl)
-			goto done;	/* err = -EADDRNOTAVAIL */
 		rv = !0;
 		for (i = 0; i < psl->sl_count; i++) {
 			rv = memcmp(&psl->sl_addr[i], &mreqs->imr_sourceaddr,
