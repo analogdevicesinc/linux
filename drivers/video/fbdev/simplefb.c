@@ -580,6 +580,8 @@ static int simplefb_probe(struct platform_device *pdev)
 	info->fix.smem_start = mem->start;
 	info->fix.smem_len = resource_size(mem);
 	info->fix.line_length = params.stride;
+	if (params.format->bits_per_pixel == 1)
+		info->fix.visual = FB_VISUAL_MONO10;
 
 	info->var = simplefb_var;
 	info->var.xres = params.width;
