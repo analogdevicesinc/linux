@@ -5809,6 +5809,7 @@ struct bpf_call_graph {
 	unsigned long *reach; /* reach + s * words: the subprogs that s gets to */
 	unsigned long *live; /* what the kernel calls and what that gets to */
 	unsigned long *in_cb; /* callbacks and what they get to */
+	unsigned long *tail_calls; /* subprogs that have a tail call */
 };
 
 static unsigned long *subprog_calls(struct bpf_call_graph *cg, int s)
@@ -5837,12 +5838,13 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 
 	cg->cnt = cnt;
 	cg->words = words;
-	cg->calls = kvcalloc((2 * cnt + 2) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	cg->calls = kvcalloc((2 * cnt + 3) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
 	if (!cg->calls)
 		return -ENOMEM;
 	cg->reach = cg->calls + cnt * words;
 	cg->live = cg->reach + cnt * words;
 	cg->in_cb = cg->live + words;
+	cg->tail_calls = cg->in_cb + words;
 
 	for (s = 0; s < cnt; s++) {
 		for (i = si[s].start; i < si[s + 1].start; i++) {
@@ -5874,6 +5876,8 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 	for_each_set_bit(s, cg->live, cnt) {
 		if (si[s].is_cb)
 			add_reach(cg, cg->in_cb, s);
+		if (si[s].has_tail_call)
+			__set_bit(s, cg->tail_calls);
 	}
 	return 0;
 }
@@ -5967,6 +5971,43 @@ static int check_callbacks(struct bpf_verifier_env *env, struct bpf_call_graph *
 	return 0;
 }
 
+/*
+ * Mark the subprogs that get to a tail call as tail call reachable subprogs;
+ * this info will be utilized by JIT so that we will be preserving the
+ * tail call counter throughout bpf2bpf calls combined with tailcalls
+ */
+static int check_tail_calls(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	int s;
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		if (!si[s].has_tail_call &&
+		    !bitmap_intersects(subprog_reach(cg, s), cg->tail_calls, cg->cnt))
+			continue;
+		if (si[s].is_cb) {
+			verbose(env, "cannot tail call within callback\n");
+			return -EINVAL;
+		}
+		if (si[s].stack_arg_cnt) {
+			verbose(env, "tail_calls are not allowed in programs with stack args\n");
+			return -EINVAL;
+		}
+		/*
+		 * JITs pass tail call counter in a register that is
+		 * not available when the callee is called via callx.
+		 */
+		if (si[s].via_callx) {
+			verbose(env, "tail_calls are not allowed in functions called via callx\n");
+			return -EINVAL;
+		}
+		si[s].tail_call_reachable = true;
+	}
+	if (si[0].tail_call_reachable)
+		env->prog->aux->tail_call_reachable = true;
+	return 0;
+}
+
 /* temporary state used for call frame depth calculation */
 struct bpf_subprog_call_depth_info {
 	int ret_insn; /* caller instruction where we return to. */
@@ -5974,7 +6015,6 @@ struct bpf_subprog_call_depth_info {
 	int frame; /* # of consecutive static call stack frames on top of stack */
 	int callx_insn; /* callx instruction whose callees are being walked */
 	int callx_next; /* next callee of callx_insn to walk */
-	bool via_callx; /* the subprogram is entered via callx */
 };
 
 /* starting from main bpf function walk all instructions of the function
@@ -5988,14 +6028,12 @@ static int check_max_stack_depth_subprog(struct bpf_verifier_env *env, int idx,
 	struct bpf_subprog_info *subprog = env->subprog_info;
 	struct bpf_insn *insn = env->prog->insnsi;
 	int depth = 0, frame = 0, i, subprog_end, subprog_depth;
-	bool tail_call_reachable = false;
 	int arena_depth = 0;
 	int total;
 	int tmp;
 
 	/* no caller idx */
 	dinfo[idx].caller = -1;
-	dinfo[idx].via_callx = false;
 
 	i = subprog[idx].start;
 	if (!priv_stack_supported)
@@ -6126,16 +6164,12 @@ continue_func:
 
 		/* push caller idx into callee's dinfo */
 		dinfo[sidx].caller = idx;
-		dinfo[sidx].via_callx = bpf_is_callx(insn + i);
 
 		i = next_insn;
 
 		idx = sidx;
 		if (!priv_stack_supported)
 			subprog[idx].priv_stack_mode = NO_PRIV_STACK;
-
-		/* sync tail_call_reachable with callee state on entry */
-		tail_call_reachable = subprog[idx].has_tail_call;
 
 		frame = bpf_subprog_is_global(env, idx) ? 0 : frame + 1;
 		if (frame >= MAX_CALL_FRAMES) {
@@ -6145,39 +6179,6 @@ continue_func:
 		}
 		goto process_func;
 	}
-	/* if tail call got detected across bpf2bpf calls then mark each of the
-	 * currently present subprog frames as tail call reachable subprogs;
-	 * this info will be utilized by JIT so that we will be preserving the
-	 * tail call counter throughout bpf2bpf calls combined with tailcalls
-	 */
-	if (tail_call_reachable) {
-		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
-			if (subprog[tmp].is_cb) {
-				verbose(env, "cannot tail call within callback\n");
-				return -EINVAL;
-			}
-			if (subprog[tmp].stack_arg_cnt) {
-				verbose(env, "tail_calls are not allowed in programs with stack args\n");
-				return -EINVAL;
-			}
-			/*
-			 * JITs pass tail call counter in a register that is
-			 * not available when the callee is called via callx.
-			 */
-			if (dinfo[tmp].via_callx) {
-				verbose(env, "tail_calls are not allowed in functions called via callx\n");
-				return -EINVAL;
-			}
-			subprog[tmp].tail_call_reachable = true;
-		}
-	} else if (!idx && subprog[0].has_tail_call && subprog[0].stack_arg_cnt) {
-		verbose(env, "tail_calls are not allowed in programs with stack args\n");
-		return -EINVAL;
-	}
-
-	if (subprog[0].tail_call_reachable)
-		env->prog->aux->tail_call_reachable = true;
-
 	/* end of for() loop means the last insn of the 'subprog'
 	 * was reached. Doesn't matter whether it was JA or EXIT
 	 */
@@ -6193,9 +6194,6 @@ continue_func:
 	/* retrieve caller state from its frame */
 	frame = dinfo[idx].frame;
 	i = dinfo[idx].ret_insn;
-
-	/* reset tail_call_reachable to the parent's actual state */
-	tail_call_reachable = subprog[idx].tail_call_reachable;
 
 	goto continue_func;
 }
@@ -6232,6 +6230,7 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 	ret = ret ?: check_exception_cb(env, &cg);
 	ret = ret ?: check_recursion(env, &cg);
 	ret = ret ?: check_callbacks(env, &cg);
+	ret = ret ?: check_tail_calls(env, &cg);
 	if (ret)
 		goto out;
 
@@ -11946,6 +11945,7 @@ static int check_func_callx(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	err = record_callx_edge(env, caller->subprogno, subprog);
 	if (err)
 		return err;
+	env->subprog_info[subprog].via_callx = true;
 
 	return check_static_func_call(env, subprog, insn_idx);
 }
