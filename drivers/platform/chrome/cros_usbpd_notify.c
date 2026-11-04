@@ -105,6 +105,8 @@ static int cros_usbpd_notify_probe_acpi(struct platform_device *pdev)
 	acpi_status status;
 
 	adev = ACPI_COMPANION(dev);
+	if (!adev)
+		return -ENODEV;
 
 	pdnotify = devm_kzalloc(dev, sizeof(*pdnotify), GFP_KERNEL);
 	if (!pdnotify)

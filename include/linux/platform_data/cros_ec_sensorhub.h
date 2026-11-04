@@ -127,7 +127,6 @@ struct cros_ec_sensors_ts_batch_state {
  * @fifo_info: Copy of FIFO information coming from the EC.
  * @fifo_size: Size of the ring.
  * @batch_state: Per sensor information of the last batches received.
- * @overflow_a: For handling timestamp overflow for a time (sensor events)
  * @overflow_b: For handling timestamp overflow for b time (ec interrupts)
  * @filter: Medium fileter structure.
  * @tight_timestamps: Set to truen when EC support tight timestamping:
@@ -164,7 +163,6 @@ struct cros_ec_sensorhub {
 
 	struct cros_ec_sensors_ts_batch_state *batch_state;
 
-	struct cros_ec_sensors_ec_overflow_state overflow_a;
 	struct cros_ec_sensors_ec_overflow_state overflow_b;
 
 	struct cros_ec_sensors_ts_filter_state filter;

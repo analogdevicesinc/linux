@@ -8,7 +8,9 @@
 // (ISH-TP).
 
 #include <linux/delay.h>
+#include <linux/kobject.h>
 #include <linux/module.h>
+#include <linux/notifier.h>
 #include <linux/pci.h>
 #include <linux/platform_data/cros_ec_commands.h>
 #include <linux/platform_data/cros_ec_proto.h>
@@ -117,6 +119,7 @@ struct response_info {
  * @work_ishtp_reset: Work queue reset handling.
  * @work_ec_evt: Work queue for EC events.
  * @ec_dev: CrOS EC MFD device.
+ * @notifier: Notifier block for CrOS EC events.
  *
  * This structure is used to store per client data.
  */
@@ -133,6 +136,7 @@ struct ishtp_cl_data {
 	struct work_struct work_ishtp_reset;
 	struct work_struct work_ec_evt;
 	struct cros_ec_device *ec_dev;
+	struct notifier_block notifier;
 };
 
 /**
@@ -538,10 +542,30 @@ end_error:
 	return rv;
 }
 
+static int cros_ec_ishtp_event(struct notifier_block *nb,
+			       unsigned long queued_during_suspend,
+			       void *data)
+{
+	struct cros_ec_device *ec_dev = data;
+	u32 host_event = cros_ec_get_host_event(ec_dev);
+
+	if (host_event & EC_HOST_EVENT_MASK(EC_HOST_EVENT_PANIC)) {
+		static const char * const panic_env[] = { "ERROR=PANIC", NULL };
+
+		dev_emerg(ec_dev->dev, "CrOS ISH Panic Reported\n");
+		blocking_notifier_call_chain(&ec_dev->panic_notifier, 0, ec_dev);
+		kobject_uevent_env(&ec_dev->dev->kobj, KOBJ_CHANGE, (char **)panic_env);
+		return NOTIFY_OK;
+	}
+
+	return NOTIFY_DONE;
+}
+
 static int cros_ec_dev_init(struct ishtp_cl_data *client_data)
 {
 	struct cros_ec_device *ec_dev;
 	struct device *dev = cl_data_to_dev(client_data);
+	int rv;
 
 	ec_dev = cros_ec_device_alloc(dev);
 	if (!ec_dev)
@@ -555,7 +579,22 @@ static int cros_ec_dev_init(struct ishtp_cl_data *client_data)
 	ec_dev->pkt_xfer = cros_ec_pkt_xfer_ish;
 	ec_dev->phys_name = dev_name(dev);
 
-	return cros_ec_register(ec_dev);
+	client_data->notifier.notifier_call = cros_ec_ishtp_event;
+	rv = blocking_notifier_chain_register(&ec_dev->event_notifier,
+					      &client_data->notifier);
+	if (rv) {
+		dev_warn(dev, "failed to setup event notifier: %d\n", rv);
+		return rv;
+	}
+
+	rv = cros_ec_register(ec_dev);
+	if (rv) {
+		blocking_notifier_chain_unregister(&ec_dev->event_notifier,
+						   &client_data->notifier);
+		return rv;
+	}
+
+	return 0;
 }
 
 static void reset_handler(struct work_struct *work)
@@ -665,6 +704,8 @@ static void cros_ec_ishtp_remove(struct ishtp_cl_device *cl_device)
 	struct ishtp_cl	*cros_ish_cl = ishtp_get_drvdata(cl_device);
 	struct ishtp_cl_data *client_data = ishtp_get_client_data(cros_ish_cl);
 
+	blocking_notifier_chain_unregister(&client_data->ec_dev->event_notifier,
+					   &client_data->notifier);
 	cancel_work_sync(&client_data->work_ishtp_reset);
 	cancel_work_sync(&client_data->work_ec_evt);
 	cros_ec_unregister(client_data->ec_dev);

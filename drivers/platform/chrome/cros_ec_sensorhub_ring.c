@@ -23,17 +23,36 @@
 /* Precision of fixed point for the m values from the filter */
 #define M_PRECISION BIT(23)
 
+/*
+ * Maximum clock drift between the EC and the AP, in Parts Per Million
+ * (PPM). m is computed from a time delta in ns over a time delta in us,
+ * so it is 1000 times the unitless drift: 1 PPM is M_PRECISION / 1000.
+ */
+#define MAX_DRIFT_PPM 5000LL
+#define MAX_M ((s64)(MAX_DRIFT_PPM * M_PRECISION / 1000))
+
 /* Only activate the filter once we have at least this many elements. */
 #define TS_HISTORY_THRESHOLD 8
 
 /*
  * If we don't have any history entries for this long, empty the filter to
- * make sure there are no big discontinuities.
+ * make sure there are no big discontinuities (e.g. after suspend or long idle).
+ *
+ * This is set to 2 seconds to accommodate normal batching flush intervals
+ * (which can be up to 1-2 seconds) without constantly resetting the filter,
+ * while still ensuring a reset occurs during actual long gaps or suspend.
  */
-#define TS_HISTORY_BORED_US 500000
+#define TS_HISTORY_BORED_US 2000000
 
 /* To measure by how much the filter is overshooting, if it happens. */
 #define FUTURE_TS_ANALYTICS_COUNT_MAX 100
+
+/*
+ * A sample can reach the FIFO after the FIFO interrupt and before the FIFO
+ * is read, so its timestamp (a) can be slightly later than the interrupt
+ * one (b). This is how much later it is allowed to be.
+ */
+#define FIFO_TS_SLACK_US (1 * USEC_PER_SEC)
 
 static inline int
 cros_sensorhub_send_sample(struct cros_ec_sensorhub *sensorhub,
@@ -270,7 +289,7 @@ cros_ec_sensor_ring_ts_filter_update(struct cros_ec_sensors_ts_filter_state
 	s64 m; /* stored as *M_PRECISION */
 	s64 *m_history_copy = state->temp_buf;
 	s64 *error = state->temp_buf;
-	int i;
+	int i, start;
 
 	/* we trust b the most, that'll be our independent variable */
 	x = b;
@@ -282,13 +301,43 @@ cros_ec_sensor_ring_ts_filter_update(struct cros_ec_sensors_ts_filter_state
 		return; /* we already have this irq in the history */
 	dy = (state->y_history[0] + state->y_offset) - y;
 	m = div64_s64(dy * M_PRECISION, dx);
+	/*
+	 * Clamp the slope to the maximum expected clock drift. Interrupt
+	 * jitter can produce slopes much larger than any real clock drift,
+	 * which would otherwise corrupt the median filter history.
+	 */
+	m = clamp(m, -MAX_M, MAX_M);
+
+	/*
+	 * Detect ODR (Output Data Rate) or mode changes (e.g., transition from
+	 * active streaming to low-frequency batching). If the interval between
+	 * interrupts changes by more than 10x in either direction, reset the
+	 * filter history to avoid mixing slopes measured over very different
+	 * intervals.
+	 */
+	if (state->history_len > 1) {
+		s64 prev_dx = -state->x_history[1];
+
+		if (prev_dx > 0 && (-dx > 10 * prev_dx || prev_dx > 10 * -dx))
+			state->history_len = 0;
+	}
 
 	/* Empty filter if we haven't seen any action in a while. */
 	if (-dx > TS_HISTORY_BORED_US)
 		state->history_len = 0;
 
+	/*
+	 * Also empty it if the EC and the AP disagree on the elapsed time
+	 * (dy, in ns), for instance when b was unwrapped to the wrong
+	 * overflow period after a long gap without events.
+	 */
+	if (abs(dy) > TS_HISTORY_BORED_US * NSEC_PER_USEC)
+		state->history_len = 0;
+
 	/* Move everything over, also update offset to all absolute coords .*/
-	for (i = state->history_len - 1; i >= 1; i--) {
+	start = min_t(int, state->history_len,
+		      CROS_EC_SENSORHUB_TS_HISTORY_SIZE - 1);
+	for (i = start; i >= 1; i--) {
 		state->x_history[i] = state->x_history[i - 1] + dx;
 		state->y_history[i] = state->y_history[i - 1] + dy;
 
@@ -391,23 +440,29 @@ cros_ec_sensor_ring_fix_overflow(s64 *ts,
 	state->last = *ts;
 }
 
-static void
-cros_ec_sensor_ring_check_for_past_timestamp(struct cros_ec_sensorhub
-					     *sensorhub,
-					     struct cros_ec_sensors_ring_sample
-					     *sample)
+static bool
+cros_ec_sensor_ring_is_past_timestamp(struct cros_ec_sensorhub *sensorhub,
+				      struct cros_ec_sensors_ring_sample *sample)
 {
 	const u8 sensor_id = sample->sensor_id;
 
-	/* If this event is earlier than one we saw before... */
+	/*
+	 * If this event is strictly earlier than one we saw before, it is truly
+	 * out-of-order and must be dropped to preserve monotonicity.
+	 *
+	 * We intentionally allow duplicate timestamps (==) to pass through here
+	 * because the EC/ISH may report a batch of samples with the same raw
+	 * timestamp. These duplicates are required by the downstream spreading
+	 * logic (cros_ec_sensor_ring_spread_add) to interpolate unique,
+	 * monotonic timestamps for each sample in the batch.
+	 */
 	if (sensorhub->batch_state[sensor_id].newest_sensor_event >
 	    sample->timestamp)
-		/* mark it for spreading. */
-		sample->timestamp =
-			sensorhub->batch_state[sensor_id].last_ts;
-	else
-		sensorhub->batch_state[sensor_id].newest_sensor_event =
-			sample->timestamp;
+		return true;
+
+	sensorhub->batch_state[sensor_id].newest_sensor_event =
+		sample->timestamp;
+	return false;
 }
 
 /**
@@ -441,14 +496,22 @@ cros_ec_sensor_ring_process_event(struct cros_ec_sensorhub *sensorhub,
 		(MOTIONSENSE_SENSOR_FLAG_ODR | MOTIONSENSE_SENSOR_FLAG_FLUSH);
 
 	if (in->flags & MOTIONSENSE_SENSOR_FLAG_TIMESTAMP && !async_flags) {
-		s64 a = in->timestamp;
 		s64 b = fifo_info->timestamp;
 		s64 c = fifo_timestamp;
+		s64 a;
 
-		cros_ec_sensor_ring_fix_overflow(&a, 1LL << 32,
-					  &sensorhub->overflow_a);
 		cros_ec_sensor_ring_fix_overflow(&b, 1LL << 32,
 					  &sensorhub->overflow_b);
+		/*
+		 * Derive a from b rather than unwrapping it on its own, so
+		 * that both always fall in the same overflow period. a is at
+		 * most FIFO_TS_SLACK_US later than b, but can be up to almost
+		 * a whole period earlier, when the sample stayed in the FIFO
+		 * while the FIFO interrupt was disabled, e.g. in suspend.
+		 */
+		a = b + FIFO_TS_SLACK_US -
+		    (u32)(fifo_info->timestamp + FIFO_TS_SLACK_US -
+			  in->timestamp);
 
 		if (sensorhub->tight_timestamps) {
 			cros_ec_sensor_ring_ts_filter_update(
@@ -551,8 +614,17 @@ cros_ec_sensor_ring_process_event(struct cros_ec_sensorhub *sensorhub,
 	for (axis = 0; axis < 3; axis++)
 		out->vector[axis] = in->data[axis];
 
-	if (sensorhub->tight_timestamps)
-		cros_ec_sensor_ring_check_for_past_timestamp(sensorhub, out);
+	if (sensorhub->tight_timestamps &&
+	    cros_ec_sensor_ring_is_past_timestamp(sensorhub, out)) {
+		/*
+		 * Drop the sample. The previous batch length no longer
+		 * covers the interval up to the next batch, so reset it to
+		 * prevent the next batch from computing its sample period
+		 * across the gap.
+		 */
+		sensorhub->batch_state[out->sensor_id].last_len = 0;
+		return false;
+	}
 	return true;
 }
 
