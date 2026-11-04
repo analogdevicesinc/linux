@@ -1,21 +1,157 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Intel Bluetooth YoYo Debug Framework
+ * Intel Bluetooth PCIe Debug Framework
  *
  * Copyright (C) 2026 Intel Corporation
  *
  * Runtime-configurable TLV-based debug collection framework for loading and
  * parsing the optional YoYo firmware configuration used to enable debug
- * regions, triggers, HCI commands, and configuration sets.
+ * regions, triggers, HCI commands, and configuration sets. Also provides
+ * debug INI configuration.
  */
 
 #include <linux/errno.h>
 #include <linux/module.h>
+#include <linux/pci.h>
+#include <linux/slab.h>
 #include <linux/stddef.h>
 #include <linux/string.h>
 #include <linux/unaligned.h>
 #include <net/bluetooth/bluetooth.h>
+#include "btintel_pcie.h"
 #include "btintel_pcie_debug.h"
+
+static char *btintel_pcie_read_debug_ini(struct btintel_pcie_data *data)
+{
+	const struct firmware *fw;
+	char *buf;
+	int err;
+
+	err = request_firmware_direct(&fw, BTINTEL_PCIE_DBG_INI_FILE,
+				      &data->pdev->dev);
+	if (err)
+		return ERR_PTR(err);
+
+	buf = kmemdup_nul(fw->data, fw->size, GFP_KERNEL);
+	release_firmware(fw);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	return buf;
+}
+
+static char *btintel_pcie_ini_next(char **cursor, char **key)
+{
+	char *line, *eq;
+
+	while ((line = strsep(cursor, "\n"))) {
+		line = strim(line);
+		if (!line[0] || line[0] == '#' || line[0] == ';')
+			continue;
+
+		eq = strchr(line, '=');
+		if (!eq)
+			continue;
+
+		*eq = '\0';
+		*key = strim(line);
+		return strim(eq + 1);
+	}
+
+	return NULL;
+}
+
+/* Loads optional "DBG_PATH=<value>", "ENABLE_INI=<value>" and
+ * "LOG_MASK=<value>" overrides from BTINTEL_PCIE_DBG_INI_FILE and applies
+ * them to data->dbg_path_cache, data->enable_ini and data->log_mask.
+ *
+ * DBG_PATH accepts BTINTEL_PCIE_WIFI_DBGC (0x06, default) and
+ * BTINTEL_PCIE_DRAM (0x01, legacy); an invalid or missing entry leaves
+ * the cached value set by the caller unchanged.
+ *
+ * ENABLE_INI accepts 1 (enabled) or 0 (disabled); an invalid or missing
+ * entry leaves data->enable_ini unchanged.
+ *
+ * LOG_MASK accepts any u32 bitmask (see BTINTEL_PCIE_DUMP_TX and friends).
+ * The default enables alive interrupt and Sx logging; an invalid or missing
+ * entry leaves data->log_mask unchanged.
+ */
+void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data)
+{
+	const char *ini_file = BTINTEL_PCIE_DBG_INI_FILE;
+	char *buf, *cursor, *key, *val;
+	bool dbg_path_applied = false;
+	bool log_mask_applied = false;
+
+	buf = btintel_pcie_read_debug_ini(data);
+	if (IS_ERR(buf)) {
+		BT_DBG("%s unavailable (%ld), using dbg_path=0x%02x log_mask=0x%08x",
+		       ini_file, PTR_ERR(buf), data->dbg_path_cache,
+		       data->log_mask);
+		if (data->dbg_path_cache != BTINTEL_PCIE_DRAM)
+			data->enable_ini = false;
+		return;
+	}
+
+	cursor = buf;
+	while ((val = btintel_pcie_ini_next(&cursor, &key))) {
+		unsigned int parsed;
+
+		if (!strcasecmp(key, "DBG_PATH")) {
+			BT_INFO("Read DBG_PATH from %s: '%s'", ini_file, val);
+			if (!kstrtouint(val, 0, &parsed) &&
+			    (parsed == BTINTEL_PCIE_DRAM ||
+			     parsed == BTINTEL_PCIE_WIFI_DBGC)) {
+				data->dbg_path_cache = parsed;
+				dbg_path_applied = true;
+				BT_INFO("WRT dbg_path accepted: 0x%02x",
+					data->dbg_path_cache);
+			} else {
+				BT_WARN("Invalid DBG_PATH='%s' in %s, using dbg_path=0x%02x",
+					val, ini_file, data->dbg_path_cache);
+			}
+		} else if (!strcasecmp(key, "LOG_MASK")) {
+			BT_INFO("Read LOG_MASK from %s: '%s'", ini_file, val);
+			if (!kstrtouint(val, 0, &parsed)) {
+				data->log_mask = parsed;
+				log_mask_applied = true;
+				BT_INFO("WRT log_mask accepted: 0x%08x",
+					data->log_mask);
+			} else {
+				BT_WARN("Invalid LOG_MASK='%s' in %s, using log_mask=0x%08x",
+					val, ini_file, data->log_mask);
+			}
+		} else if (!strcasecmp(key, "ENABLE_INI")) {
+			BT_INFO("Read ENABLE_INI from %s: '%s'", ini_file, val);
+			if (!kstrtouint(val, 0, &parsed) && parsed <= 1) {
+				data->enable_ini = !!parsed;
+				BT_INFO("WRT enable_ini accepted: %u",
+					data->enable_ini);
+			} else {
+				BT_WARN("Invalid ENABLE_INI='%s' in %s, using enable_ini=%u",
+					val, ini_file, data->enable_ini);
+			}
+		}
+	}
+
+	if (data->dbg_path_cache != BTINTEL_PCIE_DRAM)
+		data->enable_ini = false;
+
+	if (dbg_path_applied)
+		BT_DBG("Loaded dbg_path=0x%02x from %s", data->dbg_path_cache, ini_file);
+	else
+		BT_WARN("No valid DBG_PATH in %s, dbg_path=0x%02x", ini_file, data->dbg_path_cache);
+
+	BT_DBG("ENABLE_INI effective state: %u", data->enable_ini);
+
+	if (log_mask_applied)
+		BT_DBG("Loaded log_mask=0x%08x from %s", data->log_mask, ini_file);
+	else
+		BT_DBG("No valid LOG_MASK in %s, log_mask=0x%08x", ini_file, data->log_mask);
+
+	kfree(buf);
+}
+EXPORT_SYMBOL_GPL(btintel_pcie_load_dbg_path_from_ini);
 
 /* TLV-specific parser DEBUG_INFO TLV type */
 static int btintel_pcie_yoyo_parse_dbg_info(struct btintel_pcie_yoyo_ctx *ctx,
@@ -327,5 +463,5 @@ btintel_pcie_yoyo_get_buf_alloc(struct btintel_pcie_yoyo_ctx *ctx, u32 alloc_id)
 }
 EXPORT_SYMBOL_GPL(btintel_pcie_yoyo_get_buf_alloc);
 
-MODULE_DESCRIPTION("Intel Bluetooth yoyo debug framework");
+MODULE_DESCRIPTION("Intel Bluetooth PCIe Debug Framework");
 MODULE_LICENSE("GPL");

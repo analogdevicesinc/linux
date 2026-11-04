@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Intel Bluetooth YoYo Debug Framework
+ * Intel Bluetooth PCIe Debug Framework
  *
  * Copyright (C) 2026 Intel Corporation
  *
@@ -13,6 +13,12 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/firmware.h>
+
+struct btintel_pcie_data;
+
+#define BTINTEL_PCIE_DBG_INI_FILE	"ibt_bt_dbg_cfg.ini"
+
+void btintel_pcie_load_dbg_path_from_ini(struct btintel_pcie_data *data);
 
 /* External YoYo binary file */
 #define BTINTEL_PCIE_YOYO_FW_NAME	"intel/ibt_debug_yoyo.bin"
