@@ -25,7 +25,7 @@
 };
 
 &ethmac {
-	compatible = "amlogic,meson8m2-dwmac", "snps,dwmac";
+	compatible = "amlogic,meson8m2-dwmac", "snps,dwmac-3.70a", "snps,dwmac";
 	reg = <0xc9410000 0x10000
 		0xc1108140 0x8>;
 	clocks = <&clkc CLKID_ETH>,
