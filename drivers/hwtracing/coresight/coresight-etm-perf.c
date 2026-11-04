@@ -511,10 +511,14 @@ static void *etm_setup_aux(struct perf_event *event, void **pages,
 	if (!event_data->snk_config)
 		goto err;
 
+	if (user_sink)
+		put_device(&user_sink->dev);
 	mutex_unlock(&coresight_mutex);
 	return event_data;
 
 err:
+	if (user_sink)
+		put_device(&user_sink->dev);
 	mutex_unlock(&coresight_mutex);
 	etm_free_aux(event_data);
 	return NULL;
