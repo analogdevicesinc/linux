@@ -188,7 +188,7 @@ static int nic78bx_probe(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id led_device_ids[] = {
-	{ "NIC78B3" },
+	{ .id = "NIC78B3" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, led_device_ids);

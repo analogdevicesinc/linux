@@ -2,6 +2,19 @@
 
 if LEDS_CLASS_MULTICOLOR
 
+config LEDS_ASUS_AURA_SCSI
+	tristate "ASUS Aura RGB LEDs on ROG external NVMe enclosures"
+	depends on SCSI
+	help
+	  Say Y here if you want to control the RGB LEDs of ASUS ROG
+	  external NVMe enclosures such as the ROG STRIX Arion. The LEDs
+	  sit behind an ENE controller on the drive's SCSI LUN and are
+	  programmed with vendor commands; each of the four LED zones is
+	  exposed as a multicolor LED class device.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called leds-asus-aura-scsi.
+
 config LEDS_GROUP_MULTICOLOR
 	tristate "LEDs group multi-color support"
 	depends on OF
