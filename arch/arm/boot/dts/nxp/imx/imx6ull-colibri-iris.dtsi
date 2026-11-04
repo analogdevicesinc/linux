@@ -52,6 +52,11 @@
 	status = "okay";
 };
 
+/* Colibri SSP */
+&ecspi1 {
+	status = "okay";
+};
+
 &gpio1 {
 	/*
 	 * uart25_tx_on turns the UART transceiver on. If one wants to turn the

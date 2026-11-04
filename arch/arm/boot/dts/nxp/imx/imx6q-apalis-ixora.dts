@@ -65,6 +65,16 @@
 	status = "okay";
 };
 
+/* Apalis SPI1 */
+&ecspi1 {
+	status = "okay";
+};
+
+/* Apalis SPI2 */
+&ecspi2 {
+	status = "okay";
+};
+
 /* I2C1_SDA/SCL on MXM3 209/211 (e.g. RTC on carrier board) */
 &i2c1 {
 	status = "okay";

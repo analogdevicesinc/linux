@@ -105,10 +105,13 @@ static inline int imx_sc_to_linux_errno(int errno)
  */
 int imx_scu_get_handle(struct imx_sc_ipc **ipc)
 {
-	if (!imx_sc_ipc_handle)
+	/* Pairs with the smp_store_release() in imx_scu_probe(). */
+	struct imx_sc_ipc *sc_ipc = smp_load_acquire(&imx_sc_ipc_handle);
+
+	if (!sc_ipc)
 		return -EPROBE_DEFER;
 
-	*ipc = imx_sc_ipc_handle;
+	*ipc = sc_ipc;
 	return 0;
 }
 EXPORT_SYMBOL(imx_scu_get_handle);
@@ -345,7 +348,12 @@ static int imx_scu_probe(struct platform_device *pdev)
 		return ret;
 	init_completion(&sc_ipc->done);
 
-	imx_sc_ipc_handle = sc_ipc;
+	/*
+	 * Consumers fetch the handle from their own probe, possibly on
+	 * another CPU, and then use the channels, the mutex and the completion
+	 * initialised above. Publish it with release semantics.
+	 */
+	smp_store_release(&imx_sc_ipc_handle, sc_ipc);
 	ret = devm_add_action_or_reset(dev, imx_scu_clear_handle, sc_ipc);
 	if (ret)
 		return ret;

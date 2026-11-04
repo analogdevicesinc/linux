@@ -82,22 +82,25 @@
  *   GPIO_A_5 -> GPIO3
  *   USB_B_EN -> n.a.
  *   USB_B_ID -> n.a.
- *   USB_B_OC -> n.a.
+ *   USB_B_OC# -> n.a.
  */
 &gpio1 {
 	gpio-line-names = "GPIO_A_0", "GPIO_A_1", "", "",
 			  "", "GPIO0", "GPIO1", "GPIO2",
 			  "GPIO3", "", "USB_A_ID", "",
-			  "USB_A_EN", "USB_A_OC","CAM_MCK", "",
-			  "ETH_B_MDC", "ETH_B_MDIO", "ETH_B_TXD3", "ETH_B_TXD2",
-			  "ETH_B_TXD1", "ETH_B_TXD0", "ETH_B_TX_EN", "ETH_B_TX_CLK",
-			  "ETH_B_RX_DV", "ETH_B_RX_CLK", "ETH_B_RXD0", "ETH_B_RXD1",
-			  "ETH_B_RXD2", "ETH_B_RXD3";
+			  "USB_A_EN", "USB_A_OC#", "CAM_MCK", "",
+			  "ETH_B_MDC", "ETH_B_MDIO",
+			  "ETH_B_(S)(R)(G)MII_TXD3", "ETH_B_(S)(R)(G)MII_TXD2",
+			  "ETH_B_(S)(R)(G)MII_TXD1", "ETH_B_(S)(R)(G)MII_TXD0",
+			  "ETH_B_(R)(G)MII_TX_EN(_ER)", "ETH_B_(R)(G)MII_TX_CLK",
+			  "ETH_B_(R)(G)MII_RX_DV(_ER)", "ETH_B_(R)(G)MII_RX_CLK",
+			  "ETH_B_(S)(R)(G)MII_RXD0", "ETH_B_(S)(R)(G)MII_RXD1",
+			  "ETH_B_(R)(G)MII_RXD2", "ETH_B_(R)(G)MII_RXD3";
 };
 
 /*
  * Rename SoM signals according to SMARC module usage:
- *   SDIO_A_CD -> SDIO_CD
+ *   SDIO_A_CD# -> SDIO_CD
  *   SDIO_A_CLK -> SDIO_CK
  *   SDIO_A_CMD -> SDIO_CMD
  *   SDIO_A_D0 -> SDIO_D0
@@ -116,13 +119,13 @@
 
 /*
  * Rename SoM signals according to SMARC module usage:
- *   PCIE_CLKREQ -> PCIE_A_CKREQ
- *   PCIE_A_PERST -> PCIE_A_RST
+ *   GPIO_A_7 -> TEST
+ *   PCIe_A_PERST# -> PCIE_A_RST
  *   SDIO_B_D5 -> n.a.
  *   SDIO_B_D6 -> n.a.
  *   SDIO_B_D7 -> n.a.
- *   SPI_A_WP -> n.a.
- *   SPI_A_HOLD -> n.a.
+ *   UART_B_RX -> SER2_RX
+ *   I2S_LRCLK -> I2S0_LRCK
  *   UART_B_RTS -> SER2_RTS
  *   UART_B_CTS -> SER2_CTS
  *   SDIO_B_D0 -> GPIO8
@@ -131,21 +134,22 @@
  *   SDIO_B_D3 -> GPIO11
  *   SDIO_B_WP -> n.a.
  *   SDIO_B_D4 -> n.a.
- *   PCIE_SM_ALERT -> SMB_ALERT
+ *   PCIe_SM_ALERT# -> SMB_ALERT
  *   SDIO_B_CLK -> GPIO6
  *   SDIO_B_CMD -> GPIO7
  *   GPIO_B_0 -> LCD0_BKLT_EN
  *   GPIO_B_1 -> LCD1_BKLT_EN
- *   BOOT_SEL0 -> BOOT_SEL2
- *   SDIO_B_CD -> n.a.
+ *   BOOT_SEL0# -> BOOT_SEL2
+ *   BOOT_SEL1# -> BOOT_SEL1
+ *   SDIO_B_CD# -> n.a.
  *   SDIO_B_PWR_EN -> n.a.
  *   HDMI_CEC -> n.a.
  *   SDIO_B_PWR_EN -> n.a.
  */
 &gpio3 {
 	pinctrl-0 = <&pinctrl_gpio3>, <&pinctrl_gpio3_smarc>;
-	gpio-line-names = "PCIE_WAKE", "PCIE_A_CKREQ", "PCIE_A_RST", "",
-			  "", "", "", "",
+	gpio-line-names = "PCIe_WAKE#", "TEST", "PCIE_A_RST", "",
+			  "", "", "SER2_RX", "I2S0_LRCK",
 			  "SER2_RTS", "SER2_CTS", "GPIO8", "GPIO9",
 			  "GPIO10", "GPIO11", "", "",
 			  "SMB_ALERT", "GPIO6", "GPIO7", "LCD0_BKLT_EN",
@@ -170,19 +174,24 @@
  *   CAN_A_RX -> CAN0_RX
  *   CAN_B_TX -> CAN1_TX
  *   CAN_B_RX -> CAN1_RX
- *   GPIO_A_7 -> TEST
+ *   I2S_B_DATA_IN -> n.a.
+ *   GPIO_C_1 -> n.a.
  *   I2S_A_DATA_IN -> I2S0_SDIN
- *   I2S_LRCLK -> I2S0_LRCK
+ *   I2S_B_DATA_OUT -> n.a.
  */
 &gpio4 {
 	gpio-line-names = "", "", "", "LED",
-			  "ETH_A_MDC", "ETH_A_MDIO", "ETH_A_RXD0", "ETH_A_RXD1",
-			  "ETH_A_RXD2", "ETH_A_RXD3", "ETH_A_RX_DV", "ETH_A_RX_CLK",
-			  "ETH_A_TXD0", "ETH_A_TXD1", "ETH_A_TXD2", "ETH_A_TXD3",
-			  "ETH_A_TX_EN", "ETH_A_TX_CLK", "ETH2_INT", "USB_HUB_RST",
+			  "ETH_MDC", "ETH_MDIO",
+			  "ETH_A_(S)(R)(G)MII_RXD0", "ETH_A_(S)(R)(G)MII_RXD1",
+			  "ETH_A_(R)(G)MII_RXD2", "ETH_A_(R)(G)MII_RXD3",
+			  "ETH_A_(R)(G)MII_RX_DV(_ER)", "ETH_A_(R)(G)MII_RX_CLK",
+			  "ETH_A_(S)(R)(G)MII_TXD0", "ETH_A_(S)(R)(G)MII_TXD1",
+			  "ETH_A_(S)(R)(G)MII_TXD2", "ETH_A_(S)(R)(G)MII_TXD3",
+			  "ETH_A_(R)(G)MII_TX_EN(_ER)", "ETH_A_(R)(G)MII_TX_CLK",
+			  "ETH2_INT", "USB_HUB_RST",
 			  "ETH1_INT", "GPIO4", "CAN0_TX", "SER0_CTS",
 			  "SER0_RTS", "CAN0_RX", "CAN1_TX", "CAN1_RX",
-			  "TEST", "CARRIER_PWR_EN", "I2S0_SDIN", "I2S0_LRCK";
+			  "", "", "I2S0_SDIN", "";
 };
 
 /*
@@ -194,28 +203,28 @@
  *   PWM_1 -> LCD1_BKLT_PWM
  *   PWM_0 -> LCD0_BKLT_PWM
  *   SPI_A_SCK -> SPI0_CK
- *   SPI_A_SDO -> SPI0_DO
- *   SPI_A_SDI -> SPI0_DIN
- *   SPI_A_CS0 -> SPI0_CS0
+ *   SPI_A_SDO_(IO1) -> SPI0_DO
+ *   SPI_A_SDI_(IO0) -> SPI0_DIN
+ *   SPI_A_CS0# -> SPI0_CS0
  *   SPI_B_SCK -> ESPI_CK
  *   SPI_B_SDO -> ESPI_IO_0
  *   SPI_B_SDI -> ESPI_IO_1
- *   SPI_B_CS0 -> ESPI_CS0
+ *   SPI_B_CS0# -> ESPI_CS0
  *   I2C_A_SCL -> I2C_PM_CK
  *   I2C_A_SDA -> I2C_PM_DAT
  *   I2C_B_SCL -> I2C_GP_CK
  *   I2C_B_SDA -> I2C_GP_DAT
- *   PCIE_SMCLK -> HDMI_CTRL_CK
- *   PCIE_SMDAT -> HDMI_CTRL_DAT
- *   I2C_CAM_SCL -> I2C_CAM1_CK
- *   I2C_CAM_SDA -> I2C_CAM1_DAT
+ *   PCIe_SMCLK -> HDMI_CTRL_CK
+ *   PCIe_SMDAT -> HDMI_CTRL_DAT
+ *   I2C_CAM_SCL/CSI_TX_P -> I2C_CAM1_CK
+ *   I2C_CAM_SDA/CSI_TX_N -> I2C_CAM1_DAT
  *   UART_A_RX -> SER0_RX
  *   UART_A_TX -> SER0_TX
  *   UART_C_RX -> SER3_RX
  *   UART_C_TX -> SER3_TX
  *   UART_CON_RX -> SER1_RX
  *   UART_CON_TX -> SER1_TX
- *   UART_B_RX -> SER2_RX
+ *   PCIe_CLKREQ# -> PCIE_A_CKREQ
  *   UART_B_TX -> SER2_TX
  */
 &gpio5 {
@@ -228,7 +237,7 @@
 			  "I2C_GP_CK", "I2C_GP_DAT", "HDMI_CTRL_CK", "HDMI_CTRL_DAT",
 			  "I2C_CAM1_CK", "I2C_CAM1_DAT", "SER0_RX", "SER0_TX",
 			  "SER3_RX", "SER3_TX", "SER1_RX", "SER1_TX",
-			  "SER2_RX", "SER2_TX";
+			  "PCIE_A_CKREQ", "SER2_TX";
 };
 
 &usb_dwc3_1 {

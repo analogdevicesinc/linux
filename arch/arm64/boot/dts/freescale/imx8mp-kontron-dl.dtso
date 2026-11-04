@@ -52,22 +52,21 @@
 	};
 };
 
-&gpio4 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_gpio4>, <&pinctrl_panel_stby>;
+&gpio3 {
+	panel-stby-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "panel-standby";
+	};
+};
 
+&gpio4 {
 	panel-rst-hog {
 		gpio-hog;
 		gpios = <21 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "panel-reset";
-	};
-
-	panel-stby-hog {
-		gpio-hog;
-		gpios = <28 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "panel-standby";
 	};
 };
 
@@ -127,12 +126,6 @@
 };
 
 &iomuxc {
-	pinctrl_panel_stby: panelstbygrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_SAI3_RXFS__GPIO4_IO28		0x19
-		>;
-	};
-
 	pinctrl_touch: touchgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_GPIO1_IO06__GPIO1_IO06		0x19

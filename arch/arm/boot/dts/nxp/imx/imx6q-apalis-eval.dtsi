@@ -31,6 +31,16 @@
 	};
 };
 
+/* Apalis SPI1 */
+&ecspi1 {
+	status = "okay";
+};
+
+/* Apalis SPI2 */
+&ecspi2 {
+	status = "okay";
+};
+
 &i2c1 {
 	#address-cells = <1>;
 	#size-cells = <0>;

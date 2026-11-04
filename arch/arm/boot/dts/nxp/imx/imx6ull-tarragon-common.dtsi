@@ -30,15 +30,6 @@
 		reset-gpios = <&gpio4 10 GPIO_ACTIVE_LOW>;
 	};
 
-	reg_dcdc_3v3: regulator-dcdc-3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "dcdc-3v3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		regulator-boot-on;
-		regulator-always-on;
-	};
-
 	reg_1v8: regulator-1v8 {
 		compatible = "regulator-fixed";
 		regulator-name = "ldo-1v8";
@@ -111,12 +102,9 @@
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1
-		     &pinctrl_enet1_phy_rst
 		     &pinctrl_enet_mdio>;
 	phy-supply = <&reg_dcdc_3v3>;
 	phy-mode = "rmii";
-	phy-reset-gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
-	phy-reset-duration = <25>;
 	phy-handle = <&ethphy0>;
 
 	mdio {
@@ -127,13 +115,16 @@
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
 			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_enet1_phy_int>;
+			pinctrl-0 = <&pinctrl_enet1_phy_int &pinctrl_enet1_phy_rst>;
 			interrupt-parent = <&gpio2>;
 			interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
 			interrupts-extended = <&gpio2 7 IRQ_TYPE_EDGE_FALLING>;
 			clocks = <&clks IMX6UL_CLK_ENET_REF>;
 			clock-names = "rmii-ref";
 			max-speed = <100>;
+			reset-assert-us = <500>;
+			reset-deassert-us = <500>;
+			reset-gpios = <&gpio5 6 GPIO_ACTIVE_LOW>;
 			smsc,disable-energy-detect;
 		};
 	};
@@ -270,7 +261,7 @@
 		reg = <0x08>;
 
 		regulators {
-			sw1_reg: sw1 {
+			vdd_arm_soc_in: sw1 {
 				regulator-name = "SW1";
 				regulator-min-microvolt = <700000>;
 				regulator-max-microvolt = <3300000>;
@@ -278,7 +269,7 @@
 				regulator-always-on;
 			};
 
-			sw2_reg: sw2 {
+			reg_dcdc_3v3: sw2 {
 				regulator-name = "SW2";
 				regulator-min-microvolt = <1500000>;
 				regulator-max-microvolt = <3300000>;
@@ -313,7 +304,6 @@
 				regulator-name = "VLDO2";
 				regulator-min-microvolt = <800000>;
 				regulator-max-microvolt = <1550000>;
-				regulator-always-on;
 			};
 
 			vgen3_reg: vccsd {
@@ -334,14 +324,12 @@
 				regulator-name = "VLDO3";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
 			};
 
 			vgen6_reg: vldo4 {
 				regulator-name = "VLDO4";
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
-				regulator-always-on;
 			};
 		};
 	};
@@ -769,6 +757,16 @@
 	status = "okay";
 };
 
+&reg_arm {
+	vin-supply = <&vdd_arm_soc_in>;
+	regulator-allow-bypass;
+};
+
+&reg_soc {
+	vin-supply = <&vdd_arm_soc_in>;
+	regulator-allow-bypass;
+};
+
 &uart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_rs485_1>;
@@ -831,7 +829,7 @@
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
 	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
-	vmmc-supply = <&sw2_reg>;
+	vmmc-supply = <&reg_dcdc_3v3>;
 	vqmmc-supply = <&reg_1v8>;
 	mmc-pwrseq = <&emmc_pwrseq>;
 	bus-width = <8>;

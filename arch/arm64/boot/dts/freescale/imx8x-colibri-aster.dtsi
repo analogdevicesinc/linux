@@ -26,6 +26,11 @@
 	status = "okay";
 };
 
+/* Colibri I2C */
+&i2c1 {
+	status = "okay";
+};
+
 &iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog0>;
