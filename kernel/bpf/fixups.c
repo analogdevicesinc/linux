@@ -746,6 +746,195 @@ void bpf_lower_cast_mov(struct bpf_verifier_env *env)
 	}
 }
 
+/*
+ * Make BPF_REG_ARENA_SP work. It holds the low 32 bits of the address, which is
+ * what JITs add to the base of arena.
+ *  - the main program takes a stack when it starts and returns it when it exits:
+ *    the stack of the cpu when it's free, without a call.
+ *    See struct bpf_arena_cpu_stack. So does a callback.
+ *    bpf_throw() doesn't return it: the stack stays taken until the arena is freed.
+ *  - a function that has a frame drops it before exit.
+ *  - 'rX = r12' gives the address like user space sees it, as other addresses
+ *    in arena are.
+ * It's done before bpf_convert_ctx_accesses(), so that this code is a part of the
+ * program for gen_prologue() and gen_epilogue(). The prologue runs before the
+ * program takes a stack. The epilogue runs after each exit, also when there is
+ * no stack and the program is skipped.
+ */
+
+#define CPU_STACK_OFF(field) offsetof(struct bpf_arena_cpu_stack, field)
+
+/* reg = this_cpu_ptr(stacks) */
+static struct bpf_insn *emit_arena_stack_percpu(struct bpf_verifier_env *env,
+						struct bpf_insn *patch, int reg)
+{
+	struct bpf_insn ld_stacks[2] = {
+		BPF_LD_IMM64(reg, (__force long)bpf_arena_stack_percpu(env->prog->aux->arena))
+	};
+
+	*patch++ = ld_stacks[0];
+	*patch++ = ld_stacks[1];
+	*patch++ = BPF_MOV64_PERCPU_REG(reg, reg);
+	return patch;
+}
+
+/*
+ * Take a stack at the start of the main program or of a callback.
+ *
+ *	cnt = busy++;
+ *	if (!cnt)
+ *		goto free;
+ * slow:
+ *	r12 = bpf_arena_stack_get(aux, cnt);
+ *	if (r12)
+ *		goto done;
+ *	return 0;
+ * free:
+ *	if (size < what the program needs)
+ *		goto slow;
+ *	r12 = base;
+ * done:
+ *
+ * r0 and r6-r9 are not initialized when a function starts. Neither are r2-r5 in
+ * the main program. A callback has arguments there.
+ */
+static int insert_arena_stack_get(struct bpf_verifier_env *env, int s)
+{
+	struct bpf_insn ld_aux[2] = { BPF_LD_IMM64(BPF_REG_1, (long)env->prog->aux) };
+	int local = bpf_jit_supports_local_atomics() ? BPF_ATOMIC_LOCAL : 0;
+	int ptr = s ? BPF_REG_6 : BPF_REG_2, cnt = s ? BPF_REG_7 : BPF_REG_3;
+	int size = s ? BPF_REG_8 : BPF_REG_4;
+	struct bpf_subprog_info *sub = &env->subprog_info[s];
+	struct bpf_insn *buf = env->insn_buf, *patch;
+	int jfree, jdone, jslow, slow, free, done, i, spill = 0;
+
+	if (s) {
+		spill = round_up(sub->stack_depth, BPF_REG_SIZE);
+		sub->stack_depth = spill + MAX_BPF_FUNC_REG_ARGS * BPF_REG_SIZE;
+		if (sub->stack_depth > env->stack_limit) {
+			verbose(env, "no room in the stack of %s() for its arguments\n",
+				bpf_subprog_name(env, s));
+			return -EACCES;
+		}
+	}
+
+	patch = emit_arena_stack_percpu(env, buf, ptr);
+	*patch++ = BPF_MOV32_IMM(cnt, 1);
+	*patch++ = BPF_ATOMIC_OP(BPF_DW, BPF_ADD | BPF_FETCH | local, ptr, cnt,
+				 CPU_STACK_OFF(busy));
+	jfree = patch++ - buf;
+	slow = patch - buf;
+	if (!s)
+		*patch++ = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	for (i = BPF_REG_1; s && i <= BPF_REG_5; i++)
+		*patch++ = BPF_STX_MEM(BPF_DW, BPF_REG_FP, i, -(spill + i * BPF_REG_SIZE));
+	*patch++ = ld_aux[0];
+	*patch++ = ld_aux[1];
+	*patch++ = BPF_MOV64_REG(BPF_REG_2, cnt);
+	*patch++ = BPF_EMIT_KERNEL_CALL(bpf_arena_stack_get);
+	*patch++ = BPF_MOV32_REG(BPF_REG_ARENA_SP, BPF_REG_0);
+	if (!s)
+		*patch++ = BPF_MOV64_REG(BPF_REG_1, BPF_REG_6);
+	for (i = BPF_REG_1; s && i <= BPF_REG_5; i++)
+		*patch++ = BPF_LDX_MEM(BPF_DW, i, BPF_REG_FP, -(spill + i * BPF_REG_SIZE));
+	jdone = patch++ - buf;
+	*patch++ = BPF_MOV64_IMM(BPF_REG_0, 0);
+	*patch++ = BPF_EXIT_INSN();
+	free = patch - buf;
+	*patch++ = BPF_LDX_MEM(BPF_W, size, ptr, CPU_STACK_OFF(size));
+	jslow = patch++ - buf;
+	*patch++ = BPF_LDX_MEM(BPF_W, BPF_REG_ARENA_SP, ptr, CPU_STACK_OFF(base));
+	done = patch - buf;
+
+	buf[jfree] = BPF_JMP_IMM(BPF_JEQ, cnt, 0, free - jfree - 1);
+	buf[jdone] = BPF_JMP_IMM(BPF_JNE, BPF_REG_0, 0, done - jdone - 1);
+	/* size is 0 until the stack is allocated */
+	buf[jslow] = BPF_JMP32_IMM(BPF_JLT, size, max(env->max_arena_stack_depth, 1),
+				   slow - jslow - 1);
+
+	/* a jump to the first insn doesn't take the stack again, neither does gotox */
+	return bpf_patch_list_insert(env, sub->start, buf, done);
+}
+
+int bpf_insert_arena_stack(struct bpf_verifier_env *env)
+{
+	struct bpf_map *arena = (struct bpf_map *)env->prog->aux->arena;
+	struct bpf_subprog_info *subprogs = env->subprog_info;
+	struct bpf_insn *insn_buf = env->insn_buf, *patch, *insn;
+	struct bpf_prog_aux *aux = env->prog->aux;
+	struct bpf_insn ld_aux[2] = { BPF_LD_IMM64(BPF_REG_1, (long)aux) };
+	int i, cur = 0, err;
+
+	if (!env->uses_arena_sp)
+		return 0;
+
+	/* the caller would get r12 of the callee back */
+	for (i = 0; i < env->subprog_cnt; i++) {
+		if ((i && !subprogs[i].arena_stack_entry) || !subprogs[i].is_called)
+			continue;
+		verbose(env, "%s() uses R%d and is both called and a callback\n",
+			bpf_subprog_name(env, i), BPF_REG_ARENA_SP);
+		return -EINVAL;
+	}
+
+	/*
+	 * With spare bytes r12 is neither the start nor the end of the stack,
+	 * which may be at 0, so 'rX = r12' is not NULL.
+	 */
+	aux->arena_stack_size = round_up(env->max_arena_stack_depth + 64, PAGE_SIZE);
+
+	for (i = 0; i < env->prog->len; i++) {
+		insn = env->prog->insnsi + i;
+		if (subprogs[cur + 1].start == i)
+			cur++;
+		patch = insn_buf;
+
+		if (is_arena_sp_adj(insn)) {
+			insn->code = BPF_ALU | BPF_ADD | BPF_K;
+			env->insn_aux_data[i].zext_dst = true;
+		} else if (is_arena_sp_mov(insn)) {
+			/* rX = addr_space_cast(r12, 1, 0) */
+			if (!(arena->map_flags & BPF_F_NO_USER_CONV)) {
+				insn->off = BPF_ADDR_SPACE_CAST;
+				insn->imm = 1 << 16;
+			}
+		} else if (insn->code == (BPF_JMP | BPF_EXIT)) {
+			if (subprogs[cur].arena_stack_depth)
+				*patch++ = BPF_ALU32_IMM(BPF_ADD, BPF_REG_ARENA_SP,
+							 -(int)subprogs[cur].arena_stack_depth);
+			if (!cur || subprogs[cur].arena_stack_entry) {
+				/* r1-r5 are free */
+				*patch++ = BPF_JMP32_IMM(BPF_JSET, BPF_REG_ARENA_SP,
+							 BPF_ARENA_STACK_SLOW, 5);
+				patch = emit_arena_stack_percpu(env, patch, BPF_REG_2);
+				*patch++ = BPF_ST_MEM(BPF_DW, BPF_REG_2, CPU_STACK_OFF(busy), 0);
+				*patch++ = *insn;
+				*patch++ = BPF_MOV64_REG(BPF_REG_6, BPF_REG_0);
+				*patch++ = ld_aux[0];
+				*patch++ = ld_aux[1];
+				*patch++ = BPF_MOV64_REG(BPF_REG_2, BPF_REG_ARENA_SP);
+				*patch++ = BPF_EMIT_KERNEL_CALL(bpf_arena_stack_put);
+				*patch++ = BPF_MOV64_REG(BPF_REG_0, BPF_REG_6);
+			}
+			if (patch != insn_buf)
+				*patch++ = *insn;
+		}
+
+		if (patch != insn_buf) {
+			insn = bpf_patch_list_add(env, i, insn_buf, patch - insn_buf);
+			if (IS_ERR(insn))
+				return PTR_ERR(insn);
+		}
+		/* Not before the insn is rewritten: the list takes a copy of it. */
+		if (subprogs[cur].start == i && (!cur || subprogs[cur].arena_stack_entry)) {
+			err = insert_arena_stack_get(env, cur);
+			if (err)
+				return err;
+		}
+	}
+	return bpf_patch_list_commit(env);
+}
+
 int bpf_opt_remove_nops(struct bpf_verifier_env *env)
 {
 	int insn_cnt = env->prog->len;
@@ -1440,6 +1629,8 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 		func[i]->aux->jited_linfo = prog->aux->jited_linfo;
 		func[i]->aux->linfo_idx = env->subprog_info[i].linfo_idx;
 		func[i]->aux->arena = prog->aux->arena;
+		func[i]->aux->arena_stack_size = prog->aux->arena_stack_size;
+		func[i]->aux->arena_stack_entry = env->subprog_info[i].arena_stack_entry;
 		func[i]->aux->uses_arena_insns = bpf_prog_has_arena_insns(func[i]);
 		func[i]->aux->used_maps = env->used_maps;
 		func[i]->aux->used_map_cnt = env->used_map_cnt;
@@ -2218,6 +2409,11 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			goto next_insn;
 		if (insn->src_reg == BPF_PSEUDO_CALL)
 			goto next_insn;
+		/* imm is not the id of a helper */
+		if (!insn->src_reg && insn->off == BPF_KERNEL_CALL) {
+			insn->off = 0;
+			goto next_insn;
+		}
 		if (insn->src_reg == BPF_PSEUDO_KFUNC_CALL) {
 			ret = bpf_fixup_kfunc_call(env, insn, insn_buf, i, &cnt);
 			if (ret)
@@ -2720,7 +2916,7 @@ next_insn:
 		bool main_prog = tmg && !i;
 		/* only a helper calls it, in a loop that ends when it returns 1 */
 		bool loop_cb = tmg && i && subprogs[i].is_loop_cb && !subprogs[i].is_called &&
-			       !subprogs[i].is_async_cb;
+			       !subprogs[i].is_other_cb && !subprogs[i].is_async_cb;
 
 		if (timed_may_goto ? !main_prog && !loop_cb : !stack_slots)
 			continue;
@@ -2896,7 +3092,9 @@ int bpf_optimize_bpf_loop(struct bpf_verifier_env *env)
 		struct bpf_loop_inline_state *inline_state =
 			&env->insn_aux_data[i].loop_inline_state;
 
-		if (is_bpf_loop_call(insn) && inline_state->fit_for_inline) {
+		/* the callback that takes a stack in arena is not for a call from the program */
+		if (is_bpf_loop_call(insn) && inline_state->fit_for_inline &&
+		    !subprogs[inline_state->callback_subprogno].arena_stack_entry) {
 			stack_depth_extra = BPF_REG_SIZE * 3 + stack_depth_roundup;
 			err = inline_bpf_loop(env, i,
 					      -(stack_depth + stack_depth_extra),

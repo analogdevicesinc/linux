@@ -599,6 +599,21 @@ static inline int bpf_atomic_load_reg(const struct bpf_insn *insn)
 		.off   = 0,					\
 		.imm   = BPF_CALL_IMM(FUNC) })
 
+/*
+ * The same in code that the verifier emits before bpf_do_misc_fixups(). That pass
+ * takes imm of a call for the id of a helper. This value in off, which is 0 in the
+ * call of a helper, says that imm is final. The pass clears it.
+ */
+#define BPF_KERNEL_CALL	1
+
+#define BPF_EMIT_KERNEL_CALL(FUNC)				\
+	((struct bpf_insn) {					\
+		.code  = BPF_JMP | BPF_CALL,			\
+		.dst_reg = 0,					\
+		.src_reg = 0,					\
+		.off   = BPF_KERNEL_CALL,			\
+		.imm   = BPF_CALL_IMM(FUNC) })
+
 /* Kfunc call */
 
 #define BPF_CALL_KFUNC(OFF, IMM)				\
@@ -899,6 +914,49 @@ static inline bool is_stack_arg_stx(const struct bpf_insn *insn)
 	return insn->code == (BPF_STX | BPF_MEM | BPF_DW) &&
 	       insn->dst_reg == BPF_REG_PARAMS &&
 	       insn->off < 0 && insn->off % 8 == 0;
+}
+
+/*
+ * BPF_REG_ARENA_SP, r12, points to the end of the frame of the function in
+ * the stack in arena, like r10 does in the stack of the program. The stack
+ * in arena grows up. r12 is used in four insns:
+ *   r12 += N                          the first insn of the function
+ *                                     N is a multiple of 16, so is r12
+ *   rX = r12
+ *   rX = *(size *)(r12 - off)
+ *   *(size *)(r12 - off) = rX or imm
+ */
+static inline bool is_arena_sp_adj(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_ALU64 | BPF_ADD | BPF_K) &&
+	       insn->dst_reg == BPF_REG_ARENA_SP;
+}
+
+static inline bool is_arena_sp_mov(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_ALU64 | BPF_MOV | BPF_X) &&
+	       insn->src_reg == BPF_REG_ARENA_SP && !insn->off && !insn->imm;
+}
+
+static inline bool is_arena_sp_ldx(const struct bpf_insn *insn)
+{
+	return BPF_CLASS(insn->code) == BPF_LDX &&
+	       (BPF_MODE(insn->code) == BPF_MEM || BPF_MODE(insn->code) == BPF_MEMSX) &&
+	       insn->src_reg == BPF_REG_ARENA_SP;
+}
+
+/* st and stx */
+static inline bool is_arena_sp_st(const struct bpf_insn *insn)
+{
+	return (BPF_CLASS(insn->code) == BPF_ST || BPF_CLASS(insn->code) == BPF_STX) &&
+	       BPF_MODE(insn->code) == BPF_MEM &&
+	       insn->dst_reg == BPF_REG_ARENA_SP;
+}
+
+static inline bool is_arena_sp_insn(const struct bpf_insn *insn)
+{
+	return is_arena_sp_adj(insn) || is_arena_sp_mov(insn) ||
+	       is_arena_sp_ldx(insn) || is_arena_sp_st(insn);
 }
 
 #define BPF_SKB_CB_LEN QDISC_CB_PRIV_LEN
@@ -1337,6 +1395,7 @@ bool bpf_jit_supports_ptr_xchg(void);
 bool bpf_jit_supports_arena(void);
 bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena);
 bool bpf_jit_supports_private_stack(void);
+bool bpf_jit_supports_arena_stack(void);
 bool bpf_jit_supports_local_atomics(void);
 bool bpf_jit_supports_large_stack(void);
 bool bpf_jit_supports_timed_may_goto(void);
