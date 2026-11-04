@@ -424,9 +424,11 @@ static int snd_cs8427_spdif_get(struct snd_kcontrol *kcontrol,
 {
 	struct snd_i2c_device *device = snd_kcontrol_chip(kcontrol);
 	struct cs8427 *chip = device->private_data;
+	const char *status = kcontrol->private_value ?
+		chip->playback.pcm_status : chip->playback.def_status;
 	
 	snd_i2c_lock(device->bus);
-	memcpy(ucontrol->value.iec958.status, chip->playback.def_status, 24);
+	memcpy(ucontrol->value.iec958.status, status, 24);
 	snd_i2c_unlock(device->bus);
 	return 0;
 }
