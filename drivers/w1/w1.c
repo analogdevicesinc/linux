@@ -1055,6 +1055,9 @@ void w1_search(struct w1_master *dev, u8 search_type, w1_slave_found_callback cb
 				dev_dbg(&dev->dev, "Abort w1_search\n");
 				return;
 			}
+
+			/* Busy-waiting masters can hold the CPU for a whole pass */
+			cond_resched();
 		}
 		mutex_unlock(&dev->bus_mutex);
 
@@ -1182,7 +1185,7 @@ int w1_process(void *data)
 
 		__set_current_state(TASK_INTERRUPTIBLE);
 
-		/* hold list_mutex until after interruptible to prevent loosing
+		/* hold list_mutex until after interruptible to prevent losing
 		 * the wakeup signal when async_cmd is added.
 		 */
 		mutex_unlock(&dev->list_mutex);

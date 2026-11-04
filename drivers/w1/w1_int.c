@@ -130,6 +130,9 @@ int w1_add_master_device(struct w1_bus_master *master)
 
 	memcpy(dev->bus_master, master, sizeof(struct w1_bus_master));
 
+	if (master->search_count)
+		dev->search_count = master->search_count;
+
 	dev->initialized = 1;
 
 	dev->thread = kthread_run(&w1_process, dev, "%s", dev->name);

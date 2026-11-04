@@ -90,6 +90,9 @@ static int sgi_w1_probe(struct platform_device *pdev)
 	sdev->bus_master.reset_bus = sgi_w1_reset_bus;
 	sdev->bus_master.touch_bit = sgi_w1_touch_bit;
 
+	/* The slaves are soldered on; one search finds them all. */
+	sdev->bus_master.search_count = 1;
+
 	pdata = dev_get_platdata(&pdev->dev);
 	if (pdata) {
 		strscpy(sdev->dev_id, pdata->dev_id, sizeof(sdev->dev_id));
