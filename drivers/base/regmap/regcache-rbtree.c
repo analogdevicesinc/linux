@@ -494,8 +494,10 @@ static int regcache_rbtree_sync(struct regmap *map, unsigned int min,
 		ret = regcache_sync_block(map, rbnode->block,
 					  rbnode->cache_present,
 					  rbnode->base_reg, start, end);
-		if (ret != 0)
+		if (ret != 0) {
+			map->async = false;
 			return ret;
+		}
 	}
 
 	map->async = false;

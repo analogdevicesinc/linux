@@ -41,7 +41,7 @@ static int regcache_maple_write(struct regmap *map, unsigned int reg,
 	struct maple_tree *mt = map->cache;
 	MA_STATE(mas, mt, reg, reg);
 	unsigned long *entry, *upper, *lower;
-	unsigned long index, last;
+	unsigned long index, last, lower_reg, upper_reg;
 	size_t lower_sz, upper_sz;
 	int ret;
 
@@ -54,18 +54,33 @@ static int regcache_maple_write(struct regmap *map, unsigned int reg,
 		return 0;
 	}
 
-	/* Any adjacent entries to extend/merge? */
-	mas_set_range(&mas, reg - 1, reg + 1);
+	/* Avoid overflowing and wrapping */
+	if (reg != 0)
+		lower_reg = reg - 1;
+	else
+		lower_reg = reg;
+
+	if (reg != UINT_MAX)
+		upper_reg = reg + 1;
+	else
+		upper_reg = reg;
+
+	/*
+	 * Any adjacent entries to extend/merge?  If we are here then
+	 * reg won't exist so if we clamped lower_reg or upper_reg we
+	 * won't get anything from mas_find().
+	 */
+	mas_set_range(&mas, lower_reg, upper_reg);
 	index = reg;
 	last = reg;
 
-	lower = mas_find(&mas, reg - 1);
+	lower = mas_find(&mas, lower_reg);
 	if (lower) {
 		index = mas.index;
 		lower_sz = (mas.last - mas.index + 1) * sizeof(unsigned long);
 	}
 
-	upper = mas_find(&mas, reg + 1);
+	upper = mas_find(&mas, upper_reg);
 	if (upper) {
 		last = mas.last;
 		upper_sz = (mas.last - mas.index + 1) * sizeof(unsigned long);
