@@ -280,8 +280,7 @@ static bool check_same_owner(struct task_struct *p)
 	guard(rcu)();
 
 	pcred = __task_cred(p);
-	return (uid_eq(cred->euid, pcred->euid) ||
-		uid_eq(cred->euid, pcred->uid));
+	return cred_ids_allow_sched(cred, pcred);
 }
 
 #ifdef CONFIG_RT_MUTEXES
