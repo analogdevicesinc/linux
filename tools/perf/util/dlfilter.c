@@ -233,8 +233,7 @@ static const __u8 *dlfilter__insn(void *ctx, __u32 *len)
 		if (thread__maps(al->thread)) {
 			struct machine *machine = maps__machine(thread__maps(al->thread));
 
-			if (machine)
-				perf_sample__fetch_insn(d->sample, al->thread, machine);
+			perf_sample__fetch_insn(d->sample, al->thread, machine);
 		}
 	}
 

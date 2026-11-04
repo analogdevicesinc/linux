@@ -74,18 +74,25 @@ static int test__pe_file_parsing(struct test_suite *test __maybe_unused,
 {
 	struct stat st;
 	char path_dir[PATH_MAX];
-	const char * const tests_dirs[] = {
+	static const char * const tests_dirs[] = {
 		"./tools/perf/tests",
 		"./tests",
 		"./source/tests",
-		path_dir,
 	};
-	snprintf(path_dir, PATH_MAX, "%s/tests", get_argv_exec_path());
+	char *exec_path;
 
 	for (size_t i = 0; i < ARRAY_SIZE(tests_dirs); ++i) {
 		if (!lstat(tests_dirs[i], &st))
 			return run_dir(tests_dirs[i]);
 	}
+
+	exec_path = get_argv_exec_path();
+	TEST_ASSERT_VAL("Failed to allocate exec_path", exec_path);
+	snprintf(path_dir, PATH_MAX, "%s/tests", exec_path);
+	free(exec_path);
+
+	if (!lstat(path_dir, &st))
+		return run_dir(path_dir);
 
 	pr_debug("cannot find the tests directory\n");
 	return TEST_SKIP;
