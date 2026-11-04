@@ -869,6 +869,10 @@ struct sched_ext_ops {
 	 * @sub_attach: Attach a sub-scheduler
 	 * @args: argument container, see the struct definition
 	 *
+	 * The sub-scheduler's cgroup is online for the whole call. If it goes
+	 * offline after the sub-scheduler is accepted, ops.sub_detach()
+	 * follows.
+	 *
 	 * Return 0 to accept the sub-scheduler. -errno to reject.
 	 */
 	s32 (*sub_attach)(struct scx_sub_attach_args *args);
@@ -2761,14 +2765,14 @@ static inline struct scx_sched *scx_parent(struct scx_sched *sch) { return NULL;
 #endif	/* CONFIG_EXT_SUB_SCHED */
 
 /**
- * scx_exec_sched - Find the sched running @sch's tasks on @cpu
+ * scx_exec_sched - Find the sched hosting @sch's tasks on @cpu
  * @sch: sched owning the tasks
  * @cpu: cpu of interest
  *
- * A bypassing sched's tasks are run by its nearest ancestor that isn't
- * bypassing. Return @sch if it isn't bypassing on @cpu, otherwise that
- * ancestor, or the root if every ancestor is bypassing. Hold @cpu's rq lock for
- * a stable answer.
+ * A bypassing sched's tasks are hosted on the bypass DSQs of its nearest
+ * ancestor that isn't bypassing. Return @sch if it isn't bypassing on @cpu,
+ * otherwise that ancestor, or the root if every ancestor is bypassing. Hold
+ * @cpu's rq lock for a stable answer.
  */
 static inline struct scx_sched *scx_exec_sched(struct scx_sched *sch, s32 cpu)
 {
