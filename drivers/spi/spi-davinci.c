@@ -703,10 +703,8 @@ static int davinci_spi_bufs(struct spi_device *spi, struct spi_transfer *t)
 		if (!txdesc)
 			goto err_desc;
 
-		rxdesc->callback = davinci_spi_dma_rx_callback;
-		rxdesc->callback_param = (void *)dspi;
-		txdesc->callback = davinci_spi_dma_tx_callback;
-		txdesc->callback_param = (void *)dspi;
+		dmaengine_desc_set_callback(rxdesc, davinci_spi_dma_rx_callback, NULL, dspi);
+		dmaengine_desc_set_callback(txdesc, davinci_spi_dma_tx_callback, NULL, dspi);
 
 		if (pdata->cshold_bug)
 			iowrite16(spidat1 >> 16, dspi->base + SPIDAT1 + 2);

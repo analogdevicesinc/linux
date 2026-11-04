@@ -294,8 +294,7 @@ static int k1_spi_dma_one(struct spi_controller *host, struct spi_device *spi,
 	}
 
 	/* When RX is complete we also know TX has completed */
-	rxdesc->callback = k1_spi_dma_callback;
-	rxdesc->callback_param = drv_data;
+	dmaengine_desc_set_callback(rxdesc, k1_spi_dma_callback, NULL, drv_data);
 
 	dmaengine_submit(txdesc);
 	dmaengine_submit(rxdesc);

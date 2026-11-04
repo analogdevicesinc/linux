@@ -456,8 +456,7 @@ static int ti_qspi_dma_xfer(struct ti_qspi *qspi, dma_addr_t dma_dst,
 		return -EIO;
 	}
 
-	tx->callback = ti_qspi_dma_callback;
-	tx->callback_param = qspi;
+	dmaengine_desc_set_callback(tx, ti_qspi_dma_callback, NULL, qspi);
 	cookie = dmaengine_submit(tx);
 	reinit_completion(&qspi->transfer_complete);
 

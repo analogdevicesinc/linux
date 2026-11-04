@@ -1022,8 +1022,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		return;
 	}
 	dma_sync_sg_for_device(&data->host->dev, sg, num, DMA_FROM_DEVICE);
-	desc_rx->callback = pch_dma_rx_complete;
-	desc_rx->callback_param = data;
+	dmaengine_desc_set_callback(desc_rx, pch_dma_rx_complete, NULL, data);
 	dma->nent = num;
 	dma->desc_rx = desc_rx;
 
@@ -1084,8 +1083,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		return;
 	}
 	dma_sync_sg_for_device(&data->host->dev, sg, num, DMA_TO_DEVICE);
-	desc_tx->callback = NULL;
-	desc_tx->callback_param = data;
+	dmaengine_desc_set_callback(desc_tx, NULL, NULL, data);
 	dma->nent = num;
 	dma->desc_tx = desc_tx;
 

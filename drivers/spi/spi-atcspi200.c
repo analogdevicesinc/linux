@@ -340,8 +340,7 @@ static int atcspi_dma_trans(struct atcspi_dev *spi,
 	}
 
 	reinit_completion(&spi->dma_completion);
-	desc->callback = atcspi_dma_callback;
-	desc->callback_param = &spi->dma_completion;
+	dmaengine_desc_set_callback(desc, atcspi_dma_callback, NULL, &spi->dma_completion);
 	cookie = dmaengine_submit(desc);
 	ret = dma_submit_error(cookie);
 	if (ret)

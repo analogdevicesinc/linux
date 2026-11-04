@@ -480,8 +480,7 @@ static int tegra_spi_start_tx_dma(struct tegra_spi_data *tspi, int len)
 		return -EIO;
 	}
 
-	tspi->tx_dma_desc->callback = tegra_spi_dma_complete;
-	tspi->tx_dma_desc->callback_param = &tspi->tx_dma_complete;
+	dmaengine_desc_set_callback(tspi->tx_dma_desc, tegra_spi_dma_complete, NULL, &tspi->tx_dma_complete);
 
 	dmaengine_submit(tspi->tx_dma_desc);
 	dma_async_issue_pending(tspi->tx_dma_chan);
@@ -499,8 +498,7 @@ static int tegra_spi_start_rx_dma(struct tegra_spi_data *tspi, int len)
 		return -EIO;
 	}
 
-	tspi->rx_dma_desc->callback = tegra_spi_dma_complete;
-	tspi->rx_dma_desc->callback_param = &tspi->rx_dma_complete;
+	dmaengine_desc_set_callback(tspi->rx_dma_desc, tegra_spi_dma_complete, NULL, &tspi->rx_dma_complete);
 
 	dmaengine_submit(tspi->rx_dma_desc);
 	dma_async_issue_pending(tspi->rx_dma_chan);

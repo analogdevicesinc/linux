@@ -374,8 +374,7 @@ static int stm32_ospi_tx_dma(struct stm32_ospi *ospi,
 	cr = readl_relaxed(regs_base + OSPI_CR);
 
 	reinit_completion(&ospi->dma_completion);
-	desc->callback = stm32_ospi_dma_callback;
-	desc->callback_param = &ospi->dma_completion;
+	dmaengine_desc_set_callback(desc, stm32_ospi_dma_callback, NULL, &ospi->dma_completion);
 	cookie = dmaengine_submit(desc);
 	err = dma_submit_error(cookie);
 	if (err)
