@@ -154,8 +154,7 @@ patternProperties:
           - const: 2
           - description: device number
 
-      label:
-        maxItems: 1
+      label: true
 
     unevaluatedProperties: false
     required:
@@ -175,8 +174,7 @@ patternProperties:
           - const: 3
           - description: device number
 
-      label:
-        maxItems: 1
+      label: true
 
     additionalProperties: false
     required:
@@ -196,8 +194,7 @@ patternProperties:
           - const: 4
           - description: device number
 
-      label:
-        maxItems: 1
+      label: true
 
     additionalProperties: false
     required:
@@ -235,8 +232,7 @@ patternProperties:
           - const: 12
           - description: device number
 
-      label:
-        maxItems: 1
+      label: true
 
     additionalProperties: false
     required:
@@ -262,8 +258,7 @@ patternProperties:
               - const: 13
               - description: second device number
 
-      label:
-        maxItems: 1
+      label: true
 
     additionalProperties: false
     required:
