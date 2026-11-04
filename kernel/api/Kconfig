@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Kernel API Specification Framework Configuration
+#
+
+config KAPI_SPEC
+	bool "Kernel API Specification Framework"
+	help
+	  This option enables the kernel API specification framework,
+	  which provides formal documentation of kernel APIs in both
+	  human and machine-readable formats.
+
+	  The framework allows developers to document APIs inline with
+	  their implementation, including parameter specifications,
+	  return values, error conditions, locking requirements, and
+	  execution context constraints.
+
+	  When enabled, API specifications can be queried at runtime
+	  and exported in JSON format through debugfs.
+
+	  If unsure, say N.
+
+config KAPI_RUNTIME_CHECKS
+	bool "Runtime API specification checks"
+	depends on KAPI_SPEC
+	depends on DEBUG_KERNEL
+	# The hook is only in the generic and the x86 __SYSCALL_DEFINEx()
+	depends on X86 || !ARCH_HAS_SYSCALL_WRAPPER
+	help
+	  Validate the arguments and the return value of system calls that
+	  have an API specification, in their SYSCALL_DEFINEx() wrapper.
+	  Violations are reported with pr_warn_ratelimited(). This adds
+	  overhead to every system call.
+
+	  DEBUG-ONLY: Enabling this changes the errno seen by userspace for
+	  syscalls that violate their parameter specification. On violation
+	  the validator short-circuits the syscall and returns -EINVAL
+	  before the real handler runs, masking whatever errno the handler
+	  would otherwise have produced. Do not enable on production
+	  kernels.
+
+	  If unsure, say N.
+
+config KAPI_SPEC_DEBUGFS
+	bool "Export kernel API specifications via debugfs"
+	depends on KAPI_SPEC
+	depends on DEBUG_FS
+	help
+	  This option enables exporting kernel API specifications through
+	  the debugfs filesystem. When enabled, specifications can be
+	  accessed at /sys/kernel/debug/kapi/.
+
+	  The debugfs interface provides:
+	  - A list of all available API specifications
+	  - Detailed information for each API including parameters,
+	    return values, errors, locking requirements, and constraints
+	  - Complete machine-readable representation of the specs
+
+	  This is useful for documentation tools, static analyzers, and
+	  runtime introspection of kernel APIs.
+
+	  If unsure, say N.
+
+config KAPI_KUNIT_TEST
+	tristate "KUnit tests for KAPI framework" if !KUNIT_ALL_TESTS
+	depends on KAPI_SPEC
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  KUnit tests for the Kernel API Specification Framework.
+	  Tests registration, lookup, validation constraints, and
+	  JSON export functionality.
+
+	  If unsure, say N.

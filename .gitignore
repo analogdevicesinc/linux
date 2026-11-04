@@ -12,6 +12,7 @@
 #
 .*
 *.a
+*.apispec.h
 *.asn1.[ch]
 *.bc
 *.bin

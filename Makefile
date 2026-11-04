@@ -2285,6 +2285,7 @@ clean: $(clean-dirs)
 		-o -name '*.gcno' \
 		-o -name '*.long-type-*.txt' \
 		-o -name '*.header-check' \
+		-o -name '*.apispec.h' \
 		\) -type f -print \
 		-o -name '.tmp_*' -print \
 		| xargs rm -rf

@@ -30,6 +30,23 @@ from kdoc.kdoc_item import KdocItem
 # Allow whitespace at end of comment start.
 doc_start = KernRe(r'^/\*\*\s*$', cache=False)
 
+# Sections that are allowed to be duplicated for API specifications
+# These represent lists of items (multiple errors, signals, etc.)
+ALLOWED_DUPLICATE_SECTIONS = {
+    'param', '@param',
+    'error', '@error',
+    'signal', '@signal',
+    'lock', '@lock',
+    'side-effect', '@side-effect',
+    'state-trans', '@state-trans',
+    'capability', '@capability',
+    'constraint', '@constraint',
+    'validation-group', '@validation-group',
+    'validation-rule', '@validation-rule',
+    'validation-flag', '@validation-flag',
+    'struct-field', '@struct-field',
+}
+
 doc_end = KernRe(r'\*/', cache=False)
 doc_com = KernRe(r'\s*\*\s*', cache=False)
 doc_com_body = KernRe(r'\s*\* ?', cache=False)
@@ -46,6 +63,71 @@ known_section_names = 'description|context|returns?|notes?|examples?'
 known_sections = KernRe(known_section_names, flags = re.I)
 doc_sect = doc_com + \
     KernRe(r'\s*(@[.\w]+|@\.\.\.|' + known_section_names + r')\s*:([^:].*)?$',
+           flags=re.I, cache=False)
+
+# API specification section names (for KAPI spec framework), only
+# recognized when generating -apispec output
+# Format: (base_name, has_count_variant, has_other_variants)
+# Sections with has_count_variant=True need negative lookahead in kapi_doc_sect
+# to avoid matching 'error' when 'error-count' is intended
+_kapi_base_sections = [
+    # (name, needs_lookahead, additional_variants)
+    ('api-type', False, []),
+    ('api-version', False, []),
+    ('param', True, []),  # has param-count
+    ('struct', True, ['struct-type', 'struct-field', 'struct-field-[a-z\\-]+']),
+    ('validation-group', False, []),
+    ('validation-policy', False, []),
+    ('validation-flag', False, []),
+    ('validation-rule', False, []),
+    ('error', True, ['error-code', 'error-condition']),
+    ('capability', True, []),
+    ('signal', True, []),
+    ('lock', True, []),
+    ('context-flags', False, []),
+    ('contexts', False, []),
+    ('return', True, ['return-type', 'return-check', 'return-check-type',
+                      'return-success', 'return-desc']),
+    ('long-desc', False, []),
+    ('constraint', True, []),
+    ('side-effect', True, []),
+    ('state-trans', True, []),
+]
+
+def _build_kapi_patterns():
+    """Build KAPI section patterns from the base definitions."""
+    validation_parts = []  # For kapi_known_sections (simple validation)
+    parsing_parts = []     # For kapi_doc_sect (with negative lookaheads)
+
+    for name, has_count, variants in _kapi_base_sections:
+        # Add base name (with optional @ prefix)
+        validation_parts.append(f'@?{name}')
+        if has_count:
+            # Need negative lookahead to not match 'name-count' or 'name-*'
+            parsing_parts.append(f'@?{name}(?!-)')
+            validation_parts.append(f'@?{name}-count')
+            parsing_parts.append(f'@?{name}-count')
+        else:
+            parsing_parts.append(f'@?{name}')
+
+        # Add variants
+        for variant in variants:
+            validation_parts.append(f'@?{variant}')
+            parsing_parts.append(f'@?{variant}')
+
+    # Add catch-all for kapi-* extensions
+    validation_parts.append(r'@?kapi-.*')
+    parsing_parts.append(r'@?kapi-.*')
+
+    return '|'.join(validation_parts), '|'.join(parsing_parts)
+
+_kapi_validation_pattern, _kapi_parsing_pattern = _build_kapi_patterns()
+
+kapi_known_sections = KernRe(known_section_names + '|' +
+                             _kapi_validation_pattern, flags=re.I)
+kapi_doc_sect = doc_com + \
+    KernRe(r'\s*(@[.\w\-]+|@\.\.\.|' + known_section_names + '|' +
+           _kapi_parsing_pattern + r')\s*:([^:].*)?$',
            flags=re.I, cache=False)
 
 doc_content = doc_com_body + KernRe(r'(.*)', cache=False)
@@ -214,7 +296,9 @@ class KernelEntry:
         else:
             if name in self.sections and self.sections[name] != "":
                 # Only warn on user-specified duplicate section names
-                if name != SECTION_DEFAULT:
+                # Skip warning for sections that are expected to have duplicates
+                # (like error, param, signal, etc. for API specifications)
+                if name != SECTION_DEFAULT and name not in ALLOWED_DUPLICATE_SECTIONS:
                     self.emit_msg(self.new_start_line,
                                   f"duplicate section name '{name}'")
                 # Treat as a new paragraph - add a blank line
@@ -254,6 +338,13 @@ class KernelDoc:
         self.config = config
         self.xforms = xforms
         self.store_src = store_src
+
+        if self.config.apispec:
+            self.known_sections = kapi_known_sections
+            self.doc_sect = kapi_doc_sect
+        else:
+            self.known_sections = known_sections
+            self.doc_sect = doc_sect
 
         tokenizer_set_log(self.config.log, f"{self.fname}: CMatch: ")
 
@@ -611,7 +702,7 @@ class KernelDoc:
         """
         for section in self.entry.sections:
             if section not in self.entry.parameterlist and \
-               not known_sections.search(section):
+               not self.known_sections.search(section):
                 hint = self.get_suggestions_hint(section, self.entry.parameterlist)
                 if decl_type == 'function':
                     dname = f"{decl_type} parameter"
@@ -1317,12 +1408,12 @@ class KernelDoc:
         """
         Helper function to determine if a new section is being started.
         """
-        if doc_sect.search(line):
+        if self.doc_sect.search(line):
             self.state = state.BODY
             #
             # Pick out the name of our new section, tweaking it if need be.
             #
-            newsection = doc_sect.group(1)
+            newsection = self.doc_sect.group(1)
             if newsection.lower() == 'description':
                 newsection = 'Description'
             elif newsection.lower() == 'context':
@@ -1337,7 +1428,7 @@ class KernelDoc:
             #
             # Initialize the contents, and get the new section going.
             #
-            newcontents = doc_sect.group(2)
+            newcontents = self.doc_sect.group(2)
             if not newcontents:
                 newcontents = ""
             self.dump_section()
