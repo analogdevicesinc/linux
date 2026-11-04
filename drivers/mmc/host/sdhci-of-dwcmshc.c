@@ -1348,7 +1348,8 @@ static const struct dwcmshc_pltfm_data sdhci_dwcmshc_sc846_pdata = {
 	.pdata = {
 		.ops = &sdhci_dwcmshc_sc846_ops,
 		.quirks = SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN,
-		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+		.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN |
+			   SDHCI_QUIRK2_BROKEN_HS200,
 	},
 	.init = sc846_init,
 };
