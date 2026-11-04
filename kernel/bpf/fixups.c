@@ -726,6 +726,26 @@ static bool insn_is_nop(struct bpf_verifier_env *env, int i, int next)
 	       !memcmp(&insn, &MAY_GOTO_0, sizeof(MAY_GOTO_0));
 }
 
+/* addr_space_cast of a pointer that is not in arena is a move, see is_cast_mov() */
+void bpf_lower_cast_mov(struct bpf_verifier_env *env)
+{
+	struct bpf_insn_aux_data *aux = env->insn_aux_data;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int i;
+
+	for (i = 0; i < env->prog->len; i++, insn++) {
+		if (!aux[i].cast_mov)
+			continue;
+		/* an address in arena has 32 bits, this pointer has 64 */
+		aux[i].zext_dst = false;
+		if (insn->dst_reg == insn->src_reg)
+			/* bpf_opt_remove_nops() removes it */
+			*insn = NOP;
+		else
+			*insn = BPF_MOV64_REG(insn->dst_reg, insn->src_reg);
+	}
+}
+
 int bpf_opt_remove_nops(struct bpf_verifier_env *env)
 {
 	int insn_cnt = env->prog->len;

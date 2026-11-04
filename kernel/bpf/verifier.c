@@ -17972,6 +17972,51 @@ int bpf_reg_union(struct bpf_verifier_env *env, struct bpf_reg_state *acc,
 	return reg_bounds_sanity_check(env, acc, "bpf_reg_union");
 }
 
+/*
+ * There are no address spaces in Rust. The compiler doesn't cast a pointer that
+ * comes from the kernel. But it can't always tell, and then it casts the pointer
+ * to as(0) before the access, like an address in arena.
+ * A pointer that the verifier knows is in as(0) already, so the cast is a move.
+ * arg_track_xfer() does the same for pointers to stack.
+ */
+static bool is_cast_mov(const struct bpf_insn *insn, const struct bpf_reg_state *src_reg)
+{
+	/* cast from as(1) to as(0) */
+	if (insn->imm != 1)
+		return false;
+
+	switch (base_type(src_reg->type)) {
+	case SCALAR_VALUE:
+	case PTR_TO_ARENA:
+		return false;
+	default:
+		return true;
+	}
+}
+
+static int check_addr_space_cast(struct bpf_verifier_env *env, struct bpf_insn *insn,
+				 struct bpf_reg_state *dst_reg, struct bpf_reg_state *src_reg)
+{
+	struct bpf_insn_aux_data *aux = cur_aux(env);
+
+	if (is_cast_mov(insn, src_reg)) {
+		aux->cast_mov = true;
+		*dst_reg = *src_reg;
+	} else {
+		aux->cast_arena = true;
+		mark_reg_unknown(env, cur_regs(env), insn->dst_reg);
+		if (insn->imm == 1) /* cast from as(1) to as(0) */
+			dst_reg->type = PTR_TO_ARENA;
+	}
+
+	/* it's either wX = wY or rX = rY, see bpf_lower_cast_mov() */
+	if (aux->cast_mov && aux->cast_arena) {
+		verbose(env, "same addr_space_cast insn cannot be used with a number and with a pointer\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+
 /* check validity of 32-bit and 64-bit arithmetic operations */
 static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 {
@@ -18033,9 +18078,9 @@ static int check_alu_op(struct bpf_verifier_env *env, struct bpf_insn *insn)
 			if (BPF_CLASS(insn->code) == BPF_ALU64) {
 				if (insn->imm) {
 					/* off == BPF_ADDR_SPACE_CAST */
-					mark_reg_unknown(env, regs, insn->dst_reg);
-					if (insn->imm == 1) /* cast from as(1) to as(0) */
-						dst_reg->type = PTR_TO_ARENA;
+					err = check_addr_space_cast(env, insn, dst_reg, src_reg);
+					if (err)
+						return err;
 				} else if (insn->off == 0) {
 					/* case: R1 = R2
 					 * copy register state to dest reg
@@ -24289,6 +24334,9 @@ skip_full_check:
 	/* instruction rewrites happen after this point */
 	if (ret == 0)
 		ret = bpf_optimize_bpf_loop(env);
+
+	if (ret == 0)
+		bpf_lower_cast_mov(env);
 
 	if (is_priv) {
 		if (ret == 0)
