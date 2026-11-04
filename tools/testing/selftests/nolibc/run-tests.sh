@@ -144,6 +144,9 @@ need_gcc() {
 download_crosstool() {
 	arch="$(crosstool_arch "$1")"
 	abi="$(crosstool_abi "$1")"
+	gcc="$(need_gcc "$1")"
+
+	[ -z "$gcc" ] && return
 
 	archive_name="${hostarch}-gcc-${crosstool_version}-nolibc-${arch}-${abi}.tar.gz"
 	url="https://mirrors.edge.kernel.org/pub/tools/crosstool/files/bin/${hostarch}/${crosstool_version}/${archive_name}"
