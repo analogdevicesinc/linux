@@ -32,6 +32,7 @@
 struct drm_device;
 struct drm_dp_aux;
 struct drm_panel;
+struct drm_printer;
 
 bool drm_dp_channel_eq_ok(const u8 link_status[DP_LINK_STATUS_SIZE],
 			  int lane_count);
@@ -744,7 +745,7 @@ struct drm_display_mode *drm_dp_downstream_mode(struct drm_device *dev,
 						const u8 dpcd[DP_RECEIVER_CAP_SIZE],
 						const u8 port_cap[4]);
 int drm_dp_downstream_id(struct drm_dp_aux *aux, char id[6]);
-void drm_dp_downstream_debug(struct seq_file *m,
+void drm_dp_downstream_debug(struct drm_printer *p,
 			     const u8 dpcd[DP_RECEIVER_CAP_SIZE],
 			     const u8 port_cap[4],
 			     const struct drm_edid *drm_edid,

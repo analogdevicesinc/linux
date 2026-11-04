@@ -1130,7 +1130,7 @@ static void intel_post_plane_update(struct intel_atomic_state *state,
 		intel_encoders_audio_enable(state, crtc);
 
 	if (intel_display_wa(display, INTEL_DISPLAY_WA_14011503117)) {
-		if (old_crtc_state->pch_pfit.enabled != new_crtc_state->pch_pfit.enabled)
+		if (old_crtc_state->pfit.enabled != new_crtc_state->pfit.enabled)
 			adl_scaler_ecc_unmask(new_crtc_state);
 	}
 
@@ -1652,7 +1652,7 @@ static bool glk_need_scaler_clock_gating_wa(const struct intel_crtc_state *crtc_
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 
-	return DISPLAY_VER(display) == 10 && crtc_state->pch_pfit.enabled;
+	return DISPLAY_VER(display) == 10 && crtc_state->pfit.enabled;
 }
 
 static void glk_pipe_scaler_clock_gating_wa(struct intel_crtc *crtc, bool enable)
@@ -1904,6 +1904,11 @@ bool intel_phy_is_combo(struct intel_display *display, enum phy phy)
 		return false;
 }
 
+static bool intel_phy_is_edp_on_tc(struct intel_display *display, enum phy phy)
+{
+	return DISPLAY_RUNTIME_INFO(display)->edp_typec_support && phy == PHY_B;
+}
+
 /*
  * This function returns true if the DDI port respective to the PHY enumeration
  * is a Type-C capable port.
@@ -1923,6 +1928,9 @@ bool intel_phy_is_tc(struct intel_display *display, enum phy phy)
 	 */
 	if (display->platform.dgfx)
 		return false;
+
+	if (intel_phy_is_edp_on_tc(display, phy))
+		return true;
 
 	if (DISPLAY_VER(display) >= 13)
 		return phy >= PHY_F && phy <= PHY_I;
@@ -1974,6 +1982,9 @@ enum phy intel_port_to_phy(struct intel_display *display, enum port port)
  */
 enum tc_port intel_port_to_tc(struct intel_display *display, enum port port)
 {
+	if (intel_phy_is_edp_on_tc(display, intel_port_to_phy(display, port)))
+		return TC_PORT_1;
+
 	if (DISPLAY_VER(display) >= 12)
 		return TC_PORT_1 + port - PORT_TC1;
 	else
@@ -2059,8 +2070,8 @@ static void get_crtc_power_domains(struct intel_crtc_state *crtc_state,
 
 	set_bit(POWER_DOMAIN_PIPE(pipe), mask->bits);
 	set_bit(POWER_DOMAIN_TRANSCODER(cpu_transcoder), mask->bits);
-	if (crtc_state->pch_pfit.enabled ||
-	    crtc_state->pch_pfit.force_thru)
+	if (crtc_state->pfit.enabled ||
+	    crtc_state->pfit.force_thru)
 		set_bit(POWER_DOMAIN_PIPE_PANEL_FITTER(pipe), mask->bits);
 
 	drm_for_each_encoder_mask(encoder, display->drm,
@@ -2295,14 +2306,14 @@ static u32 ilk_pipe_pixel_rate(const struct intel_crtc_state *crtc_state)
 	 * PF-ID we'll need to adjust the pixel_rate here.
 	 */
 
-	if (!crtc_state->pch_pfit.enabled)
+	if (!crtc_state->pfit.enabled)
 		return pixel_rate;
 
 	drm_rect_init(&src, 0, 0,
 		      drm_rect_width(&crtc_state->pipe_src) << 16,
 		      drm_rect_height(&crtc_state->pipe_src) << 16);
 
-	return intel_adjusted_rate(&src, &crtc_state->pch_pfit.dst,
+	return intel_adjusted_rate(&src, &crtc_state->pfit.dst,
 				   pixel_rate);
 }
 
@@ -2318,14 +2329,14 @@ static u32 ilk_pipe_pixel_rate_cdclk(const struct intel_crtc_state *crtc_state)
 	 * PF-ID we'll need to adjust the pixel_rate here.
 	 */
 
-	if (!crtc_state->pch_pfit.enabled)
+	if (!crtc_state->pfit.enabled)
 		return pixel_rate;
 
 	drm_rect_init(&src, 0, 0,
 		      drm_rect_width(&crtc_state->pipe_src) << 16,
 		      drm_rect_height(&crtc_state->pipe_src) << 16);
 
-	return intel_adjusted_rate_cdclk(&src, &crtc_state->pch_pfit.dst,
+	return intel_adjusted_rate_cdclk(&src, &crtc_state->pfit.dst,
 					 pixel_rate, ppc);
 }
 
@@ -2657,13 +2668,20 @@ static void compute_m_n(u32 *ret_m, u32 *ret_n,
 	intel_reduce_m_n_ratio(ret_m, ret_n);
 }
 
+void intel_display_compute_link_m_n(u32 *link_m, u32 *link_n,
+				    int pixel_clock, int link_symbol_clock)
+{
+	compute_m_n(link_m, link_n,
+		    pixel_clock, link_symbol_clock,
+		    0x80000);
+}
+
 void
 intel_link_compute_m_n(u16 bits_per_pixel_x16, int nlanes,
 		       int pixel_clock, int link_clock,
 		       int bw_overhead,
 		       struct intel_link_m_n *m_n)
 {
-	u32 link_symbol_clock = intel_dp_link_symbol_clock(link_clock);
 	u32 data_m = intel_dp_effective_data_rate(pixel_clock, bits_per_pixel_x16,
 						  bw_overhead);
 	u32 data_n = drm_dp_max_dprx_data_rate(link_clock, nlanes);
@@ -2680,9 +2698,9 @@ intel_link_compute_m_n(u16 bits_per_pixel_x16, int nlanes,
 		    data_m, data_n,
 		    0x8000000);
 
-	compute_m_n(&m_n->link_m, &m_n->link_n,
-		    pixel_clock, link_symbol_clock,
-		    0x80000);
+	intel_display_compute_link_m_n(&m_n->link_m, &m_n->link_n,
+				       pixel_clock,
+				       intel_dp_link_symbol_clock(link_clock));
 }
 
 void intel_panel_sanitize_ssc(struct intel_display *display)
@@ -2715,19 +2733,38 @@ void intel_zero_m_n(struct intel_link_m_n *m_n)
 	m_n->tu = 1;
 }
 
+static u8 bmg_get_link_n_ext(const struct intel_link_m_n *m_n)
+{
+	if (!m_n->link_n)
+		return 0;
+
+	return PIPE_LINK_N1_EXT_INT(m_n->link_m / m_n->link_n) |
+		PIPE_LINK_N1_EXT_CEIL(DIV_ROUND_UP(m_n->link_m, m_n->link_n));
+}
+
 void intel_set_m_n(struct intel_display *display,
 		   const struct intel_link_m_n *m_n,
 		   intel_reg_t data_m_reg, intel_reg_t data_n_reg,
 		   intel_reg_t link_m_reg, intel_reg_t link_n_reg)
 {
+	u32 link_n = m_n->link_n;
+
 	intel_de_write(display, data_m_reg, TU_SIZE(m_n->tu) | m_n->data_m);
 	intel_de_write(display, data_n_reg, m_n->data_n);
 	intel_de_write(display, link_m_reg, m_n->link_m);
+
+	if (DISPLAY_VER(display) >= 14 && m_n->bypass_m_n_ratio_limit)
+		link_n |= PIPE_LINK_N1_EXTENDED(bmg_get_link_n_ext(m_n));
+	else if (DISPLAY_VER(display) >= 14)
+		link_n &= ~PIPE_LINK_N1_EXTENDED_MASK;
+	else
+		link_n &= DATA_LINK_M_N_MASK;
+
 	/*
 	 * On BDW+ writing LINK_N arms the double buffered update
 	 * of all the M/N registers, so it must be written last.
 	 */
-	intel_de_write(display, link_n_reg, m_n->link_n);
+	intel_de_write(display, link_n_reg, link_n);
 }
 
 bool intel_cpu_transcoder_has_m2_n2(struct intel_display *display,
@@ -2739,12 +2776,34 @@ bool intel_cpu_transcoder_has_m2_n2(struct intel_display *display,
 	return IS_DISPLAY_VER(display, 5, 7) || display->platform.cherryview;
 }
 
+static void bmg_enhanced_tgdda_write(struct intel_crtc *crtc,
+				     enum transcoder transcoder,
+				     const struct intel_link_m_n *m_n)
+{
+	struct intel_display *display = to_intel_display(crtc);
+	bool enable = m_n->bypass_m_n_ratio_limit && m_n->link_n;
+	u32 link_m_frac = enable ? m_n->link_m % m_n->link_n : 0;
+
+	if (!intel_display_wa(display, INTEL_DISPLAY_WA_14021768792))
+		return;
+
+	intel_de_rmw(display, HDMI_EMP_DATA(display, transcoder),
+		     HDMI_EMP_DATA_LINK_M_FRAC_MASK,
+		     REG_FIELD_PREP(HDMI_EMP_DATA_LINK_M_FRAC_MASK, link_m_frac));
+
+	intel_de_rmw(display, CHICKEN_TRANS(display, transcoder),
+		     DP_ENHANCED_TGDDA_ENABLE,
+		     enable ? DP_ENHANCED_TGDDA_ENABLE : 0);
+}
+
 void intel_cpu_transcoder_set_m1_n1(struct intel_crtc *crtc,
 				    enum transcoder transcoder,
 				    const struct intel_link_m_n *m_n)
 {
 	struct intel_display *display = to_intel_display(crtc);
 	enum pipe pipe = crtc->pipe;
+
+	bmg_enhanced_tgdda_write(crtc, transcoder, m_n);
 
 	if (DISPLAY_VER(display) >= 5)
 		intel_set_m_n(display, m_n,
@@ -3243,7 +3302,7 @@ static bool i9xx_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_transcoder_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	i9xx_pfit_get_config(pipe_config);
+	intel_pfit_get_config(pipe_config);
 
 	i9xx_dpll_get_hw_state(crtc, &pipe_config->dpll_hw_state);
 
@@ -3484,10 +3543,59 @@ void intel_get_m_n(struct intel_display *display,
 		   intel_reg_t link_m_reg, intel_reg_t link_n_reg)
 {
 	m_n->link_m = intel_de_read(display, link_m_reg) & DATA_LINK_M_N_MASK;
-	m_n->link_n = intel_de_read(display, link_n_reg) & DATA_LINK_M_N_MASK;
+	m_n->link_n = intel_de_read(display, link_n_reg);
+
+	if (DISPLAY_VER(display) >= 14)
+		m_n->link_n &= ~PIPE_LINK_N1_EXTENDED_MASK;
+	else
+		m_n->link_n &= DATA_LINK_M_N_MASK;
+
 	m_n->data_m = intel_de_read(display, data_m_reg) & DATA_LINK_M_N_MASK;
 	m_n->data_n = intel_de_read(display, data_n_reg) & DATA_LINK_M_N_MASK;
 	m_n->tu = REG_FIELD_GET(TU_SIZE_MASK, intel_de_read(display, data_m_reg)) + 1;
+}
+
+bool intel_display_can_bypass_m_n_limit(struct intel_display *display,
+					int m_n_ratio,
+					enum transcoder transcoder)
+{
+	if (!intel_display_wa(display, INTEL_DISPLAY_WA_14021768792))
+		return false;
+
+	if (m_n_ratio > 15)
+		return false;
+
+	if (transcoder != TRANSCODER_A)
+		return false;
+
+	return true;
+}
+
+static void bmg_enhanced_tgdda_read(struct intel_crtc *crtc,
+				    enum transcoder transcoder,
+				    struct intel_link_m_n *m_n)
+{
+	struct intel_display *display = to_intel_display(crtc);
+	u32 link_m_frac;
+	int m_n_ratio;
+
+	if (!m_n->link_n)
+		return;
+
+	m_n_ratio = DIV_ROUND_UP(m_n->link_m, m_n->link_n);
+
+	if (!intel_display_can_bypass_m_n_limit(display, m_n_ratio, transcoder))
+		return;
+
+	if (!(intel_de_read(display, CHICKEN_TRANS(display, transcoder)) &
+	      DP_ENHANCED_TGDDA_ENABLE))
+		return;
+
+	link_m_frac = REG_FIELD_GET(HDMI_EMP_DATA_LINK_M_FRAC_MASK,
+				    intel_de_read(display, HDMI_EMP_DATA(display, transcoder)));
+
+	if (link_m_frac == m_n->link_m % m_n->link_n)
+		m_n->bypass_m_n_ratio_limit = true;
 }
 
 void intel_cpu_transcoder_get_m1_n1(struct intel_crtc *crtc,
@@ -3507,6 +3615,8 @@ void intel_cpu_transcoder_get_m1_n1(struct intel_crtc *crtc,
 		intel_get_m_n(display, m_n,
 			      PIPE_DATA_M_G4X(pipe), PIPE_DATA_N_G4X(pipe),
 			      PIPE_LINK_M_G4X(pipe), PIPE_LINK_N_G4X(pipe));
+
+	bmg_enhanced_tgdda_read(crtc, transcoder, m_n);
 }
 
 void intel_cpu_transcoder_get_m2_n2(struct intel_crtc *crtc,
@@ -3593,7 +3703,7 @@ static bool ilk_get_pipe_config(struct intel_crtc *crtc,
 	intel_get_transcoder_timings(crtc, pipe_config);
 	intel_get_pipe_src_size(crtc, pipe_config);
 
-	ilk_pfit_get_config(pipe_config);
+	intel_pfit_get_config(pipe_config);
 
 	ret = true;
 
@@ -4019,7 +4129,7 @@ static bool hsw_get_transcoder_state(struct intel_crtc *crtc,
 				    TRANS_DDI_FUNC_CTL(display, pipe_config->cpu_transcoder));
 
 		if ((tmp & TRANS_DDI_EDP_INPUT_MASK) == TRANS_DDI_EDP_INPUT_A_ONOFF)
-			pipe_config->pch_pfit.force_thru = true;
+			pipe_config->pfit.force_thru = true;
 	}
 
 	tmp = intel_de_read(display,
@@ -4160,12 +4270,8 @@ static bool hsw_get_pipe_config(struct intel_crtc *crtc,
 			REG_FIELD_GET(HSW_IPS_LINETIME_MASK, tmp);
 
 	if (intel_display_power_get_in_set_if_enabled(display, &crtc->hw_readout_power_domains,
-						      POWER_DOMAIN_PIPE_PANEL_FITTER(crtc->pipe))) {
-		if (DISPLAY_VER(display) >= 9)
-			skl_scaler_get_config(pipe_config);
-		else
-			ilk_pfit_get_config(pipe_config);
-	}
+						      POWER_DOMAIN_PIPE_PANEL_FITTER(crtc->pipe)))
+		intel_pfit_get_config(pipe_config);
 
 	hsw_ips_get_config(pipe_config);
 
@@ -4450,10 +4556,6 @@ static int intel_crtc_atomic_check(struct intel_atomic_state *state,
 			return ret;
 
 	}
-
-	ret = intel_psr2_sel_fetch_update(state, crtc);
-	if (ret)
-		return ret;
 
 	return 0;
 }
@@ -5431,6 +5533,8 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 		PIPE_CONF_CHECK_M_N(dp_m2_n2);
 	}
 
+	PIPE_CONF_CHECK_BOOL(dp_m_n.bypass_m_n_ratio_limit);
+
 	PIPE_CONF_CHECK_X(output_types);
 
 	PIPE_CONF_CHECK_I(framestart_delay);
@@ -5482,16 +5586,16 @@ intel_pipe_config_compare(const struct intel_crtc_state *current_config,
 	 * Changing the EDP transcoder input mux
 	 * (A_ONOFF vs. A_ON) requires a full modeset.
 	 */
-	PIPE_CONF_CHECK_BOOL(pch_pfit.force_thru);
+	PIPE_CONF_CHECK_BOOL(pfit.force_thru);
 
 	if (!fastset) {
 		PIPE_CONF_CHECK_RECT(pipe_src);
 
-		PIPE_CONF_CHECK_BOOL(pch_pfit.enabled);
-		PIPE_CONF_CHECK_RECT(pch_pfit.dst);
-		PIPE_CONF_CHECK_BOOL(pch_pfit.casf.enable);
-		PIPE_CONF_CHECK_I(pch_pfit.casf.win_size);
-		PIPE_CONF_CHECK_I(pch_pfit.casf.strength);
+		PIPE_CONF_CHECK_BOOL(pfit.enabled);
+		PIPE_CONF_CHECK_RECT(pfit.dst);
+		PIPE_CONF_CHECK_BOOL(pfit.casf.enable);
+		PIPE_CONF_CHECK_I(pfit.casf.win_size);
+		PIPE_CONF_CHECK_I(pfit.casf.strength);
 
 		PIPE_CONF_CHECK_I(scaler_state.scaler_id);
 		PIPE_CONF_CHECK_I(pixel_rate_cdclk);
@@ -5990,6 +6094,19 @@ static int intel_atomic_check_crtcs(struct intel_atomic_state *state)
 		if (ret) {
 			drm_dbg_atomic(display->drm,
 				       "[CRTC:%d:%s] atomic driver check failed\n",
+				       crtc->base.base.id, crtc->base.name);
+			return ret;
+		}
+	}
+
+	/* Selective fetch needs the scaler state of all the joined pipes. */
+	for_each_new_intel_crtc_in_state(state, crtc, crtc_state) {
+		int ret;
+
+		ret = intel_psr2_sel_fetch_update(state, crtc);
+		if (ret) {
+			drm_dbg_atomic(display->drm,
+				       "[CRTC:%d:%s] selective fetch check failed\n",
 				       crtc->base.base.id, crtc->base.name);
 			return ret;
 		}
@@ -6782,12 +6899,12 @@ static void intel_pipe_fastset(const struct intel_crtc_state *old_crtc_state,
 
 	/* on skylake this is done by detaching scalers */
 	if (DISPLAY_VER(display) >= 9) {
-		if (new_crtc_state->pch_pfit.enabled)
+		if (new_crtc_state->pfit.enabled)
 			skl_pfit_enable(new_crtc_state);
-	} else if (HAS_PCH_SPLIT(display)) {
-		if (new_crtc_state->pch_pfit.enabled)
+	} else if (!HAS_GMCH(display)) {
+		if (new_crtc_state->pfit.enabled)
 			ilk_pfit_enable(new_crtc_state);
-		else if (old_crtc_state->pch_pfit.enabled)
+		else if (old_crtc_state->pfit.enabled)
 			ilk_pfit_disable(old_crtc_state);
 	}
 
@@ -6828,7 +6945,7 @@ static void commit_pipe_pre_planes(struct intel_atomic_state *state,
 		intel_atomic_get_new_crtc_state(state, crtc);
 	bool modeset = intel_crtc_needs_modeset(new_crtc_state);
 
-	drm_WARN_ON(display->drm, new_crtc_state->use_dsb || new_crtc_state->use_flipq);
+	drm_WARN_ON(display->drm, new_crtc_state->commit_type != INTEL_COMMIT_MMIO);
 
 	/*
 	 * During modesets pipe configuration was programmed as the
@@ -6858,7 +6975,7 @@ static void commit_pipe_post_planes(struct intel_atomic_state *state,
 		intel_atomic_get_new_crtc_state(state, crtc);
 	bool modeset = intel_crtc_needs_modeset(new_crtc_state);
 
-	drm_WARN_ON(display->drm, new_crtc_state->use_dsb || new_crtc_state->use_flipq);
+	drm_WARN_ON(display->drm, new_crtc_state->commit_type != INTEL_COMMIT_MMIO);
 
 	/*
 	 * Disable the scaler(s) after the plane(s) so that we don't
@@ -6950,13 +7067,13 @@ static void intel_pre_update_crtc(struct intel_atomic_state *state,
 
 	drm_WARN_ON(display->drm, !intel_display_power_is_enabled(display, POWER_DOMAIN_DC_OFF));
 
-	if (!modeset &&
-	    intel_crtc_needs_color_update(new_crtc_state) &&
-	    !new_crtc_state->use_dsb && !new_crtc_state->use_flipq)
-		intel_color_commit_noarm(NULL, new_crtc_state);
+	if (new_crtc_state->commit_type == INTEL_COMMIT_MMIO) {
+		if (!modeset &&
+		    intel_crtc_needs_color_update(new_crtc_state))
+			intel_color_commit_noarm(NULL, new_crtc_state);
 
-	if (!new_crtc_state->use_dsb && !new_crtc_state->use_flipq)
 		intel_crtc_planes_update_noarm(NULL, state, crtc);
+	}
 }
 
 static void intel_update_crtc(struct intel_atomic_state *state,
@@ -6967,18 +7084,23 @@ static void intel_update_crtc(struct intel_atomic_state *state,
 	struct intel_crtc_state *new_crtc_state =
 		intel_atomic_get_new_crtc_state(state, crtc);
 
-	if (new_crtc_state->use_flipq) {
+	switch (new_crtc_state->commit_type) {
+	case INTEL_COMMIT_FLIPQ:
 		intel_flipq_enable(new_crtc_state);
 
 		intel_crtc_prepare_vblank_event(new_crtc_state, &crtc->flipq_event);
 
 		intel_flipq_add(crtc, INTEL_FLIPQ_PLANE_1, 0, INTEL_DSB_0,
 				new_crtc_state->dsb_commit);
-	} else if (new_crtc_state->use_dsb) {
+		break;
+
+	case INTEL_COMMIT_DSB:
 		intel_crtc_prepare_vblank_event(new_crtc_state, &crtc->dsb_event);
 
 		intel_dsb_commit(new_crtc_state->dsb_commit);
-	} else {
+		break;
+
+	case INTEL_COMMIT_MMIO:
 		/* Perform vblank evasion around commit operation */
 		intel_pipe_update_start(state, crtc);
 
@@ -6992,6 +7114,7 @@ static void intel_update_crtc(struct intel_atomic_state *state,
 		commit_pipe_post_planes(state, crtc);
 
 		intel_pipe_update_end(state, crtc);
+		break;
 	}
 
 	/*
@@ -7415,51 +7538,63 @@ static void intel_atomic_prepare_plane_clear_colors(struct intel_atomic_state *s
 	}
 }
 
-static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
-				     struct intel_crtc *crtc)
+static enum intel_commit_type
+intel_atomic_commit_type(struct intel_atomic_state *state,
+			 struct intel_crtc *crtc)
 {
 	struct intel_display *display = to_intel_display(state);
 	struct intel_crtc_state *new_crtc_state =
 		intel_atomic_get_new_crtc_state(state, crtc);
 
 	if (!new_crtc_state->hw.active)
-		return;
+		return INTEL_COMMIT_MMIO;
 
 	if (state->base.legacy_cursor_update)
-		return;
+		return INTEL_COMMIT_MMIO;
 
-	/* FIXME deal with everything */
-	new_crtc_state->use_flipq =
-		intel_flipq_supported(display) &&
-		!new_crtc_state->do_async_flip &&
-		!new_crtc_state->vrr.enable &&
-		!new_crtc_state->has_psr &&
-		!intel_crtc_needs_modeset(new_crtc_state) &&
-		!intel_crtc_needs_fastset(new_crtc_state) &&
-		!intel_crtc_needs_color_update(new_crtc_state);
+	/* TODO maybe enable/disable planes via DSB/flip queue during modeset? */
+	if (intel_crtc_needs_modeset(new_crtc_state))
+		return INTEL_COMMIT_MMIO;
 
-	new_crtc_state->use_dsb =
-		!new_crtc_state->use_flipq &&
-		!new_crtc_state->do_async_flip &&
-		(DISPLAY_VER(display) >= 20 || !new_crtc_state->has_psr) &&
-		!intel_crtc_needs_modeset(new_crtc_state) &&
-		!intel_crtc_needs_fastset(new_crtc_state);
+	/* TODO implement fastsets via DSB/flip queue */
+	if (intel_crtc_needs_fastset(new_crtc_state))
+		return INTEL_COMMIT_MMIO;
+
+	/* TODO implement async flips via DSB/flip queue */
+	if (new_crtc_state->do_async_flip)
+		return INTEL_COMMIT_MMIO;
+
+	/* TODO handle VRR with flip queue */
+	if (intel_flipq_supported(display) &&
+	    !new_crtc_state->vrr.enable &&
+	    !new_crtc_state->has_psr &&
+	    !intel_crtc_needs_color_update(new_crtc_state))
+		return INTEL_COMMIT_FLIPQ;
+
+	if (intel_dsb_supported(display) &&
+	    (DISPLAY_VER(display) >= 20 || !new_crtc_state->has_psr))
+		return INTEL_COMMIT_DSB;
+
+	return INTEL_COMMIT_MMIO;
+}
+
+static void intel_atomic_dsb_prepare(struct intel_atomic_state *state,
+				     struct intel_crtc *crtc)
+{
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+
+	new_crtc_state->commit_type = intel_atomic_commit_type(state, crtc);
 
 	intel_color_prepare_commit(state, crtc);
 }
 
-static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
-				    struct intel_crtc *crtc)
+static unsigned int
+commit_dsb_max_cmds(const struct intel_crtc_state *crtc_state)
 {
-	struct intel_display *display = to_intel_display(state);
-	struct intel_crtc_state *new_crtc_state =
-		intel_atomic_get_new_crtc_state(state, crtc);
-	unsigned int size = new_crtc_state->plane_color_changed ? 8192 : 1024;
-
-	if (!new_crtc_state->use_flipq &&
-	    !new_crtc_state->use_dsb &&
-	    !new_crtc_state->dsb_color)
-		return;
+	/* just enough to start the color DSB */
+	if (crtc_state->commit_type == INTEL_COMMIT_MMIO)
+		return 16;
 
 	/*
 	 * Rough estimate:
@@ -7468,19 +7603,34 @@ static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
 	 * ~4913 registers for 3DLUT
 	 * ~200 color registers * 3 HDR planes
 	 */
+	if (crtc_state->plane_color_changed)
+		return 8192;
+	else
+		return 1024;
+}
+
+static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
+				    struct intel_crtc *crtc)
+{
+	struct intel_display *display = to_intel_display(state);
+	struct intel_crtc_state *new_crtc_state =
+		intel_atomic_get_new_crtc_state(state, crtc);
+
+	if (new_crtc_state->commit_type == INTEL_COMMIT_MMIO &&
+	    !new_crtc_state->dsb_color)
+		return;
+
 	new_crtc_state->dsb_commit = intel_dsb_prepare(state, crtc, INTEL_DSB_0,
-						       new_crtc_state->use_dsb ||
-						       new_crtc_state->use_flipq ? size : 16);
+						       commit_dsb_max_cmds(new_crtc_state));
 	if (!new_crtc_state->dsb_commit) {
-		new_crtc_state->use_flipq = false;
-		new_crtc_state->use_dsb = false;
+		new_crtc_state->commit_type = INTEL_COMMIT_MMIO;
 		intel_color_cleanup_commit(new_crtc_state);
 		return;
 	}
 
-	if (new_crtc_state->use_flipq || new_crtc_state->use_dsb) {
+	if (new_crtc_state->commit_type != INTEL_COMMIT_MMIO) {
 		/* Wa_18034343758 */
-		if (new_crtc_state->use_flipq)
+		if (new_crtc_state->commit_type == INTEL_COMMIT_FLIPQ)
 			intel_flipq_wait_dmc_halt(new_crtc_state->dsb_commit, crtc);
 
 		if (new_crtc_state->vrr.dc_balance.enable) {
@@ -7512,7 +7662,7 @@ static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
 		intel_psr_trigger_frame_change_event(new_crtc_state->dsb_commit,
 						     state, crtc);
 
-		if (new_crtc_state->use_dsb)
+		if (new_crtc_state->commit_type == INTEL_COMMIT_DSB)
 			intel_dsb_vblank_evade(state, new_crtc_state->dsb_commit);
 
 		if (intel_crtc_needs_color_update(new_crtc_state))
@@ -7530,7 +7680,7 @@ static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
 					   new_crtc_state);
 
 		/* Wa_18034343758 */
-		if (new_crtc_state->use_flipq)
+		if (new_crtc_state->commit_type == INTEL_COMMIT_FLIPQ)
 			intel_flipq_unhalt_dmc(new_crtc_state->dsb_commit, crtc);
 	}
 
@@ -7541,7 +7691,8 @@ static void intel_atomic_dsb_finish(struct intel_atomic_state *state,
 		intel_dsb_gosub(new_crtc_state->dsb_commit,
 				new_crtc_state->dsb_color);
 
-	if (new_crtc_state->use_dsb && !intel_color_uses_chained_dsb(new_crtc_state)) {
+	if (new_crtc_state->commit_type == INTEL_COMMIT_DSB &&
+	    !intel_color_uses_chained_dsb(new_crtc_state)) {
 		/*
 		 * Dsb wait vblank may or may not skip. Let's remove it for PSR
 		 * trans push case to ensure we are not waiting two vblanks
@@ -7730,10 +7881,11 @@ static void intel_atomic_commit_tail(struct intel_atomic_state *state)
 
 		intel_atomic_dsb_wait_commit(new_crtc_state);
 
-		if (!state->base.legacy_cursor_update && !new_crtc_state->use_dsb)
+		if (!state->base.legacy_cursor_update &&
+		    new_crtc_state->commit_type == INTEL_COMMIT_MMIO)
 			intel_vrr_check_push_sent(NULL, new_crtc_state);
 
-		if (new_crtc_state->use_flipq)
+		if (new_crtc_state->commit_type == INTEL_COMMIT_FLIPQ)
 			intel_flipq_disable(new_crtc_state);
 	}
 

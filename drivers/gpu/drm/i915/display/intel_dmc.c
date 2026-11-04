@@ -34,6 +34,7 @@
 #include "intel_display_power_well.h"
 #include "intel_display_regs.h"
 #include "intel_display_rpm.h"
+#include "intel_display_trace.h"
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
 #include "intel_dmc.h"
@@ -1774,13 +1775,15 @@ void intel_pipedmc_irq_handler(struct intel_display *display, enum pipe pipe)
 	u32 tmp = 0, int_vector;
 
 	if (DISPLAY_VER(display) >= 20) {
-		tmp = intel_de_read(display, PIPEDMC_INTERRUPT(pipe));
-		intel_de_write(display, PIPEDMC_INTERRUPT(pipe), tmp);
+		tmp = intel_de_read_fw(display, PIPEDMC_INTERRUPT(pipe));
+		intel_de_write_fw(display, PIPEDMC_INTERRUPT(pipe), tmp);
 
 		if (tmp & PIPEDMC_FLIPQ_PROG_DONE) {
 			spin_lock(&display->drm->event_lock);
 
 			if (crtc->flipq_event) {
+				trace_intel_flipq_done(crtc);
+
 				/*
 				 * Update vblank counter/timestamp in case it
 				 * hasn't been done yet for this frame.
@@ -1805,7 +1808,7 @@ void intel_pipedmc_irq_handler(struct intel_display *display, enum pipe pipe)
 				crtc->base.base.id, crtc->base.name);
 	}
 
-	int_vector = intel_de_read(display, PIPEDMC_STATUS(pipe)) & PIPEDMC_INT_VECTOR_MASK;
+	int_vector = intel_de_read_fw(display, PIPEDMC_STATUS(pipe)) & PIPEDMC_INT_VECTOR_MASK;
 	if (tmp == 0 && int_vector != 0)
 		drm_err(display->drm, "[CRTC:%d:%s] PIPEDMC interrupt vector 0x%x\n",
 			crtc->base.base.id, crtc->base.name, int_vector);

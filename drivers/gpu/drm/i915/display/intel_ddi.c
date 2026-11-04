@@ -562,7 +562,7 @@ intel_ddi_transcoder_func_reg_val_get(struct intel_encoder *encoder,
 			 * eDP when not using the panel fitter, and when not
 			 * using motion blur mitigation (which we don't
 			 * support). */
-			if (crtc_state->pch_pfit.force_thru)
+			if (crtc_state->pfit.force_thru)
 				temp |= TRANS_DDI_EDP_INPUT_A_ONOFF;
 			else
 				temp |= TRANS_DDI_EDP_INPUT_A_ON;
@@ -4560,8 +4560,8 @@ static int intel_ddi_compute_config(struct intel_atomic_state *state,
 
 	if (display->platform.haswell && crtc->pipe == PIPE_A &&
 	    pipe_config->cpu_transcoder == TRANSCODER_EDP)
-		pipe_config->pch_pfit.force_thru =
-			pipe_config->pch_pfit.enabled ||
+		pipe_config->pfit.force_thru =
+			pipe_config->pfit.enabled ||
 			pipe_config->crc_enabled;
 
 	if (display->platform.geminilake || display->platform.broxton)
@@ -4723,10 +4723,10 @@ static void intel_ddi_encoder_reset(struct drm_encoder *encoder)
 	intel_dp->reset_link_params = true;
 	intel_dp_invalidate_source_oui(intel_dp);
 
-	intel_pps_encoder_reset(intel_dp);
-
 	if (intel_encoder_is_tc(&dig_port->base))
 		intel_tc_port_init_mode(dig_port);
+
+	intel_pps_encoder_reset(intel_dp);
 }
 
 static int intel_ddi_encoder_late_register(struct drm_encoder *_encoder)
@@ -5053,6 +5053,8 @@ static enum hpd_pin xelpd_hpd_pin(struct intel_display *display, enum port port)
 		return HPD_PORT_D + port - PORT_D_XELPD;
 	else if (port >= PORT_TC1)
 		return HPD_PORT_TC1 + port - PORT_TC1;
+	else if (intel_phy_is_tc(display, intel_port_to_phy(display, port)))
+		return HPD_PORT_TC1 + intel_port_to_tc(display, port) - TC_PORT_1;
 	else
 		return HPD_PORT_A + port - PORT_A;
 }

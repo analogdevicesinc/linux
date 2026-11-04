@@ -2746,13 +2746,13 @@ void intel_hdcp_handle_cp_irq(struct intel_connector *connector)
 	queue_delayed_work(display->wq.unordered, &hdcp->check_work, 0);
 }
 
-static void __intel_hdcp_info(struct seq_file *m, struct intel_connector *connector,
+static void __intel_hdcp_info(struct drm_printer *p, struct intel_connector *connector,
 			      bool remote_req)
 {
 	bool hdcp_cap = false, hdcp2_cap = false;
 
 	if (!connector->hdcp.shim) {
-		seq_puts(m, "No Connector Support");
+		drm_puts(p, "No Connector Support");
 		goto out;
 	}
 
@@ -2764,31 +2764,32 @@ static void __intel_hdcp_info(struct seq_file *m, struct intel_connector *connec
 	}
 
 	if (hdcp_cap)
-		seq_puts(m, "HDCP1.4 ");
+		drm_puts(p, "HDCP1.4 ");
 	if (hdcp2_cap)
-		seq_puts(m, "HDCP2.2 ");
+		drm_puts(p, "HDCP2.2 ");
 
 	if (!hdcp_cap && !hdcp2_cap)
-		seq_puts(m, "None");
+		drm_puts(p, "None");
 
 out:
-	seq_puts(m, "\n");
+	drm_puts(p, "\n");
 }
 
-void intel_hdcp_info(struct seq_file *m, struct intel_connector *connector)
+void intel_hdcp_info(struct drm_printer *p, struct intel_connector *connector)
 {
-	seq_puts(m, "\tHDCP version: ");
+	drm_puts(p, "\tHDCP version: ");
 	if (connector->mst.dp) {
-		__intel_hdcp_info(m, connector, true);
-		seq_puts(m, "\tMST Hub HDCP version: ");
+		__intel_hdcp_info(p, connector, true);
+		drm_puts(p, "\tMST Hub HDCP version: ");
 	}
-	__intel_hdcp_info(m, connector, false);
+	__intel_hdcp_info(p, connector, false);
 }
 
 static int intel_hdcp_sink_capability_show(struct seq_file *m, void *data)
 {
 	struct intel_connector *connector = m->private;
 	struct intel_display *display = to_intel_display(connector);
+	struct drm_printer p = drm_seq_file_printer(m);
 	int ret;
 
 	ret = drm_modeset_lock_single_interruptible(&display->drm->mode_config.connection_mutex);
@@ -2801,9 +2802,9 @@ static int intel_hdcp_sink_capability_show(struct seq_file *m, void *data)
 		goto out;
 	}
 
-	seq_printf(m, "%s:%d HDCP version: ", connector->base.name,
+	drm_printf(&p, "%s:%d HDCP version: ", connector->base.name,
 		   connector->base.base.id);
-	__intel_hdcp_info(m, connector, false);
+	__intel_hdcp_info(&p, connector, false);
 
 out:
 	drm_modeset_unlock(&display->drm->mode_config.connection_mutex);

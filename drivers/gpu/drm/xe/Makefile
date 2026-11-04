@@ -262,6 +262,7 @@ xe-$(CONFIG_DRM_XE_DISPLAY) += \
 	i915-display/intel_de.o \
 	i915-display/intel_dip.o \
 	i915-display/intel_display.o \
+	i915-display/intel_display_clock_gating.o \
 	i915-display/intel_display_conversion.o \
 	i915-display/intel_display_device.o \
 	i915-display/intel_display_driver.o \

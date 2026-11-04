@@ -16,13 +16,13 @@
 #include "intel_pfit_regs.h"
 #include "skl_scaler.h"
 
-static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_dst_window(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
 	const struct drm_display_mode *adjusted_mode =
 		&crtc_state->hw.adjusted_mode;
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	int width = drm_rect_width(dst);
 	int height = drm_rect_height(dst);
 	int x = dst->x1;
@@ -67,7 +67,7 @@ static int intel_pch_pfit_check_dst_window(const struct intel_crtc_state *crtc_s
 	return 0;
 }
 
-static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_src_size(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -105,11 +105,11 @@ static int intel_pch_pfit_check_src_size(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
-static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_scaling(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	int pipe_src_w = drm_rect_width(&crtc_state->pipe_src);
 	int pipe_src_h = drm_rect_height(&crtc_state->pipe_src);
 	int hscale, vscale, max_scale = 0x12000; /* 1.125 */
@@ -140,7 +140,7 @@ static int intel_pch_pfit_check_scaling(const struct intel_crtc_state *crtc_stat
 	return 0;
 }
 
-static int intel_pch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_timings(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -158,7 +158,7 @@ static int intel_pch_pfit_check_timings(const struct intel_crtc_state *crtc_stat
 	return 0;
 }
 
-static int intel_pch_pfit_check_cloning(const struct intel_crtc_state *crtc_state)
+static int ilk_pfit_check_cloning(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -182,8 +182,8 @@ static int intel_pch_pfit_check_cloning(const struct intel_crtc_state *crtc_stat
 }
 
 /* adjusted_mode has been preset to be the panel's fixed mode */
-static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
-			     const struct drm_connector_state *conn_state)
+static int ilk_pfit_compute_config(struct intel_crtc_state *crtc_state,
+				   const struct drm_connector_state *conn_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -271,9 +271,9 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 		return -EINVAL;
 	}
 
-	drm_rect_init(&crtc_state->pch_pfit.dst,
+	drm_rect_init(&crtc_state->pfit.dst,
 		      x, y, width, height);
-	crtc_state->pch_pfit.enabled = true;
+	crtc_state->pfit.enabled = true;
 
 	/*
 	 * SKL+ have unified scalers for pipes/planes so the
@@ -282,23 +282,23 @@ static int pch_panel_fitting(struct intel_crtc_state *crtc_state,
 	if (DISPLAY_VER(display) >= 9)
 		return 0;
 
-	ret = intel_pch_pfit_check_dst_window(crtc_state);
+	ret = ilk_pfit_check_dst_window(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_src_size(crtc_state);
+	ret = ilk_pfit_check_src_size(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_scaling(crtc_state);
+	ret = ilk_pfit_check_scaling(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_timings(crtc_state);
+	ret = ilk_pfit_check_timings(crtc_state);
 	if (ret)
 		return ret;
 
-	ret = intel_pch_pfit_check_cloning(crtc_state);
+	ret = ilk_pfit_check_cloning(crtc_state);
 	if (ret)
 		return ret;
 
@@ -438,7 +438,7 @@ static void i9xx_scale_aspect(struct intel_crtc_state *crtc_state,
 	}
 }
 
-static int intel_gmch_pfit_check_timings(const struct intel_crtc_state *crtc_state)
+static int i9xx_pfit_check_timings(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -470,8 +470,8 @@ static int intel_gmch_pfit_check_timings(const struct intel_crtc_state *crtc_sta
 	return 0;
 }
 
-static int gmch_panel_fitting(struct intel_crtc_state *crtc_state,
-			      const struct drm_connector_state *conn_state)
+static int i9xx_pfit_compute_config(struct intel_crtc_state *crtc_state,
+				    const struct drm_connector_state *conn_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -479,6 +479,7 @@ static int gmch_panel_fitting(struct intel_crtc_state *crtc_state,
 	struct drm_display_mode *adjusted_mode = &crtc_state->hw.adjusted_mode;
 	int pipe_src_w = drm_rect_width(&crtc_state->pipe_src);
 	int pipe_src_h = drm_rect_height(&crtc_state->pipe_src);
+	int ret;
 
 	/* Native modes don't need fitting */
 	if (adjusted_mode->crtc_hdisplay == pipe_src_w &&
@@ -566,7 +567,11 @@ out:
 	if ((pfit_control & PFIT_ENABLE) == 0)
 		return 0;
 
-	return intel_gmch_pfit_check_timings(crtc_state);
+	ret = i9xx_pfit_check_timings(crtc_state);
+	if (ret)
+		return ret;
+
+	return 0;
 }
 
 enum drm_mode_status
@@ -585,23 +590,23 @@ int intel_pfit_compute_config(struct intel_crtc_state *crtc_state,
 	struct intel_display *display = to_intel_display(crtc_state);
 
 	if (HAS_GMCH(display))
-		return gmch_panel_fitting(crtc_state, conn_state);
+		return i9xx_pfit_compute_config(crtc_state, conn_state);
 	else
-		return pch_panel_fitting(crtc_state, conn_state);
+		return ilk_pfit_compute_config(crtc_state, conn_state);
 }
 
 void ilk_pfit_enable(const struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
-	const struct drm_rect *dst = &crtc_state->pch_pfit.dst;
+	const struct drm_rect *dst = &crtc_state->pfit.dst;
 	enum pipe pipe = crtc->pipe;
 	int width = drm_rect_width(dst);
 	int height = drm_rect_height(dst);
 	int x = dst->x1;
 	int y = dst->y1;
 
-	if (!crtc_state->pch_pfit.enabled)
+	if (!crtc_state->pfit.enabled)
 		return;
 
 	/*
@@ -630,7 +635,7 @@ void ilk_pfit_disable(const struct intel_crtc_state *old_crtc_state)
 	 * To avoid upsetting the power well on haswell only disable the pfit if
 	 * it's in use. The hw state code will make sure we get this right.
 	 */
-	if (!old_crtc_state->pch_pfit.enabled)
+	if (!old_crtc_state->pfit.enabled)
 		return;
 
 	intel_de_write_fw(display, PF_CTL(pipe), 0);
@@ -638,7 +643,7 @@ void ilk_pfit_disable(const struct intel_crtc_state *old_crtc_state)
 	intel_de_write_fw(display, PF_WIN_SZ(pipe), 0);
 }
 
-void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
+static void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -654,12 +659,12 @@ void ilk_pfit_get_config(struct intel_crtc_state *crtc_state)
 	else
 		pipe = crtc->pipe;
 
-	crtc_state->pch_pfit.enabled = true;
+	crtc_state->pfit.enabled = true;
 
 	pos = intel_de_read(display, PF_WIN_POS(crtc->pipe));
 	size = intel_de_read(display, PF_WIN_SZ(crtc->pipe));
 
-	drm_rect_init(&crtc_state->pch_pfit.dst,
+	drm_rect_init(&crtc_state->pfit.dst,
 		      REG_FIELD_GET(PF_WIN_XPOS_MASK, pos),
 		      REG_FIELD_GET(PF_WIN_YPOS_MASK, pos),
 		      REG_FIELD_GET(PF_WIN_XSIZE_MASK, size),
@@ -724,7 +729,7 @@ static bool i9xx_has_pfit(struct intel_display *display)
 		display->platform.pineview || display->platform.mobile;
 }
 
-void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
+static void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	struct intel_crtc *crtc = to_intel_crtc(crtc_state->uapi.crtc);
@@ -750,4 +755,16 @@ void i9xx_pfit_get_config(struct intel_crtc_state *crtc_state)
 	crtc_state->gmch_pfit.control = tmp;
 	crtc_state->gmch_pfit.pgm_ratios =
 		intel_de_read(display, PFIT_PGM_RATIOS(display));
+}
+
+void intel_pfit_get_config(struct intel_crtc_state *crtc_state)
+{
+	struct intel_display *display = to_intel_display(crtc_state);
+
+	if (HAS_GMCH(display))
+		i9xx_pfit_get_config(crtc_state);
+	else if (DISPLAY_VER(display) >= 9)
+		skl_scaler_get_config(crtc_state);
+	else
+		ilk_pfit_get_config(crtc_state);
 }

@@ -22,6 +22,12 @@ bool intel_display_run_as_guest(struct intel_display *display)
 #endif
 }
 
+/*
+ * Notes on VT-d support:
+ * - Q35,Q45,GM45,GS45 are the only GMCHs that support VT-d
+ * - VLV and CHV do not support VT-d
+ * - ILK+ VT-d support varies based on CPU SKU
+ */
 bool intel_display_vtd_active(struct intel_display *display)
 {
 	if (device_iommu_mapped(display->drm->dev))

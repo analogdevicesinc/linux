@@ -81,11 +81,11 @@ static void intel_casf_compute_win_size(struct intel_crtc_state *crtc_state)
 	u32 total_pixels = mode->hdisplay * mode->vdisplay;
 
 	if (total_pixels <= MAX_PIXELS_FOR_3_TAP_FILTER)
-		crtc_state->pch_pfit.casf.win_size = SHARPNESS_FILTER_SIZE_3X3;
+		crtc_state->pfit.casf.win_size = SHARPNESS_FILTER_SIZE_3X3;
 	else if (total_pixels <= MAX_PIXELS_FOR_5_TAP_FILTER)
-		crtc_state->pch_pfit.casf.win_size = SHARPNESS_FILTER_SIZE_5X5;
+		crtc_state->pfit.casf.win_size = SHARPNESS_FILTER_SIZE_5X5;
 	else
-		crtc_state->pch_pfit.casf.win_size = SHARPNESS_FILTER_SIZE_7X7;
+		crtc_state->pfit.casf.win_size = SHARPNESS_FILTER_SIZE_7X7;
 }
 
 static void intel_casf_scaler_compute_coeff(struct intel_crtc_state *crtc_state);
@@ -103,7 +103,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 		return -EINVAL;
 	}
 
-	crtc_state->pch_pfit.casf.enable = true;
+	crtc_state->pfit.casf.enable = true;
 
 	/*
 	 * HW takes a value in form (1.0 + strength) in 4.4 fixed format.
@@ -113,7 +113,7 @@ int intel_casf_compute_config(struct intel_crtc_state *crtc_state)
 	 * 6.3125 in 4.4 format is b01100101 which is equal to 101.
 	 * Also 85 + 16 = 101.
 	 */
-	crtc_state->pch_pfit.casf.strength =
+	crtc_state->pfit.casf.strength =
 		min(crtc_state->hw.sharpness_strength, 0xEF) + 0x10;
 
 	intel_casf_compute_win_size(crtc_state);
@@ -133,12 +133,12 @@ void intel_casf_sharpness_get_config(struct intel_crtc_state *crtc_state)
 	if (sharp & FILTER_EN) {
 		if (drm_WARN_ON(display->drm,
 				REG_FIELD_GET(FILTER_STRENGTH_MASK, sharp) < 16))
-			crtc_state->pch_pfit.casf.strength = 0;
+			crtc_state->pfit.casf.strength = 0;
 		else
-			crtc_state->pch_pfit.casf.strength =
+			crtc_state->pfit.casf.strength =
 				REG_FIELD_GET(FILTER_STRENGTH_MASK, sharp);
-		crtc_state->pch_pfit.casf.enable = true;
-		crtc_state->pch_pfit.casf.win_size =
+		crtc_state->pfit.casf.enable = true;
+		crtc_state->pfit.casf.win_size =
 			REG_FIELD_GET(FILTER_SIZE_MASK, sharp);
 	}
 }
@@ -153,7 +153,7 @@ static u32 casf_coeff(const struct intel_crtc_state *crtc_state, int tap)
 	struct scaler_filter_coeff value;
 	u32 coeff;
 
-	value = crtc_state->pch_pfit.casf.coeff[tap];
+	value = crtc_state->pfit.casf.coeff[tap];
 	value.sign = 0;
 
 	coeff = value.sign << 15 | value.exp << 12 | value.mantissa << 3;
@@ -163,7 +163,7 @@ static u32 casf_coeff(const struct intel_crtc_state *crtc_state, int tap)
 /*
  * 17 phase of 7 taps requires 119 coefficients in 60 dwords per set.
  * To enable casf: program scaler coefficients with the coefficients
- * that are calculated and stored in pch_pfit.casf.coeff as per
+ * that are calculated and stored in pfit.casf.coeff as per
  * SCALER_COEFFICIENT_FORMAT
  */
 static void intel_casf_write_coeff(const struct intel_crtc_state *crtc_state)
@@ -221,9 +221,9 @@ static void intel_casf_scaler_compute_coeff(struct intel_crtc_state *crtc_state)
 	u16 sum_coeff = 0;
 	int i;
 
-	if (crtc_state->pch_pfit.casf.win_size == 0)
+	if (crtc_state->pfit.casf.win_size == 0)
 		filtercoeff = filtercoeff_1;
-	else if (crtc_state->pch_pfit.casf.win_size == 1)
+	else if (crtc_state->pfit.casf.win_size == 1)
 		filtercoeff = filtercoeff_2;
 	else
 		filtercoeff = filtercoeff_3;
@@ -233,8 +233,8 @@ static void intel_casf_scaler_compute_coeff(struct intel_crtc_state *crtc_state)
 
 	for (i = 0; i < SCALER_FILTER_NUM_TAPS; i++) {
 		filter_coeff[i] = (*(filtercoeff + i) * 100 / sum_coeff);
-		convert_sharpness_coeff_binary(&crtc_state->pch_pfit.casf.coeff[i],
-					      filter_coeff[i]);
+		convert_sharpness_coeff_binary(&crtc_state->pfit.casf.coeff[i],
+					       filter_coeff[i]);
 	}
 }
 

@@ -30,8 +30,6 @@
 #include <drm/intel/intel_gmd_misc_regs.h>
 #include <drm/intel/mchbar_regs.h>
 
-#include "display/intel_display_clock_gating.h"
-#include "display/intel_pch.h"
 #include "gt/intel_engine_regs.h"
 #include "gt/intel_gt.h"
 #include "gt/intel_gt_mcr.h"
@@ -56,13 +54,6 @@ static void bxt_init_clock_gating(struct drm_i915_private *i915)
 	 * GEN8_HDCUNIT_CLOCK_GATE_DISABLE_HDCREQ applies on 3x6 GT SKUs only.
 	 */
 	intel_uncore_rmw(&i915->uncore, GEN8_UCGCTL6, 0, GEN8_HDCUNIT_CLOCK_GATE_DISABLE_HDCREQ);
-
-	intel_display_init_clock_gating(i915->display);
-}
-
-static void glk_init_clock_gating(struct drm_i915_private *i915)
-{
-	intel_display_init_clock_gating(i915->display);
 }
 
 static void ilk_init_clock_gating(struct drm_i915_private *i915)
@@ -72,9 +63,6 @@ static void ilk_init_clock_gating(struct drm_i915_private *i915)
 			   SVSMUNIT_CLOCK_GATE_DISABLE);
 	intel_uncore_write(&i915->uncore, PCH_3DCGDIS1,
 			   VFMUNIT_CLOCK_GATE_DISABLE);
-
-	intel_display_init_clock_gating(i915->display);
-	intel_pch_init_clock_gating(i915->display);
 }
 
 static void gen6_check_mch_setup(struct drm_i915_private *i915)
@@ -90,8 +78,6 @@ static void gen6_check_mch_setup(struct drm_i915_private *i915)
 
 static void gen6_init_clock_gating(struct drm_i915_private *i915)
 {
-	intel_display_init_clock_gating(i915->display);
-
 	intel_uncore_write(&i915->uncore, GEN6_UCGCTL1,
 			   intel_uncore_read(&i915->uncore, GEN6_UCGCTL1) |
 			   GEN6_BLBUNIT_CLOCK_GATE_DISABLE |
@@ -113,19 +99,6 @@ static void gen6_init_clock_gating(struct drm_i915_private *i915)
 	intel_uncore_write(&i915->uncore, GEN6_UCGCTL2,
 			   GEN6_RCPBUNIT_CLOCK_GATE_DISABLE |
 			   GEN6_RCCUNIT_CLOCK_GATE_DISABLE);
-
-	/*
-	 * According to the spec the following bits should be
-	 * set in order to enable memory self-refresh and fbc:
-	 * The bit21 and bit22 of 0x42000
-	 * The bit21 and bit22 of 0x42004
-	 * The bit5 and bit7 of 0x42020
-	 * The bit14 of 0x70180
-	 * The bit14 of 0x71180
-	 *
-	 * WaFbcAsynchFlipDisableFbcQueue:snb
-	 */
-	intel_pch_init_clock_gating(i915->display);
 
 	gen6_check_mch_setup(i915);
 }
@@ -165,12 +138,8 @@ static void dg2_init_clock_gating(struct drm_i915_private *i915)
 
 static void cfl_init_clock_gating(struct drm_i915_private *i915)
 {
-	intel_pch_init_clock_gating(i915->display);
-
 	/* WAC6entrylatency:cfl */
 	intel_uncore_rmw(&i915->uncore, FBC_LLC_READ_CTRL, 0, FBC_LLC_FULLY_OPEN);
-
-	intel_display_init_clock_gating(i915->display);
 }
 
 static void kbl_init_clock_gating(struct drm_i915_private *i915)
@@ -187,8 +156,6 @@ static void kbl_init_clock_gating(struct drm_i915_private *i915)
 	if (IS_KABYLAKE(i915) && IS_GRAPHICS_STEP(i915, 0, STEP_C0))
 		intel_uncore_rmw(&i915->uncore, GEN6_UCGCTL1,
 				 0, GEN6_GAMUNIT_CLOCK_GATE_DISABLE);
-
-	intel_display_init_clock_gating(i915->display);
 }
 
 static void skl_init_clock_gating(struct drm_i915_private *i915)
@@ -199,14 +166,10 @@ static void skl_init_clock_gating(struct drm_i915_private *i915)
 
 	/* WAC6entrylatency:skl */
 	intel_uncore_rmw(&i915->uncore, FBC_LLC_READ_CTRL, 0, FBC_LLC_FULLY_OPEN);
-
-	intel_display_init_clock_gating(i915->display);
 }
 
 static void bdw_init_clock_gating(struct drm_i915_private *i915)
 {
-	intel_display_init_clock_gating(i915->display);
-
 	/* WaSwitchSolVfFArbitrationPriority:bdw */
 	intel_uncore_rmw(&i915->uncore, GAM_ECOCHK, 0, HSW_ECOCHK_ARB_PRIO_SOL);
 
@@ -224,8 +187,6 @@ static void bdw_init_clock_gating(struct drm_i915_private *i915)
 	/* WaProgramL3SqcReg1Default:bdw */
 	gen8_set_l3sqc_credits(i915, 30, 2);
 
-	intel_pch_init_clock_gating(i915->display);
-
 	/* WaDisableDopClockGating:bdw
 	 *
 	 * Also see the CHICKEN2 write in bdw_init_workarounds() to disable DOP
@@ -236,24 +197,16 @@ static void bdw_init_clock_gating(struct drm_i915_private *i915)
 
 static void hsw_init_clock_gating(struct drm_i915_private *i915)
 {
-	intel_display_init_clock_gating(i915->display);
-
 	/* This is required by WaCatErrorRejectionIssue:hsw */
 	intel_uncore_rmw(&i915->uncore, GEN7_SQ_CHICKEN_MBCUNIT_CONFIG,
 			 0, GEN7_SQ_CHICKEN_MBCUNIT_SQINTMOB);
 
 	/* WaSwitchSolVfFArbitrationPriority:hsw */
 	intel_uncore_rmw(&i915->uncore, GAM_ECOCHK, 0, HSW_ECOCHK_ARB_PRIO_SOL);
-
-	intel_pch_init_clock_gating(i915->display);
 }
 
 static void ivb_init_clock_gating(struct drm_i915_private *i915)
 {
-	struct intel_display *display = i915->display;
-
-	intel_display_init_clock_gating(display);
-
 	/* WaDisableBackToBackFlipFix:ivb */
 	intel_uncore_write(&i915->uncore, IVB_CHICKEN3,
 			   CHICKEN3_DGMG_REQ_OUT_FIX_DISABLE |
@@ -283,8 +236,6 @@ static void ivb_init_clock_gating(struct drm_i915_private *i915)
 
 	intel_uncore_rmw(&i915->uncore, GEN6_MBCUNIT_SNPCR, GEN6_MBC_SNPCR_MASK,
 			 GEN6_MBC_SNPCR_MED);
-
-	intel_pch_init_clock_gating(display);
 
 	gen6_check_mch_setup(i915);
 }
@@ -356,7 +307,6 @@ static void g4x_init_clock_gating(struct drm_i915_private *i915)
 			   GS_UNIT_CLOCK_GATE_DISABLE |
 			   CL_UNIT_CLOCK_GATE_DISABLE);
 	intel_uncore_write(&i915->uncore, RAMCLK_GATE_D, 0);
-	intel_display_init_clock_gating(i915->display);
 }
 
 static void i965gm_init_clock_gating(struct drm_i915_private *i915)
@@ -365,7 +315,6 @@ static void i965gm_init_clock_gating(struct drm_i915_private *i915)
 
 	intel_uncore_write(uncore, RENCLK_GATE_D1, I965_RCC_CLOCK_GATE_DISABLE);
 	intel_uncore_write(uncore, RENCLK_GATE_D2, 0);
-	intel_display_init_clock_gating(i915->display);
 	intel_uncore_write(uncore, RAMCLK_GATE_D, 0);
 	intel_uncore_write16(uncore, DEUC, 0);
 	intel_uncore_write(uncore,
@@ -448,6 +397,31 @@ void intel_clock_gating_init(struct drm_device *drm)
 	i915->clock_gating_funcs->init_clock_gating(i915);
 }
 
+/**
+ * intel_clock_gating_resume - restore GT/uncore clock gating after PC8+
+ * @drm: the &struct drm_device
+ *
+ * Some HSW/BDW GT and uncore clock gating workarounds, including BDW's
+ * gen8_set_l3sqc_credits(), don't survive PC8+ and need to be reapplied
+ * once we're out of it.  This duplicates the display->platform.haswell ||
+ * display->platform.broadwell check that gates the hsw_disable_pc8() call
+ * on the display side, since core code can't reuse that check directly.
+ *
+ * The caller must call this after display has left PC8+ and restored
+ * LCPLL, but before GT execution resumes, since gen8_set_l3sqc_credits()
+ * needs the core clock running to access GEN8_L3SQCREG1 via the MCR.
+ * i915_driver.c is the only place that can see both sides of this, so
+ * it's the one enforcing the order, from i915_drm_resume_early(),
+ * i915_pm_runtime_suspend() and i915_pm_runtime_resume().
+ */
+void intel_clock_gating_resume(struct drm_device *drm)
+{
+	struct drm_i915_private *i915 = to_i915(drm);
+
+	if (IS_HASWELL(i915) || IS_BROADWELL(i915))
+		intel_clock_gating_init(drm);
+}
+
 static void nop_init_clock_gating(struct drm_i915_private *i915)
 {
 	drm_dbg_kms(&i915->drm,
@@ -464,7 +438,6 @@ CG_FUNCS(cfl);
 CG_FUNCS(skl);
 CG_FUNCS(kbl);
 CG_FUNCS(bxt);
-CG_FUNCS(glk);
 CG_FUNCS(bdw);
 CG_FUNCS(chv);
 CG_FUNCS(hsw);
@@ -486,7 +459,7 @@ CG_FUNCS(nop);
  * @drm: drm device
  *
  * Setup the hooks that configure which clocks of a given platform can be
- * gated and also apply various GT and display specific workarounds for these
+ * gated and also apply various GT and uncore workarounds for these
  * platforms. Note that some GT specific workarounds are applied separately
  * when GPU contexts or batchbuffers start their execution.
  */
@@ -504,8 +477,6 @@ void intel_clock_gating_hooks_init(struct drm_device *drm)
 		i915->clock_gating_funcs = &kbl_clock_gating_funcs;
 	else if (IS_BROXTON(i915))
 		i915->clock_gating_funcs = &bxt_clock_gating_funcs;
-	else if (IS_GEMINILAKE(i915))
-		i915->clock_gating_funcs = &glk_clock_gating_funcs;
 	else if (IS_BROADWELL(i915))
 		i915->clock_gating_funcs = &bdw_clock_gating_funcs;
 	else if (IS_CHERRYVIEW(i915))

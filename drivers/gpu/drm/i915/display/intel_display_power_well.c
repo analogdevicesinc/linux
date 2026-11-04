@@ -600,8 +600,10 @@ icl_tc_phy_aux_power_well_enable(struct intel_display *display,
 
 	icl_tc_port_assert_ref_held(display, power_well, dig_port);
 
+	/* don't write Send Busy back as 1, see xelpdp_aux_power_well_enable() */
 	intel_de_rmw(display, DP_AUX_CH_CTL(aux_ch),
-		     DP_AUX_CH_CTL_TBT_IO, is_tbt ? DP_AUX_CH_CTL_TBT_IO : 0);
+		     DP_AUX_CH_CTL_TBT_IO | DP_AUX_CH_CTL_SEND_BUSY,
+		     is_tbt ? DP_AUX_CH_CTL_TBT_IO : 0);
 
 	intel_de_rmw(display, regs->driver,
 		     0,
@@ -1935,8 +1937,15 @@ static void xelpdp_aux_power_well_enable(struct intel_display *display,
 		icl_tc_port_assert_ref_held(display, power_well,
 					    aux_ch_to_digital_port(display, aux_ch));
 
+	/*
+	 * This is the same register the AUX engine is driven through, so
+	 * mask Send Busy out of the read-modify-write.  Otherwise, if a
+	 * transaction is still in flight, we'd write Send Busy back as 1
+	 * and trigger the transaction again.
+	 */
 	intel_de_rmw(display, XELPDP_DP_AUX_CH_CTL(display, aux_ch),
-		     XELPDP_DP_AUX_CH_CTL_POWER_REQUEST,
+		     XELPDP_DP_AUX_CH_CTL_POWER_REQUEST |
+		     DP_AUX_CH_CTL_SEND_BUSY,
 		     XELPDP_DP_AUX_CH_CTL_POWER_REQUEST);
 
 	if (HAS_LT_PHY(display)) {
@@ -1962,8 +1971,10 @@ static void xelpdp_aux_power_well_disable(struct intel_display *display,
 	enum aux_ch aux_ch = i915_power_well_instance(power_well)->xelpdp.aux_ch;
 	enum phy phy = icl_aux_pw_to_phy(display, power_well);
 
+	/* don't write Send Busy back as 1, see the enable path */
 	intel_de_rmw(display, XELPDP_DP_AUX_CH_CTL(display, aux_ch),
-		     XELPDP_DP_AUX_CH_CTL_POWER_REQUEST,
+		     XELPDP_DP_AUX_CH_CTL_POWER_REQUEST |
+		     DP_AUX_CH_CTL_SEND_BUSY,
 		     0);
 
 	if (HAS_LT_PHY(display)) {

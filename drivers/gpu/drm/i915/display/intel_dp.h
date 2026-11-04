@@ -26,6 +26,7 @@ struct intel_display;
 struct intel_dp;
 struct intel_dp_link_config;
 struct intel_encoder;
+struct intel_link_m_n;
 
 struct link_config_limits {
 	struct intel_dp_link_caps_filter link_config_filter;
@@ -239,7 +240,14 @@ bool intel_dp_joiner_candidate_valid(struct intel_connector *connector,
 
 u8 intel_dp_as_sdp_transmission_time(void);
 
+bool intel_dp_can_support_m_n(struct intel_display *display,
+			      const struct intel_crtc_state *crtc_state,
+			      int pixel_clock, int link_rate);
+
 int intel_dp_link_init(struct intel_dp *intel_dp);
 void intel_dp_link_cleanup(struct intel_dp *intel_dp);
+
+void intel_dp_check_m_n_ratio(const struct intel_crtc_state *crtc_state,
+			      struct intel_link_m_n *m_n);
 
 #endif /* __INTEL_DP_H__ */

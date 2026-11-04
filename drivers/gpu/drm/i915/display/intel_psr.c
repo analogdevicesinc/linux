@@ -36,6 +36,7 @@
 #include "intel_cursor_regs.h"
 #include "intel_ddi.h"
 #include "intel_de.h"
+#include "intel_display.h"
 #include "intel_display_irq.h"
 #include "intel_display_regs.h"
 #include "intel_display_rpm.h"
@@ -1597,6 +1598,13 @@ static bool intel_sel_update_config_valid(struct intel_crtc_state *crtc_state,
 	struct intel_dp *intel_dp = intel_attached_dp(connector);
 	struct intel_display *display = to_intel_display(intel_dp);
 
+	if (crtc_state->joiner_pipes && !crtc_state->dsc.compression_enable &&
+	    crtc_state->output_format == INTEL_OUTPUT_FORMAT_YCBCR420) {
+		drm_dbg_kms(display->drm,
+			    "Selective update not enabled, uncompressed joiner does not support YUV 4:2:0\n");
+		goto unsupported;
+	}
+
 	if (HAS_PSR2_SEL_FETCH(display) &&
 	    !intel_psr2_sel_fetch_config_valid(intel_dp, crtc_state) &&
 	    !HAS_PSR_HW_TRACKING(display)) {
@@ -1744,8 +1752,8 @@ static bool _panel_replay_compute_config(struct intel_crtc_state *crtc_state,
 
 	/* Remaining checks are for eDP only */
 
-	if (to_intel_crtc(crtc_state->uapi.crtc)->pipe != PIPE_A &&
-	    to_intel_crtc(crtc_state->uapi.crtc)->pipe != PIPE_B)
+	/* Every joined pipe needs its own PSR/Panel Replay register block. */
+	if (intel_crtc_joined_pipe_mask(crtc_state) & ~(BIT(PIPE_A) | BIT(PIPE_B)))
 		return false;
 
 	/* 128b/132b Panel Replay is not supported on eDP */
@@ -1802,6 +1810,19 @@ static void psr2_dc3co_disable_work(struct work_struct *work)
 	mutex_unlock(&intel_dp->psr.lock);
 }
 
+/* Frontbuffer bits for every pipe driving this PSR/Panel Replay instance. */
+static unsigned int psr_frontbuffer_mask(struct intel_dp *intel_dp)
+{
+	struct intel_display *display = to_intel_display(intel_dp);
+	unsigned int mask = 0;
+	enum pipe pipe;
+
+	for_each_pipe_masked(display, pipe, intel_dp->psr.pipe_mask)
+		mask |= INTEL_FRONTBUFFER_ALL_MASK(pipe);
+
+	return mask;
+}
+
 static void
 psr2_dc3co_flush_locked(struct intel_dp *intel_dp, unsigned int frontbuffer_bits)
 {
@@ -1817,8 +1838,7 @@ psr2_dc3co_flush_locked(struct intel_dp *intel_dp, unsigned int frontbuffer_bits
 	 * At every frontbuffer flush flip event modified delay of delayed work,
 	 * when delayed work schedules that means display has been idle.
 	 */
-	if (!(frontbuffer_bits &
-	    INTEL_FRONTBUFFER_ALL_MASK(intel_dp->psr.pipe)))
+	if (!(frontbuffer_bits & psr_frontbuffer_mask(intel_dp)))
 		return;
 
 	mod_delayed_work(display->wq.unordered, &intel_dp->psr.dc3co_work,
@@ -1849,7 +1869,7 @@ void intel_psr_set_non_psr_pipes(struct intel_dp *intel_dp,
 	active_pipes = intel_calc_active_pipes(state, active_pipes);
 
 	crtc_state->active_non_psr_pipes = active_pipes &
-		~BIT(to_intel_crtc(crtc_state->uapi.crtc)->pipe);
+		~intel_crtc_joined_pipe_mask(crtc_state);
 }
 
 void intel_psr_compute_config(struct intel_dp *intel_dp,
@@ -1877,17 +1897,6 @@ void intel_psr_compute_config(struct intel_dp *intel_dp,
 		return;
 	}
 
-	/*
-	 * FIXME figure out what is wrong with PSR+joiner and
-	 * fix it. Presumably something related to the fact that
-	 * PSR is a transcoder level feature.
-	 */
-	if (crtc_state->joiner_pipes) {
-		drm_dbg_kms(display->drm,
-			    "PSR disabled due to joiner\n");
-		return;
-	}
-
 	/* Only used for state verification. */
 	crtc_state->panel_replay_dsc_support = connector->dp.panel_replay_caps.dsc_support;
 	crtc_state->has_panel_replay = _panel_replay_compute_config(crtc_state, conn_state);
@@ -1899,6 +1908,14 @@ void intel_psr_compute_config(struct intel_dp *intel_dp,
 		return;
 
 	crtc_state->has_sel_update = intel_sel_update_config_valid(crtc_state, conn_state);
+
+	/* Plain PSR1 is not supported with joiner. */
+	if (crtc_state->joiner_pipes && !crtc_state->has_panel_replay &&
+	    !crtc_state->has_sel_update) {
+		drm_dbg_kms(display->drm,
+			    "PSR disabled, PSR1 not supported with joiner\n");
+		crtc_state->has_psr = false;
+	}
 }
 
 void intel_psr_get_config(struct intel_encoder *encoder,
@@ -2179,6 +2196,7 @@ static void intel_psr_enable_locked(struct intel_dp *intel_dp,
 	intel_dp->psr.panel_replay_enabled = crtc_state->has_panel_replay;
 	intel_dp->psr.busy_frontbuffer_bits = 0;
 	intel_dp->psr.pipe = to_intel_crtc(crtc_state->uapi.crtc)->pipe;
+	intel_dp->psr.pipe_mask = intel_crtc_joined_pipe_mask(crtc_state);
 	intel_dp->psr.transcoder = crtc_state->cpu_transcoder;
 	/* DC5/DC6 requires at least 6 idle frames */
 	val = usecs_to_jiffies(intel_get_frame_time_us(crtc_state) * 6);
@@ -2398,6 +2416,7 @@ static void intel_psr_disable_locked(struct intel_dp *intel_dp)
 	intel_dp->psr.psr2_sel_fetch_cff_enabled = false;
 	intel_dp->psr.active_non_psr_pipes = 0;
 	intel_dp->psr.pkg_c_latency_used = 0;
+	intel_dp->psr.pipe_mask = 0;
 	cancel_delayed_work(&intel_dp->psr.dc3co_work);
 	intel_dp->psr.dc3co_allowed = false;
 }
@@ -2623,6 +2642,24 @@ static void intel_psr_force_update(struct intel_dp *intel_dp)
 	intel_de_write(display, CURSURFLIVE(display, intel_dp->psr.pipe), 0);
 }
 
+/*
+ * The joiner secondary has no encoders of its own, its uapi.encoder_mask is
+ * zero. PSR is a transcoder level feature driven by the primary, so take the
+ * encoders from there. Only valid once the state has been swapped in, i.e.
+ * from the commit phase.
+ */
+static u32 psr_encoder_mask(const struct intel_crtc_state *crtc_state)
+{
+	struct intel_crtc *primary_crtc;
+
+	if (!intel_crtc_is_joiner_secondary(crtc_state))
+		return crtc_state->uapi.encoder_mask;
+
+	primary_crtc = intel_primary_crtc(crtc_state);
+
+	return to_intel_crtc_state(primary_crtc->base.state)->uapi.encoder_mask;
+}
+
 void intel_psr2_program_trans_man_trk_ctl(struct intel_dsb *dsb,
 					  const struct intel_crtc_state *crtc_state)
 {
@@ -2635,7 +2672,7 @@ void intel_psr2_program_trans_man_trk_ctl(struct intel_dsb *dsb,
 		return;
 
 	for_each_intel_encoder_mask_with_psr(display->drm, encoder,
-					     crtc_state->uapi.encoder_mask) {
+					     psr_encoder_mask(crtc_state)) {
 		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 
 		if (!dsb)
@@ -2646,9 +2683,11 @@ void intel_psr2_program_trans_man_trk_ctl(struct intel_dsb *dsb,
 		break;
 	}
 
-	intel_de_write_dsb(display, dsb,
-			   PSR2_MAN_TRK_CTL(display, cpu_transcoder),
-			   crtc_state->psr2_man_track_ctl);
+	/* The joined pipes drive one transcoder, so program it once. */
+	if (!intel_crtc_is_joiner_secondary(crtc_state))
+		intel_de_write_dsb(display, dsb,
+				   PSR2_MAN_TRK_CTL(display, cpu_transcoder),
+				   crtc_state->psr2_man_track_ctl);
 
 	if (!crtc_state->enable_psr2_su_region_et)
 		return;
@@ -2733,12 +2772,11 @@ static void clip_area_update(struct drm_rect *overlap_damage_area,
 		overlap_damage_area->y2 = inter.y2;
 }
 
-static bool intel_psr2_sel_fetch_pipe_alignment(struct intel_crtc_state *crtc_state)
+static void intel_psr2_sel_fetch_pipe_alignment(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 	const struct drm_dsc_config *vdsc_cfg = &crtc_state->dsc.config;
 	u16 y_alignment;
-	bool su_area_changed = false;
 
 	/* ADLP aligns the SU region to vdsc slice height in case dsc is enabled */
 	if (crtc_state->dsc.compression_enable &&
@@ -2747,18 +2785,12 @@ static bool intel_psr2_sel_fetch_pipe_alignment(struct intel_crtc_state *crtc_st
 	else
 		y_alignment = crtc_state->su_y_granularity;
 
-	if (crtc_state->psr2_su_area.y1 % y_alignment) {
+	if (crtc_state->psr2_su_area.y1 % y_alignment)
 		crtc_state->psr2_su_area.y1 -= crtc_state->psr2_su_area.y1 % y_alignment;
-		su_area_changed = true;
-	}
 
-	if (crtc_state->psr2_su_area.y2 % y_alignment) {
+	if (crtc_state->psr2_su_area.y2 % y_alignment)
 		crtc_state->psr2_su_area.y2 = ((crtc_state->psr2_su_area.y2 /
 						y_alignment) + 1) * y_alignment;
-		su_area_changed = true;
-	}
-
-	return su_area_changed;
 }
 
 /*
@@ -2768,8 +2800,7 @@ static bool intel_psr2_sel_fetch_pipe_alignment(struct intel_crtc_state *crtc_st
 static void
 intel_psr2_sel_fetch_et_alignment(struct intel_atomic_state *state,
 				  struct intel_crtc *crtc,
-				  struct drm_rect *display_area,
-				  bool *cursor_in_su_area)
+				  struct drm_rect *display_area)
 {
 	struct intel_crtc_state *crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
 	struct intel_plane_state *new_plane_state;
@@ -2797,7 +2828,6 @@ intel_psr2_sel_fetch_et_alignment(struct intel_atomic_state *state,
 
 		clip_area_update(&crtc_state->psr2_su_area, &new_plane_state->uapi.dst,
 				 display_area);
-		*cursor_in_su_area = true;
 	}
 }
 
@@ -2874,6 +2904,11 @@ intel_psr_apply_su_area_workarounds(struct intel_crtc_state *crtc_state)
 {
 	struct intel_display *display = to_intel_display(crtc_state);
 
+	/*
+	 * Called on the merged area, with the joiner primary crtc_state. The
+	 * secondary has no encoders of its own and the WAs below have to see
+	 * the whole SU region that goes into PSR2_MAN_TRK_CTL.
+	 */
 	/* Wa_14014971492 */
 	if (!crtc_state->has_panel_replay &&
 	    ((IS_DISPLAY_VERx100_STEP(display, 1400, STEP_A0, STEP_B0) ||
@@ -2891,39 +2926,22 @@ intel_psr_apply_su_area_workarounds(struct intel_crtc_state *crtc_state)
 		intel_psr_apply_pr_link_on_su_wa(crtc_state);
 }
 
-int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
-				struct intel_crtc *crtc)
+static void psr2_sel_fetch_compute_su_area(struct intel_atomic_state *state,
+					   struct intel_crtc *crtc,
+					   bool *full_update)
 {
-	struct intel_display *display = to_intel_display(state);
-	const struct intel_crtc_state *old_crtc_state =
-		intel_atomic_get_old_crtc_state(state, crtc);
 	struct intel_crtc_state *crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
 	struct intel_plane_state *new_plane_state, *old_plane_state;
 	struct intel_plane *plane;
 	struct drm_rect display_area = {
 		.x1 = 0,
 		.y1 = 0,
-		.x2 = crtc_state->hw.adjusted_mode.crtc_hdisplay,
-		.y2 = crtc_state->hw.adjusted_mode.crtc_vdisplay,
+		.x2 = drm_rect_width(&crtc_state->pipe_src),
+		.y2 = drm_rect_height(&crtc_state->pipe_src),
 	};
-	bool full_update = false, su_area_changed;
 	int i;
 
-	/*
-	 * Selective fetch is not always usable, for instance it is dropped
-	 * while pipe CRC is active. The planes keep their selective fetch
-	 * enable bit set in hardware over that, and a plane disabled while
-	 * selective fetch is off never gets the bit cleared. Once selective
-	 * fetch comes back the hardware would resume fetching for a plane that
-	 * is no longer enabled and keep its DDB range reserved, so have the
-	 * plane update drop the bit for every plane of the pipe as selective
-	 * fetch is turned off.
-	 */
-	crtc_state->clear_psr2_sel_fetch = old_crtc_state->enable_psr2_sel_fetch &&
-		!crtc_state->enable_psr2_sel_fetch;
-
-	if (!crtc_state->enable_psr2_sel_fetch)
-		return 0;
+	*full_update = false;
 
 	crtc_state->psr2_su_area.x1 = 0;
 	crtc_state->psr2_su_area.y1 = -1;
@@ -2931,8 +2949,8 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 	crtc_state->psr2_su_area.y2 = -1;
 
 	if (!psr2_sel_fetch_pipe_state_supported(crtc_state)) {
-		full_update = true;
-		goto skip_su_area_calc;
+		*full_update = true;
+		return;
 	}
 
 	/*
@@ -2953,8 +2971,9 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 		    !old_plane_state->uapi.visible)
 			continue;
 
-		if (!psr2_sel_fetch_plane_state_supported(new_plane_state)) {
-			full_update = true;
+		if (new_plane_state->uapi.visible &&
+		    !psr2_sel_fetch_plane_state_supported(new_plane_state)) {
+			*full_update = true;
 			break;
 		}
 
@@ -3003,54 +3022,117 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 
 		clip_area_update(&crtc_state->psr2_su_area, &damaged_area, &display_area);
 	}
+}
 
-	/*
-	 * TODO: For now we are just using full update in case
-	 * selective fetch area calculation fails. To optimize this we
-	 * should identify cases where this happens and fix the area
-	 * calculation for those.
-	 */
-	if (crtc_state->psr2_su_area.y1 == -1) {
-		drm_info_once(display->drm,
-			      "Selective fetch area calculation failed in pipe %c\n",
-			      pipe_name(crtc->pipe));
-		full_update = true;
+static void psr2_sel_fetch_set_su_area(struct intel_atomic_state *state,
+				       u8 joined_pipes, int y1, int y2)
+{
+	struct intel_display *display = to_intel_display(state);
+	struct intel_crtc *crtc;
+
+	for_each_intel_crtc_in_pipe_mask(display, crtc, joined_pipes) {
+		struct intel_crtc_state *crtc_state =
+			intel_atomic_get_new_crtc_state(state, crtc);
+
+		crtc_state->psr2_su_area.y1 = y1;
+		crtc_state->psr2_su_area.y2 = y2;
+	}
+}
+
+/*
+ * One transcoder means one SU region. Joining splits the image horizontally, so
+ * the pipes share the Y range. Returns false if no joined pipe has any damage.
+ */
+static bool psr2_sel_fetch_merge_su_area(struct intel_atomic_state *state,
+					 u8 joined_pipes)
+{
+	struct intel_display *display = to_intel_display(state);
+	struct intel_crtc_state *crtc_state;
+	struct intel_crtc *crtc;
+	int y1 = INT_MAX, y2 = INT_MIN;
+
+	for_each_intel_crtc_in_pipe_mask(display, crtc, joined_pipes) {
+		crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
+
+		/* An empty area must not drag the merged one down. */
+		if (crtc_state->psr2_su_area.y1 == -1)
+			continue;
+
+		y1 = min(y1, crtc_state->psr2_su_area.y1);
+		y2 = max(y2, crtc_state->psr2_su_area.y2);
 	}
 
-	if (full_update)
-		goto skip_su_area_calc;
+	if (y1 == INT_MAX)
+		return false;
 
-	intel_psr_apply_su_area_workarounds(crtc_state);
+	psr2_sel_fetch_set_su_area(state, joined_pipes, y1, y2);
+
+	return true;
+}
+
+/*
+ * Merging only grows the area, so a cursor that missed its own pipe's area can
+ * end up partially covered. Realign on the merged area until it stops growing.
+ */
+static void psr2_sel_fetch_align_su_area(struct intel_atomic_state *state,
+					 u8 joined_pipes)
+{
+	struct intel_display *display = to_intel_display(state);
+	struct intel_crtc *crtc;
+	bool su_area_changed;
 
 	do {
-		bool cursor_in_su_area = false;
+		su_area_changed = false;
 
-		/*
-		 * Adjust su area to cover cursor fully as necessary
-		 * (early transport). A visible cursor is in the state
-		 * even when it is not updated by itself as all planes
-		 * of the pipe are added into the state before the plane
-		 * checks when selective fetch is enabled.
-		 */
-		intel_psr2_sel_fetch_et_alignment(state, crtc, &display_area,
-						  &cursor_in_su_area);
+		for_each_intel_crtc_in_pipe_mask(display, crtc, joined_pipes) {
+			struct intel_crtc_state *crtc_state =
+				intel_atomic_get_new_crtc_state(state, crtc);
+			struct drm_rect display_area = {
+				.x1 = 0,
+				.y1 = 0,
+				.x2 = drm_rect_width(&crtc_state->pipe_src),
+				.y2 = drm_rect_height(&crtc_state->pipe_src),
+			};
+			struct drm_rect old_su_area = crtc_state->psr2_su_area;
 
-		su_area_changed = intel_psr2_sel_fetch_pipe_alignment(crtc_state);
+			/* Needs the planes already pulled into the state. */
+			intel_psr2_sel_fetch_et_alignment(state, crtc, &display_area);
 
-		/*
-		 * If the cursor was outside the SU area before
-		 * alignment, the alignment step (which only expands
-		 * SU) may pull the cursor partially inside, so we
-		 * must run ET alignment again to fully cover it. But
-		 * if the cursor was already fully inside before
-		 * alignment, expanding the SU area won't change that,
-		 * so no further work is needed.
-		 */
-		if (cursor_in_su_area)
-			break;
+			intel_psr2_sel_fetch_pipe_alignment(crtc_state);
+
+			su_area_changed |= !drm_rect_equals(&crtc_state->psr2_su_area,
+							    &old_su_area);
+		}
+
+		if (su_area_changed)
+			psr2_sel_fetch_merge_su_area(state, joined_pipes);
 	} while (su_area_changed);
+}
 
-skip_su_area_calc:
+static int psr2_sel_fetch_apply_su_area(struct intel_atomic_state *state,
+					struct intel_crtc *crtc,
+					bool full_update)
+{
+	struct intel_crtc_state *crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
+	struct intel_plane_state *new_plane_state, *old_plane_state;
+	struct intel_plane *plane;
+	struct drm_rect display_area = {
+		.x1 = 0,
+		.y1 = 0,
+		.x2 = drm_rect_width(&crtc_state->pipe_src),
+		.y2 = drm_rect_height(&crtc_state->pipe_src),
+	};
+	int i;
+
+	/*
+	 * On full update the whole pipe is fetched, the plane loop below then
+	 * gives every visible plane its full area. Plane states come out of
+	 * the duplicate with a zero sized area, so this has to run on full
+	 * update as well.
+	 */
+	if (full_update)
+		crtc_state->psr2_su_area = display_area;
+
 	if (full_update)
 		clip_area_update(&crtc_state->psr2_su_area, &display_area,
 				 &display_area);
@@ -3107,6 +3189,82 @@ skip_su_area_calc:
 	psr2_man_trk_ctl_calc(crtc_state, full_update);
 	crtc_state->pipe_srcsz_early_tpt =
 		psr2_pipe_srcsz_early_tpt_calc(crtc_state, full_update);
+
+	return 0;
+}
+
+int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
+				struct intel_crtc *crtc)
+{
+	struct intel_display *display = to_intel_display(state);
+	const struct intel_crtc_state *old_crtc_state =
+		intel_atomic_get_old_crtc_state(state, crtc);
+	struct intel_crtc_state *crtc_state = intel_atomic_get_new_crtc_state(state, crtc);
+	struct intel_crtc *joined_crtc;
+	bool full_update = false;
+	u8 joined_pipes;
+	int ret;
+
+	/*
+	 * Selective fetch is not always usable, for instance it is dropped
+	 * while pipe CRC is active. The planes keep their selective fetch
+	 * enable bit set in hardware over that, and a plane disabled while
+	 * selective fetch is off never gets the bit cleared. Once selective
+	 * fetch comes back the hardware would resume fetching for a plane that
+	 * is no longer enabled and keep its DDB range reserved, so have the
+	 * plane update drop the bit for every plane of the pipe as selective
+	 * fetch is turned off.
+	 */
+	crtc_state->clear_psr2_sel_fetch = old_crtc_state->enable_psr2_sel_fetch &&
+		!crtc_state->enable_psr2_sel_fetch;
+
+	if (!crtc_state->enable_psr2_sel_fetch)
+		return 0;
+
+	/* The joined pipes are handled in one go from the primary. */
+	if (intel_crtc_is_joiner_secondary(crtc_state))
+		return 0;
+
+	joined_pipes = intel_crtc_joined_pipe_mask(crtc_state);
+
+	for_each_intel_crtc_in_pipe_mask(display, joined_crtc, joined_pipes) {
+		psr2_sel_fetch_compute_su_area(state, joined_crtc, &full_update);
+
+		/* One pipe falling back takes all of them with it. */
+		if (full_update)
+			break;
+	}
+
+	/*
+	 * TODO: For now we are just using full update in case selective fetch
+	 * area calculation fails. To optimize this we should identify cases
+	 * where this happens and fix the area calculation for those.
+	 */
+	if (!full_update && !psr2_sel_fetch_merge_su_area(state, joined_pipes))
+		full_update = true;
+
+	if (!full_update) {
+		/*
+		 * The WAs clamp the SU region that ends up in the per
+		 * transcoder PSR2_MAN_TRK_CTL, so they have to run on the
+		 * merged area rather than on the per pipe ones. crtc_state is
+		 * the joiner primary, the only one carrying the encoders the
+		 * WAs look at, and the merge guarantees a non empty area.
+		 */
+		intel_psr_apply_su_area_workarounds(crtc_state);
+		psr2_sel_fetch_set_su_area(state, joined_pipes,
+					   crtc_state->psr2_su_area.y1,
+					   crtc_state->psr2_su_area.y2);
+
+		psr2_sel_fetch_align_su_area(state, joined_pipes);
+	}
+
+	for_each_intel_crtc_in_pipe_mask(display, joined_crtc, joined_pipes) {
+		ret = psr2_sel_fetch_apply_su_area(state, joined_crtc, full_update);
+		if (ret)
+			return ret;
+	}
+
 	return 0;
 }
 
@@ -3332,7 +3490,7 @@ void intel_psr_wait_for_idle_locked(const struct intel_crtc_state *new_crtc_stat
 		return;
 
 	for_each_intel_encoder_mask_with_psr(display->drm, encoder,
-					     new_crtc_state->uapi.encoder_mask) {
+					     psr_encoder_mask(new_crtc_state)) {
 		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 		int ret;
 
@@ -3621,8 +3779,7 @@ void intel_psr_invalidate(struct intel_display *display,
 			continue;
 		}
 
-		pipe_frontbuffer_bits &=
-			INTEL_FRONTBUFFER_ALL_MASK(intel_dp->psr.pipe);
+		pipe_frontbuffer_bits &= psr_frontbuffer_mask(intel_dp);
 		intel_dp->psr.busy_frontbuffer_bits |= pipe_frontbuffer_bits;
 
 		if (pipe_frontbuffer_bits)
@@ -3702,8 +3859,7 @@ void intel_psr_flush(struct intel_display *display,
 			continue;
 		}
 
-		pipe_frontbuffer_bits &=
-			INTEL_FRONTBUFFER_ALL_MASK(intel_dp->psr.pipe);
+		pipe_frontbuffer_bits &= psr_frontbuffer_mask(intel_dp);
 		intel_dp->psr.busy_frontbuffer_bits &= ~pipe_frontbuffer_bits;
 
 		/*
@@ -3979,7 +4135,7 @@ void intel_psr_lock(const struct intel_crtc_state *crtc_state)
 		return;
 
 	for_each_intel_encoder_mask_with_psr(display->drm, encoder,
-					     crtc_state->uapi.encoder_mask) {
+					     psr_encoder_mask(crtc_state)) {
 		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 
 		mutex_lock(&intel_dp->psr.lock);
@@ -4002,7 +4158,7 @@ void intel_psr_unlock(const struct intel_crtc_state *crtc_state)
 		return;
 
 	for_each_intel_encoder_mask_with_psr(display->drm, encoder,
-					     crtc_state->uapi.encoder_mask) {
+					     psr_encoder_mask(crtc_state)) {
 		struct intel_dp *intel_dp = enc_to_intel_dp(encoder);
 
 		mutex_unlock(&intel_dp->psr.lock);
@@ -4607,6 +4763,10 @@ void intel_psr_compute_config_late(struct intel_dp *intel_dp,
 		crtc_state->has_sel_update = false;
 		crtc_state->enable_psr2_su_region_et = false;
 		crtc_state->enable_psr2_sel_fetch = false;
+
+		/* Plain PSR1 is not supported with joiner. */
+		if (crtc_state->joiner_pipes)
+			crtc_state->has_psr = false;
 	}
 
 	/* Wa_18037818876 */

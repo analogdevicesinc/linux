@@ -16,7 +16,6 @@
 #include "intel_pps.h"
 #include "intel_quirks.h"
 #include "intel_tc.h"
-#include "intel_uncore_trace.h"
 
 #define AUX_CH_NAME_BUFSIZE	6
 
@@ -55,35 +54,52 @@ static void intel_dp_aux_unpack(u32 src, u8 *dst, int dst_bytes)
 		dst[i] = src >> ((3 - i) * 8);
 }
 
+static bool
+__intel_dp_aux_wait_done(struct intel_dp *intel_dp, unsigned int timeout_ms,
+			 u32 *status)
+{
+	struct intel_display *display = to_intel_display(intel_dp);
+	intel_reg_t ch_ctl = intel_dp->aux_ch_ctl_reg(intel_dp);
+
+	if (intel_parent_irq_enabled(display)) {
+#define C (((*status = intel_de_read(display, ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
+		return wait_event_timeout(display->gmbus.wait_queue, C,
+					  msecs_to_jiffies_timeout(timeout_ms));
+#undef C
+	} else {
+		return intel_de_wait_ms(display, ch_ctl,
+					DP_AUX_CH_CTL_SEND_BUSY, 0,
+					timeout_ms, status) == 0;
+	}
+}
+
 static u32
 intel_dp_aux_wait_done(struct intel_dp *intel_dp)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
-	intel_reg_t ch_ctl = intel_dp->aux_ch_ctl_reg(intel_dp);
+	/*
+	 * The HW timeout is 4ms, but a downstream LTTPR recovering from a
+	 * power state transition can keep the engine busy much longer, so
+	 * give it up to 100ms before giving up.
+	 */
 	const unsigned int timeout_ms = 10;
-	bool done = true;
+	const unsigned int stuck_timeout_ms = 100;
 	u32 status;
-	int ret;
 
-	if (intel_parent_irq_enabled(display)) {
-#define C (((status = intel_de_read_notrace(display, ch_ctl)) & DP_AUX_CH_CTL_SEND_BUSY) == 0)
-		done = wait_event_timeout(display->gmbus.wait_queue, C,
-					  msecs_to_jiffies_timeout(timeout_ms));
+	if (__intel_dp_aux_wait_done(intel_dp, timeout_ms, &status))
+		return status;
 
-#undef C
-	} else {
-		ret = intel_de_wait_ms(display, ch_ctl,
-				       DP_AUX_CH_CTL_SEND_BUSY, 0,
-				       timeout_ms, &status);
+	drm_dbg_kms(display->drm,
+		    "%s: did not complete or timeout within %ums (status 0x%08x), waiting for the AUX engine to recover\n",
+		    intel_dp->aux.name, timeout_ms, status);
 
-		if (ret == -ETIMEDOUT)
-			done = false;
-	}
+	if (__intel_dp_aux_wait_done(intel_dp, stuck_timeout_ms - timeout_ms,
+				     &status))
+		return status;
 
-	if (!done)
-		drm_err(display->drm,
-			"%s: did not complete or timeout within %ums (status 0x%08x)\n",
-			intel_dp->aux.name, timeout_ms, status);
+	drm_err(display->drm,
+		"%s: did not complete or timeout within %ums (status 0x%08x)\n",
+		intel_dp->aux.name, stuck_timeout_ms, status);
 
 	return status;
 }
@@ -270,22 +286,6 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 	for (i = 0; i < ARRAY_SIZE(ch_data); i++)
 		ch_data[i] = intel_dp->aux_ch_data_reg(intel_dp, i);
 
-	intel_digital_port_lock(encoder);
-	/*
-	 * Abort transfers on a disconnected port as required by
-	 * DP 1.4a link CTS 4.2.1.5, also avoiding the long AUX
-	 * timeouts that would otherwise happen.
-	 */
-	if (!intel_dp_is_edp(intel_dp) &&
-	    !intel_digital_port_connected_locked(&dig_port->base)) {
-		ret = -ENXIO;
-		goto out_unlock;
-	}
-
-	aux_domain = intel_aux_power_domain(dig_port);
-
-	aux_wakeref = intel_display_power_get(display, aux_domain);
-
 	/*
 	 * The PPS state needs to be locked for:
 	 * - eDP on all platforms, since AUX transfers on eDP need VDD power
@@ -308,6 +308,21 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 	 */
 	vdd = intel_pps_vdd_on_unlocked(intel_dp);
 
+	intel_digital_port_lock(encoder);
+	/*
+	 * Abort transfers on a disconnected port as required by
+	 * DP 1.4a link CTS 4.2.1.5, also avoiding the long AUX
+	 * timeouts that would otherwise happen.
+	 */
+	if (!intel_dp_is_edp(intel_dp) &&
+	    !intel_digital_port_connected_locked(&dig_port->base)) {
+		ret = -ENXIO;
+		goto out_unlock;
+	}
+
+	aux_domain = intel_aux_power_domain(dig_port);
+	aux_wakeref = intel_display_power_get(display, aux_domain);
+
 	/*
 	 * dp aux is extremely sensitive to irq latency, hence request the
 	 * lowest possible wakeup latency and so prevent the cpu from going into
@@ -324,27 +339,46 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 
 	/* Try to wait for any previous AUX channel activity */
 	for (try = 0; try < 3; try++) {
-		status = intel_de_read_notrace(display, ch_ctl);
+		status = intel_de_read(display, ch_ctl);
 		if ((status & DP_AUX_CH_CTL_SEND_BUSY) == 0)
 			break;
 		msleep(1);
 	}
-	/* just trace the final value */
-	trace_i915_reg_rw(false, ch_ctl, status, sizeof(status), true);
 
 	if (try == 3) {
 		const u32 status = intel_de_read(display, ch_ctl);
+		/*
+		 * If we recently left the engine busy ourselves, treat it as
+		 * still recovering for up to a second, the longest LTTPR
+		 * stall we've seen.  Otherwise someone else is using the
+		 * channel, or it's hung.
+		 */
+		const unsigned int left_busy_timeout_ms = 1000;
 
-		if (status != intel_dp->aux_busy_last_status) {
-			drm_WARN(display->drm, 1,
-				 "%s: not started (status 0x%08x)\n",
-				 intel_dp->aux.name, status);
-			intel_dp->aux_busy_last_status = status;
+		if (intel_dp->dp_aux.left_busy &&
+		    time_is_after_jiffies64(intel_dp->dp_aux.left_busy_since +
+					    msecs_to_jiffies(left_busy_timeout_ms))) {
+			drm_dbg_kms(display->drm,
+				    "%s: not started, still waiting for the AUX engine to recover (status 0x%08x)\n",
+				    intel_dp->aux.name, status);
+		} else {
+			intel_dp->dp_aux.left_busy = false;
+
+			if (status != intel_dp->aux_busy_last_status) {
+				drm_err(display->drm,
+					"%s: not started (status 0x%08x)\n",
+					intel_dp->aux.name, status);
+				intel_dp->aux_busy_last_status = status;
+			}
 		}
 
 		ret = -EBUSY;
 		goto out;
 	}
+
+	/* the engine recovered, report a new busy period again */
+	intel_dp->dp_aux.left_busy = false;
+	intel_dp->aux_busy_last_status = 0;
 
 	/* Only 5 data registers! */
 	if (drm_WARN_ON(display->drm, send_bytes > 20 || recv_size > 20)) {
@@ -371,6 +405,18 @@ intel_dp_aux_xfer(struct intel_dp *intel_dp,
 			intel_de_write(display, ch_ctl, send_ctl);
 
 			status = intel_dp_aux_wait_done(intel_dp);
+
+			/*
+			 * The bspecs specify that we cannot change any fields
+			 * while Send Busy is asserted.  Leave the stuck engine
+			 * alone, the caller will retry the transaction later.
+			 */
+			if (status & DP_AUX_CH_CTL_SEND_BUSY) {
+				intel_dp->dp_aux.left_busy = true;
+				intel_dp->dp_aux.left_busy_since = get_jiffies_64();
+				ret = -EBUSY;
+				goto out;
+			}
 
 			/* Clear done status and any errors */
 			intel_de_write(display, ch_ctl,
@@ -453,15 +499,15 @@ done:
 out:
 	cpu_latency_qos_update_request(&intel_dp->pm_qos, PM_QOS_DEFAULT_VALUE);
 
+	intel_display_power_put_async(display, aux_domain, aux_wakeref);
+out_unlock:
+	intel_digital_port_unlock(encoder);
+
 	if (vdd)
 		intel_pps_vdd_off_unlocked(intel_dp, false);
 
 	if (pps_wakeref)
 		intel_pps_unlock(intel_dp, pps_wakeref);
-
-	intel_display_power_put_async(display, aux_domain, aux_wakeref);
-out_unlock:
-	intel_digital_port_unlock(encoder);
 
 	return ret;
 }

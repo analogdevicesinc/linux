@@ -24,6 +24,7 @@
 #include "i915_reg.h"
 #include "i915_wait_util.h"
 #include "intel_breadcrumbs.h"
+#include "intel_clock_gating.h"
 #include "intel_engine_pm.h"
 #include "intel_engine_regs.h"
 #include "intel_gt.h"
@@ -1438,6 +1439,9 @@ static void intel_gt_reset_global(struct intel_gt *gt,
 		}
 
 		intel_gt_reset(gt, engine_mask, reason);
+
+		if (need_display_reset)
+			intel_clock_gating_init(&i915->drm);
 
 		if (reset_display)
 			intel_display_reset_finish(display, !need_display_reset);

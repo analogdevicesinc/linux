@@ -14,6 +14,7 @@
 #include "intel_de.h"
 #include "intel_display_regs.h"
 #include "intel_display_rpm.h"
+#include "intel_display_trace.h"
 #include "intel_display_types.h"
 #include "intel_dsb.h"
 #include "intel_dsb_regs.h"
@@ -982,6 +983,8 @@ void intel_dsb_commit(struct intel_dsb *dsb)
 	intel_de_write_fw(display, DSB_HEAD(pipe, dsb->id),
 			  intel_dsb_head(dsb));
 
+	trace_intel_dsb_commit(crtc, dsb->id);
+
 	intel_de_write_fw(display, DSB_TAIL(pipe, dsb->id),
 			  intel_dsb_tail(dsb));
 }
@@ -1025,6 +1028,14 @@ void intel_dsb_wait(struct intel_dsb *dsb)
 			  dsb_error_int_status(display) | DSB_PROG_INT_STATUS);
 }
 
+bool intel_dsb_supported(struct intel_display *display)
+{
+	if (!display->params.enable_dsb)
+		return false;
+
+	return HAS_DSB(display);
+}
+
 /**
  * intel_dsb_prepare() - Allocate, pin and map the DSB command buffer.
  * @state: the atomic state
@@ -1049,10 +1060,7 @@ struct intel_dsb *intel_dsb_prepare(struct intel_atomic_state *state,
 	struct intel_dsb *dsb;
 	unsigned int size;
 
-	if (!HAS_DSB(display))
-		return NULL;
-
-	if (!display->params.enable_dsb)
+	if (!intel_dsb_supported(display))
 		return NULL;
 
 	dsb = kzalloc_obj(*dsb);
@@ -1119,6 +1127,8 @@ void intel_dsb_irq_handler(struct intel_display *display,
 		spin_lock(&display->drm->event_lock);
 
 		if (crtc->dsb_event) {
+			trace_intel_dsb_done(crtc, dsb_id);
+
 			/*
 			 * Update vblank counter/timestamp in case it
 			 * hasn't been done yet for this frame.

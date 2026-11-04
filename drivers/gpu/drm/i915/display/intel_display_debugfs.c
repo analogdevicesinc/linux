@@ -40,6 +40,7 @@
 #include "intel_fb.h"
 #include "intel_fbc.h"
 #include "intel_fbdev.h"
+#include "intel_gmbus.h"
 #include "intel_hdcp.h"
 #include "intel_hdmi.h"
 #include "intel_hotplug.h"
@@ -96,7 +97,7 @@ static int i915_sr_status(struct seq_file *m, void *unused)
 
 	if (DISPLAY_VER(display) >= 9)
 		/* no global SR status; inspect per-plane WM */;
-	else if (HAS_PCH_SPLIT(display))
+	else if (!HAS_GMCH(display))
 		sr_enabled = intel_de_read(display, WM1_LP_ILK) & WM_LP_ENABLE;
 	else if (display->platform.i965gm || display->platform.g4x ||
 		 display->platform.i945g || display->platform.i945gm)
@@ -164,27 +165,21 @@ static int i915_power_domain_info(struct seq_file *m, void *unused)
 	return 0;
 }
 
-static void intel_seq_print_mode(struct seq_file *m, int tabs,
-				 const struct drm_display_mode *mode)
+static void intel_print_mode(struct drm_printer *p, int indent,
+			     const struct drm_display_mode *mode)
 {
-	int i;
-
-	for (i = 0; i < tabs; i++)
-		seq_putc(m, '\t');
-
-	seq_printf(m, DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
+	drm_printf_indent(p, indent, DRM_MODE_FMT "\n", DRM_MODE_ARG(mode));
 }
 
-static void intel_encoder_info(struct seq_file *m,
-			       struct intel_crtc *crtc,
+static void intel_encoder_info(struct drm_printer *p,
 			       struct intel_encoder *encoder)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
+	struct intel_display *display = to_intel_display(encoder);
 	struct drm_connector_list_iter conn_iter;
 	struct drm_connector *connector;
 
-	seq_printf(m, "\t[ENCODER:%d:%s]: connectors:\n",
-		   encoder->base.base.id, encoder->base.name);
+	drm_printf_indent(p, 1, "[ENCODER:%d:%s]: connectors:\n",
+			  encoder->base.base.id, encoder->base.name);
 
 	drm_connector_list_iter_begin(display->drm, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter) {
@@ -194,13 +189,13 @@ static void intel_encoder_info(struct seq_file *m,
 		if (conn_state->best_encoder != &encoder->base)
 			continue;
 
-		seq_printf(m, "\t\t[CONNECTOR:%d:%s]\n",
-			   connector->base.id, connector->name);
+		drm_printf_indent(p, 2, "[CONNECTOR:%d:%s]\n",
+				  connector->base.id, connector->name);
 	}
 	drm_connector_list_iter_end(&conn_iter);
 }
 
-static void intel_panel_info(struct seq_file *m,
+static void intel_panel_info(struct drm_printer *p,
 			     struct intel_connector *connector)
 {
 	const struct drm_display_mode *fixed_mode;
@@ -208,74 +203,73 @@ static void intel_panel_info(struct seq_file *m,
 	if (list_empty(&connector->panel.fixed_modes))
 		return;
 
-	seq_puts(m, "\tfixed modes:\n");
+	drm_printf_indent(p, 1, "fixed modes:\n");
 
 	list_for_each_entry(fixed_mode, &connector->panel.fixed_modes, head)
-		intel_seq_print_mode(m, 2, fixed_mode);
+		intel_print_mode(p, 2, fixed_mode);
 }
 
-static void intel_dp_info(struct seq_file *m, struct intel_connector *connector)
+static void intel_dp_info(struct drm_printer *p, struct intel_connector *connector)
 {
 	struct intel_encoder *intel_encoder = intel_attached_encoder(connector);
 	struct intel_dp *intel_dp = enc_to_intel_dp(intel_encoder);
 
-	seq_printf(m, "\tDPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
-	seq_printf(m, "\taudio support: %s\n",
-		   str_yes_no(connector->base.display_info.has_audio));
+	drm_printf_indent(p, 1, "DPCD rev: %x\n", intel_dp->dpcd[DP_DPCD_REV]);
+	drm_printf_indent(p, 1, "audio support: %s\n",
+			  str_yes_no(connector->base.display_info.has_audio));
 
-	drm_dp_downstream_debug(m, intel_dp->dpcd, intel_dp->downstream_ports,
+	drm_dp_downstream_debug(p, intel_dp->dpcd, intel_dp->downstream_ports,
 				connector->detect_edid, &intel_dp->aux);
 }
 
-static void intel_dp_mst_info(struct seq_file *m,
+static void intel_dp_mst_info(struct drm_printer *p,
 			      struct intel_connector *connector)
 {
 	bool has_audio = connector->base.display_info.has_audio;
 
-	seq_printf(m, "\taudio support: %s\n", str_yes_no(has_audio));
+	drm_printf_indent(p, 1, "audio support: %s\n", str_yes_no(has_audio));
 }
 
-static void intel_hdmi_info(struct seq_file *m,
+static void intel_hdmi_info(struct drm_printer *p,
 			    struct intel_connector *connector)
 {
 	bool has_audio = connector->base.display_info.has_audio;
 
-	seq_printf(m, "\taudio support: %s\n", str_yes_no(has_audio));
+	drm_printf_indent(p, 1, "audio support: %s\n", str_yes_no(has_audio));
 }
 
-static void intel_connector_info(struct seq_file *m,
+static void intel_connector_info(struct drm_printer *p,
 				 struct drm_connector *connector)
 {
 	struct intel_connector *intel_connector = to_intel_connector(connector);
 	const struct drm_display_mode *mode;
-	struct drm_printer p = drm_seq_file_printer(m);
 	struct intel_digital_port *dig_port = NULL;
 
-	seq_printf(m, "[CONNECTOR:%d:%s]: status: %s\n",
+	drm_printf(p, "[CONNECTOR:%d:%s]: status: %s\n",
 		   connector->base.id, connector->name,
 		   drm_get_connector_status_name(connector->status));
 
 	if (connector->status == connector_status_disconnected)
 		return;
 
-	seq_printf(m, "\tphysical dimensions: %dx%dmm\n",
-		   connector->display_info.width_mm,
-		   connector->display_info.height_mm);
-	seq_printf(m, "\tsubpixel order: %s\n",
-		   drm_get_subpixel_order_name(connector->display_info.subpixel_order));
-	seq_printf(m, "\tCEA rev: %d\n", connector->display_info.cea_rev);
+	drm_printf_indent(p, 1, "physical dimensions: %dx%dmm\n",
+			  connector->display_info.width_mm,
+			  connector->display_info.height_mm);
+	drm_printf_indent(p, 1, "subpixel order: %s\n",
+			  drm_get_subpixel_order_name(connector->display_info.subpixel_order));
+	drm_printf_indent(p, 1, "CEA rev: %d\n", connector->display_info.cea_rev);
 
 	switch (connector->connector_type) {
 	case DRM_MODE_CONNECTOR_DisplayPort:
 	case DRM_MODE_CONNECTOR_eDP:
 		if (intel_connector->mst.dp)
-			intel_dp_mst_info(m, intel_connector);
+			intel_dp_mst_info(p, intel_connector);
 		else
-			intel_dp_info(m, intel_connector);
+			intel_dp_info(p, intel_connector);
 		dig_port = dp_to_dig_port(intel_attached_dp(intel_connector));
 		break;
 	case DRM_MODE_CONNECTOR_HDMIA:
-		intel_hdmi_info(m, intel_connector);
+		intel_hdmi_info(p, intel_connector);
 		dig_port = hdmi_to_dig_port(intel_attached_hdmi(intel_connector));
 		break;
 	default:
@@ -283,17 +277,17 @@ static void intel_connector_info(struct seq_file *m,
 	}
 
 	if (dig_port != NULL && intel_encoder_is_tc(&dig_port->base))
-		intel_tc_info(&p, dig_port);
+		intel_tc_info(p, dig_port);
 
-	intel_hdcp_info(m, intel_connector);
+	intel_hdcp_info(p, intel_connector);
 
-	seq_printf(m, "\tmax bpc: %u\n", connector->display_info.bpc);
+	drm_printf_indent(p, 1, "max bpc: %u\n", connector->display_info.bpc);
 
-	intel_panel_info(m, intel_connector);
+	intel_panel_info(p, intel_connector);
 
-	seq_printf(m, "\tmodes:\n");
+	drm_printf_indent(p, 1, "modes:\n");
 	list_for_each_entry(mode, &connector->modes, head)
-		intel_seq_print_mode(m, 2, mode);
+		intel_print_mode(p, 2, mode);
 }
 
 static const char *plane_type(enum drm_plane_type type)
@@ -342,7 +336,7 @@ static const char *plane_visibility(const struct intel_plane_state *plane_state)
 	return "hidden";
 }
 
-static void intel_plane_uapi_info(struct seq_file *m, struct intel_plane *plane)
+static void intel_plane_uapi_info(struct drm_printer *p, struct intel_plane *plane)
 {
 	const struct intel_plane_state *plane_state =
 		to_intel_plane_state(plane->base.state);
@@ -356,24 +350,24 @@ static void intel_plane_uapi_info(struct seq_file *m, struct intel_plane *plane)
 	plane_rotation(rot_str, sizeof(rot_str),
 		       plane_state->uapi.rotation);
 
-	seq_puts(m, "\t\tuapi: [FB:");
+	drm_printf_indent(p, 2, "uapi: [FB:");
 	if (fb)
-		seq_printf(m, "%d] %p4cc,0x%llx,%dx%d", fb->base.id,
+		drm_printf(p, "%d] %p4cc,0x%llx,%dx%d", fb->base.id,
 			   &fb->format->format, fb->modifier, fb->width,
 			   fb->height);
 	else
-		seq_puts(m, "0] n/a,0x0,0x0,");
-	seq_printf(m, ", visible=%s, src=" DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT
+		drm_puts(p, "0] n/a,0x0,0x0,");
+	drm_printf(p, ", visible=%s, src=" DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT
 		   ", rotation=%s\n", plane_visibility(plane_state),
 		   DRM_RECT_FP_ARG(&src), DRM_RECT_ARG(&dst), rot_str);
 
 	if (plane_state->planar_linked_plane)
-		seq_printf(m, "\t\tplanar: Linked to [PLANE:%d:%s] as a %s\n",
-			   plane_state->planar_linked_plane->base.base.id, plane_state->planar_linked_plane->base.name,
-			   plane_state->is_y_plane ? "Y plane" : "UV plane");
+		drm_printf_indent(p, 2, "planar: Linked to [PLANE:%d:%s] as a %s\n",
+				  plane_state->planar_linked_plane->base.base.id, plane_state->planar_linked_plane->base.name,
+				  plane_state->is_y_plane ? "Y plane" : "UV plane");
 }
 
-static void intel_plane_hw_info(struct seq_file *m, struct intel_plane *plane)
+static void intel_plane_hw_info(struct drm_printer *p, struct intel_plane *plane)
 {
 	const struct intel_plane_state *plane_state =
 		to_intel_plane_state(plane->base.state);
@@ -386,31 +380,31 @@ static void intel_plane_hw_info(struct seq_file *m, struct intel_plane *plane)
 	plane_rotation(rot_str, sizeof(rot_str),
 		       plane_state->hw.rotation);
 
-	seq_printf(m, "\t\thw: [FB:%d] %p4cc,0x%llx,%dx%d, visible=%s, src="
-		   DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT ", rotation=%s\n",
-		   fb->base.id, &fb->format->format,
-		   fb->modifier, fb->width, fb->height,
-		   str_yes_no(plane_state->uapi.visible),
-		   DRM_RECT_FP_ARG(&plane_state->uapi.src),
-		   DRM_RECT_ARG(&plane_state->uapi.dst),
-		   rot_str);
+	drm_printf_indent(p, 2, "hw: [FB:%d] %p4cc,0x%llx,%dx%d, visible=%s, src="
+			  DRM_RECT_FP_FMT ", dst=" DRM_RECT_FMT ", rotation=%s\n",
+			  fb->base.id, &fb->format->format,
+			  fb->modifier, fb->width, fb->height,
+			  str_yes_no(plane_state->uapi.visible),
+			  DRM_RECT_FP_ARG(&plane_state->uapi.src),
+			  DRM_RECT_ARG(&plane_state->uapi.dst),
+			  rot_str);
 }
 
-static void intel_plane_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_plane_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
+	struct intel_display *display = to_intel_display(crtc);
 	struct intel_plane *plane;
 
 	for_each_intel_plane_on_crtc(display->drm, crtc, plane) {
-		seq_printf(m, "\t[PLANE:%d:%s]: type=%s\n",
-			   plane->base.base.id, plane->base.name,
-			   plane_type(plane->base.type));
-		intel_plane_uapi_info(m, plane);
-		intel_plane_hw_info(m, plane);
+		drm_printf_indent(p, 1, "[PLANE:%d:%s]: type=%s\n",
+				  plane->base.base.id, plane->base.name,
+				  plane_type(plane->base.type));
+		intel_plane_uapi_info(p, plane);
+		intel_plane_hw_info(p, plane);
 	}
 }
 
-static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_scaler_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
 	const struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
@@ -419,30 +413,30 @@ static void intel_scaler_info(struct seq_file *m, struct intel_crtc *crtc)
 
 	/* Not all platforms have a scaler */
 	if (num_scalers) {
-		seq_printf(m, "\tnum_scalers=%d, scaler_users=%x scaler_id=%d scaling_filter=%d sharpness_strength=%d",
-			   num_scalers,
-			   crtc_state->scaler_state.scaler_users,
-			   crtc_state->scaler_state.scaler_id,
-			   crtc_state->hw.scaling_filter,
-			   crtc_state->hw.sharpness_strength);
+		drm_printf_indent(p, 1, "num_scalers=%d, scaler_users=%x scaler_id=%d scaling_filter=%d sharpness_strength=%d",
+				  num_scalers,
+				  crtc_state->scaler_state.scaler_users,
+				  crtc_state->scaler_state.scaler_id,
+				  crtc_state->hw.scaling_filter,
+				  crtc_state->hw.sharpness_strength);
 
 		for (i = 0; i < num_scalers; i++) {
 			const struct intel_scaler *sc =
 				&crtc_state->scaler_state.scalers[i];
 
-			seq_printf(m, ", scalers[%d]: use=%s, mode=%x",
+			drm_printf(p, ", scalers[%d]: use=%s, mode=%x",
 				   i, str_yes_no(sc->in_use), sc->mode);
 		}
-		seq_puts(m, "\n");
+		drm_puts(p, "\n");
 	} else {
-		seq_puts(m, "\tNo scalers available on this platform\n");
+		drm_printf_indent(p, 1, "No scalers available on this platform\n");
 	}
 }
 
 #if IS_ENABLED(CONFIG_DRM_I915_DEBUG_VBLANK_EVADE)
-static void crtc_updates_info(struct seq_file *m,
+static void crtc_updates_info(struct drm_printer *p,
 			      struct intel_crtc *crtc,
-			      const char *hdr)
+			      int indent)
 {
 	u64 count;
 	int row;
@@ -450,7 +444,7 @@ static void crtc_updates_info(struct seq_file *m,
 	count = 0;
 	for (row = 0; row < ARRAY_SIZE(crtc->debug.vbl.times); row++)
 		count += crtc->debug.vbl.times[row];
-	seq_printf(m, "%sUpdates: %llu\n", hdr, count);
+	drm_printf_indent(p, indent, "Updates: %llu\n", count);
 	if (!count)
 		return;
 
@@ -479,22 +473,25 @@ static void crtc_updates_info(struct seq_file *m,
 			columns[8 + x] = '\0';
 		}
 
-		seq_printf(m, "%s%s\n", hdr, columns);
+		drm_printf_indent(p, indent, "%s\n", columns);
 	}
 
-	seq_printf(m, "%sMin update: %lluns\n",
-		   hdr, crtc->debug.vbl.min);
-	seq_printf(m, "%sMax update: %lluns\n",
-		   hdr, crtc->debug.vbl.max);
-	seq_printf(m, "%sAverage update: %lluns\n",
-		   hdr, div64_u64(crtc->debug.vbl.sum, count));
-	seq_printf(m, "%sOverruns > %uus: %u\n",
-		   hdr, VBLANK_EVASION_TIME_US, crtc->debug.vbl.over);
+	drm_printf_indent(p, indent, "Min update: %lluns\n",
+			  crtc->debug.vbl.min);
+	drm_printf_indent(p, indent, "Max update: %lluns\n",
+			  crtc->debug.vbl.max);
+	drm_printf_indent(p, indent, "Average update: %lluns\n",
+			  div64_u64(crtc->debug.vbl.sum, count));
+	drm_printf_indent(p, indent, "Overruns > %uus: %u\n",
+			  VBLANK_EVASION_TIME_US, crtc->debug.vbl.over);
 }
 
 static int crtc_updates_show(struct seq_file *m, void *data)
 {
-	crtc_updates_info(m, m->private, "");
+	struct drm_printer p = drm_seq_file_printer(m);
+
+	crtc_updates_info(&p, m->private, 0);
+
 	return 0;
 }
 
@@ -532,9 +529,9 @@ static void crtc_updates_add(struct intel_crtc *crtc)
 }
 
 #else
-static void crtc_updates_info(struct seq_file *m,
+static void crtc_updates_info(struct drm_printer *p,
 			      struct intel_crtc *crtc,
-			      const char *hdr)
+			      int indent)
 {
 }
 
@@ -543,66 +540,66 @@ static void crtc_updates_add(struct intel_crtc *crtc)
 }
 #endif
 
-static void intel_crtc_info(struct seq_file *m, struct intel_crtc *crtc)
+static void intel_crtc_info(struct drm_printer *p, struct intel_crtc *crtc)
 {
-	struct intel_display *display = node_to_intel_display(m->private);
-	struct drm_printer p = drm_seq_file_printer(m);
+	struct intel_display *display = to_intel_display(crtc);
 	const struct intel_crtc_state *crtc_state =
 		to_intel_crtc_state(crtc->base.state);
 	struct intel_encoder *encoder;
 
-	seq_printf(m, "[CRTC:%d:%s]:\n",
+	drm_printf(p, "[CRTC:%d:%s]:\n",
 		   crtc->base.base.id, crtc->base.name);
 
-	seq_printf(m, "\tuapi: enable=%s, active=%s, mode=" DRM_MODE_FMT "\n",
-		   str_yes_no(crtc_state->uapi.enable),
-		   str_yes_no(crtc_state->uapi.active),
-		   DRM_MODE_ARG(&crtc_state->uapi.mode));
+	drm_printf_indent(p, 1, "uapi: enable=%s, active=%s, mode=" DRM_MODE_FMT "\n",
+			  str_yes_no(crtc_state->uapi.enable),
+			  str_yes_no(crtc_state->uapi.active),
+			  DRM_MODE_ARG(&crtc_state->uapi.mode));
 
-	seq_printf(m, "\thw: enable=%s, active=%s\n",
-		   str_yes_no(crtc_state->hw.enable), str_yes_no(crtc_state->hw.active));
-	seq_printf(m, "\tadjusted_mode=" DRM_MODE_FMT "\n",
-		   DRM_MODE_ARG(&crtc_state->hw.adjusted_mode));
-	seq_printf(m, "\tpipe__mode=" DRM_MODE_FMT "\n",
-		   DRM_MODE_ARG(&crtc_state->hw.pipe_mode));
+	drm_printf_indent(p, 1, "hw: enable=%s, active=%s\n",
+			  str_yes_no(crtc_state->hw.enable), str_yes_no(crtc_state->hw.active));
+	drm_printf_indent(p, 1, "adjusted_mode=" DRM_MODE_FMT "\n",
+			  DRM_MODE_ARG(&crtc_state->hw.adjusted_mode));
+	drm_printf_indent(p, 1, "pipe__mode=" DRM_MODE_FMT "\n",
+			  DRM_MODE_ARG(&crtc_state->hw.pipe_mode));
 
-	seq_printf(m, "\tpipe src=" DRM_RECT_FMT ", dither=%s, bpp=%d\n",
-		   DRM_RECT_ARG(&crtc_state->pipe_src),
-		   str_yes_no(crtc_state->dither), crtc_state->pipe_bpp);
-	seq_printf(m, "\tport_clock=%d, lane_count=%d\n",
-		   crtc_state->port_clock, crtc_state->lane_count);
+	drm_printf_indent(p, 1, "pipe src=" DRM_RECT_FMT ", dither=%s, bpp=%d\n",
+			  DRM_RECT_ARG(&crtc_state->pipe_src),
+			  str_yes_no(crtc_state->dither), crtc_state->pipe_bpp);
+	drm_printf_indent(p, 1, "port_clock=%d, lane_count=%d\n",
+			  crtc_state->port_clock, crtc_state->lane_count);
 
-	intel_scaler_info(m, crtc);
+	intel_scaler_info(p, crtc);
 
 	if (DISPLAY_VER(display) >= 9) {
 		u32 background = crtc_state->hw.background_color;
 
-		seq_printf(m, "\tbackground color (10bpc XRGB2101010): %08x\n", background);
+		drm_printf_indent(p, 1, "background color (10bpc XRGB2101010): %08x\n", background);
 	}
 
 	if (crtc_state->joiner_pipes)
-		seq_printf(m, "\tLinked to 0x%x pipes as a %s\n",
-			   crtc_state->joiner_pipes,
-			   intel_crtc_is_joiner_secondary(crtc_state) ? "slave" : "master");
+		drm_printf_indent(p, 1, "Linked to 0x%x pipes as a %s\n",
+				  crtc_state->joiner_pipes,
+				  intel_crtc_is_joiner_secondary(crtc_state) ? "slave" : "master");
 
-	intel_vdsc_state_dump(&p, 1, crtc_state);
+	intel_vdsc_state_dump(p, 1, crtc_state);
 
 	for_each_intel_encoder_mask(display->drm, encoder,
 				    crtc_state->uapi.encoder_mask)
-		intel_encoder_info(m, crtc, encoder);
+		intel_encoder_info(p, encoder);
 
-	intel_plane_info(m, crtc);
+	intel_plane_info(p, crtc);
 
-	seq_printf(m, "\tunderrun reporting: cpu=%s pch=%s\n",
-		   str_yes_no(!crtc->cpu_fifo_underrun_disabled),
-		   str_yes_no(!crtc->pch_fifo_underrun_disabled));
+	drm_printf_indent(p, 1, "underrun reporting: cpu=%s pch=%s\n",
+			  str_yes_no(!crtc->cpu_fifo_underrun_disabled),
+			  str_yes_no(!crtc->pch_fifo_underrun_disabled));
 
-	crtc_updates_info(m, crtc, "\t");
+	crtc_updates_info(p, crtc, 1);
 }
 
 static int i915_display_info(struct seq_file *m, void *unused)
 {
 	struct intel_display *display = node_to_intel_display(m->private);
+	struct drm_printer p = drm_seq_file_printer(m);
 	struct intel_crtc *crtc;
 	struct drm_connector *connector;
 	struct drm_connector_list_iter conn_iter;
@@ -615,14 +612,14 @@ static int i915_display_info(struct seq_file *m, void *unused)
 	seq_printf(m, "CRTC info\n");
 	seq_printf(m, "---------\n");
 	for_each_intel_crtc(display, crtc)
-		intel_crtc_info(m, crtc);
+		intel_crtc_info(&p, crtc);
 
 	seq_printf(m, "\n");
 	seq_printf(m, "Connector info\n");
 	seq_printf(m, "--------------\n");
 	drm_connector_list_iter_begin(display->drm, &conn_iter);
 	drm_for_each_connector_iter(connector, &conn_iter)
-		intel_connector_info(m, connector);
+		intel_connector_info(&p, connector);
 	drm_connector_list_iter_end(&conn_iter);
 
 	drm_modeset_unlock_all(display->drm);
@@ -1327,6 +1324,7 @@ void intel_connector_debugfs_add(struct intel_connector *connector)
 	if (!root)
 		return;
 
+	intel_gmbus_connector_debugfs_add(connector);
 	intel_drrs_connector_debugfs_add(connector);
 	intel_hdcp_connector_debugfs_add(connector);
 	intel_pps_connector_debugfs_add(connector);
@@ -1352,9 +1350,8 @@ void intel_connector_debugfs_add(struct intel_connector *connector)
 				    connector, &i915_dsc_fractional_bpp_fops);
 	}
 
-	if ((connector_type == DRM_MODE_CONNECTOR_DisplayPort ||
-	     connector_type == DRM_MODE_CONNECTOR_eDP) &&
-	    intel_dp_has_joiner(intel_attached_dp(connector))) {
+	if (connector_type == DRM_MODE_CONNECTOR_DisplayPort ||
+	    connector_type == DRM_MODE_CONNECTOR_eDP) {
 		debugfs_create_file("i915_joiner_force_enable", 0644, root,
 				    connector, &i915_joiner_fops);
 	}

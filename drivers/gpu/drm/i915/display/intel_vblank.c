@@ -109,11 +109,11 @@ u32 i915_get_vblank_counter(struct drm_crtc *crtc)
 	 * we get a low value that's stable across two reads of the high
 	 * register.
 	 */
-	frame = intel_de_read64_2x32_volatile(display, PIPEFRAMEPIXEL(display, pipe),
-					      PIPEFRAME(display, pipe));
+	frame = intel_de_read64_2x32_volatile_fw(display, PIPEFRAMEPIXEL(display, pipe),
+						 PIPEFRAMEHIGH(display, pipe));
 
-	pixel = frame & PIPE_PIXEL_MASK;
-	frame = (frame >> PIPE_FRAME_LOW_SHIFT) & 0xffffff;
+	pixel = REG_FIELD_GET(PIPE_PIXEL_MASK, frame);
+	frame = REG_FIELD_GET64(PIPE_FRAME_MASK, frame);
 
 	/*
 	 * The frame counter increments at beginning of active.
@@ -142,34 +142,22 @@ static u32 intel_crtc_scanlines_since_frame_timestamp(struct intel_crtc *crtc)
 	const struct drm_display_mode *mode = &vblank->hwmode;
 	u32 htotal = mode->crtc_htotal;
 	u32 clock = mode->crtc_clock;
-	u32 scan_prev_time, scan_curr_time, scan_post_time;
+	u32 curr_time, frame_time;
+	u64 result;
 
 	/*
-	 * To avoid the race condition where we might cross into the
-	 * next vblank just between the PIPE_FRMTMSTMP and TIMESTAMP_CTR
-	 * reads. We make sure we read PIPE_FRMTMSTMP and TIMESTAMP_CTR
-	 * during the same frame.
+	 * IVB_TIMESTAMP_CTR is the current timestamp, PIPE_FRMTMSTMP
+	 * is the sampled timestamp at the start of the previous
+	 * delayed vblank. intel_de_read64_2x32_volatile_fw() gives
+	 * a race free snapshot of both registers.
 	 */
-	do {
-		/*
-		 * This field provides read back of the display
-		 * pipe frame time stamp. The time stamp value
-		 * is sampled at every start of vertical blank.
-		 */
-		scan_prev_time = intel_de_read_fw(display,
+	result = intel_de_read64_2x32_volatile_fw(display,
+						  IVB_TIMESTAMP_CTR,
 						  PIPE_FRMTMSTMP(crtc->pipe));
+	curr_time = lower_32_bits(result);
+	frame_time = upper_32_bits(result);
 
-		/*
-		 * The TIMESTAMP_CTR register has the current
-		 * time stamp value.
-		 */
-		scan_curr_time = intel_de_read_fw(display, IVB_TIMESTAMP_CTR);
-
-		scan_post_time = intel_de_read_fw(display,
-						  PIPE_FRMTMSTMP(crtc->pipe));
-	} while (scan_post_time != scan_prev_time);
-
-	return div_u64(mul_u32_u32(scan_curr_time - scan_prev_time,
+	return div_u64(mul_u32_u32(curr_time - frame_time,
 				   clock), 1000 * htotal);
 }
 
@@ -388,12 +376,15 @@ static bool i915_get_crtc_scanoutpos(struct drm_crtc *_crtc,
 		 */
 		position = __intel_get_crtc_scanline(crtc);
 	} else {
+		u32 val;
+
 		/*
 		 * Have access to pixelcount since start of frame.
 		 * We can split this into vertical and horizontal
 		 * scanout position.
 		 */
-		position = (intel_de_read_fw(display, PIPEFRAMEPIXEL(display, pipe)) & PIPE_PIXEL_MASK) >> PIPE_PIXEL_SHIFT;
+		val = intel_de_read_fw(display, PIPEFRAMEPIXEL(display, pipe));
+		position = REG_FIELD_GET(PIPE_PIXEL_MASK, val);
 
 		/* convert to pixel counts */
 		vbl_start *= htotal;
@@ -724,10 +715,10 @@ void intel_vblank_evade_init(const struct intel_crtc_state *old_crtc_state,
 	 * undelayed vblank, so with seamless M/N and LRR we must evade
 	 * both vblanks.
 	 *
-	 * DSB execution waits for the transcoder's undelayed vblank,
-	 * hence we must kick off the commit before that.
+	 * Chained DSB execution waits for the transcoder's undelayed
+	 * vblank, hence we must kick off the commit before that.
 	 */
-	if (intel_color_uses_dsb(new_crtc_state) ||
+	if (intel_color_uses_chained_dsb(new_crtc_state) ||
 	    new_crtc_state->update_m_n || new_crtc_state->update_lrr)
 		evade->min -= vblank_delay;
 }

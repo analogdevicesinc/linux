@@ -365,15 +365,17 @@ static unsigned int i85x_cursor_min_alignment(struct intel_plane *plane,
 	return 256; /* physical */
 }
 
+static unsigned int vtd_cursor_min_alignment(struct intel_plane *plane,
+					     const struct drm_framebuffer *fb,
+					     int color_plane)
+{
+	return 64 * 1024;
+}
+
 static unsigned int i9xx_cursor_min_alignment(struct intel_plane *plane,
 					      const struct drm_framebuffer *fb,
 					      int color_plane)
 {
-	struct intel_display *display = to_intel_display(plane);
-
-	if (intel_scanout_needs_vtd_wa(display))
-		return 64 * 1024;
-
 	return 4 * 1024; /* physical for i915/i945 */
 }
 
@@ -1188,13 +1190,15 @@ intel_cursor_plane_create(struct intel_display *display,
 		else
 			cursor->min_alignment = i9xx_cursor_min_alignment;
 
-		if (intel_scanout_needs_vtd_wa(display))
-			cursor->vtd_guard = 2;
-
 		cursor->update_arm = i9xx_cursor_update_arm;
 		cursor->disable_arm = i9xx_cursor_disable_arm;
 		cursor->get_hw_state = i9xx_cursor_get_hw_state;
 		cursor->check_plane = i9xx_check_cursor;
+	}
+
+	if (intel_scanout_needs_vtd_wa(display)) {
+		cursor->min_alignment = vtd_cursor_min_alignment;
+		cursor->vtd_guard = 2;
 	}
 
 	cursor->surf_offset = intel_cursor_surf_offset;

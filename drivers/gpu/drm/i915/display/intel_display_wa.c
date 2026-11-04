@@ -52,17 +52,6 @@ void intel_display_wa_apply(struct intel_display *display)
 }
 
 /*
- * Wa_16025573575:
- * Fixes: Issue with bitbashing on Xe3 based platforms.
- * Workaround: Set masks bits in GPIO CTL and preserve it during bitbashing sequence.
- */
-static bool intel_display_needs_wa_16025573575(struct intel_display *display)
-{
-	return DISPLAY_VERx100(display) == 3000 || DISPLAY_VERx100(display) == 3002 ||
-		DISPLAY_VERx100(display) == 3500;
-}
-
-/*
  * Wa_14011503117:
  * Fixes: Before enabling the scaler DE fatal error is masked
  * Workaround: Unmask the DE fatal error register after enabling the scaler
@@ -105,12 +94,25 @@ bool __intel_display_wa(struct intel_display *display, enum intel_display_wa wa,
 			IS_DISPLAY_STEP(display, STEP_A0, STEP_A2);
 	case INTEL_DISPLAY_WA_14014143976:
 		return IS_DISPLAY_STEP(display, STEP_E0, STEP_FOREVER);
+	case INTEL_DISPLAY_WA_14014191401:
+		return display->platform.dg2;
 	case INTEL_DISPLAY_WA_14016740474:
 		return IS_DISPLAY_VERx100_STEP(display, 1400, STEP_A0, STEP_C0);
 	case INTEL_DISPLAY_WA_14020863754:
 		return DISPLAY_VERx100(display) == 3000 ||
 			DISPLAY_VERx100(display) == 2000 ||
 			DISPLAY_VERx100(display) == 1401;
+	/*
+	 * Wa_14021768792:
+	 * Fixes: Limitation of Link M/N ratio > 10 for specific Xe2HPD platforms.
+	 * Workaround: Use HDMI_EMP_DATA, CHICKEN_BITs and extended bits in LINK_N
+	 * registers to support LINK M/N ratios from > 10 but < 15.
+	 */
+	case INTEL_DISPLAY_WA_14021768792:
+		return display->platform.battlemage &&
+			IS_DISPLAY_STEP(display, STEP_C0, STEP_FOREVER);
+	case INTEL_DISPLAY_WA_14022081154:
+		return DISPLAY_VER(display) == 30;
 	case INTEL_DISPLAY_WA_14025769978:
 		return DISPLAY_VER(display) == 35;
 	case INTEL_DISPLAY_WA_14026643300:
@@ -134,8 +136,6 @@ bool __intel_display_wa(struct intel_display *display, enum intel_display_wa wa,
 	case INTEL_DISPLAY_WA_16023588340:
 		/* This is a GT workaround. */
 		return display->parent->wa && display->parent->wa->wa_16023588340(display->drm);
-	case INTEL_DISPLAY_WA_16025573575:
-		return intel_display_needs_wa_16025573575(display);
 	case INTEL_DISPLAY_WA_16025596647:
 		return DISPLAY_VER(display) == 20 &&
 			IS_DISPLAY_VERx100_STEP(display, 3000,

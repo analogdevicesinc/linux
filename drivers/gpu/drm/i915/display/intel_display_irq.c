@@ -501,19 +501,19 @@ static void i9xx_pipe_crc_irq_handler(struct intel_display *display,
 	u32 res1, res2;
 
 	if (DISPLAY_VER(display) >= 3)
-		res1 = intel_de_read(display, PIPE_CRC_RES_RES1_I915(display, pipe));
+		res1 = intel_de_read_fw(display, PIPE_CRC_RES_RES1_I915(display, pipe));
 	else
 		res1 = 0;
 
 	if (DISPLAY_VER(display) >= 5 || display->platform.g4x)
-		res2 = intel_de_read(display, PIPE_CRC_RES_RES2_G4X(display, pipe));
+		res2 = intel_de_read_fw(display, PIPE_CRC_RES_RES2_G4X(display, pipe));
 	else
 		res2 = 0;
 
 	display_pipe_crc_irq_handler(display, pipe,
-				     intel_de_read(display, PIPE_CRC_RES_RED(display, pipe)),
-				     intel_de_read(display, PIPE_CRC_RES_GREEN(display, pipe)),
-				     intel_de_read(display, PIPE_CRC_RES_BLUE(display, pipe)),
+				     intel_de_read_fw(display, PIPE_CRC_RES_RED(display, pipe)),
+				     intel_de_read_fw(display, PIPE_CRC_RES_GREEN(display, pipe)),
+				     intel_de_read_fw(display, PIPE_CRC_RES_BLUE(display, pipe)),
 				     res1, res2);
 }
 
@@ -577,7 +577,7 @@ static void i9xx_pipestat_irq_ack(struct intel_display *display,
 			continue;
 
 		reg = PIPESTAT(display, pipe);
-		pipe_stats[pipe] = intel_de_read(display, reg) & status_mask;
+		pipe_stats[pipe] = intel_de_read_fw(display, reg) & status_mask;
 		enable_mask = i915_pipestat_enable_mask(display, pipe);
 
 		/*
@@ -590,8 +590,8 @@ static void i9xx_pipestat_irq_ack(struct intel_display *display,
 		 * an interrupt is still pending.
 		 */
 		if (pipe_stats[pipe]) {
-			intel_de_write(display, reg, pipe_stats[pipe]);
-			intel_de_write(display, reg, enable_mask);
+			intel_de_write_fw(display, reg, pipe_stats[pipe]);
+			intel_de_write_fw(display, reg, enable_mask);
 		}
 	}
 	spin_unlock(&display->irq.lock);
@@ -1274,7 +1274,7 @@ gen8_de_misc_irq_handler(struct intel_display *display, u32 iir)
 		}
 
 		if (iir & XELPDP_RM_TIMEOUT) {
-			u32 val = intel_de_read(display, RM_TIMEOUT_REG_CAPTURE);
+			u32 val = intel_de_read_fw(display, RM_TIMEOUT_REG_CAPTURE);
 			drm_warn(display->drm, "Register Access Timeout = 0x%x\n", val);
 			found = true;
 		}
@@ -1297,7 +1297,7 @@ gen8_de_misc_irq_handler(struct intel_display *display, u32 iir)
 			else
 				iir_reg = EDP_PSR_IIR;
 
-			psr_iir = intel_de_rmw(display, iir_reg, 0, 0);
+			psr_iir = intel_de_rmw_fw(display, iir_reg, 0, 0);
 
 			if (psr_iir)
 				found = true;
@@ -1326,7 +1326,7 @@ static void gen11_dsi_te_interrupt_handler(struct intel_display *display,
 	 * Incase of dual link, TE comes from DSI_1
 	 * this is to check if dual link is enabled
 	 */
-	val = intel_de_read(display, TRANS_DDI_FUNC_CTL2(display, TRANSCODER_DSI_0));
+	val = intel_de_read_fw(display, TRANS_DDI_FUNC_CTL2(display, TRANSCODER_DSI_0));
 	val &= PORT_SYNC_MODE_ENABLE;
 
 	/*
@@ -1338,7 +1338,7 @@ static void gen11_dsi_te_interrupt_handler(struct intel_display *display,
 	dsi_trans = (port == PORT_A) ? TRANSCODER_DSI_0 : TRANSCODER_DSI_1;
 
 	/* Check if DSI configured in command mode */
-	val = intel_de_read(display, DSI_TRANS_FUNC_CONF(dsi_trans));
+	val = intel_de_read_fw(display, DSI_TRANS_FUNC_CONF(dsi_trans));
 	val = val & OP_MODE_MASK;
 
 	if (val != CMD_MODE_NO_GATE && val != CMD_MODE_TE_GATE) {
@@ -1347,7 +1347,7 @@ static void gen11_dsi_te_interrupt_handler(struct intel_display *display,
 	}
 
 	/* Get PIPE for handling VBLANK event */
-	val = intel_de_read(display, TRANS_DDI_FUNC_CTL(display, dsi_trans));
+	val = intel_de_read_fw(display, TRANS_DDI_FUNC_CTL(display, dsi_trans));
 	switch (val & TRANS_DDI_EDP_INPUT_MASK) {
 	case TRANS_DDI_EDP_INPUT_A_ON:
 		pipe = PIPE_A;
@@ -1383,7 +1383,7 @@ static void gen8_read_and_ack_pch_irqs(struct intel_display *display, u32 *pch_i
 	u32 pica_ier = 0;
 
 	*pica_iir = 0;
-	*pch_iir = intel_de_read(display, SDEIIR);
+	*pch_iir = intel_de_read_fw(display, SDEIIR);
 	if (!*pch_iir)
 		return;
 
@@ -1395,15 +1395,15 @@ static void gen8_read_and_ack_pch_irqs(struct intel_display *display, u32 *pch_i
 	if (*pch_iir & SDE_PICAINTERRUPT) {
 		drm_WARN_ON(display->drm, INTEL_PCH_TYPE(display) < PCH_MTL);
 
-		pica_ier = intel_de_rmw(display, PICAINTERRUPT_IER, ~0, 0);
-		*pica_iir = intel_de_read(display, PICAINTERRUPT_IIR);
-		intel_de_write(display, PICAINTERRUPT_IIR, *pica_iir);
+		pica_ier = intel_de_rmw_fw(display, PICAINTERRUPT_IER, ~0, 0);
+		*pica_iir = intel_de_read_fw(display, PICAINTERRUPT_IIR);
+		intel_de_write_fw(display, PICAINTERRUPT_IIR, *pica_iir);
 	}
 
-	intel_de_write(display, SDEIIR, *pch_iir);
+	intel_de_write_fw(display, SDEIIR, *pch_iir);
 
 	if (pica_ier)
-		intel_de_write(display, PICAINTERRUPT_IER, pica_ier);
+		intel_de_write_fw(display, PICAINTERRUPT_IER, pica_ier);
 }
 
 static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
@@ -1414,9 +1414,9 @@ static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
 	drm_WARN_ON_ONCE(display->drm, !HAS_DISPLAY(display));
 
 	if (master_ctl & GEN8_DE_MISC_IRQ) {
-		iir = intel_de_read(display, GEN8_DE_MISC_IIR);
+		iir = intel_de_read_fw(display, GEN8_DE_MISC_IIR);
 		if (iir) {
-			intel_de_write(display, GEN8_DE_MISC_IIR, iir);
+			intel_de_write_fw(display, GEN8_DE_MISC_IIR, iir);
 			gen8_de_misc_irq_handler(display, iir);
 		} else {
 			drm_err_ratelimited(display->drm,
@@ -1425,9 +1425,9 @@ static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
 	}
 
 	if (DISPLAY_VER(display) >= 11 && (master_ctl & GEN11_DE_HPD_IRQ)) {
-		iir = intel_de_read(display, GEN11_DE_HPD_IIR);
+		iir = intel_de_read_fw(display, GEN11_DE_HPD_IIR);
 		if (iir) {
-			intel_de_write(display, GEN11_DE_HPD_IIR, iir);
+			intel_de_write_fw(display, GEN11_DE_HPD_IIR, iir);
 			gen11_hpd_irq_handler(display, iir);
 		} else {
 			drm_err_ratelimited(display->drm,
@@ -1436,11 +1436,11 @@ static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
 	}
 
 	if (master_ctl & GEN8_DE_PORT_IRQ) {
-		iir = intel_de_read(display, GEN8_DE_PORT_IIR);
+		iir = intel_de_read_fw(display, GEN8_DE_PORT_IIR);
 		if (iir) {
 			bool found = false;
 
-			intel_de_write(display, GEN8_DE_PORT_IIR, iir);
+			intel_de_write_fw(display, GEN8_DE_PORT_IIR, iir);
 
 			if (iir & gen8_de_port_aux_mask(display)) {
 				intel_dp_aux_irq_handler(display);
@@ -1505,7 +1505,7 @@ static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
 		if (!(master_ctl & GEN8_DE_PIPE_IRQ(pipe)))
 			continue;
 
-		iir = intel_de_read(display, GEN8_DE_PIPE_IIR(pipe));
+		iir = intel_de_read_fw(display, GEN8_DE_PIPE_IIR(pipe));
 		if (!iir) {
 			drm_err_ratelimited(display->drm,
 					    "The master control interrupt lied (DE PIPE %c)!\n",
@@ -1513,7 +1513,7 @@ static void gen8_de_irq_handler(struct intel_display *display, u32 master_ctl)
 			continue;
 		}
 
-		intel_de_write(display, GEN8_DE_PIPE_IIR(pipe), iir);
+		intel_de_write_fw(display, GEN8_DE_PIPE_IIR(pipe), iir);
 
 		if (iir & GEN8_PIPE_VBLANK)
 			intel_handle_vblank(display, pipe);
@@ -1596,9 +1596,9 @@ u32 gen11_gu_misc_irq_ack(struct intel_display *display, const u32 master_ctl)
 
 	intel_display_rpm_assert_block(display);
 
-	iir = intel_de_read(display, GEN11_GU_MISC_IIR);
+	iir = intel_de_read_fw(display, GEN11_GU_MISC_IIR);
 	if (likely(iir))
-		intel_de_write(display, GEN11_GU_MISC_IIR, iir);
+		intel_de_write_fw(display, GEN11_GU_MISC_IIR, iir);
 
 	intel_display_rpm_assert_unblock(display);
 
@@ -1621,11 +1621,11 @@ static bool gen11_display_irq_handler(struct intel_display *display,
 	 * GEN11_DISPLAY_INT_CTL has same format as GEN8_MASTER_IRQ
 	 * for the display related bits.
 	 */
-	disp_ctl = intel_de_read(display, GEN11_DISPLAY_INT_CTL);
+	disp_ctl = intel_de_read_fw(display, GEN11_DISPLAY_INT_CTL);
 
-	intel_de_write(display, GEN11_DISPLAY_INT_CTL, 0);
+	intel_de_write_fw(display, GEN11_DISPLAY_INT_CTL, 0);
 	gen8_de_irq_handler(display, disp_ctl);
-	intel_de_write(display, GEN11_DISPLAY_INT_CTL, GEN11_DISPLAY_IRQ_ENABLE);
+	intel_de_write_fw(display, GEN11_DISPLAY_INT_CTL, GEN11_DISPLAY_IRQ_ENABLE);
 
 	intel_display_rpm_assert_unblock(display);
 
@@ -1786,9 +1786,9 @@ static bool gen11_dsi_configure_te(struct intel_crtc *intel_crtc,
 	else
 		port = PORT_A;
 
-	intel_de_rmw(display, DSI_INTR_MASK_REG(port), DSI_TE_EVENT, enable ? 0 : DSI_TE_EVENT);
+	intel_de_rmw_fw(display, DSI_INTR_MASK_REG(port), DSI_TE_EVENT, enable ? 0 : DSI_TE_EVENT);
 
-	intel_de_rmw(display, DSI_INTR_IDENT_REG(port), 0, 0);
+	intel_de_rmw_fw(display, DSI_INTR_IDENT_REG(port), 0, 0);
 
 	return true;
 }
@@ -1893,7 +1893,7 @@ static void vlv_page_table_error_irq_ack(struct intel_display *display, u32 *dpi
 {
 	u32 status, enable, tmp;
 
-	tmp = intel_de_read(display, DPINVGTT);
+	tmp = intel_de_read_fw(display, DPINVGTT);
 
 	enable = tmp >> 16;
 	status = tmp & 0xffff;
@@ -1909,8 +1909,8 @@ static void vlv_page_table_error_irq_ack(struct intel_display *display, u32 *dpi
 	enable &= ~status;
 
 	/* customary ack+disable then re-enable to guarantee an edge */
-	intel_de_write(display, DPINVGTT, status);
-	intel_de_write(display, DPINVGTT, enable << 16);
+	intel_de_write_fw(display, DPINVGTT, status);
+	intel_de_write_fw(display, DPINVGTT, enable << 16);
 }
 
 static void vlv_page_table_error_irq_handler(struct intel_display *display, u32 dpinvgtt)
@@ -1932,21 +1932,21 @@ static void vlv_display_error_irq_ack(struct intel_display *display,
 {
 	u32 emr;
 
-	*eir = intel_de_read(display, VLV_EIR);
+	*eir = intel_de_read_fw(display, VLV_EIR);
 
 	if (*eir & VLV_ERROR_PAGE_TABLE)
 		vlv_page_table_error_irq_ack(display, dpinvgtt);
 
-	intel_de_write(display, VLV_EIR, *eir);
+	intel_de_write_fw(display, VLV_EIR, *eir);
 
 	/*
 	 * Toggle all EMR bits to make sure we get an edge
 	 * in the ISR master error bit if we don't clear
 	 * all the EIR bits.
 	 */
-	emr = intel_de_read(display, VLV_EMR);
-	intel_de_write(display, VLV_EMR, 0xffffffff);
-	intel_de_write(display, VLV_EMR, emr);
+	emr = intel_de_read_fw(display, VLV_EMR);
+	intel_de_write_fw(display, VLV_EMR, 0xffffffff);
+	intel_de_write_fw(display, VLV_EMR, emr);
 }
 
 static void vlv_display_error_irq_handler(struct intel_display *display,
