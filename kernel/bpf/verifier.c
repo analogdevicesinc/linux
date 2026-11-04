@@ -5808,6 +5808,7 @@ struct bpf_call_graph {
 	unsigned long *calls; /* calls + s * words: the subprogs that s calls */
 	unsigned long *reach; /* reach + s * words: the subprogs that s gets to */
 	unsigned long *live; /* what the kernel calls and what that gets to */
+	unsigned long *in_cb; /* callbacks and what they get to */
 };
 
 static unsigned long *subprog_calls(struct bpf_call_graph *cg, int s)
@@ -5836,11 +5837,12 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 
 	cg->cnt = cnt;
 	cg->words = words;
-	cg->calls = kvcalloc((2 * cnt + 1) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	cg->calls = kvcalloc((2 * cnt + 2) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
 	if (!cg->calls)
 		return -ENOMEM;
 	cg->reach = cg->calls + cnt * words;
 	cg->live = cg->reach + cnt * words;
+	cg->in_cb = cg->live + words;
 
 	for (s = 0; s < cnt; s++) {
 		for (i = si[s].start; i < si[s + 1].start; i++) {
@@ -5869,6 +5871,10 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 	for (s = 0; s < cnt; s++)
 		if (!s || si[s].is_async_cb)
 			add_reach(cg, cg->live, s);
+	for_each_set_bit(s, cg->live, cnt) {
+		if (si[s].is_cb)
+			add_reach(cg, cg->in_cb, s);
+	}
 	return 0;
 }
 
@@ -5938,6 +5944,29 @@ static int check_recursion(struct bpf_verifier_env *env, struct bpf_call_graph *
 	return 0;
 }
 
+static int check_callbacks(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int i, s;
+
+	for_each_set_bit(s, cg->in_cb, cg->cnt) {
+		if (si[s].has_ld_abs) {
+			verbose(env, "cannot use BPF_LD_[ABS|IND] within callback\n");
+			return -EINVAL;
+		}
+		for (i = si[s].start; i < si[s + 1].start; i++) {
+			if (!bpf_is_throw_kfunc(insn + i))
+				continue;
+			verbose(env,
+				"bpf_throw kfunc (insn %d) cannot be called from callback subprog %d\n",
+				i, s);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
 /* temporary state used for call frame depth calculation */
 struct bpf_subprog_call_depth_info {
 	int ret_insn; /* caller instruction where we return to. */
@@ -5973,14 +6002,6 @@ static int check_max_stack_depth_subprog(struct bpf_verifier_env *env, int idx,
 		subprog[idx].priv_stack_mode = NO_PRIV_STACK;
 process_func:
 	dinfo[idx].callx_insn = -1;
-	if (subprog[idx].has_ld_abs) {
-		for (tmp = idx; tmp >= 0; tmp = dinfo[tmp].caller) {
-			if (subprog[tmp].is_cb) {
-				verbose(env, "cannot use BPF_LD_[ABS|IND] within callback\n");
-				return -EINVAL;
-			}
-		}
-	}
 
 	/* protect against potential stack overflow that might happen when
 	 * bpf2bpf calls get combined with tailcalls. Limit the caller's stack
@@ -6066,24 +6087,6 @@ continue_func:
 	subprog_end = subprog[idx + 1].start;
 	for (; i < subprog_end; i++) {
 		int next_insn, sidx;
-
-		if (bpf_pseudo_kfunc_call(insn + i) && !insn[i].off &&
-		    bpf_is_throw_kfunc(insn + i)) {
-			bool err = false;
-
-			for (tmp = idx; tmp >= 0 && !err; tmp = dinfo[tmp].caller) {
-				if (subprog[tmp].is_cb) {
-					err = true;
-					break;
-				}
-			}
-			if (!err)
-				continue;
-			verbose(env,
-				"bpf_throw kfunc (insn %d) cannot be called from callback subprog %d\n",
-				i, idx);
-			return -EINVAL;
-		}
 
 		if (bpf_is_callx(insn + i) || bpf_calls_callback(env, i)) {
 			/*
@@ -6228,6 +6231,7 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 	ret = build_call_graph(env, &cg);
 	ret = ret ?: check_exception_cb(env, &cg);
 	ret = ret ?: check_recursion(env, &cg);
+	ret = ret ?: check_callbacks(env, &cg);
 	if (ret)
 		goto out;
 
