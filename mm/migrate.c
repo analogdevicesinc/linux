@@ -2555,6 +2555,7 @@ static int do_pages_stat(struct mm_struct *mm, unsigned long nr_pages,
 
 		chunk_offset += chunk_nr;
 		nr_pages -= chunk_nr;
+		cond_resched();
 	}
 	return nr_pages ? -EFAULT : 0;
 }

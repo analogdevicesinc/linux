@@ -199,8 +199,9 @@ Notes:
   those IOCTLs wakes up the faulting thread.
 
 - Be sure to test for all errors including
-  (``pollfd[0].revents & POLLERR``).  This can happen, e.g. when ranges
-  supplied were incorrect.
+  (``pollfd[0].revents & POLLERR``).  This happens if the userfaultfd
+  does not have ``O_NONBLOCK`` set, or if it is polled before the
+  ``UFFDIO_API`` handshake.
 
 Write Protect Notifications
 ---------------------------
@@ -218,7 +219,7 @@ protect as many ranges as you like (inside the registered range).
 Then, in the thread reading from uffd the struct will have
 ``msg.arg.pagefault.flags & UFFD_PAGEFAULT_FLAG_WP`` set. Now you send
 ``ioctl(uffd, UFFDIO_WRITEPROTECT, struct *uffdio_writeprotect)``
-again while ``pagefault.mode`` does not have ``UFFDIO_WRITEPROTECT_MODE_WP``
+again while ``mode`` does not have ``UFFDIO_WRITEPROTECT_MODE_WP``
 set. This wakes up the thread which will continue to run with writes. This
 allows you to do the bookkeeping about the write in the uffd reading
 thread before the ioctl.
@@ -584,7 +585,7 @@ The QEMU in the source node writes all pages that it knows are missing
 in the destination node, into the socket, and the migration thread of
 the QEMU running in the destination node runs ``UFFDIO_COPY|ZEROPAGE``
 ioctls on the ``userfaultfd`` in order to map the received pages into the
-guest (``UFFDIO_ZEROCOPY`` is used if the source page was a zero page).
+guest (``UFFDIO_ZEROPAGE`` is used if the source page was a zero page).
 
 A different postcopy thread in the destination node listens with
 poll() to the ``userfaultfd`` in parallel. When a ``POLLIN`` event is
@@ -672,7 +673,7 @@ asynchronously and the non-cooperative process resumes execution as
 soon as manager executes read(). The ``userfaultfd`` manager should
 carefully synchronize calls to ``UFFDIO_COPY`` with the events
 processing. To aid the synchronization, the ``UFFDIO_COPY`` ioctl will
-return ``-ENOSPC`` when the monitored process exits at the time of
+return ``-ESRCH`` when the monitored process exits at the time of
 ``UFFDIO_COPY``, and ``-ENOENT``, when the non-cooperative process has changed
 its virtual memory layout simultaneously with outstanding ``UFFDIO_COPY``
 operation.

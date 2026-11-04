@@ -236,9 +236,15 @@ static inline unsigned long zone_page_state_snapshot(struct zone *zone,
 	long x = atomic_long_read(&zone->vm_stat[item]);
 
 #ifdef CONFIG_SMP
+	struct per_cpu_zonestat __percpu *pzstats = zone->per_cpu_zonestats;
 	int cpu;
+
 	for_each_online_cpu(cpu)
-		x += per_cpu_ptr(zone->per_cpu_zonestats, cpu)->vm_stat_diff[item];
+		/*
+		 * Access to vm_stat_diff is lockless as the result is only
+		 * an estimate. Use data_race to avoid KCSAN warning.
+		 */
+		x += data_race(per_cpu_ptr(pzstats, cpu)->vm_stat_diff[item]);
 
 	if (x < 0)
 		x = 0;

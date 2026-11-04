@@ -140,7 +140,7 @@ int main(void)
 		ksft_exit_skip("Order %d is not a supported anon THP order\n",
 			       TARGET_ORDER);
 
-	hpage_pmd_size = read_pmd_pagesize();
+	hpage_pmd_size = pmd_psize();
 	if (!hpage_pmd_size)
 		ksft_exit_fail_msg("Reading PMD pagesize failed\n");
 	pagemap_fd = open("/proc/self/pagemap", O_RDONLY);
