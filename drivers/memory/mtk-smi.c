@@ -157,6 +157,7 @@ struct mtk_smi_larb { /* larb: local arbiter */
 	int				larbid;
 	u32				*mmu;
 	unsigned char			*bank;
+	bool				bound; /* set once the iommu binds us */
 };
 
 static int
@@ -171,6 +172,11 @@ mtk_smi_larb_bind(struct device *dev, struct device *master, void *data)
 			larb->larbid = i;
 			larb->mmu = &larb_mmu[i].mmu;
 			larb->bank = larb_mmu[i].bank;
+			/*
+			 * Publish larb->mmu and larb->bank; pairs with
+			 * smp_load_acquire() in mtk_smi_larb_resume().
+			 */
+			smp_store_release(&larb->bound, true);
 			return 0;
 		}
 	}
@@ -180,7 +186,13 @@ mtk_smi_larb_bind(struct device *dev, struct device *master, void *data)
 static void
 mtk_smi_larb_unbind(struct device *dev, struct device *master, void *data)
 {
-	/* Do nothing as the iommu is always enabled. */
+	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
+
+	/*
+	 * The iommu data recorded at bind time is going away; make the
+	 * next runtime resume wait for a fresh bind.
+	 */
+	WRITE_ONCE(larb->bound, false);
 }
 
 static const struct component_ops mtk_smi_larb_component_ops = {
@@ -728,6 +740,19 @@ static int __maybe_unused mtk_smi_larb_resume(struct device *dev)
 	struct mtk_smi_larb *larb = dev_get_drvdata(dev);
 	const struct mtk_smi_larb_gen *larb_gen = larb->larb_gen;
 	int ret;
+
+	/*
+	 * With modular builds a consumer device probe can runtime-resume
+	 * the larb (pm_runtime_get_suppliers()) before the iommu's
+	 * component master bind has populated larb->mmu and larb->bank.
+	 * Fail the resume with -EAGAIN: the larb stays RPM_SUSPENDED and
+	 * retryable, and the next resume after the bind configures the
+	 * larb ports.
+	 */
+	if (!smp_load_acquire(&larb->bound)) {
+		dev_dbg(dev, "not yet bound to an iommu, skipping port configuration\n");
+		return -EAGAIN;
+	}
 
 	ret = clk_bulk_prepare_enable(larb->smi.clk_num, larb->smi.clks);
 	if (ret)
