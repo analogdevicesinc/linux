@@ -4590,7 +4590,7 @@ int evsel__open_strerror(struct evsel *evsel, struct target *target,
 		}
 
 		if (err == EPERM)
-			printed += scnprintf(msg, size,
+			printed += scnprintf(msg + printed, size - printed,
 				"No permission to enable %s event.\n\n", evsel__name(evsel));
 
 		return printed + scnprintf(msg + printed, size - printed,
