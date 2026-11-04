@@ -1839,13 +1839,13 @@ static void force_ibs_eilvt_setup(void)
 
 	preempt_disable();
 	/* find the next free available EILVT entry, skip offset 0 */
-	for (offset = 1; offset < APIC_EILVT_NR_MAX; offset++) {
+	for (offset = 1; offset < APIC_EILVT_NR_AMD_10H; offset++) {
 		if (get_eilvt(offset))
 			break;
 	}
 	preempt_enable();
 
-	if (offset == APIC_EILVT_NR_MAX) {
+	if (offset == APIC_EILVT_NR_AMD_10H) {
 		pr_debug("No EILVT entry available\n");
 		return;
 	}
