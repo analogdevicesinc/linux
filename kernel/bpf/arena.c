@@ -68,6 +68,33 @@ struct bpf_arena {
 	struct irq_work     free_irq;
 	struct work_struct  free_work;
 	struct llist_head   free_spans;
+	struct arena_stacks __percpu *stacks;
+};
+
+/*
+ * The stack in arena, see BPF_REG_ARENA_SP. An invocation of a program takes one
+ * when it starts and gives it back when it exits.
+ *
+ * Nothing here is in arena: the program and user space can write there.
+ *
+ * Invocations on a cpu don't nest: a program that is preempted or sleeps can exit
+ * before the one that started later. Hence a bit per stack and not a counter.
+ * Programs don't migrate, so the stack is returned on the cpu it was taken on.
+ *
+ * Most of the time there is one invocation on a cpu. It takes the stack of
+ * the cpu, see struct bpf_arena_cpu_stack, and doesn't need these.
+ */
+#define ARENA_STACK_SLOTS 16
+
+struct arena_stack {
+	u32 base;	/* low 32 bits of r12 when the main program starts */
+	u32 size;	/* 0 until the first use */
+};
+
+struct arena_stacks {
+	struct bpf_arena_cpu_stack cpu;
+	unsigned long busy;
+	struct arena_stack slot[ARENA_STACK_SLOTS];
 };
 
 static void arena_free_worker(struct work_struct *work);
@@ -401,6 +428,7 @@ static void arena_map_free(struct bpf_map *map)
 	free_vm_area(arena->kern_vm);
 	range_tree_destroy(&arena->rt);
 	__free_page(arena->scratch_page);
+	free_percpu(arena->stacks);
 	bpf_map_area_free(arena);
 }
 
@@ -1038,6 +1066,120 @@ defer:
 	s->uaddr = uaddr;
 	llist_add(&s->node, &arena->free_spans);
 	irq_work_queue(&arena->free_irq);
+}
+
+/* Called when a program that uses BPF_REG_ARENA_SP is loaded */
+int bpf_arena_stack_init(struct bpf_arena *arena)
+{
+	struct arena_stacks __percpu *stacks;
+
+	if (READ_ONCE(arena->stacks))
+		return 0;
+	stacks = bpf_map_alloc_percpu(&arena->map, sizeof(*stacks), __alignof__(*stacks),
+				      GFP_USER | __GFP_NOWARN);
+	if (!stacks)
+		return -ENOMEM;
+	if (cmpxchg(&arena->stacks, NULL, stacks))
+		free_percpu(stacks);
+	return 0;
+}
+
+void __percpu *bpf_arena_stack_percpu(struct bpf_arena *arena)
+{
+	return arena->stacks;
+}
+
+/*
+ * Called at the start of the main program or of a callback, in any context. When
+ * @busy is 0 the program has taken the stack of the cpu and it's too small.
+ * Returns the low 32 bits of r12 with bit 32 set, or 0 when there is no memory.
+ * The program doesn't run then.
+ */
+u64 bpf_arena_stack_get(struct bpf_prog_aux *aux, u64 busy)
+{
+	struct arena_stacks *stacks = this_cpu_ptr(aux->arena->stacks);
+	struct bpf_arena_cpu_stack *cpu = &stacks->cpu;
+	struct bpf_arena *arena = aux->arena;
+	u32 size = aux->arena_stack_size;
+	struct arena_stack *st = NULL, old;
+	struct bpf_stream_stage ss;
+	long addr;
+	int i;
+
+	if (!busy) {
+		/* It's not there yet, or programs that used it needed less */
+		addr = arena_alloc_pages(arena, 0, size >> PAGE_SHIFT, NUMA_NO_NODE, false);
+		if (!addr) {
+			WRITE_ONCE(cpu->busy, 0);
+			goto err;
+		}
+		old = (struct arena_stack){ cpu->base, cpu->size };
+		/* r12 is not 0: neither at the start of the stack nor at the end */
+		cpu->base = addr + 32;
+		cpu->size = size - 64;
+		if (old.size)
+			arena_free_pages(arena, old.base, (old.size + 64) >> PAGE_SHIFT, false);
+		return BIT_ULL(32) | cpu->base;
+	}
+
+	while ((i = ffz(READ_ONCE(stacks->busy))) < ARENA_STACK_SLOTS) {
+		if (test_and_set_bit(i, &stacks->busy))
+			continue;
+		st = &stacks->slot[i];
+		if (st->size >= size)
+			return BIT_ULL(32) | st->base;
+		break;
+	}
+
+	/*
+	 * It's the first use of the slot, or programs that used it needed less,
+	 * or all slots are busy and bpf_arena_stack_put() is going to free the pages.
+	 */
+	addr = arena_alloc_pages(arena, 0, size >> PAGE_SHIFT, NUMA_NO_NODE, false);
+	if (!addr) {
+		if (st)
+			clear_bit(i, &stacks->busy);
+		goto err;
+	}
+	if (!st)
+		return BIT_ULL(32) | (u32)(addr + BPF_ARENA_STACK_SLOW);
+
+	/*
+	 * bpf_arena_stack_put() finds a slot by its base. No slot may name pages that
+	 * another run can get.
+	 */
+	old = *st;
+	st->base = addr + BPF_ARENA_STACK_SLOW;
+	st->size = size;
+	if (old.size)
+		arena_free_pages(arena, old.base, old.size >> PAGE_SHIFT, false);
+	return BIT_ULL(32) | st->base;
+
+err:
+	bpf_prog_inc_misses_counter(aux->prog);
+	bpf_stream_stage(ss, aux->prog, BPF_STDERR, ({
+		bpf_stream_printk(ss, "ERROR: No memory for the stack in arena. The program didn't run\n");
+	}));
+	return 0;
+}
+
+/*
+ * Called before the main program or a callback exits with a stack that is not
+ * the stack of the cpu: BPF_ARENA_STACK_SLOW is set in @base.
+ */
+void bpf_arena_stack_put(struct bpf_prog_aux *aux, u32 base)
+{
+	struct arena_stacks *stacks = this_cpu_ptr(aux->arena->stacks);
+	u32 size = aux->arena_stack_size;
+	int i;
+
+	for (i = 0; i < ARENA_STACK_SLOTS; i++) {
+		if (stacks->slot[i].base != base || !stacks->slot[i].size)
+			continue;
+		clear_bit(i, &stacks->busy);
+		return;
+	}
+	arena_free_pages(aux->arena, base, size >> PAGE_SHIFT, false);
 }
 
 /*
