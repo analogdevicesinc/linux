@@ -39,6 +39,22 @@
 	};
 };
 
+&pinctrl0 {
+	i2c0_pmx_func: i2c0-pmx-func-pins {
+		pinctrl-single,pins = <
+			0x10   0x4   /* I2C0_SDA (IOA4) PIN4SEL) */
+			0x14   0x4   /* I2C0_SCL (IOA5) PIN5SEL */
+		>;
+	};
+
+	i2c0_pmx_func_gpio: i2c0-pmx-func-gpio-pins {
+		pinctrl-single,pins = <
+			0x10   0x8   /* I2C0_SDA (IOA4) PIN4SEL) */
+			0x14   0x8   /* I2C0_SCL (IOA5) PIN5SEL */
+		>;
+	};
+};
+
 &gmac0 {
 	status = "okay";
 	phy-mode = "rgmii"; /* TX/RX clock delays provided by Agilex5 I/O hardware */
@@ -66,6 +82,10 @@
 
 &i2c0 {
 	status = "okay";
+
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c0_pmx_func>;
+	pinctrl-1 = <&i2c0_pmx_func_gpio>;
 };
 
 &i3c0 {

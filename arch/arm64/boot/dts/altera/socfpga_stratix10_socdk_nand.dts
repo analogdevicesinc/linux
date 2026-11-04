@@ -56,6 +56,22 @@
 	status = "okay";
 };
 
+&pinctrl0 {
+	i2c1_pmx_func: i2c1-pmx-func-pins {
+		pinctrl-single,pins = <
+			0x78   0x4   /* I2C1_SDA (IO6) PIN30SEL) */
+			0x7c   0x4   /* I2C1_SCL (IO7) PIN31SEL */
+		>;
+	};
+
+	i2c1_pmx_func_gpio: i2c1-pmx-func-gpio-pins {
+		pinctrl-single,pins = <
+			0x78   0x8   /* I2C1_SDA (IO6) PIN30SEL) */
+			0x1c   0x8   /* I2C1_SCL (IO7) PIN31SEL */
+		>;
+	};
+};
+
 &gmac2 {
 	status = "okay";
 	phy-mode = "rgmii";
@@ -124,11 +140,15 @@
 	status = "okay";
 };
 
-&i2c2 {
+&i2c1 {
 	status = "okay";
 	clock-frequency = <100000>;
 	i2c-sda-falling-time-ns = <890>;  /* hcnt */
 	i2c-scl-falling-time-ns = <890>;  /* lcnt */
+
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&i2c1_pmx_func>;
+	pinctrl-1 = <&i2c1_pmx_func_gpio>;
 
 	adc@14 {
 		compatible = "lltc,ltc2497";
