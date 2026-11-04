@@ -217,7 +217,8 @@ static void test_chacha_rfc7539(struct kunit *test)
 static void benchmark_chacha(struct kunit *test)
 {
 	static const size_t lens_to_test[] = {
-		64, 256, 512, 1024, 1420, 2048, 4096, 8920, 16384,
+		64,   128,  200,  256,	511,  512,   513,
+		1024, 1420, 2048, 4096, 8920, 16384,
 	};
 	const size_t max_len = 16384;
 	u8 *data = alloc_buf(test, max_len);
