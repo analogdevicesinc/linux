@@ -61,8 +61,9 @@ struct ctl_table_header;
 
 /* Kernel hidden auxiliary/helper register. */
 #define BPF_REG_PARAMS		MAX_BPF_REG
-#define BPF_REG_AX		(MAX_BPF_REG + 1)
-#define MAX_BPF_EXT_REG		(MAX_BPF_REG + 2)
+#define BPF_REG_ARENA_SP	(MAX_BPF_REG + 1)
+#define BPF_REG_AX		(MAX_BPF_REG + 2)
+#define MAX_BPF_EXT_REG		(MAX_BPF_REG + 3)
 #define MAX_BPF_JIT_REG		MAX_BPF_EXT_REG
 
 /* unused opcode to mark special call to bpf_tail_call() helper */
