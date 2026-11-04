@@ -1014,6 +1014,11 @@ static ssize_t seq_curr_state_store(struct device *dev,
 	if (val > ETM_SEQ_STATE_MAX_VAL)
 		return -EINVAL;
 
+	guard(spinlock)(&drvdata->spinlock);
+	if (IS_ERR_OR_NULL(drvdata->csdev) ||
+	    coresight_get_mode(drvdata->csdev) == CS_MODE_SYSFS)
+		return -EBUSY;
+
 	sysfs_config->seq_curr_state = val;
 
 	return size;
