@@ -6406,7 +6406,7 @@ void regulator_unregister(struct regulator_dev *rdev)
 	if (rdev == NULL)
 		return;
 
-	flush_delayed_work(&rdev->disable_work);
+	disable_delayed_work_sync(&rdev->disable_work);
 
 	if (rdev->supply) {
 		regulator_unregister_notifier(rdev->supply,
