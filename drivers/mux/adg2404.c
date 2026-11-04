@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADG2404 4:1 multiplexer driver
+ * Analog Devices ADG2404/ADG2704 4:1 multiplexer driver
  *
  * Copyright 2025 Analog Devices Inc.
  *
@@ -100,6 +100,7 @@ static int adg2404_probe(struct platform_device *pdev)
 
 static const struct of_device_id adg2404_dt_ids[] = {
 	{ .compatible = "adi,adg2404", },
+	{ .compatible = "adi,adg2704", },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adg2404_dt_ids);
@@ -113,6 +114,6 @@ static struct platform_driver adg2404_driver = {
 };
 module_platform_driver(adg2404_driver);
 
-MODULE_DESCRIPTION("Analog Devices ADG2404 multiplexer driver");
+MODULE_DESCRIPTION("Analog Devices ADG2404/ADG2704 multiplexer driver");
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
 MODULE_LICENSE("GPL");
