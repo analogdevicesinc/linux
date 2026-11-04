@@ -65,6 +65,13 @@ static void const_reg_xfer(struct bpf_verifier_env *env, struct const_arg_info *
 		ci_out[insn->dst_reg] = unknown;
 		return;
 	}
+	/* r12 is outside of it too */
+	if (is_arena_sp_adj(insn) || is_arena_sp_st(insn))
+		return;
+	if (is_arena_sp_mov(insn) || is_arena_sp_ldx(insn)) {
+		ci_out[insn->dst_reg] = unknown;
+		return;
+	}
 
 	switch (class) {
 	case BPF_ALU:

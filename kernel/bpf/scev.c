@@ -689,6 +689,12 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 	int i, id;
 	s64 imm;
 
+	/* reg2expr[12] is a stack slot, not r12 */
+	if (is_arena_sp_adj(insn) || is_arena_sp_st(insn))
+		return 0;
+	if (is_arena_sp_mov(insn) || is_arena_sp_ldx(insn))
+		goto mark_dst_unknown;
+
 	switch (class) {
 	case BPF_ALU:
 	case BPF_ALU64:
@@ -1196,7 +1202,8 @@ static void collect_store_base_regs(struct bpf_verifier_env *env,
 	u16 base_regs = 0;
 	u32 r;
 
-	if (size == BPF_W || size == BPF_DW) {
+	if ((size == BPF_W || size == BPF_DW) &&
+	    !is_arena_sp_st(insn) && !is_arena_sp_ldx(insn)) {
 		if ((class == BPF_STX || class == BPF_ST) && insn->dst_reg != BPF_REG_FP)
 			base_regs |= BIT(insn->dst_reg);
 		else if (class == BPF_LDX && insn->src_reg != BPF_REG_FP)

@@ -21,4 +21,18 @@ int arena_arg_no_arena(void *ctx)
 	return 0;
 }
 
+SEC("syscall")
+__arch_x86_64
+__arch_arm64
+__description("arena stack: no arena")
+__failure __msg("R12 can only be used in a program that has an associated arena")
+__naked void r12_no_arena(void)
+{
+	asm volatile (
+	".8byte 0xc1bf;"	/* r1 = r12 */
+	"r0 = 0;"
+	"exit;"
+	::: __clobber_all);
+}
+
 char _license[] SEC("license") = "GPL";

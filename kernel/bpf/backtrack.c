@@ -325,7 +325,7 @@ static int backtrack_insn(struct bpf_verifier_env *env, int idx, int subseq_idx,
 				 * sreg needs precision before this insn
 				 */
 				bt_clear_reg(bt, dreg);
-				if (sreg != BPF_REG_FP)
+				if (sreg != BPF_REG_FP && sreg != BPF_REG_ARENA_SP)
 					bt_set_reg(bt, sreg);
 			} else {
 				/* dreg = K
