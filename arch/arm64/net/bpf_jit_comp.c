@@ -1966,6 +1966,24 @@ emit_cond_jmp:
 			src_adj = src;
 			off_adj = off;
 		}
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM ||
+		    BPF_MODE(insn->code) == BPF_PROBE_MEMSX) {
+			/*
+			 * Read zero instead of user memory. Bit 55 of an address
+			 * selects the user or the kernel page table. The bits
+			 * above it don't tell: the CPU ignores the top byte of
+			 * a user address.
+			 */
+			if (off) {
+				emit_a64_add_i(1, tmp2, src, tmp, off, ctx);
+				src_adj = tmp2;
+				off_adj = 0;
+			}
+			emit(A64_TST_I(1, src_adj, BIT(55)), ctx);
+			emit(A64_B_(A64_COND_NE, 3), ctx);
+			emit(A64_MOVZ(1, dst, 0, 0), ctx);
+			emit(A64_B(2), ctx);
+		}
 		sign_extend = (BPF_MODE(insn->code) == BPF_MEMSX ||
 				BPF_MODE(insn->code) == BPF_PROBE_MEMSX ||
 				 BPF_MODE(insn->code) == BPF_PROBE_MEM32SX);
@@ -3501,6 +3519,12 @@ out:
 bool bpf_jit_supports_ptr_xchg(void)
 {
 	return true;
+}
+
+/* The JIT emits its own code to filter user addresses */
+u64 bpf_arch_uaddress_limit(void)
+{
+	return 0;
 }
 
 bool bpf_jit_supports_exceptions(void)

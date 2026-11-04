@@ -26,6 +26,11 @@ config HAVE_EBPF_JIT_KASAN
 config ARCH_WANT_DEFAULT_BPF_JIT
 	bool
 
+# Used by archs to tell that kernels that were compiled with BPF JIT support
+# have no BPF interpreter.
+config ARCH_WANT_BPF_JIT_ALWAYS_ON
+	bool
+
 menu "BPF subsystem"
 
 config BPF_SYSCALL
@@ -60,7 +65,8 @@ config BPF_JIT
 	  /proc/sys/net/core/bpf_jit_kallsyms (optional)
 
 config BPF_JIT_ALWAYS_ON
-	bool "Permanently enable BPF JIT and remove BPF interpreter"
+	bool "Permanently enable BPF JIT and remove BPF interpreter" if !ARCH_WANT_BPF_JIT_ALWAYS_ON
+	default ARCH_WANT_BPF_JIT_ALWAYS_ON
 	depends on BPF_SYSCALL && HAVE_EBPF_JIT && BPF_JIT
 	help
 	  Enables BPF JIT and removes BPF interpreter to avoid speculative
@@ -69,6 +75,8 @@ config BPF_JIT_ALWAYS_ON
 	  When CONFIG_BPF_JIT_ALWAYS_ON is enabled, /proc/sys/net/core/bpf_jit_enable
 	  is permanently set to 1 and setting any other value than that will
 	  return failure.
+
+	  x86-64 and arm64 always enable this option.
 
 config BPF_JIT_DEFAULT_ON
 	def_bool ARCH_WANT_DEFAULT_BPF_JIT || BPF_JIT_ALWAYS_ON
