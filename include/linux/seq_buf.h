@@ -128,8 +128,9 @@ static inline unsigned int seq_buf_used(struct seq_buf *s)
 
 /*
  * NUL-terminate the buffer in @s: directly after the data when there is
- * room for it, otherwise in the last byte of the buffer. @s->size must not
- * be zero.
+ * room for it, otherwise in the last byte of the buffer, which marks @s as
+ * overflowed. Data that already ends in a NUL is left as is. @s->size must
+ * not be zero.
  *
  * Returns: the offset of the NUL.
  */
@@ -137,10 +138,20 @@ static inline size_t __seq_buf_terminate(struct seq_buf *s)
 {
 	size_t end;
 
-	if (seq_buf_buffer_left(s))
+	if (seq_buf_buffer_left(s)) {
+		if (s->len && !s->buffer[s->len - 1])
+			return s->len - 1;
 		end = s->len;
-	else
+	} else {
 		end = s->size - 1;
+		if (!s->buffer[end])
+			return end;
+		/*
+		 * The last byte of data will be overwritten by a NUL
+		 * character, so mark the seq_buf as overflowed.
+		 */
+		seq_buf_set_overflow(s);
+	}
 
 	s->buffer[end] = 0;
 
@@ -158,7 +169,9 @@ static inline size_t __seq_buf_terminate(struct seq_buf *s)
  * the last byte of the buffer is zeroed, and the len will still
  * point passed it. The same happens when the buffer is exactly
  * full: the NUL takes the place of the last byte written, which is
- * lost, though seq_buf_used() still counts it.
+ * lost, so @s is marked as overflowed, though seq_buf_used() still
+ * counts that byte. When that byte is a NUL already, nothing is lost
+ * and @s is left as is.
  *
  * A zero-sized seq_buf has nowhere to put a NUL, so the empty string
  * is returned instead of writing to @s->buffer. Any other seq_buf
@@ -189,7 +202,9 @@ static inline const char *seq_buf_str(struct seq_buf *s)
  * without walking it. Unlike seq_buf_used(), this does not count the byte
  * given up to the NUL when the buffer is full or has overflowed. When the
  * buffer is exactly full, that byte is the last one written, and calling
- * either function loses it.
+ * either function loses it and marks @s as overflowed, unless it is a NUL
+ * itself. Data that ends in a NUL is already terminated, so its length
+ * does not count that NUL.
  *
  * A zero-sized seq_buf holds no string, so 0 is returned without writing
  * to @s->buffer, matching what seq_buf_str() returns for one.
