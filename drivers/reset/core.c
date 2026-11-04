@@ -160,6 +160,9 @@ int reset_controller_register(struct reset_controller_dev *rcdev)
 }
 EXPORT_SYMBOL_GPL(reset_controller_register);
 
+static void __reset_control_release(struct kref *kref);
+static void __reset_control_free(struct reset_control *rstc);
+
 static void reset_controller_remove(struct reset_controller_dev *rcdev,
 				    struct reset_control *rstc)
 {
@@ -185,11 +188,18 @@ void reset_controller_unregister(struct reset_controller_dev *rcdev)
 		/*
 		 * Numb but don't free the remaining reset control handles that are
 		 * still held by consumers.
+		 *
+		 * Hold a temporary reference on rstc before clearing rstc->rcdev:
+		 * once rstc->rcdev is NULL, a concurrent reset_control_put_internal()
+		 * will not acquire rcdev->lock and could otherwise free rstc.
 		 */
 		list_for_each_entry_safe(rstc, pos, &rcdev->reset_control_head, list) {
+			kref_get(&rstc->refcnt);
 			rcu_assign_pointer(rstc->rcdev, NULL);
 			synchronize_srcu(&rstc->srcu);
 			reset_controller_remove(rcdev, rstc);
+			if (kref_put(&rstc->refcnt, __reset_control_release))
+				__reset_control_free(rstc);
 		}
 	}
 
@@ -886,13 +896,15 @@ __reset_control_get_internal(struct reset_controller_dev *rcdev,
 	return rstc;
 }
 
+/*
+ * Detaches rstc from rcdev (if still attached) when refcnt reaches 0.
+ * If rstc is still attached, the caller must hold rcdev->lock.
+ */
 static void __reset_control_release(struct kref *kref)
 {
 	struct reset_control *rstc = container_of(kref, struct reset_control,
 						  refcnt);
 	struct reset_controller_dev *rcdev;
-
-	lockdep_assert_held(&rstc->srcu);
 
 	rcdev = rcu_replace_pointer(rstc->rcdev, NULL, true);
 	if (rcdev) {
@@ -901,6 +913,17 @@ static void __reset_control_release(struct kref *kref)
 	}
 
 	mutex_destroy(&rstc->lock);
+}
+
+/*
+ * Must be called outside the rstc->srcu read-side critical section after
+ * kref_put(..., __reset_control_release) returns true.
+ */
+static void __reset_control_free(struct reset_control *rstc)
+{
+	synchronize_srcu(&rstc->srcu);
+	cleanup_srcu_struct(&rstc->srcu);
+	kfree(rstc);
 }
 
 static void reset_control_put_internal(struct reset_control *rstc)
@@ -913,19 +936,17 @@ static void reset_control_put_internal(struct reset_control *rstc)
 
 	scoped_guard(srcu, &rstc->srcu) {
 		rcdev = srcu_dereference(rstc->rcdev, &rstc->srcu);
-		if (!rcdev)
-			/* Already released. */
-			return;
-
-		guard(mutex)(&rcdev->lock);
-		ret = kref_put(&rstc->refcnt, __reset_control_release);
+		if (rcdev) {
+			guard(mutex)(&rcdev->lock);
+			ret = kref_put(&rstc->refcnt, __reset_control_release);
+		} else {
+			/* Already detached from rcdev. */
+			ret = kref_put(&rstc->refcnt, __reset_control_release);
+		}
 	}
 
-	if (ret) {
-		synchronize_srcu(&rstc->srcu);
-		cleanup_srcu_struct(&rstc->srcu);
-		kfree(rstc);
-	}
+	if (ret)
+		__reset_control_free(rstc);
 }
 
 static void reset_gpio_aux_device_release(struct device *dev)
