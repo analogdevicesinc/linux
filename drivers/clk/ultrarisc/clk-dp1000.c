@@ -147,7 +147,13 @@ static struct platform_driver dp1000_clk_driver = {
 		.of_match_table = dp1000_clk_of_match,
 	},
 };
-module_platform_driver(dp1000_clk_driver);
+
+/*
+ * PCI host drivers are registered before sysfb_init() through link order.
+ * Register the clock provider earlier so the host controllers do not defer
+ * probing until after sysfb has claimed the firmware framebuffer aperture.
+ */
+subsys_platform_driver(dp1000_clk_driver);
 
 MODULE_IMPORT_NS("CLK_ULTRARISC");
 MODULE_DESCRIPTION("UltraRISC DP1000 clock controller");
