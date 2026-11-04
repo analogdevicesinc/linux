@@ -65,9 +65,9 @@ enum amd_vsdb_panel_type {
  */
 #define AMDGPU_DM_MAX_HDMI_HPD_DEBOUNCE_MS 5000
 /*
-#include "include/amdgpu_dal_power_if.h"
-#include "amdgpu_dm_irq.h"
-*/
+ * #include "include/amdgpu_dal_power_if.h"
+ * #include "amdgpu_dm_irq.h"
+ */
 
 #include "irq_types.h"
 #include "signal_types.h"
@@ -349,7 +349,7 @@ struct hpd_rx_irq_offload_work {
  * @disable_hpd_irq: disables all HPD and HPD RX interrupt handling in the
  *		     driver when true
  * @dmub_aux_transfer_done: struct completion used to indicate when DMUB
- * 			    transfers are done
+ *			    transfers are done
  * @delayed_hpd_wq: work queue used to delay DMUB HPD work
  */
 struct amdgpu_display_manager {
@@ -833,8 +833,10 @@ struct amdgpu_dm_connector {
 
 	struct cec_notifier *notifier;
 
-	/* we need to mind the EDID between detect
-	   and get modes due to analog/digital/tvencoder */
+	/*
+	 * we need to mind the EDID between detect
+	 * and get modes due to analog/digital/tvencoder
+	 */
 	const struct drm_edid *drm_edid;
 
 	/* shared with amdgpu */
@@ -843,8 +845,10 @@ struct amdgpu_dm_connector {
 	/* number of modes generated from EDID at 'dc_sink' */
 	int num_modes;
 
-	/* The 'old' sink - before an HPD.
-	 * The 'current' sink is in dc_link->sink. */
+	/*
+	 * The 'old' sink - before an HPD.
+	 * The 'current' sink is in dc_link->sink.
+	 */
 	struct dc_sink *dc_sink;
 	struct dc_link *dc_link;
 
@@ -880,7 +884,7 @@ struct amdgpu_dm_connector {
 	 * @max_vfreq: Maximum frequency supported by the display in Hz. This
 	 * value is set to zero when there is no FreeSync support.
 	 */
-	int max_vfreq ;
+	int max_vfreq;
 
 	/* Audio instance - protected by audio_lock. */
 	int audio_inst;

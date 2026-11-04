@@ -712,7 +712,8 @@ void dpp401_dpp_setup(
 	enum expansion_mode mode,
 	struct dc_csc_transform input_csc_color_matrix,
 	enum dc_color_space input_color_space,
-	struct cnv_alpha_2bit_lut *alpha_2bit_lut);
+	struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+	enum upsp_mode upsp_mode);
 
 void dpp401_set_cursor_attributes(
 	struct dpp *dpp_base,
@@ -756,10 +757,6 @@ enum dcn401_dscl_mode_sel dpp401_dscl_get_dscl_mode(
 	const struct scaler_data *data,
 	bool dbg_always_scale);
 
-void dpp401_power_on_dscl(
-	struct dpp *dpp_base,
-	bool power_on);
-
 void dpp401_dscl_set_recout(
 	struct dcn401_dpp *dpp,
 	const struct rect *recout);
@@ -791,5 +788,9 @@ void dpp401_dscl_disable_easf(
 void dpp401_dscl_program_easf(
 	struct dpp *dpp_base,
 	const struct scaler_data *scl_data);
+
+void dpp401_power_on_isharp(
+	struct dpp *dpp_base,
+	bool power_on);
 
 #endif /* __DCN401_DPP_H__ */

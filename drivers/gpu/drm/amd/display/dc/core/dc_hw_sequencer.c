@@ -450,18 +450,12 @@ void get_hdr_visual_confirm_color(
 	uint32_t color_value = MAX_TG_COLOR_VALUE;
 	bool is_sdr = false;
 
-	/* Determine the overscan color based on the top-most (desktop) plane's context */
-	struct pipe_ctx *top_pipe_ctx  = pipe_ctx;
-
-	while (top_pipe_ctx->top_pipe != NULL)
-		top_pipe_ctx = top_pipe_ctx->top_pipe;
-
-	switch (top_pipe_ctx->plane_res.scl_data.format) {
+	switch (pipe_ctx->plane_res.scl_data.format) {
 	case PIXEL_FORMAT_ARGB2101010:
-		if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
+		if (pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
 			/* HDR10, ARGB2101010 - set border color to red */
 			color->color_r_cr = (uint16_t)color_value;
-		} else if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
+		} else if (pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
 			/* FreeSync 2 ARGB2101010 - set border color to pink */
 			color->color_r_cr = (uint16_t)color_value;
 			color->color_b_cb = (uint16_t)color_value;
@@ -469,10 +463,10 @@ void get_hdr_visual_confirm_color(
 			is_sdr = true;
 		break;
 	case PIXEL_FORMAT_FP16:
-		if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
+		if (pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_PQ) {
 			/* HDR10, FP16 - set border color to blue */
 			color->color_b_cb = (uint16_t)color_value;
-		} else if (top_pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
+		} else if (pipe_ctx->stream->out_transfer_func.tf == TRANSFER_FUNCTION_GAMMA22) {
 			/* FreeSync 2 HDR - set border color to green */
 			color->color_g_y = (uint16_t)color_value;
 		} else
@@ -762,7 +756,7 @@ void set_drr_and_clear_adjust_pending(
 
 	if (stream)
 		/* A null params resets DRR in hw, leaving stream->adjust stale. */
-		stream->adjust.timing_adjust_pending = (params == NULL);
+		stream->timing_adjust_pending = (params == NULL);
 }
 
 void get_fams2_visual_confirm_color(
@@ -1298,12 +1292,10 @@ void hwss_build_fast_sequence(struct dc *dc,
 		block_sequence[*num_steps].func = HWSS_UPDATE_INFO_FRAME;
 		(*num_steps)++;
 
-		if (dc_is_dp_signal(pipe_ctx->stream->signal)) {
-			block_sequence[*num_steps].params.dp_trace_source_sequence_params.link = pipe_ctx->stream->link;
-			block_sequence[*num_steps].params.dp_trace_source_sequence_params.source = DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME;
-			block_sequence[*num_steps].func = DP_TRACE_SOURCE_SEQUENCE;
-			(*num_steps)++;
-		}
+		/* The step only writes DPCD when the debug flag is set, so gate emission on it here. */
+		if (dc_is_dp_signal(pipe_ctx->stream->signal) && dc->debug.enable_driver_sequence_debug)
+			hwss_add_dp_trace_source_sequence(&seq_state, pipe_ctx->stream->link,
+					DPCD_SOURCE_SEQ_AFTER_UPDATE_INFO_FRAME);
 	}
 
 	if (dc->hwss.set_dmdata_attributes && stream->update_flags.bits.dmdata &&
@@ -2964,7 +2956,8 @@ void hwss_setup_dpp(union block_sequence_params *params)
 				EXPANSION_MODE_ZERO,
 				p->input_csc_color_matrix,
 				p->color_space,
-				NULL);
+				NULL,
+				p->upsp_mode);
 	}
 }
 
@@ -4041,22 +4034,20 @@ void hwss_dpp_reset(union block_sequence_params *params)
 
 void hwss_dpp_root_clock_control(union block_sequence_params *params)
 {
-	struct dce_hwseq *hws = params->dpp_root_clock_control_params.hws;
+	struct dccg *dccg = params->dpp_root_clock_control_params.dccg;
 	unsigned int dpp_inst = params->dpp_root_clock_control_params.dpp_inst;
 	bool clock_on = params->dpp_root_clock_control_params.clock_on;
+	bool root_clock_optimization_dpp = params->dpp_root_clock_control_params.root_clock_optimization_dpp;
 
-	if (hws->funcs.dpp_root_clock_control)
-		hws->funcs.dpp_root_clock_control(hws, dpp_inst, clock_on);
+	dccg->funcs->dpp_root_clock_control(dccg, dpp_inst, clock_on, root_clock_optimization_dpp);
 }
 
 void hwss_dc_ip_request_cntl(union block_sequence_params *params)
 {
-	struct dc *dc = params->dc_ip_request_cntl_params.dc;
+	struct dce_hwseq *hws = params->dc_ip_request_cntl_params.hws;
 	bool enable = params->dc_ip_request_cntl_params.enable;
-	struct dce_hwseq *hws = dc->hwseq;
 
-	if (hws->funcs.dc_ip_request_cntl)
-		hws->funcs.dc_ip_request_cntl(dc, enable);
+	hws->funcs.dc_ip_request_cntl(hws, enable);
 }
 
 void hwss_dccg_update_dpp_dto(union block_sequence_params *params)
@@ -4964,9 +4955,13 @@ void hwss_add_dc_ip_request_cntl(struct block_sequence_state *seq_state,
 		struct dc *dc,
 		bool enable)
 {
+	if (!seq_state || !seq_state->steps || !seq_state->num_steps || !dc ||
+			!dc->hwseq || !dc->hwseq->funcs.dc_ip_request_cntl)
+		return;
+
 	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
 		seq_state->steps[*seq_state->num_steps].func = DC_IP_REQUEST_CNTL;
-		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.dc = dc;
+		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.hws = dc->hwseq;
 		seq_state->steps[*seq_state->num_steps].params.dc_ip_request_cntl_params.enable = enable;
 		(*seq_state->num_steps)++;
 	}
@@ -5431,18 +5426,59 @@ void hwss_add_dccg_set_ref_dscclk(struct block_sequence_state *seq_state,
 	}
 }
 
+bool hwss_is_dpp_root_clock_control_allowed(struct dce_hwseq *hws, bool clock_on)
+{
+	bool root_clock_optimization_dpp;
+
+	if (!hws || !hws->ctx || !hws->ctx->dc)
+		return false;
+
+	root_clock_optimization_dpp = hws->ctx->dc->debug.root_clock_optimization.bits.dpp;
+
+	if (hws->funcs.is_dpp_root_clock_control_supported)
+		return hws->funcs.is_dpp_root_clock_control_supported(
+				root_clock_optimization_dpp, clock_on);
+
+	/* Without ASIC policy only gating depends on the optimization */
+	return root_clock_optimization_dpp || clock_on;
+}
+
 void hwss_add_dpp_root_clock_control(struct block_sequence_state *seq_state,
 		struct dce_hwseq *hws,
 		unsigned int dpp_inst,
 		bool clock_on)
 {
-	if (*seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
-		seq_state->steps[*seq_state->num_steps].func = DPP_ROOT_CLOCK_CONTROL;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.hws = hws;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dpp_inst = dpp_inst;
-		seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.clock_on = clock_on;
-		(*seq_state->num_steps)++;
-	}
+	struct dc *dc;
+	struct dccg *dccg;
+
+	if (!seq_state || !seq_state->steps || !seq_state->num_steps ||
+			*seq_state->num_steps >= MAX_HWSS_BLOCK_SEQUENCE_SIZE)
+		return;
+
+	if (!hws || !hws->funcs.dpp_root_clock_control || !hws->ctx || !hws->ctx->dc)
+		return;
+
+	dc = hws->ctx->dc;
+
+	if (!dc->res_pool || !dc->res_pool->dccg)
+		return;
+
+	dccg = dc->res_pool->dccg;
+
+	if (!dccg->funcs || !dccg->funcs->dpp_root_clock_control ||
+			dpp_inst >= ARRAY_SIZE(dccg->dpp_clock_gated))
+		return;
+
+	if (!hwss_is_dpp_root_clock_control_allowed(hws, clock_on))
+		return;
+
+	seq_state->steps[*seq_state->num_steps].func = DPP_ROOT_CLOCK_CONTROL;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dccg = dccg;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.dpp_inst = dpp_inst;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.clock_on = clock_on;
+	seq_state->steps[*seq_state->num_steps].params.dpp_root_clock_control_params.root_clock_optimization_dpp =
+			dc->debug.root_clock_optimization.bits.dpp;
+	(*seq_state->num_steps)++;
 }
 
 void hwss_add_dpp_pg_control(struct block_sequence_state *seq_state,
@@ -5679,6 +5715,7 @@ void hwss_add_dpp_setup_dpp(struct block_sequence_state *seq_state,
 		p->format = plane_state->format;
 		p->input_csc_color_matrix = plane_state->input_csc_color_matrix;
 		p->color_space = plane_state->color_space;
+		p->upsp_mode = resource_is_upsp_required(plane_state->format, plane_state->scaling_linearity);
 		(*seq_state->num_steps)++;
 	}
 }

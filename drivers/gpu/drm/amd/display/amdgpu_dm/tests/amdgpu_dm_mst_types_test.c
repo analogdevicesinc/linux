@@ -203,7 +203,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_match(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
 	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
@@ -223,7 +223,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_rev12(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
 	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_12;
@@ -243,7 +243,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_wrong_dev_id(struct kunit *test
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = 0x123456;
 	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
@@ -263,7 +263,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_wrong_rev(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
 	link->dpcd_caps.dpcd_rev.raw = 0x11; /* DPCD 1.1 */
@@ -283,7 +283,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_low_sink_count(struct kunit *te
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
 	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;
@@ -303,7 +303,7 @@ static void dm_mst_test_needs_dsc_aux_workaround_zero_sink_count(struct kunit *t
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.branch_dev_id = DP_BRANCH_DEVICE_ID_90CC24;
 	link->dpcd_caps.dpcd_rev.raw = DPCD_REV_14;

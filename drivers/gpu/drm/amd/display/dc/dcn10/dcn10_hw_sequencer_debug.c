@@ -44,6 +44,7 @@
 #include "dcn10/dcn10_hubbub.h"
 #include "dcn10_cm_common.h"
 #include "clk_mgr.h"
+#include "dsc.h"
 
 __printf(3, 4)
 unsigned int snprintf_count(char *pbuf, unsigned int bufsize, const char *fmt, ...)
@@ -488,6 +489,149 @@ static unsigned int dcn10_get_clock_states(struct dc *dc, char *pBuf, unsigned i
 	return bufSize - remaining_buffer;
 }
 
+static unsigned int dcn10_get_bios_state(struct dc *dc, char *pBuf, unsigned int bufSize)
+{
+	struct dc_bios *bios = dc->ctx->dc_bios;
+	int acc_mode = -1;
+
+	if (bios && bios->funcs->is_accelerated_mode)
+		acc_mode = bios->funcs->is_accelerated_mode(bios);
+
+	return snprintf_count(pBuf, bufSize, "acc_mode\n%d\n", acc_mode);
+}
+
+/* Preset in a read_state struct for fields that only some generations read. */
+#define HW_STATE_NOT_READ 0xFFFFFFFF
+
+static int dcn10_dig_source_otg(struct dc *dc, unsigned int fe)
+{
+	struct resource_pool *pool = dc->res_pool;
+	unsigned int i;
+
+	for (i = 0; i < pool->stream_enc_count; i++) {
+		struct stream_encoder *se = pool->stream_enc[i];
+
+		if (se && se->id == fe && se->funcs->dig_source_otg)
+			return se->funcs->dig_source_otg(se);
+	}
+	return -1;
+}
+
+static unsigned int dcn10_get_link_states(struct dc *dc, char *pBuf, unsigned int bufSize)
+{
+	unsigned int chars_printed = 0;
+	unsigned int remaining_buffer = bufSize;
+	unsigned int i;
+
+	chars_printed = snprintf_count(pBuf, remaining_buffer,
+		"link,enc,hpd,dig_en,dig_mode,dig_fe,src_otg,preferred_otg,phy_on,phy_active\n");
+	remaining_buffer -= chars_printed;
+	pBuf += chars_printed;
+
+	for (i = 0; i < dc->link_count && remaining_buffer > 0; i++) {
+		struct dc_link *link = dc->links[i];
+		struct link_encoder *enc = link ? link->link_enc : NULL;
+		int hpd = -1, dig_en = -1, dig_mode = -1, dig_fe = -1, src_otg = -1;
+		int phy_on = -1, phy_active = -1;
+		struct link_enc_state s = {0};
+
+		if (!enc || link->connector_signal == SIGNAL_TYPE_VIRTUAL)
+			continue;
+
+		if (enc->funcs->get_hpd_state)
+			hpd = enc->funcs->get_hpd_state(enc);
+		if (enc->funcs->is_dig_enabled)
+			dig_en = enc->funcs->is_dig_enabled(enc);
+		if (dig_en == 1 && enc->funcs->get_dig_mode)
+			dig_mode = enc->funcs->get_dig_mode(enc);
+		if (dig_en == 1 && enc->funcs->get_dig_frontend) {
+			dig_fe = enc->funcs->get_dig_frontend(enc);
+			src_otg = dcn10_dig_source_otg(dc, dig_fe);
+		}
+		s.rdpcs_phy_reset = HW_STATE_NOT_READ;
+		s.rdpcs_tx_data_en = HW_STATE_NOT_READ;
+		if (enc->funcs->read_state)
+			enc->funcs->read_state(enc, &s);
+		if (s.rdpcs_phy_reset != HW_STATE_NOT_READ)
+			phy_on = s.rdpcs_phy_reset == 0;
+		if (s.rdpcs_tx_data_en != HW_STATE_NOT_READ)
+			phy_active = s.rdpcs_tx_data_en != 0;
+
+		chars_printed = snprintf_count(pBuf, remaining_buffer,
+			"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			i, enc->transmitter, hpd, dig_en, dig_mode, dig_fe,
+			src_otg, enc->preferred_engine, phy_on, phy_active);
+		remaining_buffer -= chars_printed;
+		pBuf += chars_printed;
+	}
+
+	return bufSize - remaining_buffer;
+}
+
+static unsigned int dcn10_get_dsc_states(struct dc *dc, char *pBuf, unsigned int bufSize)
+{
+	struct resource_pool *pool = dc->res_pool;
+	unsigned int chars_printed = 0;
+	unsigned int remaining_buffer = bufSize;
+	unsigned int i;
+
+	if (pool->res_cap->num_dsc == 0)
+		return 0;
+
+	chars_printed = snprintf_count(pBuf, remaining_buffer,
+		"dsc,clock_en,slice_width,bits_pp\n");
+	remaining_buffer -= chars_printed;
+	pBuf += chars_printed;
+
+	for (i = 0; i < (unsigned int)pool->res_cap->num_dsc && remaining_buffer > 0; i++) {
+		struct display_stream_compressor *dsc = pool->dscs[i];
+		struct dcn_dsc_state s = {0};
+
+		if (!dsc || !dsc->funcs->dsc_read_state)
+			continue;
+
+		dsc->funcs->dsc_read_state(dsc, &s);
+		chars_printed = snprintf_count(pBuf, remaining_buffer,
+			"%d,%d,%d,%d\n", i, s.dsc_clock_en,
+			s.dsc_slice_width, s.dsc_bits_per_pixel);
+		remaining_buffer -= chars_printed;
+		pBuf += chars_printed;
+	}
+
+	return bufSize - remaining_buffer;
+}
+
+static unsigned int dcn10_get_cursor_lock_states(struct dc *dc, char *pBuf, unsigned int bufSize)
+{
+	struct resource_pool *pool = dc->res_pool;
+	unsigned int chars_printed = 0;
+	unsigned int remaining_buffer = bufSize;
+	unsigned int i;
+
+	chars_printed = snprintf_count(pBuf, remaining_buffer, "mpcc,opp,cur_lock\n");
+	remaining_buffer -= chars_printed;
+	pBuf += chars_printed;
+
+	for (i = 0; i < pool->mpcc_count && remaining_buffer > 0; i++) {
+		struct mpcc_state s = {0};
+		int lock = -1;
+
+		s.cur_vupdate_lock = HW_STATE_NOT_READ;
+		pool->mpc->funcs->read_mpcc_state(pool->mpc, i, &s);
+		if (s.opp_id == 0xf)
+			continue;
+		if (s.cur_vupdate_lock != HW_STATE_NOT_READ)
+			lock = s.cur_vupdate_lock;
+
+		chars_printed = snprintf_count(pBuf, remaining_buffer, "%d,%d,%d\n",
+			i, s.opp_id, lock);
+		remaining_buffer -= chars_printed;
+		pBuf += chars_printed;
+	}
+
+	return bufSize - remaining_buffer;
+}
+
 static void dcn10_clear_otpc_underflow(struct dc *dc)
 {
 	struct resource_pool *pool = dc->res_pool;
@@ -548,6 +692,7 @@ void dcn10_get_hw_state(struct dc *dc, char *pBuf, unsigned int bufSize, unsigne
 	 *  Mask Format
 	 *  Bit 0 - 15: Hardware block mask
 	 *  Bit 15: 1 = Invariant Only, 0 = All
+	 *  Bit 16 and up: opt-in blocks, never selected by mask 0
 	 */
 	const unsigned int DC_HW_STATE_MASK_HUBBUB			= 0x1;
 	const unsigned int DC_HW_STATE_MASK_HUBP			= 0x2;
@@ -559,6 +704,10 @@ void dcn10_get_hw_state(struct dc *dc, char *pBuf, unsigned int bufSize, unsigne
 	const unsigned int DC_HW_STATE_MASK_OTG				= 0x80;
 	const unsigned int DC_HW_STATE_MASK_CLOCKS			= 0x100;
 	const unsigned int DC_HW_STATE_INVAR_ONLY			= 0x8000;
+	const unsigned int DC_HW_STATE_MASK_BIOS			= 0x10000;
+	const unsigned int DC_HW_STATE_MASK_LINK			= 0x20000;
+	const unsigned int DC_HW_STATE_MASK_DSC				= 0x40000;
+	const unsigned int DC_HW_STATE_MASK_CURSOR_LOCK		= 0x80000;
 
 	unsigned int chars_printed = 0;
 	unsigned int remaining_buf_size = bufSize;
@@ -616,6 +765,30 @@ void dcn10_get_hw_state(struct dc *dc, char *pBuf, unsigned int bufSize, unsigne
 
 	if ((mask & DC_HW_STATE_MASK_CLOCKS) && remaining_buf_size > 0) {
 		chars_printed = dcn10_get_clock_states(dc, pBuf, remaining_buf_size);
+		pBuf += chars_printed;
+		remaining_buf_size -= chars_printed;
+	}
+
+	if ((mask & DC_HW_STATE_MASK_BIOS) && remaining_buf_size > 0) {
+		chars_printed = dcn10_get_bios_state(dc, pBuf, remaining_buf_size);
+		pBuf += chars_printed;
+		remaining_buf_size -= chars_printed;
+	}
+
+	if ((mask & DC_HW_STATE_MASK_LINK) && remaining_buf_size > 0) {
+		chars_printed = dcn10_get_link_states(dc, pBuf, remaining_buf_size);
+		pBuf += chars_printed;
+		remaining_buf_size -= chars_printed;
+	}
+
+	if ((mask & DC_HW_STATE_MASK_DSC) && remaining_buf_size > 0) {
+		chars_printed = dcn10_get_dsc_states(dc, pBuf, remaining_buf_size);
+		pBuf += chars_printed;
+		remaining_buf_size -= chars_printed;
+	}
+
+	if ((mask & DC_HW_STATE_MASK_CURSOR_LOCK) && remaining_buf_size > 0) {
+		chars_printed = dcn10_get_cursor_lock_states(dc, pBuf, remaining_buf_size);
 		pBuf += chars_printed;
 		remaining_buf_size -= chars_printed;
 	}

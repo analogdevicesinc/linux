@@ -65,16 +65,8 @@ void mpc42_update_blending(
 
 
 
-void mpc42_read_mpcc_state(
-		struct mpc *mpc,
-		int mpcc_inst,
-		struct mpcc_state *s)
-{
-	mpc1_read_mpcc_state(mpc, mpcc_inst, s);
-}
-
 static const struct mpc_funcs dcn42_mpc_funcs = {
-	.read_mpcc_state = mpc42_read_mpcc_state,
+	.read_mpcc_state = mpc401_read_mpcc_state,
 	.insert_plane = mpc1_insert_plane,
 	.remove_mpcc = mpc1_remove_mpcc,
 	.mpc_init = mpc32_mpc_init,

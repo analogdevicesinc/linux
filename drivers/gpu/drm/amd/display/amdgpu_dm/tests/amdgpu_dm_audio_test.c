@@ -77,7 +77,7 @@ static void dm_test_audio_init_disabled(struct kunit *test)
 	int saved_audio = amdgpu_dm_audio_get_param();
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	amdgpu_dm_audio_set_param(0);
 
@@ -107,11 +107,11 @@ static void dm_test_audio_init_enabled_success(struct kunit *test)
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
 	audio0 = kunit_kzalloc(test, sizeof(*audio0), GFP_KERNEL);
 	audio1 = kunit_kzalloc(test, sizeof(*audio1), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, res_pool);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio0);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio1);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, audio0);
+	KUNIT_ASSERT_NOT_NULL(test, audio1);
 
 	dev = root_device_register("kunit-dm-audio-init");
 	KUNIT_ASSERT_FALSE(test, IS_ERR(dev));
@@ -151,7 +151,7 @@ static void dm_test_audio_fini_without_enabled_audio(struct kunit *test)
 	int saved_audio = amdgpu_dm_audio_get_param();
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	amdgpu_dm_audio_set_param(1);
 	adev->mode_info.audio.enabled = false;
@@ -181,9 +181,9 @@ static void dm_test_fill_audio_info_ids_name_flags(struct kunit *test)
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	dc_sink->edid_caps.manufacturer_id = 0x1234;
 	dc_sink->edid_caps.product_id = 0xABCD;
@@ -214,9 +214,9 @@ static void dm_test_fill_audio_info_cea_lt_3_skips_modes(struct kunit *test)
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	connector->display_info.cea_rev = 2;
 	dc_sink->edid_caps.audio_mode_count = 2;
@@ -243,9 +243,9 @@ static void dm_test_fill_audio_info_cea_ge_3_copies_modes(struct kunit *test)
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	connector->display_info.cea_rev = 3;
 	dc_sink->edid_caps.audio_mode_count = 2;
@@ -288,9 +288,9 @@ static void dm_test_fill_audio_info_latency_present(struct kunit *test)
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	connector->display_info.cea_rev = 3;
 	connector->latency_present[0] = true;
@@ -316,9 +316,9 @@ static void dm_test_fill_audio_info_latency_absent_keeps_zero(struct kunit *test
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	connector->display_info.cea_rev = 3;
 	connector->latency_present[0] = false;
@@ -347,9 +347,9 @@ static void dm_test_fill_audio_info_cea_ge_3_zero_modes(struct kunit *test)
 	audio_info = kunit_kzalloc(test, sizeof(*audio_info), GFP_KERNEL);
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	dc_sink = kunit_kzalloc(test, sizeof(*dc_sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_info);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc_sink);
+	KUNIT_ASSERT_NOT_NULL(test, audio_info);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, dc_sink);
 
 	connector->display_info.cea_rev = 3;
 	dc_sink->edid_caps.audio_mode_count = 0;
@@ -379,9 +379,9 @@ static void dm_test_audio_component_bind_sets_fields(struct kunit *test)
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	kdev = kunit_kzalloc(test, sizeof(*kdev), GFP_KERNEL);
 	acomp = kunit_kzalloc(test, sizeof(*acomp), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, kdev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acomp);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, kdev);
+	KUNIT_ASSERT_NOT_NULL(test, acomp);
 
 	dev_set_drvdata(kdev, &adev->ddev);
 
@@ -409,9 +409,9 @@ static void dm_test_audio_component_unbind_clears_fields(struct kunit *test)
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	kdev = kunit_kzalloc(test, sizeof(*kdev), GFP_KERNEL);
 	acomp = kunit_kzalloc(test, sizeof(*acomp), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, kdev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acomp);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, kdev);
+	KUNIT_ASSERT_NOT_NULL(test, acomp);
 
 	dev_set_drvdata(kdev, &adev->ddev);
 
@@ -472,9 +472,9 @@ static void dm_test_eld_notify_invokes_callback(struct kunit *test)
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	acomp = kunit_kzalloc(test, sizeof(*acomp), GFP_KERNEL);
 	audio_ops = kunit_kzalloc(test, sizeof(*audio_ops), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acomp);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_ops);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, acomp);
+	KUNIT_ASSERT_NOT_NULL(test, audio_ops);
 
 	audio_ops->audio_ptr = &marker;
 	audio_ops->pin_eld_notify = dm_test_pin_eld_notify;
@@ -504,7 +504,7 @@ static void dm_test_eld_notify_no_component(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->dm.audio_component = NULL;
 
@@ -528,8 +528,8 @@ static void dm_test_eld_notify_null_audio_ops(struct kunit *test)
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	acomp = kunit_kzalloc(test, sizeof(*acomp), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acomp);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, acomp);
 
 	acomp->audio_ops = NULL;
 	adev->dm.audio_component = acomp;
@@ -557,9 +557,9 @@ static void dm_test_eld_notify_null_callback(struct kunit *test)
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	acomp = kunit_kzalloc(test, sizeof(*acomp), GFP_KERNEL);
 	audio_ops = kunit_kzalloc(test, sizeof(*audio_ops), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acomp);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, audio_ops);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, acomp);
+	KUNIT_ASSERT_NOT_NULL(test, audio_ops);
 
 	audio_ops->pin_eld_notify = NULL;
 	acomp->audio_ops = audio_ops;
@@ -589,7 +589,7 @@ static void dm_test_audio_init_pins_sets_defaults(struct kunit *test)
 	int i;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	amdgpu_dm_audio_init_pins(adev, 2, inst_array);
 
@@ -619,7 +619,7 @@ static void dm_test_audio_init_pins_zero_count(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	/* Pre-fill a sentinel so we can confirm the loop never ran. */
 	adev->mode_info.audio.pin[0].channels = 99;

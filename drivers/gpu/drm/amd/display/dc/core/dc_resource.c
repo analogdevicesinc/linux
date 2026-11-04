@@ -1557,25 +1557,6 @@ void resource_build_test_pattern_params(struct resource_context *res_ctx,
 	}
 }
 
-enum upsp_mode resource_is_upsp_required(enum surface_pixel_format format,
-		enum dc_scaling_linearity scaling_linearity)
-{
-	bool scaling_in_linear = (scaling_linearity == DC_SCALING_LINEARITY_LINEAR);
-	bool is_420_format = (format >= SURFACE_PIXEL_FORMAT_VIDEO_BEGIN &&
-			format <= SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb);
-	bool is_422_format = (format > SURFACE_PIXEL_FORMAT_VIDEO_420_10bpc_YCrCb &&
-			format < SURFACE_PIXEL_FORMAT_SUBSAMPLE_END);
-
-	/* UPSP (chroma upsampling) is only needed when subsampled YUV is scaled in
-	 * linear space.
-	 */
-	if (scaling_in_linear && is_420_format)
-		return UPSP_HORIZONTAL_VERTICAL_UPSAMPLING;
-	if (scaling_in_linear && is_422_format)
-		return UPSP_HORIZONTAL_UPSAMPLING_ONLY;
-	return UPSP_BYPASS;
-}
-
 bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 {
 	const struct dc_plane_state *plane_state = pipe_ctx->plane_state;

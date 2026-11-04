@@ -496,14 +496,17 @@ void dcn35_update_odm(struct dc *dc, struct dc_state *context, struct pipe_ctx *
 	}
 }
 
+bool dcn35_is_dpp_root_clock_control_supported(bool root_clock_optimization_dpp, bool clock_on)
+{
+	return root_clock_optimization_dpp || clock_on;
+}
+
 void dcn35_dpp_root_clock_control(struct dce_hwseq *hws, unsigned int dpp_inst, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpp && !clock_on)
-		return;
-
 	if (hws->ctx->dc->res_pool->dccg->funcs->dpp_root_clock_control) {
 		hws->ctx->dc->res_pool->dccg->funcs->dpp_root_clock_control(
-			hws->ctx->dc->res_pool->dccg, dpp_inst, clock_on);
+			hws->ctx->dc->res_pool->dccg, dpp_inst, clock_on,
+			hws->ctx->dc->debug.root_clock_optimization.bits.dpp);
 	}
 }
 
@@ -1365,7 +1368,8 @@ void dcn35_root_clock_control(struct dc *dc,
 		for (i = 0; i < dc->res_pool->pipe_count; i++) {
 			if (update_state->pg_pipe_res_update[PG_HUBP][i] &&
 				update_state->pg_pipe_res_update[PG_DPP][i]) {
-				if (dc->hwseq->funcs.dpp_root_clock_control)
+				if (dc->hwseq->funcs.dpp_root_clock_control &&
+				    hwss_is_dpp_root_clock_control_allowed(dc->hwseq, power_on))
 					dc->hwseq->funcs.dpp_root_clock_control(dc->hwseq, i, power_on);
 			}
 			if (update_state->pg_pipe_res_update[PG_DPSTREAM][i])
@@ -1398,7 +1402,8 @@ void dcn35_root_clock_control(struct dc *dc,
 		for (i = 0; i < dc->res_pool->pipe_count; i++) {
 			if (update_state->pg_pipe_res_update[PG_HUBP][i] &&
 				update_state->pg_pipe_res_update[PG_DPP][i]) {
-				if (dc->hwseq->funcs.dpp_root_clock_control)
+				if (dc->hwseq->funcs.dpp_root_clock_control &&
+				    hwss_is_dpp_root_clock_control_allowed(dc->hwseq, power_on))
 					dc->hwseq->funcs.dpp_root_clock_control(dc->hwseq, i, power_on);
 			}
 			if (update_state->pg_pipe_res_update[PG_DPSTREAM][i])
@@ -1844,11 +1849,8 @@ void dcn35_disable_link_output(struct dc_link *link,
 		disable_link_output_symclk_on_tx_off(link, DP_UNKNOWN_ENCODING);
 		link->phy_state.symclk_state = SYMCLK_ON_TX_OFF;
 	} else {
-		if (!(signal == SIGNAL_TYPE_EDP &&
-		      link->forced_psr_active)) {
-			link_hwss->disable_link_output(link, link_res, signal);
-			link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
-		}
+		link_hwss->disable_link_output(link, link_res, signal);
+		link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
 	}
 	/*
 	 * Add the logic to extract BOTH power up and power down sequences

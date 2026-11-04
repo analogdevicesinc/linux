@@ -158,24 +158,48 @@ int uvd_v1_0_init(struct radeon_device *rdev)
 {
 	struct radeon_ring *ring = &rdev->ring[R600_RING_TYPE_UVD_INDEX];
 	uint32_t tmp;
-	int r;
+	int r, retry, clk_err;
 
-	/* raise clocks while booting up the VCPU */
-	if (rdev->family < CHIP_RV740)
-		radeon_set_uvd_clocks(rdev, 10000, 10000);
-	else
-		radeon_set_uvd_clocks(rdev, 53300, 40000);
+	/* after resume the first ring test can race with the hardware; retry */
+	for (retry = 0; retry < 3; retry++) {
+		/* raise clocks while booting up the VCPU */
+		if (rdev->family < CHIP_RV740)
+			clk_err = radeon_set_uvd_clocks(rdev, 10000, 10000);
+		else
+			clk_err = radeon_set_uvd_clocks(rdev, 53300, 40000);
+		r = clk_err;
+		if (r)
+			drm_warn(&rdev->ddev, "radeon: raising UVD clocks failed (%d), attempt %d\n",
+				 r, retry + 1);
 
-	r = uvd_v1_0_start(rdev);
+		if (!r) {
+			r = uvd_v1_0_start(rdev);
+			if (r)
+				drm_warn(&rdev->ddev, "radeon: starting UVD failed (%d), attempt %d\n",
+					 r, retry + 1);
+		}
+
+		if (!r) {
+			ring->ready = true;
+			r = radeon_ring_test(rdev, R600_RING_TYPE_UVD_INDEX, ring);
+			if (r) {
+				ring->ready = false;
+				drm_warn(&rdev->ddev, "radeon: UVD ring test failed (%d), attempt %d\n",
+					 r, retry + 1);
+			}
+		}
+
+		if (!r)
+			break;
+
+		/* MMIO is only safe when the block is actually clocked */
+		if (!clk_err)
+			uvd_v1_0_stop(rdev);
+		if (retry < 2)
+			mdelay(20);
+	}
 	if (r)
 		goto done;
-
-	ring->ready = true;
-	r = radeon_ring_test(rdev, R600_RING_TYPE_UVD_INDEX, ring);
-	if (r) {
-		ring->ready = false;
-		goto done;
-	}
 
 	r = radeon_ring_lock(rdev, ring, 10);
 	if (r) {

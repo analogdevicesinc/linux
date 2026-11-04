@@ -17,6 +17,7 @@
 #include "dc_memory_pool.h"
 
 #include <linux/atomic.h>
+#include <linux/compiler_attributes.h>
 
 enum {
 	DC_MEMORY_POOL_SENTINEL = -1,

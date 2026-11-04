@@ -182,7 +182,7 @@ struct drm_device *dm_kunit_alloc_drm_with_connector_list(struct kunit *test)
 	struct drm_device *dev;
 
 	dev = kunit_kzalloc(test, sizeof(*dev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dev);
+	KUNIT_ASSERT_NOT_NULL(test, dev);
 
 	INIT_LIST_HEAD(&dev->mode_config.connector_list);
 	spin_lock_init(&dev->mode_config.connector_list_lock);

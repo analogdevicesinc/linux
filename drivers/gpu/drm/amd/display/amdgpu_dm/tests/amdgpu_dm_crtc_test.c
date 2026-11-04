@@ -114,7 +114,7 @@ static void dm_test_crtc_vrr_active_irq_variable(struct kunit *test)
 	struct amdgpu_crtc *acrtc = kunit_kzalloc(test, sizeof(*acrtc),
 						  GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
 
@@ -130,7 +130,7 @@ static void dm_test_crtc_vrr_active_irq_fixed(struct kunit *test)
 	struct amdgpu_crtc *acrtc = kunit_kzalloc(test, sizeof(*acrtc),
 						  GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_ACTIVE_FIXED;
 
@@ -146,7 +146,7 @@ static void dm_test_crtc_vrr_active_irq_inactive(struct kunit *test)
 	struct amdgpu_crtc *acrtc = kunit_kzalloc(test, sizeof(*acrtc),
 						  GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_INACTIVE;
 
@@ -162,7 +162,7 @@ static void dm_test_crtc_vrr_active_irq_disabled(struct kunit *test)
 	struct amdgpu_crtc *acrtc = kunit_kzalloc(test, sizeof(*acrtc),
 						  GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_DISABLED;
 
@@ -178,7 +178,7 @@ static void dm_test_crtc_vrr_active_irq_unsupported(struct kunit *test)
 	struct amdgpu_crtc *acrtc = kunit_kzalloc(test, sizeof(*acrtc),
 						  GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->dm_irq_params.freesync_config.state = VRR_STATE_UNSUPPORTED;
 
@@ -197,7 +197,7 @@ static void dm_test_crtc_vrr_active_variable(struct kunit *test)
 						       sizeof(*dm_state),
 						       GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
 
@@ -214,7 +214,7 @@ static void dm_test_crtc_vrr_active_fixed(struct kunit *test)
 						       sizeof(*dm_state),
 						       GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->freesync_config.state = VRR_STATE_ACTIVE_FIXED;
 
@@ -231,7 +231,7 @@ static void dm_test_crtc_vrr_active_inactive(struct kunit *test)
 						       sizeof(*dm_state),
 						       GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->freesync_config.state = VRR_STATE_INACTIVE;
 
@@ -248,7 +248,7 @@ static void dm_test_crtc_vrr_active_disabled(struct kunit *test)
 						       sizeof(*dm_state),
 						       GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->freesync_config.state = VRR_STATE_DISABLED;
 
@@ -265,7 +265,7 @@ static void dm_test_crtc_vrr_active_unsupported(struct kunit *test)
 						       sizeof(*dm_state),
 						       GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->freesync_config.state = VRR_STATE_UNSUPPORTED;
 
@@ -304,7 +304,7 @@ static void dm_test_crtc_is_headless_no_connectors(struct kunit *test)
 	struct amdgpu_device *adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
 	struct drm_device *dev = dm_kunit_alloc_drm_with_connector_list(test);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 	adev->dm.ddev = dev;
 
 	KUNIT_EXPECT_TRUE(test, amdgpu_dm_is_headless(adev));
@@ -320,8 +320,8 @@ static void dm_test_crtc_is_headless_writeback_only(struct kunit *test)
 	struct drm_device *dev = dm_kunit_alloc_drm_with_connector_list(test);
 	struct drm_connector *wb = kunit_kzalloc(test, sizeof(*wb), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wb);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, wb);
 	adev->dm.ddev = dev;
 
 	dm_test_add_connector(dev, wb, DRM_MODE_CONNECTOR_WRITEBACK,
@@ -340,8 +340,8 @@ static void dm_test_crtc_is_headless_disconnected_display(struct kunit *test)
 	struct drm_device *dev = dm_kunit_alloc_drm_with_connector_list(test);
 	struct drm_connector *display = kunit_kzalloc(test, sizeof(*display), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, display);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, display);
 	adev->dm.ddev = dev;
 
 	dm_test_add_connector(dev, display, DRM_MODE_CONNECTOR_HDMIA,
@@ -360,8 +360,8 @@ static void dm_test_crtc_is_headless_connected_display(struct kunit *test)
 	struct drm_device *dev = dm_kunit_alloc_drm_with_connector_list(test);
 	struct drm_connector *display = kunit_kzalloc(test, sizeof(*display), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, display);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, display);
 	adev->dm.ddev = dev;
 
 	dm_test_add_connector(dev, display, DRM_MODE_CONNECTOR_HDMIA,
@@ -381,9 +381,9 @@ static void dm_test_crtc_is_headless_mixed_connectors(struct kunit *test)
 	struct drm_connector *wb = kunit_kzalloc(test, sizeof(*wb), GFP_KERNEL);
 	struct drm_connector *display = kunit_kzalloc(test, sizeof(*display), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wb);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, display);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, wb);
+	KUNIT_ASSERT_NOT_NULL(test, display);
 	adev->dm.ddev = dev;
 
 	dm_test_add_connector(dev, wb, DRM_MODE_CONNECTOR_WRITEBACK,
@@ -426,7 +426,7 @@ static void dm_test_crtc_set_vupdate_irq_no_otg(struct kunit *test)
 	adev = dm_kunit_alloc_adev(test);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->base.dev = &adev->ddev;
 	acrtc->otg_inst = -1;
@@ -451,7 +451,7 @@ static void dm_test_crtc_set_vupdate_irq_dc_busy(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->base.dev = &adev->ddev;
 	acrtc->otg_inst = 0;
@@ -514,20 +514,19 @@ static void dm_test_crtc_set_vupdate_irq_enable(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	dc = dm_kunit_alloc_dc_with_ctx(test);
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
 	irqs = kunit_kzalloc(test, sizeof(*irqs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, irqs);
+	KUNIT_ASSERT_NOT_NULL(test, irqs);
 
 	/*
 	 * Populate the per-source info table so amdgpu_dm_irq_set() succeeds.
 	 */
-	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
-			     GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
+	info = kunit_kcalloc(test, DAL_IRQ_SOURCES_NUMBER, sizeof(*info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, info);
 	for (i = 0; i < DAL_IRQ_SOURCES_NUMBER; i++)
 		info[i].funcs = &dm_test_vupdate_irq_src_funcs;
 
@@ -560,7 +559,7 @@ static void dm_test_idle_create_workqueue(struct kunit *test)
 	struct idle_workqueue *idle_work;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	idle_work = idle_create_workqueue(adev);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, idle_work);
@@ -588,7 +587,7 @@ static void dm_test_idle_worker_disabled_clears_running(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	idle_work = kunit_kzalloc(test, sizeof(*idle_work), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, idle_work);
+	KUNIT_ASSERT_NOT_NULL(test, idle_work);
 
 	idle_work->dm = &adev->dm;
 	idle_work->enable = false;
@@ -623,7 +622,7 @@ static void dm_test_idle_worker_enabled_breaks_when_idle_disallowed(struct kunit
 	adev->dm.dc->idle_optimizations_allowed = false;
 
 	idle_work = kunit_kzalloc(test, sizeof(*idle_work), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, idle_work);
+	KUNIT_ASSERT_NOT_NULL(test, idle_work);
 
 	idle_work->dm = &adev->dm;
 	idle_work->enable = true;
@@ -668,12 +667,12 @@ static void dm_test_idle_worker_enabled_breaks_when_not_headless(struct kunit *t
 
 	/* A connected display makes amdgpu_dm_is_headless() false. */
 	display = kunit_kzalloc(test, sizeof(*display), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, display);
+	KUNIT_ASSERT_NOT_NULL(test, display);
 	dm_test_add_connector(adev->dm.ddev, display, DRM_MODE_CONNECTOR_HDMIA,
 			      connector_status_connected);
 
 	idle_work = kunit_kzalloc(test, sizeof(*idle_work), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, idle_work);
+	KUNIT_ASSERT_NOT_NULL(test, idle_work);
 	idle_work->dm = &adev->dm;
 	idle_work->enable = true;
 	adev->dm.idle_workqueue = idle_work;
@@ -727,7 +726,7 @@ static void dm_test_idle_worker_enabled_runs_body(struct kunit *test)
 	adev->dm.dc->caps.is_apu = true;
 	/* dc_allow() logs via DC_LOG_DEBUG() when it flips the flag. */
 	logger = kunit_kzalloc(test, sizeof(*logger), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, logger);
+	KUNIT_ASSERT_NOT_NULL(test, logger);
 	logger->dev = &adev->ddev;
 	adev->dm.dc->ctx->logger = logger;
 	/* dc_allow() only flips the flag when clk_mgr and apply() are present. */
@@ -736,7 +735,7 @@ static void dm_test_idle_worker_enabled_runs_body(struct kunit *test)
 	adev->dm.dc->hwss.apply_idle_power_optimizations = dm_test_idle_apply_flip;
 
 	idle_work = kunit_kzalloc(test, sizeof(*idle_work), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, idle_work);
+	KUNIT_ASSERT_NOT_NULL(test, idle_work);
 	idle_work->dm = &adev->dm;
 	idle_work->enable = true;
 	adev->dm.idle_workqueue = idle_work;
@@ -764,7 +763,7 @@ static void dm_test_crtc_set_static_screen_optimze_no_sr_entry(struct kunit *tes
 	struct dc_stream_state *stream;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	link = dm_kunit_alloc_link(test);
 	stream = dm_kunit_alloc_stream(test, link);
@@ -790,7 +789,7 @@ static void dm_test_crtc_set_static_screen_optimze_sr_entry_psr(struct kunit *te
 	struct dc_stream_state *stream;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	link = dm_kunit_alloc_link(test);
 	stream = dm_kunit_alloc_stream(test, link);
@@ -816,7 +815,7 @@ static void dm_test_crtc_set_static_screen_optimze_psr_su_skips(struct kunit *te
 	struct dc_stream_state *stream;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	link = dm_kunit_alloc_link(test);
 	stream = dm_kunit_alloc_stream(test, link);
@@ -842,7 +841,7 @@ static void dm_test_crtc_enable_vblank_rejects_unconfigured(struct kunit *test)
 	struct amdgpu_crtc *acrtc;
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	acrtc->base.dev = &adev->ddev;
 	acrtc->base.enabled = false;
@@ -926,7 +925,7 @@ static void dm_test_crtc_arm_irq_src(struct kunit *test,
 	atomic_t *enabled;
 
 	enabled = kunit_kzalloc(test, sizeof(*enabled), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, enabled);
+	KUNIT_ASSERT_NOT_NULL(test, enabled);
 
 	atomic_set(enabled, count);
 	src->num_types = 1;
@@ -970,11 +969,11 @@ dm_test_crtc_setup_enable(struct kunit *test, struct amdgpu_device **adev_out,
 	adev->mode_info.num_crtc = 1;
 
 	reset_domain = kunit_kzalloc(test, sizeof(*reset_domain), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, reset_domain);
+	KUNIT_ASSERT_NOT_NULL(test, reset_domain);
 	adev->reset_domain = reset_domain;
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->base.funcs = &dm_test_crtc_funcs;
 	acrtc->base.enabled = true;
@@ -988,7 +987,7 @@ dm_test_crtc_setup_enable(struct kunit *test, struct amdgpu_device **adev_out,
 	stream = dm_kunit_alloc_stream(test, link);
 
 	dm_state = kunit_kzalloc(test, sizeof(*dm_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 	dm_state->stream = stream;
 	acrtc->base.state = &dm_state->base;
 
@@ -1053,16 +1052,15 @@ static void dm_test_crtc_enable_vblank_vupdate_busy(struct kunit *test)
 	acrtc_state->freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
 
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
 	irqs = kunit_kzalloc(test, sizeof(*irqs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, irqs);
+	KUNIT_ASSERT_NOT_NULL(test, irqs);
 
 	/*
 	 * Per-source .set fails so amdgpu_dm_irq_set() reports the source busy.
 	 */
-	info = kunit_kzalloc(test, sizeof(*info) * DAL_IRQ_SOURCES_NUMBER,
-			     GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, info);
+	info = kunit_kcalloc(test, DAL_IRQ_SOURCES_NUMBER, sizeof(*info), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, info);
 	for (i = 0; i < DAL_IRQ_SOURCES_NUMBER; i++)
 		info[i].funcs = &dm_test_vupdate_irq_src_busy_funcs;
 
@@ -1286,7 +1284,7 @@ static struct drm_crtc *dm_test_crtc_setup_vline0(struct kunit *test,
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	adev->ip_versions[DCE_HWIP][0] = ip_version;
@@ -1375,7 +1373,7 @@ static void dm_test_crtc_update_active_planes_no_stream(struct kunit *test)
 	struct dm_crtc_state *dm_state;
 
 	dm_state = kunit_kzalloc(test, sizeof(*dm_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	dm_state->stream = NULL;
 	dm_state->active_planes = 5;
@@ -1413,11 +1411,11 @@ static void dm_test_count_crtc_active_planes_none(struct kunit *test)
 	INIT_LIST_HEAD(&dev->mode_config.plane_list);
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = dev;
 
 	crtc_state = kunit_kzalloc(test, sizeof(*crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, crtc_state);
 	crtc_state->state = state;
 	crtc_state->plane_mask = 0;
 
@@ -1452,15 +1450,15 @@ static void dm_test_count_crtc_active_planes_mixed(struct kunit *test)
 	INIT_LIST_HEAD(&dev->mode_config.plane_list);
 
 	plane_no_state = kunit_kzalloc(test, sizeof(*plane_no_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_no_state);
+	KUNIT_ASSERT_NOT_NULL(test, plane_no_state);
 	plane_cursor = kunit_kzalloc(test, sizeof(*plane_cursor), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_cursor);
+	KUNIT_ASSERT_NOT_NULL(test, plane_cursor);
 	plane_with_fb = kunit_kzalloc(test, sizeof(*plane_with_fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_with_fb);
+	KUNIT_ASSERT_NOT_NULL(test, plane_with_fb);
 	plane_no_fb = kunit_kzalloc(test, sizeof(*plane_no_fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_no_fb);
+	KUNIT_ASSERT_NOT_NULL(test, plane_no_fb);
 	plane_excluded = kunit_kzalloc(test, sizeof(*plane_excluded), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, plane_excluded);
+	KUNIT_ASSERT_NOT_NULL(test, plane_excluded);
 
 	dm_test_add_plane(dev, plane_no_state, 0, DRM_PLANE_TYPE_PRIMARY);
 	dm_test_add_plane(dev, plane_cursor, 1, DRM_PLANE_TYPE_CURSOR);
@@ -1469,19 +1467,19 @@ static void dm_test_count_crtc_active_planes_mixed(struct kunit *test)
 	dm_test_add_plane(dev, plane_excluded, 4, DRM_PLANE_TYPE_PRIMARY);
 
 	fb = kunit_kzalloc(test, sizeof(*fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fb);
+	KUNIT_ASSERT_NOT_NULL(test, fb);
 	ps_fb = kunit_kzalloc(test, sizeof(*ps_fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ps_fb);
+	KUNIT_ASSERT_NOT_NULL(test, ps_fb);
 	ps_fb->fb = fb;
 	ps_no_fb = kunit_kzalloc(test, sizeof(*ps_no_fb), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ps_no_fb);
+	KUNIT_ASSERT_NOT_NULL(test, ps_no_fb);
 	ps_no_fb->fb = NULL;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = dev;
-	state->planes = kunit_kzalloc(test, sizeof(*state->planes) * 5, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->planes);
+	state->planes = kunit_kcalloc(test, 5, sizeof(*state->planes), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, state->planes);
 	state->planes[0].new_state = NULL;
 	state->planes[1].new_state = ps_fb;
 	state->planes[2].new_state = ps_fb;
@@ -1489,7 +1487,7 @@ static void dm_test_count_crtc_active_planes_mixed(struct kunit *test)
 	state->planes[4].new_state = ps_fb;
 
 	crtc_state = kunit_kzalloc(test, sizeof(*crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, crtc_state);
 	crtc_state->state = state;
 	/* Exclude plane index 4 from the CRTC. */
 	crtc_state->plane_mask = BIT(0) | BIT(1) | BIT(2) | BIT(3);
@@ -1514,9 +1512,9 @@ static void dm_test_crtc_duplicate_state_copies_fields(struct kunit *test)
 	struct dm_crtc_state *dm_dup;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	cur = kunit_kzalloc(test, sizeof(*cur), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, cur);
+	KUNIT_ASSERT_NOT_NULL(test, cur);
 
 	cur->abm_level = 3;
 	cur->active_planes = 2;
@@ -1560,9 +1558,9 @@ static void dm_test_crtc_duplicate_state_retains_stream(struct kunit *test)
 	struct dc_link *link;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	cur = kunit_kzalloc(test, sizeof(*cur), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, cur);
+	KUNIT_ASSERT_NOT_NULL(test, cur);
 
 	link = dm_kunit_alloc_link(test);
 	stream = dm_kunit_alloc_stream(test, link);
@@ -1595,7 +1593,7 @@ static void dm_test_crtc_duplicate_state_null_state_returns_null(struct kunit *t
 	struct drm_crtc *crtc;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->state = NULL;
 
 	KUNIT_EXPECT_NULL(test, amdgpu_dm_crtc_duplicate_state(crtc));
@@ -1629,7 +1627,7 @@ static void dm_test_crtc_destroy_cleans_up_and_frees(struct kunit *test)
 
 	/* amdgpu_dm_crtc_destroy() kfree()s the CRTC, so use a plain alloc. */
 	acrtc = kzalloc_obj(*acrtc, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	ret = drm_crtc_init_with_planes(&adev->ddev, &acrtc->base, plane,
 					NULL, &dm_test_crtc_funcs, NULL);
@@ -1657,7 +1655,7 @@ static void dm_test_crtc_create_state_allocates_state(struct kunit *test)
 	struct drm_crtc *crtc;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 	crtc->state = NULL;
 
@@ -1686,7 +1684,7 @@ static void dm_test_crtc_reset_state_replaces_existing(struct kunit *test)
 	struct dc_link *link;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	link = dm_kunit_alloc_link(test);
@@ -1696,7 +1694,7 @@ static void dm_test_crtc_reset_state_replaces_existing(struct kunit *test)
 
 	/* reset_state kfree()s the old state, so use a plain (unmanaged) alloc. */
 	old = kzalloc_obj(*old, GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, old);
+	KUNIT_ASSERT_NOT_NULL(test, old);
 	old->stream = stream;
 	crtc->state = &old->base;
 
@@ -1725,7 +1723,7 @@ static void dm_test_crtc_destroy_state_no_stream(struct kunit *test)
 
 	/* destroy_state kfree()s the state, so use a plain (unmanaged) alloc. */
 	dm_state = kzalloc_obj(*dm_state);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 
 	amdgpu_dm_crtc_destroy_state(NULL, &dm_state->base);
 }
@@ -1755,7 +1753,7 @@ static void dm_test_crtc_destroy_state_releases_stream(struct kunit *test)
 
 	/* destroy_state kfree()s the state, so use a plain (unmanaged) alloc. */
 	dm_state = kzalloc_obj(*dm_state);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 	dm_state->stream = stream;
 
 	amdgpu_dm_crtc_destroy_state(NULL, &dm_state->base);
@@ -1783,7 +1781,7 @@ static void dm_test_crtc_handle_vblank_no_event(struct kunit *test)
 	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->event = NULL;
 
@@ -1811,9 +1809,9 @@ static void dm_test_crtc_handle_vblank_skips_when_flip_submitted(struct kunit *t
 	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	event = kunit_kzalloc(test, sizeof(*event), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	KUNIT_ASSERT_NOT_NULL(test, event);
 
 	acrtc->base.dev = &adev->ddev;
 	acrtc->base.funcs = &dm_test_crtc_funcs;
@@ -1850,11 +1848,11 @@ static void dm_test_crtc_handle_vblank_completes_cursor_only(struct kunit *test)
 	KUNIT_ASSERT_EQ(test, drm_vblank_init(&adev->ddev, 1), 0);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 
 	/* drm_crtc_send_vblank_event() consumes (kfree()s) the event. */
 	event = kzalloc_obj(*event);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, event);
+	KUNIT_ASSERT_NOT_NULL(test, event);
 
 	acrtc->base.dev = &adev->ddev;
 	acrtc->base.funcs = &dm_test_crtc_funcs;
@@ -1907,7 +1905,7 @@ dm_test_vblank_control_worker_setup(struct kunit *test, bool enable,
 	adev->dm.active_vblank_irq_count = count;
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->base.state = NULL;
 
@@ -1918,7 +1916,7 @@ dm_test_vblank_control_worker_setup(struct kunit *test, bool enable,
 
 	/* Worker kfree()s the work item, so it must be a plain allocation. */
 	work = kzalloc_obj(*work);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, work);
+	KUNIT_ASSERT_NOT_NULL(test, work);
 	work->dm = &adev->dm;
 	work->acrtc = acrtc;
 	work->stream = stream;
@@ -2012,7 +2010,7 @@ static void dm_test_crtc_disable_vblank_no_irq_installed(struct kunit *test)
 	adev->irq.installed = false;
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->crtc_id = 0;
 
@@ -2047,7 +2045,7 @@ static void dm_test_crtc_disable_vblank_vrr(struct kunit *test)
 	adev->irq.installed = true;
 
 	reset_domain = kunit_kzalloc(test, sizeof(*reset_domain), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, reset_domain);
+	KUNIT_ASSERT_NOT_NULL(test, reset_domain);
 	adev->reset_domain = reset_domain;
 
 	/* Seed with 2 so amdgpu_irq_put() drops to a non-zero refcount. */
@@ -2055,7 +2053,7 @@ static void dm_test_crtc_disable_vblank_vrr(struct kunit *test)
 	dm_test_crtc_arm_irq_src(test, &adev->pageflip_irq, 2);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->crtc_id = 0;
 	/* OTG unassigned -> amdgpu_dm_crtc_set_vupdate_irq() returns 0 early. */
@@ -2098,7 +2096,7 @@ static void dm_test_crtc_disable_vblank_queues_work(struct kunit *test)
 	adev->irq.installed = true;
 
 	reset_domain = kunit_kzalloc(test, sizeof(*reset_domain), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, reset_domain);
+	KUNIT_ASSERT_NOT_NULL(test, reset_domain);
 	adev->reset_domain = reset_domain;
 
 	/* Seed with 2 so amdgpu_irq_put() drops to a non-zero refcount. */
@@ -2106,7 +2104,7 @@ static void dm_test_crtc_disable_vblank_queues_work(struct kunit *test)
 	dm_test_crtc_arm_irq_src(test, &adev->pageflip_irq, 2);
 
 	acrtc = kunit_kzalloc(test, sizeof(*acrtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, acrtc);
+	KUNIT_ASSERT_NOT_NULL(test, acrtc);
 	acrtc->base.dev = &adev->ddev;
 	acrtc->crtc_id = 0;
 	acrtc->otg_inst = -1;
@@ -2118,7 +2116,7 @@ static void dm_test_crtc_disable_vblank_queues_work(struct kunit *test)
 
 	/* CRTC state with no stream -> the stream-retain branch is skipped. */
 	dm_state = kunit_kzalloc(test, sizeof(*dm_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_state);
 	acrtc->base.state = &dm_state->base;
 
 	/* Real workqueue so the queue_work() branch runs the control worker. */
@@ -2152,7 +2150,7 @@ static void dm_test_crtc_late_register_inits_debugfs(struct kunit *test)
 	int ret;
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 
 	crtc->debugfs_entry = debugfs_create_dir("dm_test_crtc", NULL);
 
@@ -2304,18 +2302,18 @@ static void dm_test_crtc_atomic_check_no_stream_passes(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 
@@ -2364,24 +2362,24 @@ static void dm_test_crtc_atomic_check_enable_without_primary_fails(struct kunit 
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	primary = kunit_kzalloc(test, sizeof(*primary), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	KUNIT_ASSERT_NOT_NULL(test, primary);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 	crtc->primary = primary;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 	dm_crtc_state->base.enable = true;
 	dm_crtc_state->base.plane_mask = 0;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 
@@ -2409,20 +2407,20 @@ static void dm_test_crtc_atomic_check_async_flip_non_fast_fails(struct kunit *te
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 	dm_crtc_state->base.async_flip = true;
 	dm_crtc_state->update_type = UPDATE_TYPE_FULL;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 
@@ -2453,33 +2451,33 @@ static void dm_test_crtc_atomic_check_vrr_pulls_primary(struct kunit *test)
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
 
 	primary = kunit_kzalloc(test, sizeof(*primary), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	KUNIT_ASSERT_NOT_NULL(test, primary);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 	crtc->primary = primary;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 	dm_crtc_state->freesync_config.state = VRR_STATE_ACTIVE_VARIABLE;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 
 	/* acquire ctx must be set; existing plane state avoids taking a lock. */
 	state->acquire_ctx = kunit_kzalloc(test, sizeof(*state->acquire_ctx), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->acquire_ctx);
+	KUNIT_ASSERT_NOT_NULL(test, state->acquire_ctx);
 	state->planes = kunit_kzalloc(test, sizeof(*state->planes), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->planes);
+	KUNIT_ASSERT_NOT_NULL(test, state->planes);
 	primary_plane_state = kunit_kzalloc(test, sizeof(*primary_plane_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary_plane_state);
+	KUNIT_ASSERT_NOT_NULL(test, primary_plane_state);
 	state->planes[0].new_state = primary_plane_state;
 
 	ret = amdgpu_dm_crtc_helper_atomic_check(crtc, state);
@@ -2514,18 +2512,18 @@ static void dm_test_crtc_atomic_check_valid_stream_passes(struct kunit *test)
 
 	dc = dm_kunit_alloc_dc_with_ctx(test);
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
 	tg = kunit_kzalloc(test, sizeof(*tg), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, tg);
+	KUNIT_ASSERT_NOT_NULL(test, tg);
 	tg_funcs = kunit_kzalloc(test, sizeof(*tg_funcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, tg_funcs);
+	KUNIT_ASSERT_NOT_NULL(test, tg_funcs);
 	tg_funcs->validate_timing = dm_test_atomic_check_validate_timing_ok;
 	tg->funcs = tg_funcs;
 	res_pool->timing_generators[0] = tg;
 	dc->res_pool = res_pool;
 
 	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
 	link_srv->validate_mode_timing = dm_test_atomic_check_validate_mode_timing_ok;
 	dc->link_srv = link_srv;
 	adev->dm.dc = dc;
@@ -2535,19 +2533,19 @@ static void dm_test_crtc_atomic_check_valid_stream_passes(struct kunit *test)
 	stream = dm_kunit_alloc_stream(test, link);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 	dm_crtc_state->stream = stream;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 
@@ -2582,11 +2580,11 @@ static void dm_test_crtc_atomic_check_invalid_stream_fails(struct kunit *test)
 
 	dc = dm_kunit_alloc_dc_with_ctx(test);
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, res_pool);
+	KUNIT_ASSERT_NOT_NULL(test, res_pool);
 	tg = kunit_kzalloc(test, sizeof(*tg), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, tg);
+	KUNIT_ASSERT_NOT_NULL(test, tg);
 	tg_funcs = kunit_kzalloc(test, sizeof(*tg_funcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, tg_funcs);
+	KUNIT_ASSERT_NOT_NULL(test, tg_funcs);
 	tg_funcs->validate_timing = dm_test_atomic_check_validate_timing_fail;
 	tg->funcs = tg_funcs;
 	res_pool->timing_generators[0] = tg;
@@ -2597,19 +2595,19 @@ static void dm_test_crtc_atomic_check_invalid_stream_fails(struct kunit *test)
 	stream = dm_kunit_alloc_stream(test, link);
 
 	crtc = kunit_kzalloc(test, sizeof(*crtc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, crtc);
+	KUNIT_ASSERT_NOT_NULL(test, crtc);
 	crtc->dev = &adev->ddev;
 
 	dm_crtc_state = kunit_kzalloc(test, sizeof(*dm_crtc_state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm_crtc_state);
+	KUNIT_ASSERT_NOT_NULL(test, dm_crtc_state);
 	dm_crtc_state->base.crtc = crtc;
 	dm_crtc_state->stream = stream;
 
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 	state->dev = &adev->ddev;
 	state->crtcs = kunit_kzalloc(test, sizeof(*state->crtcs), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state->crtcs);
+	KUNIT_ASSERT_NOT_NULL(test, state->crtcs);
 	state->crtcs[0].new_state = &dm_crtc_state->base;
 	dm_crtc_state->base.state = state;
 

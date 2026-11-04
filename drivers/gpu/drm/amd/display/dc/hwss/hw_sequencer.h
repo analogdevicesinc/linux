@@ -63,6 +63,7 @@ struct hpo_frl_stream_encoder;
 struct link_training_settings;
 struct dc_link;
 struct dc_crtc_timing;
+struct dmub_srv_hw_params;
 
 struct tg_lock_params {
 	struct dc *dc;
@@ -140,6 +141,147 @@ struct send_dmcub_cmd_params {
 	struct dc_context *ctx;
 	union dmub_rb_cmd *cmd;
 	enum dm_dmub_wait_type wait_type;
+	bool continue_on_error;
+};
+
+struct dmub_gpint_params {
+	unsigned int command_code;
+	unsigned int param;
+	unsigned int *response;
+};
+
+struct psp_reload_dmub_fw_params {
+	struct dmub_srv *dmub;
+	const struct dmub_srv_hw_params *hw_params;
+};
+
+struct hwseq_reg_control_params {
+	struct dce_hwseq *hws;
+	bool enable;
+};
+
+struct dc_init_call_params {
+	struct dc *dc;
+	bool enable;
+};
+
+struct dccg_get_ref_freq_params {
+	struct dccg *dccg;
+	unsigned int xtalin_khz;
+	unsigned int *out_xtalin_khz;
+	unsigned int *out_dccg_ref_khz;
+};
+
+struct hubbub_get_dchub_ref_freq_params {
+	struct hubbub *hubbub;
+	unsigned int dccg_ref_khz;
+	unsigned int *out_dchub_ref_khz;
+};
+
+struct link_enc_hw_init_params {
+	struct link_encoder *link_enc;
+};
+
+struct link_enc_is_dig_enabled_params {
+	struct link_encoder *link_enc;
+	bool *out_dig_enabled;
+};
+
+struct link_enc_fec_is_active_params {
+	struct link_encoder *link_enc;
+	bool *out_fec_active;
+};
+
+struct clk_mgr_get_dispclk_from_dentist_params {
+	struct clk_mgr *clk_mgr;
+	int *out_dispclk_khz;
+};
+
+struct edp_control_params {
+	struct dc_link *link;
+	bool enable;
+};
+
+struct bios_get_i2c_info_params {
+	struct dc_bios *dcb;
+	struct graphics_object_id link_id;
+	struct graphics_object_i2c_info *out_info;
+	enum bp_result *out_result;
+};
+
+struct hubbub_allow_self_refresh_control_params {
+	struct hubbub *hubbub;
+	bool allow;
+};
+
+struct audio_hw_init_params {
+	struct audio *audio;
+};
+
+struct panel_cntl_hw_init_params {
+	struct panel_cntl *panel_cntl;
+	uint32_t *out_backlight;
+	uint32_t *out_user_level;
+};
+
+struct gpio_ddc_open_params {
+	struct gpio_service *gpio_service;
+	uint32_t clk_a_register_index;
+	uint32_t clk_a_mask;
+	struct gpio_ddc_hw_info hw_info;
+};
+
+struct abm_init_params {
+	struct abm *abm;
+	uint32_t backlight;
+	uint32_t user_level;
+};
+
+struct dio_set_mem_power_params {
+	struct dio *dio;
+	bool enable;
+};
+
+struct dccg_set_root_clock_gating_params {
+	struct dccg *dccg;
+	bool allow;
+};
+
+struct hubbub_init_watermarks_params {
+	struct hubbub *hubbub;
+};
+
+struct hubbub_init_crb_params {
+	struct hubbub *hubbub;
+};
+
+struct hubbub_set_request_limit_params {
+	struct hubbub *hubbub;
+	unsigned int num_chans;
+	unsigned int words_per_umc;
+};
+
+struct clk_mgr_initialize_min_clocks_params {
+	struct clk_mgr *clk_mgr;
+	struct dc_state *context;
+	int dcfclk_deep_sleep_khz;
+	int dcfclk_khz;
+	int socclk_khz;
+	int dramclk_khz;
+	int dppclk_khz;
+	int dispclk_khz;
+	int ref_dtbclk_khz;
+	bool fclk_p_state_change_support;
+	bool p_state_change_support;
+};
+
+struct clk_mgr_notify_wm_ranges_params {
+	struct clk_mgr *clk_mgr;
+};
+
+struct bios_is_accelerated_mode_params {
+	struct dc_bios *dcb;
+	bool *out_accelerated_mode;
 };
 
 struct lsdma_send_pio_copy_params {
@@ -155,6 +297,7 @@ struct setup_dpp_params {
 	enum surface_pixel_format format;
 	struct dc_csc_transform input_csc_color_matrix;
 	enum dc_color_space color_space;
+	enum upsp_mode upsp_mode;
 };
 
 struct program_bias_and_scale_params {
@@ -705,13 +848,14 @@ struct dpp_reset_params {
 };
 
 struct dpp_root_clock_control_params {
-	struct dce_hwseq *hws;
+	struct dccg *dccg;
 	unsigned int dpp_inst;
 	bool clock_on;
+	bool root_clock_optimization_dpp;
 };
 
 struct dc_ip_request_cntl_params {
-	struct dc *dc;
+	struct dce_hwseq *hws;
 	bool enable;
 };
 
@@ -1001,6 +1145,19 @@ struct clk_mgr_update_clocks_params {
 	struct clk_mgr *clk_mgr;
 };
 
+struct legacy_clk_mgr_init_clocks_params {
+	struct clk_mgr *clk_mgr;
+};
+
+struct legacy_clk_mgr_is_dc_mode_present_params {
+	struct clk_mgr *clk_mgr;
+	bool *out_dcmode_power_limits_present;
+};
+
+struct dccg_initialize_clocks_params {
+	struct dccg *dccg;
+};
+
 struct hubbub_program_watermarks_params {
 	struct dc *dc;
 	struct hubbub *hubbub;
@@ -1196,6 +1353,40 @@ union block_sequence_params {
 	struct link_set_dpms_on_params link_set_dpms_on_params;
 	struct clk_mgr_set_max_memclk_params clk_mgr_set_max_memclk_params;
 	struct clk_mgr_update_clocks_params clk_mgr_update_clocks_params;
+	struct legacy_clk_mgr_init_clocks_params
+			legacy_clk_mgr_init_clocks_params;
+	struct legacy_clk_mgr_is_dc_mode_present_params
+			legacy_clk_mgr_is_dc_mode_present_params;
+	struct dccg_initialize_clocks_params dccg_initialize_clocks_params;
+	struct dmub_gpint_params dmub_gpint_params;
+	struct psp_reload_dmub_fw_params psp_reload_dmub_fw_params;
+	struct hwseq_reg_control_params hwseq_reg_control_params;
+	struct dc_init_call_params dc_init_call_params;
+	struct dccg_get_ref_freq_params dccg_get_ref_freq_params;
+	struct hubbub_get_dchub_ref_freq_params hubbub_get_dchub_ref_freq_params;
+	struct link_enc_hw_init_params link_enc_hw_init_params;
+	struct link_enc_is_dig_enabled_params link_enc_is_dig_enabled_params;
+	struct link_enc_fec_is_active_params link_enc_fec_is_active_params;
+	struct clk_mgr_get_dispclk_from_dentist_params
+			clk_mgr_get_dispclk_from_dentist_params;
+	struct edp_control_params edp_control_params;
+	struct bios_get_i2c_info_params bios_get_i2c_info_params;
+	struct hubbub_allow_self_refresh_control_params
+			hubbub_allow_self_refresh_control_params;
+	struct audio_hw_init_params audio_hw_init_params;
+	struct panel_cntl_hw_init_params panel_cntl_hw_init_params;
+	struct gpio_ddc_open_params gpio_ddc_open_params;
+	struct abm_init_params abm_init_params;
+	struct dio_set_mem_power_params dio_set_mem_power_params;
+	struct dccg_set_root_clock_gating_params
+			dccg_set_root_clock_gating_params;
+	struct hubbub_init_watermarks_params hubbub_init_watermarks_params;
+	struct hubbub_init_crb_params hubbub_init_crb_params;
+	struct hubbub_set_request_limit_params hubbub_set_request_limit_params;
+	struct clk_mgr_initialize_min_clocks_params
+			clk_mgr_initialize_min_clocks_params;
+	struct clk_mgr_notify_wm_ranges_params clk_mgr_notify_wm_ranges_params;
+	struct bios_is_accelerated_mode_params bios_is_accelerated_mode_params;
 	struct hubbub_program_watermarks_params hubbub_program_watermarks_params;
 	struct hubbub_program_arbiter_params hubbub_program_arbiter_params;
 	struct hubbub_program_compbuf_segments_params hubbub_program_compbuf_segments_params;
@@ -1366,6 +1557,45 @@ enum block_sequence_func {
 	HUBBUB_PERFMON_GET_URGENT_ASSERTION_COUNT,
 	HUBBUB_PERFMON_GET_PREFETCH_DATA_SIZE,
 	HUBBUB_PERFMON_GET_URGENT_RAMP_LATENCY,
+	LEGACY_CLK_MGR_INIT_CLOCKS,
+	LEGACY_CLK_MGR_IS_DC_MODE_PRESENT,
+	DCCG_INITIALIZE_CLOCKS,
+	DMUB_GPINT_SEND_AND_WAIT,
+	DMUB_HALT_FW,
+	PSP_RELOAD_DMUB_FW,
+	DMUB_INITIALIZE_DCN,
+	OPTC_SET_ODM_MEM_POWER,
+	MMHUBBUB_SET_MEM_POWER,
+	DCCG_GET_REF_FREQ,
+	HUBBUB_GET_DCHUB_REF_FREQ,
+	DIO_LINK_ENC_HW_INIT,
+	DIO_LINK_ENC_IS_DIG_ENABLED,
+	DIO_LINK_ENC_FEC_IS_ACTIVE,
+	BIOS_GET_I2C_INFO,
+	PG_SET_PLANE_POWER_GATING,
+	LINK_BLANK_ALL_DP_DISPLAYS,
+	HWSS_ENABLE_ACCELERATED_MODE,
+	HWSEQ_INIT_PIPES,
+	HUBBUB_ALLOW_SELF_REFRESH_CONTROL,
+	CLK_MGR_GET_DISPCLK_FROM_DENTIST,
+	LEGACY_CLK_MGR_INITIALIZE_MIN_CLOCKS,
+	DMUB_SET_IDLE_OPTIMIZATION,
+	EDP_BACKLIGHT_CONTROL,
+	HWSEQ_POWER_DOWN,
+	EDP_POWER_CONTROL,
+	AUDIO_HW_INIT,
+	PANEL_CNTL_HW_INIT,
+	GPIO_DDC_OPEN,
+	ABM_INIT,
+	DIO_AFMT_SET_MEM_POWER,
+	DCCG_SET_ROOT_CLOCK_GATING,
+	DCCG_SET_DCFCLK_GATING,
+	HPO_SET_HW_CONTROL,
+	HUBBUB_INIT_WATERMARKS,
+	LEGACY_CLK_MGR_NOTIFY_WM_RANGES,
+	HUBBUB_INIT_CRB,
+	HUBBUB_SET_REQUEST_LIMIT,
+	BIOS_IS_ACCELERATED_MODE,
 	/* This must be the last value in this enum, add new ones above */
 	HWSS_BLOCK_SEQUENCE_FUNC_COUNT
 };
@@ -2454,6 +2684,8 @@ void hwss_add_dccg_set_ref_dscclk(struct block_sequence_state *seq_state,
 		struct dccg *dccg,
 		int dsc_inst,
 		bool *is_ungated);
+
+bool hwss_is_dpp_root_clock_control_allowed(struct dce_hwseq *hws, bool clock_on);
 
 void hwss_add_dpp_root_clock_control(struct block_sequence_state *seq_state,
 		struct dce_hwseq *hws,

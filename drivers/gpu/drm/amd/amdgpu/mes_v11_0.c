@@ -992,9 +992,15 @@ static int mes_v11_0_misc_op(struct amdgpu_mes *mes,
 
 	switch (input->op) {
 	case MES_MISC_OP_READ_REG:
+		if (input->read_reg.read64_bits &&
+		    (mes->sched_version & AMDGPU_MES_VERSION_MASK) < 0x42)
+			return -EOPNOTSUPP;
+
 		misc_pkt.opcode = MESAPI_MISC__READ_REG;
 		misc_pkt.read_reg.reg_offset = input->read_reg.reg_offset;
 		misc_pkt.read_reg.buffer_addr = input->read_reg.buffer_addr;
+		misc_pkt.read_reg.option.bits.read64Bits =
+			input->read_reg.read64_bits;
 		break;
 	case MES_MISC_OP_WRITE_REG:
 		misc_pkt.opcode = MESAPI_MISC__WRITE_REG;
@@ -1028,6 +1034,12 @@ static int mes_v11_0_misc_op(struct amdgpu_mes *mes,
 		memcpy(misc_pkt.set_shader_debugger.tcp_watch_cntl,
 				input->set_shader_debugger.tcp_watch_cntl,
 				sizeof(misc_pkt.set_shader_debugger.tcp_watch_cntl));
+		for (int i = 0; i < 4; i++) {
+			misc_pkt.set_shader_debugger.tcp_watch_addr_lo[i] =
+				lower_32_bits(input->set_shader_debugger.watch_addresses[i]);
+			misc_pkt.set_shader_debugger.tcp_watch_addr_hi[i] =
+				upper_32_bits(input->set_shader_debugger.watch_addresses[i]) & 0xffff;
+		}
 		misc_pkt.set_shader_debugger.trap_en = input->set_shader_debugger.trap_en;
 		break;
 	case MES_MISC_OP_CHANGE_CONFIG:
@@ -1864,6 +1876,7 @@ static int mes_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	struct amdgpu_device *adev = ip_block->adev;
 	int pipe, r, bo_size;
 
+	adev->mes.use_rs64mem = false;
 	adev->mes.funcs = &mes_v11_0_funcs;
 	adev->mes.kiq_hw_init = &mes_v11_0_kiq_hw_init;
 	adev->mes.kiq_hw_fini = &mes_v11_0_kiq_hw_fini;
@@ -1912,6 +1925,14 @@ static int mes_v11_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r) {
 		dev_err(adev->dev, "(%d) failed to create mes resource_1 bo\n", r);
 		return r;
+	}
+
+	/* Allocate GPU buffer for array size query results */
+	r = amdgpu_mes_rs64mem_init(&adev->mes);
+	if (r) {
+		dev_warn(adev->dev,
+			 "RS64 memory init failed (%d), using system memory\n", r);
+		adev->mes.use_rs64mem = false;
 	}
 
 	return 0;
@@ -2091,8 +2112,6 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (adev->mes.ring[0].sched.ready)
 		goto out;
 
-	adev->mes.use_rs64mem = false;
-
 	if (!adev->enable_mes_kiq) {
 		if (adev->firmware.load_type == AMDGPU_FW_LOAD_DIRECT) {
 			r = mes_v11_0_load_microcode(adev,
@@ -2110,14 +2129,6 @@ static int mes_v11_0_hw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		goto failure;
 
-	/* Allocate GPU buffer for array size query results */
-	r = amdgpu_mes_rs64mem_init(&adev->mes);
-	if (r) {
-		dev_warn(adev->dev,
-			 "RS64 local memory init failed (%d),"
-			 "falling back to system memory path\n", r);
-		adev->mes.use_rs64mem = false;
-	}
 	r = mes_v11_0_set_hw_resources(&adev->mes);
 
 	if (r)

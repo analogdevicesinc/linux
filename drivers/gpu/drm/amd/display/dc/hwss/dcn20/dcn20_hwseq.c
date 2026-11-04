@@ -1249,6 +1249,13 @@ void dcn20_blank_pixel_data(
 	/* get opp dpg blank color */
 	color_space_to_black_color(dc, color_space, &black_color);
 
+	/* Debug: force a solid blue DPG pattern. */
+	if (dc->debug.force_dpg_on_flip) {
+		black_color.color_r_cr = 0;
+		black_color.color_g_y = 0;
+		black_color.color_b_cb = 0x3ff;
+	}
+
 	if (blank) {
 		dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
@@ -1303,7 +1310,8 @@ static void dcn20_power_on_plane_resources(
 
 	DC_LOGGER_INIT(hws->ctx->logger);
 
-	if (hws->funcs.dpp_root_clock_control)
+	if (hws->funcs.dpp_root_clock_control &&
+	    hwss_is_dpp_root_clock_control_allowed(hws, true))
 		hws->funcs.dpp_root_clock_control(hws, pipe_ctx->plane_res.dpp->inst, true);
 
 	if (REG(DC_IP_REQUEST_CNTL)) {
@@ -1786,7 +1794,8 @@ void dcn20_update_dchubp_dpp(
 				EXPANSION_MODE_ZERO,
 				plane_state->input_csc_color_matrix,
 				plane_state->color_space,
-				NULL);
+				NULL,
+				pipe_ctx->plane_res.scl_data.upsp);
 
 		if (dpp->funcs->set_cursor_matrix) {
 			dpp->funcs->set_cursor_matrix(dpp,
@@ -2912,12 +2921,7 @@ void dcn20_reset_back_end_for_pipe(
 	 * screen only, the dpms_off would be true but
 	 * VBIOS lit up eDP, so check link status too.
 	 */
-	if (link->connector_signal == SIGNAL_TYPE_EDP &&
-	    link->forced_psr_active) {
-		/* forced psr is active for seamless switch; skip dpms-off. */
-		if (pipe_ctx->stream_res.audio)
-			dc->hwss.disable_audio_stream(pipe_ctx);
-	} else if (!pipe_ctx->stream->dpms_off || link->link_status.link_active)
+	if (!pipe_ctx->stream->dpms_off || link->link_status.link_active)
 		dc->link_srv->set_dpms_off(pipe_ctx);
 	else if (pipe_ctx->stream_res.audio)
 		dc->hwss.disable_audio_stream(pipe_ctx);
@@ -2942,14 +2946,12 @@ void dcn20_reset_back_end_for_pipe(
 	 * parent pipe.
 	 */
 	if (pipe_ctx->top_pipe == NULL) {
-		if (!(link->connector_signal == SIGNAL_TYPE_EDP &&
-				link->forced_psr_active)) {
-			dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
-			pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
+		dc->hwss.set_abm_immediate_disable(pipe_ctx);
 
-			pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
-		}
+		pipe_ctx->stream_res.tg->funcs->disable_crtc(pipe_ctx->stream_res.tg);
+
+		pipe_ctx->stream_res.tg->funcs->enable_optc_clock(pipe_ctx->stream_res.tg, false);
 		if (pipe_ctx->stream_res.tg->funcs->set_odm_bypass)
 			pipe_ctx->stream_res.tg->funcs->set_odm_bypass(
 					pipe_ctx->stream_res.tg, &pipe_ctx->stream->timing);

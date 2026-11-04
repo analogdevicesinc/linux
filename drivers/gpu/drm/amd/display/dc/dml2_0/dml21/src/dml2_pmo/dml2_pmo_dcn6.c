@@ -145,7 +145,7 @@ static const struct dml2_pmo_pstate_strategy base_pstate_strategy_list_4_display
 
 static const int base_pstate_strategy_list_4_display_size = sizeof(base_pstate_strategy_list_4_display) / sizeof(struct dml2_pmo_pstate_strategy);
 
-static void dml2_pmo_dcn6_assign_pstate_strategies(struct dml2_pmo_instance *pmo)
+void dml2_pmo_dcn6_assign_pstate_strategies(struct dml2_pmo_instance *pmo)
 {
 	int i = 0;
 

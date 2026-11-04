@@ -465,14 +465,18 @@ void dcn314_resync_fifo_dccg_dio(struct dce_hwseq *hws, struct dc *dc, struct dc
 	}
 }
 
+bool dcn314_is_dpp_root_clock_control_supported(bool root_clock_optimization_dpp, bool clock_on)
+{
+	(void)clock_on;
+	return root_clock_optimization_dpp;
+}
+
 void dcn314_dpp_root_clock_control(struct dce_hwseq *hws, unsigned int dpp_inst, bool clock_on)
 {
-	if (!hws->ctx->dc->debug.root_clock_optimization.bits.dpp)
-		return;
-
 	if (hws->ctx->dc->res_pool->dccg->funcs->dpp_root_clock_control)
 		hws->ctx->dc->res_pool->dccg->funcs->dpp_root_clock_control(
-			hws->ctx->dc->res_pool->dccg, dpp_inst, clock_on);
+			hws->ctx->dc->res_pool->dccg, dpp_inst, clock_on,
+			hws->ctx->dc->debug.root_clock_optimization.bits.dpp);
 }
 
 static void apply_symclk_on_tx_off_wa(struct dc_link *link)
@@ -527,11 +531,9 @@ void dcn314_disable_link_output(struct dc_link *link,
 		link->dc->hwss.edp_backlight_control(link, false);
 	else if (dmcu != NULL && dmcu->funcs->lock_phy)
 		dmcu->funcs->lock_phy(dmcu);
-	if (!(signal == SIGNAL_TYPE_EDP &&
-		link->forced_psr_active)) {
-		link_hwss->disable_link_output(link, link_res, signal);
-		link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
-	}
+
+	link_hwss->disable_link_output(link, link_res, signal);
+	link->phy_state.symclk_state = SYMCLK_OFF_TX_OFF;
 	/*
 	 * Add the logic to extract BOTH power up and power down sequences
 	 * from enable/disable link output and only call edp panel control

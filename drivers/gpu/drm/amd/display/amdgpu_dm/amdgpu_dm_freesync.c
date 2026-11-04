@@ -42,7 +42,7 @@
 bool amdgpu_dm_is_dc_timing_adjust_needed(struct dm_crtc_state *old_state,
 					  struct dm_crtc_state *new_state)
 {
-	if (new_state->stream->adjust.timing_adjust_pending)
+	if (new_state->stream->timing_adjust_pending)
 		return true;
 	if (new_state->freesync_config.state ==  VRR_STATE_ACTIVE_FIXED)
 		return true;
@@ -112,6 +112,30 @@ void amdgpu_dm_reset_freesync_config_for_crtc(
 }
 EXPORT_IF_KUNIT(amdgpu_dm_reset_freesync_config_for_crtc);
 
+/* FreeSync module gates ACTIVE_VARIABLE on this minimum refresh span (Hz). */
+#define AMDGPU_DM_VRR_MIN_REFRESH_RANGE 10
+
+static bool amdgpu_dm_is_vrr_timing_valid(const struct dc_stream_state *stream,
+					  int min_vfreq, int max_vfreq)
+{
+	u64 nominal_vfreq_uhz, usable_max_vfreq_uhz;
+
+	/* Without complete timing/range data, leave the existing decision. */
+	if (!stream || !stream->timing.pix_clk_100hz ||
+	    !stream->timing.h_total || !stream->timing.v_total ||
+	    min_vfreq <= 0 || max_vfreq <= 0)
+		return true;
+
+	/* Match the FreeSync module's nominal-rate calculation. */
+	nominal_vfreq_uhz = mod_freesync_calc_nominal_field_rate(stream);
+	usable_max_vfreq_uhz = min_t(u64, (u64)max_vfreq * 1000000,
+				     nominal_vfreq_uhz);
+
+	return usable_max_vfreq_uhz >=
+	       (u64)min_vfreq * 1000000 +
+	       (u64)AMDGPU_DM_VRR_MIN_REFRESH_RANGE * 1000000;
+}
+
 void amdgpu_dm_get_freesync_config_for_crtc(
 	struct dm_crtc_state *new_crtc_state,
 	struct dm_connector_state *new_con_state)
@@ -121,15 +145,30 @@ void amdgpu_dm_get_freesync_config_for_crtc(
 	struct drm_display_mode *mode = &new_crtc_state->base.mode;
 	int vrefresh = drm_mode_vrefresh(mode);
 	bool fs_vid_mode = false;
+	bool vrr_timing_valid;
 
 	if (new_con_state->base.connector->connector_type == DRM_MODE_CONNECTOR_WRITEBACK)
 		return;
 
 	aconnector = to_amdgpu_dm_connector(new_con_state->base.connector);
 
+	vrr_timing_valid = amdgpu_dm_is_vrr_timing_valid(new_crtc_state->stream,
+							 aconnector->min_vfreq,
+							 aconnector->max_vfreq);
+	if (!vrr_timing_valid)
+		drm_dbg_kms(new_con_state->base.connector->dev,
+			    "VRR invalid %s %s %dx%d@%d %d-%d clk=%u h=%u v=%u\n",
+			    new_con_state->base.connector->name, mode->name,
+			    mode->hdisplay, mode->vdisplay, vrefresh,
+			    aconnector->min_vfreq, aconnector->max_vfreq,
+			    new_crtc_state->stream->timing.pix_clk_100hz,
+			    new_crtc_state->stream->timing.h_total,
+			    new_crtc_state->stream->timing.v_total);
+
 	new_crtc_state->vrr_supported = new_con_state->freesync_capable &&
 					vrefresh >= aconnector->min_vfreq &&
-					vrefresh <= aconnector->max_vfreq;
+					vrefresh <= aconnector->max_vfreq &&
+					vrr_timing_valid;
 
 	if (new_crtc_state->vrr_supported) {
 		new_crtc_state->stream->ignore_msa_timing_param = true;
