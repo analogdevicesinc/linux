@@ -110,19 +110,15 @@ allOf:
 
     then:
       properties:
-        clock:
-          items:
-            minItems: 1
-            maxItems: 1
+        clocks:
+          maxItems: 1
         clock-names:
           items:
             - const: venc_lt_sel
     else:
       properties:
-        clock:
-          items:
-            minItems: 1
-            maxItems: 1
+        clocks:
+          maxItems: 1
         clock-names:
           items:
             - const: venc_sel

@@ -92,7 +92,7 @@ allOf:
     else:
       properties:
         nvmem-cells: false
-        mvmem-cel-names: false
+        nvmem-cell-names: false
         clocks:
           minItems: 4
         clock-names:

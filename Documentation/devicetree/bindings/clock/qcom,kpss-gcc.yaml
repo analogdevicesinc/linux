@@ -62,7 +62,7 @@ then:
     - '#clock-cells'
 else:
   properties:
-    clock: false
+    clocks: false
     clock-names: false
     '#clock-cells': false
 

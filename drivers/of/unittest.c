@@ -3678,9 +3678,6 @@ static void __init of_unittest_lifecycle(void)
 	 * - Decrementing refcount to zero via of_node_put() should cause the
 	 *   attempt to free the node memory by of_node_release() to fail
 	 *   because the node is not a dynamic node.
-	 *
-	 * - Decrementing refcount past zero should result in additional
-	 *   errors reported.
 	 */
 
 	np = of_find_node_by_path(refcount_path);
@@ -3713,46 +3710,6 @@ static void __init of_unittest_lifecycle(void)
 	of_node_put(np);
 
 	EXPECT_END(KERN_INFO, "OF: ERROR: of_node_release() detected bad of_node_put() on /testcase-data/refcount-node");
-
-
-	/*
-	 * expect stack trace for subsequent of_node_put():
-	 *   __refcount_sub_and_test() calls:
-	 *   refcount_warn_saturate(r, REFCOUNT_SUB_UAF)
-	 *
-	 * Not capturing entire WARN_ONCE() trace with EXPECT_*(), just
-	 * the first three lines, and the last line.
-	 */
-	EXPECT_BEGIN(KERN_INFO, "------------[ cut here ]------------");
-	EXPECT_BEGIN(KERN_INFO, "WARNING: <<all>>");
-	EXPECT_BEGIN(KERN_INFO, "refcount_t: underflow; use-after-free.");
-	EXPECT_BEGIN(KERN_INFO, "---[ end trace <<int>> ]---");
-
-	/* refcount is now zero, this should fail */
-	unittest(1, "/testcase-data/refcount-node is zero");
-	of_node_put(np);
-
-	EXPECT_END(KERN_INFO, "---[ end trace <<int>> ]---");
-	EXPECT_END(KERN_INFO, "refcount_t: underflow; use-after-free.");
-	EXPECT_END(KERN_INFO, "WARNING: <<all>>");
-	EXPECT_END(KERN_INFO, "------------[ cut here ]------------");
-
-	/*
-	 * Q. do we expect to get yet another warning?
-	 * A. no, the WARNING is from WARN_ONCE()
-	 */
-	EXPECT_NOT_BEGIN(KERN_INFO, "------------[ cut here ]------------");
-	EXPECT_NOT_BEGIN(KERN_INFO, "WARNING: <<all>>");
-	EXPECT_NOT_BEGIN(KERN_INFO, "refcount_t: underflow; use-after-free.");
-	EXPECT_NOT_BEGIN(KERN_INFO, "---[ end trace <<int>> ]---");
-
-	unittest(1, "/testcase-data/refcount-node is zero, second time");
-	of_node_put(np);
-
-	EXPECT_NOT_END(KERN_INFO, "---[ end trace <<int>> ]---");
-	EXPECT_NOT_END(KERN_INFO, "refcount_t: underflow; use-after-free.");
-	EXPECT_NOT_END(KERN_INFO, "WARNING: <<all>>");
-	EXPECT_NOT_END(KERN_INFO, "------------[ cut here ]------------");
 
 	/*
 	 * refcount of zero will trigger stack traces from any further

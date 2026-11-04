@@ -23,17 +23,15 @@ dtb-y           := $(addprefix $(obj)/, $(dtb-y))
 multi-dtb-y     := $(addprefix $(obj)/, $(multi-dtb-y))
 real-dtb-y      := $(addprefix $(obj)/, $(real-dtb-y))
 
-always-y        += $(dtb-y)
+always-$(need-dtbslist) += $(dtb-y)
 targets         += $(real-dtb-y)
 
 # dtbs-list
 # ---------------------------------------------------------------------------
 
-ifdef need-dtbslist
 subdir-dtbslist := $(addsuffix /dtbs-list, $(subdir-ym))
-dtb-y           += $(subdir-dtbslist)
-always-y        += $(obj)/dtbs-list
-endif
+dtb-$(need-dtbslist)    += $(subdir-dtbslist)
+always-$(need-dtbslist) += $(obj)/dtbs-list
 
 $(subdir-dtbslist): $(obj)/%/dtbs-list: $(obj)/% ;
 

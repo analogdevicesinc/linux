@@ -145,7 +145,7 @@ allOf:
             - description: CEC stuck at low interrupt
             - description: Hotplug connected interrupt
             - description: Hotplug removed interrupt
-        interrupts-names:
+        interrupt-names:
           items:
             - const: cec-tx
             - const: cec-rx
