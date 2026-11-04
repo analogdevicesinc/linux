@@ -78,6 +78,7 @@ def write_config(
             data += read_template(config_dir, des_cfg['name'], {
                 'des_cfg': des_cfg,
                 'des_idx': i,
+                'dtbo': dtbo,
             })
         f.write(data)
 
