@@ -46,6 +46,7 @@
 #include <linux/random.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/string_choices.h>
 #include <linux/types.h>
 
 #include <linux/iio/buffer.h>

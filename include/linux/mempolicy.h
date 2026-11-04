@@ -14,7 +14,6 @@
 #include <linux/spinlock.h>
 #include <linux/node.h>
 #include <linux/nodemask.h>
-#include <linux/pagemap.h>
 #include <uapi/linux/mempolicy.h>
 
 struct mm_struct;

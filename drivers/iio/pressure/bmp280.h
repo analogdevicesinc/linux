@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #include <linux/bitops.h>
 #include <linux/device.h>
+#include <linux/interrupt.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 

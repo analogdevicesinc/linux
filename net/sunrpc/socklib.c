@@ -12,7 +12,6 @@
 #include <linux/gfp.h>
 #include <linux/skbuff.h>
 #include <linux/types.h>
-#include <linux/pagemap.h>
 #include <linux/udp.h>
 #include <linux/sunrpc/msg_prot.h>
 #include <linux/sunrpc/sched.h>

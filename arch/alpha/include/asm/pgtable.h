@@ -2,6 +2,7 @@
 #ifndef _ALPHA_PGTABLE_H
 #define _ALPHA_PGTABLE_H
 
+#include <asm/page.h>
 #include <asm-generic/pgtable-nopud.h>
 
 /*
@@ -13,7 +14,6 @@
  */
 #include <linux/mmzone.h>
 
-#include <asm/page.h>
 #include <asm/processor.h>	/* For TASK_SIZE */
 #include <asm/machvec.h>
 #include <asm/setup.h>

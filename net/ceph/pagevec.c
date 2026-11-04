@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/namei.h>
+#include <linux/pagemap.h>
 #include <linux/writeback.h>
 
 #include <linux/ceph/libceph.h>

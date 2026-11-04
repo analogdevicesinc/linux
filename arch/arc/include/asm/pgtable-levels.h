@@ -87,6 +87,8 @@
 
 #ifndef __ASSEMBLER__
 
+#include <asm/page.h>
+
 #if CONFIG_PGTABLE_LEVELS > 3
 #include <asm-generic/pgtable-nop4d.h>
 #elif CONFIG_PGTABLE_LEVELS > 2
