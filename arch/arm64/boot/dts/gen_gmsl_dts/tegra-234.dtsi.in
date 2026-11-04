@@ -33,11 +33,16 @@
 {% set des_addr_hex = (des_cfg.address | d(default_address)) | hex_remove_0x %}
 {% include 'tegra-234-i2c.dtsi.in' %}
 
-&{/} {
+{% if dtbo %}
+/* Overlay metadata for jetson-io; properties of the overlay itself, not of the base tree. */
+/ {
 	overlay-name = "GMSL Camera";
 	jetson-header-name = "Jetson 22pin CSI Connector";
 	compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005", "nvidia,p3768-0000+p3767-0000-super", "nvidia,p3768-0000+p3767-0001-super", "nvidia,p3768-0000+p3767-0003-super", "nvidia,p3768-0000+p3767-0004-super", "nvidia,p3768-0000+p3767-0005-super", "nvidia,tegra234";
+};
 
+{% endif %}
+&{/} {
 	tegra-camera-platform {
 		compatible = "nvidia, tegra-camera-platform";
 		modules {
