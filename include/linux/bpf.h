@@ -1975,6 +1975,12 @@ struct bpf_prog_aux {
 	 * using the linfo_idx.
 	 */
 	void **jited_linfo;
+	/*
+	 * linfo->insn_off of the prog before constant blinding, while the
+	 * blinded clone is JITed. The kernel puts it back when it falls back
+	 * to the prog that isn't blinded.
+	 */
+	u32 *linfo_unblinded;
 	u32 func_info_cnt;
 	u32 nr_linfo;
 	/* subprog can use linfo_idx to access its first linfo and
@@ -4392,8 +4398,8 @@ struct bpf_prog *bpf_prog_find_from_stack(void);
 int bpf_insn_array_init(struct bpf_map *map, const struct bpf_prog *prog);
 int bpf_insn_array_ready(struct bpf_map *map);
 void bpf_insn_array_release(struct bpf_map *map);
-void bpf_insn_array_adjust(struct bpf_map *map, u32 first, u32 len);
-void bpf_insn_array_adjust_after_remove(struct bpf_map *map, u32 off, u32 len);
+void bpf_insn_array_remap(struct bpf_map *map, const u32 *new_off, const u32 *new_tgt,
+			  u32 cnt, s32 grow);
 
 #ifdef CONFIG_BPF_SYSCALL
 void bpf_prog_update_insn_ptrs(struct bpf_prog *prog, u32 *offsets, void *image);

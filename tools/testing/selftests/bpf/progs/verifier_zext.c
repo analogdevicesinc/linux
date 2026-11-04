@@ -324,8 +324,6 @@ __naked void alu64_and_conditionals(void)
 	: __clobber_all);
 }
 
-#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
-
 SEC("?fentry.s/" SYS_PREFIX "sys_getpgid")
 __arch_s390x
 __xlated("7: w1 = w0")
@@ -381,8 +379,6 @@ __naked void zext_arena_cmpxchg32(void)
 		     BPF_ATOMIC_OP(BPF_W, BPF_CMPXCHG, BPF_REG_1, BPF_REG_2, 0))
 	: __clobber_all);
 }
-
-#endif
 
 /* Check if probe mem loads keep their zero extension. */
 SEC("socket")

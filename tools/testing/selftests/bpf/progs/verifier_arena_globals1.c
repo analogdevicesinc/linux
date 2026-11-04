@@ -30,9 +30,9 @@ volatile char __arena global_data[GLOBAL_PAGES][PAGE_SIZE];
 
 SEC("syscall")
 __success __retval(0)
+__skip_without_arena
 int check_reserve1(void *ctx)
 {
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 	const u8 magic = 0x5a;
 	__u8 __arena *guard, *globals;
 	volatile char __arena *ptr;
@@ -60,7 +60,6 @@ int check_reserve1(void *ctx)
 		if (*ptr != magic)
 			return i + 3;
 	}
-#endif
 	return 0;
 }
 
@@ -69,9 +68,9 @@ int check_reserve1(void *ctx)
  */
 SEC("syscall")
 __success __retval(0)
+__skip_without_arena
 int check_relocation(void *ctx)
 {
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 	const u8 magic = 0xfa;
 	u8 __arena *ptr;
 
@@ -80,7 +79,6 @@ int check_relocation(void *ctx)
 	if (*ptr != magic)
 		return 1;
 
-#endif
 	return 0;
 }
 

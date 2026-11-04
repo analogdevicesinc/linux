@@ -2650,7 +2650,8 @@ static void compute_insn_live_regs(struct bpf_verifier_env *env,
 			def = ALL_CALLER_SAVED_REGS;
 			use = def & ~BIT(BPF_REG_0);
 			if (bpf_get_call_summary(env, insn, &cs)) {
-				use = GENMASK(min_t(u8, cs.arg_slot_cnt, MAX_BPF_FUNC_REG_ARGS), 1);
+				use = GENMASK(min_t(u8, cs.arg_slot_cnt - cs.implicit_slot_cnt,
+						    MAX_BPF_FUNC_REG_ARGS), 1);
 			} else if (bpf_pseudo_call(insn)) {
 				/* a static callee's reads are added in bpf_compute_live_registers() */
 				subprog = callee_subprog(env, insn);

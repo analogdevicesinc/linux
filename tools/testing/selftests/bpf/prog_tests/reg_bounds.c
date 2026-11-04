@@ -1504,7 +1504,7 @@ struct ctx {
 	struct range *uranges, *sranges;
 	struct range *usubranges, *ssubranges;
 	int max_failure_cnt, cur_failure_cnt;
-	int total_case_cnt, case_cnt;
+	int total_case_cnt, case_cnt, skip_case_cnt;
 	int rand_case_cnt;
 	unsigned rand_seed;
 	__u64 start_ns;
@@ -1541,7 +1541,8 @@ static void subtest_case_str(struct strbuf *sb, struct subtest_case *t, bool use
  * performed)
  */
 static int verify_case_op(enum num_t init_t, enum num_t cond_t,
-			  struct range x, struct range y, enum op op)
+			  struct range x, struct range y, enum op op,
+			  bool *skipped)
 {
 	char log_buf[256 * 1024];
 	size_t log_sz = sizeof(log_buf);
@@ -1581,7 +1582,7 @@ static int verify_case_op(enum num_t init_t, enum num_t cond_t,
 	    !assert_reg_state_eq(&tr2, &te2, "true_reg2")) {
 		if (reg_state_needs_two_arcs(&fe1) || reg_state_needs_two_arcs(&fe2) ||
 		    reg_state_needs_two_arcs(&te1) || reg_state_needs_two_arcs(&te2)) {
-			test__skip();
+			*skipped = true;
 			return 0;
 		}
 		failed = true;
@@ -1629,13 +1630,26 @@ static int verify_case_opt(struct ctx *ctx, enum num_t init_t, enum num_t cond_t
 		return 0;
 
 	for (sub.op = first_op; sub.op <= last_op; sub.op++) {
+		bool skipped = false;
+
 		sb->pos = 0; /* reset position in strbuf */
 		subtest_case_str(sb, &sub, true /* print op */);
 
 		if (env.verbosity >= VERBOSE_NORMAL) /* this speeds up debugging */
 			printf("TEST CASE: %s\n", sb->buf);
 
-		err = verify_case_op(init_t, cond_t, x, y, sub.op);
+		err = verify_case_op(init_t, cond_t, x, y, sub.op, &skipped);
+		if (skipped) {
+			/*
+			 * Outside a subtest test__skip() bumps the test's skip
+			 * counter, which feeds the SKIPPED total; tally these
+			 * locally instead of reporting each as a skipped test.
+			 */
+			if (is_subtest)
+				test__skip();
+			else
+				ctx->skip_case_cnt++;
+		}
 		if (err || env.verbosity >= VERBOSE_NORMAL)
 			ASSERT_OK(err, sb->buf);
 		if (err) {
@@ -2167,6 +2181,9 @@ static void validate_rand_ranges(enum num_t init_t, enum num_t cond_t, bool cons
 	}
 
 cleanup:
+	if (ctx.skip_case_cnt)
+		printf("SKIPPED %d/%d cases needing two range arcs\n",
+		       ctx.skip_case_cnt, ctx.case_cnt);
 	/* make sure we report random seed for reproducing */
 	ASSERT_TRUE(true, ctx.progress_ctx);
 	cleanup_ctx(&ctx);

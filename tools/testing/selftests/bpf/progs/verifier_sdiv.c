@@ -775,6 +775,7 @@ SEC("socket")
 __description("SDIV64, overflow r/r, LLONG_MIN/-1")
 __success __retval(1)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 0x8000000000000000")
 __xlated("2: r3 = -1")
 __xlated("3: r4 = r2")
@@ -810,6 +811,7 @@ SEC("socket")
 __description("SDIV64, r/r, small_val/-1")
 __success __retval(-5)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 5")
 __xlated("1: r3 = -1")
 __xlated("2: r12 = r3")
@@ -839,6 +841,7 @@ SEC("socket")
 __description("SDIV64, overflow r/i, LLONG_MIN/-1")
 __success __retval(1)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 0x8000000000000000")
 __xlated("2: r4 = r2")
 __xlated("3: r2 = -r2")
@@ -865,6 +868,7 @@ SEC("socket")
 __description("SDIV64, r/i, small_val/-1")
 __success __retval(-5)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 5")
 __xlated("1: r4 = r2")
 __xlated("2: r2 = -r2")
@@ -887,6 +891,7 @@ SEC("socket")
 __description("SDIV32, overflow r/r, INT_MIN/-1")
 __success __retval(1)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -2147483648")
 __xlated("1: w3 = -1")
 __xlated("2: w4 = w2")
@@ -922,6 +927,7 @@ SEC("socket")
 __description("SDIV32, r/r, small_val/-1")
 __success __retval(5)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -5")
 __xlated("1: w3 = -1")
 __xlated("2: w4 = w2")
@@ -953,6 +959,7 @@ SEC("socket")
 __description("SDIV32, overflow r/i, INT_MIN/-1")
 __success __retval(1)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -2147483648")
 __xlated("1: w4 = w2")
 __xlated("2: w2 = -w2")
@@ -979,6 +986,7 @@ SEC("socket")
 __description("SDIV32, r/i, small_val/-1")
 __success __retval(-5)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = 5")
 __xlated("1: w4 = w2")
 __xlated("2: w2 = -w2")
@@ -1001,6 +1009,7 @@ SEC("socket")
 __description("SMOD64, overflow r/r, LLONG_MIN/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 0x8000000000000000")
 __xlated("2: r3 = -1")
 __xlated("3: r4 = r2")
@@ -1031,6 +1040,7 @@ SEC("socket")
 __description("SMOD64, r/r, small_val/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 5")
 __xlated("1: r3 = -1")
 __xlated("2: r4 = r2")
@@ -1061,6 +1071,7 @@ SEC("socket")
 __description("SMOD64, overflow r/i, LLONG_MIN/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 0x8000000000000000")
 __xlated("2: r4 = r2")
 __xlated("3: w2 = 0")
@@ -1083,6 +1094,7 @@ SEC("socket")
 __description("SMOD64, r/i, small_val/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: r2 = 5")
 __xlated("1: r4 = r2")
 __xlated("2: w2 = 0")
@@ -1105,6 +1117,7 @@ SEC("socket")
 __description("SMOD32, overflow r/r, INT_MIN/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -2147483648")
 __xlated("1: w3 = -1")
 __xlated("2: w4 = w2")
@@ -1137,6 +1150,7 @@ SEC("socket")
 __description("SMOD32, r/r, small_val/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -5")
 __xlated("1: w3 = -1")
 __xlated("2: w4 = w2")
@@ -1169,6 +1183,7 @@ SEC("socket")
 __description("SMOD32, overflow r/i, INT_MIN/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = -2147483648")
 __xlated("1: w4 = w2")
 __xlated("2: w2 = 0")
@@ -1191,6 +1206,7 @@ SEC("socket")
 __description("SMOD32, r/i, small_val/-1")
 __success __retval(0)
 __arch_x86_64
+__arch_loongarch
 __xlated("0: w2 = 5")
 __xlated("1: w4 = w2")
 __xlated("2: w2 = 0")

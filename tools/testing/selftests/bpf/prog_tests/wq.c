@@ -4,10 +4,13 @@
 #include "wq.skel.h"
 #include "wq_failures.skel.h"
 
+#define CALLBACK_WAIT_RETRIES 10000
+#define CALLBACK_WAIT_US 1000
+
 void serial_test_wq(void)
 {
 	struct wq *wq_skel = NULL;
-	int err, prog_fd;
+	int err, prog_fd, i;
 
 	LIBBPF_OPTS(bpf_test_run_opts, topts);
 
@@ -25,11 +28,12 @@ void serial_test_wq(void)
 
 	prog_fd = bpf_program__fd(wq_skel->progs.test_syscall_array_sleepable);
 	err = bpf_prog_test_run_opts(prog_fd, &topts);
-	ASSERT_OK(err, "test_run");
-	ASSERT_EQ(topts.retval, 0, "test_run");
+	if (!ASSERT_OK(err, "test_run") || !ASSERT_EQ(topts.retval, 0, "test_run"))
+		goto clean_up;
 
-	usleep(50); /* 10 usecs should be enough, but give it extra */
-
+	/* wait for wq callback to finish and fail instead of hanging if it never runs */
+	for (i = 0; i < CALLBACK_WAIT_RETRIES && !READ_ONCE(wq_skel->bss->ok_sleepable); i++)
+		usleep(CALLBACK_WAIT_US);
 	ASSERT_EQ(wq_skel->bss->ok_sleepable, (1 << 1), "ok_sleepable");
 clean_up:
 	wq__destroy(wq_skel);

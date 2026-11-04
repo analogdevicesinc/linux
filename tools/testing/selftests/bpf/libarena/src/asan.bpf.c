@@ -532,5 +532,3 @@ __weak __noasan int asan_init(struct asan_init_args *args)
 #pragma clang attribute pop
 
 #endif /* BPF_ARENA_ASAN */
-
-__weak char _license[] SEC("license") = "GPL";

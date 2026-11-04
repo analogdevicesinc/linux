@@ -1188,10 +1188,6 @@ static int bpf_fill_super(struct super_block *sb, struct fs_context *fc)
 	struct bpf_mount_opts *opts = sb->s_fs_info;
 	struct inode *inode;
 
-	/* Mounting an instance of BPF FS requires privileges */
-	if (fc->user_ns != &init_user_ns && !capable(CAP_SYS_ADMIN))
-		return -EPERM;
-
 	sb->s_blocksize = PAGE_SIZE;
 	sb->s_blocksize_bits = PAGE_SHIFT;
 	sb->s_magic = BPF_FS_MAGIC;
@@ -1280,7 +1276,7 @@ static struct file_system_type bpf_fs_type = {
 	.init_fs_context = bpf_init_fs_context,
 	.parameters	= bpf_fs_parameters,
 	.kill_sb	= bpf_kill_super,
-	.fs_flags	= FS_USERNS_MOUNT,
+	.fs_flags	= FS_USERNS_DELEGATABLE,
 };
 
 static void bpf_fs_inode_init_once(void *foo)

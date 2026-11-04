@@ -23,8 +23,6 @@ struct {
 /* volatile to force the scalar reloads below */
 volatile u64 stash;
 
-#if defined(__BPF_FEATURE_ADDR_SPACE_CAST)
-
 SEC("syscall")
 __arch_x86_64
 __jited("...")
@@ -93,6 +91,7 @@ __jited("	cbz	w4, L0")
 __jited("	add	x4, x28, w4, uxtw")
 __jited("L0:	{{.*}}")
 __success
+__skip_without_arena
 int arena_arg_jit_args5(void *ctx)
 {
 	u64 __arena *val;
@@ -112,7 +111,5 @@ int arena_arg_jit_args5(void *ctx)
 				   (u64 *)&val[4]);
 	return 0;
 }
-
-#endif /* __BPF_FEATURE_ADDR_SPACE_CAST */
 
 char _license[] SEC("license") = "GPL";

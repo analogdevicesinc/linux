@@ -320,21 +320,25 @@ int __on_event(struct bpf_raw_tracepoint_args *ctx)
 #else /* !USE_ITER */
 		for (int i = 0; i < STACK_MAX_LEN; ++i) {
 #endif
-			if (frame_ptr && get_frame_data(frame_ptr, pidData, &frame, &sym)) {
-				int32_t new_symbol_id = *symbol_counter * 64 + cur_cpu;
-				int32_t *symbol_id = bpf_map_lookup_elem(&symbolmap, &sym);
-				if (!symbol_id) {
-					bpf_map_update_elem(&symbolmap, &sym, &zero, 0);
-					symbol_id = bpf_map_lookup_elem(&symbolmap, &sym);
-					if (!symbol_id)
-						return 0;
-				}
-				if (*symbol_id == new_symbol_id)
-					(*symbol_counter)++;
-				event->stack[i] = *symbol_id;
-				event->stack_len = i + 1;
-				frame_ptr = frame.f_back;
+			int32_t new_symbol_id, *symbol_id;
+
+			/* stop at the end of the stack or at an unreadable frame */
+			if (!frame_ptr || !get_frame_data(frame_ptr, pidData, &frame, &sym))
+				break;
+
+			new_symbol_id = *symbol_counter * 64 + cur_cpu;
+			symbol_id = bpf_map_lookup_elem(&symbolmap, &sym);
+			if (!symbol_id) {
+				bpf_map_update_elem(&symbolmap, &sym, &zero, 0);
+				symbol_id = bpf_map_lookup_elem(&symbolmap, &sym);
+				if (!symbol_id)
+					return 0;
 			}
+			if (*symbol_id == new_symbol_id)
+				(*symbol_counter)++;
+			event->stack[i] = *symbol_id;
+			event->stack_len = i + 1;
+			frame_ptr = frame.f_back;
 		}
 #endif /* USE_BPF_LOOP */
 		event->stack_complete = frame_ptr == NULL;

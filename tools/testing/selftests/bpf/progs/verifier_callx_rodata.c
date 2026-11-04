@@ -6,9 +6,7 @@
 #include "bpf_misc.h"
 #include "../../../include/linux/filter.h"
 
-/* gcc doesn't support indirect calls */
-#if defined(__clang__) && (defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64) || \
-    (defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64))
+#ifdef CAN_USE_CALLX
 
 /*
  * Read-only data with pointers to functions, where the compiler puts tables
@@ -320,6 +318,106 @@ __naked void callx_rodata_func_starts_with_nop(void)
 		"r2 = tbl_%= ll;"
 		"r2 = *(u64 *)(r2 + 0);"
 		"r1 = 10;"
+		"callx r2;"
+		"exit;"
+		::: __clobber_all);
+}
+
+/*
+ * The program loses more instructions than the function has, so the offset
+ * that the function had is behind the end of the program that is left.
+ */
+SEC("socket")
+__success __retval(11)
+__naked void callx_rodata_prog_shrinks_below_func(void)
+{
+	asm volatile (
+		RODATA(tbl, ".quad nop_add1; .quad 0;")
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 10;"
+		"callx r2;"
+		"exit;"
+		::: __clobber_all);
+}
+
+int ops_arg = 10;
+
+/* the argument is never NULL, so the verifier removes the check and its branch */
+#define OP(name, n)						\
+static __noinline int name(int *arg)				\
+{								\
+	if (!arg)						\
+		return bpf_get_prandom_u32();			\
+	return *arg + n;					\
+}
+
+OP(op_a, 2) OP(op_b, 3) OP(op_c, 4) OP(op_d, 5) OP(op_e, 6) OP(op_f, 7) OP(op_g, 8) OP(op_h, 9)
+
+/* volatile, so that the compiler doesn't replace the table with direct calls */
+static int (* const volatile ops_table[])(int *) = {
+	op_a, op_b, op_c, op_d, op_e, op_f, op_g, op_h
+};
+
+/* the same in C: each function of the table loses its first instructions */
+SEC("socket")
+__success __retval(124)
+int callx_rodata_table_of_ops(void *ctx)
+{
+	int i, sum = 0;
+
+	for (i = 0; i < 8; i++)
+		sum += ops_table[i](&ops_arg);
+	return sum;
+}
+
+/* leave zeros where the function that is called next has its stack */
+__naked __noinline __used
+static unsigned long zero_stack(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 8) = r0;"
+		"*(u64 *)(r10 - 16) = r0;"
+		"exit;"
+	);
+}
+
+/* count to r1, or to 0 when nothing set the count of may_goto */
+__naked __noinline __used
+static unsigned long may_goto_count(void)
+{
+	asm volatile (
+		"r0 = 0;"
+	"l0_%=:"
+		".8byte %[may_goto];"
+		"r0 += 1;"
+		"if r0 < r1 goto l0_%=;"
+		"exit;"
+		:
+		: __imm_insn(may_goto, BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 2 /* offset */, 0))
+		: __clobber_all);
+}
+
+/* the pointer names the instructions that the verifier puts in front of the function */
+SEC("socket")
+__success __retval(5)
+__naked void callx_rodata_func_with_may_goto(void)
+{
+	asm volatile (
+		RODATA(tbl, ".quad may_goto_count; .quad 0;")
+		"call zero_stack;"
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 5;"
 		"callx r2;"
 		"exit;"
 		::: __clobber_all);
@@ -892,6 +990,7 @@ int callx_c_packed_struct(void *ctx)
 #else
 
 SEC("socket")
+__skip("callx needs arch JIT and compiler support")
 __success
 int dummy(void *ctx)
 {

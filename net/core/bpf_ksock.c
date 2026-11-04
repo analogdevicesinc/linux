@@ -179,6 +179,37 @@ err_out:
 }
 
 /**
+ * bpf_ksock_bind() - Bind a BPF kernel socket to a local address.
+ * @ks:		The BPF kernel socket context.
+ * @addr:	Pointer to an IPv4 or IPv6 socket address.
+ * @addr__sz:	Size of the address union.
+ *
+ * Binds the socket to the specified local address and port. A port of zero
+ * selects an ephemeral port.
+ *
+ * This function may sleep, so it can only be used in sleepable BPF programs
+ * (SYSCALL).
+ *
+ * Return: 0 on success, negative errno on error.
+ */
+__bpf_kfunc int bpf_ksock_bind(struct bpf_ksock *ks,
+			       const union bpf_ksock_addr *addr, u32 addr__sz)
+{
+	struct sockaddr_storage sa;
+	int addrlen;
+
+	/* Prevent wq kthread context for CAP_NET_BIND_SERVICE check */
+	if (current->flags & PF_KTHREAD)
+		return -EOPNOTSUPP;
+
+	addrlen = bpf_ksock_addr_to_sockaddr(addr, addr__sz, &sa);
+	if (addrlen < 0)
+		return addrlen;
+
+	return __sys_bind_socket(ks->sock, &sa, addrlen);
+}
+
+/**
  * bpf_ksock_connect() - Connect a BPF kernel socket to a remote address.
  * @ks:		The BPF kernel socket context.
  * @addr:	Pointer to an IPv4 or IPv6 socket address.
@@ -285,6 +316,7 @@ __bpf_kfunc_end_defs();
 BTF_KFUNCS_START(ksock_init_kfunc_btf_ids)
 BTF_ID_FLAGS(func, bpf_ksock_create, KF_ACQUIRE | KF_RET_NULL | KF_SLEEPABLE)
 BTF_ID_FLAGS(func, bpf_ksock_connect, KF_SLEEPABLE)
+BTF_ID_FLAGS(func, bpf_ksock_bind, KF_SLEEPABLE)
 BTF_KFUNCS_END(ksock_init_kfunc_btf_ids)
 
 static const struct btf_kfunc_id_set ksock_init_kfunc_set = {

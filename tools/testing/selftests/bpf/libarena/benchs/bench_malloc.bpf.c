@@ -49,3 +49,5 @@ int bench_calloc(void)
 	__sync_add_and_fetch(&bench_hits, i);
 	return 0;
 }
+
+char _license[] SEC("license") = "Dual BSD/GPL";

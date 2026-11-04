@@ -681,6 +681,171 @@ unsigned int mixed_const_and_non_const_key_lookup(void)
 }
 
 SEC("socket")
+__description("valid map access into an array using one of two constants without nullness")
+__success __retval(4)
+unsigned int an_array_with_one_of_two_constants_no_nullness(void)
+{
+	__u32 __attribute__((aligned(8))) key;
+	struct test_val *val;
+
+	/* the paths meet in front of the one store to key */
+	key = bpf_get_prandom_u32() > 42 ? 1 : 0;
+	val = bpf_map_lookup_elem(&map_array, &key);
+	val->index = offsetof(struct test_val, foo);
+
+	return val->index;
+}
+
+SEC("socket")
+__description("invalid map access into an array using one of two constants without nullness")
+__failure __msg("R0 invalid mem access 'map_value_or_null'")
+unsigned int an_array_with_one_of_two_constants_out_of_bounds(void)
+{
+	__u32 __attribute__((aligned(8))) key;
+	struct test_val *val;
+
+	/* 2 is out of bounds */
+	key = bpf_get_prandom_u32() > 42 ? 1 : 2;
+	val = bpf_map_lookup_elem(&map_array, &key);
+	val->index = offsetof(struct test_val, foo);
+
+	return val->index;
+}
+
+SEC("socket")
+__description("valid map access into an array using a key below max_entries without nullness")
+__success __retval(4)
+unsigned int an_array_with_a_key_in_range_no_nullness(void)
+{
+	__u32 __attribute__((aligned(8))) key;
+	struct test_val *val;
+
+	key = bpf_get_prandom_u32() & 1;
+	val = bpf_map_lookup_elem(&map_array, &key);
+	val->index = offsetof(struct test_val, foo);
+
+	return val->index;
+}
+
+SEC("socket")
+__description("valid map access into a pcpu array using a key below max_entries without nullness")
+__success __retval(4)
+unsigned int a_pcpu_array_with_a_key_in_range_no_nullness(void)
+{
+	__u32 __attribute__((aligned(8))) key;
+	struct test_val *val;
+
+	key = bpf_get_prandom_u32() & 1;
+	val = bpf_map_lookup_elem(&map_array_pcpu, &key);
+	val->index = offsetof(struct test_val, foo);
+
+	return val->index;
+}
+
+/* Scalar evolution gives r6 the range [0, 1] for all iterations */
+SEC("socket")
+__description("valid map access into an array using the counter of a loop without nullness")
+__success __retval(0)
+__naked void an_array_with_a_loop_counter_no_nullness(void)
+{
+	asm volatile ("					\
+	r6 = 0;						\
+l0_%=:	*(u32*)(r10 - 8) = r6;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_array] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	r0 = *(u32*)(r0 + 0);				\
+	r6 += 1;					\
+	if r6 < 2 goto l0_%=;				\
+	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array)
+	: __clobber_all);
+}
+
+/* The slot has the id of r6, so the compare sets the range of the slot too */
+SEC("socket")
+__description("valid map access into an array using a key that is compared after the spill")
+__success __retval(0)
+__naked void an_array_with_a_key_compared_after_the_spill(void)
+{
+	asm volatile ("					\
+	call %[bpf_get_prandom_u32];			\
+	w6 = w0;					\
+	*(u32*)(r10 - 8) = r6;				\
+	if r6 > 1 goto l0_%=;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_array] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	r0 = *(u32*)(r0 + 0);				\
+l0_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array)
+	: __clobber_all);
+}
+
+/*
+ * The verifier sees the key [0, 1] first, then the key [2, 3]. The first state must not stand
+ * for the second one.
+ */
+SEC("socket")
+__description("invalid map access into an array using a key in range, then a key out of range")
+__failure __msg("R0 invalid mem access 'map_value_or_null'")
+__flag(BPF_F_TEST_STATE_FREQ)
+__naked void an_array_with_a_key_in_range_then_out_of_range(void)
+{
+	asm volatile ("					\
+	call %[bpf_get_prandom_u32];			\
+	r6 = r0;					\
+	r6 &= 3;					\
+	if r6 > 1 goto l0_%=;				\
+	r0 = 0;						\
+l0_%=:	*(u32*)(r10 - 8) = r6;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_array] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array)
+	: __clobber_all);
+}
+
+/* [-1, 0]: the key is 0xffffffff or 0 */
+SEC("socket")
+__description("invalid map access into an array using a key that can be negative")
+__failure __msg("R0 invalid mem access 'map_value_or_null'")
+__naked void an_array_with_a_key_that_can_be_negative(void)
+{
+	asm volatile ("					\
+	call %[bpf_get_prandom_u32];			\
+	r0 &= 1;					\
+	r0 += -1;					\
+	*(u32*)(r10 - 8) = r0;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_array] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array)
+	: __clobber_all);
+}
+
+SEC("socket")
 __failure __msg("invalid read from stack R2 off=4096 size=4")
 __naked void key_lookup_at_invalid_fp(void)
 {

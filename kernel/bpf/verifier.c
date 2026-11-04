@@ -6452,51 +6452,6 @@ struct bpf_func_ptr *bpf_map_func_ptrs(struct bpf_verifier_env *env,
 	return bpf_map_range_func_ptrs(env, map, 0, (u64)map->value_size, cnt);
 }
 
-/* instructions [off, off + len) replaced the instruction at 'off' */
-void bpf_adjust_func_ptrs(struct bpf_verifier_env *env, u32 off, u32 len)
-{
-	struct bpf_func_ptr *p;
-	u32 i;
-
-	if (len <= 1)
-		return;
-
-	for (i = 0; i < env->func_ptr_cnt; i++) {
-		p = &env->func_ptrs[i];
-		if (p->xlated_off <= off || p->xlated_off == BPF_FUNC_PTR_DELETED)
-			continue;
-		p->xlated_off += len - 1;
-	}
-}
-
-/*
- * Instructions [off, off + len) are about to be removed. It's called before
- * the starts of subprogs are adjusted. A subprog is gone when all of its
- * instructions are. Otherwise, e.g. when its first instruction is a nop,
- * it starts where the removed instructions did.
- */
-void bpf_adjust_func_ptrs_after_remove(struct bpf_verifier_env *env, u32 off, u32 len)
-{
-	struct bpf_func_ptr *p;
-	int subprog;
-	u32 i;
-
-	for (i = 0; i < env->func_ptr_cnt; i++) {
-		p = &env->func_ptrs[i];
-		if (p->xlated_off < off || p->xlated_off == BPF_FUNC_PTR_DELETED)
-			continue;
-		if (p->xlated_off >= off + len) {
-			p->xlated_off -= len;
-			continue;
-		}
-		subprog = bpf_find_subprog(env, p->xlated_off);
-		if (subprog > 0 && env->subprog_info[subprog + 1].start > off + len)
-			p->xlated_off = off;
-		else
-			p->xlated_off = BPF_FUNC_PTR_DELETED;
-	}
-}
-
 #define BTF_TYPE_SAFE_RCU(__type)  __PASTE(__type, __safe_rcu)
 #define BTF_TYPE_SAFE_RCU_OR_NULL(__type)  __PASTE(__type, __safe_rcu_or_null)
 #define BTF_TYPE_SAFE_TRUSTED(__type)  __PASTE(__type, __safe_trusted)
@@ -9675,11 +9630,14 @@ static int check_arg_const_str(struct bpf_verifier_env *env,
 	return 0;
 }
 
-/* Returns constant key value in `value` if possible, else negative error */
-static int get_constant_map_key(struct bpf_verifier_env *env,
-				struct bpf_reg_state *key,
-				u32 key_size,
-				s64 *value)
+/*
+ * Returns the largest value of the key in `value` if it is below `max_entries`,
+ * else negative error
+ */
+static int get_max_map_key(struct bpf_verifier_env *env,
+			   struct bpf_reg_state *key,
+			   u32 key_size, u32 max_entries,
+			   u64 *value)
 {
 	struct bpf_func_state *state = bpf_func(env, key);
 	struct bpf_stack_state *ss;
@@ -9721,12 +9679,17 @@ static int get_constant_map_key(struct bpf_verifier_env *env,
 	if (spill_size != key_size)
 		return -EOPNOTSUPP;
 
+	/*
+	 * The slot has the range of the 64-bit register that was spilled. A value
+	 * below max_entries fits in the 4 bytes of the key.
+	 */
 	reg = &ss->spilled_ptr;
-	if (!tnum_is_const(reg->var_off))
-		/* Stack value not statically known */
+	if (reg_umax(reg) >= max_entries)
+		/* The lookup can return NULL: nothing depends on the key */
 		return -EOPNOTSUPP;
 
-	/* We are relying on a constant value. So mark as precise
+	/*
+	 * We are relying on the range of the key. So mark as precise
 	 * to prevent pruning on it.
 	 */
 	bpf_bt_set_frame_slot(&env->bt, key->frameno, spi);
@@ -9734,7 +9697,7 @@ static int get_constant_map_key(struct bpf_verifier_env *env,
 	if (err < 0)
 		return err;
 
-	*value = reg->var_off.value;
+	*value = reg_umax(reg);
 	return 0;
 }
 
@@ -9917,9 +9880,10 @@ static int check_func_arg(struct bpf_verifier_env *env, u32 arg, u32 slot, u32 p
 		if (err)
 			return err;
 		if (can_elide_value_nullness(meta->map.ptr)) {
-			err = get_constant_map_key(env, reg, key_size, &meta->const_map_key);
+			err = get_max_map_key(env, reg, key_size, meta->map.ptr->max_entries,
+					      &meta->max_map_key);
 			if (err < 0) {
-				meta->const_map_key = -1;
+				meta->max_map_key = U64_MAX;
 				if (err == -EOPNOTSUPP)
 					err = 0;
 				else
@@ -12581,8 +12545,8 @@ static int update_loop_inline_state(struct bpf_verifier_env *env, u32 subprogno)
 }
 
 /* Returns whether or not the given map can potentially elide
- * lookup return value nullness check. This is possible if the key
- * is statically known.
+ * lookup return value nullness check. This is possible if the largest
+ * value of the key is statically known.
  */
 static bool can_elide_value_nullness(const struct bpf_map *map)
 {
@@ -12960,8 +12924,7 @@ static int check_helper_call(struct bpf_verifier_env *env, struct bpf_insn *insn
 
 		if (func_id == BPF_FUNC_map_lookup_elem &&
 		    can_elide_value_nullness(meta.map.ptr) &&
-		    meta.const_map_key >= 0 &&
-		    meta.const_map_key < meta.map.ptr->max_entries)
+		    meta.max_map_key < meta.map.ptr->max_entries)
 			ret_flag &= ~PTR_MAYBE_NULL;
 
 		regs[BPF_REG_0].map_ptr = meta.map.ptr;
@@ -16759,6 +16722,24 @@ static void scalar_min_max_mul(struct bpf_reg_state *dst_reg,
 					cnum64_from_srange(smin, smax));
 }
 
+static void scalar_min_max_uhmul(struct bpf_reg_state *dst_reg,
+				 struct bpf_reg_state *src_reg)
+{
+	u64 dst = reg_const_value(dst_reg, false);
+	u64 src = reg_const_value(src_reg, false);
+
+	___mark_reg_known(dst_reg, bpf_uhmul64(dst, src));
+}
+
+static void scalar_min_max_shmul(struct bpf_reg_state *dst_reg,
+				 struct bpf_reg_state *src_reg)
+{
+	s64 dst = reg_const_value(dst_reg, false);
+	s64 src = reg_const_value(src_reg, false);
+
+	___mark_reg_known(dst_reg, bpf_shmul64(dst, src));
+}
+
 static void scalar32_min_max_udiv(struct bpf_reg_state *dst_reg,
 				  struct bpf_reg_state *src_reg)
 {
@@ -17468,6 +17449,25 @@ static int adjust_scalar_min_max_vals(struct bpf_verifier_env *env,
 		reg_step_reset(dst_reg);
 		break;
 	case BPF_MUL:
+		/*
+		 * Range analysis for UHMUL/SHMUL is not implemented yet.
+		 * Compute an exact result only when both operands are constants.
+		 * Ordinary low-half MUL continues to use the analysis below.
+		 */
+		if (bpf_insn_is_hmul(insn) &&
+		    (!is_reg_const(dst_reg, false) ||
+		     !is_reg_const(&src_reg, false))) {
+			__mark_reg_unknown(env, dst_reg);
+			break;
+		}
+		if (!alu32 && insn->off == BPF_UHMUL) {
+			scalar_min_max_uhmul(dst_reg, &src_reg);
+			break;
+		}
+		if (!alu32 && insn->off == BPF_SHMUL) {
+			scalar_min_max_shmul(dst_reg, &src_reg);
+			break;
+		}
 		scalar_step_mul(dst_reg, &src_reg);
 		dst_reg->var_off = tnum_mul(dst_reg->var_off, src_reg.var_off);
 		scalar32_min_max_mul(dst_reg, &src_reg);
@@ -17602,6 +17602,11 @@ static int adjust_reg_min_max_vals(struct bpf_verifier_env *env,
 
 	/* Case where at least one operand is an arena. */
 	if (dst_reg->type == PTR_TO_ARENA || (src_reg && src_reg->type == PTR_TO_ARENA)) {
+
+		if (bpf_insn_is_hmul(insn)) {
+			verbose(env, "UHMUL/SHMUL with arena pointers are not supported\n");
+			return -EOPNOTSUPP;
+		}
 
 		if (dst_reg->type != PTR_TO_ARENA)
 			*dst_reg = *src_reg;
@@ -19741,6 +19746,7 @@ bool bpf_get_call_summary(struct bpf_verifier_env *env, struct bpf_insn *call,
 				bpf_jit_inlines_helper_call(call->imm));
 		cs->is_void = fn->ret_type == RET_VOID;
 		cs->arg_slot_cnt = 0;
+		cs->implicit_slot_cnt = 0;
 		for (i = 0; i < ARRAY_SIZE(fn->arg_type); ++i) {
 			if (fn->arg_type[i] == ARG_UNUSED)
 				break;
@@ -19757,6 +19763,14 @@ bool bpf_get_call_summary(struct bpf_verifier_env *env, struct bpf_insn *call,
 			/* error would be reported later */
 			return false;
 		cs->arg_slot_cnt = btf_proto_slots(meta.btf, meta.func_proto);
+		cs->implicit_slot_cnt = 0;
+		if (meta.kfunc_flags & KF_IMPLICIT_ARGS) {
+			const struct btf_type *func = btf_type_by_id(meta.btf, meta.func_id);
+
+			/* the prototype without implicit args, see is_kfunc_arg_implicit() */
+			cs->implicit_slot_cnt = cs->arg_slot_cnt -
+				btf_proto_slots(meta.btf, btf_type_by_id(meta.btf, func->type));
+		}
 		cs->fastcall = meta.kfunc_flags & KF_FASTCALL;
 		cs->is_void = btf_type_is_void(btf_type_by_id(meta.btf, meta.func_proto->type));
 		return true;
@@ -21310,6 +21324,31 @@ static int fd_array_get_map_idx(struct bpf_verifier_env *env, u32 idx)
 	return -EPROTO;
 }
 
+static bool is_valid_alu_variant(const struct bpf_insn *insn)
+{
+	switch (BPF_OP(insn->code)) {
+	case BPF_MUL:
+		return insn->off == 0 || bpf_insn_is_hmul(insn);
+	case BPF_DIV:
+	case BPF_MOD:
+		/* off == 1 selects SDIV/SMOD. */
+		return insn->off == 0 || insn->off == 1;
+	default:
+		return insn->off == 0;
+	}
+}
+
+/* The interpreter supports uhmul and shmul. JITs opt in. */
+static int check_hmul_jit(struct bpf_verifier_env *env)
+{
+	if (bpf_prog_is_offloaded(env->prog->aux) ||
+	    (env->prog->jit_requested && !bpf_jit_supports_hmul())) {
+		verbose(env, "JIT doesn't support uhmul and shmul\n");
+		return -EOPNOTSUPP;
+	}
+	return 0;
+}
+
 static int check_alu_fields(struct bpf_verifier_env *env, struct bpf_insn *insn)
 {
 	u8 class = BPF_CLASS(insn->code);
@@ -21365,18 +21404,14 @@ static int check_alu_fields(struct bpf_verifier_env *env, struct bpf_insn *insn)
 	case BPF_MUL:
 	case BPF_DIV:
 	case BPF_MOD:
-		if (BPF_SRC(insn->code) == BPF_X) {
-			if (insn->imm != 0 || (insn->off != 0 && insn->off != 1) ||
-			    (insn->off == 1 && opcode != BPF_MOD && opcode != BPF_DIV)) {
-				verbose(env, "BPF_ALU uses reserved fields\n");
-				return -EINVAL;
-			}
-		} else if (insn->src_reg != BPF_REG_0 ||
-			   (insn->off != 0 && insn->off != 1) ||
-			   (insn->off == 1 && opcode != BPF_MOD && opcode != BPF_DIV)) {
+		if (!is_valid_alu_variant(insn) ||
+		    (BPF_SRC(insn->code) == BPF_X && insn->imm != 0) ||
+		    (BPF_SRC(insn->code) == BPF_K && insn->src_reg != BPF_REG_0)) {
 			verbose(env, "BPF_ALU uses reserved fields\n");
 			return -EINVAL;
 		}
+		if (bpf_insn_is_hmul(insn))
+			return check_hmul_jit(env);
 		return 0;
 	default:
 		verbose(env, "invalid BPF_ALU opcode %x\n", opcode);
@@ -24231,11 +24266,6 @@ skip_full_check:
 	print_verification_stats(env);
 	env->prog->aux->verified_insns = env->insn_processed;
 
-	/* preserve original error even if log finalization is successful */
-	err = bpf_log_attr_finalize(attr_log, &env->log);
-	if (err)
-		ret = err;
-
 	if (ret)
 		goto err_release_maps;
 
@@ -24286,6 +24316,14 @@ skip_full_check:
 	env->prog = __bpf_prog_select_runtime(env, env->prog, &ret);
 
 err_release_maps:
+	/*
+	 * Finalize the log after the runtime is selected, which blinds the
+	 * constants of a prog of one function and can log an error. Preserve
+	 * the original error even if log finalization is successful.
+	 */
+	err = bpf_log_attr_finalize(attr_log, &env->log);
+	if (err)
+		ret = err;
 	if (ret)
 		release_insn_arrays(env);
 	if (!env->prog->aux->used_maps)
@@ -24314,6 +24352,7 @@ err_free_env:
 	if (env->insn_aux_data)
 		bpf_clear_insn_aux_data(env, 0, env->insn_aux_data_len);
 	vfree(env->insn_aux_data);
+	bpf_patch_list_free(env);
 	kvfree(env->fd_array);
 	bpf_free_scev(env);
 	bpf_stack_liveness_free(env);

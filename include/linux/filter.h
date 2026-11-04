@@ -23,6 +23,7 @@
 #include <linux/sockptr.h>
 #include <linux/static_call.h>
 #include <linux/u64_stats_sync.h>
+#include <linux/math64.h>
 
 #include <net/sch_generic.h>
 
@@ -151,6 +152,38 @@ struct ctl_table_header;
 		.imm   = IMM })
 #define BPF_ALU32_IMM(OP, DST, IMM)				\
 	BPF_ALU32_IMM_OFF(OP, DST, IMM, 0)
+
+static inline u64 bpf_uhmul64(u64 a, u64 b)
+{
+	return mul_u64_u64_shr(a, b, 64);
+}
+
+static inline u64 bpf_shmul64(s64 a, s64 b)
+{
+	u64 ua = a, ub = b;
+	u64 hi = bpf_uhmul64(ua, ub);
+
+	/*
+	 * Let M = 2^64, sa = (a < 0), and sb = (b < 0). Then:
+	 *
+	 * a * b = (ua - sa * M) * (ub - sb * M)
+	 *       = ua * ub - sa * M * ub - sb * M * ua + sa * sb * M^2
+	 *
+	 * Therefore, signed_hi = unsigned_hi - sa * ub - sb * ua (mod M).
+	 */
+	if (a < 0)
+		hi -= ub;
+	if (b < 0)
+		hi -= ua;
+	return hi;
+}
+
+static inline bool bpf_insn_is_hmul(const struct bpf_insn *insn)
+{
+	return BPF_CLASS(insn->code) == BPF_ALU64 &&
+	       BPF_OP(insn->code) == BPF_MUL &&
+	       (insn->off == BPF_UHMUL || insn->off == BPF_SHMUL);
+}
 
 /* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
 
@@ -1287,6 +1320,7 @@ bool bpf_jit_supports_kfunc_call(void);
 bool bpf_jit_supports_callx(void);
 bool bpf_jit_supports_kfunc_ret_reg_pair(void);
 bool bpf_jit_supports_unwind(void);
+bool bpf_jit_supports_hmul(void);
 bool bpf_jit_supports_stack_args(void);
 bool bpf_jit_supports_arena_args(void);
 bool bpf_jit_supports_far_kfunc_call(void);
@@ -1345,22 +1379,6 @@ static inline bool bpf_dump_raw_ok(const struct cred *cred)
 	 */
 	return kallsyms_show_value(cred);
 }
-
-struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-				       const struct bpf_insn *patch, u32 len);
-
-#ifdef CONFIG_BPF_SYSCALL
-struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-				     const struct bpf_insn *patch, u32 len);
-#else
-static inline struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-						   const struct bpf_insn *patch, u32 len)
-{
-	return ERR_PTR(-ENOTSUPP);
-}
-#endif /* CONFIG_BPF_SYSCALL */
-
-int bpf_remove_insns(struct bpf_prog *prog, u32 off, u32 cnt);
 
 static inline bool xdp_return_frame_no_direct(void)
 {
