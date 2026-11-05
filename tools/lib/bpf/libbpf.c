@@ -9953,7 +9953,7 @@ static int bpf_object_load(struct bpf_object *obj, int extra_log_level, const ch
 			err = bpf_gen__finish(obj->gen_loader, obj->nr_programs, obj->nr_maps);
 	}
 
-	bpf_object_post_load_cleanup(obj, false);
+	bpf_object_post_load_cleanup(obj, false /* !force */);
 	obj->state = OBJ_LOADED; /* doesn't matter if successfully or not */
 
 	if (err) {
@@ -16123,16 +16123,14 @@ int bpf_program__set_load_strategy(struct bpf_program *prog, enum bpf_prog_load_
 	if (obj->state >= OBJ_PREPARED)
 		return libbpf_err(-EINVAL);
 
+	if (prog_is_subprog(obj, prog))
+		return libbpf_err(-EINVAL);
+
 	switch (strategy) {
 	case BPF_PROG_LOAD_STRATEGY_DISABLED:
 	case BPF_PROG_LOAD_STRATEGY_AUTO:
-		prog->load_strategy = strategy;
-		break;
 	case BPF_PROG_LOAD_STRATEGY_MANUAL:
-		if (prog_is_subprog(obj, prog))
-			return libbpf_err(-EINVAL);
-
-		prog->load_strategy = BPF_PROG_LOAD_STRATEGY_MANUAL;
+		prog->load_strategy = strategy;
 		break;
 	default:
 		return libbpf_err(-EINVAL);
@@ -16146,8 +16144,7 @@ enum bpf_prog_load_strategy bpf_program__load_strategy(const struct bpf_program 
 	return prog->load_strategy;
 }
 
-int
-bpf_program__load(struct bpf_program *prog)
+int bpf_program__load(struct bpf_program *prog)
 {
 	int err;
 	struct bpf_object *obj = prog->obj;

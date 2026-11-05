@@ -192,9 +192,9 @@ out:
 }
 
 /*
- * The same binding through bpf_object__prepare() and bpf_program__clone(), the
- * way veristat loads a program: the arena takes slot 0 of a continuous
- * fd_array, next to the module BTF of the kfunc the trigger calls.
+ * The same binding through bpf_object__prepare() and bpf_program__clone(),
+ * the arena takes slot 0 of a continuous fd_array, next to the module BTF
+ * of the kfunc the trigger calls.
  */
 static void arena_autobind_clone(void)
 {
@@ -220,6 +220,46 @@ static void arena_autobind_clone(void)
 			continue;
 		assert_prog_map(fd, info.id, bpf_program__name(prog));
 		close(fd);
+	}
+out:
+	struct_ops_arena_autobind__destroy(skel);
+}
+
+/*
+ * The same binding through BPF_PROG_LOAD_STRATEGY_MANUAL: every program is
+ * loaded with bpf_program__load() after bpf_object__prepare() and unloaded
+ * again, the way veristat loads programs.
+ */
+static void arena_autobind_manual(void)
+{
+	struct struct_ops_arena_autobind *skel;
+	struct bpf_map_info info = {};
+	__u32 len = sizeof(info);
+	struct bpf_program *prog;
+	int err;
+
+	skel = struct_ops_arena_autobind__open();
+	if (!ASSERT_OK_PTR(skel, "struct_ops_arena_autobind__open"))
+		return;
+
+	bpf_object__for_each_program(prog, skel->obj) {
+		err = bpf_program__set_load_strategy(prog, BPF_PROG_LOAD_STRATEGY_MANUAL);
+		if (!ASSERT_OK(err, "set_load_strategy"))
+			goto out;
+	}
+	err = bpf_object__prepare(skel->obj);
+	if (!ASSERT_OK(err, "prepare"))
+		goto out;
+	err = bpf_map_get_info_by_fd(bpf_map__fd(skel->maps.arena), &info, &len);
+	if (!ASSERT_OK(err, "arena_info"))
+		goto out;
+	bpf_object__for_each_program(prog, skel->obj) {
+		err = bpf_program__load(prog);
+		if (!ASSERT_OK(err, bpf_program__name(prog)))
+			continue;
+		assert_prog_map(bpf_program__fd(prog), info.id, bpf_program__name(prog));
+		bpf_program__unload(prog);
+		ASSERT_LT(bpf_program__fd(prog), 0, "unloaded");
 	}
 out:
 	struct_ops_arena_autobind__destroy(skel);
@@ -315,6 +355,8 @@ void serial_test_struct_ops_arena(void)
 		arena_autobind();
 	if (test__start_subtest("arena_autobind_clone"))
 		arena_autobind_clone();
+	if (test__start_subtest("arena_autobind_manual"))
+		arena_autobind_manual();
 	if (test__start_subtest("arena_autobind_excl"))
 		arena_autobind_excl();
 #else
