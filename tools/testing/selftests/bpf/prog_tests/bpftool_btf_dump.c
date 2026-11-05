@@ -93,6 +93,58 @@ out:
 	return ext_btf;
 }
 
+/*
+ * Older kernel BTF encodes the arena attribute as "address_space(1)":
+ *
+ *	int __attribute__((address_space(1))) *arena(void);
+ */
+static struct btf *mk_legacy_arena_btf(void)
+{
+	struct btf *btf;
+
+	btf = btf__new_empty();
+	if (!ASSERT_OK_PTR(btf, "new_empty"))
+		return NULL;
+
+	btf__add_int(btf, "int", 4, BTF_INT_SIGNED);
+	btf__add_type_attr(btf, "address_space(1)", 1);
+	btf__add_ptr(btf, 2);
+	btf__add_func_proto(btf, 3);
+	btf__add_func(btf, "arena", BTF_FUNC_GLOBAL, 4);
+	btf__add_decl_tag(btf, "bpf_kfunc", 5, -1);
+
+	VALIDATE_RAW_BTF(
+		btf,
+		"[1] INT 'int' size=4 bits_offset=0 nr_bits=32 encoding=SIGNED",
+		"[2] TYPE_TAG 'address_space(1)' type_id=1 kflag=1",
+		"[3] PTR '(anon)' type_id=2",
+		"[4] FUNC_PROTO '(anon)' ret_type_id=3 vlen=0",
+		"[5] FUNC 'arena' type_id=4 linkage=global",
+		"[6] DECL_TAG 'bpf_kfunc' type_id=5 component_idx=-1");
+
+	return btf;
+}
+
+static struct btf *legacy_arena_base;
+
+/* Module BTF over legacy_arena_base, with an arena kfunc of its own */
+static struct btf *mk_legacy_arena_split_btf(void)
+{
+	struct btf *btf;
+
+	btf = btf__new_empty_split(legacy_arena_base);
+	if (!ASSERT_OK_PTR(btf, "new_empty_split"))
+		return NULL;
+
+	btf__add_type_attr(btf, "address_space(1)", 1);
+	btf__add_ptr(btf, 7);
+	btf__add_func_proto(btf, 8);
+	btf__add_func(btf, "arena_mod", BTF_FUNC_GLOBAL, 9);
+	btf__add_decl_tag(btf, "bpf_kfunc", 10, -1);
+
+	return btf;
+}
+
 static struct btf *mk_loc_btf(void)
 {
 	struct btf *btf;
@@ -180,7 +232,7 @@ out:
 	return err;
 }
 
-static char *dump_c(const char *btf_path, bool sorted)
+static char *dump_c(const char *btf_path, const char *base_path, bool sorted)
 {
 	char args[MAX_BPFTOOL_CMD_LEN];
 	char *buf;
@@ -190,8 +242,8 @@ static char *dump_c(const char *btf_path, bool sorted)
 	if (!ASSERT_OK_PTR(buf, "alloc_dump"))
 		return NULL;
 
-	snprintf(args, sizeof(args), "btf dump file %s format c%s",
-		 btf_path, sorted ? "" : " unsorted");
+	snprintf(args, sizeof(args), "%s%s btf dump file %s format c%s",
+		 base_path ? "-B " : "", base_path ?: "", btf_path, sorted ? "" : " unsorted");
 
 	err = get_bpftool_command_output(args, buf, DUMP_BUF_SZ);
 	if (!ASSERT_OK(err, "btf_dump_format_c")) {
@@ -255,7 +307,7 @@ static void test_dump(const char *btf_path, bool sorted)
 
 	exp_path = sorted ? EXPECTED_SORTED : EXPECTED_UNSORTED;
 
-	dump = dump_c(btf_path, sorted);
+	dump = dump_c(btf_path, NULL, sorted);
 	if (!dump)
 		return;
 
@@ -268,6 +320,44 @@ static void test_dump(const char *btf_path, bool sorted)
 	free(exp);
 out_dump:
 	free(dump);
+}
+
+static void test_legacy_arena(const char *btf_path)
+{
+	char *dump;
+
+	dump = dump_c(btf_path, NULL, true);
+	if (!dump)
+		return;
+
+	ASSERT_HAS_SUBSTR(dump, "int __attribute__((address_space(1))) *arena(void)",
+			  "arena_kfunc");
+	free(dump);
+}
+
+static void test_legacy_arena_split(const char *base_path)
+{
+	char path[PATH_MAX];
+	char *dump;
+
+	legacy_arena_base = btf__parse(base_path, NULL);
+	if (!ASSERT_OK_PTR(legacy_arena_base, "parse_base"))
+		return;
+	if (btf_to_tmpfile(mk_legacy_arena_split_btf, path))
+		goto out;
+
+	dump = dump_c(path, base_path, true);
+	unlink(path);
+	if (!dump)
+		goto out;
+
+	ASSERT_HAS_SUBSTR(dump, "int __attribute__((address_space(1))) *arena(void)",
+			  "base_arena_kfunc");
+	ASSERT_HAS_SUBSTR(dump, "int __attribute__((address_space(1))) *arena_mod(void)",
+			  "split_arena_kfunc");
+	free(dump);
+out:
+	btf__free(legacy_arena_base);
 }
 
 static void test_loc_dump(const char *btf_path)
@@ -322,6 +412,14 @@ void test_bpftool_btf_dump(void)
 	if (!btf_to_tmpfile(mk_hdr_extra_btf, path)) {
 		if (test__start_subtest("hdr_extra"))
 			test_dump(path, true);
+		unlink(path);
+	}
+
+	if (!btf_to_tmpfile(mk_legacy_arena_btf, path)) {
+		if (test__start_subtest("legacy_arena"))
+			test_legacy_arena(path);
+		if (test__start_subtest("legacy_arena_split"))
+			test_legacy_arena_split(path);
 		unlink(path);
 	}
 
