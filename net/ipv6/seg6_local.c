@@ -773,11 +773,14 @@ pull:
 		skb_set_transport_header(skb, thoff);
 
 	iph = ipv6_hdr(skb);
-	if (iph->nexthdr == NEXTHDR_ROUTING) {
+	if (srhoff == sizeof(*iph)) {
 		iph->nexthdr = srh_nexthdr;
 	} else {
 		/* we must look for the extension header (EXTH, for short) that
-		 * immediately precedes the SRH we have just removed.
+		 * immediately precedes the SRH we have just removed, i.e. the
+		 * EXTH that ends at srhoff. We find it by its position and not
+		 * by its nexthdr, since another routing header (e.g. an SRH
+		 * with SL = 0) may come before the removed SRH.
 		 * Then, we update the value of the EXTH nexthdr with the one
 		 * contained in the SRH nexthdr.
 		 */
@@ -805,7 +808,7 @@ pull:
 				break;
 			}
 
-			if (hp->nexthdr == NEXTHDR_ROUTING) {
+			if (off == srhoff) {
 				hp->nexthdr = srh_nexthdr;
 				break;
 			}
@@ -819,6 +822,24 @@ pull:
 	skb_postpush_rcsum(skb, iph, srhoff);
 
 	return true;
+}
+
+/* look up the SRH to be processed by the RFC8986 flavors. As End does, a
+ * routing header with SL = 0 is skipped (e.g. an SRH already consumed).
+ * This function returns NULL when no valid SRH is found.
+ */
+static struct ipv6_sr_hdr *seg6_flv8986_get_srh(struct sk_buff *skb)
+{
+	struct ipv6_sr_hdr *srh;
+
+	srh = seg6_get_srh(skb, IP6_FH_F_SKIP_RH);
+	if (srh)
+		return srh;
+
+	/* we take the first routing header without skipping it. In this way,
+	 * seg6_get_srh_pktinfo() reports SL = 0 and not a missing SRH.
+	 */
+	return seg6_get_srh(skb, 0);
 }
 
 /* process the packet on the basis of the RFC8986 flavors set for the given
@@ -835,7 +856,7 @@ static int end_flv8986_core(struct sk_buff *skb, struct seg6_local_lwt *slwt)
 	__u32 flvmask;
 	int srhoff;
 
-	srh = seg6_get_srh(skb, 0);
+	srh = seg6_flv8986_get_srh(skb);
 	srhoff = srh ? ((unsigned char *)srh - skb->data) : 0;
 	pinfo = seg6_get_srh_pktinfo(srh);
 #ifdef CONFIG_IPV6_SEG6_HMAC
