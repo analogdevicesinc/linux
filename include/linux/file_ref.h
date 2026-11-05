@@ -133,6 +133,17 @@ static __always_inline void file_ref_inc(file_ref_t *ref)
  * are done before, and provides an acquire ordering on success such
  * that free() must come after.
  *
+ * The decrement is fully ordered though and it has to stay that way.
+ * When the last reference goes synchronously, in __fput_sync() and on
+ * the fallback path of fput_close_sync(), the full barrier is what
+ * orders the caller's earlier stores, in close(2) the cleared slot in
+ * the descriptor table, before the slab handoff that lets another CPU
+ * reallocate the file. A lookup that increments the recycled counter
+ * then sees the cleared slot and fails its recheck. The deferred
+ * fput() has the cmpxchg() of task_work_add() for that, the
+ * synchronous paths have nothing else. So this is not a candidate for
+ * atomic_long_dec_return_release().
+ *
  * Return: True if this was the last reference with no future references
  *         possible. This signals the caller that it can safely release
  *         the object which is protected by the reference counter.
