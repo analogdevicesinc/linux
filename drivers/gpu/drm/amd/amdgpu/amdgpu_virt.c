@@ -135,6 +135,18 @@ int amdgpu_virt_release_full_gpu(struct amdgpu_device *adev, bool init)
 	return 0;
 }
 
+/*
+ * amdgpu_virt_deactivate - stop driving an SR-IOV VF after a failed init
+ *
+ * Clear the runtime capability and drop the virt ops so the teardown path
+ * does not issue host handshakes the host will never answer.
+ */
+void amdgpu_virt_deactivate(struct amdgpu_device *adev)
+{
+	adev->virt.caps &= ~AMDGPU_SRIOV_CAPS_RUNTIME;
+	adev->virt.ops = NULL;
+}
+
 /**
  * amdgpu_virt_reset_gpu() - reset gpu
  * @adev:	amdgpu device.
