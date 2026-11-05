@@ -632,8 +632,14 @@ static int fsl_sai_hw_params(struct snd_pcm_substream *substream,
 
 	if (sai->slots[tx])
 		slots = sai->slots[tx];
-	else if (sai->bclk_ratio)
+	else if (sai->bclk_ratio) {
+		if (sai->bclk_ratio < slot_width) {
+			dev_err(cpu_dai->dev, "bclk ratio %u < slot width %u\n",
+				sai->bclk_ratio, slot_width);
+			return -EINVAL;
+		}
 		slots = sai->bclk_ratio / slot_width;
+	}
 
 	pins = DIV_ROUND_UP(channels, slots);
 
