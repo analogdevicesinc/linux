@@ -1231,7 +1231,8 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	vrm->vmi_needs_invalidate = true;
 	if (err) {
 		/* OOM: unable to split vma, just get accounts right */
-		vm_acct_memory(len >> PAGE_SHIFT);
+		if (accountable_move)
+			vm_acct_memory(len >> PAGE_SHIFT);
 		return;
 	}
 
