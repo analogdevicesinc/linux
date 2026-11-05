@@ -134,7 +134,8 @@
 	};
 
 	trx0_adrv904x: adrv904x-phy@0 {
-		compatible = "adi,adrv9040";
+		compatible = "adi,adrv9042", "adi,adrv9040";
+		label = "adrv9042";
 		reg = <0>;
 
 		#address-cells = <1>;

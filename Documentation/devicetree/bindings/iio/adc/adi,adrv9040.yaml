@@ -17,10 +17,21 @@ description: |
   infrastructure applications. It integrates digital front-end (DFE) processing,
   JESD204B/C interface, and advanced calibration features.
 
+  The ADRV9042 is compatible with the ADRV9040 and adds an external LO
+  feature, so it uses adi,adrv9040 as a fallback compatible.
+
 properties:
   compatible:
-    enum:
-      - adi,adrv9040
+    oneOf:
+      - const: adi,adrv9040
+      - items:
+          - const: adi,adrv9042
+          - const: adi,adrv9040
+
+  label:
+    description: |
+      Name of the device populated on the board, for example "adrv9040" or
+      "adrv9042". Exposed to userspace through the IIO device label attribute.
 
   reg:
     maxItems: 1
