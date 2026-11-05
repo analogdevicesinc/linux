@@ -166,7 +166,7 @@
 				 <3 0 0x4c000000 0x04000000>,
 				 <7 0 0x10000000 0x00020000>;
 
-			flash@0,00000000 {
+			flash@0,0 {
 				compatible = "arm,vexpress-flash", "cfi-flash";
 				reg = <0 0x00000000 0x04000000>,
 				      <1 0x00000000 0x04000000>;
@@ -176,13 +176,13 @@
 				};
 			};
 
-			psram@2,00000000 {
+			psram@2,0 {
 				compatible = "arm,vexpress-psram", "mtd-ram";
 				reg = <2 0x00000000 0x02000000>;
 				bank-width = <4>;
 			};
 
-			ethernet@3,02000000 {
+			ethernet@3,2000000 {
 				compatible = "smsc,lan9118", "smsc,lan9115";
 				reg = <3 0x02000000 0x10000>;
 				interrupts = <15>;
@@ -194,14 +194,14 @@
 				vddvario-supply = <&v2m_fixed_3v3>;
 			};
 
-			usb@3,03000000 {
+			usb@3,3000000 {
 				compatible = "nxp,usb-isp1761";
 				reg = <3 0x03000000 0x20000>;
 				interrupts = <16>;
 				dr_mode = "peripheral";
 			};
 
-			iofpga@7,00000000 {
+			iofpga-bus@7,0 {
 				compatible = "simple-bus";
 				#address-cells = <1>;
 				#size-cells = <1>;
@@ -342,7 +342,7 @@
 					clock-names = "apb_pclk";
 				};
 
-				mmci@5000 {
+				mmc@5000 {
 					compatible = "arm,pl180", "arm,primecell";
 					reg = <0x05000 0x1000>;
 					interrupts = <9>, <10>;
@@ -402,7 +402,7 @@
 					clock-names = "uartclk", "apb_pclk";
 				};
 
-				wdt@f000 {
+				watchdog@f000 {
 					compatible = "arm,sp805", "arm,primecell";
 					reg = <0x0f000 0x1000>;
 					interrupts = <0>;

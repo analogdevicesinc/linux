@@ -197,7 +197,7 @@
 		>;
 	};
 
-	fpga {
+	fpga-bus {
 		/*
 		 * The Integator/AP predates the idea to have magic numbers
 		 * identifying the PrimeCell in hardware, thus we have to

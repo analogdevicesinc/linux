@@ -211,7 +211,7 @@
 		ranges = <0 0x8000000 0x18000000>;
 	};
 
-	site2: hsb@40000000 {
+	site2: hsb-bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;

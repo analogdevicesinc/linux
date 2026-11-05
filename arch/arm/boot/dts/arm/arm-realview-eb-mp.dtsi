@@ -59,7 +59,7 @@
 			interrupts = <0 10 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
-		L2: cache-controller {
+		L2: cache-controller@1f002000 {
 			compatible = "arm,l220-cache";
 			reg = <0x1f002000 0x1000>;
 			interrupt-parent = <&intc>;

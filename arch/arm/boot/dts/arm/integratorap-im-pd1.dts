@@ -250,7 +250,7 @@
 		memory-region = <&impd1_ram>;
 		dma-ranges;
 
-		port@0 {
+		port {
 			#address-cells = <1>;
 			#size-cells = <0>;
 

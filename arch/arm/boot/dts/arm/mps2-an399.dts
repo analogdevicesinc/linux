@@ -64,7 +64,7 @@
 		reg = <0x60000000 0x1000000>;
 	};
 
-	smb {
+	smb-bus {
 		ethernet@1,0 {
 			compatible = "smsc,lan9220", "smsc,lan9115";
 			reg = <1 0x0 0x10000>;

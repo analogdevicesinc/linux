@@ -93,7 +93,7 @@
 		};
 	};
 
-	fpga_flash@38000000 {
+	flash@38000000 {
 		compatible = "arm,versatile-flash", "cfi-flash";
 		reg = <0x38000000 0x800000>;
 		bank-width = <4>;
@@ -108,7 +108,7 @@
 	 * screw this up. Mark the device tree node disabled
 	 * by default.
 	 */
-	secflash@3c000000 {
+	flash@3c000000 {
 		compatible = "arm,versatile-flash", "cfi-flash";
 		reg = <0x3c000000 0x4000000>;
 		bank-width = <4>;
@@ -445,7 +445,7 @@
 	};
 
 	/* These peripherals are inside the FPGA rather than the DevChip */
-	fpga {
+	fpga-bus {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "simple-bus";
@@ -472,7 +472,7 @@
 			clock-names = "apb_pclk";
 		};
 
-		fpga_mci: mmcsd@10005000 {
+		fpga_mci: mmc@10005000 {
 			compatible = "arm,pl18x", "arm,primecell";
 			reg = <0x10005000 0x1000>;
 			interrupt-parent = <&intc_fpga1176>;
