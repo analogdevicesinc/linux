@@ -61,6 +61,14 @@ const char *cu_get_comp_dir(Dwarf_Die *cu_die)
 	return dwarf_formstring(&attr);
 }
 
+bool die_is_compound_type(Dwarf_Die *type_die)
+{
+	int tag = dwarf_tag(type_die);
+
+	return tag == DW_TAG_structure_type || tag == DW_TAG_union_type ||
+	       tag == DW_TAG_class_type;
+}
+
 /* Unlike dwarf_getsrc_die(), cu_getsrc_die() only returns statement line */
 static Dwarf_Line *cu_getsrc_die(Dwarf_Die *cu_die, Dwarf_Addr addr)
 {
@@ -2143,25 +2151,81 @@ int die_get_scopes(Dwarf_Die *cu_die, Dwarf_Addr pc, Dwarf_Die **scopes)
 	return data.nr;
 }
 
+struct __find_member_offset_param {
+	Dwarf_Word offset;
+	int depth;	/* nesting of base classes */
+	bool overflow;	/* depth limit reached, the result is not valid */
+};
+
 static int __die_find_member_offset_cb(Dwarf_Die *die_mem, void *arg)
 {
+	struct __find_member_offset_param *param = arg;
 	Dwarf_Die type_die;
 	Dwarf_Word size, loc;
-	Dwarf_Word offset = (long)arg;
+	Dwarf_Word offset = param->offset;
 	int tag = dwarf_tag(die_mem);
 
-	if (tag != DW_TAG_member)
+	if (tag != DW_TAG_member && tag != DW_TAG_inheritance)
 		return DIE_FIND_CB_SIBLING;
 
 	/* Unions might not have location */
 	if (die_get_data_member_location(die_mem, &loc) < 0) {
 		Dwarf_Attribute attr;
 
+		/*
+		 * A virtual base class (C++) has a location expression that
+		 * needs the vtable at runtime.  Skip it as it cannot be
+		 * resolved statically.
+		 */
+		if (tag == DW_TAG_inheritance)
+			return DIE_FIND_CB_SIBLING;
+
 		if (dwarf_attr_integrate(die_mem, DW_AT_data_bit_offset, &attr) &&
 		    dwarf_formudata(&attr, &loc) == 0)
 			loc /= 8;
 		else
 			loc = 0;
+	}
+
+	if (tag == DW_TAG_inheritance) {
+		struct __find_member_offset_param base_param = {
+			.offset = offset - loc,
+			.depth = param->depth + 1,
+		};
+		Dwarf_Die base_die, member_die;
+
+		/*
+		 * A base class subobject can be smaller than the size of the
+		 * class type: an empty base takes no space (EBO) and a member
+		 * of the derived class can be placed in the tail padding of
+		 * the base.  In both cases a member of the derived class is
+		 * at the same offset as the base, so only match the base if
+		 * it actually has a member at the offset.
+		 */
+		if (offset < loc)
+			return DIE_FIND_CB_SIBLING;
+
+		/*
+		 * Stop the search on broken debug info with cyclic
+		 * inheritance.  The callers check the overflow flag.
+		 */
+		if (param->depth >= MAX_TYPE_CHASE) {
+			pr_debug("DWARF: base class recursion limit reached at DIE 0x%lx\n",
+				 (unsigned long)dwarf_dieoffset(die_mem));
+			param->overflow = true;
+			return DIE_FIND_CB_END;
+		}
+
+		if (die_get_real_type(die_mem, &base_die) == NULL)
+			return DIE_FIND_CB_SIBLING;
+
+		if (die_find_child(&base_die, __die_find_member_offset_cb,
+				   &base_param, &member_die)) {
+			param->overflow = base_param.overflow;
+			return DIE_FIND_CB_END;
+		}
+
+		return DIE_FIND_CB_SIBLING;
 	}
 
 	if (offset == loc)
@@ -2195,13 +2259,14 @@ static int __die_find_member_offset_cb(Dwarf_Die *die_mem, void *arg)
 Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 			       Dwarf_Die *die_mem)
 {
+	struct __find_member_offset_param param = { .depth = 0 };
 	Dwarf_Die *member;
 	Dwarf_Die mb_type;
 	int tag;
 
 	tag = dwarf_tag(type_die);
 	/* If it's not a compound type, return the type directly */
-	if (tag != DW_TAG_structure_type && tag != DW_TAG_union_type) {
+	if (!die_is_compound_type(type_die)) {
 		Dwarf_Word size;
 
 		if (dwarf_aggregate_size(type_die, &size) < 0)
@@ -2216,10 +2281,11 @@ Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 
 	mb_type = *type_die;
 	/* TODO: Handle union types better? */
-	while (tag == DW_TAG_structure_type || tag == DW_TAG_union_type) {
+	while (die_is_compound_type(&mb_type)) {
+		param.offset = offset;
 		member = die_find_child(&mb_type, __die_find_member_offset_cb,
-					(void *)(long)offset, die_mem);
-		if (member == NULL)
+					&param, die_mem);
+		if (member == NULL || param.overflow)
 			return NULL;
 
 		if (die_get_real_type(member, &mb_type) == NULL)
@@ -2227,8 +2293,7 @@ Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 
 		tag = dwarf_tag(&mb_type);
 
-		if (tag == DW_TAG_structure_type || tag == DW_TAG_union_type ||
-		    tag == DW_TAG_array_type) {
+		if (die_is_compound_type(&mb_type) || tag == DW_TAG_array_type) {
 			Dwarf_Word loc;
 
 			/* Update offset for the start of the member struct */
