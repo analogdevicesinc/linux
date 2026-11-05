@@ -265,6 +265,14 @@ int proc_nochmod_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 extern void proc_pid_evict_inode(struct proc_inode *);
 extern struct inode *proc_pid_make_inode(struct super_block *, struct task_struct *, umode_t);
 extern void pid_update_inode(struct task_struct *, struct inode *);
+int proc_exec_id_single_open(struct inode *inode, struct file *file,
+			     int (*show)(struct seq_file *, void *));
+int proc_exec_id_single_release(struct inode *inode, struct file *file);
+int proc_exec_id_dir_open(struct inode *inode, struct file *file);
+int proc_exec_id_dir_release(struct inode *inode, struct file *file);
+int proc_exec_id_lock(const struct file *file, struct task_struct *task,
+		      u64 *exec_id);
+void proc_exec_id_unlock(struct task_struct *task);
 extern int pid_delete_dentry(const struct dentry *);
 extern int proc_pid_readdir(struct file *, struct dir_context *);
 struct dentry *proc_pid_lookup(struct dentry *, unsigned int);
