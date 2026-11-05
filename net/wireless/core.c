@@ -1260,10 +1260,13 @@ int wiphy_register(struct wiphy *wiphy)
 	rdev->wiphy.registered = true;
 
 	nl80211_notify_wiphy(rdev, NL80211_CMD_NEW_WIPHY);
-	wiphy_unlock(&rdev->wiphy);
 
 	/* set up regulatory info */
 	wiphy_regulatory_register(wiphy);
+	/* TODO: make this a hard failure when drivers are fixed? */
+	WARN_ON(wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED &&
+		!get_wiphy_regdom(wiphy));
+	wiphy_unlock(&rdev->wiphy);
 
 	if (wiphy->regulatory_flags & REGULATORY_CUSTOM_REG) {
 		struct regulatory_request request = {

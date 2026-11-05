@@ -3237,6 +3237,10 @@ static void reg_process_self_managed_hint(struct wiphy *wiphy)
 
 	lockdep_assert_wiphy(wiphy);
 
+	/* not registered yet, apply later during registration */
+	if (!rdev->wiphy.registered)
+		return;
+
 	spin_lock(&reg_requests_lock);
 	regd = rdev->requested_regd;
 	rdev->requested_regd = NULL;
@@ -4146,7 +4150,8 @@ int regulatory_set_wiphy_regd(struct wiphy *wiphy,
 	if (ret)
 		return ret;
 
-	schedule_work(&reg_work);
+	if (wiphy->registered)
+		schedule_work(&reg_work);
 	return 0;
 }
 EXPORT_SYMBOL(regulatory_set_wiphy_regd);
@@ -4174,30 +4179,28 @@ void wiphy_regulatory_register(struct wiphy *wiphy)
 	struct regulatory_request *lr = get_last_request();
 
 	lockdep_assert_held(&cfg80211_mutex);
+	lockdep_assert_wiphy(wiphy);
 
-	scoped_guard(wiphy, wiphy) {
-		/* self-managed devices ignore beacon hints and country IE */
-		if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
-			wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS |
-						   REGULATORY_COUNTRY_IE_IGNORE;
+	/* self-managed devices ignore beacon hints and country IE */
+	if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS |
+					   REGULATORY_COUNTRY_IE_IGNORE;
 
-			/*
-			 * The last request may have been received before this
-			 * registration call. Call the driver notifier if
-			 * initiator is USER.
-			 */
-			if (lr->initiator == NL80211_REGDOM_SET_BY_USER)
-				reg_call_notifier(wiphy, lr);
-		}
-
-		if (!reg_dev_ignore_cell_hint(wiphy))
-			reg_update_cell_hint_num(wiphy, 1);
-
-		wiphy_update_regulatory(wiphy, lr->initiator);
-		wiphy_all_share_dfs_chan_state(wiphy);
+		/*
+		 * The last request may have been received before this
+		 * registration call. Call the driver notifier if
+		 * initiator is USER.
+		 */
+		if (lr->initiator == NL80211_REGDOM_SET_BY_USER)
+			reg_call_notifier(wiphy, lr);
 	}
 
-	reg_process_self_managed_hints();
+	if (!reg_dev_ignore_cell_hint(wiphy))
+		reg_update_cell_hint_num(wiphy, 1);
+
+	wiphy_update_regulatory(wiphy, lr->initiator);
+	wiphy_all_share_dfs_chan_state(wiphy);
+	reg_process_self_managed_hint(wiphy);
 }
 
 void wiphy_regulatory_deregister(struct wiphy *wiphy)
