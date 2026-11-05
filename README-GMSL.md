@@ -22,6 +22,12 @@ First clone the ADI Linux repo, branch `gmsl/rpi-6.13.y` with the following comm
 
 `git clone --branch gmsl/rpi-6.13.y https://github.com/analogdevicesinc/linux`
 
+`cd linux`
+
+> [!NOTE]
+> Check the native compiler with: `gcc --version`\
+> If it is not installed run: `sudo apt install -y build-essential bc bison flex libssl-dev libncurses-dev`
+
 Second, configure the kernel build with *bcm2711_adi_gmsl_defconfig* for **RPI4** or
 
 *bcm2712_adi_gmsl_defconfig* for **RPI5**
