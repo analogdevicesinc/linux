@@ -833,6 +833,8 @@ static void si476x_core_remove(struct i2c_client *client)
 	else
 		cancel_delayed_work_sync(&core->status_monitor);
 
+	cancel_work_sync(&core->rds_fifo_drainer);
+
 	kfifo_free(&core->rds_fifo);
 }
 
