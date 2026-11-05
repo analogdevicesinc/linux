@@ -88,14 +88,16 @@ static const struct snd_kcontrol_new fsl_sai_timestamp_ctrls[] = {
 };
 
 /**
- * fsl_sai_dir_is_synced - Check if stream is synced by the opposite stream
- *
- * SAI supports synchronous mode using bit/frame clocks of either Transmitter's
- * or Receiver's for both streams. This function is used to check if clocks of
- * the stream's are synced by the opposite stream.
- *
+ * fsl_sai_dir_is_synced - Check if the opposite stream is synced to @dir
  * @sai: SAI context
- * @dir: stream direction
+ * @dir: stream direction, TX or RX
+ *
+ * SAI supports synchronous mode, where one direction uses the bit clock and
+ * frame sync of the other. This function checks whether @dir provides the
+ * clocks, i.e. @dir runs in asynchronous mode while the opposite direction
+ * runs in synchronous mode.
+ *
+ * Return: true if the opposite direction uses the clocks of @dir.
  */
 static inline bool fsl_sai_dir_is_synced(struct fsl_sai *sai, int dir)
 {
