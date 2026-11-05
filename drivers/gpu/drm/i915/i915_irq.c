@@ -746,9 +746,9 @@ static void gen11_irq_postinstall(struct drm_i915_private *dev_priv)
 
 	gen11_gt_irq_postinstall(gt);
 
-	intel_display_irq_postinstall(display);
-
 	gen11_gu_misc_irq_postinstall(dev_priv);
+
+	intel_display_irq_postinstall(display);
 
 	gen11_master_intr_enable(intel_uncore_regs(uncore));
 	intel_uncore_posting_read(&dev_priv->uncore, GEN11_GFX_MSTR_IRQ);
