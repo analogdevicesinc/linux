@@ -1206,12 +1206,17 @@ static int btf_c_annotate_records(struct btf *btf)
 
 	for (i = 1; i < cnt; i++) {
 		const struct btf_type *t = btf__type_by_id(btf, i);
+		const char *attr;
 
 		if (!btf_is_composite(t))
 			continue;
-		if (non_relocatable[i])
+		if (!non_relocatable[i])
+			attr = "__bpf_relocatable";
+		else if (btf_c_needs_static_offset(btf, t))
+			attr = "__bpf_static_offset";
+		else
 			continue;
-		err = btf__add_decl_attr(btf, "__bpf_relocatable", i, -1);
+		err = btf__add_decl_attr(btf, attr, i, -1);
 		if (err < 0)
 			goto out;
 	}
@@ -1262,6 +1267,13 @@ static int dump_btf_c(struct btf *btf,
 	printf("#define __bpf_relocatable __attribute__((preserve_access_index))\n");
 	printf("#else\n");
 	printf("#define __bpf_relocatable\n");
+	printf("#endif\n");
+	printf("#endif\n\n");
+	printf("#ifndef __bpf_static_offset\n");
+	printf("#if __has_attribute(preserve_static_offset)\n");
+	printf("#define __bpf_static_offset __attribute__((preserve_static_offset))\n");
+	printf("#else\n");
+	printf("#define __bpf_static_offset\n");
 	printf("#endif\n");
 	printf("#endif\n\n");
 	printf("#ifndef __ksym\n");
