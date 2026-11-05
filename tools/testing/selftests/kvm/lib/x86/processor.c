@@ -8,6 +8,7 @@
 #include "kvm_util.h"
 #include "pmu.h"
 #include "processor.h"
+#include "processor_asm.h"
 #include "smm.h"
 #include "svm_util.h"
 #include "sev.h"
@@ -17,10 +18,6 @@
 #ifndef NUM_INTERRUPTS
 #define NUM_INTERRUPTS 256
 #endif
-
-#define KERNEL_CS	0x8
-#define KERNEL_DS	0x10
-#define KERNEL_TSS	0x18
 
 gva_t exception_handlers;
 bool host_cpu_is_amd;
