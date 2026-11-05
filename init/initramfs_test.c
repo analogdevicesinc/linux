@@ -465,11 +465,10 @@ static void __init initramfs_test_fname_path_max(struct kunit *test)
 	char *err;
 	size_t len;
 	struct kstat st0 = {}, st1 = {};
-	char fdata[] = "this file data will not be unpacked";
 	struct test_fname_path_max {
 		char fname_oversize[PATH_MAX + 1];
 		char fname_ok[PATH_MAX];
-		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3 + sizeof(fdata)) * 2];
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * 2];
 	} *tbufs = kzalloc_obj(struct test_fname_path_max);
 	struct initramfs_test_cpio c[] = { {
 		.magic = "070701",
@@ -478,8 +477,6 @@ static void __init initramfs_test_fname_path_max(struct kunit *test)
 		.nlink = 1,
 		.namesize = sizeof(tbufs->fname_oversize),
 		.fname = tbufs->fname_oversize,
-		.filesize = sizeof(fdata),
-		.data = fdata,
 	}, {
 		.magic = "070701",
 		.ino = 2,
