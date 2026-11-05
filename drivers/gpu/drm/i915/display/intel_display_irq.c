@@ -1587,28 +1587,9 @@ static bool gen8_display_irq_handler(struct intel_display *display,
 	return true;
 }
 
-u32 gen11_gu_misc_irq_ack(struct intel_display *display, const u32 master_ctl)
+void gen11_gu_misc_irq_handler(struct intel_display *display)
 {
-	u32 iir;
-
-	if (!(master_ctl & GEN11_GU_MISC_IRQ))
-		return 0;
-
-	intel_display_rpm_assert_block(display);
-
-	iir = intel_de_read_fw(display, GEN11_GU_MISC_IIR);
-	if (likely(iir))
-		intel_de_write_fw(display, GEN11_GU_MISC_IIR, iir);
-
-	intel_display_rpm_assert_unblock(display);
-
-	return iir;
-}
-
-void gen11_gu_misc_irq_handler(struct intel_display *display, const u32 iir)
-{
-	if (iir & GEN11_GU_MISC_GSE)
-		intel_opregion_asle_intr(display);
+	intel_opregion_asle_intr(display);
 }
 
 static bool gen11_display_irq_handler(struct intel_display *display,
