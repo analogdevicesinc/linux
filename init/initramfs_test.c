@@ -543,6 +543,48 @@ static void __init initramfs_test_hdr_hex(struct kunit *test)
 	kfree(tbufs);
 }
 
+static void __init initramfs_test_dir_dataseg(struct kunit *test)
+{
+	char *err;
+	size_t len;
+	struct kstat st0 = {};
+	char fdata[] = "dir with data segment will not be unpacked";
+	struct initramfs_test_bufs {
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * 2 + sizeof(fdata)];
+	} *tbufs = kzalloc_obj(struct initramfs_test_bufs);
+	struct initramfs_test_cpio c[] = { {
+		.magic = "070701",
+		.ino = 1,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("initramfs_test_dir_dataseg"),
+		.fname = "initramfs_test_dir_dataseg",
+		.filesize = sizeof(fdata),
+		.data = fdata,
+	}, {
+		.magic = "070701",
+		.ino = 2,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("initramfs_test_dir_no_dataseg"),
+		.fname = "initramfs_test_dir_no_dataseg",
+	} };
+
+	len = fill_cpio(c, ARRAY_SIZE(c), false, tbufs->cpio_src);
+
+	/* no error: unpack skips non-file/symlink entries with data segment */
+	err = unpack_to_rootfs(tbufs->cpio_src, len);
+	KUNIT_EXPECT_NULL(test, err);
+
+	KUNIT_EXPECT_EQ(test, init_stat("initramfs_test_dir_dataseg", &st0, 0),
+			-ENOENT);
+	KUNIT_EXPECT_EQ(test,
+			init_stat("initramfs_test_dir_no_dataseg", &st0, 0), 0);
+	KUNIT_EXPECT_EQ(test, init_rmdir("initramfs_test_dir_no_dataseg"), 0);
+
+	kfree(tbufs);
+}
+
 /*
  * The kunit_case/_suite struct cannot be marked as __initdata as this will be
  * used in debugfs to retrieve results after test has run.
@@ -557,6 +599,7 @@ static struct kunit_case __refdata initramfs_test_cases[] = {
 	KUNIT_CASE(initramfs_test_fname_pad),
 	KUNIT_CASE(initramfs_test_fname_path_max),
 	KUNIT_CASE(initramfs_test_hdr_hex),
+	KUNIT_CASE(initramfs_test_dir_dataseg),
 	{},
 };
 
