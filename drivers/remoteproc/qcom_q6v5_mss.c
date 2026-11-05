@@ -1128,9 +1128,12 @@ static int q6v5_mpss_init_image(struct q6v5 *qproc, const struct firmware *fw,
 	/* Metadata authentication done, remove modem access */
 	xferop_ret = q6v5_xfer_mem_ownership(qproc, &mdata_perm, true, false,
 					     phys, size);
-	if (xferop_ret)
+	if (xferop_ret) {
 		dev_warn(qproc->dev,
 			 "mdt buffer not reclaimed system may become unstable\n");
+		/* The modem may still have access to the buffer, so leak it */
+		goto free_metadata;
+	}
 
 free_dma_attrs:
 	if (!qproc->mdata_phys)
