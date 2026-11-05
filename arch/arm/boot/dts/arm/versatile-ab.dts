@@ -234,6 +234,7 @@
 			interrupts = <17>;
 			clocks = <&pclk>;
 			clock-names = "apb_pclk";
+			#dma-cells = <2>;
 		};
 
 		uart0: serial@101f1000 {

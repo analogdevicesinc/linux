@@ -122,6 +122,7 @@
 			     <0 91 4>;
 		clocks = <&sys_pll>;
 		clock-names = "apb_pclk";
+		#dma-cells = <1>;
 	};
 
 	timer {

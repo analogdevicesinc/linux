@@ -207,6 +207,7 @@
 			     <0 91 4>;
 		clocks = <&oscclk6a>;
 		clock-names = "apb_pclk";
+		#dma-cells = <1>;
 	};
 
 	scc@7fff0000 {
