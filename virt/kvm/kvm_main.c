@@ -943,12 +943,20 @@ static void kvm_destroy_pm_notifier(struct kvm *kvm)
 
 void *kvm_memslot_metadata_alloc(size_t n, size_t size)
 {
+	size_t bytes;
+
+	if (unlikely(check_mul_overflow(n, size, &bytes)))
+		return NULL;
+
+	if (bytes <= KMALLOC_MAX_CACHE_SIZE)
+		return kvzalloc(bytes, GFP_KERNEL_ACCOUNT);
+
 	return __vcalloc(n, size, GFP_KERNEL_ACCOUNT);
 }
 
 void kvm_memslot_metadata_free(void *p)
 {
-	vfree(p);
+	kvfree(p);
 }
 
 static void kvm_destroy_dirty_bitmap(struct kvm_memory_slot *memslot)
