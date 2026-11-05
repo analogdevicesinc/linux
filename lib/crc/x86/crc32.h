@@ -67,7 +67,7 @@ static inline u32 crc32c_arch(u32 crc, const u8 *p, size_t len)
 		 * crc32c_x86_3way() and crc32_lsb_vpclmul_avx512().  The latter
 		 * is needed anyway for crc32_le(), so we just reuse it here.
 		 */
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&have_vpclmul_avx512))
 			crc = crc32_lsb_vpclmul_avx512(crc, p, len,
 				       crc32_lsb_0x82f63b78_consts.fold_across_128_bits_consts);

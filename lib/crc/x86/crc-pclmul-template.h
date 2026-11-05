@@ -42,14 +42,14 @@ static inline bool have_avx512(void)
  * bytes, the CPU has PCLMULQDQ support, and the current context may use SIMD.
  *
  * 16 bytes is the minimum length supported by the [V]PCLMULQDQ functions.
- * There is overhead associated with kernel_fpu_begin() and kernel_fpu_end(),
- * varying by CPU and factors such as which parts of the "FPU" state userspace
- * has touched, which could result in a larger cutoff being better.  Indeed, a
- * larger cutoff is usually better for a *single* message.  However, the
- * overhead of the FPU section gets amortized if multiple FPU sections get
- * executed before returning to userspace, since the XSAVE and XRSTOR occur only
- * once.  Considering that and the fact that the [V]PCLMULQDQ code is lighter on
- * the dcache than the table-based code is, a 16-byte cutoff seems to work well.
+ * There is overhead associated with the kernel-mode "FPU" section, varying by
+ * CPU and factors such as which parts of the "FPU" state userspace has touched,
+ * which could result in a larger cutoff being better.  Indeed, a larger cutoff
+ * is usually better for a *single* message.  However, the overhead of the FPU
+ * section gets amortized if multiple FPU sections get executed before returning
+ * to userspace, since the XSAVE and XRSTOR occur only once.  Considering that
+ * and the fact that the [V]PCLMULQDQ code is lighter on the dcache than the
+ * table-based code is, a 16-byte cutoff seems to work well.
  */
 #define CRC_PCLMUL(crc, p, len, prefix, consts, have_pclmulqdq)		\
 do {									\
@@ -58,7 +58,7 @@ do {									\
 		const void *consts_ptr;					\
 									\
 		consts_ptr = (consts).fold_across_128_bits_consts;	\
-		kernel_fpu_begin();					\
+		kernel_fpu_begin_mask(0);				\
 		crc = static_call(prefix##_pclmul)((crc), (p), (len),	\
 						   consts_ptr);		\
 		kernel_fpu_end();					\
