@@ -220,14 +220,15 @@ static size_t calculate_regset_size(struct xe_gt *gt)
 	enum xe_hw_engine_id id;
 	unsigned int count = 0;
 
-	for_each_hw_engine(hwe, gt, id)
+	for_each_hw_engine(hwe, gt, id) {
 		xa_for_each(&hwe->reg_sr.xa, sr_idx, sr_entry)
 			count++;
 
-	count += ADS_REGSET_EXTRA_MAX * XE_NUM_HW_ENGINES;
+		if (XE_GT_WA(gt, 1607983814) && hwe->class == XE_ENGINE_CLASS_RENDER)
+			count += LNCFCMOCS_REG_COUNT;
+	}
 
-	if (XE_GT_WA(gt, 1607983814))
-		count += LNCFCMOCS_REG_COUNT;
+	count += ADS_REGSET_EXTRA_MAX * XE_NUM_HW_ENGINES;
 
 	return count * sizeof(struct guc_mmio_reg);
 }
