@@ -596,6 +596,9 @@ static void hw_engine_init_early(struct xe_gt *gt, struct xe_hw_engine *hwe,
 	xe_reg_whitelist_process_engine(hwe);
 }
 
+/*
+ * Apply workarounds that require adjustments to RING_IDLEDLY.
+ */
 static void adjust_idledly(struct xe_hw_engine *hwe)
 {
 	struct xe_gt *gt = hwe->gt;
@@ -719,7 +722,6 @@ static int hw_engine_init(struct xe_gt *gt, struct xe_hw_engine *hwe,
 			xe_hw_engine_enable_ring(hwe);
 	}
 
-	/* Ensure IDLEDLY is lower than MAXCNT */
 	adjust_idledly(hwe);
 
 	return devm_add_action_or_reset(xe->drm.dev, hw_engine_fini, hwe);
