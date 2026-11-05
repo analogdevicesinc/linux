@@ -590,15 +590,15 @@ static inline bool can_follow_write_common(struct page *page,
 		return false;
 
 	/* But FOLL_FORCE has no effect on shared mappings */
-	if (vma->vm_flags & (VM_MAYSHARE | VM_SHARED))
+	if (vma_test_any(vma, VMA_MAYSHARE_BIT, VMA_SHARED_BIT))
 		return false;
 
 	/* ... or read-only private ones */
-	if (!(vma->vm_flags & VM_MAYWRITE))
+	if (!vma_test(vma, VMA_MAYWRITE_BIT))
 		return false;
 
 	/* ... or already writable ones that just need to take a write fault */
-	if (vma->vm_flags & VM_WRITE)
+	if (vma_test(vma, VMA_WRITE_BIT))
 		return false;
 
 	/*
@@ -1203,12 +1203,11 @@ static bool writable_file_mapping_allowed(struct vm_area_struct *vma,
 
 static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
 {
-	vm_flags_t vm_flags = vma->vm_flags;
 	int write = (gup_flags & FOLL_WRITE);
 	int foreign = (gup_flags & FOLL_REMOTE);
 	bool vma_anon = vma_is_anonymous(vma);
 
-	if (vm_flags & (VM_IO | VM_PFNMAP))
+	if (vma_test_any(vma, VMA_IO_BIT, VMA_PFNMAP_BIT))
 		return -EFAULT;
 
 	if ((gup_flags & FOLL_ANON) && !vma_anon)
@@ -1228,7 +1227,8 @@ static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
 		    !writable_file_mapping_allowed(vma, gup_flags))
 			return -EFAULT;
 
-		if (!(vm_flags & VM_WRITE) || (vm_flags & VM_SHADOW_STACK)) {
+		if (!vma_test(vma, VMA_WRITE_BIT) ||
+		    vma_test_single_mask(vma, VMA_SHADOW_STACK)) {
 			if (!(gup_flags & FOLL_FORCE))
 				return -EFAULT;
 			/*
@@ -1243,14 +1243,14 @@ static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
 			if (!vma_is_cow_mapping(vma))
 				return -EFAULT;
 		}
-	} else if (!(vm_flags & VM_READ)) {
+	} else if (!vma_test(vma, VMA_READ_BIT)) {
 		if (!(gup_flags & FOLL_FORCE))
 			return -EFAULT;
 		/*
 		 * Is there actually any vma we can reach here which does not
 		 * have VM_MAYREAD set?
 		 */
-		if (!(vm_flags & VM_MAYREAD))
+		if (!vma_test(vma, VMA_MAYREAD_BIT))
 			return -EFAULT;
 	}
 	/*
@@ -1281,7 +1281,7 @@ static struct vm_area_struct *gup_vma_lookup(struct mm_struct *mm,
 		return vma;
 
 	/* Only warn for half-way relevant accesses */
-	if (!(vma->vm_flags & VM_GROWSDOWN))
+	if (!vma_test(vma, VMA_GROWSDOWN_BIT))
 		return NULL;
 	if (vma->vm_start - addr > 65536)
 		return NULL;
@@ -1518,9 +1518,8 @@ static bool vma_permits_fault(struct vm_area_struct *vma,
 {
 	bool write   = !!(fault_flags & FAULT_FLAG_WRITE);
 	bool foreign = !!(fault_flags & FAULT_FLAG_REMOTE);
-	vm_flags_t vm_flags = write ? VM_WRITE : VM_READ;
 
-	if (!(vm_flags & vma->vm_flags))
+	if (!vma_test(vma, write ? VMA_WRITE_BIT : VMA_READ_BIT))
 		return false;
 
 	/*
@@ -1833,7 +1832,7 @@ long populate_vma_page_range(struct vm_area_struct *vma,
 	 * Rightly or wrongly, the VM_LOCKONFAULT case has never used
 	 * faultin_page() to break COW, so it has no work to do here.
 	 */
-	if (vma->vm_flags & VM_LOCKONFAULT)
+	if (vma_test(vma, VMA_LOCKONFAULT_BIT))
 		return nr_pages;
 
 	/* ... similarly, we've never faulted in PROT_NONE pages */
@@ -1853,7 +1852,7 @@ long populate_vma_page_range(struct vm_area_struct *vma,
 	 * Otherwise, do a read fault, and use FOLL_FORCE in case it's not
 	 * readable (ie write-only or executable).
 	 */
-	if ((vma->vm_flags & (VM_WRITE | VM_SHARED)) == VM_WRITE)
+	if (vma_test(vma, VMA_WRITE_BIT) && !vma_test(vma, VMA_SHARED_BIT))
 		gup_flags |= FOLL_WRITE;
 	else
 		gup_flags |= FOLL_FORCE;
@@ -1959,7 +1958,7 @@ int __mm_populate(unsigned long start, unsigned long len, int ignore_errors)
 		 * range with the first VMA. Also, skip undesirable VMA types.
 		 */
 		nend = min(end, vma->vm_end);
-		if (vma->vm_flags & (VM_IO | VM_PFNMAP))
+		if (vma_test_any(vma, VMA_IO_BIT, VMA_PFNMAP_BIT))
 			continue;
 		if (nstart < vma->vm_start)
 			nstart = vma->vm_start;
@@ -1990,7 +1989,7 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 {
 	struct vm_area_struct *vma;
 	bool must_unlock = false;
-	vm_flags_t vm_flags;
+	vma_flags_t vma_flags;
 	int ret, err = -EFAULT;
 	long i;
 
@@ -2015,10 +2014,14 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 	/* calculate required read or write permissions.
 	 * If FOLL_FORCE is set, we only require the "MAY" flags.
 	 */
-	vm_flags  = (foll_flags & FOLL_WRITE) ?
-			(VM_WRITE | VM_MAYWRITE) : (VM_READ | VM_MAYREAD);
-	vm_flags &= (foll_flags & FOLL_FORCE) ?
-			(VM_MAYREAD | VM_MAYWRITE) : (VM_READ | VM_WRITE);
+	if (foll_flags & FOLL_WRITE)
+		vma_flags = mk_vma_flags(VMA_WRITE_BIT, VMA_MAYWRITE_BIT);
+	else
+		vma_flags = mk_vma_flags(VMA_READ_BIT, VMA_MAYREAD_BIT);
+	if (foll_flags & FOLL_FORCE)
+		vma_flags_clear(&vma_flags, VMA_READ_BIT, VMA_WRITE_BIT);
+	else
+		vma_flags_clear(&vma_flags, VMA_MAYREAD_BIT, VMA_MAYWRITE_BIT);
 
 	for (i = 0; i < nr_pages; i++) {
 		vma = find_vma(mm, start);
@@ -2026,8 +2029,8 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 			break;
 
 		/* protect what we can, including chardevs */
-		if ((vma->vm_flags & (VM_IO | VM_PFNMAP)) ||
-		    !(vm_flags & vma->vm_flags))
+		if (vma_test_any(vma, VMA_IO_BIT, VMA_PFNMAP_BIT) ||
+		    !vma_test_any_mask(vma, vma_flags))
 			break;
 
 		if (pages) {
