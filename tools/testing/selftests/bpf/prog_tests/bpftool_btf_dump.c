@@ -57,6 +57,42 @@ static struct btf *mk_btf(void)
 	return btf;
 }
 
+/* mk_btf() with a nonzero byte in an unknown header extension */
+static struct btf *mk_hdr_extra_btf(void)
+{
+	struct btf *btf, *ext_btf = NULL;
+	const __u32 extra_sz = 4;
+	__u32 hdr_len, sz;
+	const void *raw;
+	char *ext;
+
+	btf = mk_btf();
+	if (!btf)
+		return NULL;
+
+	raw = btf__raw_data(btf, &sz);
+	if (!ASSERT_OK_PTR(raw, "raw_data"))
+		goto out;
+
+	hdr_len = ((const struct btf_header *)raw)->hdr_len;
+
+	ext = calloc(1, sz + extra_sz);
+	if (!ASSERT_OK_PTR(ext, "alloc_ext"))
+		goto out;
+
+	memcpy(ext, raw, hdr_len);
+	ext[hdr_len] = 0xA5; /* any nonzero value */
+	memcpy(ext + hdr_len + extra_sz, raw + hdr_len, sz - hdr_len);
+	((struct btf_header *)ext)->hdr_len = hdr_len + extra_sz;
+
+	ext_btf = btf__new(ext, sz + extra_sz);
+	ASSERT_OK_PTR(ext_btf, "btf_new_ext");
+	free(ext);
+out:
+	btf__free(btf);
+	return ext_btf;
+}
+
 static struct btf *mk_loc_btf(void)
 {
 	struct btf *btf;
@@ -280,6 +316,12 @@ void test_bpftool_btf_dump(void)
 			test_dump(path, true);
 		if (test__start_subtest("c_unsorted"))
 			test_dump(path, false);
+		unlink(path);
+	}
+
+	if (!btf_to_tmpfile(mk_hdr_extra_btf, path)) {
+		if (test__start_subtest("hdr_extra"))
+			test_dump(path, true);
 		unlink(path);
 	}
 
