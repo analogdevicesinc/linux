@@ -6919,8 +6919,10 @@ void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	 * APICv is enabled, but paranoia won't hurt in this case.
 	 */
 	slot = id_to_memslot(slots, APIC_ACCESS_PAGE_PRIVATE_MEMSLOT);
-	if (!slot || slot->flags & KVM_MEMSLOT_INVALID)
+	if (WARN_ON_ONCE(!slot || slot->flags & KVM_MEMSLOT_INVALID)) {
+		kvm_make_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu);
 		return;
+	}
 
 	/*
 	 * Ensure that the mmu_notifier sequence count is read before KVM
@@ -6932,13 +6934,18 @@ void vmx_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	smp_rmb();
 
 	/*
-	 * No need to retry if the memslot does not exist or is invalid.  KVM
-	 * controls the APIC-access page memslot, and only deletes the memslot
-	 * if APICv is permanently inhibited, i.e. the memslot won't reappear.
+	 * Retry if faulting in the page fails (or the memslot is unexpectedly
+	 * invalid) even though KVM controls the APIC-access page memslot, and
+	 * never deletes memslot for a live VM when running on VMX.  Userspace
+	 * can modify the underlying VMA, and while doing so is beyond crazy,
+	 * the cost of supporting that behavior is to simply retry the reload,
+	 * which KVM should do anyways to avoid carrying a stale pfn pointer.
 	 */
 	pfn = __kvm_faultin_pfn(slot, gfn, FOLL_WRITE, &writable, &refcounted_page);
-	if (is_error_noslot_pfn(pfn))
+	if (is_error_noslot_pfn(pfn)) {
+		kvm_make_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu);
 		return;
+	}
 
 	read_lock(&vcpu->kvm->mmu_lock);
 	if (mmu_invalidate_retry_gfn(kvm, mmu_seq, gfn))
