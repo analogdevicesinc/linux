@@ -226,6 +226,9 @@ static size_t calculate_regset_size(struct xe_gt *gt)
 
 		if (XE_GT_WA(gt, 1607983814) && hwe->class == XE_ENGINE_CLASS_RENDER)
 			count += LNCFCMOCS_REG_COUNT;
+
+		if (XE_GT_WA(hwe->gt, 16023105232) || XE_GT_WA(hwe->gt, 14025941587))
+			count++; /* RING_IDLEDLY */
 	}
 
 	count += ADS_REGSET_EXTRA_MAX * XE_NUM_HW_ENGINES;
