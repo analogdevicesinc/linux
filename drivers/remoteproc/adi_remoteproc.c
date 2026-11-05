@@ -174,7 +174,26 @@ static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
 	return regmap_write(rproc_data->svect_regmap, rproc_data->svect_offset, svect);
 }
 
-static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p);
+/*
+ * @todo store number of vrings from resource table and use it to dynamically
+ * notify the correct number of vrings
+ */
+static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p)
+{
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)p;
+	struct sharc_resource_table *table = rproc_data->loaded_rsc_table;
+
+	/* Firmwares witout resource table shouldn't enable the virtio irq */
+	if (!table) {
+		WARN(1, "Invalid rproc_data->firmware_format\n");
+		return -EINVAL;
+	}
+
+	rproc_vq_interrupt(rproc_data->rproc, table->vring[0].notifyid);
+	rproc_vq_interrupt(rproc_data->rproc, table->vring[1].notifyid);
+
+	return IRQ_HANDLED;
+}
 
 static int adi_core_start(struct adi_rproc_data *rproc_data)
 {
@@ -647,27 +666,6 @@ static struct resource_table *adi_rproc_find_loaded_rsc_table(struct rproc *rpro
 	}
 	rproc_data->loaded_rsc_table = (struct sharc_resource_table *)ret;
 	return ret;
-}
-
-/*
- * @todo store number of vrings from resource table and use it to dynamically
- * notify the correct number of vrings
- */
-static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p)
-{
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)p;
-	struct sharc_resource_table *table = rproc_data->loaded_rsc_table;
-
-	/* Firmwares witout resource table shouldn't enable the virtio irq */
-	if (!table) {
-		WARN(1, "Invalid rproc_data->firmware_format\n");
-		return -EINVAL;
-	}
-
-	rproc_vq_interrupt(rproc_data->rproc, table->vring[0].notifyid);
-	rproc_vq_interrupt(rproc_data->rproc, table->vring[1].notifyid);
-
-	return IRQ_HANDLED;
 }
 
 /* kick a virtqueue */
