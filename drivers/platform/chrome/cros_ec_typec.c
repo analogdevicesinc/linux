@@ -444,16 +444,10 @@ static int cros_typec_register_port_altmodes(struct cros_typec_data *typec,
 	struct typec_altmode_desc desc;
 	struct typec_altmode *amode;
 
-	/* All PD capable CrOS devices are assumed to support DP altmode. */
-	memset(&desc, 0, sizeof(desc));
-	desc.svid = USB_TYPEC_DP_SID;
-	desc.mode = USB_TYPEC_DP_MODE;
-	desc.vdo = DP_PORT_VDO;
-	amode = cros_typec_register_displayport(port, &desc,
-						typec->ap_driven_altmode);
-	if (IS_ERR(amode))
-		return PTR_ERR(amode);
-	port->port_altmode[CROS_EC_ALTMODE_DP] = amode;
+	/*
+	 * Alternate modes registered later take precedence. Register DisplayPort
+	 * after Thunderbolt to prioritize DisplayPort over Thunderbolt.
+	 */
 
 	/*
 	 * Register TBT compatibility alt mode. The EC will not enter the mode
@@ -470,6 +464,17 @@ static int cros_typec_register_port_altmodes(struct cros_typec_data *typec,
 			return PTR_ERR(amode);
 		port->port_altmode[CROS_EC_ALTMODE_TBT] = amode;
 	}
+
+	/* All PD capable CrOS devices are assumed to support DP altmode. */
+	memset(&desc, 0, sizeof(desc));
+	desc.svid = USB_TYPEC_DP_SID;
+	desc.mode = USB_TYPEC_DP_MODE;
+	desc.vdo = DP_PORT_VDO;
+	amode = cros_typec_register_displayport(port, &desc,
+						typec->ap_driven_altmode);
+	if (IS_ERR(amode))
+		return PTR_ERR(amode);
+	port->port_altmode[CROS_EC_ALTMODE_DP] = amode;
 
 	port->state.alt = NULL;
 	port->state.mode = TYPEC_STATE_USB;
