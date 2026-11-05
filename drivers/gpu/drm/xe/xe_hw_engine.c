@@ -596,17 +596,19 @@ static void hw_engine_init_early(struct xe_gt *gt, struct xe_hw_engine *hwe,
 	xe_reg_whitelist_process_engine(hwe);
 }
 
-static u32 idledly_floor_ticks(u32 idledly_ns, u32 idledly_units_ps)
+static u32 idledly_floor_ticks(u64 idledly_ps, u64 idledly_units_ps)
 {
-	return DIV_ROUND_DOWN_ULL((u64)idledly_ns * 1000, idledly_units_ps);
+	return DIV_ROUND_DOWN_ULL(idledly_ps, idledly_units_ps);
 }
 
 static void adjust_idledly(struct xe_hw_engine *hwe)
 {
 	struct xe_gt *gt = hwe->gt;
-	u32 idledly, idledly_hw, idledly_reg_val, maxcnt;
-	u32 idledly_units_ps = 8 * gt->info.timestamp_base;
-	u32 maxcnt_units_ns = 640;
+	u32 idledly_reg_val, maxcnt_reg_val;
+	u64 idledly_units_ps = 8 * gt->info.timestamp_base;
+	u64 maxcnt_units_ps = 640000;
+	u64 idledly_ps, idledly_hw_ps;
+	u64 maxcnt_ps;
 	bool inhibit_switch = false;
 	bool wa_applied = false;
 	bool clamped_below_maxcnt = false;
@@ -615,29 +617,27 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 		return;
 
 	if (XE_GT_WA(gt, 16023105232) || XE_GT_WA(gt, 14025941587)) {
-		u32 mincnt_idledly_ns = 5000;
+		u32 mincnt_idledly_ps = 5000000;
 
 		/* xe_gt_clock_init() warns and zeroes timestamp_base on unknown crystal clock. */
 		if (!idledly_units_ps)
 			return;
 
 		idledly_reg_val = xe_mmio_read32(&gt->mmio, RING_IDLEDLY(hwe->mmio_base));
-		maxcnt = xe_mmio_read32(&gt->mmio, RING_PWRCTX_MAXCNT(hwe->mmio_base));
-
 		inhibit_switch = idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED;
-		idledly = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val);
-		idledly = DIV_ROUND_CLOSEST_ULL((u64)idledly * idledly_units_ps, 1000);
-		idledly_hw = idledly;
-		maxcnt = REG_FIELD_GET(IDLE_WAIT_TIME, maxcnt);
-		maxcnt *= maxcnt_units_ns;
+		idledly_ps = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val) * idledly_units_ps;
+		idledly_hw_ps = idledly_ps;
+
+		maxcnt_reg_val = xe_mmio_read32(&gt->mmio, RING_PWRCTX_MAXCNT(hwe->mmio_base));
+		maxcnt_ps = REG_FIELD_GET(IDLE_WAIT_TIME, maxcnt_reg_val) * maxcnt_units_ps;
 
 		/*
 		 * Wa_14025941587 is applied before Wa_16023105232, which takes
 		 * priority if the two ever conflict (not expected in practice).
 		 */
 		if (XE_GT_WA(gt, 14025941587) &&
-		    idledly < mincnt_idledly_ns) {
-			idledly = mincnt_idledly_ns;
+		    idledly_ps < mincnt_idledly_ps) {
+			idledly_ps = mincnt_idledly_ps;
 			wa_applied = true;
 		}
 
@@ -649,11 +649,11 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 			}
 
 			/* Warn only on the value read from hardware. */
-			xe_gt_WARN_ON(gt, idledly_hw >= maxcnt);
+			xe_gt_WARN_ON(gt, idledly_hw_ps >= maxcnt_ps);
 
-			if (idledly >= maxcnt) {
+			if (idledly_ps >= maxcnt_ps) {
 				/* maxcnt may be 0 if IDLE_WAIT_TIME is unprogrammed. */
-				idledly = maxcnt ? maxcnt - 1 : 0;
+				idledly_ps = maxcnt_ps ? maxcnt_ps - 1 : 0;
 				clamped_below_maxcnt = true;
 				wa_applied = true;
 			}
@@ -668,10 +668,9 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 			 * Wa_14025941587 minimum survives tick quantization.
 			 */
 			if (clamped_below_maxcnt)
-				idledly_ticks = idledly_floor_ticks(idledly, idledly_units_ps);
+				idledly_ticks = idledly_floor_ticks(idledly_ps, idledly_units_ps);
 			else
-				idledly_ticks = DIV_ROUND_UP_ULL((u64)idledly * 1000,
-								 idledly_units_ps);
+				idledly_ticks = DIV_ROUND_UP_ULL(idledly_ps, idledly_units_ps);
 
 			/*
 			 * Tick quantization can still push the rounded-up value
@@ -679,17 +678,17 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 			 * priority even in that case.
 			 */
 			if (!clamped_below_maxcnt && XE_GT_WA(gt, 16023105232) &&
-			    (u64)idledly_ticks * idledly_units_ps >= (u64)maxcnt * 1000) {
-				xe_gt_dbg(gt, "idledly %s: %u ticks would exceed maxcnt=%u, so flooring\n",
-					  hwe->name, idledly_ticks, maxcnt);
-				idledly = maxcnt ? maxcnt - 1 : 0;
-				idledly_ticks = idledly_floor_ticks(idledly, idledly_units_ps);
+			    idledly_ticks * idledly_units_ps >= maxcnt_ps) {
+				xe_gt_dbg(gt, "idledly %s: %u ticks would exceed maxcnt=%llups, so flooring\n",
+					  hwe->name, idledly_ticks, maxcnt_ps);
+				idledly_ps = maxcnt_ps ? maxcnt_ps - 1 : 0;
+				idledly_ticks = idledly_floor_ticks(idledly_ps, idledly_units_ps);
 			}
 
 			idledly_reg_val &= ~IDLE_DELAY;
 			idledly_reg_val |= REG_FIELD_PREP(IDLE_DELAY, idledly_ticks);
-			xe_gt_dbg(gt, "idledly %s: set %u max=%u inh=%u ts=%u\n",
-				  hwe->name, idledly, maxcnt,
+			xe_gt_dbg(gt, "idledly %s: set %llups max=%llups inh=%u ts=%ups\n",
+				  hwe->name, idledly_ps, maxcnt_ps,
 				  !!inhibit_switch, gt->info.timestamp_base);
 			xe_mmio_write32(&gt->mmio,
 					RING_IDLEDLY(hwe->mmio_base),
