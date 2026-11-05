@@ -48,6 +48,30 @@ struct s {
 	int f;
 } __bpf_relocatable;
 
+struct __sk_buff {
+	int len;
+	union {
+		int sk;
+	};
+} __bpf_static_offset;
+
+struct bpf_sk_lookup {
+	union {
+		union {
+			int cookie;
+		};
+		int family;
+	};
+} __bpf_static_offset;
+
+struct bpf_tcp_sock {
+	int snd_cwnd;
+} __bpf_static_offset;
+
+struct bpf_nf_ctx {
+	int f;
+} __bpf_relocatable;
+
 
 /* BPF kfuncs */
 #ifndef BPF_NO_KFUNC_PROTOTYPES

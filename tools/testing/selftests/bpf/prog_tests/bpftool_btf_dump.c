@@ -20,6 +20,18 @@
  *	};
  *	enum { E0 = 1 };
  *	struct s { int f; };
+ *	struct __sk_buff {
+ *		int len;
+ *		union { int sk; };
+ *	};
+ *	struct bpf_sk_lookup {
+ *		union {
+ *			union { int cookie; };
+ *			int family;
+ *		};
+ *	};
+ *	struct bpf_tcp_sock { int snd_cwnd; };
+ *	struct bpf_nf_ctx { int f; };
  */
 static struct btf *mk_btf(void)
 {
@@ -42,6 +54,25 @@ static struct btf *mk_btf(void)
 	btf__add_struct(btf, "s", 4);
 	btf__add_field(btf, "f", 1, 0, 0);
 
+	btf__add_union(btf, NULL, 4);
+	btf__add_field(btf, "sk", 1, 0, 0);
+	btf__add_struct(btf, "__sk_buff", 8);
+	btf__add_field(btf, "len", 1, 0, 0);
+	btf__add_field(btf, NULL, 6, 32, 0);
+
+	btf__add_union(btf, NULL, 4);
+	btf__add_field(btf, "cookie", 1, 0, 0);
+	btf__add_union(btf, NULL, 4);
+	btf__add_field(btf, NULL, 8, 0, 0);
+	btf__add_field(btf, "family", 1, 0, 0);
+	btf__add_struct(btf, "bpf_sk_lookup", 4);
+	btf__add_field(btf, NULL, 9, 0, 0);
+
+	btf__add_struct(btf, "bpf_tcp_sock", 4);
+	btf__add_field(btf, "snd_cwnd", 1, 0, 0);
+	btf__add_struct(btf, "bpf_nf_ctx", 4);
+	btf__add_field(btf, "f", 1, 0, 0);
+
 	VALIDATE_RAW_BTF(
 		btf,
 		"[1] INT 'int' size=4 bits_offset=0 nr_bits=32 encoding=SIGNED",
@@ -52,6 +83,22 @@ static struct btf *mk_btf(void)
 		"[4] ENUM '(anon)' encoding=UNSIGNED size=4 vlen=1\n"
 		"\t'E0' val=1",
 		"[5] STRUCT 's' size=4 vlen=1\n"
+		"\t'f' type_id=1 bits_offset=0",
+		"[6] UNION '(anon)' size=4 vlen=1\n"
+		"\t'sk' type_id=1 bits_offset=0",
+		"[7] STRUCT '__sk_buff' size=8 vlen=2\n"
+		"\t'len' type_id=1 bits_offset=0\n"
+		"\t'(anon)' type_id=6 bits_offset=32",
+		"[8] UNION '(anon)' size=4 vlen=1\n"
+		"\t'cookie' type_id=1 bits_offset=0",
+		"[9] UNION '(anon)' size=4 vlen=2\n"
+		"\t'(anon)' type_id=8 bits_offset=0\n"
+		"\t'family' type_id=1 bits_offset=0",
+		"[10] STRUCT 'bpf_sk_lookup' size=4 vlen=1\n"
+		"\t'(anon)' type_id=9 bits_offset=0",
+		"[11] STRUCT 'bpf_tcp_sock' size=4 vlen=1\n"
+		"\t'snd_cwnd' type_id=1 bits_offset=0",
+		"[12] STRUCT 'bpf_nf_ctx' size=4 vlen=1\n"
 		"\t'f' type_id=1 bits_offset=0");
 
 	return btf;
