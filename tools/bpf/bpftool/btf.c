@@ -1131,22 +1131,95 @@ static int btf_c_annotate_type_tags(struct btf *btf)
 	return 0;
 }
 
+/*
+ * The verifier translates field accesses of some types into accesses
+ * to kernel structures, see bpf_convert_ctx_accesses().
+ * The translation keys on the immediate offset of each load or store,
+ * so offsets into these types must stay immediates.
+ */
+static const char * const btf_c_static_offset_types[] = {
+	"__sk_buff",
+	"bpf_perf_event_data",
+	"bpf_sk_lookup",
+	"bpf_sock",
+	"bpf_sock_addr",
+	"bpf_sock_ops",
+	"bpf_sockopt",
+	"bpf_sysctl",
+	"bpf_tcp_sock",
+	"bpf_xdp_sock",
+	"sk_msg_md",
+	"sk_reuseport_md",
+	"xdp_md",
+};
+
+static bool btf_c_needs_static_offset(const struct btf *btf, const struct btf_type *t)
+{
+	const char *name;
+	size_t i;
+
+	if (!btf_is_struct(t))
+		return false;
+
+	name = btf__name_by_offset(btf, t->name_off);
+	for (i = 0; i < ARRAY_SIZE(btf_c_static_offset_types); i++) {
+		if (!strcmp(name, btf_c_static_offset_types[i]))
+			return true;
+	}
+	return false;
+}
+
+/*
+ * Anonymous records within types that need static offsets must not start
+ * CO-RE access chains. Named records, typedefs and pointer targets are
+ * separate types.
+ */
+static void btf_c_mark_non_relocatable(const struct btf *btf, __u32 id, bool *non_relocatable)
+{
+	const struct btf_type *t = btf__type_by_id(btf, id);
+	const struct btf_member *m = btf_members(t);
+	__u32 i;
+
+	non_relocatable[id] = true;
+	for (i = 0; i < btf_vlen(t); i++, m++) {
+		const struct btf_type *mt = btf__type_by_id(btf, m->type);
+
+		if (btf_is_composite(mt) && !mt->name_off && !non_relocatable[m->type])
+			btf_c_mark_non_relocatable(btf, m->type, non_relocatable);
+	}
+}
+
 static int btf_c_annotate_records(struct btf *btf)
 {
 	__u32 i, cnt = btf__type_cnt(btf);
+	bool *non_relocatable;
 	int err;
+
+	non_relocatable = calloc(cnt, sizeof(*non_relocatable));
+	if (!non_relocatable)
+		return -ENOMEM;
+
+	for (i = 1; i < cnt; i++) {
+		if (btf_c_needs_static_offset(btf, btf__type_by_id(btf, i)))
+			btf_c_mark_non_relocatable(btf, i, non_relocatable);
+	}
 
 	for (i = 1; i < cnt; i++) {
 		const struct btf_type *t = btf__type_by_id(btf, i);
 
 		if (!btf_is_composite(t))
 			continue;
+		if (non_relocatable[i])
+			continue;
 		err = btf__add_decl_attr(btf, "__bpf_relocatable", i, -1);
 		if (err < 0)
-			return err;
+			goto out;
 	}
 
-	return 0;
+	err = 0;
+out:
+	free(non_relocatable);
+	return err;
 }
 
 static int dump_btf_c(struct btf *btf,
