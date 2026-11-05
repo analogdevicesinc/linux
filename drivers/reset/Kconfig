@@ -22,6 +22,17 @@ config RESET_A10SR
 	  This option enables support for the external reset functions for
 	  peripheral PHYs on the Altera Arria10 System Resource Chip.
 
+config RESET_ADSP_SC846_MISCREG
+	tristate "Analog Devices ADSP-SC846 MISCREG reset controller"
+	depends on ARCH_SC84X || COMPILE_TEST
+	default ARCH_SC84X
+	select MFD_SYSCON
+	help
+	  This enables the reset controller driver for the MISCREG integration
+	  register file of the Analog Devices ADSP-SC84x processors, which
+	  holds the reset lines of the two xSPI controllers, including their
+	  PHYs, and the two CAN-FD controllers.
+
 config RESET_ASPEED
 	tristate "ASPEED Reset Driver"
 	depends on ARCH_ASPEED || COMPILE_TEST
