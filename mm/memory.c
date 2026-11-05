@@ -5205,18 +5205,13 @@ check_folio:
 	 * If a large folio already belongs to anon mapping, then we
 	 * can just go on and map it partially.
 	 * If not, with the large swapin check above failing, the page table
-	 * have changed, so sub pages might got charged to the wrong cgroup,
-	 * or even should be shmem. So we have to free it and fallback.
+	 * have changed, so some folio pages might be charged to the wrong
+	 * cgroup, or even should be shmem. So we have to free it and fallback.
 	 * Nothing should have touched it, both anon and shmem checks if a
 	 * large folio is fully applicable before use.
-	 *
-	 * This will be removed once we unify folio allocation in the swap cache
-	 * layer, where allocation of a folio stabilizes the swap entries.
 	 */
-	if (!folio_test_anon(folio) && folio_test_large(folio) &&
-	    nr_pages != folio_nr_pages(folio)) {
-		if (!WARN_ON_ONCE(folio_test_dirty(folio)))
-			swap_cache_del_folio(folio);
+	if (!swap_cache_folio_mappable(folio, nr_pages)) {
+		swap_cache_del_folio(folio);
 		goto out_nomap;
 	}
 
