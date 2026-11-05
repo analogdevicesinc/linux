@@ -415,7 +415,6 @@ static void imx93_adc_remove(struct platform_device *pdev)
 	pm_runtime_get_sync(dev);
 
 	pm_runtime_disable(dev);
-	pm_runtime_dont_use_autosuspend(dev);
 	pm_runtime_put_noidle(dev);
 
 	iio_device_unregister(indio_dev);
