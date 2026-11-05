@@ -621,6 +621,9 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 	if (XE_GT_WA(gt, 14025941587))
 		min_idledly_ps = max(min_idledly_ps, 5000000);
 
+	if (XE_GT_WA(gt, 16031259911) && xe_gt_supports_multi_queue(gt, hwe->class))
+		min_idledly_ps = max(min_idledly_ps, idledly_units_ps);
+
 	if (XE_GT_WA(gt, 16023105232)) {
 		u64 maxcnt_units_ps = 640000;
 		u32 maxcnt = xe_mmio_read32(&gt->mmio, RING_PWRCTX_MAXCNT(hwe->mmio_base));
