@@ -37,6 +37,14 @@ MODULE_FIRMWARE("amdnpu/17f1_13/npu.sbin");
 MODULE_FIRMWARE("amdnpu/17f1_13/cert.sbin");
 MODULE_FIRMWARE("amdnpu/17f2_13/npu.sbin");
 MODULE_FIRMWARE("amdnpu/17f2_13/cert.sbin");
+MODULE_FIRMWARE("amdnpu/17f1_10/npu_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f1_10/cert_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f2_10/npu_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f2_10/cert_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f1_13/npu_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f1_13/cert_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f2_13/npu_l.sbin");
+MODULE_FIRMWARE("amdnpu/17f2_13/cert_l.sbin");
 
 /*
  * 0.0: Initial version
