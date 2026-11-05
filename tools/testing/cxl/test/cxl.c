@@ -913,15 +913,13 @@ static void __cxld_registry_save(struct cxl_test_decoder *td,
 
 		cxld_copy(&td->cxled.cxld, cxld);
 		td->cxled.state = cxled->state;
-		td->cxled.skip = cxled->skip;
 
-		if (!(cxld->flags & CXL_DECODER_F_ENABLE)) {
-			td->dpa_range.start = 0;
-			td->dpa_range.end = -1;
-		} else if (cxled->dpa_res) {
+		if ((cxld->flags & CXL_DECODER_F_ENABLE) && cxled->dpa_res) {
+			td->cxled.skip = cxled->skip;
 			td->dpa_range.start = cxled->dpa_res->start;
 			td->dpa_range.end = cxled->dpa_res->end;
 		} else {
+			td->cxled.skip = 0;
 			td->dpa_range.start = 0;
 			td->dpa_range.end = -1;
 		}
@@ -1001,7 +999,6 @@ static void mock_decoder_reset(struct cxl_decoder *cxld)
 			to_cxl_endpoint_decoder(&cxld->dev);
 
 		cxled->state = CXL_DECODER_STATE_MANUAL;
-		cxled->skip = 0;
 	}
 	if (decoder_reset_preserve_registry)
 		dev_dbg(port->uport_dev, "decoder%d: skip registry update\n",
