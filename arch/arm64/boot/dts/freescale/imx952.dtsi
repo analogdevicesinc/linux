@@ -1076,8 +1076,8 @@
 			clocks = <&scmi_clk IMX952_CLK_BUSWAKEUP>,
 				 <&scmi_clk IMX952_CLK_BUSWAKEUP>;
 			clock-names = "gpio", "port";
-			gpio-ranges = <&scmi_iomuxc 0 103 12>, <&scmi_iomuxc 12 36 6>;
-			ngpios = <18>;
+			gpio-ranges = <&scmi_iomuxc 0 103 12>, <&scmi_iomuxc 12 36 9>;
+			ngpios = <21>;
 		};
 
 		aips1: bus@44000000 {

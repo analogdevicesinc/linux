@@ -499,17 +499,23 @@
 &pcie0 {
 	pinctrl-0 = <&pinctrl_pcie0>;
 	pinctrl-names = "default";
-	reset-gpio = <&i2c4_gpio_expander_22 19 GPIO_ACTIVE_LOW>;
-	vpcie-supply = <&reg_m2_mkey_1_pwr>;
 	status = "okay";
+};
+
+&pcie0_port0 {
+	reset-gpios = <&i2c4_gpio_expander_22 19 GPIO_ACTIVE_LOW>;
+	vpcie3v3-supply = <&reg_m2_mkey_1_pwr>;
 };
 
 &pcie1 {
 	pinctrl-0 = <&pinctrl_pcie1>;
 	pinctrl-names = "default";
-	reset-gpio = <&i2c3_gpio_expander_20 9 GPIO_ACTIVE_LOW>;
-	vpcie-supply = <&reg_m2_mkey_2_pwr>;
 	status = "okay";
+};
+
+&pcie1_port0 {
+	reset-gpios = <&i2c3_gpio_expander_20 9 GPIO_ACTIVE_LOW>;
+	vpcie3v3-supply = <&reg_m2_mkey_2_pwr>;
 };
 
 &sai1 {

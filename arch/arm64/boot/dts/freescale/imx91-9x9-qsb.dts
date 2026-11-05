@@ -172,6 +172,7 @@
 		regulator-min-microvolt = <3300000>;
 		gpio = <&gpio3 7 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		bootph-pre-ram;
 	};
 
 	reserved-memory {
@@ -257,6 +258,7 @@
 			MX91_PAD_I2C1_SCL__LPI2C1_SCL                           0x40000b9e
 			MX91_PAD_I2C1_SDA__LPI2C1_SDA                           0x40000b9e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_lpi2c2: lpi2c2grp {
@@ -264,6 +266,7 @@
 			MX91_PAD_I2C2_SCL__LPI2C2_SCL                           0x40000b9e
 			MX91_PAD_I2C2_SDA__LPI2C2_SDA                           0x40000b9e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_pcal6524: pcal6524grp {
@@ -284,6 +287,7 @@
 		fsl,pins = <
 			MX91_PAD_SD2_RESET_B__GPIO3_IO7                         0x31e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_sai1: sai1grp {
@@ -300,6 +304,8 @@
 			MX91_PAD_UART1_RXD__LPUART1_RX                          0x31e
 			MX91_PAD_UART1_TXD__LPUART1_TX                          0x31e
 		>;
+		bootph-pre-ram;
+		bootph-some-ram;
 	};
 
 	pinctrl_usdhc1: usdhc1grp {
@@ -316,6 +322,7 @@
 			MX91_PAD_SD1_DATA7__USDHC1_DATA7                        0x1382
 			MX91_PAD_SD1_STROBE__USDHC1_STROBE                      0x1582
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc1_100mhz: usdhc1-100mhzgrp {
@@ -332,6 +339,7 @@
 			MX91_PAD_SD1_DATA7__USDHC1_DATA7                        0x138e
 			MX91_PAD_SD1_STROBE__USDHC1_STROBE                      0x158e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc1_200mhz: usdhc1-200mhzgrp {
@@ -348,12 +356,14 @@
 			MX91_PAD_SD1_DATA7__USDHC1_DATA7                        0x13fe
 			MX91_PAD_SD1_STROBE__USDHC1_STROBE                      0x15fe
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc2_gpio: usdhc2gpiogrp {
 		fsl,pins = <
 			MX91_PAD_SD2_CD_B__GPIO3_IO0                            0x31e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc2: usdhc2grp {
@@ -366,6 +376,7 @@
 			MX91_PAD_SD2_DATA3__USDHC2_DATA3                        0x1382
 			MX91_PAD_SD2_VSELECT__USDHC2_VSELECT                    0x51e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc2_100mhz: usdhc2-100mhzgrp {
@@ -378,6 +389,7 @@
 			MX91_PAD_SD2_DATA3__USDHC2_DATA3                        0x138e
 			MX91_PAD_SD2_VSELECT__USDHC2_VSELECT                    0x51e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_usdhc2_200mhz: usdhc2-200mhzgrp {
@@ -390,6 +402,7 @@
 			MX91_PAD_SD2_DATA3__USDHC2_DATA3                        0x13fe
 			MX91_PAD_SD2_VSELECT__USDHC2_VSELECT                    0x51e
 		>;
+		bootph-pre-ram;
 	};
 
 	pinctrl_wdog: wdoggrp {
@@ -404,6 +417,7 @@
 	pinctrl-0 = <&pinctrl_lpi2c1>;
 	pinctrl-names = "default";
 	status = "okay";
+	bootph-pre-ram;
 
 	p3t1085: temperature-sensor@48 {
 		compatible = "nxp,p3t1085";
@@ -455,6 +469,7 @@
 	pinctrl-0 = <&pinctrl_lpi2c2>;
 	pinctrl-names = "default";
 	status = "okay";
+	bootph-pre-ram;
 
 	pcal6524: gpio@22 {
 		compatible = "nxp,pcal6524";
@@ -474,8 +489,10 @@
 		reg = <0x32>;
 		interrupt-parent = <&pcal6524>;
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+		bootph-pre-ram;
 
 		regulators {
+			bootph-pre-ram;
 			buck1: BUCK1 {
 				regulator-name = "BUCK1";
 				regulator-always-on;
@@ -540,6 +557,8 @@
 	pinctrl-0 = <&pinctrl_uart1>;
 	pinctrl-names = "default";
 	status = "okay";
+	bootph-pre-ram;
+	bootph-some-ram;
 };
 
 &micfil {
@@ -623,6 +642,7 @@
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
 	fsl,tuning-step = <1>;
 	status = "okay";
+	bootph-pre-ram;
 };
 
 &usdhc2 {
@@ -637,6 +657,7 @@
 	vmmc-supply = <&reg_usdhc2_vmmc>;
 	fsl,tuning-step = <1>;
 	status = "okay";
+	bootph-pre-ram;
 };
 
 &wdog3 {

@@ -391,17 +391,6 @@
 	};
 };
 
-&pcie {
-	/* Synopsys, Inc. Device */
-	pci_root: root@0,0 {
-		compatible = "pci16c3,abcd";
-		reg = <0x00000000 0 0 0 0>;
-
-		#address-cells = <3>;
-		#size-cells = <2>;
-	};
-};
-
 &clks {
 	assigned-clocks = <&clks IMX6QDL_CLK_LDB_DI0_SEL>,
 			  <&clks IMX6QDL_CLK_LDB_DI1_SEL>,

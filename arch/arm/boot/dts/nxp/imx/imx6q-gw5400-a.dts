@@ -128,7 +128,7 @@
 	status = "okay";
 
 	flash: flash@0 {
-		compatible = "sst,w25q256", "jedec,spi-nor";
+		compatible = "winbond,w25q256", "jedec,spi-nor";
 		spi-max-frequency = <30000000>;
 		reg = <0>;
 	};

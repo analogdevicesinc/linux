@@ -67,7 +67,7 @@
 	};
 
 	panel {
-		compatible = "avic,tm097tdh02", "hannstar,hsd100pxn1";
+		compatible = "hannstar,hsd100pxn1";
 		backlight = <&panel_bl>;
 		power-supply = <&reg_3p3v>;
 
