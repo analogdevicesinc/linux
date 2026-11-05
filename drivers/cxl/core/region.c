@@ -2130,8 +2130,6 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		return -EINVAL;
 	}
 
-	cxl_region_perf_data_calculate(cxlr, cxled);
-
 	if (test_bit(CXL_REGION_F_AUTO, &cxlr->flags)) {
 		int i;
 
@@ -2171,6 +2169,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		 * then the region is already committed.
 		 */
 		p->state = CXL_CONFIG_COMMIT;
+		cxl_region_perf_data_update(cxlr);
 		cxl_region_shared_upstream_bandwidth_update(cxlr);
 
 		return 0;
@@ -2193,6 +2192,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		if (rc)
 			return rc;
 		p->state = CXL_CONFIG_ACTIVE;
+		cxl_region_perf_data_update(cxlr);
 		cxl_region_shared_upstream_bandwidth_update(cxlr);
 	}
 
