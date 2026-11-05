@@ -904,7 +904,7 @@ static void _ilk_display_irq_handler(struct intel_display *display, u32 de_iir)
 		intel_dp_aux_irq_handler(display);
 
 	if (de_iir & DE_GSE)
-		intel_opregion_asle_intr(display);
+		intel_display_gse_irq_handler(display);
 
 	if (de_iir & DE_POISON)
 		drm_err(display->drm, "Poison interrupt\n");
@@ -971,7 +971,7 @@ static void _ivb_display_irq_handler(struct intel_display *display, u32 de_iir)
 		intel_dp_aux_irq_handler(display);
 
 	if (de_iir & DE_GSE_IVB)
-		intel_opregion_asle_intr(display);
+		intel_display_gse_irq_handler(display);
 
 	for_each_pipe(display, pipe) {
 		if (de_iir & DE_PIPE_VBLANK_IVB(pipe))
@@ -1279,7 +1279,7 @@ gen8_de_misc_irq_handler(struct intel_display *display, u32 iir)
 			found = true;
 		}
 	} else if (iir & GEN8_DE_MISC_GSE) {
-		intel_opregion_asle_intr(display);
+		intel_display_gse_irq_handler(display);
 		found = true;
 	}
 
@@ -1587,7 +1587,7 @@ static bool gen8_display_irq_handler(struct intel_display *display,
 	return true;
 }
 
-void gen11_gu_misc_irq_handler(struct intel_display *display)
+void intel_display_gse_irq_handler(struct intel_display *display)
 {
 	intel_opregion_asle_intr(display);
 }

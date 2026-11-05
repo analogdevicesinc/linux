@@ -536,7 +536,7 @@ static irqreturn_t gen11_irq_handler(int irq, void *arg)
 	gen11_master_intr_enable(regs);
 
 	if (gu_misc_iir & GEN11_GU_MISC_GSE)
-		gen11_gu_misc_irq_handler(display);
+		intel_display_gse_irq_handler(display);
 
 	pmu_irq_stats(i915, IRQ_HANDLED);
 
@@ -604,7 +604,7 @@ static irqreturn_t dg1_irq_handler(int irq, void *arg)
 	dg1_master_intr_enable(regs);
 
 	if (gu_misc_iir & GEN11_GU_MISC_GSE)
-		gen11_gu_misc_irq_handler(display);
+		intel_display_gse_irq_handler(display);
 
 	pmu_irq_stats(i915, IRQ_HANDLED);
 
