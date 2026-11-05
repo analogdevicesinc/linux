@@ -201,11 +201,10 @@ static int adi_core_start(struct adi_rproc_data *rproc_data)
 
 	if (rproc_data->adi_rsc_table != NULL) {
 		rproc_data->rpmsg_state = ADI_RP_RPMSG_WAITING;
-		ret = devm_request_threaded_irq(rproc_data->dev,
-						rproc_data->icc_irq, NULL,
-						sharc_virtio_irq_threaded_handler,
-						rproc_data->icc_irq_flags,
-						"ICC virtio IRQ", rproc_data);
+		ret = request_threaded_irq(rproc_data->icc_irq, NULL,
+					   sharc_virtio_irq_threaded_handler,
+					   rproc_data->icc_irq_flags,
+					   "ICC virtio IRQ", rproc_data);
 	}
 	if (ret) {
 		dev_err(rproc_data->dev, "Fail to request ICC IRQ\n");
@@ -225,7 +224,7 @@ static int adi_core_stop(struct adi_rproc_data *rproc_data)
 	/* After time out the irq is already released */
 	if (rproc_data->adi_rsc_table != NULL) {
 		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_TIMED_OUT)
-			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
+			free_irq(rproc_data->icc_irq, rproc_data);
 	}
 	return reset_control_assert(rproc_data->rst_start);
 }
@@ -686,7 +685,7 @@ static void adi_rproc_kick(struct rproc *rproc, int vqid)
 		}
 		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_SYNCED) {
 			rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
-			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
+			free_irq(rproc_data->icc_irq, rproc_data);
 			dev_info(rproc_data->dev,
 					 "Core%d rpmsg init timeout, probably not supported.\n",
 					 rproc_data->core_id);
