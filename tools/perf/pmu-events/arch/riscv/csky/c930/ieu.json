@@ -1,0 +1,47 @@
+[
+    {
+        "EventName": "inst.int.alu.spec",
+        "EventCode": "0x00000045",
+        "BriefDescription": "Completed ALU instructions"
+    },
+    {
+        "EventName": "inst.int.mul.spec",
+        "EventCode": "0x00000046",
+        "BriefDescription": "Completed MULT instructions"
+    },
+    {
+        "EventName": "inst.int.div.spec",
+        "EventCode": "0x00000047",
+        "BriefDescription": "Completed DIV instructions"
+    },
+    {
+        "EventName": "inst.int.csr.spec",
+        "EventCode": "0x00000048",
+        "BriefDescription": "Completed CSR instructions"
+    },
+    {
+        "EventName": "ieu.is.siq.stall",
+        "EventCode": "0x000000c0",
+        "BriefDescription": "Stall cycles in SX pipe"
+    },
+    {
+        "EventName": "ieu.is.miq.stall",
+        "EventCode": "0x000000c1",
+        "BriefDescription": "Stall cycles in MX pipe"
+    },
+    {
+        "EventName": "ieu.is.biq.stall",
+        "EventCode": "0x000000c2",
+        "BriefDescription": "Stall cycles in BR pipe"
+    },
+    {
+        "EventName": "ieu.is.lsiq.stall",
+        "EventCode": "0x000000c3",
+        "BriefDescription": "Stall cycles in LS pipe"
+    },
+    {
+        "EventName": "ieu.is.vfpq.stall",
+        "EventCode": "0x000000c4",
+        "BriefDescription": "Stall cycles in VF pipe"
+    }
+]

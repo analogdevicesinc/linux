@@ -1,0 +1,82 @@
+[
+    {
+        "EventName": "cycles.hart",
+        "EventCode": "0x00000001",
+        "BriefDescription": "CPU cycles, incremented on every CPU clock cycle"
+    },
+    {
+        "EventName": "inst.ret",
+        "EventCode": "0x00000002",
+        "BriefDescription": "Instruction architecturally executed"
+    },
+    {
+        "EventName": "inst.brjmp.spec",
+        "EventCode": "0x00000003",
+        "BriefDescription": "Control transfer instructions"
+    },
+    {
+        "EventName": "inst.mispred.brjmp.spec",
+        "EventCode": "0x00000004",
+        "BriefDescription": "Control transfer instructions that mispredicted"
+    },
+    {
+        "EventName": "cache.l1i.rd.access",
+        "EventCode": "0x00000005",
+        "BriefDescription": "Instruction Cache accesses"
+    },
+    {
+        "EventName": "cache.l1i.rd.miss",
+        "EventCode": "0x00000006",
+        "BriefDescription": "Instruction Cache misses"
+    },
+    {
+        "EventName": "cache.l1d.rd.access",
+        "EventCode": "0x00000007",
+        "BriefDescription": "Data Cache load accesses"
+    },
+    {
+        "EventName": "cache.l1d.rd.miss",
+        "EventCode": "0x00000008",
+        "BriefDescription": "Data Cache load misses"
+    },
+    {
+        "EventName": "tlb.l1i.access",
+        "EventCode": "0x00000009",
+        "BriefDescription": "Instruction TLB accesses"
+    },
+    {
+        "EventName": "tlb.l1i.miss",
+        "EventCode": "0x0000000a",
+        "BriefDescription": "Instruction TLB misses"
+    },
+    {
+        "EventName": "tlb.l1d.access",
+        "EventCode": "0x0000000b",
+        "BriefDescription": "Data TLB accesses"
+    },
+    {
+        "EventName": "tlb.l1d.miss",
+        "EventCode": "0x0000000c",
+        "BriefDescription": "Data TLB misses"
+    },
+    {
+        "EventName": "tlb.pf.access",
+        "EventCode": "0x0000000d",
+        "BriefDescription": "Prefetch TLB accesses"
+    },
+    {
+        "EventName": "tlb.pf.miss",
+        "EventCode": "0x0000000e",
+        "BriefDescription": "Prefetch TLB misses"
+    },
+    {
+        "EventName": "cache.l2.access",
+        "EventCode": "0x0000000f",
+        "BriefDescription": "L2 accesses"
+    },
+    {
+        "EventName": "cache.l2.miss",
+        "EventCode": "0x00000010",
+        "BriefDescription": "L2 misses"
+    }
+]
