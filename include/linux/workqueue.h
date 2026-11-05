@@ -147,9 +147,9 @@ enum wq_affn_scope {
  */
 struct workqueue_attrs {
 	/**
-	 * @nice: nice level
+	 * @prio: priority encoded analogous to task_struct->prio.
 	 */
-	int nice;
+	int prio;
 
 	/**
 	 * @cpumask: allowed CPUs
