@@ -1629,18 +1629,29 @@ static struct cxl_dport *mock_cxl_add_dport_by_dev(struct cxl_port *port,
 }
 
 /*
- * Faking the cxl_dpa_perf for the memdev when appropriate.
+ * Derive mock performance data from the memdev id so tests can identify
+ * each memdev's contribution to region performance.
+ *
+ *   latency   = 100 + 10 * id     (nanoseconds)
+ *   bandwidth = 1000 + 100 * id   (MB/s)
+ *
+ * Keep the values nonzero so the region access attributes are visible.
+ * The ndctl cxl-perf-data.sh test relies on these formulas.
  */
 static void dpa_perf_setup(struct cxl_port *endpoint, struct range *range,
 			   struct cxl_dpa_perf *dpa_perf)
 {
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	unsigned int bandwidth = 1000 + 100 * cxlmd->id;
+	unsigned int latency = 100 + 10 * cxlmd->id;
+
 	dpa_perf->qos_class = FAKE_QTG_ID;
 	dpa_perf->dpa_range = *range;
 	for (int i = 0; i < ACCESS_COORDINATE_MAX; i++) {
-		dpa_perf->coord[i].read_latency = 500;
-		dpa_perf->coord[i].write_latency = 500;
-		dpa_perf->coord[i].read_bandwidth = 1000;
-		dpa_perf->coord[i].write_bandwidth = 1000;
+		dpa_perf->coord[i].read_latency = latency;
+		dpa_perf->coord[i].write_latency = latency;
+		dpa_perf->coord[i].read_bandwidth = bandwidth;
+		dpa_perf->coord[i].write_bandwidth = bandwidth;
 	}
 }
 
