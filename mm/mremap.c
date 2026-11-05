@@ -1174,6 +1174,19 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	return 0;
 }
 
+/* Set VMA_ACCOUNT_BIT on all VMAs in the range [start, end). */
+static void vma_range_set_account(struct vma_iterator *vmi,
+				  unsigned long start, unsigned long end)
+{
+	struct vm_area_struct *vma;
+
+	vma_iter_set(vmi, start);
+	for_each_vma_range(*vmi, vma, end) {
+		vma_start_write(vma);
+		vma_set_flags(vma, VMA_ACCOUNT_BIT);
+	}
+}
+
 /*
  * Unmap source VMA for VMA move, turning it from a copy to a move, being
  * careful to ensure we do not underflow memory account while doing so if an
@@ -1231,8 +1244,10 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	vrm->vmi_needs_invalidate = true;
 	if (err) {
 		/* OOM: unable to split vma, just get accounts right */
-		if (accountable_move)
+		if (accountable_move) {
 			vm_acct_memory(len >> PAGE_SHIFT);
+			vma_range_set_account(&vmi, vm_start, vm_end);
+		}
 		return;
 	}
 
@@ -1256,28 +1271,10 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	 * | A |     | B |
 	 * |---|     |---|
 	 *
-	 * The VMI is still pointing at addr, so vma_prev() will give us A, and
-	 * a subsequent or lone vma_next() will give as B.
-	 *
-	 * do_vmi_munmap() will have restored the VMI back to addr.
+	 * So reinstate the flag on whatever is left of the range.
 	 */
-	if (accountable_move) {
-		unsigned long end = addr + len;
-
-		if (vm_start < addr) {
-			struct vm_area_struct *prev = vma_prev(&vmi);
-
-			vma_start_write(prev);
-			vma_set_flags(prev, VMA_ACCOUNT_BIT);
-		}
-
-		if (vm_end > end) {
-			struct vm_area_struct *next = vma_next(&vmi);
-
-			vma_start_write(next);
-			vma_set_flags(next, VMA_ACCOUNT_BIT);
-		}
-	}
+	if (accountable_move)
+		vma_range_set_account(&vmi, vm_start, vm_end);
 }
 
 /*
