@@ -997,9 +997,11 @@ SYSCALL_DEFINE4(quotactl_fd, unsigned int, fd, unsigned int, cmd,
 
 	sb = fd_file(f)->f_path.mnt->mnt_sb;
 	if (quotactl_cmd_onoff(cmds))
-		down_write(&sb->s_umount);
+		ret = down_write_killable(&sb->s_umount);
 	else
-		down_read(&sb->s_umount);
+		ret = down_read_killable(&sb->s_umount);
+	if (ret)
+		goto out;
 
 	ret = do_quotactl(sb, type, cmds, id, addr, ERR_PTR(-EINVAL));
 
@@ -1007,7 +1009,7 @@ SYSCALL_DEFINE4(quotactl_fd, unsigned int, fd, unsigned int, cmd,
 		up_write(&sb->s_umount);
 	else
 		up_read(&sb->s_umount);
-
+out:
 	if (quotactl_cmd_write(cmds))
 		mnt_drop_write(fd_file(f)->f_path.mnt);
 	return ret;

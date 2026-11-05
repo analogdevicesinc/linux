@@ -156,7 +156,9 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 		return -EBADF;
 	sb = fd_file(f)->f_path.dentry->d_sb;
 
-	down_read(&sb->s_umount);
+	ret = down_read_killable(&sb->s_umount);
+	if (ret)
+		return ret;
 	ret = sync_filesystem(sb);
 	up_read(&sb->s_umount);
 

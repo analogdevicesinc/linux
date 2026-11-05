@@ -1897,9 +1897,11 @@ static void shrink_submounts(struct mount *mnt);
 
 static int do_umount_root(struct super_block *sb)
 {
-	int ret = 0;
+	int ret;
 
-	down_write(&sb->s_umount);
+	ret = down_write_killable(&sb->s_umount);
+	if (ret)
+		return ret;
 	if (!sb_rdonly(sb)) {
 		struct fs_context *fc;
 
@@ -3485,7 +3487,9 @@ static int do_reconfigure_mnt(const struct path *path, unsigned int mnt_flags)
 	 * We're only checking whether the superblock is read-only not
 	 * changing it, so only take down_read(&sb->s_umount).
 	 */
-	down_read(&sb->s_umount);
+	ret = down_read_killable(&sb->s_umount);
+	if (ret)
+		return ret;
 	lock_mount_hash();
 	ret = change_mount_ro_state(mnt, mnt_flags);
 	if (ret == 0)
@@ -3531,8 +3535,9 @@ static int do_remount(const struct path *path, int sb_flags,
 	fc->oldapi = true;
 
 	err = parse_monolithic_mount_data(fc, data);
+	if (!err)
+		err = down_write_killable(&sb->s_umount);
 	if (!err) {
-		down_write(&sb->s_umount);
 		err = -EPERM;
 		if (ns_capable(sb->s_user_ns, CAP_SYS_ADMIN)) {
 			err = reconfigure_super(fc);
