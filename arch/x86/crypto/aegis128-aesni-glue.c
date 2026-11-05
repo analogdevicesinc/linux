@@ -124,7 +124,7 @@ crypto_aegis128_aesni_process_crypt(struct aegis_state *state,
 		kernel_fpu_end();
 		err = skcipher_walk_done(walk,
 					 walk->nbytes % AEGIS128_BLOCK_SIZE);
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 	}
 
 	if (walk->nbytes) {
@@ -138,7 +138,7 @@ crypto_aegis128_aesni_process_crypt(struct aegis_state *state,
 						walk->nbytes);
 		kernel_fpu_end();
 		err = skcipher_walk_done(walk, 0);
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 	}
 	return err;
 }
@@ -191,7 +191,7 @@ crypto_aegis128_aesni_crypt(struct aead_request *req,
 	if (err)
 		return err;
 
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 
 	aegis128_aesni_init(&state, &ctx->key, req->iv);
 	crypto_aegis128_aesni_process_ad(&state, req->src, req->assoclen);

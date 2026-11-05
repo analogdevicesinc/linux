@@ -48,7 +48,7 @@ static int ecb_do_crypt(struct skcipher_request *req, const u32 *rkey)
 		const u8 *src = walk.src.virt.addr;
 		u8 *dst = walk.dst.virt.addr;
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		while (nbytes >= SM4_CRYPT8_BLOCK_SIZE) {
 			sm4_aesni_avx_crypt8(rkey, dst, src, 8);
 			dst += SM4_CRYPT8_BLOCK_SIZE;
@@ -136,7 +136,7 @@ int sm4_avx_cbc_decrypt(struct skcipher_request *req,
 		const u8 *src = walk.src.virt.addr;
 		u8 *dst = walk.dst.virt.addr;
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 
 		while (nbytes >= bsize) {
 			func(ctx->rkey_dec, dst, src, walk.iv);
@@ -201,7 +201,7 @@ int sm4_avx_ctr_crypt(struct skcipher_request *req,
 		const u8 *src = walk.src.virt.addr;
 		u8 *dst = walk.dst.virt.addr;
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 
 		while (nbytes >= bsize) {
 			func(ctx->rkey_enc, dst, src, walk.iv);

@@ -97,7 +97,7 @@ static int aria_avx_ctr_encrypt(struct skcipher_request *req)
 		u8 *dst = walk.dst.virt.addr;
 
 		while (nbytes >= ARIA_AESNI_PARALLEL_BLOCK_SIZE) {
-			kernel_fpu_begin();
+			kernel_fpu_begin_mask(0);
 			aria_ops.aria_ctr_crypt_16way(ctx, dst, src,
 						      &req_ctx->keystream[0],
 						      walk.iv);
