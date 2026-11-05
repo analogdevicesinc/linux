@@ -109,30 +109,39 @@ static struct btf *mk_loc_btf(void)
 	return btf;
 }
 
-static int btf_to_tmpfile(const struct btf *btf, char *path)
+static int btf_to_tmpfile(struct btf *(*mk)(void), char *path)
 {
 	ssize_t written;
+	struct btf *btf;
 	const void *raw;
+	int err = -1;
 	__u32 sz;
 	int fd;
 
+	btf = mk();
+	if (!btf)
+		return -1;
+
 	raw = btf__raw_data(btf, &sz);
 	if (!ASSERT_OK_PTR(raw, "raw_data"))
-		return -1;
+		goto out;
 
 	snprintf(path, PATH_MAX, "/tmp/bpftool_btf_dump.XXXXXX");
 	fd = mkstemp(path);
 	if (!ASSERT_OK_FD(fd, "mkstemp_btf"))
-		return -1;
+		goto out;
 
 	written = write(fd, raw, sz);
 	close(fd);
 	if (!ASSERT_EQ(written, sz, "write_btf")) {
 		unlink(path);
-		return -1;
+		goto out;
 	}
 
-	return 0;
+	err = 0;
+out:
+	btf__free(btf);
+	return err;
 }
 
 static char *dump_c(const char *btf_path, bool sorted)
@@ -265,33 +274,18 @@ static void test_loc_dump(const char *btf_path)
 void test_bpftool_btf_dump(void)
 {
 	char path[PATH_MAX];
-	struct btf *btf = NULL;
 
-	btf = mk_btf();
-	if (!btf)
-		return;
+	if (!btf_to_tmpfile(mk_btf, path)) {
+		if (test__start_subtest("c_sorted"))
+			test_dump(path, true);
+		if (test__start_subtest("c_unsorted"))
+			test_dump(path, false);
+		unlink(path);
+	}
 
-	if (btf_to_tmpfile(btf, path))
-		goto out_btf;
-
-	if (test__start_subtest("c_sorted"))
-		test_dump(path, true);
-	if (test__start_subtest("c_unsorted"))
-		test_dump(path, false);
-	unlink(path);
-
-	btf__free(btf);
-
-	btf = mk_loc_btf();
-	if (!btf)
-		return;
-
-	if (btf_to_tmpfile(btf, path))
-		goto out_btf;
-
-	if (test__start_subtest("loc_dump"))
-		test_loc_dump(path);
-	unlink(path);
-out_btf:
-	btf__free(btf);
+	if (!btf_to_tmpfile(mk_loc_btf, path)) {
+		if (test__start_subtest("loc_dump"))
+			test_loc_dump(path);
+		unlink(path);
+	}
 }
