@@ -82,16 +82,6 @@ static const struct of_device_id vf610_gpio_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, vf610_gpio_dt_ids);
 
-static inline void vf610_gpio_writel(u32 val, void __iomem *reg)
-{
-	writel_relaxed(val, reg);
-}
-
-static inline u32 vf610_gpio_readl(void __iomem *reg)
-{
-	return readl_relaxed(reg);
-}
-
 static void vf610_gpio_irq_handler(struct irq_desc *desc)
 {
 	struct vf610_gpio_port *port =
@@ -102,10 +92,10 @@ static void vf610_gpio_irq_handler(struct irq_desc *desc)
 
 	chained_irq_enter(chip, desc);
 
-	irq_isfr = vf610_gpio_readl(port->base + PORT_ISFR);
+	irq_isfr = readl_relaxed(port->base + PORT_ISFR);
 
 	for_each_set_bit(pin, &irq_isfr, VF610_GPIO_PER_PORT) {
-		vf610_gpio_writel(BIT(pin), port->base + PORT_ISFR);
+		writel_relaxed(BIT(pin), port->base + PORT_ISFR);
 
 		generic_handle_domain_irq(port->chip.gc.irq.domain, pin);
 	}
@@ -119,7 +109,7 @@ static void vf610_gpio_irq_ack(struct irq_data *d)
 		gpiochip_get_data(irq_data_get_irq_chip_data(d));
 	int gpio = d->hwirq;
 
-	vf610_gpio_writel(BIT(gpio), port->base + PORT_ISFR);
+	writel_relaxed(BIT(gpio), port->base + PORT_ISFR);
 }
 
 static int vf610_gpio_irq_set_type(struct irq_data *d, u32 type)
@@ -165,7 +155,7 @@ static void vf610_gpio_irq_mask(struct irq_data *d)
 	irq_hw_number_t gpio_num = irqd_to_hwirq(d);
 	void __iomem *pcr_base = port->base + PORT_PCR(gpio_num);
 
-	vf610_gpio_writel(0, pcr_base);
+	writel_relaxed(0, pcr_base);
 	gpiochip_disable_irq(gc, gpio_num);
 }
 
@@ -177,8 +167,8 @@ static void vf610_gpio_irq_unmask(struct irq_data *d)
 	void __iomem *pcr_base = port->base + PORT_PCR(gpio_num);
 
 	gpiochip_enable_irq(gc, gpio_num);
-	vf610_gpio_writel(port->irqc[gpio_num] << PORT_PCR_IRQC_OFFSET,
-			  pcr_base);
+	writel_relaxed(port->irqc[gpio_num] << PORT_PCR_IRQC_OFFSET,
+		       pcr_base);
 }
 
 static int vf610_gpio_irq_set_wake(struct irq_data *d, u32 enable)
@@ -292,10 +282,10 @@ static int vf610_gpio_probe(struct platform_device *pdev)
 
 	/* Mask all GPIO interrupts */
 	for (i = 0; i < gc->ngpio; i++)
-		vf610_gpio_writel(0, port->base + PORT_PCR(i));
+		writel_relaxed(0, port->base + PORT_PCR(i));
 
 	/* Clear the interrupt status register for all GPIO's */
-	vf610_gpio_writel(~0, port->base + PORT_ISFR);
+	writel_relaxed(~0, port->base + PORT_ISFR);
 
 	girq = &gc->irq;
 	gpio_irq_chip_set_chip(girq, &vf610_irqchip);
