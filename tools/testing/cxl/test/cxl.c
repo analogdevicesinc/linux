@@ -424,6 +424,18 @@ struct acpi_cedt_cxims *mock_cxims[1] = {
 	[0] = &mock_cedt.cxims0.cxims,
 };
 
+static struct acpi_cedt_cfmws *mock_auto_region_cfmws(void)
+{
+	for (int i = cfmws_start; i <= cfmws_end; i++) {
+		struct acpi_cedt_cfmws *window = mock_cfmws[i];
+
+		if (window->restrictions & ACPI_CEDT_CFMWS_RESTRICT_VOLATILE)
+			return window;
+	}
+
+	return NULL;
+}
+
 struct cxl_mock_res {
 	struct list_head list;
 	struct range range;
@@ -1124,7 +1136,8 @@ enum cxld_init_type {
 static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 						 struct platform_device *pdev,
 						 bool hb0,
-						 struct cxl_test_decoder **td)
+						 struct cxl_test_decoder **td,
+						 struct acpi_cedt_cfmws **window)
 {
 	struct cxl_test_decoder *found_td = cxld_registry_find(cxld);
 
@@ -1134,6 +1147,7 @@ static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 	}
 
 	*td = NULL;
+	*window = NULL;
 
 	/*
 	 * The first decoder on the first 2 devices on the first switch
@@ -1145,6 +1159,11 @@ static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 	 */
 	if (!is_endpoint_decoder(&cxld->dev) || !hb0 || pdev->id % 4 ||
 	    pdev->id > 4 || cxld->id > (mock_zero_size_decoders ? 2 : 0))
+		return MOCK_DECODER_INIT_DEFAULT;
+
+	/* XOR windows are all pmem, no window to host the RAM region */
+	*window = mock_auto_region_cfmws();
+	if (!*window)
 		return MOCK_DECODER_INIT_DEFAULT;
 
 	return type2_test ? MOCK_DECODER_INIT_TYPE2_AUTO :
@@ -1168,9 +1187,9 @@ static bool mock_decoder_handle_saved(struct cxl_decoder *cxld, struct cxl_test_
 }
 
 static void mock_init_hdm_type2_cxled(struct cxl_endpoint_decoder *cxled,
-				      struct cxl_port *port)
+				      struct cxl_port *port,
+				      struct acpi_cedt_cfmws *window)
 {
-	struct acpi_cedt_cfmws *window = mock_cfmws[0];
 	struct cxl_decoder *cxld = &cxled->cxld;
 	struct cxl_switch_decoder *cxlsd;
 	struct cxl_dport *dport;
@@ -1243,9 +1262,9 @@ static void mock_init_hdm_type2_cxled(struct cxl_endpoint_decoder *cxled,
 static void mock_init_hdm_type3_cxled(struct cxl_endpoint_decoder *cxled,
 				      struct cxl_port *port,
 				      struct platform_device *pdev,
-				      bool hb0)
+				      bool hb0,
+				      struct acpi_cedt_cfmws *window)
 {
-	struct acpi_cedt_cfmws *window = mock_cfmws[0];
 	struct cxl_decoder *cxld = &cxled->cxld;
 	struct cxl_switch_decoder *cxlsd;
 	struct cxl_dport *dport;
@@ -1396,6 +1415,7 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 {
 	struct cxl_endpoint_decoder *cxled = NULL;
 	struct platform_device *pdev = NULL;
+	struct acpi_cedt_cfmws *window;
 	struct cxl_test_decoder *td;
 	struct cxl_memdev *cxlmd;
 	struct cxl_port *port;
@@ -1424,7 +1444,7 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 		port = to_cxl_port(cxld->dev.parent);
 	}
 
-	switch (get_decoder_init_type(cxld, pdev, hb0, &td)) {
+	switch (get_decoder_init_type(cxld, pdev, hb0, &td, &window)) {
 	case MOCK_DECODER_INIT_SAVED:
 		if (WARN_ON(!td))
 			return false;
@@ -1437,10 +1457,10 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 		default_mock_decoder(cxld);
 		return false;
 	case MOCK_DECODER_INIT_TYPE3_AUTO:
-		mock_init_hdm_type3_cxled(cxled, port, pdev, hb0);
+		mock_init_hdm_type3_cxled(cxled, port, pdev, hb0, window);
 		return false;
 	case MOCK_DECODER_INIT_TYPE2_AUTO:
-		mock_init_hdm_type2_cxled(cxled, port);
+		mock_init_hdm_type2_cxled(cxled, port, window);
 		return false;
 	default:
 		return false;
