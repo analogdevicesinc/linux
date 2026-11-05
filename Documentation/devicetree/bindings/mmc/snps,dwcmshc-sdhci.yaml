@@ -23,6 +23,7 @@ properties:
           - const: sophgo,sg2044-dwcmshc
           - const: sophgo,sg2042-dwcmshc
       - enum:
+          - adi,adsp-sc846-dwcmshc
           - rockchip,rk3568-dwcmshc
           - rockchip,rk3588-dwcmshc
           - snps,dwcmshc-sdhci
@@ -91,7 +92,32 @@ allOf:
             - const: core
             - const: bus
             - const: timer
-    else:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: adi,adsp-sc846-dwcmshc
+
+    then:
+      properties:
+        clocks:
+          items:
+            - description: core clock
+            - description: timer clock
+        clock-names:
+          items:
+            - const: core
+            - const: timer
+  - if:
+      not:
+        properties:
+          compatible:
+            contains:
+              enum:
+                - adi,adsp-sc846-dwcmshc
+                - sophgo,sg2042-dwcmshc
+
+    then:
       properties:
         clocks:
           minItems: 1
