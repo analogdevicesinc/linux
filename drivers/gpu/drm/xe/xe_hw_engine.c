@@ -611,8 +611,10 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 	bool wa_applied = false;
 	bool clamped_below_maxcnt = false;
 
-	if ((!IS_SRIOV_VF(gt_to_xe(gt)) && XE_GT_WA(gt, 16023105232)) ||
-	    XE_GT_WA(gt, 14025941587)) {
+	if (IS_SRIOV_VF(gt_to_xe(gt)))
+		return;
+
+	if (XE_GT_WA(gt, 16023105232) || XE_GT_WA(gt, 14025941587)) {
 		u32 mincnt_idledly_ns = 5000;
 
 		/* xe_gt_clock_init() warns and zeroes timestamp_base on unknown crystal clock. */
