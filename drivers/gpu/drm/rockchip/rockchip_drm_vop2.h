@@ -244,6 +244,12 @@ struct vop2_video_port {
 	struct completion dsp_hold_completion;
 
 	/**
+	 * @enabled: CRTC fully brought up by atomic_enable(); allows
+	 * atomic_disable() to skip teardown after a failed enable.
+	 */
+	bool enabled;
+
+	/**
 	 * @win_mask: Bitmask of windows attached to the video port;
 	 */
 	u32 win_mask;
