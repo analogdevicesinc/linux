@@ -1185,6 +1185,7 @@ int xhci_resume(struct xhci_hcd *xhci, bool power_lost, bool is_auto_resume)
 		for (int i = xhci->max_slots; i > 0; i--)
 			xhci_free_virt_devices_depth_first(xhci, i);
 
+		xhci->num_active_eps = 0;
 		xhci_rh_bw_cleanup(xhci);
 
 		xhci->cmd_ring_reserved_trbs = 0;
