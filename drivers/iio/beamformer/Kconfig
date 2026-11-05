@@ -15,6 +15,17 @@ config ADAR1000
 	  To compile this driver as a module, choose M here: the module will be
 	  called adar1000.
 
+config ADAR2001
+	tristate "Analog Devices ADAR2001 Frequency Multiplier driver"
+	depends on SPI
+	select REGMAP_SPI
+	help
+	  Say yes here to build support for Analog Devices ADAR2001 10GHz to
+	  40GHz 1:4 channel frequency multiplier and filter transmitter.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called adar2001.
+
 config ADAR3000
 	tristate "Analog Devices ADAR3000 Beamformer driver"
 	depends on SPI
