@@ -512,7 +512,8 @@ static void kho_init_folio(struct page *page, unsigned int order)
 		prep_compound_page(page, order);
 }
 
-static struct page *kho_restore_page(phys_addr_t phys, bool is_folio)
+static struct page *kho_restore_page(phys_addr_t phys, bool is_folio,
+				     unsigned int *order)
 {
 	struct page *page = pfn_to_online_page(PHYS_PFN(phys));
 	unsigned long nr_pages;
@@ -530,6 +531,9 @@ static struct page *kho_restore_page(phys_addr_t phys, bool is_folio)
 	if (WARN_ON_ONCE(info.magic != KHO_PAGE_MAGIC))
 		return NULL;
 	nr_pages = (1 << info.order);
+
+	if (order)
+		*order = info.order;
 
 	/* Clear private to make sure later restores on this page error out. */
 	page->private = 0;
@@ -551,7 +555,7 @@ static struct page *kho_restore_page(phys_addr_t phys, bool is_folio)
  */
 struct folio *kho_restore_folio(phys_addr_t phys)
 {
-	struct page *page = kho_restore_page(phys, true);
+	struct page *page = kho_restore_page(phys, true, NULL);
 
 	return page ? page_folio(page) : NULL;
 }
@@ -574,13 +578,13 @@ struct page *kho_restore_pages(phys_addr_t phys, unsigned long nr_pages)
 	unsigned long pfn = start_pfn;
 
 	while (pfn < end_pfn) {
-		const unsigned int order =
-			min(count_trailing_zeros(pfn), ilog2(end_pfn - pfn));
-		struct page *page = kho_restore_page(PFN_PHYS(pfn), false);
+		unsigned int order;
+		struct page *page;
 
+		page = kho_restore_page(PFN_PHYS(pfn), false, &order);
 		if (!page)
 			return NULL;
-		pfn += 1 << order;
+		pfn += 1UL << order;
 	}
 
 	return pfn_to_page(start_pfn);
