@@ -9093,7 +9093,7 @@ out_inode:
 static struct btrfs_trans_handle *insert_prealloc_file_extent(
 				       struct btrfs_inode *inode,
 				       struct btrfs_key *ins,
-				       u64 file_offset)
+				       u64 file_offset, bool update_times)
 {
 	struct btrfs_file_extent_item stack_fi;
 	struct btrfs_replace_extent_info extent_info;
@@ -9136,7 +9136,7 @@ static struct btrfs_trans_handle *insert_prealloc_file_extent(
 
 	ret = btrfs_replace_file_extents(inode, path, file_offset,
 				     file_offset + len - 1, &extent_info,
-				     true, &trans);
+				     update_times, &trans);
 	btrfs_free_path(path);
 	if (ret)
 		goto free_qgroup;
@@ -9158,7 +9158,8 @@ free_qgroup:
 
 int btrfs_prealloc_file_range(struct inode *inode, int mode,
 			      u64 start, u64 num_bytes, u64 min_size,
-			      loff_t actual_len, u64 *alloc_hint)
+			      loff_t actual_len, u64 *alloc_hint,
+			      bool update_times)
 {
 	struct btrfs_fs_info *fs_info = inode_to_fs_info(inode);
 	struct btrfs_trans_handle *trans;
@@ -9199,7 +9200,7 @@ int btrfs_prealloc_file_range(struct inode *inode, int mode,
 
 		last_alloc = ins.offset;
 		trans = insert_prealloc_file_extent(BTRFS_I(inode), &ins,
-						    cur_offset);
+						    cur_offset, update_times);
 		/*
 		 * Now that we inserted the prealloc extent we can finally
 		 * decrement the number of reservations in the block group.
@@ -9239,7 +9240,8 @@ next:
 		*alloc_hint = ins.objectid + ins.offset;
 
 		inode_inc_iversion(inode);
-		inode_set_ctime_current(inode);
+		if (update_times)
+			inode_set_ctime_current(inode);
 		BTRFS_I(inode)->flags |= BTRFS_INODE_PREALLOC;
 		if (!(mode & FALLOC_FL_KEEP_SIZE) &&
 		    (actual_len > inode->i_size) &&

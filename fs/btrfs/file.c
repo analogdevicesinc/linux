@@ -2836,7 +2836,8 @@ static int add_falloc_range(struct list_head *head, u64 start, u64 len)
 
 static int btrfs_fallocate_update_isize(struct inode *inode,
 					const u64 end,
-					const int mode)
+					const int mode,
+					bool update_times)
 {
 	struct btrfs_trans_handle *trans;
 	struct btrfs_root *root = BTRFS_I(inode)->root;
@@ -2860,7 +2861,9 @@ static int btrfs_fallocate_update_isize(struct inode *inode,
 	if (IS_ERR(trans))
 		return PTR_ERR(trans);
 
-	inode_set_ctime_current(inode);
+	inode_inc_iversion(inode);
+	if (update_times)
+		inode_set_ctime_current(inode);
 	i_size_write(inode, end);
 	btrfs_inode_safe_disk_i_size_write(BTRFS_I(inode), 0);
 	ret = btrfs_update_inode(trans, BTRFS_I(inode));
@@ -2901,7 +2904,8 @@ static int btrfs_zero_range_check_range_boundary(struct btrfs_inode *inode,
 static int btrfs_zero_range(struct inode *inode,
 			    loff_t offset,
 			    loff_t len,
-			    const int mode)
+			    const int mode,
+			    bool update_times)
 {
 	struct btrfs_fs_info *fs_info = BTRFS_I(inode)->root->fs_info;
 	struct extent_map *em;
@@ -2942,7 +2946,7 @@ static int btrfs_zero_range(struct inode *inode,
 			 */
 			btrfs_free_extent_map(em);
 			ret = btrfs_fallocate_update_isize(inode, offset + len,
-							   mode);
+							   mode, update_times);
 			goto out;
 		}
 		/*
@@ -2968,7 +2972,7 @@ static int btrfs_zero_range(struct inode *inode,
 		if (em->flags & EXTENT_FLAG_PREALLOC) {
 			btrfs_free_extent_map(em);
 			ret = btrfs_fallocate_update_isize(inode, offset + len,
-							   mode);
+							   mode, update_times);
 			goto out;
 		}
 		if (len < sectorsize && em->disk_bytenr != EXTENT_MAP_HOLE) {
@@ -2978,7 +2982,8 @@ static int btrfs_zero_range(struct inode *inode,
 			if (!ret)
 				ret = btrfs_fallocate_update_isize(inode,
 								   offset + len,
-								   mode);
+								   mode,
+								   update_times);
 			return ret;
 		}
 		btrfs_free_extent_map(em);
@@ -3056,7 +3061,8 @@ reserve_space:
 		ret = btrfs_prealloc_file_range(inode, mode, alloc_start,
 						alloc_end - alloc_start,
 						fs_info->sectorsize,
-						offset + len, &alloc_hint);
+						offset + len, &alloc_hint,
+						update_times);
 		btrfs_unlock_extent(&BTRFS_I(inode)->io_tree, lockstart, lockend,
 				    &cached_state);
 		/* btrfs_prealloc_file_range releases reserved space on error */
@@ -3065,7 +3071,8 @@ reserve_space:
 			goto out;
 		}
 	}
-	ret = btrfs_fallocate_update_isize(inode, offset + len, mode);
+	ret = btrfs_fallocate_update_isize(inode, offset + len, mode,
+					   update_times);
  out:
 	if (ret && space_reserved)
 		btrfs_free_reserved_data_space(BTRFS_I(inode), data_reserved,
@@ -3096,6 +3103,7 @@ static long btrfs_fallocate(struct file *file, int mode,
 	u64 qgroup_reserved = 0;
 	struct extent_map *em;
 	int blocksize = BTRFS_I(inode)->root->fs_info->sectorsize;
+	const bool update_times = btrfs_should_update_cmtime(file);
 	int ret;
 
 	if (btrfs_is_shutdown(inode_to_fs_info(inode)))
@@ -3167,7 +3175,7 @@ static long btrfs_fallocate(struct file *file, int mode,
 		goto out;
 
 	if (mode & FALLOC_FL_ZERO_RANGE) {
-		ret = btrfs_zero_range(inode, offset, len, mode);
+		ret = btrfs_zero_range(inode, offset, len, mode, update_times);
 		btrfs_inode_unlock(BTRFS_I(inode), BTRFS_ILOCK_MMAP);
 		return ret;
 	}
@@ -3232,7 +3240,8 @@ static long btrfs_fallocate(struct file *file, int mode,
 			ret = btrfs_prealloc_file_range(inode, mode,
 					range->start,
 					range->len, blocksize,
-					offset + len, &alloc_hint);
+					offset + len, &alloc_hint,
+					update_times);
 			/*
 			 * btrfs_prealloc_file_range() releases space even
 			 * if it returns an error.
@@ -3260,7 +3269,8 @@ static long btrfs_fallocate(struct file *file, int mode,
 	 * We didn't need to allocate any more space, but we still extended the
 	 * size of the file so we need to update i_size and the inode item.
 	 */
-	ret = btrfs_fallocate_update_isize(inode, actual_end, mode);
+	ret = btrfs_fallocate_update_isize(inode, actual_end, mode,
+					   update_times);
 out_unlock:
 	btrfs_unlock_extent(&BTRFS_I(inode)->io_tree, alloc_start, locked_end,
 			    &cached_state);
