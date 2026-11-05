@@ -1,8 +1,12 @@
 #ifndef __VMLINUX_H__
 #define __VMLINUX_H__
 
-#ifndef BPF_NO_PRESERVE_ACCESS_INDEX
-#pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)
+#ifndef __bpf_relocatable
+#if !defined(BPF_NO_PRESERVE_ACCESS_INDEX) && __has_attribute(preserve_access_index)
+#define __bpf_relocatable __attribute__((preserve_access_index))
+#else
+#define __bpf_relocatable
+#endif
 #endif
 
 #ifndef __ksym
@@ -30,19 +34,15 @@ struct holey {
 	long: 32;
 	long: 32;
 	int tail;
-};
+} __bpf_relocatable;
 
 struct s {
 	int f;
-};
+} __bpf_relocatable;
 
 
 /* BPF kfuncs */
 #ifndef BPF_NO_KFUNC_PROTOTYPES
-#endif
-
-#ifndef BPF_NO_PRESERVE_ACCESS_INDEX
-#pragma clang attribute pop
 #endif
 
 #endif /* __VMLINUX_H__ */
