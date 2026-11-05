@@ -103,7 +103,7 @@ static const struct regulator_desc bq25703_vbus_desc = {
 };
 
 /* Get optional GPIO for OTG regulator enable. */
-static void bq257xx_reg_dt_parse_gpio(struct platform_device *pdev)
+static int bq257xx_reg_dt_parse_gpio(struct platform_device *pdev)
 {
 	struct device_node *child, *subchild;
 	struct bq257xx_reg_data *pdata = platform_get_drvdata(pdev);
@@ -111,12 +111,12 @@ static void bq257xx_reg_dt_parse_gpio(struct platform_device *pdev)
 	child = of_get_child_by_name(pdev->dev.of_node,
 				     pdata->desc.regulators_node);
 	if (!child)
-		return;
+		return 0;
 
 	subchild = of_get_child_by_name(child, pdata->desc.of_match);
 	of_node_put(child);
 	if (!subchild)
-		return;
+		return 0;
 
 	pdata->otg_en_gpio = devm_fwnode_gpiod_get_index(&pdev->dev,
 							 of_fwnode_handle(subchild),
@@ -130,13 +130,14 @@ static void bq257xx_reg_dt_parse_gpio(struct platform_device *pdev)
 		if (PTR_ERR(pdata->otg_en_gpio) == -ENOENT) {
 			/* No GPIO, will only use register writes for OTG */
 			pdata->otg_en_gpio = NULL;
-			return;
+			return 0;
 		}
 
-		dev_err(&pdev->dev, "Error getting enable gpio: %ld\n",
-			PTR_ERR(pdata->otg_en_gpio));
-		return;
+		return dev_err_probe(&pdev->dev, PTR_ERR(pdata->otg_en_gpio),
+				     "Error getting enable gpio\n");
 	}
+
+	return 0;
 }
 
 static int bq257xx_regulator_probe(struct platform_device *pdev)
@@ -144,6 +145,7 @@ static int bq257xx_regulator_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct bq257xx_reg_data *pdata;
 	struct regulator_config cfg = {};
+	int ret;
 
 	device_set_of_node_from_dev(&pdev->dev, pdev->dev.parent);
 
@@ -154,7 +156,9 @@ static int bq257xx_regulator_probe(struct platform_device *pdev)
 	pdata->desc = bq25703_vbus_desc;
 
 	platform_set_drvdata(pdev, pdata);
-	bq257xx_reg_dt_parse_gpio(pdev);
+	ret = bq257xx_reg_dt_parse_gpio(pdev);
+	if (ret)
+		return ret;
 
 	cfg.dev = &pdev->dev;
 	cfg.driver_data = pdata;
