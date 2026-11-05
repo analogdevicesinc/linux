@@ -446,7 +446,9 @@ struct bpf_func_state {
 	struct loop_stack_entry *loop_stack;
 };
 
-#define MAX_CALL_FRAMES 16
+#define MAX_CALL_FRAMES 32
+/* What the interpreter has stack for. A longer chain of calls requires the JIT. */
+#define MAX_CALL_FRAMES_INTERP 16
 
 /* instruction history flags, used in bpf_jmp_history_entry.flags field.
  * Frame number and SPI are stored in dedicated fields of bpf_jmp_history_entry.
@@ -466,24 +468,24 @@ enum {
 struct bpf_jmp_history_entry {
 	/* insn idx can't be bigger than 1 million */
 	u32 idx : 20;
-	u32 frame : 4;	/* stack access frame number */
+	u32 frame : 5;	/* stack access frame number */
 	/* special INSN_F_xxx flags */
 	u32 flags : 4;
-	u32 : 4;
+	u32 : 3;
 	u32 prev_idx : 20;
 	u32 spi : 12;	/* stack slot index */
 	/*
 	 * Scalar registers and spilled scalars linked to the condition of
 	 * this jump, which need precision tracking together when the jump is
-	 * backtracked. Each is packed as 4 bits of frame number, one bit
-	 * telling a register from a stack slot and 11 bits of register or
+	 * backtracked. Each is packed as 5 bits of frame number, one bit
+	 * telling a register from a stack slot and 10 bits of register or
 	 * slot index, see linked_regs_pack().
 	 */
 	u16 linked_regs[BPF_LINKED_REGS_MAX];
 	u8 linked_regs_cnt;
 };
 
-static_assert(MAX_CALL_FRAMES <= (1 << 4));
+static_assert(MAX_CALL_FRAMES <= (1 << 5));
 static_assert(MAX_BPF_STACK_SLOTS <= (1 << 12));
 
 /* Maximum number of bpf_reg_state objects that can exist at once */
@@ -987,6 +989,7 @@ struct bpf_subprog_info {
 	bool has_tail_call: 1;
 	bool might_throw: 1;
 	bool can_unwind: 1; /* has unwind_exit */
+	bool via_callx: 1; /* callx calls it */
 	bool tail_call_reachable: 1;
 	bool has_ld_abs: 1;
 	bool is_cb: 1;

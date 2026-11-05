@@ -50,6 +50,84 @@ static int subprog_tail_call(void)
 	: __clobber_all);
 }
 
+/* The exception callback has no ctx, so its tail call can only be dead code */
+__used __noinline
+int exception_cb_tail_call(__u64 cookie)
+{
+	asm volatile ("			\
+	r0 = 0;				\
+	if r0 == 0 goto +4;		\
+	r2 = %[jmp_table] ll;		\
+	r3 = 0;				\
+	call %[bpf_tail_call];		\
+"	:
+	: __imm(bpf_tail_call),
+	  __imm_addr(jmp_table)
+	: __clobber_common);
+	return 0;
+}
+
+SEC("tc")
+__description("tail call in an async callback that calls nothing")
+__failure __msg("cannot tail call within callback")
+__attribute__((btf_decl_tag("exception_callback:exception_cb_tail_call")))
+__naked void tail_call_in_async_callback(void)
+{
+	asm volatile ("			\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+#if (defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64) || \
+	(defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64)) && \
+	defined(__BPF_FEATURE_STACK_ARGUMENT)
+
+__used __noinline
+static long subprog_6args(long a, long b, long c, long d, long e, long f)
+{
+	return f;
+}
+
+__used __naked
+static int calls_subprog_tail_call(void)
+{
+	asm volatile ("			\
+	call subprog_tail_call;		\
+	exit;				\
+"	::: __clobber_all);
+}
+
+SEC("tc")
+__description("stack arguments two calls above a tail call")
+__failure __msg("tail_calls are not allowed in programs with stack args")
+__load_if_JITed()
+__naked void stack_args_above_tail_call(void)
+{
+	asm volatile ("			\
+	r6 = r1;			\
+	*(u64 *)(r11 - 8) = 6;		\
+	call subprog_6args;		\
+	r1 = r6;			\
+	call calls_subprog_tail_call;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+#else
+
+SEC("tc")
+__description("stack arguments two calls above a tail call")
+__skip("stack_arg is not supported by compiler or jit")
+__success
+int stack_args_above_tail_call(void)
+{
+	return 0;
+}
+
+#endif
+
 /*
  * A tail call unwinds only the frame of the subprog doing it, so the
  * frames of its callers stay on the stack. With up to 33 tail calls in
