@@ -17,6 +17,10 @@
 #endif
 #endif
 
+#ifndef __bpf_arena
+#define __bpf_arena __attribute__((address_space(1))) __attribute__((btf_type_tag("arena")))
+#endif
+
 #ifndef __ksym
 #define __ksym __attribute__((section(".ksyms")))
 #endif

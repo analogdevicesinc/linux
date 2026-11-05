@@ -11,10 +11,9 @@
 char _license[] SEC("license") = "GPL";
 
 /*
- * The module types as vmlinux.h renders them: the tag is an attribute on a
- * pointer in the kernel address space, so the program has to cast the member
- * to the arena address space before using it. That is what a program built
- * against vmlinux.h sees for a kernel struct with an __arena member.
+ * The module types as an older bpftool renders them in vmlinux.h: the tag is
+ * an attribute on a pointer in the kernel address space, so the program has
+ * to cast the member to the arena address space before using it.
  */
 #define __arena_tag	__attribute__((btf_type_tag("arena")))
 #define __nullable_tag	__attribute__((btf_type_tag("nullable")))

@@ -123,6 +123,12 @@ a type marked ``__bpf_static_offset``, including through ``bpf_core_field_*``
 and the CO-RE bitfield helpers. Compile with ``-D__bpf_static_offset=`` to
 use these helpers with an affected compiler.
 
+Pointers carrying the ``arena`` type tag in kernel BTF are rendered with
+``__bpf_arena``. This macro expands to
+``__attribute__((address_space(1))) __attribute__((btf_type_tag("arena")))``,
+so programs can use the pointers without explicit casts. Define
+``__bpf_arena`` before including the header to override it.
+
 EXAMPLES
 ========
 **# bpftool btf dump id 1226**

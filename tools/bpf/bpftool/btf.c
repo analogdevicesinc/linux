@@ -1103,6 +1103,8 @@ static const struct {
 } btf_c_type_tags[] = {
 	/* the arena attribute in older kernel BTF */
 	{ true, "address_space(1)", "__attribute__((address_space(1)))" },
+	/* __arena in include/linux/bpf_compiler_types.h */
+	{ false, "arena", "__bpf_arena" },
 };
 
 static int btf_c_annotate_type_tags(struct btf *btf)
@@ -1275,6 +1277,9 @@ static int dump_btf_c(struct btf *btf,
 	printf("#else\n");
 	printf("#define __bpf_static_offset\n");
 	printf("#endif\n");
+	printf("#endif\n\n");
+	printf("#ifndef __bpf_arena\n");
+	printf("#define __bpf_arena __attribute__((address_space(1))) __attribute__((btf_type_tag(\"arena\")))\n");
 	printf("#endif\n\n");
 	printf("#ifndef __ksym\n");
 	printf("#define __ksym __attribute__((section(\".ksyms\")))\n");
