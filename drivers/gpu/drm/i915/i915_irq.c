@@ -725,17 +725,25 @@ static void gen8_irq_postinstall(struct drm_i915_private *dev_priv)
 	gen8_master_intr_enable(intel_uncore_regs(&dev_priv->uncore));
 }
 
+static void gen11_gu_misc_irq_postinstall(struct drm_i915_private *dev_priv)
+{
+	struct intel_uncore *uncore = &dev_priv->uncore;
+	u32 gu_misc_masked = GEN11_GU_MISC_GSE;
+
+	gen2_irq_init(uncore, GEN11_GU_MISC_IRQ_REGS, ~gu_misc_masked, gu_misc_masked);
+}
+
 static void gen11_irq_postinstall(struct drm_i915_private *dev_priv)
 {
 	struct intel_display *display = dev_priv->display;
 	struct intel_gt *gt = to_gt(dev_priv);
 	struct intel_uncore *uncore = gt->uncore;
-	u32 gu_misc_masked = GEN11_GU_MISC_GSE;
 
 	gen11_gt_irq_postinstall(gt);
+
 	intel_display_irq_postinstall(display);
 
-	gen2_irq_init(uncore, GEN11_GU_MISC_IRQ_REGS, ~gu_misc_masked, gu_misc_masked);
+	gen11_gu_misc_irq_postinstall(dev_priv);
 
 	gen11_master_intr_enable(intel_uncore_regs(uncore));
 	intel_uncore_posting_read(&dev_priv->uncore, GEN11_GFX_MSTR_IRQ);
@@ -745,14 +753,13 @@ static void dg1_irq_postinstall(struct drm_i915_private *dev_priv)
 {
 	struct intel_display *display = dev_priv->display;
 	struct intel_uncore *uncore = &dev_priv->uncore;
-	u32 gu_misc_masked = GEN11_GU_MISC_GSE;
 	struct intel_gt *gt;
 	unsigned int i;
 
 	for_each_gt(gt, dev_priv, i)
 		gen11_gt_irq_postinstall(gt);
 
-	gen2_irq_init(uncore, GEN11_GU_MISC_IRQ_REGS, ~gu_misc_masked, gu_misc_masked);
+	gen11_gu_misc_irq_postinstall(dev_priv);
 
 	intel_display_irq_postinstall(display);
 
