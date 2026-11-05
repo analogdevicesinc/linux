@@ -609,13 +609,7 @@ static int rockchip_pcie_resource_get(struct platform_device *pdev,
 
 static int rockchip_pcie_phy_init(struct rockchip_pcie *rockchip)
 {
-	struct device *dev = rockchip->pci.dev;
 	int ret;
-
-	rockchip->phy = devm_phy_get(dev, "pcie-phy");
-	if (IS_ERR(rockchip->phy))
-		return dev_err_probe(dev, PTR_ERR(rockchip->phy),
-				     "missing PHY\n");
 
 	ret = phy_init(rockchip->phy);
 	if (ret < 0)
@@ -862,6 +856,13 @@ static int rockchip_pcie_probe(struct platform_device *pdev)
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "failed to enable vpcie3v3 regulator\n");
+	}
+
+	rockchip->phy = devm_phy_get(dev, "pcie-phy");
+	if (IS_ERR(rockchip->phy)) {
+		ret = PTR_ERR(rockchip->phy);
+		dev_err_probe(dev, ret, "missing PHY\n");
+		goto disable_regulator;
 	}
 
 	ret = rockchip_pcie_phy_init(rockchip);
