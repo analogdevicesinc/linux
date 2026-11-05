@@ -9125,7 +9125,6 @@ static struct btrfs_trans_handle *insert_prealloc_file_extent(
 	extent_info.file_offset = file_offset;
 	extent_info.extent_buf = (char *)&stack_fi;
 	extent_info.is_new_extent = true;
-	extent_info.update_times = true;
 	extent_info.qgroup_reserved = qgroup_released;
 	extent_info.insertions = 0;
 
@@ -9137,7 +9136,7 @@ static struct btrfs_trans_handle *insert_prealloc_file_extent(
 
 	ret = btrfs_replace_file_extents(inode, path, file_offset,
 				     file_offset + len - 1, &extent_info,
-				     &trans);
+				     true, &trans);
 	btrfs_free_path(path);
 	if (ret)
 		goto free_qgroup;

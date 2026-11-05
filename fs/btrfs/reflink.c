@@ -556,10 +556,9 @@ process_slot:
 			clone_info.file_offset = new_key.offset;
 			clone_info.extent_buf = buf;
 			clone_info.is_new_extent = false;
-			clone_info.update_times = !no_time_update;
 			ret = btrfs_replace_file_extents(inode, path,
 					drop_start, new_key.offset + datal - 1,
-					&clone_info, &trans);
+					&clone_info, !no_time_update, &trans);
 			if (ret)
 				goto out;
 		} else {
@@ -656,7 +655,8 @@ process_slot:
 			btrfs_set_inode_full_sync(inode);
 
 		ret = btrfs_replace_file_extents(inode, path,
-				last_dest_end, destoff + len - 1, NULL, &trans);
+				last_dest_end, destoff + len - 1, NULL,
+				!no_time_update, &trans);
 		if (ret)
 			goto out;
 

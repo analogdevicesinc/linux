@@ -30,6 +30,7 @@ int btrfs_replace_file_extents(struct btrfs_inode *inode,
 			   struct btrfs_path *path, const u64 start,
 			   const u64 end,
 			   struct btrfs_replace_extent_info *extent_info,
+			   bool update_times,
 			   struct btrfs_trans_handle **trans_out);
 int btrfs_mark_extent_written(struct btrfs_trans_handle *trans,
 			      struct btrfs_inode *inode, u64 start, u64 end);
