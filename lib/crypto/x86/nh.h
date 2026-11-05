@@ -21,7 +21,7 @@ static bool nh_arch(const u32 *key, const u8 *message, size_t message_len,
 {
 	if (message_len >= 64 && static_branch_likely(&have_sse2) &&
 	    irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&have_avx2))
 			nh_avx2(key, message, message_len, hash);
 		else

@@ -50,7 +50,7 @@ static void aes_preparekey_arch(union aes_enckey_arch *k,
 
 	if (static_branch_likely(&have_aesni) && key_len != AES_KEYSIZE_192 &&
 	    irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (key_len == AES_KEYSIZE_128)
 			aes128_expandkey_aesni(rndkeys, inv_rndkeys, in_key);
 		else
@@ -66,7 +66,7 @@ static void aes_encrypt_arch(const struct aes_enckey *key,
 			     const u8 in[AES_BLOCK_SIZE])
 {
 	if (static_branch_likely(&have_aesni) && irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		aes_encrypt_aesni(out, in, key);
 		kernel_fpu_end();
 	} else {
@@ -79,7 +79,7 @@ static void aes_decrypt_arch(const struct aes_key *key,
 			     const u8 in[AES_BLOCK_SIZE])
 {
 	if (static_branch_likely(&have_aesni) && irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		aes_decrypt_aesni(out, in, key);
 		kernel_fpu_end();
 	} else {
@@ -101,7 +101,7 @@ static bool aes_ecb_encrypt_arch(u8 *dst, const u8 *src, size_t len,
 {
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	aes_ecb_encrypt_aesni(dst, src, len / AES_BLOCK_SIZE, key);
 	kernel_fpu_end();
 	return true;
@@ -114,7 +114,7 @@ static bool aes_ecb_decrypt_arch(u8 *dst, const u8 *src, size_t len,
 {
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	aes_ecb_decrypt_aesni(dst, src, len / AES_BLOCK_SIZE, key);
 	kernel_fpu_end();
 	return true;
@@ -141,7 +141,7 @@ static bool aes_cbc_encrypt_arch(u8 *dst, const u8 *src, size_t len,
 {
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	aes_cbc_encrypt_aesni(dst, src, len / AES_BLOCK_SIZE, iv, key);
 	kernel_fpu_end();
 	return true;
@@ -155,7 +155,7 @@ static bool aes_cbc_decrypt_arch(u8 *dst, const u8 *src, size_t len,
 {
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	aes_cbc_decrypt_aesni(dst, src, len / AES_BLOCK_SIZE, iv, key);
 	kernel_fpu_end();
 	return true;
@@ -173,7 +173,7 @@ static bool aes_cbc_cts_encrypt_arch(u8 *dst, const u8 *src, size_t len,
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
 
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	if (cbc_blocks) {
 		aes_cbc_encrypt_aesni(dst, src, cbc_blocks, iv, key);
 		dst += cbc_blocks * AES_BLOCK_SIZE;
@@ -197,7 +197,7 @@ static bool aes_cbc_cts_decrypt_arch(u8 *dst, const u8 *src, size_t len,
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
 
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	if (cbc_blocks) {
 		aes_cbc_decrypt_aesni(dst, src, cbc_blocks, iv, key);
 		dst += cbc_blocks * AES_BLOCK_SIZE;
@@ -260,7 +260,7 @@ static bool aes_ctr_arch(u8 *dst, const u8 *src, size_t len,
 	ctr64 = le_ctr[0] = get_unaligned_be64(&ctr[8]);
 	le_ctr[1] = get_unaligned_be64(&ctr[0]);
 
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 
 	nblocks = DIV_ROUND_UP(len, AES_BLOCK_SIZE);
 	ctr64 += nblocks;
@@ -296,7 +296,7 @@ static bool aes_xctr_arch(u8 *dst, const u8 *src, size_t len, u64 ctr,
 	if (!static_branch_likely(&have_aesni_avx) ||
 	    unlikely(!irq_fpu_usable()))
 		return false;
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	if (static_branch_likely(&have_vaes_avx512))
 		aes_xctr_crypt_vaes_avx512(dst, src, len, ctr, iv, key);
 	else if (static_branch_likely(&have_vaes_avx2))
@@ -344,7 +344,7 @@ aes_xts_crypt_x86(u8 *dst, const u8 *src, size_t len, u8 tweak[AES_BLOCK_SIZE],
 	if (!static_branch_likely(&have_aesni) || unlikely(!irq_fpu_usable()))
 		return false;
 
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 	if (IS_ENABLED(CONFIG_X86_64) &&
 	    static_branch_likely(&have_vaes_avx512)) {
 		if (!cont)

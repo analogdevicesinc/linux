@@ -16,7 +16,7 @@ DEFINE_STATIC_CALL(sha1_blocks_x86, sha1_blocks_generic);
 			 const u8 *data, size_t nblocks)           \
 	{                                                          \
 		if (likely(irq_fpu_usable())) {                    \
-			kernel_fpu_begin();                        \
+			kernel_fpu_begin_mask(0);                  \
 			asm_fn(state, data, nblocks);              \
 			kernel_fpu_end();                          \
 		} else {                                           \
@@ -36,7 +36,7 @@ static void sha1_blocks_avx2(struct sha1_block_state *state,
 			     const u8 *data, size_t nblocks)
 {
 	if (likely(irq_fpu_usable())) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		/* Select the optimal transform based on the number of blocks */
 		if (nblocks >= SHA1_AVX2_BLOCK_OPTSIZE)
 			sha1_transform_avx2(state, data, nblocks);

@@ -34,7 +34,7 @@ static void blake2s_compress(struct blake2s_ctx *ctx,
 		const size_t blocks = min_t(size_t, nblocks,
 					    SZ_4K / BLAKE2S_BLOCK_SIZE);
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&blake2s_use_avx512))
 			blake2s_compress_avx512(ctx, data, blocks, inc);
 		else

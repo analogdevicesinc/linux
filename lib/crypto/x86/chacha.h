@@ -154,7 +154,7 @@ static void hchacha_block_arch(const struct chacha_state *state,
 	if (!static_branch_likely(&chacha_use_simd)) {
 		hchacha_block_generic(state, out, nrounds);
 	} else {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		hchacha_block_ssse3(state, out, nrounds);
 		kernel_fpu_end();
 	}
@@ -170,7 +170,7 @@ static void chacha_crypt_arch(struct chacha_state *state, u8 *dst,
 	do {
 		size_t todo = min(bytes, SZ_4K);
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		chacha_dosimd(state, dst, src, todo, nrounds);
 		kernel_fpu_end();
 

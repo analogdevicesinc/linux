@@ -16,7 +16,7 @@ DEFINE_STATIC_CALL(sha512_blocks_x86, sha512_blocks_generic);
 			 size_t nblocks)                                   \
 	{                                                                  \
 		if (likely(irq_fpu_usable())) {                            \
-			kernel_fpu_begin();                                \
+			kernel_fpu_begin_mask(0);                          \
 			asm_fn(state, data, nblocks);                      \
 			kernel_fpu_end();                                  \
 		} else {                                                   \

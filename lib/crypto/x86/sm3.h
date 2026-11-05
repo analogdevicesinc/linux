@@ -14,7 +14,7 @@ static void sm3_blocks_avx(struct sm3_block_state *state,
 			   const u8 *data, size_t nblocks)
 {
 	if (likely(irq_fpu_usable())) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		sm3_transform_avx(state, data, nblocks);
 		kernel_fpu_end();
 	} else {

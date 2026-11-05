@@ -31,7 +31,7 @@ static void polyval_preparekey_arch(struct polyval_key *key,
 	static_assert(ARRAY_SIZE(key->h_powers) == NUM_H_POWERS);
 	memcpy(&key->h_powers[NUM_H_POWERS - 1], raw_key, POLYVAL_BLOCK_SIZE);
 	if (static_branch_likely(&have_pclmul_avx) && irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		for (int i = NUM_H_POWERS - 2; i >= 0; i--) {
 			key->h_powers[i] = key->h_powers[i + 1];
 			polyval_mul_pclmul_avx(
@@ -52,7 +52,7 @@ static void polyval_mul_x86(struct polyval_elem *a,
 			    const struct polyval_elem *b)
 {
 	if (static_branch_likely(&have_pclmul) && irq_fpu_usable()) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&have_pclmul_avx))
 			polyval_mul_pclmul_avx(a, b);
 		else
@@ -88,7 +88,7 @@ static void ghash_blocks_arch(struct polyval_elem *acc,
 			size_t n = min_t(size_t, nblocks,
 					 4096 / GHASH_BLOCK_SIZE);
 
-			kernel_fpu_begin();
+			kernel_fpu_begin_mask(0);
 			ghash_blocks_pclmul(acc, &key->h, data, n);
 			kernel_fpu_end();
 			data += n * GHASH_BLOCK_SIZE;
@@ -110,7 +110,7 @@ static void polyval_blocks_arch(struct polyval_elem *acc,
 			size_t n = min_t(size_t, nblocks,
 					 4096 / POLYVAL_BLOCK_SIZE);
 
-			kernel_fpu_begin();
+			kernel_fpu_begin_mask(0);
 			polyval_blocks_pclmul_avx(acc, key, data, n);
 			kernel_fpu_end();
 			data += n * POLYVAL_BLOCK_SIZE;
