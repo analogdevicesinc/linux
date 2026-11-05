@@ -38,6 +38,63 @@ cmpxchg-fail-unordered-2.litmus
     acquire operation.
 
 
+fs (/fs directory)
+------------------
+
+A struct file is SLAB_TYPESAFE_BY_RCU.  __fget_files_rcu() loads the
+descriptor slot, takes a reference with file_ref_get(), reloads the
+slot and compares, and between the first load and the increment the
+file can be closed, freed and handed out again.  The tests encode the
+counter as an atomic_t holding references minus one (ONEREF 0, NOREF
+-1, DEAD -4), file_ref_get() as atomic_fetch_add() with the ordering
+under test, file_ref_put() as atomic_fetch_sub() followed by the
+cmpxchg to DEAD of __file_ref_put(), init_file() as a plain
+atomic_set() and fd_install() as a release store.  The slot is an int
+where only its identity matters and a pointer where a later load has
+to depend on it.  The counter is a separate variable, so the address
+dependency of the increment on the first load is not in the model;
+that only makes the model weaker than the code, a "Never" here holds
+for the code.
+
+file-ref-get-acquire-recheck.litmus
+    Demonstrates that an acquire-ordered file_ref_get() is enough for
+    the recheck of __fget_files_rcu(): the full ordering of the
+    decrement orders the cleared slot before the counter is set up
+    again and the acquire orders the reload after the increment, so a
+    lookup that increments a recycled file cannot pass the recheck with
+    the old slot.
+
+file-ref-get-relaxed-recheck.litmus
+    The same with a relaxed increment; the reload can be satisfied
+    before the increment and the lookup returns a file the descriptor
+    never named.
+
+file-ref-reload-dep-field.litmus
+    Demonstrates that reading the file's fields through the reloaded
+    pointer, as __get_file_rcu() does, orders them after the store of
+    fd_install() that the reload saw: a thread that closes and reopens
+    the same descriptor and gets the same file back cannot make a
+    concurrent lookup read the old incarnation's f_op.
+
+file-ref-reload-nodep-field.litmus
+    The same with the fields read through the pointer of the first
+    load; the field read is ordered after the increment but not after
+    the reload, and a fully ordered increment does not change that.
+
+file-ref-put-full-handoff.litmus
+    Demonstrates why file_ref_put() keeps its full ordering: when the
+    last put frees the file synchronously and another CPU takes it from
+    the slab freelist, the fully ordered decrement orders the cleared
+    slot before the free, so a lookup on a third CPU that increments
+    the recycled counter cannot pass its recheck with the old slot.
+
+file-ref-put-release-handoff.litmus
+    The same with a release-ordered decrement; it orders the cleared
+    slot before the decrement and not before the free, and the lookup
+    can keep a reference to a recycled file for a descriptor that never
+    named it.
+
+
 locking (/locking directory)
 ----------------------------
 
