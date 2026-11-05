@@ -144,6 +144,19 @@ static const struct attribute_group *get_cxl_region_access1_group(void)
 	return &cxl_region_access1_coordinate_group;
 }
 
+/*
+ * Region access attributes depend on calculated performance data, not
+ * NUMA node onlining. Re-evaluate visibility after region completion.
+ */
+static void cxl_region_update_access_groups(struct cxl_region *cxlr)
+{
+	if (sysfs_update_group(&cxlr->dev.kobj, get_cxl_region_access0_group()))
+		dev_dbg(&cxlr->dev, "Failed to update access0 group\n");
+
+	if (sysfs_update_group(&cxlr->dev.kobj, get_cxl_region_access1_group()))
+		dev_dbg(&cxlr->dev, "Failed to update access1 group\n");
+}
+
 static ssize_t uuid_show(struct device *dev, struct device_attribute *attr,
 			 char *buf)
 {
@@ -2171,6 +2184,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		p->state = CXL_CONFIG_COMMIT;
 		cxl_region_perf_data_update(cxlr);
 		cxl_region_shared_upstream_bandwidth_update(cxlr);
+		cxl_region_update_access_groups(cxlr);
 
 		return 0;
 	}
@@ -2194,6 +2208,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		p->state = CXL_CONFIG_ACTIVE;
 		cxl_region_perf_data_update(cxlr);
 		cxl_region_shared_upstream_bandwidth_update(cxlr);
+		cxl_region_update_access_groups(cxlr);
 	}
 
 	cxled->cxld.interleave_ways = p->interleave_ways;
@@ -2629,7 +2644,6 @@ static struct cxl_region *cxl_region_alloc(struct cxl_root_decoder *cxlrd, int i
 static bool cxl_region_update_coordinates(struct cxl_region *cxlr, int nid)
 {
 	int cset = 0;
-	int rc;
 
 	for (int i = 0; i < ACCESS_COORDINATE_MAX; i++) {
 		if (cxlr->coord[i].read_bandwidth) {
@@ -2650,18 +2664,7 @@ static bool cxl_region_update_coordinates(struct cxl_region *cxlr, int nid)
 		}
 	}
 
-	if (!cset)
-		return false;
-
-	rc = sysfs_update_group(&cxlr->dev.kobj, get_cxl_region_access0_group());
-	if (rc)
-		dev_dbg(&cxlr->dev, "Failed to update access0 group\n");
-
-	rc = sysfs_update_group(&cxlr->dev.kobj, get_cxl_region_access1_group());
-	if (rc)
-		dev_dbg(&cxlr->dev, "Failed to update access1 group\n");
-
-	return true;
+	return cset > 0;
 }
 
 static int cxl_region_perf_attrs_callback(struct notifier_block *nb,
