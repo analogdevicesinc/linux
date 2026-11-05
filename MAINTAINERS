@@ -21998,6 +21998,7 @@ F:	drivers/pinctrl/airoha/pinctrl-airoha.c
 PIN CONTROLLER - AMD
 M:	Basavaraj Natikar <Basavaraj.Natikar@amd.com>
 M:	Shyam Sundar S K <Shyam-sundar.S-k@amd.com>
+R:	Mario Limonciello (AMD) <superm1@kernel.org>
 S:	Maintained
 F:	drivers/pinctrl/pinctrl-amd.c
 
