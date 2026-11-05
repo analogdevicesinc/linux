@@ -53,6 +53,7 @@ const struct ins_ops arithmetic_ops;
 static void ins__sort(struct arch *arch);
 static int disasm_line__parse(char *line, const char **namep, char **rawp);
 static int disasm_line__parse_powerpc(struct disasm_line *dl, struct annotate_args *args);
+static bool check_multi_regs(const struct arch *arch, const char *op);
 
 static __attribute__((constructor)) void symbol__init_regexpr(void)
 {
@@ -299,6 +300,12 @@ indirect_call:
 	tok = strchr(endptr, '*');
 	if (tok != NULL) {
 		endptr++;
+
+		/* Save the operand (without '*') to extract register and offset */
+		ops->target.raw = strdup(tok + 1);
+		if (ops->target.raw == NULL)
+			return -1;
+		ops->target.multi_regs = check_multi_regs(arch, ops->target.raw);
 
 		/* Indirect call can use a non-rip register and offset: callq  *0x8(%rbx).
 		 * Do not parse such instruction.  */
