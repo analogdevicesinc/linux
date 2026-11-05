@@ -1159,10 +1159,7 @@ static int vc4_dsi_bridge_attach(struct drm_bridge *bridge,
 				 struct drm_encoder *encoder,
 				 enum drm_bridge_attach_flags flags)
 {
-	struct vc4_dsi *dsi = bridge_to_vc4_dsi(bridge);
-
-	return drm_bridge_attach(encoder, dsi->bridge.next_bridge,
-				 &dsi->bridge, flags);
+	return drm_bridge_attach(encoder, bridge->next_bridge, bridge, flags);
 }
 
 static ssize_t vc4_dsi_host_transfer(struct mipi_dsi_host *host,
