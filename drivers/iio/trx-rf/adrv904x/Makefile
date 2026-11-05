@@ -72,7 +72,8 @@ adrv904x_drv-y = \
 	devices/adrv904x/private/src/initdata.o \
 	adrv904x.o \
 	adrv904x_conv.o \
-	adrv904x_debugfs.o
+	adrv904x_debugfs.o \
+	adrv904x_ramc.o
 
 ccflags-y += -I$(src)/devices/adrv904x/private/include/ \
 	-I$(src)/devices/adrv904x/private/src/ \
