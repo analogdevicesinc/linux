@@ -1169,7 +1169,6 @@ int bmg160_core_probe(struct device *dev, struct regmap *regmap, int irq,
 	return 0;
 
 err_pm_cleanup:
-	pm_runtime_dont_use_autosuspend(dev);
 	pm_runtime_disable(dev);
 err_buffer_cleanup:
 	iio_triggered_buffer_cleanup(indio_dev);
