@@ -69,7 +69,11 @@ bool __file_ref_put(file_ref_t *ref, unsigned long cnt);
  *
  * Similar to atomic_inc_not_zero() but saturates at FILE_REF_MAXREF.
  *
- * Provides full memory ordering.
+ * Provides acquire memory ordering: loads after a successful get are
+ * ordered after the increment. That is what the pointer recheck of the
+ * fget-rcu pattern needs, the load of the pointer the reference is
+ * taken through is ordered before the increment by its address
+ * dependency.
  *
  * Return: False if the attempt to acquire a reference failed. This happens
  *         when the last reference has been put already. True if a reference
@@ -78,7 +82,7 @@ bool __file_ref_put(file_ref_t *ref, unsigned long cnt);
 static __always_inline __must_check bool file_ref_get(file_ref_t *ref)
 {
 	/*
-	 * Unconditionally increase the reference count with full
+	 * Unconditionally increase the reference count with acquire
 	 * ordering. The saturation and dead zones provide enough
 	 * tolerance for this.
 	 *
@@ -105,7 +109,7 @@ static __always_inline __must_check bool file_ref_get(file_ref_t *ref)
 	 * FILE_REF_ONEREF. It would need 2305843009213693952/2^61
 	 * file_ref_get()s to resurrect such a dead file.
 	 */
-	return !atomic_long_add_negative(1, &ref->refcnt);
+	return !atomic_long_add_negative_acquire(1, &ref->refcnt);
 }
 
 /**

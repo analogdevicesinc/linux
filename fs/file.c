@@ -1096,13 +1096,13 @@ static struct file *__get_file_rcu(struct file __rcu **f)
 	OPTIMIZER_HIDE_VAR(file_reloaded_cmp);
 
 	/*
-	 * file_ref_get() above provided a full memory barrier when we
-	 * acquired a reference.
+	 * file_ref_get() above is an acquire, so the reload of the
+	 * pointer is ordered after the increment.
 	 *
-	 * This is paired with the write barrier from assigning to the
-	 * __rcu protected file pointer so that if that pointer still
-	 * matches the current file, we know we have successfully
-	 * acquired a reference to the right file.
+	 * This is paired with the release of the rcu_assign_pointer()
+	 * that published the __rcu protected file pointer so that if
+	 * that pointer still matches the current file, we know we have
+	 * successfully acquired a reference to the right file.
 	 *
 	 * If the pointers don't match the file has been reallocated by
 	 * SLAB_TYPESAFE_BY_RCU.
@@ -1197,9 +1197,8 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 		 * We need to confirm it by incrementing the refcount
 		 * and then check the lookup again.
 		 *
-		 * file_ref_get() gives us a full memory barrier. We
-		 * only really need an 'acquire' one to protect the
-		 * loads below, but we don't have that.
+		 * file_ref_get() is an acquire, which is what orders
+		 * the loads below after the increment.
 		 */
 		if (unlikely(!file_ref_get(&file->f_ref)))
 			continue;
