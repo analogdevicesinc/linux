@@ -2289,10 +2289,11 @@ static int snd_intel8x0_mixer(struct intel8x0 *chip, int ac97_clock,
 		pbus->isdin = 1;
 	/* find the available PCM streams */
 	i = ARRAY_SIZE(ac97_pcm_defs);
-	if (chip->device_type != DEVICE_INTEL_ICH4)
+	if (chip->device_type != DEVICE_INTEL_ICH4) {
 		i -= 2;		/* do not allocate PCM2IN and MIC2 */
-	if (chip->spdif_idx < 0)
-		i--;		/* do not allocate S/PDIF */
+		if (chip->spdif_idx < 0)
+			i--;		/* do not allocate S/PDIF */
+	}
 	err = snd_ac97_pcm_assign(pbus, i, ac97_pcm_defs);
 	if (err < 0)
 		goto __err;
