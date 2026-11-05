@@ -605,7 +605,7 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 	u64 idledly_ps, idledly_hw_ps;
 	u64 min_idledly_ps = 0;
 	u64 max_idledly_ps = -1;
-	bool inhibit_switch = false;
+	bool clear_inhibit_switch = false;
 	bool wa_applied = false;
 
 	if (IS_SRIOV_VF(gt_to_xe(gt)))
@@ -615,12 +615,6 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 		/* xe_gt_clock_init() warns and zeroes timestamp_base on unknown crystal clock. */
 		if (!idledly_units_ps)
 			return;
-
-		idledly_reg_val = xe_mmio_read32(&gt->mmio, RING_IDLEDLY(hwe->mmio_base));
-		inhibit_switch = idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED;
-		idledly = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val);
-		idledly_ps = idledly * idledly_units_ps;
-		idledly_hw_ps = idledly_ps;
 
 		if (XE_GT_WA(gt, 14025941587))
 			min_idledly_ps = max(min_idledly_ps, 5000000);
@@ -633,12 +627,23 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 					       max_idledly_ps,
 					       REG_FIELD_GET(IDLE_WAIT_TIME, maxcnt) * maxcnt_units_ps);
 
-			/* Clear the inhibit switch without disturbing a valid delay. */
-			if (inhibit_switch) {
-				idledly_reg_val &= ~INHIBIT_SWITCH_UNTIL_PREEMPTED;
-				wa_applied = true;
-			}
+			clear_inhibit_switch = true;
 		}
+
+		/* No applicable workaround found. */
+		if (min_idledly_ps == 0 && max_idledly_ps == -1 && !clear_inhibit_switch)
+			return;
+
+		idledly_reg_val = xe_mmio_read32(&gt->mmio, RING_IDLEDLY(hwe->mmio_base));
+
+		if (clear_inhibit_switch && idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED) {
+			idledly_reg_val &= ~INHIBIT_SWITCH_UNTIL_PREEMPTED;
+			wa_applied = true;
+		}
+
+		idledly = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val);
+		idledly_ps = idledly * idledly_units_ps;
+		idledly_hw_ps = idledly_ps;
 
 		/*
 		 * min_idledly_ps is applied before max_idledly_ps, which takes
@@ -671,7 +676,8 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 
 			xe_gt_dbg(gt, "idledly %s: set %llups min=%llups max=%llups inh=%u ts=%ups\n",
 				  hwe->name, idledly_ps, min_idledly_ps, max_idledly_ps,
-				  !!inhibit_switch, gt->info.timestamp_base);
+				  !!(idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED),
+				  gt->info.timestamp_base);
 			xe_mmio_write32(&gt->mmio,
 					RING_IDLEDLY(hwe->mmio_base),
 					idledly_reg_val);
