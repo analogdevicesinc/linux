@@ -27,6 +27,7 @@
 #include <linux/blkdev.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
+#include <linux/ratelimit.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
@@ -56,6 +57,21 @@
  */
 #define BUS_RESET_SETTLE_TIME   (10)
 #define HOST_RESET_SETTLE_TIME  (10)
+
+/*
+ * Number of times a command is retried if it receives the same UNIT ATTENTION
+ * repeatedly before the error handler is invoked to clear that condition.
+ */
+#define SCSI_UA_RETRIES		2
+/*
+ * Maximum number of error handler invocations for a command with unlimited
+ * retries that keeps receiving the same UNIT ATTENTION.
+ */
+#define SCSI_UA_EH_ROUNDS	3
+/* Maximum number of TEST UNIT READY commands sent to clear a UNIT ATTENTION. */
+#define SCSI_EH_CLEAR_UA_TURS	4
+/* Delay in milliseconds before a TEST UNIT READY command is retried. */
+#define SCSI_EH_CLEAR_UA_RETRY_DELAY_MS	100
 
 static int scsi_eh_try_stu(struct scsi_cmnd *scmd);
 static enum scsi_disposition scsi_try_to_abort_cmd(const struct scsi_host_template *,
@@ -559,17 +575,15 @@ static inline void set_scsi_ml_byte(struct scsi_cmnd *cmd, u8 status)
 }
 
 /**
- * scsi_check_sense - Examine scsi cmd sense
+ * __scsi_check_sense - Examine scsi cmd sense
  * @scmd:	Cmd to have sense checked.
+ * @escalate_ua: Whether to invoke the SCSI error handler for UNIT ATTENTION
+ *	conditions that persist after retries.
  *
- * Return value:
- *	SUCCESS or FAILED or NEEDS_RETRY or ADD_TO_MLQUEUE
- *
- * Notes:
- *	When a deferred error is detected the current command has
- *	not been executed and needs retrying.
+ * Return: SUCCESS, FAILED, NEEDS_RETRY or ADD_TO_MLQUEUE.
  */
-enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
+static enum scsi_disposition __scsi_check_sense(struct scsi_cmnd *scmd,
+						bool escalate_ua)
 {
 	struct request *req = scsi_cmd_to_rq(scmd);
 	struct scsi_device *sdev = scmd->device;
@@ -717,6 +731,40 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 		    LU_NOT_READY_INITIALIZING_COMMAND_REQUIRED)
 			return FAILED;
 		/*
+		 * Retry a UNIT ATTENTION that is reported repeatedly with the
+		 * same additional sense code SCSI_UA_RETRIES times on the
+		 * normal completion path for non-removable block requests,
+		 * then invoke the error handler so TEST UNIT READY can clear a
+		 * stuck UNIT ATTENTION. Use a dedicated counter instead of
+		 * scmd->retries since the latter is also incremented for
+		 * other retry reasons and by the error handler. Comparing the
+		 * additional sense code prevents escalation if a target
+		 * reports multiple queued UNIT ATTENTION conditions.
+		 */
+		if (escalate_ua && sshdr.sense_key == UNIT_ATTENTION &&
+		    !sdev->removable && !scsi_noretry_cmd(scmd)) {
+			u8 asc = scsi_sense_asc(&sshdr);
+
+			if (scmd->ua_asc != asc) {
+				scmd->ua_asc = asc;
+				scmd->ua_count = 0;
+			}
+			if (scmd->ua_count < U8_MAX)
+				scmd->ua_count++;
+			if (scmd->ua_count <= SCSI_UA_RETRIES)
+				return NEEDS_RETRY;
+			/*
+			 * scsi_eh_flush_done_q() limits the number of error
+			 * handler invocations unless retries are unlimited.
+			 * Pass the UNIT ATTENTION upwards in the latter case
+			 * once SCSI_UA_EH_ROUNDS attempts to clear it failed.
+			 */
+			if (scmd->allowed == SCSI_CMD_RETRIES_NO_LIMIT &&
+			    scmd->ua_count > SCSI_UA_RETRIES + SCSI_UA_EH_ROUNDS)
+				return SUCCESS;
+			return FAILED;
+		}
+		/*
 		 * Pass the UA upwards for a determination in the completion
 		 * functions.
 		 */
@@ -789,6 +837,27 @@ enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
 	default:
 		return SUCCESS;
 	}
+}
+
+/**
+ * scsi_check_sense - Examine scsi cmd sense
+ * @scmd:	Cmd to have sense checked.
+ *
+ * Return value:
+ *	SUCCESS or FAILED or NEEDS_RETRY or ADD_TO_MLQUEUE
+ *
+ * Notes:
+ *	When a deferred error is detected the current command has
+ *	not been executed and needs retrying.
+ *
+ *	Unlike the sense data evaluation by scsi_decide_disposition(), this
+ *	function never invokes the SCSI error handler for UNIT ATTENTION
+ *	conditions that persist after retries. Callers with their own error
+ *	handler, e.g. libata, rely on this.
+ */
+enum scsi_disposition scsi_check_sense(struct scsi_cmnd *scmd)
+{
+	return __scsi_check_sense(scmd, false);
 }
 EXPORT_SYMBOL_GPL(scsi_check_sense);
 
@@ -1582,6 +1651,33 @@ static int scsi_eh_try_stu(struct scsi_cmnd *scmd)
 	return 1;
 }
 
+/*
+ * Return true if @scmd completed with CHECK CONDITION and current (not
+ * deferred) sense data and store the normalized sense data in @sshdr.
+ */
+static bool scsi_cmd_current_sense(const struct scsi_cmnd *scmd,
+				   struct scsi_sense_hdr *sshdr)
+{
+	if ((scmd->eh_eflags & SCSI_EH_ABORT_SCHEDULED) ||
+	    host_byte(scmd->result) != DID_OK ||
+	    !scsi_status_is_check_condition(scmd->result))
+		return false;
+
+	return scsi_command_normalize_sense(scmd, sshdr) &&
+		!scsi_sense_is_deferred(sshdr);
+}
+
+static bool scsi_cmd_needs_stu(const struct scsi_cmnd *scmd)
+{
+	struct scsi_sense_hdr sshdr;
+
+	return scmd->device->allow_restart &&
+		scsi_cmd_current_sense(scmd, &sshdr) &&
+		(sshdr.sense_key == NOT_READY ||
+		 sshdr.sense_key == UNIT_ATTENTION) &&
+		sshdr.sense_code == LU_NOT_READY_INITIALIZING_COMMAND_REQUIRED;
+}
+
  /**
  * scsi_eh_stu - send START_UNIT if needed
  * @shost:	&scsi host being recovered.
@@ -1610,8 +1706,7 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 		}
 		stu_scmd = NULL;
 		list_for_each_entry(scmd, work_q, eh_entry)
-			if (scmd->device == sdev && SCSI_SENSE_VALID(scmd) &&
-			    scsi_check_sense(scmd) == FAILED ) {
+			if (scmd->device == sdev && scsi_cmd_needs_stu(scmd)) {
 				stu_scmd = scmd;
 				break;
 			}
@@ -1645,6 +1740,130 @@ static int scsi_eh_stu(struct Scsi_Host *shost,
 	return list_empty(work_q);
 }
 
+static bool scsi_cmd_has_ua(const struct scsi_cmnd *scmd)
+{
+	struct scsi_sense_hdr sshdr;
+
+	return scsi_cmd_current_sense(scmd, &sshdr) &&
+		sshdr.sense_key == UNIT_ATTENTION;
+}
+
+static bool scsi_eh_send_tur_clear_ua(struct scsi_cmnd *scmd)
+{
+	static unsigned char tur_command[6] = { TEST_UNIT_READY };
+	struct Scsi_Host *shost = scmd->device->host;
+	u8 sense_buf[SCSI_SENSE_BUFFERSIZE];
+	struct scsi_sense_hdr sshdr;
+	enum scsi_disposition rtn;
+	bool cleared = false;
+	int i;
+
+	memcpy(sense_buf, scmd->sense_buffer, sizeof(sense_buf));
+
+	/*
+	 * The first TEST UNIT READY command consumes the pending UNIT
+	 * ATTENTION and the second TEST UNIT READY command verifies that the
+	 * condition has been cleared. Allow additional attempts in case
+	 * multiple UNIT ATTENTION conditions have been queued or in case the
+	 * device is temporarily busy or becoming ready.
+	 */
+	for (i = 0; i < SCSI_EH_CLEAR_UA_TURS; i++) {
+		if (scsi_host_eh_past_deadline(shost))
+			break;
+		rtn = scsi_send_eh_cmnd(scmd, tur_command, sizeof(tur_command),
+					scmd->device->eh_timeout, 0);
+		if (rtn == NEEDS_RETRY) {
+			if (i + 1 < SCSI_EH_CLEAR_UA_TURS)
+				msleep(SCSI_EH_CLEAR_UA_RETRY_DELAY_MS);
+			continue;
+		}
+		if (rtn != SUCCESS)
+			break;
+		if (!scsi_command_normalize_sense(scmd, &sshdr) ||
+		    sshdr.sense_key == NO_SENSE ||
+		    sshdr.sense_key == RECOVERED_ERROR) {
+			cleared = true;
+			break;
+		}
+		if (sshdr.sense_key != UNIT_ATTENTION)
+			break;
+	}
+
+	memcpy(scmd->sense_buffer, sense_buf, sizeof(sense_buf));
+	return cleared;
+}
+
+/**
+ * scsi_eh_clear_ua - clear pending UNIT ATTENTION conditions if needed
+ * @shost:	SCSI host being recovered.
+ * @work_q:	&list_head for pending commands.
+ * @done_q:	&list_head for processed commands.
+ *
+ * If commands fail repeatedly with UNIT ATTENTION because a target does not
+ * clear the condition for those commands (for example, WRITE), send
+ * TEST UNIT READY to clear the UNIT ATTENTION before escalating to a reset.
+ *
+ * Return: 1 if @work_q is empty, 0 otherwise.
+ */
+static int scsi_eh_clear_ua(struct Scsi_Host *shost,
+			    struct list_head *work_q,
+			    struct list_head *done_q)
+{
+	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
+				      DEFAULT_RATELIMIT_BURST);
+	struct scsi_cmnd *scmd, *ua_scmd, *next;
+	struct scsi_device *sdev;
+
+	shost_for_each_device(sdev, shost) {
+		if (scsi_host_eh_past_deadline(shost)) {
+			SCSI_LOG_ERROR_RECOVERY(3,
+				sdev_printk(KERN_INFO, sdev,
+					    "%s: skip clear UA, past eh deadline\n",
+					    current->comm));
+			scsi_device_put(sdev);
+			break;
+		}
+
+		ua_scmd = NULL;
+		list_for_each_entry(scmd, work_q, eh_entry) {
+			if (scmd->device == sdev && scsi_cmd_has_ua(scmd)) {
+				ua_scmd = scmd;
+				break;
+			}
+		}
+
+		if (!ua_scmd)
+			continue;
+
+		SCSI_LOG_ERROR_RECOVERY(3,
+			sdev_printk(KERN_INFO, sdev,
+				    "%s: Sending TEST_UNIT_READY to clear UA\n",
+				    current->comm));
+
+		if (scsi_device_online(sdev)) {
+			if (!scsi_eh_send_tur_clear_ua(ua_scmd)) {
+				SCSI_LOG_ERROR_RECOVERY(3,
+					sdev_printk(KERN_INFO, sdev,
+						    "%s: Failed to clear UA\n",
+						    current->comm));
+				continue;
+			}
+			if (__ratelimit(&rs))
+				sdev_printk(KERN_INFO, sdev,
+					    "Cleared persistent UNIT ATTENTION\n");
+		}
+
+		sdev->expecting_cc_ua = 0;
+		list_for_each_entry_safe(scmd, next, work_q, eh_entry) {
+			if (scmd->device == sdev &&
+			    scsi_cmd_has_ua(scmd) &&
+			    scsi_eh_action(scmd, SUCCESS) == SUCCESS)
+				scsi_eh_finish_cmd(scmd, done_q);
+		}
+	}
+
+	return list_empty(work_q);
+}
 
 /**
  * scsi_eh_bus_device_reset - send bdr if needed
@@ -2115,7 +2334,7 @@ enum scsi_disposition scsi_decide_disposition(struct scsi_cmnd *scmd)
 	case SAM_STAT_TASK_ABORTED:
 		goto maybe_retry;
 	case SAM_STAT_CHECK_CONDITION:
-		rtn = scsi_check_sense(scmd);
+		rtn = __scsi_check_sense(scmd, true);
 		if (rtn == NEEDS_RETRY)
 			goto maybe_retry;
 		/* if rtn == FAILED, we have no sense information;
@@ -2275,13 +2494,13 @@ void scsi_eh_ready_devs(struct Scsi_Host *shost,
 			struct list_head *work_q,
 			struct list_head *done_q)
 {
-	if (!scsi_eh_stu(shost, work_q, done_q))
-		if (!scsi_eh_bus_device_reset(shost, work_q, done_q))
-			if (!scsi_eh_target_reset(shost, work_q, done_q))
-				if (!scsi_eh_bus_reset(shost, work_q, done_q))
-					if (!scsi_eh_host_reset(shost, work_q, done_q))
-						scsi_eh_offline_sdevs(work_q,
-								      done_q);
+	if (!scsi_eh_stu(shost, work_q, done_q) &&
+	    !scsi_eh_clear_ua(shost, work_q, done_q) &&
+	    !scsi_eh_bus_device_reset(shost, work_q, done_q) &&
+	    !scsi_eh_target_reset(shost, work_q, done_q) &&
+	    !scsi_eh_bus_reset(shost, work_q, done_q) &&
+	    !scsi_eh_host_reset(shost, work_q, done_q))
+		scsi_eh_offline_sdevs(work_q, done_q);
 }
 EXPORT_SYMBOL_GPL(scsi_eh_ready_devs);
 
