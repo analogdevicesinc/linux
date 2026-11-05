@@ -955,11 +955,11 @@ static void vop2_disable(struct vop2 *vop2)
 {
 	rockchip_drm_dma_detach_device(vop2->drm, vop2->dev);
 
-	pm_runtime_put_sync(vop2->dev);
-
 	regcache_drop_region(vop2->map, 0, vop2_regmap_config.max_register);
 
 	vop2_core_clks_disable_unprepare(vop2);
+
+	pm_runtime_put_sync(vop2->dev);
 }
 
 static bool vop2_vp_dsp_lut_is_enabled(struct vop2_video_port *vp)
