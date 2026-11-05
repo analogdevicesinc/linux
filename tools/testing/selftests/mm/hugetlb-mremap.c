@@ -100,6 +100,51 @@ static void register_region_with_uffd(char *addr, size_t len)
 	ksft_print_msg("Registered memory at address %p with userfaultfd\n", addr);
 }
 
+/*
+ * Move one page out of the middle of a private mapping that has not been
+ * touched, so that every page of it still holds its reservation.  Once all of
+ * it is unmapped, all of the reservations have to be back in the pool.
+ */
+static void test_partial_move(unsigned long hugepage_size)
+{
+	const int flags = MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB;
+	const int prot = PROT_READ | PROT_WRITE;
+	const unsigned long nr = 4;
+	unsigned long resv = hugetlb_nr_resv_pages(hugepage_size);
+	unsigned long resv_after;
+	char *src, *dst, *addr;
+
+	/* The pages of the test before this one can still be in use. */
+	if (!hugetlb_setup_default(resv + nr + 1)) {
+		ksft_test_result_skip("Partial move: not enough free huge pages\n");
+		return;
+	}
+
+	src = mmap(NULL, nr * hugepage_size, prot, flags, -1, 0);
+	if (src == MAP_FAILED)
+		ksft_exit_fail_msg("mmap src: %s\n", strerror(errno));
+
+	/* The destination has to be hugetlb-backed, mremap() replaces it. */
+	dst = mmap(NULL, hugepage_size, prot, flags, -1, 0);
+	if (dst == MAP_FAILED)
+		ksft_exit_fail_msg("mmap dst: %s\n", strerror(errno));
+
+	addr = mremap(src + hugepage_size, hugepage_size, hugepage_size,
+		      MREMAP_MAYMOVE | MREMAP_FIXED, dst);
+	if (addr == MAP_FAILED)
+		ksft_exit_fail_msg("partial mremap: %s\n", strerror(errno));
+
+	munmap(addr, hugepage_size);
+	munmap(src, nr * hugepage_size);
+
+	resv_after = hugetlb_nr_resv_pages(hugepage_size);
+	if (resv_after != resv)
+		ksft_print_msg("Reserved huge pages: %lu before, %lu after\n",
+			       resv, resv_after);
+	ksft_test_result(resv_after == resv,
+			 "Partial move returns all reservations\n");
+}
+
 int main(int argc, char *argv[])
 {
 	unsigned long hugepage_size;
@@ -107,7 +152,7 @@ int main(int argc, char *argv[])
 	size_t length = 0;
 
 	ksft_print_header();
-	ksft_set_plan(1);
+	ksft_set_plan(2);
 
 	if (argc >= 2 && !strcmp(argv[1], "-h"))
 		ksft_exit_fail_msg("Usage: %s [length_in_MB]\n", argv[0]);
@@ -175,5 +220,8 @@ int main(int argc, char *argv[])
 	close(fd);
 
 	ksft_test_result(!ret, "Read same data\n");
-	ksft_exit(!ret);
+
+	test_partial_move(hugepage_size);
+
+	ksft_finished();
 }
