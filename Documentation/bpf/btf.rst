@@ -511,6 +511,9 @@ representing the attribute-list of the attribute specifier. For
 example, for an ``__attribute__((aligned(4)))`` the string's contents
 is ``aligned(4)``.
 
+``btf_dump`` also accepts decl tags that reference a ``type_tag``, as
+described under ``BTF_KIND_TYPE_TAG``.
+
 2.2.18 BTF_KIND_TYPE_TAG
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -541,6 +544,13 @@ string.
 If ``info.kind_flag`` is 1, then the type tag represents an arbitrary
 __attribute__, and the ``name_off`` encodes a string representing the
 attribute-list of the attribute specifier.
+
+``btf_dump`` prints decl tags that reference a type tag, with
+``btf_decl_tag.component_idx`` of ``-1``, in place of that type tag. They
+are printed the same way as decl tags on declarations. This lets a split
+BTF built for a C dump change how the type tags of its base BTF are
+printed, without modifying the base. The kernel rejects decl tags that
+reference type tags.
 
 2.2.19 BTF_KIND_ENUM64
 ~~~~~~~~~~~~~~~~~~~~~~
