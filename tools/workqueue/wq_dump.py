@@ -25,7 +25,7 @@ Lists all worker pools indexed by their ID. For each pool:
 
   flags     pool flags in hex
   ref       number of pool_workqueue's associated with this pool
-  nice      nice value of the worker threads in the pool
+  nice      nice value of the worker threads in the pool, or "rt"
   idle      number of idle workers
   workers   number of all workers
   cpu       CPU the pool is associated with (per-cpu pool)
@@ -97,9 +97,13 @@ def wq_attrs(wq):
 
 def pool_nice(pool):
     if HAS_PRIO:
-        return pool.attrs.prio.value_() - 120 # PRIO_TO_NICE
+        prio = pool.attrs.prio.value_()
+        if prio == rt_prio:
+            return 'rt'
+        else:
+            return str(prio - 120) # PRIO_TO_NICE
     else:
-        return pool.attrs.nice.value_()
+        return str(pool.attrs.nice.value_())
 
 def pool_bh_type(pool):
     if HAS_PRIO:
@@ -162,6 +166,7 @@ HAS_PRIO = prog.type('struct workqueue_attrs').has_member('prio')
 
 if HAS_PRIO:
     HIGHPRI_PRIO = prog['HIGHPRI_PRIO']
+    rt_prio = prog.constant('RT_PRIO', filename='kernel/workqueue.c').value_()
 else:
     HIGHPRI_NICE_LEVEL = prog['HIGHPRI_NICE_LEVEL']
 
@@ -207,7 +212,7 @@ for pi, pool in idr_for_each(worker_pool_idr):
 for pi, pool in idr_for_each(worker_pool_idr):
     pool = drgn.Object(prog, 'struct worker_pool', address=pool)
     nice = pool_nice(pool)
-    print(f'pool[{pi:0{max_pool_id_len}}] flags=0x{pool.flags.value_():02x} ref={pool.refcnt.value_():{max_ref_len}} nice={nice:3} ', end='')
+    print(f'pool[{pi:0{max_pool_id_len}}] flags=0x{pool.flags.value_():02x} ref={pool.refcnt.value_():{max_ref_len}} nice={nice:>3} ', end='')
     print(f'idle/workers={pool.nr_idle.value_():3}/{pool.nr_workers.value_():3} ', end='')
     bh_type = None
     if pool.cpu >= 0:

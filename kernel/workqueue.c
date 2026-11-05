@@ -47,6 +47,7 @@
 #include <linux/jhash.h>
 #include <linux/hashtable.h>
 #include <linux/rculist.h>
+#include <linux/sched/rt.h>
 #include <linux/nodemask.h>
 #include <linux/moduleparam.h>
 #include <linux/uaccess.h>
@@ -127,6 +128,7 @@ enum wq_internal_consts {
 	 */
 	RESCUER_NICE_LEVEL	= MIN_NICE,
 	HIGHPRI_PRIO		= NICE_TO_PRIO(MIN_NICE),
+	RT_PRIO			= MAX_RT_PRIO - 2, /* sched_set_fifo_low() */
 
 	WQ_NAME_LEN		= 32,
 	WORKER_ID_LEN		= 10 + WQ_NAME_LEN, /* "kworker/R-" + WQ_NAME_LEN */
@@ -3028,7 +3030,10 @@ static struct worker *create_worker(struct worker_pool *pool)
 			goto fail;
 		}
 
-		set_user_nice(worker->task, PRIO_TO_NICE(pool->attrs->prio));
+		if (rt_prio(pool->attrs->prio))
+			sched_set_fifo_low(worker->task);
+		else
+			set_user_nice(worker->task, PRIO_TO_NICE(pool->attrs->prio));
 
 		kthread_bind_mask(worker->task, pool_allowed_cpus(pool));
 	}
@@ -5748,6 +5753,9 @@ static void apply_wqattrs_cleanup(struct apply_wqattrs_ctx *ctx)
 static void
 sanitize_immutable_workqueue_attrs(struct workqueue_struct *wq, struct workqueue_attrs *attrs)
 {
+	if (wq->flags & WQ_RT)
+		attrs->prio = RT_PRIO;
+
 	if (wq->flags & __WQ_ORDERED)
 		attrs->ordered = true;
 }
@@ -6156,6 +6164,10 @@ static struct workqueue_struct *__alloc_workqueue(const char *fmt,
 		if (WARN_ON_ONCE(max_active))
 			return NULL;
 	}
+
+	if (WARN_ON_ONCE((flags & WQ_RT) &&
+			 ((flags & (WQ_HIGHPRI | WQ_UNBOUND | __WQ_ORDERED)) != WQ_UNBOUND)))
+		return NULL;
 
 	/* see the comment above the definition of WQ_POWER_EFFICIENT */
 	if ((flags & WQ_POWER_EFFICIENT) && wq_power_efficient)
@@ -6739,6 +6751,8 @@ static void pr_cont_pool_info(struct worker_pool *pool)
 	if (pool->flags & POOL_BH)
 		pr_cont(" bh%s",
 			pool->attrs->prio == HIGHPRI_PRIO ? "-hi" : "");
+	else if (rt_prio(pool->attrs->prio))
+		pr_cont(" rt");
 	else
 		pr_cont(" nice=%d", PRIO_TO_NICE(pool->attrs->prio));
 }
@@ -7595,6 +7609,10 @@ module_param_cb(default_affinity_scope, &wq_affn_dfl_ops, NULL, 0644);
  *  cpumask		RW mask	: bitmask of allowed CPUs for the workers
  *  affinity_scope	RW str  : worker CPU affinity scope (cache, numa, none)
  *  affinity_strict	RW bool : worker CPU affinity is strict
+ *
+ * As an exception, the WQ_RT workqueues export the nice attribute as:
+ *
+ *  nice		RO str	: "rt"
  */
 struct wq_device {
 	struct workqueue_struct		*wq;
@@ -7672,7 +7690,10 @@ static ssize_t nice_show(struct device *dev, struct device_attribute *attr, char
 	int written;
 
 	mutex_lock(&wq->mutex);
-	written = scnprintf(buf, PAGE_SIZE, "%d\n", PRIO_TO_NICE(wq->attrs->prio));
+	if (wq->attrs->prio == RT_PRIO)
+		written = scnprintf(buf, PAGE_SIZE, "rt\n");
+	else
+		written = scnprintf(buf, PAGE_SIZE, "%d\n", PRIO_TO_NICE(wq->attrs->prio));
 	mutex_unlock(&wq->mutex);
 
 	return written;
@@ -7849,6 +7870,10 @@ static umode_t wq_sysfs_unbound_group_visible(struct kobject *kobj, struct attri
 
 	if (!(wq->flags & WQ_UNBOUND))
 		return 0;
+
+	/* Do not allow priority changes for RT workers. */
+	if ((wq->flags & WQ_RT) && (attr == &dev_attr_nice.attr))
+		return 0444;
 
 	return attr->mode;
 }
