@@ -7,6 +7,7 @@
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/delay.h>
+#include <linux/hdmi.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/media-bus-format.h>
@@ -102,8 +103,6 @@ enum vop2_afbc_format {
 	VOP2_AFBC_FMT_YUV422_10BIT = 0xe,
 	VOP2_AFBC_FMT_INVALID = -1,
 };
-
-#define VOP2_MAX_DCLK_RATE		600000000ULL
 
 /*
  * bus-format types.
@@ -1800,6 +1799,23 @@ static int us_to_vertical_line(struct drm_display_mode *mode, int us)
 	return us * mode->clock / mode->htotal / 1000;
 }
 
+static bool vop2_hdmi_phy_pll_usable(struct drm_atomic_commit *state,
+				     struct drm_encoder *encoder)
+{
+	struct drm_connector_state *conn_state;
+	struct drm_connector *connector;
+	unsigned long long rate;
+
+	connector = drm_atomic_get_new_connector_for_encoder(state, encoder);
+	if (!connector)
+		return false;
+
+	conn_state = drm_atomic_get_new_connector_state(state, connector);
+	rate = conn_state->hdmi.tmds_char_rate;
+
+	return rate && rate <= HDMI_2_0_TMDS_CHAR_RATE_MAX_HZ;
+}
+
 static void vop2_crtc_atomic_enable(struct drm_crtc *crtc,
 				    struct drm_atomic_commit *state)
 {
@@ -1950,28 +1966,26 @@ static void vop2_crtc_atomic_enable(struct drm_crtc *crtc,
 	vop2_vp_write(vp, RK3568_VP_MIPI_CTRL, 0);
 
 	/*
-	 * Switch to HDMI PHY PLL as DCLK source for display modes up
-	 * to 4K@60Hz, if available, otherwise keep using the system CRU.
+	 * Switch to HDMI PHY PLL as DCLK source while the HDMI link operates
+	 * in TMDS mode, if available, otherwise keep using the system CRU.
 	 */
 	if (vop2->pll_hdmiphy0 || vop2->pll_hdmiphy1) {
-		unsigned int bpc = vcstate->output_bpc ?: 8;
-		unsigned long max_dclk = DIV_ROUND_CLOSEST_ULL(VOP2_MAX_DCLK_RATE * 8, bpc);
 		struct clk *pll_hdmiphy = NULL;
 
-		if (clock <= max_dclk) {
-			drm_for_each_encoder_mask(encoder, crtc->dev, crtc_state->encoder_mask) {
-				struct rockchip_encoder *rkencoder = to_rockchip_encoder(encoder);
+		drm_for_each_encoder_mask(encoder, crtc->dev, crtc_state->encoder_mask) {
+			struct rockchip_encoder *rkencoder = to_rockchip_encoder(encoder);
 
-				if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI0) {
-					pll_hdmiphy = vop2->pll_hdmiphy0;
-					break;
-				}
+			if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI0)
+				pll_hdmiphy = vop2->pll_hdmiphy0;
+			else if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI1)
+				pll_hdmiphy = vop2->pll_hdmiphy1;
+			else
+				continue;
 
-				if (rkencoder->crtc_endpoint_id == ROCKCHIP_VOP2_EP_HDMI1) {
-					pll_hdmiphy = vop2->pll_hdmiphy1;
-					break;
-				}
-			}
+			if (pll_hdmiphy && !vop2_hdmi_phy_pll_usable(state, encoder))
+				pll_hdmiphy = NULL;
+
+			break;
 		}
 
 		if (pll_hdmiphy) {
