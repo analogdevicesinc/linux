@@ -611,77 +611,75 @@ static void adjust_idledly(struct xe_hw_engine *hwe)
 	if (IS_SRIOV_VF(gt_to_xe(gt)))
 		return;
 
-	if (XE_GT_WA(gt, 16023105232) || XE_GT_WA(gt, 14025941587)) {
-		/* xe_gt_clock_init() warns and zeroes timestamp_base on unknown crystal clock. */
-		if (!idledly_units_ps)
-			return;
+	/* xe_gt_clock_init() warns and zeroes timestamp_base on unknown crystal clock. */
+	if (!idledly_units_ps)
+		return;
 
-		if (XE_GT_WA(gt, 14025941587))
-			min_idledly_ps = max(min_idledly_ps, 5000000);
+	if (XE_GT_WA(gt, 14025941587))
+		min_idledly_ps = max(min_idledly_ps, 5000000);
 
-		if (XE_GT_WA(gt, 16023105232)) {
-			u64 maxcnt_units_ps = 640000;
-			u32 maxcnt = xe_mmio_read32(&gt->mmio, RING_PWRCTX_MAXCNT(hwe->mmio_base));
+	if (XE_GT_WA(gt, 16023105232)) {
+		u64 maxcnt_units_ps = 640000;
+		u32 maxcnt = xe_mmio_read32(&gt->mmio, RING_PWRCTX_MAXCNT(hwe->mmio_base));
 
-			max_idledly_ps = min_t(u64,
-					       max_idledly_ps,
-					       REG_FIELD_GET(IDLE_WAIT_TIME, maxcnt) * maxcnt_units_ps);
+		max_idledly_ps = min_t(u64,
+				       max_idledly_ps,
+				       REG_FIELD_GET(IDLE_WAIT_TIME, maxcnt) * maxcnt_units_ps);
 
-			clear_inhibit_switch = true;
-		}
+		clear_inhibit_switch = true;
+	}
 
-		/* No applicable workaround found. */
-		if (min_idledly_ps == 0 && max_idledly_ps == -1 && !clear_inhibit_switch)
-			return;
+	/* No applicable workaround found. */
+	if (min_idledly_ps == 0 && max_idledly_ps == -1 && !clear_inhibit_switch)
+		return;
 
-		idledly_reg_val = xe_mmio_read32(&gt->mmio, RING_IDLEDLY(hwe->mmio_base));
+	idledly_reg_val = xe_mmio_read32(&gt->mmio, RING_IDLEDLY(hwe->mmio_base));
 
-		if (clear_inhibit_switch && idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED) {
-			idledly_reg_val &= ~INHIBIT_SWITCH_UNTIL_PREEMPTED;
-			wa_applied = true;
-		}
+	if (clear_inhibit_switch && idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED) {
+		idledly_reg_val &= ~INHIBIT_SWITCH_UNTIL_PREEMPTED;
+		wa_applied = true;
+	}
 
-		idledly = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val);
+	idledly = REG_FIELD_GET(IDLE_DELAY, idledly_reg_val);
+	idledly_ps = idledly * idledly_units_ps;
+	idledly_hw_ps = idledly_ps;
+
+	/*
+	 * min_idledly_ps is applied before max_idledly_ps, which takes
+	 * priority if the two ever conflict (not expected in practice).
+	 */
+	if (idledly_ps < min_idledly_ps) {
+		idledly = DIV_ROUND_UP_ULL(min_idledly_ps, idledly_units_ps);
 		idledly_ps = idledly * idledly_units_ps;
-		idledly_hw_ps = idledly_ps;
+		wa_applied = true;
+	}
 
-		/*
-		 * min_idledly_ps is applied before max_idledly_ps, which takes
-		 * priority if the two ever conflict (not expected in practice).
-		 */
-		if (idledly_ps < min_idledly_ps) {
-			idledly = DIV_ROUND_UP_ULL(min_idledly_ps, idledly_units_ps);
+	if (idledly_ps >= max_idledly_ps) {
+		if (max_idledly_ps) {
+			idledly = DIV_ROUND_DOWN_ULL(max_idledly_ps - 1, idledly_units_ps);
 			idledly_ps = idledly * idledly_units_ps;
-			wa_applied = true;
+		} else {
+			idledly = 0;
+			idledly_ps = 0;
 		}
 
-		if (idledly_ps >= max_idledly_ps) {
-			if (max_idledly_ps) {
-				idledly = DIV_ROUND_DOWN_ULL(max_idledly_ps - 1, idledly_units_ps);
-				idledly_ps = idledly * idledly_units_ps;
-			} else {
-				idledly = 0;
-				idledly_ps = 0;
-			}
+		wa_applied = true;
+	}
 
-			wa_applied = true;
-		}
+	/* Warn only if the value read from *hardware* exceeds the maximum. */
+	xe_gt_WARN_ON(gt, idledly_hw_ps >= max_idledly_ps);
 
-		/* Warn only if the value read from *hardware* exceeds the maximum. */
-		xe_gt_WARN_ON(gt, idledly_hw_ps >= max_idledly_ps);
+	if (wa_applied) {
+		idledly_reg_val &= ~IDLE_DELAY;
+		idledly_reg_val |= REG_FIELD_PREP(IDLE_DELAY, idledly);
 
-		if (wa_applied) {
-			idledly_reg_val &= ~IDLE_DELAY;
-			idledly_reg_val |= REG_FIELD_PREP(IDLE_DELAY, idledly);
-
-			xe_gt_dbg(gt, "idledly %s: set %llups min=%llups max=%llups inh=%u ts=%ups\n",
-				  hwe->name, idledly_ps, min_idledly_ps, max_idledly_ps,
-				  !!(idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED),
-				  gt->info.timestamp_base);
-			xe_mmio_write32(&gt->mmio,
-					RING_IDLEDLY(hwe->mmio_base),
-					idledly_reg_val);
-		}
+		xe_gt_dbg(gt, "idledly %s: set %llups min=%llups max=%llups inh=%u ts=%ups\n",
+			  hwe->name, idledly_ps, min_idledly_ps, max_idledly_ps,
+			  !!(idledly_reg_val & INHIBIT_SWITCH_UNTIL_PREEMPTED),
+			  gt->info.timestamp_base);
+		xe_mmio_write32(&gt->mmio,
+				RING_IDLEDLY(hwe->mmio_base),
+				idledly_reg_val);
 	}
 }
 
