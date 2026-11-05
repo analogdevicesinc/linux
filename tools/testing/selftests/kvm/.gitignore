@@ -10,3 +10,4 @@
 !settings
 !Makefile
 !Makefile.kvm
+include/x86/**/*_offsets.h
