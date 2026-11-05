@@ -1023,7 +1023,7 @@ static void btf_dump_emit_decl_tag(struct btf_dump *d, const struct btf_type *t)
 	const char *name = btf_name_of(d, t->name_off);
 
 	if (btf_kflag(t))
-		btf_dump_printf(d, " __attribute__((%s))", name);
+		btf_dump_printf(d, " %s", name);
 	else
 		btf_dump_printf(d, " __attribute__((btf_decl_tag(\"%s\")))", name);
 }
@@ -1602,7 +1602,7 @@ static void btf_dump_emit_type_chain(struct btf_dump *d,
 				break;
 			name = btf_name_of(d, t->name_off);
 			if (btf_kflag(t))
-				btf_dump_printf(d, " __attribute__((%s))", name);
+				btf_dump_printf(d, " %s", name);
 			else
 				btf_dump_printf(d, " __attribute__((btf_type_tag(\"%s\")))", name);
 			break;

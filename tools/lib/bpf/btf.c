@@ -3078,7 +3078,8 @@ int btf__add_type_tag(struct btf *btf, const char *value, int ref_type_id)
  * Append new BTF_KIND_TYPE_TAG type with:
  *   - *value*, non-empty/non-NULL tag value;
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * The kind flag is set; btf_dump prints *value* unchanged.
+ * Attribute specifiers must include the __attribute__((...)) wrapper.
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.
@@ -3413,7 +3414,8 @@ int btf__add_decl_tag(struct btf *btf, const char *value, int ref_type_id,
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
  *   - *component_idx* - -1 for tagging reference type, otherwise struct/union
  *     member or function argument index;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * The kind flag is set; btf_dump prints *value* unchanged.
+ * Attribute specifiers must include the __attribute__((...)) wrapper.
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.
