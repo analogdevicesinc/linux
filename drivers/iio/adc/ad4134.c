@@ -1112,7 +1112,6 @@ static int ad4134_probe(struct spi_device *spi)
 		st->mux_st[AD4134_SDO_INPUT] = mux_st;
 
 		mux_st = devm_mux_state_get(dev, "data_read");
-		st->mux_st[AD4134_DOUT0_INPUT] = devm_mux_state_get(dev, "data_read");
 		if (IS_ERR(mux_st))
 			return dev_err_probe(dev, PTR_ERR(mux_st),
 					     "failed to get data_read mux-state\n");
