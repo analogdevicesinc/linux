@@ -420,6 +420,7 @@ static int rog_ryujin_select_pump_source(struct rog_ryujin_data *priv, u8 *set_c
 static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel, int val)
 {
 	u8 set_cmd[SET_CMD_LENGTH];
+	int duty;
 	int ret;
 
 	if (channel < 2) {
@@ -437,18 +438,18 @@ static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel
 		set_cmd[RYUJIN_SET_COOLER_CHANNEL_OFFSET] = priv->info->duty_channel;
 
 		/* Cooler duties are set as 0-100% */
-		val = rog_ryujin_pwm_to_percent(val);
+		duty = rog_ryujin_pwm_to_percent(val);
 
 		if (channel == 0) {
 			/* Cooler pump duty */
-			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = val;
+			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = duty;
 			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] =
 			    rog_ryujin_pwm_to_percent(priv->duty_input[1]);
 		} else if (channel == 1) {
 			/* Cooler internal fan duty */
 			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] =
 			    rog_ryujin_pwm_to_percent(priv->duty_input[0]);
-			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] = val;
+			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] = duty;
 		}
 
 		if (priv->info->duty_channel) {
@@ -457,7 +458,9 @@ static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel
 				return ret;
 		}
 
-		return rog_ryujin_write_cooler_duty(priv, set_cmd);
+		ret = rog_ryujin_write_cooler_duty(priv, set_cmd);
+		if (ret < 0)
+			return ret;
 	} else {
 		/*
 		 * Controller fan duty (channel == 2). No need to retrieve current
