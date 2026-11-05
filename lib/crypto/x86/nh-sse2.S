@@ -9,22 +9,21 @@
 
 #include <linux/linkage.h>
 
-#define		PASS0_SUMS	%xmm0
-#define		PASS1_SUMS	%xmm1
-#define		PASS2_SUMS	%xmm2
-#define		PASS3_SUMS	%xmm3
-#define		K0		%xmm4
-#define		K1		%xmm5
-#define		K2		%xmm6
-#define		K3		%xmm7
-#define		T0		%xmm8
-#define		T1		%xmm9
-#define		T2		%xmm10
-#define		T3		%xmm11
-#define		T4		%xmm12
-#define		T5		%xmm13
-#define		T6		%xmm14
-#define		T7		%xmm15
+#define		K0		%xmm0
+#define		K1		%xmm1
+#define		K2		%xmm2
+#define		K3		%xmm3
+#define		T0		%xmm4
+#define		T1		%xmm5
+#define		T2		%xmm6
+#define		T3		%xmm7
+#define		T4		%xmm8
+#define		T5		%xmm9
+#define		T6		%xmm10
+#define		PASS0_SUMS	%xmm11
+#define		PASS1_SUMS	%xmm12
+#define		PASS2_SUMS	%xmm13
+#define		PASS3_SUMS	%xmm14
 #define		KEY		%rdi
 #define		MESSAGE		%rsi
 #define		MESSAGE_LEN	%rdx
@@ -36,9 +35,14 @@
 	movdqu		\offset(MESSAGE), T1
 
 	// Load next key stride
-	movdqu		\offset(KEY), \k3
+	movdqu		\offset+0x30(KEY), \k3
 
-	// Add message words to key words
+	// Permute message and key words from (0, 1, 2, 3) to (0, 2, 1, 3).
+	// This puts the words that NH multiplies together next to each other.
+	pshufd		$0xd8, T1, T1
+	pshufd		$0xd8, \k3, \k3
+
+	// Add permuted message words to permuted key words
 	movdqa		T1, T2
 	movdqa		T1, T3
 	paddd		T1, \k0    // reuse k0 to avoid a move
@@ -46,19 +50,15 @@
 	paddd		\k2, T2
 	paddd		\k3, T3
 
-	// Multiply 32x32 => 64 and accumulate
-	pshufd		$0x10, \k0, T4
-	pshufd		$0x32, \k0, \k0
-	pshufd		$0x10, T1, T5
-	pshufd		$0x32, T1, T1
-	pshufd		$0x10, T2, T6
-	pshufd		$0x32, T2, T2
-	pshufd		$0x10, T3, T7
-	pshufd		$0x32, T3, T3
+	// Multiply 32x32 (adjacent pairs) => 64 and accumulate
+	pshufd		$0x31, \k0, T4
+	pshufd		$0x31, T1, T5
+	pshufd		$0x31, T2, T6
+	pshufd		$0x31, T3, T0
 	pmuludq		T4, \k0
 	pmuludq		T5, T1
 	pmuludq		T6, T2
-	pmuludq		T7, T3
+	pmuludq		T0, T3
 	paddq		\k0, PASS0_SUMS
 	paddq		T1, PASS1_SUMS
 	paddq		T2, PASS2_SUMS
@@ -76,7 +76,9 @@ SYM_FUNC_START(nh_sse2)
 	movdqu		0x00(KEY), K0
 	movdqu		0x10(KEY), K1
 	movdqu		0x20(KEY), K2
-	add		$0x30, KEY
+	pshufd		$0xd8, K0, K0
+	pshufd		$0xd8, K1, K1
+	pshufd		$0xd8, K2, K2
 	pxor		PASS0_SUMS, PASS0_SUMS
 	pxor		PASS1_SUMS, PASS1_SUMS
 	pxor		PASS2_SUMS, PASS2_SUMS
