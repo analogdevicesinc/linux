@@ -105,13 +105,6 @@ static struct faux_device *reg_fdev;
 const struct ieee80211_regdomain __rcu *cfg80211_regdomain;
 
 /*
- * Number of devices that registered to the core
- * that support cellular base station regulatory hints
- * (protected by cfg80211_mutex)
- */
-static int reg_num_devs_support_basehint;
-
-/*
  * State variable indicating if the platform on which the devices
  * are attached is operating in an indoor environment. The state variable
  * is relevant for all registered devices.
@@ -2055,6 +2048,13 @@ bool reg_last_request_cell_base(void)
 }
 
 #ifdef CONFIG_CFG80211_REG_CELLULAR_HINTS
+/*
+ * Number of devices that registered to the core
+ * that support cellular base station regulatory hints
+ * (protected by cfg80211_mutex)
+ */
+static int reg_num_devs_support_basehint;
+
 /* Core specific check */
 static enum reg_request_treatment
 reg_ignore_cell_hint(struct regulatory_request *pending_request)
@@ -2076,6 +2076,12 @@ static bool reg_dev_ignore_cell_hint(struct wiphy *wiphy)
 {
 	return !(wiphy->features & NL80211_FEATURE_CELL_BASE_REG_HINTS);
 }
+
+static void reg_update_cell_hint_num(struct wiphy *wiphy, int delta)
+{
+	if (!reg_dev_ignore_cell_hint(wiphy))
+		reg_num_devs_support_basehint += delta;
+}
 #else
 static enum reg_request_treatment
 reg_ignore_cell_hint(struct regulatory_request *pending_request)
@@ -2086,6 +2092,10 @@ reg_ignore_cell_hint(struct regulatory_request *pending_request)
 static bool reg_dev_ignore_cell_hint(struct wiphy *wiphy)
 {
 	return true;
+}
+
+static void reg_update_cell_hint_num(struct wiphy *wiphy, int delta)
+{
 }
 #endif
 
@@ -4181,7 +4191,7 @@ void wiphy_regulatory_register(struct wiphy *wiphy)
 		}
 
 		if (!reg_dev_ignore_cell_hint(wiphy))
-			reg_num_devs_support_basehint++;
+			reg_update_cell_hint_num(wiphy, 1);
 
 		wiphy_update_regulatory(wiphy, lr->initiator);
 		wiphy_all_share_dfs_chan_state(wiphy);
@@ -4199,8 +4209,7 @@ void wiphy_regulatory_deregister(struct wiphy *wiphy)
 
 	lr = get_last_request();
 
-	if (!reg_dev_ignore_cell_hint(wiphy))
-		reg_num_devs_support_basehint--;
+	reg_update_cell_hint_num(wiphy, -1);
 
 	rcu_free_regdom(get_wiphy_regdom(wiphy));
 	RCU_INIT_POINTER(wiphy->regd, NULL);
