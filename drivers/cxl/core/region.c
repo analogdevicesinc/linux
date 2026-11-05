@@ -157,6 +157,13 @@ static void cxl_region_update_access_groups(struct cxl_region *cxlr)
 		dev_dbg(&cxlr->dev, "Failed to update access1 group\n");
 }
 
+static void cxl_region_perf_data_complete(struct cxl_region *cxlr)
+{
+	cxl_region_perf_data_update(cxlr);
+	cxl_region_shared_upstream_bandwidth_update(cxlr);
+	cxl_region_update_access_groups(cxlr);
+}
+
 static ssize_t uuid_show(struct device *dev, struct device_attribute *attr,
 			 char *buf)
 {
@@ -2182,9 +2189,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		 * then the region is already committed.
 		 */
 		p->state = CXL_CONFIG_COMMIT;
-		cxl_region_perf_data_update(cxlr);
-		cxl_region_shared_upstream_bandwidth_update(cxlr);
-		cxl_region_update_access_groups(cxlr);
+		cxl_region_perf_data_complete(cxlr);
 
 		return 0;
 	}
@@ -2206,9 +2211,7 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		if (rc)
 			return rc;
 		p->state = CXL_CONFIG_ACTIVE;
-		cxl_region_perf_data_update(cxlr);
-		cxl_region_shared_upstream_bandwidth_update(cxlr);
-		cxl_region_update_access_groups(cxlr);
+		cxl_region_perf_data_complete(cxlr);
 	}
 
 	cxled->cxld.interleave_ways = p->interleave_ways;
