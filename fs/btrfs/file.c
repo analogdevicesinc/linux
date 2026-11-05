@@ -1053,7 +1053,7 @@ int btrfs_write_check(struct kiocb *iocb, size_t count)
 	 * need to start yet another transaction to update the inode as we will
 	 * update the inode when we finish writing whatever data we write.
 	 */
-	if (!IS_NOCMTIME(inode)) {
+	if (!IS_NOCMTIME(inode) && !(file->f_mode & FMODE_NOCMTIME)) {
 		inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
 		inode_inc_iversion(inode);
 	}
