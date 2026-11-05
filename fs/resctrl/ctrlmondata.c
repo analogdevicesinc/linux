@@ -45,14 +45,6 @@ static bool bw_validate(char *buf, u32 *data, struct rdt_resource *r)
 	int ret;
 	u32 bw;
 
-	/*
-	 * Only linear delay values is supported for current Intel SKUs.
-	 */
-	if (!r->membw.delay_linear && r->membw.arch_needs_linear) {
-		rdt_last_cmd_puts("No support for non-linear MB domains\n");
-		return false;
-	}
-
 	ret = kstrtou32(buf, 10, &bw);
 	if (ret) {
 		rdt_last_cmd_printf("Invalid MB value %s\n", buf);
