@@ -1168,6 +1168,8 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 {
 	for (;;) {
 		struct file *file;
+		struct file *file_reloaded;
+		struct file *file_reloaded_cmp;
 		struct fdtable *fdt = rcu_dereference_raw(files->fdt);
 		struct file __rcu **fdentry;
 		unsigned long nospec_mask;
@@ -1216,11 +1218,32 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 		 *
 		 * If so, we need to put our ref and try again.
 		 */
-		if (unlikely(file != rcu_dereference_raw(*fdentry)) ||
+		file_reloaded = rcu_dereference_raw(*fdentry);
+
+		/*
+		 * Every load needs to depend on the reload. If the
+		 * file was freed and reallocated into this slot in the
+		 * meantime, what open() wrote to it was published by the
+		 * rcu_assign_pointer() in fd_install(), which is the
+		 * store the reload saw.
+		 *
+		 * The increment above only orders against file_ref_init()
+		 * and init_file(). That happens before do_dentry_open()
+		 * sets f_op et al. So every load needs to depend on the
+		 * reload otherwise we can see e.g., stale f_op on e.g.,
+		 * arm64.
+		 *
+		 * So compare against a copy the compiler can't see through
+		 * and use the reloaded pointer from here on.
+		 */
+		file_reloaded_cmp = file_reloaded;
+		OPTIMIZER_HIDE_VAR(file_reloaded_cmp);
+		if (unlikely(file != file_reloaded_cmp) ||
 		    unlikely(rcu_dereference_raw(files->fdt) != fdt)) {
 			fput(file);
 			continue;
 		}
+		file = file_reloaded;
 
 		/*
 		 * This isn't the file we're looking for or we're not
