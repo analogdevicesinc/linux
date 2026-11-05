@@ -76,6 +76,8 @@ struct bpf_nf_ctx {
 	int f;
 } __bpf_relocatable;
 
+typedef int __bpf_arena *arena_ptr;
+
 
 /* BPF kfuncs */
 #ifndef BPF_NO_KFUNC_PROTOTYPES

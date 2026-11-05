@@ -41,6 +41,8 @@ enum {
 	E0 = 1,
 };
 
+typedef int __bpf_arena *arena_ptr;
+
 struct __sk_buff {
 	int len;
 	union {

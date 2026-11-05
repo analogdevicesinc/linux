@@ -32,6 +32,7 @@
  *	};
  *	struct bpf_tcp_sock { int snd_cwnd; };
  *	struct bpf_nf_ctx { int f; };
+ *	typedef int __arena *arena_ptr;
  */
 static struct btf *mk_btf(void)
 {
@@ -73,6 +74,10 @@ static struct btf *mk_btf(void)
 	btf__add_struct(btf, "bpf_nf_ctx", 4);
 	btf__add_field(btf, "f", 1, 0, 0);
 
+	btf__add_type_tag(btf, "arena", 1);
+	btf__add_ptr(btf, 13);
+	btf__add_typedef(btf, "arena_ptr", 14);
+
 	VALIDATE_RAW_BTF(
 		btf,
 		"[1] INT 'int' size=4 bits_offset=0 nr_bits=32 encoding=SIGNED",
@@ -99,7 +104,10 @@ static struct btf *mk_btf(void)
 		"[11] STRUCT 'bpf_tcp_sock' size=4 vlen=1\n"
 		"\t'snd_cwnd' type_id=1 bits_offset=0",
 		"[12] STRUCT 'bpf_nf_ctx' size=4 vlen=1\n"
-		"\t'f' type_id=1 bits_offset=0");
+		"\t'f' type_id=1 bits_offset=0",
+		"[13] TYPE_TAG 'arena' type_id=1",
+		"[14] PTR '(anon)' type_id=13",
+		"[15] TYPEDEF 'arena_ptr' type_id=14");
 
 	return btf;
 }
