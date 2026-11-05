@@ -92,6 +92,20 @@ void tdx_vm_load_common_boot_parameters(struct kvm_vm *vm)
 	params->gdtr.limit = kvm_get_default_gdt_limit();
 }
 
+static void tdx_vcpu_load_boot_parameters(struct kvm_vcpu *vcpu)
+{
+	struct td_boot_parameters *params =
+		addr_gpa2hva(vcpu->vm, TD_BOOT_PARAMETERS_GPA);
+	struct td_per_vcpu_parameters *vcpu_params =
+		&params->per_vcpu[vcpu->id];
+	gva_t esp_gva;
+
+	esp_gva = vm_alloc_stack(vcpu->vm, DEFAULT_STACK_PGS);
+	TEST_ASSERT(esp_gva < (1ULL << 32),
+		    "ESP GVA must be within 32-bit address space for 32-bit boot code");
+	vcpu_params->esp_gva = esp_gva;
+}
+
 void tdx_vcpu_init(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid2 *cpuid;
@@ -101,6 +115,8 @@ void tdx_vcpu_init(struct kvm_vcpu *vcpu)
 	vcpu_init_cpuid(vcpu, cpuid);
 	free(cpuid);
 	tdx_vcpu_ioctl(vcpu, KVM_TDX_INIT_VCPU, 0, NULL);
+
+	tdx_vcpu_load_boot_parameters(vcpu);
 }
 
 static const struct kvm_tdx_capabilities *tdx_read_capabilities(struct kvm_vm *vm)
