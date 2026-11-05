@@ -1472,11 +1472,6 @@ DEFINE_EVENT(local_only_evt, drv_tx_frames_pending,
 	TP_ARGS(local)
 );
 
-DEFINE_EVENT(local_only_evt, drv_offchannel_tx_cancel_wait,
-	TP_PROTO(struct ieee80211_local *local),
-	TP_ARGS(local)
-);
-
 TRACE_EVENT(drv_set_bitrate_mask,
 	TP_PROTO(struct ieee80211_local *local,
 		 struct ieee80211_sub_if_data *sdata,
