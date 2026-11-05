@@ -5,6 +5,9 @@
 #include "bpf_misc.h"
 #include "../test_kmods/bpf_testmod_kfunc.h"
 
+static const char kfunc_const_data[] = "read-only source";
+static const struct prog_test_pass1 kfunc_const_struct = { .x0 = 1 };
+
 static struct bpf_spin_lock kfunc_call_lock SEC(".data.A");
 
 SEC("tc")
@@ -205,6 +208,17 @@ int kfunc_call_test_pass(struct __sk_buff *skb)
 	bpf_kfunc_call_test_mem_len_pass1(&e, sizeof(e));
 	bpf_kfunc_call_test_mem_len_fail2(&b, -1);
 
+	return 0;
+}
+
+SEC("tc")
+int kfunc_call_test_const_mem(struct __sk_buff *skb)
+{
+	char stack_data[] = "read-write";
+
+	bpf_kfunc_call_test_const_mem(kfunc_const_data, sizeof(kfunc_const_data));
+	bpf_kfunc_call_test_const_mem(stack_data, sizeof(stack_data));
+	bpf_kfunc_call_test_const_struct(&kfunc_const_struct);
 	return 0;
 }
 
