@@ -607,8 +607,12 @@ static void test_btf_dump_type_tags(void)
 	 *   void __attribute__((btf_type_tag(\"void_tag\"))) *p1;
 	 *   void __attribute__((aligned(8))) *p2;
 	 *   void __type_marker *p3;
+	 *   void __plain_repl *p4;
+	 *   void __kflag_repl *p5;
 	 * };
 	 *
+	 * The type tags of p4 and p5 carry kflagged decl tags, printed in their
+	 * place.
 	 */
 
 	id = btf__add_type_tag(btf, "void_tag", 0);
@@ -626,20 +630,40 @@ static void test_btf_dump_type_tags(void)
 	id = btf__add_ptr(btf, id);
 	ASSERT_EQ(id, 6, "void_ptr_id3");
 
+	id = btf__add_type_tag(btf, "plain_tag", 0);
+	ASSERT_EQ(id, 7, "plain_tag_id");
+	id = btf__add_decl_attr(btf, "__plain_repl", 7, -1);
+	ASSERT_EQ(id, 8, "plain_repl_id");
+	id = btf__add_ptr(btf, 7);
+	ASSERT_EQ(id, 9, "void_ptr_id4");
+
+	id = btf__add_type_attr(btf, "kflag_tag", 0);
+	ASSERT_EQ(id, 10, "kflag_tag_id");
+	id = btf__add_decl_attr(btf, "__kflag_repl", 10, -1);
+	ASSERT_EQ(id, 11, "kflag_repl_id");
+	id = btf__add_ptr(btf, 10);
+	ASSERT_EQ(id, 12, "void_ptr_id5");
+
 	id = btf__add_struct(btf, "s", 8);
-	ASSERT_EQ(id, 7, "struct_id");
+	ASSERT_EQ(id, 13, "struct_id");
 	err = btf__add_field(btf, "p1", 2, 0, 0);
 	ASSERT_OK(err, "field_ok1");
 	err = btf__add_field(btf, "p2", 4, 0, 0);
 	ASSERT_OK(err, "field_ok2");
 	err = btf__add_field(btf, "p3", 6, 0, 0);
 	ASSERT_OK(err, "field_ok3");
+	err = btf__add_field(btf, "p4", 9, 0, 0);
+	ASSERT_OK(err, "field_ok4");
+	err = btf__add_field(btf, "p5", 12, 0, 0);
+	ASSERT_OK(err, "field_ok5");
 
 	test_ctx__dump_and_compare(&t,
 "struct s {\n"
 "	void __attribute__((btf_type_tag(\"void_tag\"))) *p1;\n"
 "	void __attribute__((aligned(8))) *p2;\n"
 "	void __type_marker *p3;\n"
+"	void __plain_repl *p4;\n"
+"	void __kflag_repl *p5;\n"
 "};\n\n", "dump_and_compare");
 
 	test_ctx__free(&t);
