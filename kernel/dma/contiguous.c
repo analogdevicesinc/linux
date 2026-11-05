@@ -529,19 +529,6 @@ static int __init rmem_cma_validate(unsigned long node, phys_addr_t *align)
 	return 0;
 }
 
-static int __init rmem_cma_fixup(unsigned long node, phys_addr_t base,
-				    phys_addr_t size)
-{
-	int ret = __rmem_cma_verify_node(node);
-
-	if (ret)
-		return ret;
-
-	/* Architecture specific contiguous memory fixup. */
-	dma_contiguous_early_fixup(base, size);
-	return 0;
-}
-
 static int __init rmem_cma_setup(unsigned long node, struct reserved_mem *rmem)
 {
 	bool default_cma = of_get_flat_dt_prop(node, "linux,cma-default", NULL);
@@ -563,6 +550,9 @@ static int __init rmem_cma_setup(unsigned long node, struct reserved_mem *rmem)
 		return ret;
 	}
 
+	/* Architecture specific contiguous memory fixup. */
+	dma_contiguous_early_fixup(rmem->base, rmem->size);
+
 	if (default_cma)
 		dma_contiguous_default_area = cma;
 
@@ -580,7 +570,6 @@ static int __init rmem_cma_setup(unsigned long node, struct reserved_mem *rmem)
 
 static const struct reserved_mem_ops rmem_cma_ops = {
 	.node_validate  = rmem_cma_validate,
-	.node_fixup	= rmem_cma_fixup,
 	.node_init	= rmem_cma_setup,
 	.device_init	= rmem_cma_device_init,
 	.device_release = rmem_cma_device_release,
