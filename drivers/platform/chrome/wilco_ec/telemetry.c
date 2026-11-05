@@ -245,8 +245,6 @@ static int telem_open(struct inode *inode, struct file *filp)
 	if (atomic_cmpxchg(&dev_data->available, 1, 0) == 0)
 		return -EBUSY;
 
-	get_device(&dev_data->dev);
-
 	sess_data = kzalloc_obj(*sess_data);
 	if (!sess_data) {
 		atomic_set(&dev_data->available, 1);
@@ -254,6 +252,7 @@ static int telem_open(struct inode *inode, struct file *filp)
 	}
 	sess_data->dev_data = dev_data;
 	sess_data->has_msg = false;
+	get_device(&dev_data->dev);
 
 	stream_open(inode, filp);
 	filp->private_data = sess_data;
