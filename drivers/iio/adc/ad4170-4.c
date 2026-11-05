@@ -78,7 +78,6 @@
 #define AD4170_GPIO_MODE_REG				0x191
 #define AD4170_GPIO_OUTPUT_REG				0x193
 #define AD4170_GPIO_INPUT_REG				0x195
-#define AD4170_ADC_CTRL_CONT_READ_EXIT_REG		0x200 /* virtual reg */
 
 #define AD4170_REG_READ_MASK				BIT(14)
 
@@ -277,7 +276,6 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_GPIO_MODE_REG] = 2,
 	[AD4170_GPIO_OUTPUT_REG] = 2,
 	[AD4170_GPIO_INPUT_REG] = 2,
-	[AD4170_ADC_CTRL_CONT_READ_EXIT_REG] = 0,
 };
 
 enum ad4170_ref_buf {
@@ -448,6 +446,9 @@ struct ad4170_state {
 	struct ad4170_setup_info setup_infos[AD4170_MAX_SETUPS];
 	struct ad4170_chan_info chan_infos[AD4170_MAX_ADC_CHANNELS];
 	struct completion completion;
+	int exit_cont_read_status;
+	bool exit_cont_read;
+	bool cont_read_exited;
 	struct iio_chan_spec chans[AD4170_MAX_IIO_CHANNELS];
 	struct spi_device *spi;
 	struct regmap *regmap;
@@ -537,7 +538,7 @@ static int ad4170_debugfs_reg_access(struct iio_dev *indio_dev,
 static int ad4170_get_reg_size(struct ad4170_state *st, unsigned int reg,
 			       unsigned int *size)
 {
-	if (reg >= ARRAY_SIZE(ad4170_reg_size))
+	if (reg >= ARRAY_SIZE(ad4170_reg_size) || !ad4170_reg_size[reg])
 		return -EINVAL;
 
 	*size = ad4170_reg_size[reg];
@@ -567,10 +568,6 @@ static int ad4170_reg_write(void *context, unsigned int reg, unsigned int val)
 	case 1:
 		tx_buf[AD4170_SPI_INST_PHASE_LEN] = val;
 		break;
-	case 0:
-		/* Write continuous read exit code */
-		tx_buf[0] = AD4170_ADC_CTRL_CONT_READ_EXIT;
-		return spi_write_then_read(st->spi, tx_buf, 1, NULL, 0);
 	default:
 		return -EINVAL;
 	}
@@ -2720,6 +2717,8 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret;
 
+	WRITE_ONCE(st->cont_read_exited, false);
+
 	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
 				 AD4170_ADC_CTRL_MODE_MSK,
 				 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
@@ -2737,20 +2736,11 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 					     AD4170_ADC_CTRL_CONT_READ_ENABLE));
 }
 
-static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
+static int ad4170_buffer_stop(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int i;
 	int ret;
-
-	/*
-	 * Use a high register address (virtual register) to request a write of
-	 * 0xA5 to the ADC during the first 8 SCLKs of the ADC data read cycle,
-	 * thus exiting continuous read.
-	 */
-	ret = regmap_write(st->regmap, AD4170_ADC_CTRL_CONT_READ_EXIT_REG, 0);
-	if (ret)
-		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
 				 AD4170_ADC_CTRL_CONT_READ_MSK,
@@ -2785,6 +2775,35 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 	}
 
 	return 0;
+}
+
+static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	unsigned long timeout;
+
+	/*
+	 * The continuous-read exit command must be the first byte shifted into
+	 * the ADC after RDY goes low. Request that the triggered handler replace
+	 * the next conversion read with the exit command and wait for it to
+	 * finish before accessing the register map again.
+	 */
+	timeout = msecs_to_jiffies(DIV_ROUND_UP_ULL(6291164ULL * MILLI,
+						    st->mclk_hz));
+	reinit_completion(&st->completion);
+	st->exit_cont_read_status = 0;
+	WRITE_ONCE(st->cont_read_exited, false);
+	WRITE_ONCE(st->exit_cont_read, true);
+
+	if (!wait_for_completion_timeout(&st->completion, timeout)) {
+		WRITE_ONCE(st->exit_cont_read, false);
+		return -ETIMEDOUT;
+	}
+
+	if (st->exit_cont_read_status)
+		return st->exit_cont_read_status;
+
+	return ad4170_buffer_stop(indio_dev);
 }
 
 static bool ad4170_validate_scan_mask(struct iio_dev *indio_dev,
@@ -2874,13 +2893,59 @@ static int ad4170_offload_per_chan_stop(struct iio_dev *indio_dev)
 	return 0;
 }
 
+static int ad4170_offload_send_cont_read_exit(struct iio_dev *indio_dev)
+{
+	static const u8 exit_tx[3] = { AD4170_ADC_CTRL_CONT_READ_EXIT };
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+	};
+	unsigned long timeout;
+	unsigned int i;
+	int ret;
+
+	timeout = msecs_to_jiffies(DIV_ROUND_UP_ULL(6291164ULL * MILLI,
+						    st->mclk_hz));
+
+	memset(&st->offload_xfer, 0, sizeof(st->offload_xfer));
+	st->offload_xfer.tx_buf = exit_tx;
+	st->offload_xfer.len = sizeof(exit_tx);
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_msg.offload = st->offload;
+
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret)
+		return ret;
+
+	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
+					 &config);
+	if (ret)
+		goto out_unoptimize;
+
+	reinit_completion(&st->completion);
+	enable_irq(st->spi->irq);
+	for (i = 0; i < 2 && !ret; i++) {
+		if (!wait_for_completion_timeout(&st->completion, timeout))
+			ret = -ETIMEDOUT;
+		reinit_completion(&st->completion);
+	}
+	disable_irq(st->spi->irq);
+
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
+
+out_unoptimize:
+	spi_unoptimize_message(&st->offload_msg);
+	st->offload_xfer.tx_buf = NULL;
+	return ret;
+}
+
 static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct spi_offload_trigger_config config = {
 		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
 	};
-	int ret;
+	int cleanup_ret, ret;
 
 	st->offload_xfer.len =
 		spi_bpw_to_bytes(ad4170_channel_template.scan_type.realbits);
@@ -2899,8 +2964,7 @@ static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	if (st->spi->irq)
-		disable_irq(st->spi->irq);
+	disable_irq(st->spi->irq);
 
 	if (st->offload_per_chan)
 		ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
@@ -2921,14 +2985,27 @@ static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
 	return 0;
 
 err_chip_off:
-	if (st->offload_per_chan)
+	if (st->offload_per_chan) {
 		ad4170_offload_per_chan_stop(indio_dev);
-	else
-		ad4170_buffer_predisable(indio_dev);
+	} else {
+		/* The failed enable left the ADC in continuous-read mode. */
+		spi_unoptimize_message(&st->offload_msg);
+		cleanup_ret = ad4170_offload_send_cont_read_exit(indio_dev);
+		if (!cleanup_ret)
+			cleanup_ret = ad4170_buffer_stop(indio_dev);
+		if (cleanup_ret)
+			dev_err(&st->spi->dev,
+				"Failed to stop ADC after offload error: %d\n",
+				cleanup_ret);
+		goto err_enable_irq_no_unoptimize;
+	}
 err_enable_irq:
-	if (st->spi->irq)
-		enable_irq(st->spi->irq);
+	enable_irq(st->spi->irq);
 	spi_unoptimize_message(&st->offload_msg);
+	return ret;
+
+err_enable_irq_no_unoptimize:
+	enable_irq(st->spi->irq);
 	return ret;
 }
 
@@ -2940,20 +3017,16 @@ static int ad4170_offload_buffer_predisable(struct iio_dev *indio_dev)
 	spi_offload_trigger_disable(st->offload, st->offload_trigger);
 
 	if (st->offload_per_chan) {
-		/*
-		 * Keep the offload program intact until any in-flight execution
-		 * completes. Normal SPI transfers will run after it releases the
-		 * execution module.
-		 */
 		ret = ad4170_offload_per_chan_stop(indio_dev);
+		spi_unoptimize_message(&st->offload_msg);
 	} else {
-		ret = ad4170_buffer_predisable(indio_dev);
+		spi_unoptimize_message(&st->offload_msg);
+		ret = ad4170_offload_send_cont_read_exit(indio_dev);
+		if (!ret)
+			ret = ad4170_buffer_stop(indio_dev);
 	}
 
-	if (st->spi->irq)
-		enable_irq(st->spi->irq);
-
-	spi_unoptimize_message(&st->offload_msg);
+	enable_irq(st->spi->irq);
 
 	return ret;
 }
@@ -2966,12 +3039,24 @@ static const struct iio_buffer_setup_ops ad4170_offload_buffer_ops = {
 
 static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 {
+	static const u8 exit_tx[3] = { AD4170_ADC_CTRL_CONT_READ_EXIT };
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int chan_index;
 	unsigned int i = 0;
 	int ret;
+
+	if (READ_ONCE(st->exit_cont_read)) {
+		/* Clock the rest of the 24-bit conversion after the exit byte. */
+		ret = spi_write(st->spi, exit_tx, sizeof(exit_tx));
+		st->exit_cont_read_status = ret;
+		WRITE_ONCE(st->exit_cont_read, false);
+		WRITE_ONCE(st->cont_read_exited, !ret);
+		iio_trigger_notify_done(indio_dev->trig);
+		complete(&st->completion);
+		return IRQ_HANDLED;
+	}
 
 	iio_for_each_active_channel(indio_dev, chan_index) {
 		ret = spi_sync(st->spi, &st->msg);
@@ -2999,8 +3084,10 @@ static irqreturn_t ad4170_irq_handler(int irq, void *dev_id)
 	struct ad4170_state *st = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev)) {
-		if (!st->offload)
+		if (!st->offload && !READ_ONCE(st->cont_read_exited))
 			iio_trigger_poll(st->trig);
+		else
+			complete(&st->completion);
 	} else {
 		complete(&st->completion);
 	}
@@ -3225,17 +3312,20 @@ static int ad4170_probe(struct spi_device *spi)
 
 	init_completion(&st->completion);
 
-	st->offload = devm_spi_offload_get(dev, spi, &ad4170_spi_offload_config);
-	ret = PTR_ERR_OR_ZERO(st->offload);
-	if (ret == -ENODEV)
-		st->offload = NULL;
-	else if (ret)
-		return dev_err_probe(dev, ret, "Failed to get SPI offload\n");
+	if (spi->irq) {
+		st->offload = devm_spi_offload_get(dev, spi, &ad4170_spi_offload_config);
+		ret = PTR_ERR_OR_ZERO(st->offload);
+		if (ret == -ENODEV)
+			st->offload = NULL;
+		else if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to get SPI offload\n");
 
-	if (st->offload) {
-		ret = ad4170_spi_offload_probe(indio_dev, st);
-		if (ret)
-			return ret;
+		if (st->offload) {
+			ret = ad4170_spi_offload_probe(indio_dev, st);
+			if (ret)
+				return ret;
+		}
 	}
 
 	if (spi->irq) {
