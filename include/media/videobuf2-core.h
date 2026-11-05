@@ -564,9 +564,11 @@ struct vb2_buf_ops {
  * @mmap_lock:	private mutex used when buffers are allocated/freed/mmapped
  * @memory:	current memory type used
  * @dma_dir:	DMA mapping direction.
- * @bufs:	videobuf2 buffer structures. If it is non-NULL then
- *		bufs_bitmap is also non-NULL.
- * @bufs_bitmap: bitmap tracking whether each bufs[] entry is used
+ * @bufs:	videobuf2 buffer structures. Drivers must access it through
+ *		vb2_get_buffer(), as an allocated buffer cannot be used
+ *		until it is published.
+ * @bufs_bitmap: bitmap tracking published buffers. Bits are set and cleared
+ *		under @mmap_lock.
  * @max_num_buffers: upper limit of number of allocated/used buffers.
  *		     If set to 0 v4l2 core will change it VB2_MAX_FRAME
  *		     for backward compatibility.
