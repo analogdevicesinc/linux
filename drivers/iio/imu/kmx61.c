@@ -1388,7 +1388,6 @@ static int kmx61_probe(struct i2c_client *client)
 err_iio_unregister_acc:
 	iio_device_unregister(data->acc_indio_dev);
 err_pm_cleanup:
-	pm_runtime_dont_use_autosuspend(&client->dev);
 	pm_runtime_disable(&client->dev);
 err_buffer_cleanup_mag:
 	if (client->irq > 0)
