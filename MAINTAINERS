@@ -10747,7 +10747,9 @@ L:	linux-gpio@vger.kernel.org
 L:	imx@lists.linux.dev
 S:	Maintained
 F:	Documentation/devicetree/bindings/gpio/fsl-imx-gpio.yaml
+F:	Documentation/devicetree/bindings/gpio/gpio-vf610.yaml
 F:	drivers/gpio/gpio-mxc.c
+F:	drivers/gpio/gpio-vf610.c
 
 FREESCALE IMX I2C DRIVER
 M:	Oleksij Rempel <o.rempel@pengutronix.de>
