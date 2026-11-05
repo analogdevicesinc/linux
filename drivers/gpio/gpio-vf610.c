@@ -189,10 +189,7 @@ static int vf610_gpio_irq_set_wake(struct irq_data *d, u32 enable)
 	struct vf610_gpio_port *port =
 		gpiochip_get_data(irq_data_get_irq_chip_data(d));
 
-	if (enable)
-		enable_irq_wake(port->irq);
-	else
-		disable_irq_wake(port->irq);
+	irq_set_irq_wake(port->irq, enable);
 
 	return 0;
 }
