@@ -801,7 +801,8 @@ static noinline int btrfs_clone_files(struct file *file, struct file *file_src,
 	 */
 	end = round_up(destoff + len, bs) - 1;
 	btrfs_lock_extent(&inode->io_tree, destoff, end, &cached_state);
-	ret = btrfs_clone(src, inode, off, olen, len, destoff, false);
+	ret = btrfs_clone(src, inode, off, olen, len, destoff,
+			  !btrfs_should_update_cmtime(file));
 	btrfs_unlock_extent(&inode->io_tree, destoff, end, &cached_state);
 	if (ret < 0)
 		return ret;

@@ -1030,7 +1030,7 @@ void btrfs_check_nocow_unlock(struct btrfs_inode *inode)
  * with FMODE_NOCMTIME (e.g. by nfsd while a client holds delegated
  * timestamps).
  */
-static bool btrfs_should_update_cmtime(const struct file *file)
+bool btrfs_should_update_cmtime(const struct file *file)
 {
 	return !IS_NOCMTIME(file_inode(file)) && !(file->f_mode & FMODE_NOCMTIME);
 }
