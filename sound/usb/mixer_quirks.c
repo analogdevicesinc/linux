@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
+#include <linux/usb/audio-v2.h>
 
 #include <sound/asoundef.h>
 #include <sound/core.h>
@@ -4419,6 +4420,189 @@ static int snd_djm_controls_create(struct usb_mixer_interface *mixer,
 	return 0;
 }
 
+/*
+ * Arturia AudioFuse (Rev2)
+ *
+ * The protocol was reverse engineered from Arturia AudioFuse Control Center.
+ * A parameter is written with a UAC2 class MEM request to the vendor entity
+ * 0x46 (wValue = parameter id, 1 byte payload), and the current device state
+ * can be read back as a 178 byte block from the vendor entity 0x47.
+ * Both entities live on the audio control interface 0.
+ *
+ * Layout of kcontrol->private_value: (parameter id << 8) | current value
+ */
+#define SND_AF_CTRL_IFNUM	0
+#define SND_AF_ENTITY_SET	0x46
+#define SND_AF_ENTITY_STATUS	0x47
+#define SND_AF_STATUS_LEN	178
+
+#define SND_AF_PARAM_SHIFT	8
+#define SND_AF_VAL_MASK		0xff
+
+struct snd_audiofuse_ctl {
+	const char *name;
+	u16 param;		/* wValue of the set request */
+	u8 status_offset;	/* offset of the value in the status block */
+};
+
+static const struct snd_audiofuse_ctl snd_audiofuse_ctls[] = {
+	{
+		.name = "Input1 48V LED Switch",
+		.param = 0x0001,
+		.status_offset = 0x3e,
+	},
+	{
+		.name = "Main Speaker Mute LED Switch",
+		.param = 0x0500,
+		.status_offset = 0x5c,
+	},
+};
+
+static u16 snd_audiofuse_windex(struct usb_mixer_interface *mixer, u8 entity)
+{
+	return (entity << 8) | mixer->hostif->desc.bInterfaceNumber;
+}
+
+static int snd_audiofuse_ctl_write(struct usb_mixer_interface *mixer,
+				   u16 param, u8 val)
+{
+	struct snd_usb_audio *chip = mixer->chip;
+	int err;
+
+	err = snd_usb_lock_shutdown(chip);
+	if (err < 0)
+		return err;
+
+	/* snd_usb_ctl_msg() bounces the buffer, so a stack variable is fine */
+	err = snd_usb_ctl_msg(chip->dev, usb_sndctrlpipe(chip->dev, 0),
+			      UAC2_CS_MEM,
+			      USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			      param,
+			      snd_audiofuse_windex(mixer, SND_AF_ENTITY_SET),
+			      &val, sizeof(val));
+
+	snd_usb_unlock_shutdown(chip);
+	return err;
+}
+
+/* Returns the number of bytes read, or a negative error code */
+static int snd_audiofuse_read_status(struct usb_mixer_interface *mixer,
+				     u8 *buf)
+{
+	struct snd_usb_audio *chip = mixer->chip;
+	int len;
+
+	len = snd_usb_ctl_msg(chip->dev, usb_rcvctrlpipe(chip->dev, 0),
+			      UAC2_CS_MEM,
+			      USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			      0,
+			      snd_audiofuse_windex(mixer, SND_AF_ENTITY_STATUS),
+			      buf, SND_AF_STATUS_LEN);
+	if (len < 0)
+		return len;
+
+	/* enable with dynamic debug: file mixer_quirks.c +p */
+	print_hex_dump_debug("AudioFuse status: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     buf, len, false);
+	return len;
+}
+
+static int snd_audiofuse_ctl_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		kcontrol->private_value & SND_AF_VAL_MASK;
+	return 0;
+}
+
+static int snd_audiofuse_ctl_put(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct usb_mixer_elem_list *list = snd_kcontrol_chip(kcontrol);
+	unsigned long pval = kcontrol->private_value;
+	u16 param = pval >> SND_AF_PARAM_SHIFT;
+	u8 oldval = pval & SND_AF_VAL_MASK;
+	long newval = ucontrol->value.integer.value[0];
+	int err;
+
+	if (newval < 0 || newval > 1)
+		return -EINVAL;
+	if (newval == oldval)
+		return 0;
+
+	err = snd_audiofuse_ctl_write(list->mixer, param, newval);
+	if (err < 0)
+		return err;
+
+	/* update the cache only after the device accepted the value */
+	kcontrol->private_value = ((unsigned long)param << SND_AF_PARAM_SHIFT) |
+				  newval;
+	return 1;
+}
+
+static int snd_audiofuse_ctl_resume(struct usb_mixer_elem_list *list)
+{
+	unsigned long pval = list->kctl->private_value;
+
+	return snd_audiofuse_ctl_write(list->mixer,
+				       pval >> SND_AF_PARAM_SHIFT,
+				       pval & SND_AF_VAL_MASK);
+}
+
+static int snd_audiofuse_controls_create(struct usb_mixer_interface *mixer)
+{
+	struct snd_kcontrol_new knew = {
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = snd_ctl_boolean_mono_info,
+		.get = snd_audiofuse_ctl_get,
+		.put = snd_audiofuse_ctl_put,
+	};
+	u8 *status;
+	int len, i, err = 0;
+
+	/*
+	 * The quirk is applied for every mixer of the card, but the vendor
+	 * entities are only reachable through the control interface 0.
+	 * Checking this per mixer (instead of a global flag) keeps the
+	 * controls working after re-plugging and with multiple devices.
+	 */
+	if (mixer->hostif->desc.bInterfaceNumber != SND_AF_CTRL_IFNUM)
+		return 0;
+
+	status = kmalloc(SND_AF_STATUS_LEN, GFP_KERNEL);
+	if (!status)
+		return -ENOMEM;
+
+	/* a failed read is not fatal: start from "off" and keep audio working */
+	len = snd_audiofuse_read_status(mixer, status);
+	if (len < 0)
+		usb_audio_warn(mixer->chip,
+			       "AudioFuse: cannot read device status (%d)\n",
+			       len);
+
+	for (i = 0; i < ARRAY_SIZE(snd_audiofuse_ctls); i++) {
+		const struct snd_audiofuse_ctl *ctl = &snd_audiofuse_ctls[i];
+		u8 val = 0;
+
+		if (ctl->status_offset < len)
+			val = !!status[ctl->status_offset];
+
+		knew.name = ctl->name;
+		knew.private_value =
+			((unsigned long)ctl->param << SND_AF_PARAM_SHIFT) | val;
+
+		err = add_single_ctl_with_resume(mixer, 0,
+						 snd_audiofuse_ctl_resume,
+						 &knew, NULL);
+		if (err < 0)
+			break;
+	}
+
+	kfree(status);
+	return err;
+}
+
 int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 {
 	int err = 0;
@@ -4608,6 +4792,9 @@ int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 		break;
 	case USB_ID(0x03f0, 0x0269): /* HP TB Dock G2 */
 		err = hp_dock_mixer_create(mixer);
+		break;
+	case USB_ID(0x1c75, 0xaf02): /* Arturia AudioFuse */
+		err = snd_audiofuse_controls_create(mixer);
 		break;
 	}
 
