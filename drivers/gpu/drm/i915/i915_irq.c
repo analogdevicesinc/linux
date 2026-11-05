@@ -36,6 +36,7 @@
 #include <drm/intel/display_parent_interface.h>
 #include <drm/intel/intel_gmd_interrupt_regs.h>
 
+#include "display/intel_display_device.h"
 #include "display/intel_display_irq.h"
 
 #include "gt/intel_breadcrumbs.h"
@@ -727,8 +728,12 @@ static void gen8_irq_postinstall(struct drm_i915_private *dev_priv)
 
 static void gen11_gu_misc_irq_postinstall(struct drm_i915_private *dev_priv)
 {
+	struct intel_display *display = dev_priv->display;
 	struct intel_uncore *uncore = &dev_priv->uncore;
-	u32 gu_misc_masked = GEN11_GU_MISC_GSE;
+	u32 gu_misc_masked = 0;
+
+	if (intel_display_device_present(display))
+		gu_misc_masked |= GEN11_GU_MISC_GSE;
 
 	gen2_irq_init(uncore, GEN11_GU_MISC_IRQ_REGS, ~gu_misc_masked, gu_misc_masked);
 }
