@@ -522,6 +522,10 @@ static int tegra_kbc_parse_dt(struct tegra_kbc *kbc)
 	}
 
 	for (i = 0; i < num_rows; i++) {
+		if (rows_cfg[i] >= kbc->num_rows_and_columns) {
+			dev_err(kbc->dev, "invalid row pin %u\n", rows_cfg[i]);
+			return -EINVAL;
+		}
 		kbc->pin_cfg[rows_cfg[i]].type = PIN_CFG_ROW;
 		kbc->pin_cfg[rows_cfg[i]].num = i;
 	}
@@ -538,6 +542,10 @@ static int tegra_kbc_parse_dt(struct tegra_kbc *kbc)
 	}
 
 	for (i = 0; i < num_cols; i++) {
+		if (cols_cfg[i] >= kbc->num_rows_and_columns) {
+			dev_err(kbc->dev, "invalid col pin %u\n", cols_cfg[i]);
+			return -EINVAL;
+		}
 		kbc->pin_cfg[cols_cfg[i]].type = PIN_CFG_COL;
 		kbc->pin_cfg[cols_cfg[i]].num = i;
 	}
