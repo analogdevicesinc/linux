@@ -148,7 +148,8 @@ static irqreturn_t fsl_sai_isr(int irq, void *devid)
 	mask = (FSL_SAI_FLAGS >> FSL_SAI_CSR_xIE_SHIFT) << FSL_SAI_CSR_xF_SHIFT;
 
 	/* Tx IRQ */
-	regmap_read(sai->regmap, FSL_SAI_TCSR(ofs), &xcsr);
+	if (regmap_read(sai->regmap, FSL_SAI_TCSR(ofs), &xcsr))
+		return IRQ_NONE;
 	flags = xcsr & mask;
 
 	if (flags)
@@ -179,7 +180,8 @@ static irqreturn_t fsl_sai_isr(int irq, void *devid)
 
 irq_rx:
 	/* Rx IRQ */
-	regmap_read(sai->regmap, FSL_SAI_RCSR(ofs), &xcsr);
+	if (regmap_read(sai->regmap, FSL_SAI_RCSR(ofs), &xcsr))
+		goto out;
 	flags = xcsr & mask;
 
 	if (flags)
