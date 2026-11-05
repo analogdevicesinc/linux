@@ -549,6 +549,47 @@ static bool seg6_next_csid_enabled(__u32 fops)
 	return fops & SEG6_F_LOCAL_FLV_NEXT_CSID;
 }
 
+static bool seg6_flv8986_enabled(__u32 fops)
+{
+	return fops & SEG6_LOCAL_FLV8986_SUPP_OPS;
+}
+
+/* check whether the NEXT-C-SID processing has to be used for the packet,
+ * instead of the RFC8986 flavors set for the given SRv6 End* behavior
+ * instance.
+ *
+ * This function returns:
+ *  - true, when the packet has to go through the NEXT-C-SID processing;
+ *  - false, when NEXT-C-SID is not configured or the packet has to be
+ *    processed on the basis of the RFC8986 flavors.
+ */
+static bool seg6_use_next_csid(struct sk_buff *skb,
+			       const struct seg6_flavors_info *finfo)
+{
+	const struct in6_addr *addr;
+	__u32 fops = finfo->flv_ops;
+
+	if (!seg6_next_csid_enabled(fops))
+		return false;
+
+	addr = &ipv6_hdr(skb)->daddr;
+
+	/* NEXT-C-SID and the RFC8986 flavors combine according to the
+	 * DA.Argument (see RFC9800, sections 4.1.1 and 4.1.7):
+	 *
+	 *       DA.Argument   RFC8986 flavors   processing
+	 *   (1) != 0          any               NEXT-C-SID only, SL unchanged
+	 *   (2) == 0          none              the behavior, e.g. End
+	 *   (3) == 0          one or more       the behavior with its flavors,
+	 *                                       e.g. End with PSP
+	 *
+	 * In (2), the packet still goes through the NEXT-C-SID processing,
+	 * which runs the behavior (e.g. End) when the DA.Argument is zero.
+	 */
+	return !seg6_flv8986_enabled(fops) ||
+	       !seg6_next_csid_is_arg_zero(addr, finfo);
+}
+
 /* Processing of SRv6 End, End.X, and End.T behaviors can be extended through
  * the flavors framework. These behaviors must report the subset of (flavor)
  * operations they currently implement. In this way, if a user specifies a
@@ -863,7 +904,10 @@ static int end_flv8986_core(struct sk_buff *skb, struct seg6_local_lwt *slwt)
 	if (srh && !seg6_hmac_validate_skb(skb, srh))
 		goto drop;
 #endif
-	flvmask = finfo->flv_ops;
+	/* NEXT-C-SID, when configured, has already been evaluated by the
+	 * caller. Only the RFC8986 flavors are left here.
+	 */
+	flvmask = finfo->flv_ops & ~SEG6_F_LOCAL_FLV_NEXT_CSID;
 	if (unlikely(flvmask & ~SEG6_LOCAL_FLV8986_SUPP_OPS)) {
 		pr_warn_once("seg6local: invalid RFC8986 flavors\n");
 		goto drop;
@@ -917,8 +961,8 @@ static int input_action_end(struct sk_buff *skb, struct seg6_local_lwt *slwt)
 	if (!fops)
 		return input_action_end_core(skb, slwt);
 
-	/* check for the presence of NEXT-C-SID since it applies first */
-	if (seg6_next_csid_enabled(fops))
+	/* NEXT-C-SID is evaluated first, when configured */
+	if (seg6_use_next_csid(skb, finfo))
 		return end_next_csid_core(skb, slwt);
 
 	/* the specific processing function to be performed on the packet
