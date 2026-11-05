@@ -224,13 +224,14 @@ static int test__pmu_config_helpers(struct test_suite *test __maybe_unused,
 		goto err_out;
 	}
 
+	parse_events_error__init(&err);
 	ret = parse_events(evlist, event, &err);
 	if (ret) {
 		pr_debug("failed to parse event '%s', err %d\n", event, ret);
 		parse_events_error__print(&err, event);
 		if (parse_events_error__contains(&err, "can't access trace events"))
 			ret = TEST_SKIP;
-		goto err_out;
+		goto err_out_errlist;
 	}
 	evsel = evlist__first(evlist);
 
@@ -289,6 +290,8 @@ static int test__pmu_config_helpers(struct test_suite *test __maybe_unused,
 	evsel__get_config_val(evsel, "krava23", &val);
 	TEST_ASSERT_EQUAL("krava23 not overwritten", (int) val, 0);
 	ret = TEST_OK;
+err_out_errlist:
+	parse_events_error__exit(&err);
 err_out:
 	evlist__put(evlist);
 	test_pmu_put(dir, pmu);
