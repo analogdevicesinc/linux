@@ -849,7 +849,8 @@ static void fsl_sai_config_disable(struct fsl_sai *sai, int dir)
 {
 	unsigned int ofs = sai->soc_data->reg_offset;
 	bool tx = dir == TX;
-	u32 xcsr, count = 100, mask;
+	u32 xcsr, mask;
+	int ret;
 
 	if (sai->soc_data->mclk_with_tere && sai->mclk_direction_output)
 		mask = FSL_SAI_CSR_TERE;
@@ -860,10 +861,15 @@ static void fsl_sai_config_disable(struct fsl_sai *sai, int dir)
 			   mask, 0);
 
 	/* TERE will remain set till the end of current frame */
-	do {
-		udelay(10);
-		regmap_read(sai->regmap, FSL_SAI_xCSR(tx, ofs), &xcsr);
-	} while (--count && xcsr & FSL_SAI_CSR_TERE);
+	ret = regmap_read_poll_timeout_atomic(sai->regmap, FSL_SAI_xCSR(tx, ofs),
+					      xcsr, !(xcsr & FSL_SAI_CSR_TERE),
+					      10, 1000);
+	if (ret == -ETIMEDOUT)
+		dev_warn(&sai->pdev->dev, "%cx not disabled at frame end\n",
+			 tx ? 'T' : 'R');
+	else if (ret)
+		dev_err(&sai->pdev->dev, "failed to read %cSCR : %d\n",
+			tx ? 'T' : 'R', ret);
 
 	regmap_update_bits(sai->regmap, FSL_SAI_xCSR(tx, ofs),
 			   FSL_SAI_CSR_FR, FSL_SAI_CSR_FR);
