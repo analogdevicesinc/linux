@@ -57,7 +57,7 @@ static const struct snd_soc_acpi_endpoint jack_amp_dmic_endpoints[] = {
 	},
 };
 
-static const struct snd_soc_acpi_adr_device rt721_l0_single_adr[] = {
+static const struct snd_soc_acpi_adr_device rt721_l0_jack_dmic_adr[] = {
 	{
 		.adr = 0x000030025d072101ull,
 		.num_endpoints = ARRAY_SIZE(jack_dmic_endpoints),
@@ -66,7 +66,7 @@ static const struct snd_soc_acpi_adr_device rt721_l0_single_adr[] = {
 	}
 };
 
-static const struct snd_soc_acpi_adr_device rt721_l0_only[] = {
+static const struct snd_soc_acpi_adr_device rt721_l0_jack_amp_dmic_adr[] = {
 	{
 		.adr = 0x000030025d072101ull,
 		.num_endpoints = ARRAY_SIZE(jack_amp_dmic_endpoints),
@@ -78,13 +78,13 @@ static const struct snd_soc_acpi_adr_device rt721_l0_only[] = {
 static const struct snd_soc_acpi_link_adr acp7x_rt721_only[] = {
 	{
 		.mask = BIT(0),
-		.num_adr = ARRAY_SIZE(rt721_l0_only),
-		.adr_d = rt721_l0_only,
+		.num_adr = ARRAY_SIZE(rt721_l0_jack_amp_dmic_adr),
+		.adr_d = rt721_l0_jack_amp_dmic_adr,
 	},
 	{}
 };
 
-static const struct snd_soc_acpi_adr_device rt722_l0_single_adr[] = {
+static const struct snd_soc_acpi_adr_device rt722_l0_jack_amp_dmic_adr[] = {
 	{
 		.adr = 0x000030025d072201ull,
 		.num_endpoints = ARRAY_SIZE(jack_amp_dmic_endpoints),
@@ -96,8 +96,8 @@ static const struct snd_soc_acpi_adr_device rt722_l0_single_adr[] = {
 static const struct snd_soc_acpi_link_adr acp7x_rt722_only[] = {
 	{
 		.mask = BIT(0),
-		.num_adr = ARRAY_SIZE(rt722_l0_single_adr),
-		.adr_d = rt722_l0_single_adr,
+		.num_adr = ARRAY_SIZE(rt722_l0_jack_amp_dmic_adr),
+		.adr_d = rt722_l0_jack_amp_dmic_adr,
 	},
 	{}
 };
@@ -123,8 +123,8 @@ static const struct snd_soc_acpi_adr_device rt1320_l3_single_adr[] = {
 static const struct snd_soc_acpi_link_adr acp7x_rt721_l0_rt1320_l1[] = {
 	{
 		.mask = BIT(0),
-		.num_adr = ARRAY_SIZE(rt721_l0_single_adr),
-		.adr_d = rt721_l0_single_adr,
+		.num_adr = ARRAY_SIZE(rt721_l0_jack_dmic_adr),
+		.adr_d = rt721_l0_jack_dmic_adr,
 	},
 	{
 		.mask = BIT(1),
@@ -137,8 +137,8 @@ static const struct snd_soc_acpi_link_adr acp7x_rt721_l0_rt1320_l1[] = {
 static const struct snd_soc_acpi_link_adr acp7x_rt721_l0_rt1320_l3[] = {
 	{
 		.mask = BIT(0),
-		.num_adr = ARRAY_SIZE(rt721_l0_single_adr),
-		.adr_d = rt721_l0_single_adr,
+		.num_adr = ARRAY_SIZE(rt721_l0_jack_dmic_adr),
+		.adr_d = rt721_l0_jack_dmic_adr,
 	},
 	{
 		.mask = BIT(3),
