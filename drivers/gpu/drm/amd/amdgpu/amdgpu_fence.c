@@ -715,6 +715,9 @@ void amdgpu_fence_driver_force_completion(struct amdgpu_ring *ring,
 void amdgpu_ring_set_fence_errors_and_reemit(struct amdgpu_ring *ring,
 					     struct amdgpu_fence *guilty_fence)
 {
+	bool emit_spm_needed = ring->adev->gfx.rlc.funcs->update_spm_vmid &&
+		(ring->funcs->type == AMDGPU_RING_TYPE_COMPUTE ||
+		 ring->funcs->type == AMDGPU_RING_TYPE_GFX);
 	struct dma_fence *unprocessed;
 	struct dma_fence __rcu **ptr;
 	struct amdgpu_fence *fence;
@@ -746,6 +749,9 @@ void amdgpu_ring_set_fence_errors_and_reemit(struct amdgpu_ring *ring,
 	}
 	ring->reemit = true;
 	amdgpu_ring_alloc(ring, ring->ring_backup_entries_to_copy);
+	if (emit_spm_needed)
+		ring->adev->gfx.rlc.funcs->update_spm_vmid(ring->adev, ring->xcc_id,
+							   ring->adev->vm_manager.spm_vmid);
 	spin_lock_irqsave(&ring->fence_drv.lock, flags);
 	do {
 		last_seq++;
