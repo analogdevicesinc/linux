@@ -340,6 +340,9 @@ EXPORT_SYMBOL(gen_pool_alloc_algo_owner);
  */
 void *gen_pool_dma_alloc(struct gen_pool *pool, size_t size, dma_addr_t *dma)
 {
+	if (!pool)
+		return NULL;
+
 	return gen_pool_dma_alloc_algo(pool, size, dma, pool->algo, pool->data);
 }
 EXPORT_SYMBOL(gen_pool_dma_alloc);
@@ -418,6 +421,9 @@ EXPORT_SYMBOL(gen_pool_dma_alloc_align);
  */
 void *gen_pool_dma_zalloc(struct gen_pool *pool, size_t size, dma_addr_t *dma)
 {
+	if (!pool)
+		return NULL;
+
 	return gen_pool_dma_zalloc_algo(pool, size, dma, pool->algo, pool->data);
 }
 EXPORT_SYMBOL(gen_pool_dma_zalloc);
