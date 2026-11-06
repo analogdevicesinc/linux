@@ -5383,9 +5383,11 @@ static irqreturn_t snd_hdspm_interrupt(int irq, void *dev_id)
 				/* we disable interrupts for this input until
 				 * processing is done
 				 */
-				hdspm->control_register &= ~hdspm->midi[i].ie;
-				hdspm_write(hdspm, HDSPM_controlRegister,
-						hdspm->control_register);
+				scoped_guard(spinlock, &hdspm->lock) {
+					hdspm->control_register &= ~hdspm->midi[i].ie;
+					hdspm_write(hdspm, HDSPM_controlRegister,
+						    hdspm->control_register);
+				}
 				hdspm->midi[i].pending = 1;
 				schedule = 1;
 			}
