@@ -3593,6 +3593,9 @@ static void __neigh_notify(struct neighbour *n, int type, int flags,
 	int err = -ENOBUFS;
 	struct net *net;
 
+	if (n->dead && type != RTM_DELNEIGH)
+		return;
+
 	rcu_read_lock();
 	net = dev_net_rcu(n->dev);
 	skb = nlmsg_new(neigh_nlmsg_size(), GFP_ATOMIC);
