@@ -3507,6 +3507,20 @@ config XXHASH_KUNIT_TEST
 
 	  If unsure, say N.
 
+config UCS2_STRING_KUNIT_TEST
+	tristate "KUnit test for UCS-2 string helpers" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select UCS2_STRING
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for the UCS-2 string
+	  helpers in lib/ucs2_string.c, which are used for EFI variable
+	  names and other firmware strings. The tests cover length,
+	  copy and compare helpers and the UCS-2 to UTF-8 conversion,
+	  including truncation at the destination buffer size.
+
+	  If unsure, say N.
+
 config UUID_KUNIT_TEST
 	tristate "KUnit test for UUID" if !KUNIT_ALL_TESTS
 	depends on KUNIT
