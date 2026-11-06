@@ -62,7 +62,7 @@ References
 
 [3] https://www.arm.com/architecture/security-features/platform-security
 
-[4] drivers/firmware/arm_ffa/
+[4] drivers/firmware/arm/ffa/
 
 [5] https://trusted-services.readthedocs.io/en/v1.0.0/developer/service-access-protocols.html#abi
 

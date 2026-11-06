@@ -6,59 +6,10 @@
 
 menu "Firmware Drivers"
 
-source "drivers/firmware/arm_scmi/Kconfig"
+source "drivers/firmware/arm/Kconfig"
 
 config FW_ATTR_CLASS
 	tristate
-
-config ARM_SCPI_PROTOCOL
-	tristate "ARM System Control and Power Interface (SCPI) Message Protocol"
-	depends on ARM || ARM64 || COMPILE_TEST
-	depends on MAILBOX
-	help
-	  System Control and Power Interface (SCPI) Message Protocol is
-	  defined for the purpose of communication between the Application
-	  Cores(AP) and the System Control Processor(SCP). The MHU peripheral
-	  provides a mechanism for inter-processor communication between SCP
-	  and AP.
-
-	  SCP controls most of the power management on the Application
-	  Processors. It offers control and management of: the core/cluster
-	  power states, various power domain DVFS including the core/cluster,
-	  certain system clocks configuration, thermal sensors and many
-	  others.
-
-	  This protocol library provides interface for all the client drivers
-	  making use of the features offered by the SCP.
-
-config ARM_SDE_INTERFACE
-	bool "ARM Software Delegated Exception Interface (SDEI)"
-	depends on ARM64
-	help
-	  The Software Delegated Exception Interface (SDEI) is an ARM
-	  standard for registering callbacks from the platform firmware
-	  into the OS. This is typically used to implement RAS notifications.
-
-config ARM_SDEI_NMI
-	bool "SDEI-based cross-CPU NMI service (arm64)"
-	depends on ARM_SDE_INTERFACE
-	help
-	  Provides SDEI-based cross-CPU NMI delivery for hooks that need
-	  to reach interrupt-masked CPUs on silicon that lacks FEAT_NMI:
-
-	    - arch_trigger_cpumask_backtrace()  (sysrq-l, RCU stalls,
-	      hardlockup_all_cpu_backtrace, soft-lockup secondary dumps,
-	      hung-task auxiliary dumps)
-	    - smp_send_stop() escalation         (reboot/halt and the
-	      panic / kdump crash stop)
-
-	  The driver registers a handler for the SDEI software-signalled
-	  event (event 0) and reaches a target CPU by signalling it with
-	  SDEI_EVENT_SIGNAL. Firmware delivers the event out of EL3
-	  regardless of the target's PSTATE.DAIF -- forced delivery into a
-	  CPU wedged with interrupts locally masked.
-
-	  If unsure, say N.
 
 config EDD
 	tristate "BIOS Enhanced Disk Drive calls determine boot disk"
@@ -299,8 +250,6 @@ config TURRIS_MOX_RWTM_KEYCTL
 
 endif # TURRIS_MOX_RWTM
 
-source "drivers/firmware/arm_ffa/Kconfig"
-source "drivers/firmware/arm_rmm/Kconfig"
 source "drivers/firmware/broadcom/Kconfig"
 source "drivers/firmware/cirrus/Kconfig"
 source "drivers/firmware/coreboot/Kconfig"
@@ -308,10 +257,8 @@ source "drivers/firmware/efi/Kconfig"
 source "drivers/firmware/imx/Kconfig"
 source "drivers/firmware/meson/Kconfig"
 source "drivers/firmware/microchip/Kconfig"
-source "drivers/firmware/psci/Kconfig"
 source "drivers/firmware/qcom/Kconfig"
 source "drivers/firmware/samsung/Kconfig"
-source "drivers/firmware/smccc/Kconfig"
 source "drivers/firmware/tegra/Kconfig"
 source "drivers/firmware/xilinx/Kconfig"
 
