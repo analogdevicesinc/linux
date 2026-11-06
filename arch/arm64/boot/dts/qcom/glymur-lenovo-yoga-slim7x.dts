@@ -320,11 +320,11 @@
 		compatible = "qcom,wcn7850-pmu";
 
 		vdd-supply = <&vreg_wcn_0p95>;
-		vddio-supply = <&vreg_l15b_e0>;
-		vddaon-supply = <&vreg_l15b_e0>;
-		vdddig-supply = <&vreg_l15b_e0>;
-		vddrfa1p2-supply = <&vreg_l15b_e0>;
-		vddrfa1p8-supply = <&vreg_l15b_e0>;
+		vddio-supply = <&vreg_l15b0>;
+		vddaon-supply = <&vreg_l15b0>;
+		vdddig-supply = <&vreg_l15b0>;
+		vddrfa1p2-supply = <&vreg_l15b0>;
+		vddrfa1p8-supply = <&vreg_l15b0>;
 
 		wlan-enable-gpios = <&tlmm 117 GPIO_ACTIVE_HIGH>;
 		bt-enable-gpios = <&tlmm 116 GPIO_ACTIVE_HIGH>;
@@ -381,71 +381,71 @@
 		compatible = "qcom,pmh0101-rpmh-regulators";
 		qcom,pmic-id = "B_E0";
 
-		vreg_l1b_e0: ldo1 {
-			regulator-name = "vreg_l1b_e0";
+		vreg_l1b0: ldo1 {
+			regulator-name = "vreg_l1b0";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l7b_e0: ldo7 {
-			regulator-name = "vreg_l7b_e0";
+		vreg_l7b0: ldo7 {
+			regulator-name = "vreg_l7b0";
 			regulator-min-microvolt = <3072000>;
 			regulator-max-microvolt = <3072000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l8b_e0: ldo8 {
-			regulator-name = "vreg_l8b_e0";
+		vreg_l8b0: ldo8 {
+			regulator-name = "vreg_l8b0";
 			regulator-min-microvolt = <3304000>;
 			regulator-max-microvolt = <3304000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l9b_e0: ldo9 {
-			regulator-name = "vreg_l9b_e0";
+		vreg_l9b0: ldo9 {
+			regulator-name = "vreg_l9b0";
 			regulator-min-microvolt = <2960000>;
 			regulator-max-microvolt = <2960000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l10b_e0: ldo10 {
-			regulator-name = "vreg_l10b_e0";
+		vreg_l10b0: ldo10 {
+			regulator-name = "vreg_l10b0";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l11b_e0: ldo11 {
-			regulator-name = "vreg_l11b_e0";
+		vreg_l11b0: ldo11 {
+			regulator-name = "vreg_l11b0";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l12b_e0: ldo12 {
-			regulator-name = "vreg_l12b_e0";
+		vreg_l12b0: ldo12 {
+			regulator-name = "vreg_l12b0";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l15b_e0: ldo15 {
-			regulator-name = "vreg_l15b_e0";
+		vreg_l15b0: ldo15 {
+			regulator-name = "vreg_l15b0";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l17b_e0: ldo17 {
-			regulator-name = "vreg_l17b_e0";
+		vreg_l17b0: ldo17 {
+			regulator-name = "vreg_l17b0";
 			regulator-min-microvolt = <2504000>;
 			regulator-max-microvolt = <2504000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l18b_e0: ldo18 {
-			regulator-name = "vreg_l18b_e0";
+		vreg_l18b0: ldo18 {
+			regulator-name = "vreg_l18b0";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -456,29 +456,29 @@
 		compatible = "qcom,pmcx0102-rpmh-regulators";
 		qcom,pmic-id = "C_E1";
 
-		vreg_l1c_e1: ldo1 {
-			regulator-name = "vreg_l1c_e1";
+		vreg_l1c1: ldo1 {
+			regulator-name = "vreg_l1c1";
 			regulator-min-microvolt = <912000>;
 			regulator-max-microvolt = <912000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l2c_e1: ldo2 {
-			regulator-name = "vreg_l2c_e1";
+		vreg_l2c1: ldo2 {
+			regulator-name = "vreg_l2c1";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l3c_e1: ldo3 {
-			regulator-name = "vreg_l3c_e1";
+		vreg_l3c1: ldo3 {
+			regulator-name = "vreg_l3c1";
 			regulator-min-microvolt = <936000>;
 			regulator-max-microvolt = <936000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l4c_e1: ldo4 {
-			regulator-name = "vreg_l4c_e1";
+		vreg_l4c1: ldo4 {
+			regulator-name = "vreg_l4c1";
 			regulator-min-microvolt = <912000>;
 			regulator-max-microvolt = <912000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -489,29 +489,29 @@
 		compatible = "qcom,pmh0110-rpmh-regulators";
 		qcom,pmic-id = "F_E0";
 
-		vreg_s7f_e0: smps7 {
-			regulator-name = "vreg_s7f_e0";
+		vreg_s7f0: smps7 {
+			regulator-name = "vreg_s7f0";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_s8f_e0: smps8 {
-			regulator-name = "vreg_s8f_e0";
+		vreg_s8f0: smps8 {
+			regulator-name = "vreg_s8f0";
 			regulator-min-microvolt = <952000>;
 			regulator-max-microvolt = <952000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l2f_e0: ldo2 {
-			regulator-name = "vreg_l2f_e0";
+		vreg_l2f0: ldo2 {
+			regulator-name = "vreg_l2f0";
 			regulator-min-microvolt = <936000>;
 			regulator-max-microvolt = <936000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l3f_e0: ldo3 {
-			regulator-name = "vreg_l3f_e0";
+		vreg_l3f0: ldo3 {
+			regulator-name = "vreg_l3f0";
 			regulator-min-microvolt = <912000>;
 			regulator-max-microvolt = <912000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -522,22 +522,22 @@
 		compatible = "qcom,pmh0110-rpmh-regulators";
 		qcom,pmic-id = "F_E1";
 
-		vreg_l1f_e1: ldo1 {
-			regulator-name = "vreg_l1f_e1";
+		vreg_l1f1: ldo1 {
+			regulator-name = "vreg_l1f1";
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <904000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l2f_e1: ldo2 {
-			regulator-name = "vreg_l2f_e1";
+		vreg_l2f1: ldo2 {
+			regulator-name = "vreg_l2f1";
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <880000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l4f_e1: ldo4 {
-			regulator-name = "vreg_l4f_e1";
+		vreg_l4f1: ldo4 {
+			regulator-name = "vreg_l4f1";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -548,29 +548,29 @@
 		compatible = "qcom,pmh0110-rpmh-regulators";
 		qcom,pmic-id = "H_E0";
 
-		vreg_l1h_e0: ldo1 {
-			regulator-name = "vreg_l1h_e0";
+		vreg_l1h0: ldo1 {
+			regulator-name = "vreg_l1h0";
 			regulator-min-microvolt = <936000>;
 			regulator-max-microvolt = <936000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l2h_e0: ldo2 {
-			regulator-name = "vreg_l2h_e0";
+		vreg_l2h0: ldo2 {
+			regulator-name = "vreg_l2h0";
 			regulator-min-microvolt = <880000>;
 			regulator-max-microvolt = <880000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l3h_e0: ldo3 {
-			regulator-name = "vreg_l3h_e0";
+		vreg_l3h0: ldo3 {
+			regulator-name = "vreg_l3h0";
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 		};
 
-		vreg_l4h_e0: ldo4 {
-			regulator-name = "vreg_l4h_e0";
+		vreg_l4h0: ldo4 {
+			regulator-name = "vreg_l4h0";
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
@@ -599,7 +599,7 @@
 		interrupts-extended = <&tlmm 3 IRQ_TYPE_LEVEL_LOW>;
 
 		vdd-supply = <&vreg_misc_3p3>;
-		vddl-supply = <&vreg_l15b_e0>;
+		vddl-supply = <&vreg_l15b0>;
 
 		pinctrl-0 = <&tpad_default>;
 		pinctrl-names = "default";
@@ -615,7 +615,7 @@
 		interrupts-extended = <&tlmm 67 IRQ_TYPE_LEVEL_LOW>;
 
 		vdd-supply = <&vreg_misc_3p3>;
-		vddl-supply = <&vreg_l15b_e0>;
+		vddl-supply = <&vreg_l15b0>;
 
 		pinctrl-0 = <&kybd_default>;
 		pinctrl-names = "default";
@@ -647,7 +647,7 @@
 		post-power-on-delay-ms = <200>;
 
 		vdd-supply = <&vreg_misc_3p3>;
-		vddl-supply = <&vreg_l15b_e0>;
+		vddl-supply = <&vreg_l15b0>;
 
 		pinctrl-0 = <&ts0_default>;
 		pinctrl-names = "default";
@@ -727,8 +727,8 @@
 };
 
 &mdss_dp3_phy {
-	vdda-phy-supply = <&vreg_l2f_e1>;
-	vdda-pll-supply = <&vreg_l4f_e1>;
+	vdda-phy-supply = <&vreg_l2f1>;
+	vdda-pll-supply = <&vreg_l4f1>;
 
 	status = "okay";
 };
@@ -741,8 +741,8 @@
 };
 
 &pcie4_phy {
-	vdda-phy-supply = <&vreg_l1c_e1>;
-	vdda-pll-supply = <&vreg_l4f_e1>;
+	vdda-phy-supply = <&vreg_l1c1>;
+	vdda-pll-supply = <&vreg_l4f1>;
 
 	status = "okay";
 };
@@ -777,8 +777,8 @@
 };
 
 &pcie5_phy {
-	vdda-phy-supply = <&vreg_l2f_e0>;
-	vdda-pll-supply = <&vreg_l4h_e0>;
+	vdda-phy-supply = <&vreg_l2f0>;
+	vdda-pll-supply = <&vreg_l4h0>;
 
 	status = "okay";
 };
@@ -798,8 +798,8 @@
 };
 
 &pcie6_phy {
-	vdda-phy-supply = <&vreg_l1c_e1>;
-	vdda-pll-supply = <&vreg_l4f_e1>;
+	vdda-phy-supply = <&vreg_l1c1>;
+	vdda-pll-supply = <&vreg_l4f1>;
 
 	status = "okay";
 };
@@ -861,18 +861,18 @@
 };
 
 &smb2370_j_e2_eusb2_repeater {
-	vdd18-supply = <&vreg_l15b_e0>;
-	vdd3-supply = <&vreg_l7b_e0>;
+	vdd18-supply = <&vreg_l15b0>;
+	vdd3-supply = <&vreg_l7b0>;
 };
 
 &smb2370_k_e2_eusb2_repeater {
-	vdd18-supply = <&vreg_l15b_e0>;
-	vdd3-supply = <&vreg_l7b_e0>;
+	vdd18-supply = <&vreg_l15b0>;
+	vdd3-supply = <&vreg_l7b0>;
 };
 
 &smb2370_l_e2_eusb2_repeater {
-	vdd18-supply = <&vreg_l15b_e0>;
-	vdd3-supply = <&vreg_l7b_e0>;
+	vdd18-supply = <&vreg_l15b0>;
+	vdd3-supply = <&vreg_l7b0>;
 
 	status = "okay";
 };
@@ -887,8 +887,8 @@
 		reset-gpios = <&lpass_tlmm 12 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "WooferLeft";
-		vdd-1p8-supply = <&vreg_l15b_e0>;
-		vdd-io-supply = <&vreg_l18b_e0>;
+		vdd-1p8-supply = <&vreg_l15b0>;
+		vdd-io-supply = <&vreg_l18b0>;
 		qcom,port-mapping = <1 2 3 7 12 14>;
 	};
 
@@ -899,8 +899,8 @@
 		reset-gpios = <&lpass_tlmm 12 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "TweeterLeft";
-		vdd-1p8-supply = <&vreg_l15b_e0>;
-		vdd-io-supply = <&vreg_l18b_e0>;
+		vdd-1p8-supply = <&vreg_l15b0>;
+		vdd-io-supply = <&vreg_l18b0>;
 		qcom,port-mapping = <4 5 6 7 13 15>;
 	};
 };
@@ -915,8 +915,8 @@
 		reset-gpios = <&lpass_tlmm 13 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "WooferRight";
-		vdd-1p8-supply = <&vreg_l15b_e0>;
-		vdd-io-supply = <&vreg_l18b_e0>;
+		vdd-1p8-supply = <&vreg_l15b0>;
+		vdd-io-supply = <&vreg_l18b0>;
 		qcom,port-mapping = <1 2 3 7 12 14>;
 	};
 
@@ -927,30 +927,30 @@
 		reset-gpios = <&lpass_tlmm 13 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sound-name-prefix = "TweeterRight";
-		vdd-1p8-supply = <&vreg_l15b_e0>;
-		vdd-io-supply = <&vreg_l18b_e0>;
+		vdd-1p8-supply = <&vreg_l15b0>;
+		vdd-io-supply = <&vreg_l18b0>;
 		qcom,port-mapping = <4 5 6 7 13 15>;
 	};
 };
 
 &tcsr {
-	vdda-qrefrpt0-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrpt1-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrpt2-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrpt3-0p9-supply = <&vreg_l2h_e0>;
-	vdda-qrefrpt4-0p9-supply = <&vreg_l2h_e0>;
-	vdda-qrefrx0-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrx1-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrx2-0p9-supply = <&vreg_l2f_e1>;
-	vdda-qrefrx4-0p9-supply = <&vreg_l2h_e0>;
-	vdda-qrefrx5-0p9-supply = <&vreg_l3f_e0>;
-	vdda-qreftx0-0p9-supply = <&vreg_l3f_e0>;
-	vdda-qreftx0-1p2-supply = <&vreg_l4h_e0>;
-	vdda-qreftx1-0p9-supply = <&vreg_l1f_e1>;
-	vdda-refgen3-0p9-supply = <&vreg_l2f_e0>;
-	vdda-refgen3-1p2-supply = <&vreg_l4h_e0>;
-	vdda-refgen4-0p9-supply = <&vreg_l1f_e1>;
-	vdda-refgen4-1p2-supply = <&vreg_l4f_e1>;
+	vdda-qrefrpt0-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt1-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt2-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt3-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrpt4-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrx0-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx1-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx2-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx4-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrx5-0p9-supply = <&vreg_l3f0>;
+	vdda-qreftx0-0p9-supply = <&vreg_l3f0>;
+	vdda-qreftx0-1p2-supply = <&vreg_l4h0>;
+	vdda-qreftx1-0p9-supply = <&vreg_l1f1>;
+	vdda-refgen3-0p9-supply = <&vreg_l2f0>;
+	vdda-refgen3-1p2-supply = <&vreg_l4h0>;
+	vdda-refgen4-0p9-supply = <&vreg_l1f1>;
+	vdda-refgen4-1p2-supply = <&vreg_l4f1>;
 };
 
 &tlmm {
@@ -1142,8 +1142,8 @@
 };
 
 &usb_0_hsphy {
-	vdd-supply = <&vreg_l3f_e0>;
-	vdda12-supply = <&vreg_l4h_e0>;
+	vdd-supply = <&vreg_l3f0>;
+	vdda12-supply = <&vreg_l4h0>;
 
 	phys = <&smb2370_j_e2_eusb2_repeater>;
 
@@ -1151,9 +1151,9 @@
 };
 
 &usb_0_qmpphy {
-	vdda-phy-supply = <&vreg_l4h_e0>;
-	vdda-pll-supply = <&vreg_l3f_e0>;
-	refgen-supply = <&vreg_l2f_e0>;
+	vdda-phy-supply = <&vreg_l4h0>;
+	vdda-pll-supply = <&vreg_l3f0>;
+	refgen-supply = <&vreg_l2f0>;
 
 	status = "okay";
 };
@@ -1171,8 +1171,8 @@
 };
 
 &usb_1_hsphy {
-	vdd-supply = <&vreg_l3f_e0>;
-	vdda12-supply = <&vreg_l4h_e0>;
+	vdd-supply = <&vreg_l3f0>;
+	vdda12-supply = <&vreg_l4h0>;
 
 	phys = <&smb2370_k_e2_eusb2_repeater>;
 
@@ -1180,9 +1180,9 @@
 };
 
 &usb_1_qmpphy {
-	vdda-phy-supply = <&vreg_l4h_e0>;
-	vdda-pll-supply = <&vreg_l1h_e0>;
-	refgen-supply = <&vreg_l2f_e0>;
+	vdda-phy-supply = <&vreg_l4h0>;
+	vdda-pll-supply = <&vreg_l1h0>;
+	refgen-supply = <&vreg_l2f0>;
 
 	status = "okay";
 };
@@ -1200,8 +1200,8 @@
 };
 
 &usb_2_hsphy {
-	vdd-supply = <&vreg_l4c_e1>;
-	vdda12-supply = <&vreg_l4f_e1>;
+	vdd-supply = <&vreg_l4c1>;
+	vdda12-supply = <&vreg_l4f1>;
 
 	phys = <&smb2370_l_e2_eusb2_repeater>;
 
@@ -1209,9 +1209,9 @@
 };
 
 &usb_2_qmpphy {
-	vdda-phy-supply = <&vreg_l4f_e1>;
-	vdda-pll-supply = <&vreg_l4c_e1>;
-	refgen-supply = <&vreg_l1c_e1>;
+	vdda-phy-supply = <&vreg_l4f1>;
+	vdda-pll-supply = <&vreg_l4c1>;
+	refgen-supply = <&vreg_l1c1>;
 
 	status = "okay";
 };

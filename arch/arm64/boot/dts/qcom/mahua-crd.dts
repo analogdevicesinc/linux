@@ -21,22 +21,22 @@
 };
 
 &pcie3b_phy {
-	vdda-phy-supply = <&vreg_l3c_e1_0p89>;
-	vdda-pll-supply = <&vreg_l2c_e1_1p14>;
+	vdda-phy-supply = <&vreg_l3c1>;
+	vdda-pll-supply = <&vreg_l2c1>;
 };
 
 &tcsr {
-	vdda-qrefrpt0-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrpt1-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrpt2-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrpt3-0p9-supply = <&vreg_l1f_e1_0p82>;
-	vdda-qrefrpt4-0p9-supply = <&vreg_l2h_e0_0p72>;
-	vdda-qrefrpt5-0p9-supply = <&vreg_l2h_e0_0p72>;
-	vdda-qrefrx0-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrx1-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrx2-0p9-supply = <&vreg_l2f_e1_0p83>;
-	vdda-qrefrx3-0p9-supply = <&vreg_l2h_e0_0p72>;
-	vdda-qreftx1-0p9-supply = <&vreg_l1f_e1_0p82>;
-	vdda-refgen3-0p9-supply = <&vreg_l1f_e1_0p82>;
-	vdda-refgen3-1p2-supply = <&vreg_l4f_e1_1p08>;
+	vdda-qrefrpt0-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt1-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt2-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrpt3-0p9-supply = <&vreg_l1f1>;
+	vdda-qrefrpt4-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrpt5-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrx0-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx1-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx2-0p9-supply = <&vreg_l2f1>;
+	vdda-qrefrx3-0p9-supply = <&vreg_l2h0>;
+	vdda-qreftx1-0p9-supply = <&vreg_l1f1>;
+	vdda-refgen3-0p9-supply = <&vreg_l1f1>;
+	vdda-refgen3-1p2-supply = <&vreg_l4f1>;
 };
