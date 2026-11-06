@@ -1,0 +1,50 @@
+C file-ref-get-relaxed-recheck
+
+(*
+ * Result: Sometimes
+ *
+ * file-ref-get-acquire-recheck.litmus with a relaxed increment.  Nothing
+ * orders the reload after the increment anymore, so the reload can be
+ * satisfied before the increment hits the recycled counter: the lookup
+ * holds a reference to the recycled file and its recheck still saw the
+ * old slot, so it returns a file the descriptor never named.  Acquire
+ * is the minimum for file_ref_get().
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=1;
+	slot2=0;
+	0:r1=-9;
+}
+
+P0(int *slot, int *slot2, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, 0);
+	r0 = atomic_fetch_sub(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			atomic_set(cnt, 0);
+			smp_store_release(slot2, 1);
+		}
+	}
+}
+
+P1(int *slot, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+	int r2;
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*slot);
+	r1 = atomic_fetch_add_relaxed(1, cnt);
+	r2 = READ_ONCE(*slot);
+	rcu_read_unlock();
+}
+
+exists (0:r1=-1 /\ 1:r0=1 /\ 1:r1=0 /\ 1:r2=1)

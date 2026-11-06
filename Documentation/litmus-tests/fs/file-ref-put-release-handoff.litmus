@@ -1,0 +1,66 @@
+C file-ref-put-release-handoff
+
+(*
+ * Result: Sometimes
+ *
+ * file-ref-put-full-handoff.litmus with a release-ordered decrement,
+ * atomic_long_dec_return_release().  The release orders the cleared
+ * slot before the decrement itself and nothing more: not before the
+ * freelist store that hands the object to the other CPU, which is a
+ * later plain store.  So the other CPU can take the object, set ONEREF
+ * and publish it while the cleared slot is still invisible, and the
+ * lookup that incremented the recycled counter passes its recheck with
+ * the old slot and keeps a reference to a file the descriptor never
+ * named.  The deferred path of fput() gets such a barrier from the
+ * try_cmpxchg() of task_work_add(); the synchronous paths have nothing
+ * but the decrement.
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=1;
+	slot2=0;
+	fl=0;
+	0:r1=-9;
+}
+
+P0(int *slot, int *fl, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, 0);
+	r0 = atomic_fetch_sub_release(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			WRITE_ONCE(*fl, 1);
+		}
+	}
+}
+
+P1(int *slot, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+	int r2;
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*slot);
+	r1 = atomic_fetch_add_acquire(1, cnt);
+	r2 = READ_ONCE(*slot);
+	rcu_read_unlock();
+}
+
+P2(int *slot2, int *fl, atomic_t *cnt)
+{
+	int r0;
+
+	r0 = READ_ONCE(*fl);
+	if (r0 == 1) {
+		atomic_set(cnt, 0);
+		smp_store_release(slot2, 1);
+	}
+}
+
+exists (0:r1=-1 /\ 2:r0=1 /\ 1:r0=1 /\ 1:r1=0 /\ 1:r2=1)
