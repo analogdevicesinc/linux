@@ -20,14 +20,29 @@ description: |
   https://www.analog.com/media/en/technical-documentation/data-sheets/adum7701.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/adum7702.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/ADuM7703.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7801.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7802.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7811.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adum7812.pdf
 
 properties:
   compatible:
-    enum:
-      - adi,ad7405
-      - adi,adum7701
-      - adi,adum7702
-      - adi,adum7703
+    oneOf:
+      - enum:
+          - adi,ad7405
+          - adi,adum7701
+          - adi,adum7702
+          - adi,adum7703
+      - items:
+          - enum:
+              - adi,adum7801
+              - adi,adum7811
+          - const: adi,adum7701
+      - items:
+          - enum:
+              - adi,adum7802
+              - adi,adum7812
+          - const: adi,adum7702
 
   clocks:
     maxItems: 1
