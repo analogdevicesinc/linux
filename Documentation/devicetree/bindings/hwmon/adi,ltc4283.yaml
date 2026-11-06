@@ -222,7 +222,6 @@ allOf:
             const: adi,ltc4284
     then:
       required:
-        - adi,rsense2-nano-ohms
         - adi,radc-nano-ohms
     else:
       properties:
@@ -313,9 +312,9 @@ examples:
             compatible = "adi,ltc4284";
             reg = <0x20>;
 
-            adi,rsense-nano-ohms = <1000>;
-            adi,rsense2-nano-ohms = <1000>;
-            adi,radc-nano-ohms = <500>;
+            adi,rsense-nano-ohms = <2000000>;
+            adi,rsense2-nano-ohms = <2000000>;
+            adi,radc-nano-ohms = <1000000>;
         };
     };
 ...

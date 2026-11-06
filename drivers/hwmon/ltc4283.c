@@ -200,7 +200,14 @@ enum ltc4283_chip_id {
 struct ltc4283_chip_info {
 	enum ltc4283_chip_id id;
 	const char *name;
-	const struct hwmon_chip_info *hwmon_info;
+	u8 sense_reg[2];
+	u8 sense_min_reg[2];
+	u8 sense_max_reg[2];
+	u8 sense_min_th_reg[2];
+	u8 sense_max_th_reg[2];
+	u8 curr_alarm_reg;
+	u8 curr_alarm_high_mask[2];
+	u8 curr_alarm_low_mask[2];
 };
 
 struct ltc4283_hwmon {
@@ -238,91 +245,6 @@ static u32 ltc4283_get_rpower(const struct ltc4283_hwmon *st)
 		return st->radc;
 
 	return st->rsense;
-}
-
-static u8 ltc4283_get_sense_reg(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE;
-
-	if (!channel)
-		return LTC4284_SENSE1;
-
-	return LTC4284_SENSE2;
-}
-
-static u8 ltc4283_get_sense_min_reg(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_MIN;
-
-	if (!channel)
-		return LTC4284_SENSE1_MIN;
-
-	return LTC4284_SENSE2_MIN;
-}
-
-static u8 ltc4283_get_sense_max_reg(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_MAX;
-
-	if (!channel)
-		return LTC4284_SENSE1_MAX;
-
-	return LTC4284_SENSE2_MAX;
-}
-
-static u8 ltc4283_get_sense_min_th_reg(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_MIN_TH;
-
-	if (!channel)
-		return LTC4284_SENSE1_MIN_TH;
-
-	return LTC4284_SENSE2_MIN_TH;
-}
-
-static u8 ltc4283_get_sense_max_th_reg(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_MAX_TH;
-
-	if (!channel)
-		return LTC4284_SENSE1_MAX_TH;
-
-	return LTC4284_SENSE2_MAX_TH;
-}
-
-static u8 ltc4283_get_curr_alarm_reg(const struct ltc4283_hwmon *st)
-{
-	if (st->info->id == ID_LTC4284)
-		return LTC4283_ADC_ALM_LOG_4;
-
-	return LTC4283_ADC_ALM_LOG_1;
-}
-
-static u8 ltc4283_get_curr_alarm_high_mask(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_HIGH_ALM;
-
-	if (!channel)
-		return LTC4284_SENSE1_HIGH_ALM;
-
-	return LTC4284_SENSE2_HIGH_ALM;
-}
-
-static u8 ltc4283_get_curr_alarm_low_mask(const struct ltc4283_hwmon *st, u32 channel)
-{
-	if (st->info->id == ID_LTC4283)
-		return LTC4283_SENSE_LOW_ALM;
-
-	if (!channel)
-		return LTC4284_SENSE1_LOW_ALM;
-
-	return LTC4284_SENSE2_LOW_ALM;
 }
 
 static int ltc4283_read_voltage_word(const struct ltc4283_hwmon *st,
@@ -554,26 +476,26 @@ static int ltc4283_read_curr(struct ltc4283_hwmon *st, u32 attr, u32 channel, lo
 {
 	switch (attr) {
 	case hwmon_curr_input:
-		return ltc4283_read_current_word(st, ltc4283_get_sense_reg(st, channel),
+		return ltc4283_read_current_word(st, st->info->sense_reg[channel],
 						 channel, val);
 	case hwmon_curr_highest:
-		return ltc4283_read_current_word(st, ltc4283_get_sense_max_reg(st, channel),
+		return ltc4283_read_current_word(st, st->info->sense_max_reg[channel],
 						 channel, val);
 	case hwmon_curr_lowest:
-		return ltc4283_read_current_word(st, ltc4283_get_sense_min_reg(st, channel),
+		return ltc4283_read_current_word(st, st->info->sense_min_reg[channel],
 						 channel, val);
 	case hwmon_curr_max:
-		return ltc4283_read_current_byte(st, ltc4283_get_sense_max_th_reg(st, channel),
+		return ltc4283_read_current_byte(st, st->info->sense_max_th_reg[channel],
 						 channel, val);
 	case hwmon_curr_min:
-		return ltc4283_read_current_byte(st, ltc4283_get_sense_min_th_reg(st, channel),
+		return ltc4283_read_current_byte(st, st->info->sense_min_th_reg[channel],
 						 channel, val);
 	case hwmon_curr_max_alarm:
-		return ltc4283_read_alarm(st, ltc4283_get_curr_alarm_reg(st),
-					  ltc4283_get_curr_alarm_high_mask(st, channel), val);
+		return ltc4283_read_alarm(st, st->info->curr_alarm_reg,
+					  st->info->curr_alarm_high_mask[channel], val);
 	case hwmon_curr_min_alarm:
-		return ltc4283_read_alarm(st, ltc4283_get_curr_alarm_reg(st),
-					  ltc4283_get_curr_alarm_low_mask(st, channel), val);
+		return ltc4283_read_alarm(st, st->info->curr_alarm_reg,
+					  st->info->curr_alarm_low_mask[channel], val);
 	case hwmon_curr_crit_alarm:
 		return ltc4283_read_alarm(st, LTC4283_FAULT_STATUS,
 					  LTC4283_OC_MASK, val);
@@ -925,7 +847,7 @@ static int ltc4283_write_curr_history(struct ltc4283_hwmon *st, u32 channel)
 {
 	int ret;
 
-	ret = ltc4283_write_in_history(st, ltc4283_get_sense_min_reg(st, channel),
+	ret = ltc4283_write_in_history(st, st->info->sense_min_reg[channel],
 				       st->vsense_max * MILLI,
 				       LTC4283_ADC1_FS_uV);
 	if (ret)
@@ -940,10 +862,10 @@ static int ltc4283_write_curr(struct ltc4283_hwmon *st, u32 attr, u32 channel, l
 {
 	switch (attr) {
 	case hwmon_curr_max:
-		return ltc4283_write_curr_byte(st, ltc4283_get_sense_max_th_reg(st, channel),
+		return ltc4283_write_curr_byte(st, st->info->sense_max_th_reg[channel],
 					       channel, val);
 	case hwmon_curr_min:
-		return ltc4283_write_curr_byte(st, ltc4283_get_sense_min_th_reg(st, channel),
+		return ltc4283_write_curr_byte(st, st->info->sense_min_th_reg[channel],
 					       channel, val);
 	case hwmon_curr_reset_history:
 		return ltc4283_write_curr_history(st, channel);
@@ -1078,8 +1000,13 @@ static umode_t ltc4283_is_visible(const void *data,
 	switch (type) {
 	case hwmon_in:
 		return ltc4283_in_is_visible(data, attr, channel);
-	case hwmon_curr:
+	case hwmon_curr: {
+		const struct ltc4283_hwmon *st = data;
+
+		if (channel == 1 && !st->rsense2)
+			return 0;
 		return ltc4283_curr_is_visible(attr);
+	}
 	case hwmon_power:
 		return ltc4283_power_is_visible(attr);
 	case hwmon_energy:
@@ -1136,22 +1063,14 @@ static int ltc4283_set_max_limits(struct ltc4283_hwmon *st, struct device *dev)
 	u32 resistor = ltc4283_get_rpower(st);
 	int ret;
 
-	if (st->info->id == ID_LTC4283) {
-		ret = ltc4283_write_in_byte(st, LTC4283_SENSE_MAX_TH, LTC4283_ADC1_FS_uV,
-					    st->vsense_max * MILLI);
-		if (ret)
-			return ret;
-	} else {
-		/* LTC4284: Set max limits for SENSE1 and SENSE2 */
-		ret = ltc4283_write_in_byte(st, LTC4284_SENSE1_MAX_TH,
-					    LTC4283_ADC1_FS_uV,
-					    st->vsense_max * MILLI);
-		if (ret)
-			return ret;
+	ret = ltc4283_write_in_byte(st, st->info->sense_max_th_reg[0],
+				    LTC4283_ADC1_FS_uV, st->vsense_max * MILLI);
+	if (ret)
+		return ret;
 
-		ret = ltc4283_write_in_byte(st, LTC4284_SENSE2_MAX_TH,
-					    LTC4283_ADC1_FS_uV,
-					    st->vsense_max * MILLI);
+	if (st->info->id == ID_LTC4284) {
+		ret = ltc4283_write_in_byte(st, st->info->sense_max_th_reg[1],
+					    LTC4283_ADC1_FS_uV, st->vsense_max * MILLI);
 		if (ret)
 			return ret;
 	}
@@ -1416,6 +1335,27 @@ static const u32 ltc4283_fet_bad_delay[] = {
 	256, 512, 1002, 2005
 };
 
+static int ltc4283_read_resistor(struct device *dev, const char *prop,
+				 u32 *val, bool optional)
+{
+	int ret;
+
+	ret = device_property_read_u32(dev, prop, val);
+	if (ret) {
+		if (optional)
+			return 0;
+		return dev_err_probe(dev, ret, "Failed to read %s\n", prop);
+	}
+
+	if (*val < LTC4283_MIN_RSENSE || *val > LTC4283_MAX_RSENSE)
+		return dev_err_probe(dev, -EINVAL,
+				     "%s(%u) too small or too large [%u %u]\n",
+				     prop, *val, LTC4283_MIN_RSENSE,
+				     LTC4283_MAX_RSENSE);
+	*val /= CENTI;
+	return 0;
+}
+
 static int ltc4283_setup(struct ltc4283_hwmon *st, struct device *dev)
 {
 	u32 val;
@@ -1428,55 +1368,30 @@ static int ltc4283_setup(struct ltc4283_hwmon *st, struct device *dev)
 
 	/*
 	 * Default to LTC4283_MIN_RSENSE so we can probe without FW properties.
-	 */
-	st->rsense = LTC4283_MIN_RSENSE;
-	ret = device_property_read_u32(dev, "adi,rsense-nano-ohms",
-				       &st->rsense);
-	if (!ret) {
-		if (st->rsense < LTC4283_MIN_RSENSE || st->rsense > LTC4283_MAX_RSENSE)
-			return dev_err_probe(dev, -EINVAL,
-					     "adi,rsense-nano-ohms(%u) too small or too large [%u %u]\n",
-					     st->rsense, LTC4283_MIN_RSENSE, LTC4283_MAX_RSENSE);
-	}
-
-	/*
 	 * The resolution for rsense is tenths of micro (eg: 62.5 uOhm) which
 	 * means we need nano in the bindings. However, to make things easier to
 	 * handle (with respect to overflows) we divide it by 100 as we don't
 	 * really need the last two digits.
 	 */
-	st->rsense /= CENTI;
+	st->rsense = LTC4283_MIN_RSENSE / CENTI;
+	ret = ltc4283_read_resistor(dev, "adi,rsense-nano-ohms", &st->rsense, true);
+	if (ret)
+		return ret;
 
 	/*
 	 * For LTC4284, rsense is for SENSE1, rsense2 for SENSE2, and radc is
 	 * the effective sense resistance for ADC+- pin.
 	 */
 	if (st->info->id == ID_LTC4284) {
-		ret = device_property_read_u32(dev, "adi,rsense2-nano-ohms",
-					       &st->rsense2);
+		ret = ltc4283_read_resistor(dev, "adi,rsense2-nano-ohms",
+					    &st->rsense2, true);
 		if (ret)
-			return dev_err_probe(dev, ret,
-					     "Failed to read adi,rsense2-nano-ohms\n");
+			return ret;
 
-		if (st->rsense2 < LTC4283_MIN_RSENSE || st->rsense2 > LTC4283_MAX_RSENSE)
-			return dev_err_probe(dev, -EINVAL,
-					     "adi,rsense2-nano-ohms(%u) too small or too large [%u %u]\n",
-					     st->rsense2, LTC4283_MIN_RSENSE, LTC4283_MAX_RSENSE);
-
-		st->rsense2 /= CENTI;
-
-		ret = device_property_read_u32(dev, "adi,radc-nano-ohms",
-					       &st->radc);
+		ret = ltc4283_read_resistor(dev, "adi,radc-nano-ohms",
+					    &st->radc, false);
 		if (ret)
-			return dev_err_probe(dev, ret,
-					     "Failed to read adi,radc-nano-ohms\n");
-
-		if (st->radc < LTC4283_MIN_RSENSE || st->radc > LTC4283_MAX_RSENSE)
-			return dev_err_probe(dev, -EINVAL,
-					     "adi,radc-nano-ohms(%u) too small or too large [%u %u]\n",
-					     st->radc, LTC4283_MIN_RSENSE, LTC4283_MAX_RSENSE);
-
-		st->radc /= CENTI;
+			return ret;
 
 		/* Enable SENSE1 and SENSE2 */
 		ret = regmap_set_bits(st->map, LTC4283_ADC_SELECT_2,
@@ -1760,87 +1675,6 @@ static const struct hwmon_channel_info * const ltc4283_info[] = {
 			   HWMON_C_INPUT | HWMON_C_LOWEST | HWMON_C_HIGHEST |
 			   HWMON_C_MAX | HWMON_C_MIN | HWMON_C_MIN_ALARM |
 			   HWMON_C_MAX_ALARM | HWMON_C_CRIT_ALARM |
-			   HWMON_C_RESET_HISTORY | HWMON_C_LABEL),
-	HWMON_CHANNEL_INFO(power,
-			   HWMON_P_INPUT | HWMON_P_INPUT_LOWEST |
-			   HWMON_P_INPUT_HIGHEST | HWMON_P_MAX | HWMON_P_MIN |
-			   HWMON_P_MAX_ALARM | HWMON_P_MIN_ALARM |
-			   HWMON_P_RESET_HISTORY | HWMON_P_LABEL),
-	HWMON_CHANNEL_INFO(energy,
-			   HWMON_E_ENABLE),
-	HWMON_CHANNEL_INFO(energy64,
-			   HWMON_E_INPUT),
-	NULL
-};
-
-static const struct hwmon_channel_info * const ltc4284_info[] = {
-	HWMON_CHANNEL_INFO(in,
-			   HWMON_I_LCRIT_ALARM | HWMON_I_CRIT_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_MAX_ALARM | HWMON_I_RESET_HISTORY |
-			   HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_FAULT | HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL,
-			   HWMON_I_INPUT | HWMON_I_LOWEST | HWMON_I_HIGHEST |
-			   HWMON_I_MAX | HWMON_I_MIN | HWMON_I_MIN_ALARM |
-			   HWMON_I_RESET_HISTORY | HWMON_I_MAX_ALARM |
-			   HWMON_I_ENABLE | HWMON_I_LABEL),
-	HWMON_CHANNEL_INFO(curr,
-			   HWMON_C_INPUT | HWMON_C_LOWEST | HWMON_C_HIGHEST |
-			   HWMON_C_MAX | HWMON_C_MIN | HWMON_C_MIN_ALARM |
-			   HWMON_C_MAX_ALARM | HWMON_C_CRIT_ALARM |
 			   HWMON_C_RESET_HISTORY | HWMON_C_LABEL,
 			   HWMON_C_INPUT | HWMON_C_LOWEST | HWMON_C_HIGHEST |
 			   HWMON_C_MAX | HWMON_C_MIN | HWMON_C_MIN_ALARM |
@@ -1868,11 +1702,6 @@ static const struct hwmon_ops ltc4283_ops = {
 static const struct hwmon_chip_info ltc4283_hwmon_chip_info = {
 	.ops = &ltc4283_ops,
 	.info = ltc4283_info,
-};
-
-static const struct hwmon_chip_info ltc4284_hwmon_chip_info = {
-	.ops = &ltc4283_ops,
-	.info = ltc4284_info,
 };
 
 static int ltc4283_show_fault_log(void *arg, u64 *val, u32 mask)
@@ -2028,13 +1857,27 @@ static const struct regmap_config ltc4283_regmap_config = {
 static const struct ltc4283_chip_info chip_info_ltc4283 = {
 	.id = ID_LTC4283,
 	.name = "ltc4283",
-	.hwmon_info = &ltc4283_hwmon_chip_info,
+	.sense_reg = { LTC4283_SENSE, LTC4283_SENSE },
+	.sense_min_reg = { LTC4283_SENSE_MIN, LTC4283_SENSE_MIN },
+	.sense_max_reg = { LTC4283_SENSE_MAX, LTC4283_SENSE_MAX },
+	.sense_min_th_reg = { LTC4283_SENSE_MIN_TH, LTC4283_SENSE_MIN_TH },
+	.sense_max_th_reg = { LTC4283_SENSE_MAX_TH, LTC4283_SENSE_MAX_TH },
+	.curr_alarm_reg = LTC4283_ADC_ALM_LOG_1,
+	.curr_alarm_high_mask = { LTC4283_SENSE_HIGH_ALM, LTC4283_SENSE_HIGH_ALM },
+	.curr_alarm_low_mask = { LTC4283_SENSE_LOW_ALM, LTC4283_SENSE_LOW_ALM },
 };
 
 static const struct ltc4283_chip_info chip_info_ltc4284 = {
 	.id = ID_LTC4284,
 	.name = "ltc4284",
-	.hwmon_info = &ltc4284_hwmon_chip_info,
+	.sense_reg = { LTC4284_SENSE1, LTC4284_SENSE2 },
+	.sense_min_reg = { LTC4284_SENSE1_MIN, LTC4284_SENSE2_MIN },
+	.sense_max_reg = { LTC4284_SENSE1_MAX, LTC4284_SENSE2_MAX },
+	.sense_min_th_reg = { LTC4284_SENSE1_MIN_TH, LTC4284_SENSE2_MIN_TH },
+	.sense_max_th_reg = { LTC4284_SENSE1_MAX_TH, LTC4284_SENSE2_MAX_TH },
+	.curr_alarm_reg = LTC4283_ADC_ALM_LOG_4,
+	.curr_alarm_high_mask = { LTC4284_SENSE1_HIGH_ALM, LTC4284_SENSE2_HIGH_ALM },
+	.curr_alarm_low_mask = { LTC4284_SENSE1_LOW_ALM, LTC4284_SENSE2_LOW_ALM },
 };
 
 static int ltc4283_probe(struct i2c_client *client)
@@ -2070,7 +1913,7 @@ static int ltc4283_probe(struct i2c_client *client)
 		return ret;
 
 	hwmon = devm_hwmon_device_register_with_info(dev, st->info->name, st,
-						     st->info->hwmon_info, NULL);
+						     &ltc4283_hwmon_chip_info, NULL);
 
 	if (IS_ERR(hwmon))
 		return PTR_ERR(hwmon);
@@ -2097,8 +1940,8 @@ static const struct of_device_id ltc4283_of_match[] = {
 MODULE_DEVICE_TABLE(of, ltc4283_of_match);
 
 static const struct i2c_device_id ltc4283_i2c_id[] = {
-	{ "ltc4283", (kernel_ulong_t)&chip_info_ltc4283 },
-	{ "ltc4284", (kernel_ulong_t)&chip_info_ltc4284 },
+	{ .name = "ltc4283", .driver_data = (kernel_ulong_t)&chip_info_ltc4283 },
+	{ .name = "ltc4284", .driver_data = (kernel_ulong_t)&chip_info_ltc4284 },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, ltc4283_i2c_id);
