@@ -939,7 +939,8 @@ pub(crate) struct GmcApiHeader {
     inner: r000_00::GMCAPI_HEADER,
 }
 
-#[expect(dead_code)]
+// Using `allow` instead of `expect` here due to rust-lang/rust#154377.
+#[allow(dead_code)]
 impl GmcApiHeader {
     /// Creates the header of a request for `command`, sent with sequence number `sequence` and
     /// followed by `payload_size` bytes of payload.

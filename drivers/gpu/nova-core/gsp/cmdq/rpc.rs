@@ -369,7 +369,13 @@ impl CmdqInner<'_> {
         Error: From<M::InitError>,
     {
         let f = |message: GspParsedMessage<'_>| {
-            let GspParsedMessage::Rpc(rpc_message) = message;
+            let rpc_message = match message {
+                GspParsedMessage::Rpc(rpc_message) => rpc_message,
+                _ => {
+                    message.log(self.dev);
+                    return Ok(None);
+                }
+            };
             let function = rpc_message.header.function();
             if matches!(function, Ok(f) if f == M::FUNCTION) {
                 let (cmd, contents_1) =
