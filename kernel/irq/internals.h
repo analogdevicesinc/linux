@@ -302,6 +302,18 @@ static inline bool irq_is_nmi(struct irq_desc *desc)
 	return desc->istate & IRQS_NMI;
 }
 
+/*
+ * Per CPU interrupts, NMIs and interrupts handled by handle_percpu_irq()
+ * only update the per CPU statistics and leave desc::tot_count alone.
+ */
+static inline bool irq_desc_has_tot_count(struct irq_desc *desc)
+{
+	return !irq_settings_is_per_cpu_devid(desc) &&
+	       !irq_settings_is_per_cpu(desc) &&
+	       !irq_is_nmi(desc) &&
+	       desc->handle_irq != handle_percpu_irq;
+}
+
 #ifdef CONFIG_PM_SLEEP
 void irq_pm_handle_wakeup(struct irq_desc *desc);
 void irq_pm_install_action(struct irq_desc *desc, struct irqaction *action);
