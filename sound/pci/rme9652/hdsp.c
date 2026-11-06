@@ -1381,6 +1381,10 @@ static int snd_hdsp_midi_input_read (struct hdsp_midi *hmidi)
 			}
 		}
 		hmidi->pending = 0;
+	}
+
+	/* control_register is shared by all users, serialize on hdsp->lock */
+	scoped_guard(spinlock_irqsave, &hmidi->hdsp->lock) {
 		if (hmidi->id)
 			hmidi->hdsp->control_register |= HDSP_Midi1InterruptEnable;
 		else
@@ -3903,8 +3907,10 @@ static irqreturn_t snd_hdsp_interrupt(int irq, void *dev_id)
 	if (midi0 && midi0status) {
 		if (hdsp->use_midi_work) {
 			/* we disable interrupts for this input until processing is done */
-			hdsp->control_register &= ~HDSP_Midi0InterruptEnable;
-			hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			scoped_guard(spinlock, &hdsp->lock) {
+				hdsp->control_register &= ~HDSP_Midi0InterruptEnable;
+				hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			}
 			hdsp->midi[0].pending = 1;
 			schedule = 1;
 		} else {
@@ -3914,8 +3920,10 @@ static irqreturn_t snd_hdsp_interrupt(int irq, void *dev_id)
 	if (hdsp->io_type != Multiface && hdsp->io_type != RPM && hdsp->io_type != H9632 && midi1 && midi1status) {
 		if (hdsp->use_midi_work) {
 			/* we disable interrupts for this input until processing is done */
-			hdsp->control_register &= ~HDSP_Midi1InterruptEnable;
-			hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			scoped_guard(spinlock, &hdsp->lock) {
+				hdsp->control_register &= ~HDSP_Midi1InterruptEnable;
+				hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			}
 			hdsp->midi[1].pending = 1;
 			schedule = 1;
 		} else {
