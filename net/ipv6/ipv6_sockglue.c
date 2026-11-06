@@ -48,7 +48,6 @@
 #include <net/xfrm.h>
 #include <net/compat.h>
 #include <net/seg6.h>
-#include <net/psp.h>
 
 #include <linux/uaccess.h>
 
@@ -109,7 +108,6 @@ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
 			struct inet_connection_sock *icsk = inet_csk(sk);
 
 			icsk->icsk_ext_hdr_len =
-				psp_sk_overhead(sk) +
 				opt->opt_flen + opt->opt_nflen;
 			icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
 		}
