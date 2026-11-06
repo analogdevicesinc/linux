@@ -299,7 +299,7 @@ out:
 	struct_ops_arena_autobind__destroy(skel);
 }
 
-/* The same through the vmlinux.h rendering of the members, which takes casts. */
+/* The same through an older bpftool's vmlinux.h rendering of the members, which takes casts. */
 static void arena_member_render(void)
 {
 	struct struct_ops_arena_member_render *skel;

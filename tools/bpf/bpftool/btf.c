@@ -1092,22 +1092,194 @@ static struct sort_datum *sort_btf_c(const struct btf *btf)
 	return datums;
 }
 
-static int dump_btf_c(const struct btf *btf,
+/*
+ * Kernel BTF keeps its type tags as the kernel expects them. Decl tags in
+ * the dump split choose how btf_dump prints them.
+ */
+static const struct {
+	bool kflag;
+	const char *name;
+	const char *override;
+} btf_c_type_tags[] = {
+	/* the arena attribute in older kernel BTF */
+	{ true, "address_space(1)", "__attribute__((address_space(1)))" },
+	/* __arena in include/linux/bpf_compiler_types.h */
+	{ false, "arena", "__bpf_arena" },
+};
+
+static int btf_c_annotate_type_tags(struct btf *btf)
+{
+	__u32 i, cnt = btf__type_cnt(btf);
+	size_t j;
+	int err;
+
+	for (i = 1; i < cnt; i++) {
+		const struct btf_type *t = btf__type_by_id(btf, i);
+		const char *name;
+
+		if (!btf_is_type_tag(t))
+			continue;
+		name = btf__name_by_offset(btf, t->name_off);
+		for (j = 0; j < ARRAY_SIZE(btf_c_type_tags); j++) {
+			if (btf_kflag(t) != btf_c_type_tags[j].kflag ||
+			    strcmp(name, btf_c_type_tags[j].name))
+				continue;
+			err = btf__add_decl_attr(btf, btf_c_type_tags[j].override, i, -1);
+			if (err < 0)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
+/*
+ * The verifier translates field accesses of some types into accesses
+ * to kernel structures, see bpf_convert_ctx_accesses().
+ * The translation keys on the immediate offset of each load or store,
+ * so offsets into these types must stay immediates.
+ */
+static const char * const btf_c_static_offset_types[] = {
+	"__sk_buff",
+	"bpf_perf_event_data",
+	"bpf_sk_lookup",
+	"bpf_sock",
+	"bpf_sock_addr",
+	"bpf_sock_ops",
+	"bpf_sockopt",
+	"bpf_sysctl",
+	"bpf_tcp_sock",
+	"bpf_xdp_sock",
+	"sk_msg_md",
+	"sk_reuseport_md",
+	"xdp_md",
+};
+
+static bool btf_c_needs_static_offset(const struct btf *btf, const struct btf_type *t)
+{
+	const char *name;
+	size_t i;
+
+	if (!btf_is_struct(t))
+		return false;
+
+	name = btf__name_by_offset(btf, t->name_off);
+	for (i = 0; i < ARRAY_SIZE(btf_c_static_offset_types); i++) {
+		if (!strcmp(name, btf_c_static_offset_types[i]))
+			return true;
+	}
+	return false;
+}
+
+/*
+ * Anonymous records within types that need static offsets must not start
+ * CO-RE access chains. Named records, typedefs and pointer targets are
+ * separate types.
+ */
+static void btf_c_mark_non_relocatable(const struct btf *btf, __u32 id, bool *non_relocatable)
+{
+	const struct btf_type *t = btf__type_by_id(btf, id);
+	const struct btf_member *m = btf_members(t);
+	__u32 i;
+
+	non_relocatable[id] = true;
+	for (i = 0; i < btf_vlen(t); i++, m++) {
+		const struct btf_type *mt = btf__type_by_id(btf, m->type);
+
+		if (btf_is_composite(mt) && !mt->name_off && !non_relocatable[m->type])
+			btf_c_mark_non_relocatable(btf, m->type, non_relocatable);
+	}
+}
+
+static int btf_c_annotate_records(struct btf *btf)
+{
+	__u32 i, cnt = btf__type_cnt(btf);
+	bool *non_relocatable;
+	int err;
+
+	non_relocatable = calloc(cnt, sizeof(*non_relocatable));
+	if (!non_relocatable)
+		return -ENOMEM;
+
+	for (i = 1; i < cnt; i++) {
+		if (btf_c_needs_static_offset(btf, btf__type_by_id(btf, i)))
+			btf_c_mark_non_relocatable(btf, i, non_relocatable);
+	}
+
+	for (i = 1; i < cnt; i++) {
+		const struct btf_type *t = btf__type_by_id(btf, i);
+		const char *attr;
+
+		if (!btf_is_composite(t))
+			continue;
+		if (!non_relocatable[i])
+			attr = "__bpf_relocatable";
+		else if (btf_c_needs_static_offset(btf, t))
+			attr = "__bpf_static_offset";
+		else
+			continue;
+		err = btf__add_decl_attr(btf, attr, i, -1);
+		if (err < 0)
+			goto out;
+	}
+
+	err = 0;
+out:
+	free(non_relocatable);
+	return err;
+}
+
+static int dump_btf_c(struct btf *btf,
 		      __u32 *root_type_ids, int root_type_cnt, bool sort_dump)
 {
 	struct sort_datum *datums = NULL;
-	struct btf_dump *d;
+	struct btf_dump *d = NULL;
+	struct btf *split;
+	size_t ptr_sz;
 	int err = 0, i;
 
-	d = btf_dump__new(btf, btf_dump_printf, NULL, NULL);
-	if (!d)
+	split = btf__new_empty_split(btf);
+	if (!split)
 		return -errno;
+
+	/* btf__new_empty_split() does not inherit the base pointer size */
+	ptr_sz = btf__pointer_size(btf);
+	if (ptr_sz)
+		btf__set_pointer_size(split, ptr_sz);
+
+	err = btf_c_annotate_type_tags(split);
+	if (err)
+		goto done;
+
+	err = btf_c_annotate_records(split);
+	if (err)
+		goto done;
+
+	d = btf_dump__new(split, btf_dump_printf, NULL, NULL);
+	if (!d) {
+		err = -errno;
+		goto done;
+	}
 
 	printf("#ifndef __VMLINUX_H__\n");
 	printf("#define __VMLINUX_H__\n");
 	printf("\n");
-	printf("#ifndef BPF_NO_PRESERVE_ACCESS_INDEX\n");
-	printf("#pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)\n");
+	printf("#ifndef __bpf_relocatable\n");
+	printf("#if !defined(BPF_NO_PRESERVE_ACCESS_INDEX) && __has_attribute(preserve_access_index)\n");
+	printf("#define __bpf_relocatable __attribute__((preserve_access_index))\n");
+	printf("#else\n");
+	printf("#define __bpf_relocatable\n");
+	printf("#endif\n");
+	printf("#endif\n\n");
+	printf("#ifndef __bpf_static_offset\n");
+	printf("#if __has_attribute(preserve_static_offset)\n");
+	printf("#define __bpf_static_offset __attribute__((preserve_static_offset))\n");
+	printf("#else\n");
+	printf("#define __bpf_static_offset\n");
+	printf("#endif\n");
+	printf("#endif\n\n");
+	printf("#ifndef __bpf_arena\n");
+	printf("#define __bpf_arena __attribute__((address_space(1))) __attribute__((btf_type_tag(\"arena\")))\n");
 	printf("#endif\n\n");
 	printf("#ifndef __ksym\n");
 	printf("#define __ksym __attribute__((section(\".ksyms\")))\n");
@@ -1130,10 +1302,10 @@ static int dump_btf_c(const struct btf *btf,
 				goto done;
 		}
 	} else {
-		int cnt = btf__type_cnt(btf);
+		int cnt = btf__type_cnt(split);
 
 		if (sort_dump)
-			datums = sort_btf_c(btf);
+			datums = sort_btf_c(split);
 		for (i = 0; i < cnt; i++) {
 			int idx = datums ? datums[i].index : i;
 
@@ -1146,20 +1318,17 @@ static int dump_btf_c(const struct btf *btf,
 				goto done;
 		}
 
-		err = dump_btf_kfuncs(d, btf);
+		err = dump_btf_kfuncs(d, split);
 		if (err)
 			goto done;
 	}
 
-	printf("#ifndef BPF_NO_PRESERVE_ACCESS_INDEX\n");
-	printf("#pragma clang attribute pop\n");
-	printf("#endif\n");
-	printf("\n");
 	printf("#endif /* __VMLINUX_H__ */\n");
 
 done:
 	free(datums);
 	btf_dump__free(d);
+	btf__free(split);
 	return err;
 }
 

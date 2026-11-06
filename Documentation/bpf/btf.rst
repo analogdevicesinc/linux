@@ -506,10 +506,14 @@ If ``info.kind_flag`` is 0, then this is a normal decl tag, and the
 ``name_off`` encodes btf_decl_tag attribute string.
 
 If ``info.kind_flag`` is 1, then the decl tag represents an arbitrary
-__attribute__. In this case, ``name_off`` encodes a string
-representing the attribute-list of the attribute specifier. For
-example, for an ``__attribute__((aligned(4)))`` the string's contents
-is ``aligned(4)``.
+annotation. ``name_off`` encodes the complete annotation string, which
+``btf_dump`` prints unchanged at the declaration. For example, an attribute
+specifier is encoded as ``__attribute__((aligned(4)))``, including the
+wrapper. A macro can be encoded as its identifier, leaving its definition
+to the generated header or its user.
+
+``btf_dump`` also accepts decl tags that reference a ``type_tag``, as
+described under ``BTF_KIND_TYPE_TAG``.
 
 2.2.18 BTF_KIND_TYPE_TAG
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -539,8 +543,16 @@ normal type tag, and the ``name_off`` encodes btf_type_tag attribute
 string.
 
 If ``info.kind_flag`` is 1, then the type tag represents an arbitrary
-__attribute__, and the ``name_off`` encodes a string representing the
-attribute-list of the attribute specifier.
+annotation. As with decl tags, ``name_off`` encodes the complete annotation
+string, which ``btf_dump`` prints unchanged. An attribute specifier must
+include its wrapper, for example ``__attribute__((address_space(1)))``.
+
+``btf_dump`` prints decl tags that reference a type tag, with
+``btf_decl_tag.component_idx`` of ``-1``, in place of that type tag. They
+are printed the same way as decl tags on declarations. This lets a split
+BTF built for a C dump change how the type tags of its base BTF are
+printed, without modifying the base. The kernel rejects decl tags that
+reference type tags.
 
 2.2.19 BTF_KIND_ENUM64
 ~~~~~~~~~~~~~~~~~~~~~~

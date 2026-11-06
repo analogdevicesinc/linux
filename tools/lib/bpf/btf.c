@@ -153,9 +153,10 @@ struct btf {
 	 */
 	int start_str_off;
 
-	/* only one of strs_data or strs_set can be non-NULL, depending on
-	 * whether BTF is in a modifiable state (strs_set is used) or not
-	 * (strs_data points inside raw_data)
+	/*
+	 * strs_data points inside raw_data until BTF becomes modifiable,
+	 * then strings live in strs_set. Before that, strs_set may exist
+	 * as a lookup index for btf__find_str().
 	 */
 	void *strs_data;
 	/* a set of unique strings */
@@ -1252,15 +1253,15 @@ void btf__free(struct btf *btf)
 
 	if (btf_is_modifiable(btf)) {
 		/* if BTF was modified after loading, it will have a split
-		 * in-memory representation for types, strings and layout
-		 * sections, so we need to free all of them individually. It
-		 * might still have a cached contiguous raw data present,
-		 * which will be unconditionally freed below.
+		 * in-memory representation for types and layout sections,
+		 * so we need to free both individually. It might still have
+		 * a cached contiguous raw data present, which will be
+		 * unconditionally freed below.
 		 */
 		free(btf->types_data);
-		strset__free(btf->strs_set);
 		free(btf->layout);
 	}
+	strset__free(btf->strs_set);
 	btf_free_raw_data(btf);
 	free(btf->raw_data_swapped);
 	free(btf->type_offs);
@@ -2043,6 +2044,21 @@ static void btf_invalidate_raw_data(struct btf *btf)
 	btf->named_start_id = 0;
 }
 
+static int btf_ensure_strs_set(struct btf *btf)
+{
+	struct strset *set;
+
+	if (btf->strs_set)
+		return 0;
+
+	set = strset__new(BTF_MAX_STR_OFFSET, btf->strs_data, btf->hdr.str_len);
+	if (IS_ERR(set))
+		return PTR_ERR(set);
+
+	btf->strs_set = set;
+	return 0;
+}
+
 /* Ensure BTF is ready to be modified (by splitting into a three memory
  * regions for types, strings and layout. Also invalidate cached
  * raw_data, if any.
@@ -2050,7 +2066,6 @@ static void btf_invalidate_raw_data(struct btf *btf)
 static int btf_ensure_modifiable(struct btf *btf)
 {
 	void *types, *layout = NULL;
-	struct strset *set = NULL;
 	int err = -ENOMEM;
 
 	if (btf_is_modifiable(btf)) {
@@ -2078,18 +2093,14 @@ static int btf_ensure_modifiable(struct btf *btf)
 		       btf->hdr.layout_len);
 	}
 
-	/* build lookup index for all strings */
-	set = strset__new(BTF_MAX_STR_OFFSET, btf->strs_data, btf->hdr.str_len);
-	if (IS_ERR(set)) {
-		err = PTR_ERR(set);
+	err = btf_ensure_strs_set(btf);
+	if (err)
 		goto err_out;
-	}
 
 	/* only when everything was successful, update internal state */
 	btf->types_data = types;
 	btf->types_data_cap = btf->hdr.type_len;
 	btf->strs_data = NULL;
-	btf->strs_set = set;
 	if (layout)
 		btf->layout = layout;
 	/* if BTF was created from scratch, all strings are guaranteed to be
@@ -2108,7 +2119,6 @@ static int btf_ensure_modifiable(struct btf *btf)
 	return 0;
 
 err_out:
-	strset__free(set);
 	free(types);
 	free(layout);
 	return err;
@@ -2131,8 +2141,7 @@ int btf__find_str(struct btf *btf, const char *s)
 			return off;
 	}
 
-	/* BTF needs to be in a modifiable state to build string lookup index */
-	err = btf_ensure_modifiable(btf);
+	err = btf_ensure_strs_set(btf);
 	if (err)
 		return libbpf_err(err);
 
@@ -3069,7 +3078,8 @@ int btf__add_type_tag(struct btf *btf, const char *value, int ref_type_id)
  * Append new BTF_KIND_TYPE_TAG type with:
  *   - *value*, non-empty/non-NULL tag value;
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * The kind flag is set; btf_dump prints *value* unchanged.
+ * Attribute specifiers must include the __attribute__((...)) wrapper.
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.
@@ -3404,7 +3414,8 @@ int btf__add_decl_tag(struct btf *btf, const char *value, int ref_type_id,
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
  *   - *component_idx* - -1 for tagging reference type, otherwise struct/union
  *     member or function argument index;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * The kind flag is set; btf_dump prints *value* unchanged.
+ * Attribute specifiers must include the __attribute__((...)) wrapper.
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.

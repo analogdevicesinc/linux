@@ -567,7 +567,8 @@ At kernel build time the ``resolve_btfids`` tool finds all kfuncs declared with
 For each kfunc it emits a ``bpf_kfunc`` BTF decl tag, a ``bpf_fastcall`` decl
 tag when the kfunc is flagged ``KF_FASTCALL``, and the ``address_space(1)`` type
 attribute on the return value and/or arguments that use arena pointers (see
-sections 2.3.8 and 2.8).
+sections 2.3.8 and 2.8). The type tag stores the complete
+``__attribute__((address_space(1)))`` specifier with ``kind_flag`` set.
 
 2.7  Specifying no-cast aliases with ___init
 --------------------------------------------

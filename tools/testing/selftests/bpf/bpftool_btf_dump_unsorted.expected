@@ -1,8 +1,24 @@
 #ifndef __VMLINUX_H__
 #define __VMLINUX_H__
 
-#ifndef BPF_NO_PRESERVE_ACCESS_INDEX
-#pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)
+#ifndef __bpf_relocatable
+#if !defined(BPF_NO_PRESERVE_ACCESS_INDEX) && __has_attribute(preserve_access_index)
+#define __bpf_relocatable __attribute__((preserve_access_index))
+#else
+#define __bpf_relocatable
+#endif
+#endif
+
+#ifndef __bpf_static_offset
+#if __has_attribute(preserve_static_offset)
+#define __bpf_static_offset __attribute__((preserve_static_offset))
+#else
+#define __bpf_static_offset
+#endif
+#endif
+
+#ifndef __bpf_arena
+#define __bpf_arena __attribute__((address_space(1))) __attribute__((btf_type_tag("arena")))
 #endif
 
 #ifndef __ksym
@@ -26,7 +42,7 @@ struct holey {
 	long: 32;
 	long: 32;
 	int tail;
-};
+} __bpf_relocatable;
 
 enum {
 	E0 = 1,
@@ -34,15 +50,37 @@ enum {
 
 struct s {
 	int f;
-};
+} __bpf_relocatable;
+
+struct __sk_buff {
+	int len;
+	union {
+		int sk;
+	};
+} __bpf_static_offset;
+
+struct bpf_sk_lookup {
+	union {
+		union {
+			int cookie;
+		};
+		int family;
+	};
+} __bpf_static_offset;
+
+struct bpf_tcp_sock {
+	int snd_cwnd;
+} __bpf_static_offset;
+
+struct bpf_nf_ctx {
+	int f;
+} __bpf_relocatable;
+
+typedef int __bpf_arena *arena_ptr;
 
 
 /* BPF kfuncs */
 #ifndef BPF_NO_KFUNC_PROTOTYPES
-#endif
-
-#ifndef BPF_NO_PRESERVE_ACCESS_INDEX
-#pragma clang attribute pop
 #endif
 
 #endif /* __VMLINUX_H__ */

@@ -14,7 +14,7 @@
 
 #define DECL_TAG_FASTCALL "bpf_fastcall"
 #define DECL_TAG_KFUNC "bpf_kfunc"
-#define TYPE_ATTR_ARENA "address_space(1)"
+#define TYPE_ATTR_ARENA "__attribute__((address_space(1)))"
 #define ARENA_ARG(n) (1U << (n))
 
 #ifndef KF_FASTCALL
@@ -239,7 +239,7 @@ static void check_kfunc_set(struct btf_id_set8 *set)
 	}
 }
 
-/* True if @id is PTR -> TYPE_TAG(kflag=1, "address_space(1)") -> pointee */
+/* True if @id is PTR -> TYPE_TAG(kflag=1, TYPE_ATTR_ARENA) -> pointee */
 static bool is_arena_tagged_ptr(struct btf *btf, __u32 id)
 {
 	const struct btf_type *ptr, *tag;

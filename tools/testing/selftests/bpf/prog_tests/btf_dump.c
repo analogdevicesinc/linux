@@ -320,11 +320,12 @@ static void test_btf_dump_incremental(void)
 "		Y___2 = 1,\n"
 "	} y;\n"
 "	struct s s;\n"
-"} __attribute__((round2));\n\n", "c_dump1");
+"} round2;\n\n", "c_dump1");
 
 	test_ctx__free(&t);
 }
 
+/* Bare annotation names in the tag tests stand for user-defined macros. */
 static void test_btf_dump_decl_tags(void)
 {
 	struct test_ctx t = {};
@@ -339,14 +340,14 @@ static void test_btf_dump_decl_tags(void)
 	/*
 	 * Generate BTF corresponding to the following C code:
 	 *
-	 * struct s1 { int f; } __attribute__((attr1))
+	 * struct s1 { int f; } __attribute__((aligned(4), packed))
 	 *                      __attribute__((btf_decl_tag("plain_tag")));
-	 * typedef struct { int f; } __attribute__((a1)) __attribute__((a2)) t1;
-	 * union u1 { int f; } __attribute__((uattr));
-	 * struct p1 { char c; int i; } __attribute__((packed)) __attribute__((pattr));
-	 * struct outer { struct { int g; } __attribute__((inner)) in; };
-	 * struct s2 { int f; } __attribute__((on_s2));
-	 * struct s3 { int f; } __attribute__((on_s3));
+	 * typedef struct { int f; } a1 a2 t1;
+	 * union u1 { int f; } uattr;
+	 * struct p1 { char c; int i; } __attribute__((packed)) pattr;
+	 * struct outer { struct { int g; } inner in; };
+	 * struct s2 { int f; } on_s2;
+	 * struct s3 { int f; } on_s3;
 	 *
 	 * plus attributes on a var and a func, which btf_dump does not declare.
 	 */
@@ -355,12 +356,13 @@ static void test_btf_dump_decl_tags(void)
 	id = btf__add_int(btf, "char", 1, BTF_INT_CHAR);
 	ASSERT_EQ(id, 2, "char_id");
 
-	/* a named record with one attribute of each form */
+	/* a complete attribute specifier next to a normal decl tag */
 	id = btf__add_struct(btf, "s1", 4);
 	ASSERT_EQ(id, 3, "s1_id");
 	ASSERT_OK(btf__add_field(btf, "f", 1, 0, 0), "s1_field");
-	ASSERT_EQ(btf__add_decl_attr(btf, "attr1", 3, -1), 4, "s1_attr");
-	/* no kflag: rendered as a btf_decl_tag(), not as a bare attribute */
+	ASSERT_EQ(btf__add_decl_attr(btf, "__attribute__((aligned(4), packed))", 3, -1),
+		  4, "s1_attr");
+	/* no kflag: rendered as a btf_decl_tag() */
 	ASSERT_EQ(btf__add_decl_tag(btf, "plain_tag", 3, -1), 5, "s1_plain_tag");
 
 	/*
@@ -428,34 +430,34 @@ static void test_btf_dump_decl_tags(void)
 	test_ctx__dump_and_compare(&t,
 "struct s1 {\n"
 "	int f;\n"
-"} __attribute__((attr1)) __attribute__((btf_decl_tag(\"plain_tag\")));\n"
+"} __attribute__((aligned(4), packed)) __attribute__((btf_decl_tag(\"plain_tag\")));\n"
 "\n"
 "typedef struct {\n"
 "	int f;\n"
-"} __attribute__((a1)) __attribute__((a2)) t1;\n"
+"} a1 a2 t1;\n"
 "\n"
 "union u1 {\n"
 "	int f;\n"
-"} __attribute__((uattr));\n"
+"} uattr;\n"
 "\n"
 "struct p1 {\n"
 "	char c;\n"
 "	int i;\n"
-"} __attribute__((packed)) __attribute__((pattr));\n"
+"} __attribute__((packed)) pattr;\n"
 "\n"
 "struct outer {\n"
 "	struct {\n"
 "		int g;\n"
-"	} __attribute__((inner)) in;\n"
+"	} inner in;\n"
 "};\n"
 "\n"
 "struct s2 {\n"
 "	int f;\n"
-"} __attribute__((on_s2));\n"
+"} on_s2;\n"
 "\n"
 "struct s3 {\n"
 "	int f;\n"
-"} __attribute__((on_s3));\n"
+"} on_s3;\n"
 "\n", "dump_and_compare");
 
 	test_ctx__free(&t);
@@ -481,12 +483,12 @@ static void test_btf_dump_decl_tags_members(void)
 	 * Generate BTF corresponding to the following C code:
 	 *
 	 * struct m1 {
-	 *	int (*fp)(void) __attribute__((fp_attr));
+	 *	int (*fp)(void) fp_attr;
 	 *	int a;
-	 *	int b __attribute__((b1)) __attribute__((b2));
-	 *	int arr[4] __attribute__((arr_attr));
-	 * } __attribute__((rec));
-	 * struct bits { int x : 3 __attribute__((x_attr)); int y : 29; };
+	 *	int b b1 b2;
+	 *	int arr[4] arr_attr;
+	 * } rec;
+	 * struct bits { int x : 3 x_attr; int y : 29; };
 	 */
 	id = btf__add_int(btf, "int", 4, BTF_INT_SIGNED);
 	ASSERT_EQ(id, 1, "int_id");
@@ -520,14 +522,14 @@ static void test_btf_dump_decl_tags_members(void)
 
 	test_ctx__dump_and_compare(&t,
 "struct m1 {\n"
-"	int (*fp)(void) __attribute__((fp_attr));\n"
+"	int (*fp)(void) fp_attr;\n"
 "	int a;\n"
-"	int b __attribute__((b1)) __attribute__((b2));\n"
-"	int arr[4] __attribute__((arr_attr));\n"
-"} __attribute__((rec));\n"
+"	int b b1 b2;\n"
+"	int arr[4] arr_attr;\n"
+"} rec;\n"
 "\n"
 "struct bits {\n"
-"	int x: 3 __attribute__((x_attr));\n"
+"	int x: 3 x_attr;\n"
 "	int y: 29;\n"
 "};\n"
 "\n", "dump_and_compare");
@@ -554,18 +556,18 @@ static void test_btf_dump_decl_tags_typedef(void)
 	/*
 	 * Generate BTF corresponding to the following C code:
 	 *
-	 * typedef int td __attribute__((t1))
+	 * typedef int td t1
 	 *                __attribute__((btf_decl_tag("t2")));
 	 * typedef struct {
-	 *	int f __attribute__((memb_attr));
-	 * } __attribute__((rec_attr)) both __attribute__((both_attr));
+	 *	int f memb_attr;
+	 * } rec_attr both both_attr;
 	 */
 	id = btf__add_int(btf, "int", 4, BTF_INT_SIGNED);
 	ASSERT_EQ(id, 1, "int_id");
 	id = btf__add_typedef(btf, "td", 1);
 	ASSERT_EQ(id, 2, "td_id");
 	ASSERT_EQ(btf__add_decl_attr(btf, "t1", 2, -1), 3, "td_attr1");
-	/* no kflag: rendered as a btf_decl_tag(), not as a bare attribute */
+	/* no kflag: rendered as a btf_decl_tag() */
 	ASSERT_EQ(btf__add_decl_tag(btf, "t2", 2, -1), 4, "td_attr2");
 
 	id = btf__add_struct(btf, NULL, 4);
@@ -578,11 +580,11 @@ static void test_btf_dump_decl_tags_typedef(void)
 	ASSERT_EQ(btf__add_decl_attr(btf, "both_attr", 8, -1), 9, "both_attr");
 
 	test_ctx__dump_and_compare(&t,
-"typedef int td __attribute__((t1)) __attribute__((btf_decl_tag(\"t2\")));\n"
+"typedef int td t1 __attribute__((btf_decl_tag(\"t2\")));\n"
 "\n"
 "typedef struct {\n"
-"	int f __attribute__((memb_attr));\n"
-"} __attribute__((rec_attr)) both __attribute__((both_attr));\n"
+"	int f memb_attr;\n"
+"} rec_attr both both_attr;\n"
 "\n", "dump_and_compare");
 
 	test_ctx__free(&t);
@@ -603,11 +605,14 @@ static void test_btf_dump_type_tags(void)
 	 *
 	 * struct s {
 	 *   void __attribute__((btf_type_tag(\"void_tag\"))) *p1;
-	 *   void __attribute__((void_attr)) *p2;
-	 *   void __arena *p3;
+	 *   void __attribute__((aligned(8))) *p2;
+	 *   void __type_marker *p3;
+	 *   void __plain_repl *p4;
+	 *   void __kflag_repl *p5;
 	 * };
 	 *
-	 * The arena tag is rendered with the address space it denotes.
+	 * The type tags of p4 and p5 carry kflagged decl tags, printed in their
+	 * place.
 	 */
 
 	id = btf__add_type_tag(btf, "void_tag", 0);
@@ -615,30 +620,50 @@ static void test_btf_dump_type_tags(void)
 	id = btf__add_ptr(btf, id);
 	ASSERT_EQ(id, 2, "void_ptr_id1");
 
-	id = btf__add_type_attr(btf, "void_attr", 0);
+	id = btf__add_type_attr(btf, "__attribute__((aligned(8)))", 0);
 	ASSERT_EQ(id, 3, "type_attr_id");
 	id = btf__add_ptr(btf, id);
 	ASSERT_EQ(id, 4, "void_ptr_id2");
 
-	id = btf__add_type_tag(btf, "arena", 0);
-	ASSERT_EQ(id, 5, "arena_tag_id");
+	id = btf__add_type_attr(btf, "__type_marker", 0);
+	ASSERT_EQ(id, 5, "type_marker_id");
 	id = btf__add_ptr(btf, id);
 	ASSERT_EQ(id, 6, "void_ptr_id3");
 
-	id = btf__add_struct(btf, "s", 24);
-	ASSERT_EQ(id, 7, "struct_id");
+	id = btf__add_type_tag(btf, "plain_tag", 0);
+	ASSERT_EQ(id, 7, "plain_tag_id");
+	id = btf__add_decl_attr(btf, "__plain_repl", 7, -1);
+	ASSERT_EQ(id, 8, "plain_repl_id");
+	id = btf__add_ptr(btf, 7);
+	ASSERT_EQ(id, 9, "void_ptr_id4");
+
+	id = btf__add_type_attr(btf, "kflag_tag", 0);
+	ASSERT_EQ(id, 10, "kflag_tag_id");
+	id = btf__add_decl_attr(btf, "__kflag_repl", 10, -1);
+	ASSERT_EQ(id, 11, "kflag_repl_id");
+	id = btf__add_ptr(btf, 10);
+	ASSERT_EQ(id, 12, "void_ptr_id5");
+
+	id = btf__add_struct(btf, "s", 8);
+	ASSERT_EQ(id, 13, "struct_id");
 	err = btf__add_field(btf, "p1", 2, 0, 0);
 	ASSERT_OK(err, "field_ok1");
-	err = btf__add_field(btf, "p2", 4, 64, 0);
+	err = btf__add_field(btf, "p2", 4, 0, 0);
 	ASSERT_OK(err, "field_ok2");
-	err = btf__add_field(btf, "p3", 6, 128, 0);
+	err = btf__add_field(btf, "p3", 6, 0, 0);
 	ASSERT_OK(err, "field_ok3");
+	err = btf__add_field(btf, "p4", 9, 0, 0);
+	ASSERT_OK(err, "field_ok4");
+	err = btf__add_field(btf, "p5", 12, 0, 0);
+	ASSERT_OK(err, "field_ok5");
 
 	test_ctx__dump_and_compare(&t,
 "struct s {\n"
 "	void __attribute__((btf_type_tag(\"void_tag\"))) *p1;\n"
-"	void __attribute__((void_attr)) *p2;\n"
-"	void __attribute__((address_space(1))) __attribute__((btf_type_tag(\"arena\"))) *p3;\n"
+"	void __attribute__((aligned(8))) *p2;\n"
+"	void __type_marker *p3;\n"
+"	void __plain_repl *p4;\n"
+"	void __kflag_repl *p5;\n"
 "};\n\n", "dump_and_compare");
 
 	test_ctx__free(&t);
