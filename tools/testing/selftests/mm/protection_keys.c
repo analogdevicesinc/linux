@@ -1009,9 +1009,10 @@ static void test_pkey_syscalls_bad_args(int *ptr, u16 pkey)
 	pkey_assert(err);
 }
 
-static void become_child(void)
+static void become_child(int *ptr)
 {
 	pid_t forkret;
+	int status;
 
 	forkret = fork();
 	pkey_assert(forkret >= 0);
@@ -1021,7 +1022,16 @@ static void become_child(void)
 		/* in the child */
 		return;
 	}
-	_exit(0);
+
+	/*
+	 * Wait for the child to finish the tests and pass on its result.
+	 * Free the test memory first, as it may reserve pages from the
+	 * small hugetlb pool that the child needs.
+	 */
+	free_pkey_malloc(ptr);
+	if (waitpid(forkret, &status, 0) != forkret || !WIFEXITED(status))
+		_exit(KSFT_FAIL);
+	_exit(WEXITSTATUS(status));
 }
 
 /* Assumes that all pkeys other than 'pkey' are unallocated */
@@ -1060,7 +1070,7 @@ static void test_pkey_alloc_exhaust(int *ptr, u16 pkey)
 		 * preserved across fork().
 		 */
 		if (i == NR_PKEYS*2)
-			become_child();
+			become_child(ptr);
 	}
 
 	dprintf3("%s()::%d\n", __func__, __LINE__);
