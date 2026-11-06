@@ -1,18 +1,5 @@
    Bindings for specific devices:
 
-      i) Xilinx ML300 Framebuffer
-
-      Simple framebuffer device from the ML300 reference design (also on the
-      ML403 reference design as well as others).
-
-      Optional properties:
-       - resolution = <xres yres> : pixel resolution of framebuffer.  Some
-                                    implementations use a different resolution.
-                                    Default is <d#640 d#480>
-       - virt-resolution = <xvirt yvirt> : Size of framebuffer in memory.
-                                           Default is <d#1024 d#480>.
-       - rotate-display (empty) : rotate display 180 degrees.
-
       v) Xilinx hwicap
 
 		Xilinx hwicap devices provide access to the configuration logic
