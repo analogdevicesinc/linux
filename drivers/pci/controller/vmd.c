@@ -954,6 +954,22 @@ out_state_change:
 	return 0;
 }
 
+static void vmd_configure_cfgbar(struct vmd_dev *vmd)
+{
+	struct resource *res = &vmd->dev->resource[VMD_CFGBAR];
+	resource_size_t busn_end;
+
+	/* Do not let resource[0] end go out of bound.*/
+	busn_end = vmd->busn_start + (resource_size(res) >> 20) - 1;
+	busn_end = min_t(resource_size_t, busn_end, 0xff);
+	vmd->resources[0] = (struct resource) {
+		.name  = "VMD CFGBAR",
+		.start = vmd->busn_start,
+		.end   = busn_end,
+		.flags = IORESOURCE_BUS | IORESOURCE_PCI_FIXED,
+	};
+}
+
 static void vmd_bus_enumeration(struct pci_bus *bus, unsigned long features)
 {
 	struct pci_bus *child;
@@ -1011,7 +1027,6 @@ static int vmd_enable_domain(struct vmd_dev *vmd, unsigned long features)
 	LIST_HEAD(resources);
 	resource_size_t offset[2] = {0};
 	resource_size_t membar2_offset = 0x2000;
-	resource_size_t busn_end;
 	bool vmd_in_guest;
 	int ret;
 
@@ -1020,16 +1035,7 @@ static int vmd_enable_domain(struct vmd_dev *vmd, unsigned long features)
 	if (ret)
 		return ret;
 
-	/* Do not let resource[0] end go out of bounds */
-	res = &vmd->dev->resource[VMD_CFGBAR];
-	busn_end = vmd->busn_start + (resource_size(res) >> 20) - 1;
-	busn_end = min_t(resource_size_t, busn_end, 0xff);
-	vmd->resources[0] = (struct resource) {
-		.name  = "VMD CFGBAR",
-		.start = vmd->busn_start,
-		.end   = busn_end,
-		.flags = IORESOURCE_BUS | IORESOURCE_PCI_FIXED,
-	};
+	vmd_configure_cfgbar(vmd);
 
 	/*
 	 * If the window is below 4GB, clear IORESOURCE_MEM_64 so we can
