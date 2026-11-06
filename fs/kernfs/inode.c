@@ -204,7 +204,8 @@ static void kernfs_init_inode(struct kernfs_node *kn, struct inode *inode)
 	inode->i_generation = kernfs_gen(kn);
 
 	set_default_inode_attr(inode, kn->mode);
-	kernfs_refresh_inode(kn, inode);
+	scoped_guard(rwsem_read, &kernfs_root(kn)->kernfs_iattr_rwsem)
+		kernfs_refresh_inode(kn, inode);
 
 	/* initialize inode according to type */
 	switch (kernfs_type(kn)) {
@@ -252,6 +253,63 @@ struct inode *kernfs_get_inode(struct super_block *sb, struct kernfs_node *kn)
 		kernfs_init_inode(kn, inode);
 
 	return inode;
+}
+
+static int kernfs_inode_test(struct inode *inode, void *data)
+{
+	return inode->i_ino == *(u64 *)data;
+}
+
+static int kernfs_inode_set(struct inode *inode, void *data)
+{
+	inode->i_ino = *(u64 *)data;
+	return 0;
+}
+
+/**
+ * kernfs_get_inode_locked - get the inode of @kn under kernfs_rwsem
+ * @inode: inode allocated with new_inode() on the target superblock
+ * @kn: kernfs_node to get the inode for
+ * @lookup: should we do a ilookup before attempting to insert the inode
+ *
+ * Attaches @inode to @kn. Caller should pass an @inode allocated with
+ * new_inode(), and hold the kernfs_rwsem semaphore for reading on the @kn
+ * root. Because the kernfs_rwsem is held and it is checked that @kn is still
+ * active, __kernfs_remove() always finds @inode to clear its i_nlink. If
+ * lookup is true, a quick ilookup is attempted first.
+ *
+ * Returns the inode that was found or inserted for @kn, or NULL if @kn is
+ * inactive. @inode is consumed.
+ */
+struct inode *kernfs_get_inode_locked(struct inode *inode, struct kernfs_node *kn,
+				      bool lookup)
+{
+	u64 ino = kernfs_ino(kn);
+	struct inode *old = NULL, *new = inode;
+
+	lockdep_assert_held_read(&kernfs_root(kn)->kernfs_rwsem);
+
+	if (lookup) {
+		old = ilookup(inode->i_sb, ino);
+		if (old)
+			goto out_iput;
+	}
+
+	if (!kernfs_active(kn))
+		goto out_iput;
+
+	inode = inode_insert5(new, ino, kernfs_inode_test, kernfs_inode_set,
+			      &ino);
+	if (inode != new) {
+		old = inode;
+		goto out_iput;
+	}
+
+	kernfs_init_inode(kn, inode);
+	return inode;
+out_iput:
+	iput(new);
+	return old;
 }
 
 /*

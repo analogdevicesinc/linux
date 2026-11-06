@@ -37,7 +37,7 @@ static bool __kernfs_active(struct kernfs_node *kn)
 	return atomic_read(&kn->active) >= 0;
 }
 
-static bool kernfs_active(struct kernfs_node *kn)
+bool kernfs_active(struct kernfs_node *kn)
 {
 	lockdep_assert_held(&kernfs_root(kn)->kernfs_rwsem);
 	return __kernfs_active(kn);
@@ -1293,18 +1293,44 @@ static struct dentry *kernfs_iop_mkdir(const struct mnt_idmap *idmap,
 {
 	struct kernfs_node *parent = dir->i_private;
 	struct kernfs_syscall_ops *scops = kernfs_root(parent)->syscall_ops;
-	int ret;
+	struct kernfs_node *kn;
+	struct inode *inode;
 
 	if (!scops || !scops->mkdir)
-		return ERR_PTR(-EPERM);
+		return ERR_PTR(-EOPNOTSUPP);
 
-	if (!kernfs_get_active(parent))
+	inode = new_inode(dir->i_sb);
+	if (!inode)
+		return ERR_PTR(-ENOMEM);
+
+	if (!kernfs_get_active(parent)) {
+		iput(inode);
 		return ERR_PTR(-ENODEV);
+	}
 
-	ret = scops->mkdir(parent, dentry->d_name.name, mode);
+	kn = scops->mkdir(parent, dentry->d_name.name, mode);
 
 	kernfs_put_active(parent);
-	return ERR_PTR(ret);
+	if (IS_ERR(kn)) {
+		iput(inode);
+		return ERR_CAST(kn);
+	}
+
+	scoped_guard(rwsem_read, &kernfs_root(kn)->kernfs_rwsem)
+		inode = kernfs_get_inode_locked(inode, kn, false);
+	kernfs_put(kn);
+
+	if (!inode)
+		return ERR_PTR(-ESTALE);
+
+	/*
+	 * We may race with kernfs_fh_to_dentry() which calls d_obtain_alias(),
+	 * so the inode may already have a disconnected alias. Use
+	 * d_splice_alias() to move it into place, which does not accept
+	 * hashed dentries, so drop the negative dentry first.
+	 */
+	d_drop(dentry);
+	return d_splice_alias(inode, dentry);
 }
 
 static int kernfs_iop_rmdir(struct inode *dir, struct dentry *dentry)
