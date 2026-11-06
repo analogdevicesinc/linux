@@ -1096,38 +1096,29 @@ static struct sort_datum *sort_btf_c(const struct btf *btf)
  * Kernel BTF keeps its type tags as the kernel expects them. Decl tags in
  * the dump split choose how btf_dump prints them.
  */
-static const struct {
-	bool kflag;
-	const char *name;
-	const char *override;
-} btf_c_type_tags[] = {
-	/* the arena attribute in older kernel BTF */
-	{ true, "address_space(1)", "__attribute__((address_space(1)))" },
-	/* __arena in include/linux/bpf_compiler_types.h */
-	{ false, "arena", "__bpf_arena" },
-};
-
 static int btf_c_annotate_type_tags(struct btf *btf)
 {
 	__u32 i, cnt = btf__type_cnt(btf);
-	size_t j;
 	int err;
 
 	for (i = 1; i < cnt; i++) {
 		const struct btf_type *t = btf__type_by_id(btf, i);
-		const char *name;
+		const char *name, *attr;
 
 		if (!btf_is_type_tag(t))
 			continue;
 		name = btf__name_by_offset(btf, t->name_off);
-		for (j = 0; j < ARRAY_SIZE(btf_c_type_tags); j++) {
-			if (btf_kflag(t) != btf_c_type_tags[j].kflag ||
-			    strcmp(name, btf_c_type_tags[j].name))
-				continue;
-			err = btf__add_decl_attr(btf, btf_c_type_tags[j].override, i, -1);
-			if (err < 0)
-				return err;
-		}
+		if (btf_kflag(t) && !strcmp(name, "address_space(1)"))
+			/* the arena attribute in older kernel BTF */
+			attr = "__attribute__((address_space(1)))";
+		else if (!btf_kflag(t) && !strcmp(name, "arena"))
+			/* __arena in include/linux/bpf_compiler_types.h */
+			attr = "__bpf_arena";
+		else
+			continue;
+		err = btf__add_decl_attr(btf, attr, i, -1);
+		if (err < 0)
+			return err;
 	}
 
 	return 0;
