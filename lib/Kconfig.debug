@@ -3493,6 +3493,20 @@ config RATELIMIT_KUNIT_TEST
 
 	  If unsure, say N.
 
+config XXHASH_KUNIT_TEST
+	tristate "KUnit test for xxHash" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select XXHASH
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for lib/xxhash.c, the
+	  xxh32() and xxh64() hashes used by zstd, btrfs and erofs. The
+	  tests check known answers from the reference xxHash
+	  implementation, the xxh64 streaming interface and unaligned
+	  input.
+
+	  If unsure, say N.
+
 config UUID_KUNIT_TEST
 	tristate "KUnit test for UUID" if !KUNIT_ALL_TESTS
 	depends on KUNIT
