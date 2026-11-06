@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
+// The transport header of the r570 firmware carries no message type, so nothing can produce or
+// consume a GMC message before the switch to r000. Until then the module is built as dead code.
+#[expect(dead_code)]
+pub(super) mod gmc;
 pub(super) mod rpc;
 
 use core::mem;
