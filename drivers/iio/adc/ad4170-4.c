@@ -83,6 +83,7 @@
 
 /* AD4170_PIN_MUXING_REG */
 #define AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK		GENMASK(5, 4)
+#define AD4170_PIN_MUXING_SYNC_CTRL_MSK			GENMASK(3, 2)
 
 /* AD4170_CLOCK_CTRL_REG */
 #define AD4170_CLOCK_CTRL_CLOCKSEL_MSK			GENMASK(1, 0)
@@ -160,6 +161,7 @@
 /* AD4170_PIN_MUXING_REG constants */
 #define AD4170_PIN_MUXING_DIG_AUX1_DISABLED		0x0
 #define AD4170_PIN_MUXING_DIG_AUX1_RDY			0x1
+#define AD4170_PIN_MUXING_SYNC_DISABLED			0x0
 
 /* AD4170_ADC_CTRL_REG constants */
 #define AD4170_ADC_CTRL_MODE_CONT			0x0
@@ -2556,8 +2558,17 @@ static int ad4170_parse_firmware(struct iio_dev *indio_dev)
 			      AD4170_PIN_MUXING_DIG_AUX1_RDY :
 			      AD4170_PIN_MUXING_DIG_AUX1_DISABLED);
 
+	/*
+	 * SYNC_IN is enabled by default, which holds the ADC in reset while the
+	 * pin is low. The driver doesn't support synchronization, so disable it
+	 * to keep conversions independent of the SYNC_IN pin state.
+	 */
+	reg_data |= FIELD_PREP(AD4170_PIN_MUXING_SYNC_CTRL_MSK,
+			       AD4170_PIN_MUXING_SYNC_DISABLED);
+
 	ret = regmap_update_bits(st->regmap, AD4170_PIN_MUXING_REG,
-				 AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK, reg_data);
+				 AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK |
+				 AD4170_PIN_MUXING_SYNC_CTRL_MSK, reg_data);
 	if (ret)
 		return ret;
 
