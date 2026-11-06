@@ -116,8 +116,6 @@ struct vector_private {
 	int (*verify_header)(uint8_t *header,
 		struct sk_buff *skb, struct vector_private *vp);
 
-	spinlock_t stats_lock;
-
 	bool rexmit_scheduled;
 	bool opened;
 	bool in_write_poll;
