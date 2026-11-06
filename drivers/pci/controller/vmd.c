@@ -55,6 +55,11 @@ enum vmd_resource {
 	VMD_RES_COUNT
 };
 
+enum vmd_rootbus {
+	VMD_BUS_0 = 0,
+	VMD_BUS_COUNT
+};
+
 enum vmd_features {
 	/*
 	 * Device may contain registers which hint the physical location of the
@@ -190,11 +195,11 @@ struct vmd_dev {
 	int msix_count;
 	struct vmd_irq_list	*irqs;
 
-	struct pci_sysdata	sysdata;
+	struct pci_sysdata	sysdata[VMD_BUS_COUNT];
 	struct resource		resources[VMD_RES_COUNT];
 	struct irq_domain	*irq_domain;
-	struct pci_bus		*bus;
-	u8			busn_start;
+	struct pci_bus		*bus[VMD_BUS_COUNT];
+	u8			busn_start[VMD_BUS_COUNT];
 	u8			first_vec;
 	char			*name;
 	int			instance;
@@ -203,7 +208,10 @@ struct vmd_dev {
 
 static inline struct vmd_dev *vmd_from_bus(struct pci_bus *bus)
 {
-	return container_of(bus->sysdata, struct vmd_dev, sysdata);
+	struct pci_sysdata *sd = bus->sysdata;
+
+	return pci_get_drvdata(sd->vmd_dev);
+
 }
 
 static inline unsigned int index_from_irqs(struct vmd_dev *vmd,
@@ -412,7 +420,7 @@ static int vmd_create_irq_domain(struct vmd_dev *vmd)
 	};
 
 	info.fwnode = irq_domain_alloc_named_id_fwnode("VMD-MSI",
-						       vmd->sysdata.domain);
+						       vmd->sysdata[VMD_BUS_0].domain);
 	if (!info.fwnode)
 		return -ENODEV;
 
@@ -461,7 +469,7 @@ static unsigned int vmd_bus_to_ecam(struct vmd_dev *vmd, unsigned int busnr)
 	if (!!(vmd->features & VMD_FEAT_USE_BIOS_INFO))
 		return busnr;
 
-	return busnr - vmd->busn_start;
+	return busnr - vmd->busn_start[VMD_BUS_0];
 }
 
 static void __iomem *vmd_cfg_addr(struct vmd_dev *vmd, struct pci_bus *bus,
@@ -739,14 +747,14 @@ static int vmd_get_bus_number_start(struct vmd_dev *vmd)
 
 		switch (BUS_RESTRICT_CFG(reg)) {
 		case 0:
-			vmd->busn_start = VMD_RESTRICT_0_BUS_START;
+			vmd->busn_start[VMD_BUS_0] = VMD_RESTRICT_0_BUS_START;
 			break;
 		case 1:
-			vmd->busn_start = VMD_RESTRICT_1_BUS_START;
+			vmd->busn_start[VMD_BUS_0] = VMD_RESTRICT_1_BUS_START;
 			break;
 		case 3:
 		case 2:
-			vmd->busn_start = VMD_RESTRICT_2_BUS_START;
+			vmd->busn_start[VMD_BUS_0] = VMD_RESTRICT_2_BUS_START;
 			break;
 		default:
 			pci_err(dev, "Unknown Bus Offset Setting (%d)\n",
@@ -783,7 +791,7 @@ static int vmd_get_bus_info_from_bar4(struct vmd_dev *vmd,
 	bar4_2840 = readq(bar4 + BASE_ID_REG_28C1);
 	base_id = bar4_2840 & 0xFFFFFF;
 	base_bus = base_id >> 8;
-	vmd->busn_start = base_bus;
+	vmd->busn_start[VMD_BUS_0] = base_bus;
 
 	/* Calculate offsets like vmd_get_phys_offsets() does */
 	if (phys1)
@@ -973,11 +981,11 @@ static void vmd_configure_cfgbar(struct vmd_dev *vmd)
 	resource_size_t busn_end;
 
 	/* Do not let resource[VMD_RES_CFGBAR] end go out of bound.*/
-	busn_end = vmd->busn_start + (resource_size(res) >> 20) - 1;
+	busn_end = vmd->busn_start[VMD_BUS_0] + (resource_size(res) >> 20) - 1;
 	busn_end = min_t(resource_size_t, busn_end, 0xff);
 	vmd->resources[VMD_RES_CFGBAR] = (struct resource) {
 		.name  = "VMD CFGBAR",
-		.start = vmd->busn_start,
+		.start = vmd->busn_start[VMD_BUS_0],
 		.end   = busn_end,
 		.flags = IORESOURCE_BUS | IORESOURCE_PCI_FIXED,
 	};
@@ -1058,9 +1066,10 @@ static int vmd_create_bus(struct vmd_dev *vmd, struct pci_sysdata *sd,
 	pci_add_resource_offset(&resources, &vmd->resources[VMD_RES_MBAR_2],
 				offset[1]);
 
-	vmd->bus = pci_create_root_bus(&vmd->dev->dev, vmd->busn_start,
-				       &vmd_ops, sd, &resources);
-	if (!vmd->bus) {
+	vmd->bus[VMD_BUS_0] = pci_create_root_bus(&vmd->dev->dev,
+						  vmd->busn_start[VMD_BUS_0],
+						  &vmd_ops, sd, &resources);
+	if (!vmd->bus[VMD_BUS_0]) {
 		pci_free_resource_list(&resources);
 		return -ENODEV;
 	}
@@ -1071,13 +1080,13 @@ static int vmd_create_bus(struct vmd_dev *vmd, struct pci_sysdata *sd,
 	 */
 	if (!vmd_in_guest)
 		vmd_copy_host_bridge_flags(pci_find_host_bridge(vmd->dev->bus),
-					   to_pci_host_bridge(vmd->bus->bridge));
+					   to_pci_host_bridge(vmd->bus[VMD_BUS_0]->bridge));
 
 	vmd_attach_resources(vmd);
 	if (vmd->irq_domain)
-		dev_set_msi_domain(&vmd->bus->dev, vmd->irq_domain);
+		dev_set_msi_domain(&vmd->bus[VMD_BUS_0]->dev, vmd->irq_domain);
 	else
-		dev_set_msi_domain(&vmd->bus->dev,
+		dev_set_msi_domain(&vmd->bus[VMD_BUS_0]->dev,
 				   dev_get_msi_domain(&vmd->dev->dev));
 
 	return 0;
@@ -1133,7 +1142,7 @@ static void vmd_bus_enumeration(struct pci_bus *bus, unsigned long features)
 
 static int vmd_enable_domain(struct vmd_dev *vmd, unsigned long features)
 {
-	struct pci_sysdata *sd = &vmd->sysdata;
+	struct pci_sysdata *sd = &vmd->sysdata[VMD_BUS_0];
 	resource_size_t offset[2] = {0};
 	resource_size_t membar2_offset = 0x2000;
 	bool vmd_in_guest;
@@ -1212,10 +1221,11 @@ static int vmd_enable_domain(struct vmd_dev *vmd, unsigned long features)
 		return ret;
 	}
 
-	WARN(sysfs_create_link(&vmd->dev->dev.kobj, &vmd->bus->dev.kobj,
-			       "domain"), "Can't create symlink to domain\n");
+	WARN(sysfs_create_link(&vmd->dev->dev.kobj,
+			       &vmd->bus[VMD_BUS_0]->dev.kobj, "domain"),
+	     "Can't create symlink to domain\n");
 
-	vmd_bus_enumeration(vmd->bus, features);
+	vmd_bus_enumeration(vmd->bus[VMD_BUS_0], features);
 
 	return 0;
 }
@@ -1252,7 +1262,7 @@ static int vmd_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		return -ENOMEM;
 
 	vmd->dev = dev;
-	vmd->sysdata.domain = PCI_DOMAIN_NR_NOT_SET;
+	vmd->sysdata[VMD_BUS_0].domain = PCI_DOMAIN_NR_NOT_SET;
 	vmd->features = features;
 	vmd->instance = ida_alloc(&vmd_instance_ida, GFP_KERNEL);
 	if (vmd->instance < 0)
@@ -1292,7 +1302,7 @@ static int vmd_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		goto out_release_instance;
 
 	dev_info(&vmd->dev->dev, "Bound to PCI domain %04x\n",
-		 vmd->sysdata.domain);
+		 vmd->sysdata[VMD_BUS_0].domain);
 	return 0;
 
  out_release_instance:
@@ -1312,14 +1322,14 @@ static void vmd_remove(struct pci_dev *dev)
 {
 	struct vmd_dev *vmd = pci_get_drvdata(dev);
 
-	pci_stop_root_bus(vmd->bus);
+	pci_stop_root_bus(vmd->bus[VMD_BUS_0]);
 	sysfs_remove_link(&vmd->dev->dev.kobj, "domain");
-	pci_remove_root_bus(vmd->bus);
+	pci_remove_root_bus(vmd->bus[VMD_BUS_0]);
 	vmd_cleanup_srcu(vmd);
 	vmd_detach_resources(vmd);
 	vmd_remove_irq_domain(vmd);
 	ida_free(&vmd_instance_ida, vmd->instance);
-	pci_bus_release_emul_domain_nr(vmd->sysdata.domain);
+	pci_bus_release_emul_domain_nr(vmd->sysdata[VMD_BUS_0].domain);
 }
 
 static void vmd_shutdown(struct pci_dev *dev)
