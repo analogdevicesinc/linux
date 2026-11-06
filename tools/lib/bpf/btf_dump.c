@@ -1597,7 +1597,7 @@ static void btf_dump_emit_type_chain(struct btf_dump *d,
 			break;
 		case BTF_KIND_TYPE_TAG:
 			btf_dump_emit_mods(d, decls);
-			/* decl tags override the type tag, see btf.rst */
+			/* decl tags on the type tag are printed in its place */
 			if (btf_dump_emit_decl_tags(d, id, -1))
 				break;
 			name = btf_name_of(d, t->name_off);
