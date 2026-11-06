@@ -129,13 +129,13 @@ static int iio_root_ports_list_insert(struct iio_root_ports_list *list,
 	struct iio_root_port **tmp_buf;
 
 	if (list && rp) {
-		rp->idx = list->nr_entries++;
 		tmp_buf = realloc(list->rps,
-				  list->nr_entries * sizeof(*list->rps));
+				  (list->nr_entries + 1) * sizeof(*list->rps));
 		if (!tmp_buf) {
 			pr_err("Failed to realloc memory\n");
 			return -ENOMEM;
 		}
+		rp->idx = list->nr_entries++;
 		tmp_buf[rp->idx] = rp;
 		list->rps = tmp_buf;
 	}
