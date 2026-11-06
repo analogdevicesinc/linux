@@ -16,6 +16,7 @@
 #include <linux/kdebug.h>
 #include <linux/mutex.h>
 #include <linux/init.h>
+#include <linux/sched/task_stack.h>
 
 #include <asm/hwrpb.h>
 #include <linux/atomic.h>
@@ -30,8 +31,16 @@
 #define MAX_HWEVENTS 3
 #define PMC_NO_INDEX -1
 
+/* The PS bit that user_mode() tests. */
+#define ALPHA_PS_USER	8UL
+
+/* Layout of attr.config for PERF_TYPE_RAW events; see format/ in sysfs. */
+#define ALPHA_PERF_CONFIG_EVENT		0xffULL
+#define ALPHA_PERF_CONFIG_PROFILEME	BIT_ULL(8)
+
 /* hw_perf_event.flags */
 #define ALPHA_PERF_FLAG_WRAPPED		0x1
+#define ALPHA_PERF_FLAG_PROFILEME	0x2
 
 /* For tracking PMCs and the hw events they monitor on each CPU. */
 struct cpu_hw_events {
@@ -149,14 +158,39 @@ static const struct ev67_mapping_t ev67_mapping[] = {
 
 
 /*
+ * In ProfileMe mode PCTR0 selects the profiled instruction and PCTR1 counts
+ * during its window. PCTR0 counts instructions or cycles, and each choice
+ * pairs with two PCTR1 inputs, so each event type picks one SL1 setting.
+ * Indexed by enum ev67_pmc_event_type.
+ */
+static const unsigned long ev67_profileme_sl1[] = {
+	[EV67_CYCLES]		= EV67_PCTR_CYCLES_RETIRE_DELAY, /* PCTR1: retire delay */
+	[EV67_INSTRUCTIONS]	= EV67_PCTR_INSTR_CYCLES,	/* PCTR1: cycles */
+	[EV67_BCACHEMISS]	= EV67_PCTR_INSTR_BCACHEMISS,	/* PCTR1: Bcache misses */
+	[EV67_MBOXREPLAY]	= EV67_PCTR_CYCLES_MBOX,	/* PCTR1: Mbox replays */
+};
+
+/*
  * Check that a group of events can be simultaneously scheduled on to the
  * EV67 PMU.  Also allocate counter indices and config.
  */
 static int ev67_check_constraints(struct perf_event **event,
 				unsigned long *evtype, int n_ev)
 {
-	int idx0;
+	int idx0, j;
 	unsigned long config;
+
+	/* A ProfileMe event uses both counters, so it must be alone. */
+	for (j = 0; j < n_ev; j++) {
+		if (!(event[j]->hw.flags & ALPHA_PERF_FLAG_PROFILEME))
+			continue;
+		if (n_ev != 1)
+			return -1;
+		event[0]->hw.idx = 0;
+		event[0]->hw.config_base = EV67_PCTR_MODE_PROFILEME |
+					   ev67_profileme_sl1[evtype[0]];
+		return 0;
+	}
 
 	idx0 = ev67_mapping[evtype[0]-1].idx;
 	config = ev67_mapping[evtype[0]-1].config;
@@ -216,9 +250,11 @@ static int ev67_raw_event_valid(u64 config)
 
 
 PMU_FORMAT_ATTR(event, "config:0-7");
+PMU_FORMAT_ATTR(profileme, "config:8");
 
 static struct attribute *ev67_format_attrs[] = {
 	&format_attr_event.attr,
+	&format_attr_profileme.attr,
 	NULL,
 };
 
@@ -279,6 +315,31 @@ static inline void alpha_write_pmc(int idx, unsigned long val)
 	wrperfmon(PERFMON_CMD_WRITE, val);
 }
 
+/* Write PCTR0 and clear PCTR1 in one call, as ProfileMe mode requires. */
+static inline void alpha_write_pmc_profileme(unsigned long val)
+{
+	val &= alpha_pmu->pmc_count_mask[0];
+	val <<= alpha_pmu->pmc_count_shift[0];
+	val |= EV67_PCTR_0 | EV67_PCTR_1;
+	/*
+	 * PCTR0 stops when a ProfileMe window closes, and a stopped counter
+	 * only clears its overflow state when written twice (EV67 HRM, PALcode
+	 * restriction 38). A counter left signaling overflow blocks all
+	 * other interrupts (restriction 32).
+	 */
+	wrperfmon(PERFMON_CMD_WRITE, val);
+	wrperfmon(PERFMON_CMD_WRITE, val);
+}
+
+/* The counters an event occupies, for PERFMON_CMD_ENABLE and DISABLE. */
+static inline unsigned long alpha_event_idx_mask(struct hw_perf_event *hwc,
+						 int idx)
+{
+	if (hwc->flags & ALPHA_PERF_FLAG_PROFILEME)
+		return EV67_PCTR_0 | EV67_PCTR_1;
+	return 1UL<<idx;
+}
+
 static inline unsigned long alpha_read_pmc(int idx)
 {
 	unsigned long val;
@@ -287,6 +348,26 @@ static inline unsigned long alpha_read_pmc(int idx)
 	val >>= alpha_pmu->pmc_count_shift[idx];
 	val &= alpha_pmu->pmc_count_mask[idx];
 	return val;
+}
+
+/*
+ * Move a stopped ProfileMe counter away from overflow. See
+ * alpha_write_pmc_profileme() for why. The caller has read the count, so
+ * prev_count can be rebased on the value written.
+ *
+ * A pending PMI stays pending, but alpha_perf_event_ovf() ignores it, as
+ * the counter is left no nearer zero than alpha_perf_event_set_period()
+ * would leave it.
+ */
+static void alpha_perf_event_park(struct hw_perf_event *hwc)
+{
+	long left = local64_read(&hwc->period_left);
+
+	left = clamp(left, alpha_pmu->pmc_left[0],
+		     (long)(alpha_pmu->pmc_max_period[0] >> 1));
+	local64_set(&hwc->prev_count, (unsigned long)(-left));
+	hwc->flags &= ~ALPHA_PERF_FLAG_WRAPPED;
+	alpha_write_pmc_profileme((unsigned long)(-left));
 }
 
 /* Set a new period to sample over */
@@ -329,7 +410,10 @@ static int alpha_perf_event_set_period(struct perf_event *event,
 	local64_set(&hwc->prev_count, (unsigned long)(-left));
 	hwc->flags &= ~ALPHA_PERF_FLAG_WRAPPED;
 
-	alpha_write_pmc(idx, (unsigned long)(-left));
+	if (hwc->flags & ALPHA_PERF_FLAG_PROFILEME)
+		alpha_write_pmc_profileme((unsigned long)(-left));
+	else
+		alpha_write_pmc(idx, (unsigned long)(-left));
 
 	perf_event_update_userpage(event);
 
@@ -470,7 +554,8 @@ static void maybe_change_configuration(struct cpu_hw_events *cpuc)
 		if (!(hwc->state & PERF_HES_STOPPED)) {
 			/* The counter is live, so hwc->prev_count will go stale. */
 			hwc->state &= ~PERF_HES_UPTODATE;
-			cpuc->idx_mask |= (1<<cpuc->current_idx[j]);
+			cpuc->idx_mask |= alpha_event_idx_mask(hwc,
+							cpuc->current_idx[j]);
 		}
 	}
 	cpuc->config = cpuc->event[0]->hw.config_base;
@@ -567,7 +652,10 @@ static void alpha_pmu_del(struct perf_event *event, int flags)
 				alpha_perf_event_update(event, hwc, idx, 0);
 				perf_event_update_userpage(event);
 
-				cpuc->idx_mask &= ~(1UL<<idx);
+				if (hwc->flags & ALPHA_PERF_FLAG_PROFILEME)
+					alpha_perf_event_park(hwc);
+
+				cpuc->idx_mask &= ~alpha_event_idx_mask(hwc, idx);
 			}
 			cpuc->n_events--;
 			break;
@@ -593,17 +681,22 @@ static void alpha_pmu_stop(struct perf_event *event, int flags)
 	struct cpu_hw_events *cpuc = this_cpu_ptr(&cpu_hw_events);
 
 	if (!(hwc->state & PERF_HES_STOPPED)) {
-		cpuc->idx_mask &= ~(1UL<<hwc->idx);
+		cpuc->idx_mask &= ~alpha_event_idx_mask(hwc, hwc->idx);
 		hwc->state |= PERF_HES_STOPPED;
 	}
 
-	if ((flags & PERF_EF_UPDATE) && !(hwc->state & PERF_HES_UPTODATE)) {
+	/* Parking a ProfileMe event overwrites the counter, so read it first. */
+	if (((flags & PERF_EF_UPDATE) || (hwc->flags & ALPHA_PERF_FLAG_PROFILEME)) &&
+	    !(hwc->state & PERF_HES_UPTODATE)) {
 		alpha_perf_event_update(event, hwc, hwc->idx, 0);
 		hwc->state |= PERF_HES_UPTODATE;
 	}
 
 	if (cpuc->enabled)
-		wrperfmon(PERFMON_CMD_DISABLE, (1UL<<hwc->idx));
+		wrperfmon(PERFMON_CMD_DISABLE, alpha_event_idx_mask(hwc, hwc->idx));
+
+	if (hwc->flags & ALPHA_PERF_FLAG_PROFILEME)
+		alpha_perf_event_park(hwc);
 }
 
 
@@ -622,9 +715,9 @@ static void alpha_pmu_start(struct perf_event *event, int flags)
 
 	hwc->state = 0;
 
-	cpuc->idx_mask |= 1UL<<hwc->idx;
+	cpuc->idx_mask |= alpha_event_idx_mask(hwc, hwc->idx);
 	if (cpuc->enabled)
-		wrperfmon(PERFMON_CMD_ENABLE, (1UL<<hwc->idx));
+		wrperfmon(PERFMON_CMD_ENABLE, alpha_event_idx_mask(hwc, hwc->idx));
 }
 
 
@@ -664,6 +757,7 @@ static int __hw_perf_event_init(struct perf_event *event)
 	struct perf_event *evts[MAX_HWEVENTS];
 	unsigned long evtypes[MAX_HWEVENTS];
 	int idx_rubbish_bin[MAX_HWEVENTS];
+	bool profileme = false;
 	int ev;
 	int n;
 
@@ -677,9 +771,13 @@ static int __hw_perf_event_init(struct perf_event *event)
 	} else if (attr->type == PERF_TYPE_HW_CACHE) {
 		return -EOPNOTSUPP;
 	} else if (attr->type == PERF_TYPE_RAW) {
-		if (!alpha_pmu->raw_event_valid(attr->config))
+		if (attr->config & ~(ALPHA_PERF_CONFIG_EVENT |
+				     ALPHA_PERF_CONFIG_PROFILEME))
 			return -EINVAL;
-		ev = attr->config;
+		ev = attr->config & ALPHA_PERF_CONFIG_EVENT;
+		if (!alpha_pmu->raw_event_valid(ev))
+			return -EINVAL;
+		profileme = attr->config & ALPHA_PERF_CONFIG_PROFILEME;
 	} else {
 		return -EOPNOTSUPP;
 	}
@@ -687,6 +785,20 @@ static int __hw_perf_event_init(struct perf_event *event)
 	if (ev < 0) {
 		return ev;
 	}
+
+	/*
+	 * ProfileMe samples report the exact PC of the profiled instruction,
+	 * so it also serves any request for precise samples. It only makes
+	 * sense for sampling events. Level 3 promises no skid at all, but some
+	 * samples keep the interrupted PC; see alpha_perf_event_profileme().
+	 */
+	if (attr->precise_ip > 2)
+		return -EOPNOTSUPP;
+	if (attr->precise_ip)
+		profileme = true;
+	if (profileme && !is_sampling_event(event))
+		return -EINVAL;
+	hwc->flags = profileme ? ALPHA_PERF_FLAG_PROFILEME : 0;
 
 	/*
 	 * We place the event type in event_base here and leave calculation
@@ -879,6 +991,144 @@ static long alpha_perf_event_ovf(struct hw_perf_event *hwc, int idx)
 
 
 /*
+ * Frame holding only the PC, for a ProfileMe interrupt taken in a different
+ * mode than the profiled instruction. Being off the stack,
+ * perf_reg_value() reports no SP.
+ */
+static DEFINE_PER_CPU(struct pt_regs, alpha_profileme_regs);
+
+/*
+ * Report the sample with none of the given PERF_SAMPLE_REGS_* registers.
+ * Having no user registers also means no user stack.
+ */
+static void alpha_profileme_drop_regs(struct perf_event *event,
+				      struct perf_sample_data *data, u64 which)
+{
+	/* STACK_USER consults regs_user even without REGS_USER. */
+	if (which & PERF_SAMPLE_REGS_USER)
+		data->regs_user = (struct perf_regs){ .abi = PERF_SAMPLE_REGS_ABI_NONE };
+	if (which & PERF_SAMPLE_REGS_INTR)
+		data->regs_intr = (struct perf_regs){ .abi = PERF_SAMPLE_REGS_ABI_NONE };
+	data->sample_flags |= which;
+	/* Only the ABI word is written for each. */
+	data->dyn_size += hweight64(event->attr.sample_type & which) * sizeof(u64);
+}
+
+/* Report the user registers from a frame known to be complete. */
+static void alpha_profileme_set_regs_user(struct perf_event *event,
+					  struct perf_sample_data *data)
+{
+	data->regs_user.regs = task_pt_regs(current);
+	data->regs_user.abi = perf_reg_abi(current);
+	data->sample_flags |= PERF_SAMPLE_REGS_USER;
+	if (event->attr.sample_type & PERF_SAMPLE_REGS_USER)
+		data->dyn_size += (1 + hweight64(event->attr.sample_regs_user)) *
+				  sizeof(u64);
+}
+
+/*
+ * Handle the close of a ProfileMe window on PCTR0.
+ *
+ * PCTR0 stops counting when the window closes and does not start again
+ * until PCTR_CTL is written, so the status must be read first and the
+ * counters then rearmed unconditionally.
+ */
+static void alpha_perf_event_profileme(struct perf_event *event,
+				       struct hw_perf_event *hwc,
+				       struct pt_regs *regs, long ovf)
+{
+	struct perf_sample_data data;
+	struct pt_regs *pm_regs;
+	bool pc_only = false;
+	unsigned long i_stat, pmpc, ovr, pc, saved_pc, saved_ps;
+
+	i_stat = wrperfmon(PERFMON_CMD_I_STAT, 0);
+	pmpc = wrperfmon(PERFMON_CMD_PMPC, 0);
+
+	alpha_perf_event_update(event, hwc, 0, ovf);
+
+	/*
+	 * When PCTR0 counts instructions, up to 7 of them are counted after
+	 * the overflow but before the window opens. I_STAT reports how many.
+	 */
+	if (!(hwc->config_base & EV67_PCTR_PCTR0_CYCLES)) {
+		ovr = (i_stat >> EV67_I_STAT_OVR_SHIFT) & EV67_I_STAT_OVR_MASK;
+		local64_sub(ovr, &event->count);
+		local64_add(ovr, &hwc->period_left);
+	}
+
+	/*
+	 * Attribute the sample to the profiled instruction rather than to
+	 * wherever the interrupt landed. perf takes the sample's mode,
+	 * registers and stack from regs, so:
+	 *
+	 * - Interrupt taken in the same mode: the PC is set in the
+	 *   interrupt's own frame, and restored afterwards.
+	 * - User instruction, interrupt taken in the kernel, typically
+	 *   because the instruction trapped: the frame at task_pt_regs() may
+	 *   not be built yet. The interrupt is often taken on the first
+	 *   instruction of the entry code, and its own frame then overlaps
+	 *   that one. Report the PC alone, in a per-CPU frame.
+	 * - Kernel instruction, interrupt taken just after returning to user
+	 *   mode: the kernel state is gone, so a per-CPU frame that holds only
+	 *   the PC. The user frame in regs is left alone, since perf samples
+	 *   the user registers from it.
+	 *
+	 * A PALmode PMPC is a physical address that perf cannot resolve. That
+	 * happens for ITB miss, Istream access violation and interrupt
+	 * redirects, and for instructions inside PALcode. Keep the
+	 * interrupted PC, which for redirects is the instruction that
+	 * trapped. Do the same for a user PMPC in a kernel thread, which has
+	 * no user frame.
+	 */
+	pm_regs = regs;
+	pc = pmpc & EV67_PMPC_PC_MASK;
+	if (pmpc & EV67_PMPC_PAL) {
+		pc = regs->pc;
+	} else if (pc < TASK_SIZE && !user_mode(regs)) {
+		if (is_user_task(current)) {
+			pc_only = true;
+			pm_regs = this_cpu_ptr(&alpha_profileme_regs);
+			memset(pm_regs, 0, sizeof(*pm_regs));
+			pm_regs->ps = ALPHA_PS_USER;
+		} else {
+			pc = regs->pc;
+		}
+	} else if (pc >= TASK_SIZE && user_mode(regs)) {
+		pm_regs = this_cpu_ptr(&alpha_profileme_regs);
+		memset(pm_regs, 0, sizeof(*pm_regs));
+	}
+
+	perf_sample_data_init(&data, 0, hwc->last_period);
+	if (pc_only)
+		alpha_profileme_drop_regs(event, &data, PERF_SAMPLE_REGS_USER |
+							PERF_SAMPLE_REGS_INTR);
+	/*
+	 * perf_get_regs_user() has the same check, but it will find the PMPC
+	 * in regs->pc rather than where the interrupt was taken. Decide here
+	 * from the interrupted PC, for either answer that would differ.
+	 */
+	else if (!user_mode(regs) && in_entry_save_code(regs->pc))
+		alpha_profileme_drop_regs(event, &data, PERF_SAMPLE_REGS_USER);
+	else if (in_entry_save_code(pc) && is_user_task(current))
+		alpha_profileme_set_regs_user(event, &data);
+
+	if (!alpha_perf_event_set_period(event, hwc, 0))
+		return;
+
+	saved_pc = pm_regs->pc;
+	saved_ps = pm_regs->ps;
+	pm_regs->pc = pc;
+	if (pc >= TASK_SIZE)
+		pm_regs->ps &= ~ALPHA_PS_USER;
+
+	perf_event_overflow(event, &data, pm_regs);
+
+	pm_regs->pc = saved_pc;
+	pm_regs->ps = saved_ps;
+}
+
+/*
  * Performance Monitoring Interrupt Service Routine called when a PMC
  * overflows.  The PMC that overflowed is passed in la_ptr.
  */
@@ -913,6 +1163,10 @@ static void alpha_perf_event_irq_handler(unsigned long la_ptr,
 
 	idx = la_ptr;
 
+	/* A ProfileMe event owns both counters but lives at index 0. */
+	if (cpuc->config & EV67_PCTR_MODE_PROFILEME)
+		idx = 0;
+
 	for (j = 0; j < cpuc->n_events; j++) {
 		if (cpuc->current_idx[j] == idx)
 			break;
@@ -920,6 +1174,8 @@ static void alpha_perf_event_irq_handler(unsigned long la_ptr,
 
 	if (unlikely(j == cpuc->n_events)) {
 		/* This can occur if the event is disabled right on a PMC overflow. */
+		if (cpuc->config & EV67_PCTR_MODE_PROFILEME)
+			alpha_write_pmc_profileme(-alpha_pmu->pmc_max_period[0]);
 		wrperfmon(PERFMON_CMD_ENABLE, cpuc->idx_mask);
 		return;
 	}
@@ -937,7 +1193,17 @@ static void alpha_perf_event_irq_handler(unsigned long la_ptr,
 	hwc = &event->hw;
 	ovf = alpha_perf_event_ovf(hwc, idx);
 	if (ovf < 0) {
-		/* The interrupt was pending when the counter was written. */
+		/*
+		 * The interrupt was pending when the counter was written, or
+		 * is from PCTR1 and was pending when a ProfileMe event was
+		 * scheduled in.
+		 */
+		wrperfmon(PERFMON_CMD_ENABLE, cpuc->idx_mask);
+		return;
+	}
+
+	if (hwc->flags & ALPHA_PERF_FLAG_PROFILEME) {
+		alpha_perf_event_profileme(event, hwc, regs, ovf);
 		wrperfmon(PERFMON_CMD_ENABLE, cpuc->idx_mask);
 		return;
 	}
