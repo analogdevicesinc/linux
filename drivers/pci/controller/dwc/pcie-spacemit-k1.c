@@ -47,6 +47,7 @@
 
 #define PCIE_CONTROL_LOGIC			0x0004
 #define PCIE_SOFT_RESET			BIT(0)
+#define PCIE_IGNORE_PERSTN			BIT(2)
 
 struct k1_pcie {
 	struct dw_pcie pci;
@@ -139,6 +140,13 @@ static int k1_pcie_init(struct dw_pcie_rp *pp)
 	ret = k1_pcie_enable_resources(k1);
 	if (ret)
 		return ret;
+
+	/*
+	 * Ignore the PERST# pad input in RC mode so asserting PERST# to
+	 * reset the endpoint does not also reset the local controller.
+	 */
+	regmap_set_bits(k1->pmu, k1->pmu_off + PCIE_CONTROL_LOGIC,
+			PCIE_IGNORE_PERSTN);
 
 	/* Set the PCI vendor and device ID */
 	dw_pcie_dbi_ro_wr_en(pci);
