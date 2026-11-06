@@ -29,6 +29,185 @@
 
 static struct cpufreq_driver cppc_cpufreq_driver;
 
+/*
+ * OSPM-set CPPC registers tracked for save/restore. A value the OS wrote is
+ * reapplied from online() across CPU hotplug, and the firmware value is
+ * restored from offline().
+ *
+ * Autonomous Selection (auto_sel) is kept first, as the registers after it
+ * only have meaning while it is enabled.
+ */
+enum cppc_saved_reg_id {
+	CPPC_SAVED_AUTO_SEL,
+	CPPC_SAVED_EPP,
+	CPPC_SAVED_AUTO_ACT_WINDOW,
+	CPPC_NR_SAVED_REGS,
+};
+
+struct cppc_saved_reg {
+	const char *name;
+	int (*get)(int cpu, u64 *val);
+	int (*set)(int cpu, u64 val);
+};
+
+static const struct cppc_saved_reg cppc_saved_regs[CPPC_NR_SAVED_REGS] = {
+	[CPPC_SAVED_AUTO_SEL] = {
+		.name = "auto_sel",
+		.get = cppc_get_auto_sel,
+		.set = cppc_set_auto_sel,
+	},
+	[CPPC_SAVED_EPP] = {
+		.name = "epp",
+		.get = cppc_get_epp_perf,
+		.set = cppc_set_epp,
+	},
+	[CPPC_SAVED_AUTO_ACT_WINDOW] = {
+		.name = "auto_act_window",
+		.get = cppc_get_auto_act_window,
+		.set = cppc_set_auto_act_window,
+	},
+};
+
+enum cppc_saved_type {
+	CPPC_SAVED_FIRMWARE,
+	CPPC_SAVED_REQUESTED,
+	CPPC_NR_SAVED_TYPES,
+};
+
+/*
+ * Per-policy values saved for each register in cppc_saved_regs[], U64_MAX
+ * if the register is not implemented or not readable:
+ *   CPPC_SAVED_FIRMWARE  - value before the driver touched it, saved at
+ *                          init() and written back when the policy goes
+ *                          offline
+ *   CPPC_SAVED_REQUESTED - value the OS asked for, reapplied at online().
+ *                          It starts as the firmware value and changes only
+ *                          when a write from the OS succeeds.
+ */
+struct cppc_policy_state {
+	u64 regs[CPPC_NR_SAVED_REGS][CPPC_NR_SAVED_TYPES];
+};
+
+static DEFINE_PER_CPU(struct cppc_policy_state, cppc_policy_state);
+
+/*
+ * Per-policy state is kept in the per-CPU variable of the first CPU the policy
+ * manages. related_cpus (the policy's full set of CPUs) never changes while the
+ * policy exists, so this CPU (unlike policy->cpu) stays the same across CPU
+ * hotplug, and every callback reaches the same copy.
+ */
+static struct cppc_policy_state *
+cppc_cpufreq_policy_state(struct cpufreq_policy *policy)
+{
+	const struct cpumask *policy_cpus = policy->related_cpus;
+
+	/*
+	 * related_cpus is empty during init(), as the core fills it in only
+	 * after init() returns. Use policy->cpus then, which has the same
+	 * first CPU.
+	 */
+	if (cpumask_empty(policy_cpus))
+		policy_cpus = policy->cpus;
+
+	return &per_cpu(cppc_policy_state, cpumask_first(policy_cpus));
+}
+
+/*
+ * Save each tracked register's firmware value before the driver programs
+ * anything. Also start the requested value from it. If the OS never writes a
+ * register and the platform resets it while the CPU is offline, online() then
+ * writes the firmware value back.
+ *
+ * Skip a register that is not implemented or not readable. Fail on any other
+ * read error, as the firmware value is needed to put the register back later.
+ */
+static int cppc_cpufreq_save_firmware_regs(struct cpufreq_policy *policy)
+{
+	struct cppc_policy_state *st = cppc_cpufreq_policy_state(policy);
+	unsigned int cpu = policy->cpu;
+	u64 val;
+	int i, ret;
+
+	for (i = 0; i < CPPC_NR_SAVED_REGS; i++) {
+		ret = cppc_saved_regs[i].get(cpu, &val);
+		if (ret == -EOPNOTSUPP)
+			val = U64_MAX;
+		else if (ret)
+			return ret;
+
+		st->regs[i][CPPC_SAVED_FIRMWARE] = val;
+		st->regs[i][CPPC_SAVED_REQUESTED] = val;
+	}
+
+	return 0;
+}
+
+/*
+ * After a successful write to a tracked register, save the value so that
+ * online() can reapply it.
+ */
+static void cppc_cpufreq_save_requested(struct cpufreq_policy *policy,
+					enum cppc_saved_reg_id reg, u64 val)
+{
+	cppc_cpufreq_policy_state(policy)->regs[reg][CPPC_SAVED_REQUESTED] = val;
+}
+
+/*
+ * Write one tracked register, skipping it when there is no saved value.
+ * A register the platform does not allow writing is not an error.
+ */
+static void cppc_cpufreq_write_saved_reg(unsigned int cpu,
+					 enum cppc_saved_reg_id reg, u64 val,
+					 enum cppc_saved_type saved_type)
+{
+	const char *op = (saved_type == CPPC_SAVED_FIRMWARE) ?
+			 "restore firmware" : "reapply requested";
+	int ret;
+
+	if (val == U64_MAX)
+		return;
+
+	ret = cppc_saved_regs[reg].set(cpu, val);
+	if (ret == -EOPNOTSUPP)
+		return;
+	if (ret)
+		pr_debug("Failed to %s %s=%llu on CPU%u (%d)\n", op,
+			 cppc_saved_regs[reg].name, val, cpu, ret);
+}
+
+/*
+ * Apply the saved firmware or requested value to each tracked register.
+ *
+ * Write auto_sel first when the value being applied enables autonomous
+ * selection and last when it disables it, so the writes to the dependent
+ * registers can still take effect. While autonomous selection stays disabled,
+ * the platform may ignore those writes. Do not enable it temporarily to force
+ * them through.
+ */
+static void cppc_cpufreq_apply_saved_regs(struct cpufreq_policy *policy,
+					  enum cppc_saved_type saved_type)
+{
+	const struct cppc_policy_state *st = cppc_cpufreq_policy_state(policy);
+	unsigned int cpu = policy->cpu;
+	u64 auto_sel, val;
+	int i;
+
+	auto_sel = st->regs[CPPC_SAVED_AUTO_SEL][saved_type];
+
+	if (auto_sel)
+		cppc_cpufreq_write_saved_reg(cpu, CPPC_SAVED_AUTO_SEL, auto_sel,
+					     saved_type);
+
+	for (i = CPPC_SAVED_AUTO_SEL + 1; i < CPPC_NR_SAVED_REGS; i++) {
+		val = st->regs[i][saved_type];
+		cppc_cpufreq_write_saved_reg(cpu, i, val, saved_type);
+	}
+
+	if (!auto_sel)
+		cppc_cpufreq_write_saved_reg(cpu, CPPC_SAVED_AUTO_SEL, auto_sel,
+					     saved_type);
+}
+
 #ifdef CONFIG_ACPI_CPPC_CPUFREQ_FIE
 static enum {
 	FIE_UNSET = -1,
@@ -790,6 +969,12 @@ static int cppc_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	policy->cur = cppc_perf_to_khz(caps, desired_perf);
 	cpu_data->perf_ctrls.desired_perf = desired_perf;
 
+	ret = cppc_cpufreq_save_firmware_regs(policy);
+	if (ret) {
+		pr_debug("Err reading CPU%d firmware values: ret:%d\n", cpu, ret);
+		goto out;
+	}
+
 	ret = cppc_set_perf(cpu, &cpu_data->perf_ctrls);
 	if (ret) {
 		pr_debug("Err setting perf value:%d on CPU:%d. ret:%d\n",
@@ -821,12 +1006,14 @@ static void cppc_cpufreq_cpu_exit(struct cpufreq_policy *policy)
  *
  * The platform may have disabled CPPC and reset the performance controls
  * (desired, min and max performance) while the CPU was offline. Re-enable
- * CPPC and reprogram the controls.
+ * CPPC, reprogram the controls and reapply the requested values of the
+ * OSPM-set registers, which offline() reset to firmware values.
  *
  * Log failures but do not return them, as the core would free the policy.
  * Continue after a failure to enable CPPC, as the writes that follow fail
- * on their own if the platform does not take them. A failed controls write
- * is not fatal, as the next frequency change writes the controls again.
+ * on their own if the platform does not take them. If the controls write
+ * fails, still reapply the OSPM-set registers, as frequency changes rewrite
+ * only the controls.
  */
 static int cppc_cpufreq_cpu_online(struct cpufreq_policy *policy)
 {
@@ -872,6 +1059,8 @@ static int cppc_cpufreq_cpu_online(struct cpufreq_policy *policy)
 		WRITE_ONCE(cpu_data->perf_limits_valid, true);
 	}
 
+	cppc_cpufreq_apply_saved_regs(policy, CPPC_SAVED_REQUESTED);
+
 	/* Restart what offline() stopped, with a new counter snapshot. */
 	cppc_cpufreq_cpu_fie_init(policy);
 
@@ -888,6 +1077,9 @@ static int cppc_cpufreq_cpu_offline(struct cpufreq_policy *policy)
 	struct cppc_perf_ctrls perf_ctrls = cpu_data->perf_ctrls;
 	unsigned int cpu = policy->cpu;
 	int ret;
+
+	/* Leave the platform in its pre-driver state. */
+	cppc_cpufreq_apply_saved_regs(policy, CPPC_SAVED_FIRMWARE);
 
 	/*
 	 * Stop the frequency invariance updates and cancel the pending work, so
@@ -1097,6 +1289,8 @@ static ssize_t store_auto_select(struct cpufreq_policy *policy,
 		WRITE_ONCE(cpu_data->perf_limits_valid, true);
 	}
 
+	cppc_cpufreq_save_requested(policy, CPPC_SAVED_AUTO_SEL, val);
+
 	return count;
 }
 
@@ -1144,8 +1338,30 @@ static ssize_t store_##_name(struct cpufreq_policy *policy,		\
 					    buf, count);		\
 }
 
-CPPC_CPUFREQ_ATTR_RW_U64(auto_act_window, cppc_get_auto_act_window,
-			 cppc_set_auto_act_window)
+static ssize_t show_auto_act_window(struct cpufreq_policy *policy, char *buf)
+{
+	return cppc_cpufreq_sysfs_show_u64(policy->cpu, cppc_get_auto_act_window,
+					   buf);
+}
+
+static ssize_t store_auto_act_window(struct cpufreq_policy *policy,
+				     const char *buf, size_t count)
+{
+	u64 val;
+	int ret;
+
+	ret = kstrtou64(buf, 0, &val);
+	if (ret)
+		return ret;
+
+	ret = cppc_set_auto_act_window(policy->cpu, val);
+	if (ret)
+		return ret;
+
+	cppc_cpufreq_save_requested(policy, CPPC_SAVED_AUTO_ACT_WINDOW, val);
+
+	return count;
+}
 
 static ssize_t
 show_energy_performance_preference_val(struct cpufreq_policy *policy, char *buf)
@@ -1170,6 +1386,7 @@ store_energy_performance_preference_val(struct cpufreq_policy *policy,
 		return ret;
 
 	cpu_data->perf_ctrls.energy_perf = val;
+	cppc_cpufreq_save_requested(policy, CPPC_SAVED_EPP, val);
 
 	return count;
 }
