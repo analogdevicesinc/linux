@@ -214,27 +214,9 @@ impl<'a> RpcMessage<'a> {
             payload_length,
         );
 
-        // Check that the driver read area is large enough for the message.
-        if slice_1.len() + slice_2.len() < payload_length {
-            return Err(EIO);
-        }
-
-        // Cut the message slices down to the actual length of the message.
-        let (slice_1, slice_2) = if slice_1.len() > payload_length {
-            // PANIC: we checked above that `slice_1` is at least as long as `payload_length`.
-            (slice_1.split_at(payload_length).0, &slice_2[0..0])
-        } else {
-            (
-                slice_1,
-                // PANIC: we checked above that `slice_1.len() + slice_2.len()` is at least as
-                // large as `payload_length`.
-                slice_2.split_at(payload_length - slice_1.len()).0,
-            )
-        };
-
         Ok(RpcMessage {
             header: rpc_header,
-            contents: (slice_1, slice_2),
+            contents: super::trim_message_slice((slice_1, slice_2), payload_length)?,
         })
     }
 
