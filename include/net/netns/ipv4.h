@@ -258,9 +258,9 @@ struct netns_ipv4 {
 #endif
 
 	u8 sysctl_igmp_llm_reports;
+	u8 sysctl_igmp_qrv;
 	int sysctl_igmp_max_memberships;
 	int sysctl_igmp_max_msf;
-	int sysctl_igmp_qrv;
 
 	struct ping_group_range ping_group_range;
 	u16			ping_port_rover;

@@ -106,7 +106,7 @@ static int __ipv6_dev_mc_inc(struct net_device *dev,
 #define IPV6_MLD_MAX_MSF	64
 
 int sysctl_mld_max_msf __read_mostly = IPV6_MLD_MAX_MSF;
-int sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
+u8 sysctl_mld_qrv __read_mostly = MLD_QRV_DEFAULT;
 
 #define mc_assert_locked(idev)			\
 	lockdep_assert_held(&(idev)->mc_lock)

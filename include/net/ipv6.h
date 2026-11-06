@@ -205,7 +205,7 @@ struct sk_buff *ip6_frag_next(struct sk_buff *skb,
 
 /* sysctls */
 extern int sysctl_mld_max_msf;
-extern int sysctl_mld_qrv;
+extern u8 sysctl_mld_qrv;
 
 #define _DEVINC(net, statname, mod, idev, field)			\
 ({									\
