@@ -51,6 +51,19 @@ int sockptr_to_sockopt(sockopt_t *opt, sockptr_t optval, sockptr_t optlen,
 		       struct kvec *kvec);
 
 /*
+ * Point a sockopt_t at a user-backed (optval, len) pair whose length is
+ * already known, e.g. because the caller applied its own optlen quirks
+ * before this point.
+ */
+static inline void sockopt_set_user(sockopt_t *opt, char __user *optval,
+				    int len)
+{
+	iov_iter_ubuf(&opt->iter_out, ITER_DEST, optval, len);
+	iov_iter_ubuf(&opt->iter_in, ITER_SOURCE, optval, len);
+	opt->optlen = len;
+}
+
+/*
  * Initialize a user-backed sockopt_t from the (optval, optlen) __user pair of
  * a getsockopt() callback. Used by transitional __user getsockopt wrappers
  * while the proto-layer callbacks are converted to take a sockopt_t; the
@@ -66,9 +79,7 @@ static inline int sockopt_init_user(sockopt_t *opt, char __user *optval,
 	if (len < 0)
 		return -EINVAL;
 
-	iov_iter_ubuf(&opt->iter_out, ITER_DEST, optval, len);
-	iov_iter_ubuf(&opt->iter_in, ITER_SOURCE, optval, len);
-	opt->optlen = len;
+	sockopt_set_user(opt, optval, len);
 
 	return 0;
 }
@@ -80,15 +91,20 @@ static inline int sockopt_init_user(sockopt_t *opt, char __user *optval,
  *
  * Call it before writing through opt->iter_out: it re-anchors the iterator at
  * the head of optval. Only a user buffer can be longer than the optlen the
- * caller declared, so a kernel-backed optval is refused with -EINVAL.
+ * caller declared, so a kernel-backed optval is refused with -EINVAL. So is a
+ * @size above MAX_RW_COUNT, which iov_iter_revert() could not unroll.
  */
 static inline int sockopt_expand_out(sockopt_t *opt, size_t size)
 {
+	/* iov_iter_revert() refuses to unroll past MAX_RW_COUNT, so a size
+	 * beyond that could never be reverted back to the fixed part later,
+	 * even when optlen already covers it.
+	 */
+	if (size > MAX_RW_COUNT)
+		return -EINVAL;
+
 	if (size <= (size_t)opt->optlen)
 		return 0;
-
-	if (size > INT_MAX)
-		return -EINVAL;
 
 	/* Re-anchoring reads iter_out.ubuf, so the iterator has to be a user
 	 * buffer that nothing has written through yet.
