@@ -696,8 +696,8 @@ static int stm32_rproc_parse_dt(struct platform_device *pdev,
 
 	ddata->rst = devm_reset_control_get_optional(dev, "mcu_rst");
 	if (!ddata->rst) {
-		/* Try legacy fallback method: get it by index */
-		ddata->rst = devm_reset_control_get_by_index(dev, 0);
+		/* Try legacy fallback method: get the first reset */
+		ddata->rst = devm_reset_control_get_exclusive(dev, NULL);
 	}
 	if (IS_ERR(ddata->rst))
 		return dev_err_probe(dev, PTR_ERR(ddata->rst),
