@@ -1008,7 +1008,8 @@ void devl_param_value_changed(struct devlink *devlink, u32 param_id)
 	struct devlink_param_item *param_item;
 
 	param_item = devlink_param_find_by_id(&devlink->params, param_id);
-	WARN_ON(!param_item);
+	if (WARN_ON(!param_item))
+		return;
 
 	devlink_param_notify(devlink, 0, param_item, DEVLINK_CMD_PARAM_NEW);
 }
