@@ -86,6 +86,12 @@ enum cppc_saved_type {
  */
 struct cppc_policy_state {
 	u64 regs[CPPC_NR_SAVED_REGS][CPPC_NR_SAVED_TYPES];
+	/*
+	 * Set by suspend() after it restores the firmware values. While it is
+	 * set, offline() skips that restore and resume() calls online().
+	 * Cleared by init() and online().
+	 */
+	bool suspend_regs_handled;
 };
 
 static DEFINE_PER_CPU(struct cppc_policy_state, cppc_policy_state);
@@ -332,6 +338,7 @@ static struct scale_freq_data cppc_sftd_pcc = {
 
 static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 {
+	const struct cpumask *cpus = policy->related_cpus;
 	struct scale_freq_data *sftd;
 	struct cppc_freq_invariance *cppc_fi;
 	int cpu, ret;
@@ -339,7 +346,15 @@ static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 	if (fie_disabled)
 		return;
 
-	for_each_cpu(cpu, policy->cpus) {
+	/*
+	 * When resume() calls online(), policy->cpus has only the online CPUs.
+	 * online() does not run again for a CPU in the same policy that comes
+	 * up later, so use related_cpus. It is empty only during init().
+	 */
+	if (cpumask_empty(cpus))
+		cpus = policy->cpus;
+
+	for_each_cpu(cpu, cpus) {
 		cppc_fi = &per_cpu(cppc_freq_inv, cpu);
 		cppc_fi->cpu = cpu;
 		cppc_fi->cpu_data = policy->driver_data;
@@ -354,10 +369,7 @@ static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 
 		ret = cppc_get_perf_ctrs(cpu, &cppc_fi->prev_perf_fb_ctrs);
 
-		/*
-		 * Don't abort as the CPU was offline while the driver was
-		 * getting registered.
-		 */
+		/* Don't abort for a CPU that is offline. */
 		if (ret && cpu_online(cpu)) {
 			pr_debug("%s: failed to read perf counters for cpu:%d: %d\n",
 				__func__, cpu, ret);
@@ -366,7 +378,7 @@ static void cppc_cpufreq_cpu_fie_init(struct cpufreq_policy *policy)
 	}
 
 	/* A shared policy may contain both PCC and non-PCC counters. */
-	for_each_cpu(cpu, policy->cpus) {
+	for_each_cpu(cpu, cpus) {
 		cppc_fi = &per_cpu(cppc_freq_inv, cpu);
 		if (cppc_fi->pcc_work_initialized)
 			sftd = &cppc_sftd_pcc;
@@ -969,6 +981,7 @@ static int cppc_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	policy->cur = cppc_perf_to_khz(caps, desired_perf);
 	cpu_data->perf_ctrls.desired_perf = desired_perf;
 
+	cppc_cpufreq_policy_state(policy)->suspend_regs_handled = false;
 	ret = cppc_cpufreq_save_firmware_regs(policy);
 	if (ret) {
 		pr_debug("Err reading CPU%d firmware values: ret:%d\n", cpu, ret);
@@ -1022,6 +1035,8 @@ static int cppc_cpufreq_cpu_online(struct cpufreq_policy *policy)
 	struct cppc_perf_ctrls perf_ctrls = {};
 	unsigned int cpu = policy->cpu;
 	int ret;
+
+	cppc_cpufreq_policy_state(policy)->suspend_regs_handled = false;
 
 	/*
 	 * The platform may have reset MIN and MAX, so mark the copy that
@@ -1078,8 +1093,12 @@ static int cppc_cpufreq_cpu_offline(struct cpufreq_policy *policy)
 	unsigned int cpu = policy->cpu;
 	int ret;
 
-	/* Leave the platform in its pre-driver state. */
-	cppc_cpufreq_apply_saved_regs(policy, CPPC_SAVED_FIRMWARE);
+	/*
+	 * Leave the platform in its pre-driver state, unless suspend() already
+	 * did so earlier in this suspend cycle.
+	 */
+	if (!cppc_cpufreq_policy_state(policy)->suspend_regs_handled)
+		cppc_cpufreq_apply_saved_regs(policy, CPPC_SAVED_FIRMWARE);
 
 	/*
 	 * Stop the frequency invariance updates and cancel the pending work, so
@@ -1105,14 +1124,44 @@ static int cppc_cpufreq_cpu_offline(struct cpufreq_policy *policy)
 	return 0;
 }
 
-static int cppc_cpufreq_cpu_resume(struct cpufreq_policy *policy)
+/*
+ * Run for every active policy when the system suspends, before any CPU goes
+ * offline.
+ *
+ * Restore the firmware values. Doing it here covers a policy that keeps a CPU
+ * online, for which offline() never runs. offline() does not write them again
+ * in the same suspend cycle.
+ *
+ * Stop the frequency invariance updates too, so that no sample spans the
+ * suspend window. online() restarts them on the way back, from hotplug or
+ * from resume().
+ */
+static int cppc_cpufreq_cpu_suspend(struct cpufreq_policy *policy)
 {
-	struct cppc_cpudata *cpu_data = policy->driver_data;
+	cppc_cpufreq_apply_saved_regs(policy, CPPC_SAVED_FIRMWARE);
+	cppc_cpufreq_policy_state(policy)->suspend_regs_handled = true;
 
-	/* The platform may have reset the controls during suspend. */
-	WRITE_ONCE(cpu_data->perf_limits_valid, false);
+	cppc_cpufreq_cpu_fie_exit(policy);
 
 	return 0;
+}
+
+/*
+ * Run the online() restore for a policy that kept a CPU online through
+ * suspend.
+ *
+ * For any other policy, online() ran when its first CPU came back, before the
+ * core calls resume(). That cleared the flag. Only a policy that still has it
+ * set needs online() here. Either way every policy goes through online(), so
+ * resume() does not need to mark the copy of MIN and MAX that fast_switch()
+ * uses as out of date.
+ */
+static int cppc_cpufreq_cpu_resume(struct cpufreq_policy *policy)
+{
+	if (!cppc_cpufreq_policy_state(policy)->suspend_regs_handled)
+		return 0;
+
+	return cppc_cpufreq_cpu_online(policy);
 }
 
 static inline u64 get_delta(u64 t1, u64 t0)
@@ -1446,6 +1495,7 @@ static struct cpufreq_driver cppc_cpufreq_driver = {
 	.exit = cppc_cpufreq_cpu_exit,
 	.online = cppc_cpufreq_cpu_online,
 	.offline = cppc_cpufreq_cpu_offline,
+	.suspend = cppc_cpufreq_cpu_suspend,
 	.resume = cppc_cpufreq_cpu_resume,
 	.set_boost = cppc_cpufreq_set_boost,
 	.attr = cppc_cpufreq_attr,
