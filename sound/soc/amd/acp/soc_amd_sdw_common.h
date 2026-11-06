@@ -28,8 +28,15 @@
 
 #define SOC_JACK_JDSRC(quirk)		((quirk) & GENMASK(3, 0))
 #define ASOC_SDW_FOUR_SPK		BIT(4)
-#define ASOC_SDW_ACP_DMIC		BIT(5)
-#define ASOC_SDW_ACP_DMIC1		BIT(6)	/* select DMIC1 controller for ACP7.B/7.F */
+/*
+ * ASOC_SDW_ACP_DMIC is a generic DMIC-enable flag used across all ACP
+ * platforms. On ACP7.B/7.F it additionally identifies the PDM0 controller;
+ * ASOC_SDW_ACP_DMIC1 selects PDM1 on ACP7.B/7.F instead. Both ACP7.B/7.F
+ * controllers support a 2-channel stereo capture path, and BIOS wires exactly
+ * one per platform.
+ */
+#define ASOC_SDW_ACP_DMIC		BIT(5)	/* enable DMIC; PDM0 on ACP7.B/7.F */
+#define ASOC_SDW_ACP_DMIC1		BIT(6)	/* PDM1 / DMIC1, ACP7.B/7.F only */
 #define ASOC_SDW_CODEC_SPKR		BIT(15)
 
 #define AMD_SDW0	0
