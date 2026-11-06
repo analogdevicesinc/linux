@@ -1761,9 +1761,8 @@ err_unmap:
  *
  * With &drm_gpusvm_ctx.no_dma_map no mapping state is recorded, so
  * drm_gpusvm_pages_valid() never returns true and success is only a snapshot:
- * the caller must recheck mmu_interval_read_retry() against the recorded
- * &drm_gpusvm_pages.notifier_seq under the notifier lock, and hold it until
- * its work is visible to invalidation.
+ * the caller must recheck drm_gpusvm_pages_read_retry() under the notifier
+ * lock, and hold it until its work is visible to invalidation.
  *
  * Return: 0 on success, negative error code on failure.
  */
@@ -2022,6 +2021,38 @@ bool drm_gpusvm_has_mapping(struct drm_gpusvm *gpusvm, unsigned long start,
 EXPORT_SYMBOL_GPL(drm_gpusvm_has_mapping);
 
 /**
+ * drm_gpusvm_pages_set_unmapped() - Mark GPU SVM pages as unmapped
+ * @gpusvm: Pointer to the GPU SVM structure.
+ * @pages: Pointer to the GPU SVM pages structure(s).
+ * @pages_count: Number of GPU SVM pages structure(s) passed in.
+ *
+ * Mark @pages as unmapped, after which drm_gpusvm_get_pages() fails with
+ * -EFAULT for them. Intended to be called from the driver's MMU notifier on
+ * MMU_NOTIFY_UNMAP, and usable without a &drm_gpusvm_range by drivers that
+ * only use the drm_gpusvm_pages API. The caller must hold the notifier lock
+ * in write mode.
+ */
+void drm_gpusvm_pages_set_unmapped(struct drm_gpusvm *gpusvm,
+				   struct drm_gpusvm_pages *pages,
+				   unsigned int pages_count)
+{
+	unsigned int i;
+
+	lockdep_assert_held_write(&gpusvm->notifier_lock);
+
+	for (i = 0; i < pages_count; ++i) {
+		struct drm_gpusvm_pages_flags flags = {
+			.__flags = pages[i].flags.__flags,
+		};
+
+		flags.unmapped = true;
+		/* WRITE_ONCE pairs with READ_ONCE for opportunistic checks */
+		WRITE_ONCE(pages[i].flags.__flags, flags.__flags);
+	}
+}
+EXPORT_SYMBOL_GPL(drm_gpusvm_pages_set_unmapped);
+
+/**
  * drm_gpusvm_range_set_unmapped() - Mark a GPU SVM range as unmapped
  * @range: Pointer to the GPU SVM range structure.
  * @pages: Pointer to the GPU SVM pages structure(s).
@@ -2039,20 +2070,10 @@ void drm_gpusvm_range_set_unmapped(struct drm_gpusvm_range *range,
 	struct drm_gpusvm_range_flags range_flags = {
 		.__flags = range->flags.__flags,
 	};
-	unsigned int i;
 
-	lockdep_assert_held_write(&range->gpusvm->notifier_lock);
+	drm_gpusvm_pages_set_unmapped(range->gpusvm, pages, pages_count);
 
 	range_flags.unmapped = true;
-	for (i = 0; i < pages_count; ++i) {
-		struct drm_gpusvm_pages_flags flags = {
-			.__flags = pages[i].flags.__flags,
-		};
-
-		flags.unmapped = true;
-		/* WRITE_ONCE pairs with READ_ONCE for opportunistic checks */
-		WRITE_ONCE(pages[i].flags.__flags, flags.__flags);
-	}
 	if (drm_gpusvm_range_start(range) < mmu_range->start ||
 	    drm_gpusvm_range_end(range) > mmu_range->end)
 		range_flags.partial_unmap = true;
