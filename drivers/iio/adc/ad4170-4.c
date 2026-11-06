@@ -2284,6 +2284,9 @@ static int ad4170_parse_channel_node(struct iio_dev *indio_dev,
 	if (ch_reg >= AD4170_MAX_ADC_CHANNELS)
 		return dev_err_probe(dev, -EINVAL,
 				     "Channel idx greater than no of channels\n");
+	if (st->chan_infos[ch_reg].initialized)
+		return dev_err_probe(dev, -EINVAL,
+				     "Duplicate channel index %u\n", ch_reg);
 
 	chan = &st->chans[chan_num];
 	*chan = ad4170_channel_template;
@@ -2350,6 +2353,7 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct device *dev = &st->spi->dev;
 	unsigned int num_channels;
+	unsigned int chan_addr;
 	unsigned int chan_num;
 	int ret;
 
@@ -2357,9 +2361,6 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 
 	if (num_channels > AD4170_MAX_ADC_CHANNELS)
 		return dev_err_probe(dev, -EINVAL, "Too many channels\n");
-
-	/* Add one for temperature */
-	num_channels = min(num_channels + 1, AD4170_MAX_ADC_CHANNELS);
 
 	chan_num = 0;
 	device_for_each_child_node_scoped(dev, child) {
@@ -2372,35 +2373,39 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 	 * Add internal temperature sensor channel if the maximum number of
 	 * channels has not been reached.
 	 */
-	if (num_channels < AD4170_MAX_ADC_CHANNELS) {
-		struct ad4170_setup *setup = &st->chan_infos[chan_num].setup;
+	if (chan_num < AD4170_MAX_ADC_CHANNELS) {
+		struct ad4170_setup *setup;
+
+		for (chan_addr = 0; chan_addr < AD4170_MAX_ADC_CHANNELS; chan_addr++)
+			if (!st->chan_infos[chan_addr].initialized)
+				break;
+
+		setup = &st->chan_infos[chan_addr].setup;
 
 		st->chans[chan_num] = ad4170_temp_channel_template;
-		st->chans[chan_num].address = chan_num;
-		st->chans[chan_num].scan_index = chan_num;
+		st->chans[chan_num].address = chan_addr;
+		st->chans[chan_num].scan_index = chan_addr;
 
-		st->chan_infos[chan_num].setup_num = AD4170_INVALID_SETUP;
-		st->chan_infos[chan_num].initialized = true;
+		st->chan_infos[chan_addr].setup_num = AD4170_INVALID_SETUP;
+		st->chan_infos[chan_addr].initialized = true;
 
 		setup->afe |= FIELD_PREP(AD4170_AFE_REF_SELECT_MSK,
 					 AD4170_REF_AVDD);
 
-		ret = ad4170_get_input_range(st, &st->chans[chan_num], chan_num,
+		ret = ad4170_get_input_range(st, &st->chans[chan_num], chan_addr,
 					     AD4170_REF_AVDD);
 		if (ret < 0)
 			return dev_err_probe(dev, ret, "Invalid input config\n");
 
-		st->chan_infos[chan_num].input_range_uv = ret;
+		st->chan_infos[chan_addr].input_range_uv = ret;
 		chan_num++;
 	}
 
 	/* Add timestamp channel */
-	struct iio_chan_spec ts_chan = IIO_CHAN_SOFT_TIMESTAMP(chan_num);
+	struct iio_chan_spec ts_chan = IIO_CHAN_SOFT_TIMESTAMP(AD4170_MAX_ADC_CHANNELS);
 
 	st->chans[chan_num] = ts_chan;
-	num_channels = num_channels + 1;
-
-	indio_dev->num_channels = num_channels;
+	indio_dev->num_channels = chan_num + 1;
 	indio_dev->channels = st->chans;
 
 	return 0;
@@ -2644,7 +2649,8 @@ static int ad4170_initial_config(struct iio_dev *indio_dev)
 		val = FIELD_PREP(AD4170_CHAN_MAP_AINP_MSK, chan->channel) |
 		      FIELD_PREP(AD4170_CHAN_MAP_AINM_MSK, chan->channel2);
 
-		ret = regmap_write(st->regmap, AD4170_CHAN_MAP_REG(i), val);
+		ret = regmap_write(st->regmap,
+				   AD4170_CHAN_MAP_REG(chan->address), val);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to write CHAN_MAP_REG\n");
@@ -2751,10 +2757,12 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 	 * channels will be read.
 	 */
 	for (i = 0; i < indio_dev->num_channels; i++) {
-		if (indio_dev->channels[i].type == IIO_TIMESTAMP)
+		const struct iio_chan_spec *chan = &indio_dev->channels[i];
+
+		if (chan->type == IIO_TIMESTAMP)
 			continue;
 
-		ret = ad4170_set_channel_enable(st, i, false);
+		ret = ad4170_set_channel_enable(st, chan->address, false);
 		if (ret)
 			return ret;
 	}
