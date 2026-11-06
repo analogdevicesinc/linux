@@ -1620,15 +1620,6 @@ config FB_PS3_DEFAULT_SIZE_M
 	  The default value can be overridden on the kernel command line
 	  using the "ps3fb" option (e.g. "ps3fb=9M");
 
-config FB_XILINX
-	tristate "Xilinx frame buffer support"
-	depends on FB && (MICROBLAZE || ARCH_ZYNQ || ARCH_ZYNQMP)
-	select FB_IOMEM_HELPERS
-	help
-	  Include support for the Xilinx ML300/ML403 reference design
-	  framebuffer. ML300 carries a 640*480 LCD display on the board,
-	  ML403 uses a standard DB15 VGA connector.
-
 config FB_GOLDFISH
 	tristate "Goldfish Framebuffer"
 	depends on FB
