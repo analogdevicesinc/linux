@@ -8067,11 +8067,15 @@ static void ufshcd_set_req_abort_skip(struct ufs_hba *hba, unsigned long bitmap)
  * @hba: Pointer to adapter instance
  * @tag: Tag of the task to be aborted
  *
- * Abort the pending command in device by sending UFS_ABORT_TASK task management
- * command, and in host controller by clearing the door-bell register. There can
- * be race between controller sending the command to the device while abort is
- * issued. To avoid that, first issue UFS_QUERY_TASK to check if the command is
- * really issued and then try to abort it.
+ * Abort the pending SCSI command in device by sending UFS_ABORT_TASK task
+ * management command, and in host controller by clearing the door-bell
+ * register. There can be race between controller sending the command to the
+ * device while abort is issued. To avoid that, first issue UFS_QUERY_TASK to
+ * check if the command is really issued and then try to abort it.
+ *
+ * Device management commands are not SCSI commands, so no task management
+ * function is issued for them; only the command is cleared in the host
+ * controller.
  *
  * Return: zero on success, non-zero on failure.
  */
@@ -8087,6 +8091,9 @@ int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 		return -EINVAL;
 
 	lrbp = scsi_cmd_priv(cmd);
+
+	if (!ufshcd_is_scsi_cmd(cmd))
+		goto clear_cmd;
 
 	for (poll_cnt = 100; poll_cnt; poll_cnt--) {
 		err = ufshcd_issue_tm_cmd(hba, lrbp->lun, tag, UFS_QUERY_TASK,
@@ -8133,6 +8140,7 @@ int ufshcd_try_to_abort_task(struct ufs_hba *hba, int tag)
 		return err;
 	}
 
+clear_cmd:
 	err = ufshcd_clear_cmd(hba, tag);
 	if (err)
 		dev_err(hba->dev, "%s: Failed clearing cmd at tag %d, err %d\n",
@@ -8226,10 +8234,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 		goto release;
 	}
 
-	if (blk_mq_is_reserved_rq(rq))
-		err = ufshcd_clear_cmd(hba, tag);
-	else
-		err = ufshcd_try_to_abort_task(hba, tag);
+	err = ufshcd_try_to_abort_task(hba, tag);
 	if (err) {
 		dev_err(hba->dev, "%s: failed with err %d\n", __func__, err);
 		ufshcd_set_req_abort_skip(hba, hba->outstanding_reqs);
