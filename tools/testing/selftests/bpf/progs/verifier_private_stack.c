@@ -22,7 +22,7 @@ struct {
 	__type(value, struct elem);
 } array SEC(".maps");
 
-SEC("kprobe")
+SEC("kprobe.multi")
 __description("Private stack, single prog")
 __success
 __arch_x86_64
@@ -110,6 +110,40 @@ int no_private_stack_stack_args(void)
 }
 #endif
 
+SEC("kprobe")
+__description("No private stack, untagged kprobe")
+__success
+__arch_x86_64
+__jited("	subq	$0x100, %rsp")
+__arch_arm64
+__jited("	sub	sp, sp, #0x100")
+__naked void no_private_stack_kprobe(void)
+{
+	asm volatile ("			\
+	r1 = 42;			\
+	*(u64 *)(r10 - 256) = r1;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+SEC("uprobe")
+__description("No private stack, uprobe")
+__success
+__arch_x86_64
+__jited("	subq	$0x100, %rsp")
+__arch_arm64
+__jited("	sub	sp, sp, #0x100")
+__naked void no_private_stack_uprobe(void)
+{
+	asm volatile ("			\
+	r1 = 42;			\
+	*(u64 *)(r10 - 256) = r1;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
 __used
 __naked static void cumulative_stack_depth_subprog(void)
 {
@@ -123,7 +157,7 @@ __naked static void cumulative_stack_depth_subprog(void)
 	: __clobber_all);
 }
 
-SEC("kprobe")
+SEC("kprobe.multi")
 __description("Private stack, subtree > MAX_BPF_STACK")
 __success
 __log_level(4) __msg("stack depth max 512")

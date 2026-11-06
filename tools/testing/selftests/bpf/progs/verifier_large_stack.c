@@ -243,7 +243,7 @@ static void priv_stack_frame_2048(void)
 "	::: __clobber_all);
 }
 
-SEC("kprobe")
+SEC("kprobe.multi")
 __description("private stack: two frames of 2048 bytes")
 __load_if_large_stack()
 __arch_x86_64
