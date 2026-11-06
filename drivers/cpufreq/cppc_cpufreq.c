@@ -321,58 +321,94 @@ static void cppc_cpufreq_get_perf_limits(struct cppc_cpudata *cpu_data,
 	*max_perf = clamp_t(u32, max, caps->lowest_perf, caps->highest_perf);
 }
 
-static void cppc_cpufreq_update_perf_limits(struct cppc_cpudata *cpu_data,
-					    struct cpufreq_policy *policy)
-{
-	cppc_cpufreq_get_perf_limits(cpu_data, policy,
-				     &cpu_data->perf_ctrls.min_perf,
-				     &cpu_data->perf_ctrls.max_perf);
-}
-
 static int cppc_cpufreq_set_target(struct cpufreq_policy *policy,
 				   unsigned int target_freq,
 				   unsigned int relation)
 {
 	struct cppc_cpudata *cpu_data = policy->driver_data;
+	struct cppc_perf_ctrls perf_ctrls = {};
 	unsigned int cpu = policy->cpu;
 	struct cpufreq_freqs freqs;
+	u32 desired_perf;
 	int ret = 0;
 
-	cpu_data->perf_ctrls.desired_perf =
-			cppc_khz_to_perf(&cpu_data->perf_caps, target_freq);
-	cppc_cpufreq_update_perf_limits(cpu_data, policy);
+	desired_perf = cppc_khz_to_perf(&cpu_data->perf_caps, target_freq);
+	cppc_cpufreq_get_perf_limits(cpu_data, policy, &perf_ctrls.min_perf,
+				     &perf_ctrls.max_perf);
+	perf_ctrls.min_perf_valid = true;
+
+	/*
+	 * Keep the cached Desired within [MIN, MAX]. Rounding can put it just
+	 * outside at the ends of the range. The policy limits may also change
+	 * after the governor picked target_freq.
+	 */
+	perf_ctrls.desired_perf = clamp(desired_perf, perf_ctrls.min_perf,
+					perf_ctrls.max_perf);
 
 	freqs.old = policy->cur;
 	freqs.new = target_freq;
 
 	cpufreq_freq_transition_begin(policy, &freqs);
-	ret = cppc_set_perf(cpu, &cpu_data->perf_ctrls);
+	ret = cppc_set_perf(cpu, &perf_ctrls);
 	cpufreq_freq_transition_end(policy, &freqs, ret != 0);
 
-	if (ret)
+	if (ret) {
+		WRITE_ONCE(cpu_data->perf_limits_valid, false);
 		pr_debug("Failed to set target on CPU:%d. ret:%d\n",
 			 cpu, ret);
+		return ret;
+	}
 
-	return ret;
+	WRITE_ONCE(cpu_data->perf_ctrls.desired_perf,
+		   perf_ctrls.desired_perf);
+	WRITE_ONCE(cpu_data->perf_ctrls.min_perf, perf_ctrls.min_perf);
+	WRITE_ONCE(cpu_data->perf_ctrls.max_perf, perf_ctrls.max_perf);
+	WRITE_ONCE(cpu_data->perf_limits_valid, true);
+
+	return 0;
 }
 
 static unsigned int cppc_cpufreq_fast_switch(struct cpufreq_policy *policy,
 					      unsigned int target_freq)
 {
 	struct cppc_cpudata *cpu_data = policy->driver_data;
+	struct cppc_perf_ctrls perf_ctrls = {};
 	unsigned int cpu = policy->cpu;
-	u32 desired_perf;
+	u32 desired_perf, min_perf, max_perf;
+	bool update_limits;
 	int ret;
 
 	desired_perf = cppc_khz_to_perf(&cpu_data->perf_caps, target_freq);
-	cpu_data->perf_ctrls.desired_perf = desired_perf;
-	cppc_cpufreq_update_perf_limits(cpu_data, policy);
+	cppc_cpufreq_get_perf_limits(cpu_data, policy, &min_perf, &max_perf);
 
-	ret = cppc_set_perf(cpu, &cpu_data->perf_ctrls);
+	/*
+	 * cppc_set_perf() does not check a Desired-only request, and rounding
+	 * or a policy limit change can put Desired outside [MIN, MAX].
+	 */
+	desired_perf = clamp(desired_perf, min_perf, max_perf);
+	perf_ctrls.desired_perf = desired_perf;
+	update_limits = !READ_ONCE(cpu_data->perf_limits_valid) ||
+			min_perf != READ_ONCE(cpu_data->perf_ctrls.min_perf) ||
+			max_perf != READ_ONCE(cpu_data->perf_ctrls.max_perf);
+	if (update_limits) {
+		perf_ctrls.min_perf = min_perf;
+		perf_ctrls.max_perf = max_perf;
+		perf_ctrls.min_perf_valid = true;
+	}
+
+	ret = cppc_set_perf(cpu, &perf_ctrls);
 	if (ret) {
+		WRITE_ONCE(cpu_data->perf_limits_valid, false);
 		pr_debug("Failed to set target on CPU:%d. ret:%d\n",
 			 cpu, ret);
 		return 0;
+	}
+
+	WRITE_ONCE(cpu_data->perf_ctrls.desired_perf, desired_perf);
+	if (update_limits) {
+		WRITE_ONCE(cpu_data->perf_ctrls.min_perf, min_perf);
+		WRITE_ONCE(cpu_data->perf_ctrls.max_perf, max_perf);
+		WRITE_ONCE(cpu_data->perf_limits_valid, true);
 	}
 
 	return target_freq;
@@ -669,6 +705,7 @@ static int cppc_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	unsigned int cpu = policy->cpu;
 	struct cppc_cpudata *cpu_data;
 	struct cppc_perf_caps *caps;
+	u32 desired_perf;
 	int ret;
 
 	cpu_data = cppc_cpufreq_get_cpu_data(cpu);
@@ -727,16 +764,39 @@ static int cppc_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	if (caps->highest_perf > caps->nominal_perf)
 		policy->boost_supported = true;
 
-	/* Set policy->cur to max now. The governors will adjust later. */
-	policy->cur = cppc_perf_to_khz(caps, caps->highest_perf);
-	cpu_data->perf_ctrls.desired_perf =  caps->highest_perf;
+	/*
+	 * The request starts from the live limits, which may be unusable.
+	 * Firmware may leave them zeroed. An interrupted earlier update may
+	 * have left MIN above MAX. cppc_set_perf() would reject either, so
+	 * request the full range instead.
+	 */
+	if (!cpu_data->perf_ctrls.max_perf ||
+	    cpu_data->perf_ctrls.min_perf > cpu_data->perf_ctrls.max_perf) {
+		cpu_data->perf_ctrls.min_perf = caps->lowest_perf;
+		cpu_data->perf_ctrls.min_perf_valid = true;
+		cpu_data->perf_ctrls.max_perf = caps->highest_perf;
+	}
+
+	/*
+	 * Keep the initial request within controls left by an earlier driver
+	 * instance or firmware. The governor will update the full tuple later.
+	 */
+	desired_perf = caps->highest_perf;
+	if (cpu_data->perf_ctrls.max_perf)
+		desired_perf = min(desired_perf, cpu_data->perf_ctrls.max_perf);
+	if (cpu_data->perf_ctrls.min_perf_valid)
+		desired_perf = max(desired_perf, cpu_data->perf_ctrls.min_perf);
+
+	policy->cur = cppc_perf_to_khz(caps, desired_perf);
+	cpu_data->perf_ctrls.desired_perf = desired_perf;
 
 	ret = cppc_set_perf(cpu, &cpu_data->perf_ctrls);
 	if (ret) {
 		pr_debug("Err setting perf value:%d on CPU:%d. ret:%d\n",
-			 caps->highest_perf, cpu, ret);
+			 desired_perf, cpu, ret);
 		goto out;
 	}
+	cpu_data->perf_limits_valid = true;
 
 	cppc_cpufreq_cpu_fie_init(policy);
 	return 0;
@@ -756,6 +816,8 @@ static void cppc_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 	cppc_cpufreq_cpu_fie_exit(policy);
 
 	cpu_data->perf_ctrls.desired_perf = caps->lowest_perf;
+	cpu_data->perf_ctrls.min_perf = caps->lowest_perf;
+	cpu_data->perf_ctrls.min_perf_valid = true;
 
 	ret = cppc_set_perf(cpu, &cpu_data->perf_ctrls);
 	if (ret)
@@ -763,6 +825,16 @@ static void cppc_cpufreq_cpu_exit(struct cpufreq_policy *policy)
 			 caps->lowest_perf, cpu, ret);
 
 	cppc_cpufreq_put_cpu_data(policy);
+}
+
+static int cppc_cpufreq_cpu_resume(struct cpufreq_policy *policy)
+{
+	struct cppc_cpudata *cpu_data = policy->driver_data;
+
+	/* The platform may have reset the controls during suspend. */
+	WRITE_ONCE(cpu_data->perf_limits_valid, false);
+
+	return 0;
 }
 
 static inline u64 get_delta(u64 t1, u64 t0)
@@ -909,24 +981,34 @@ static ssize_t store_auto_select(struct cpufreq_policy *policy,
 	cpu_data->perf_ctrls.auto_sel = val;
 
 	if (val) {
-		u32 old_min_perf = cpu_data->perf_ctrls.min_perf;
-		u32 old_max_perf = cpu_data->perf_ctrls.max_perf;
+		struct cppc_perf_ctrls perf_ctrls = {};
 
 		/*
 		 * When enabling autonomous selection, program MIN_PERF and
 		 * MAX_PERF from current policy limits so that the platform
 		 * uses the correct performance bounds immediately.
 		 */
-		cppc_cpufreq_update_perf_limits(cpu_data, policy);
+		cppc_cpufreq_get_perf_limits(cpu_data, policy,
+					     &perf_ctrls.min_perf,
+					     &perf_ctrls.max_perf);
+		perf_ctrls.min_perf_valid = true;
+		/* The cached Desired may be outside the new MIN and MAX. */
+		perf_ctrls.desired_perf =
+			clamp(cpu_data->perf_ctrls.desired_perf,
+			      perf_ctrls.min_perf, perf_ctrls.max_perf);
 
-		ret = cppc_set_perf(policy->cpu, &cpu_data->perf_ctrls);
+		ret = cppc_set_perf(policy->cpu, &perf_ctrls);
 		if (ret) {
-			cpu_data->perf_ctrls.min_perf = old_min_perf;
-			cpu_data->perf_ctrls.max_perf = old_max_perf;
+			WRITE_ONCE(cpu_data->perf_limits_valid, false);
 			cppc_set_auto_sel(policy->cpu, old_auto_sel);
 			cpu_data->perf_ctrls.auto_sel = old_auto_sel;
 			return ret;
 		}
+		WRITE_ONCE(cpu_data->perf_ctrls.desired_perf,
+			   perf_ctrls.desired_perf);
+		WRITE_ONCE(cpu_data->perf_ctrls.min_perf, perf_ctrls.min_perf);
+		WRITE_ONCE(cpu_data->perf_ctrls.max_perf, perf_ctrls.max_perf);
+		WRITE_ONCE(cpu_data->perf_limits_valid, true);
 	}
 
 	return count;
@@ -1059,6 +1141,7 @@ static struct cpufreq_driver cppc_cpufreq_driver = {
 	.fast_switch = cppc_cpufreq_fast_switch,
 	.init = cppc_cpufreq_cpu_init,
 	.exit = cppc_cpufreq_cpu_exit,
+	.resume = cppc_cpufreq_cpu_resume,
 	.set_boost = cppc_cpufreq_set_boost,
 	.attr = cppc_cpufreq_attr,
 	.name = "cppc_cpufreq",
