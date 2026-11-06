@@ -84,8 +84,7 @@ struct landlock_file_security {
 	 * @fown_subject: Landlock credential of the task that set the PID that
 	 * may receive a signal e.g., SIGURG when writing MSG_OOB to the
 	 * related socket.  This pointer is protected by the related
-	 * file->f_owner->lock, as for fown_struct's members: pid, uid, and
-	 * euid.
+	 * file->f_owner->lock, as for fown_struct's members: pid and cred.
 	 */
 	struct landlock_cred_security fown_subject;
 	/**
