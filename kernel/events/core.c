@@ -11835,9 +11835,18 @@ static int __perf_event_set_bpf_prog(struct perf_event *event,
 	    (is_syscall_tp && prog->type != BPF_PROG_TYPE_TRACEPOINT))
 		return -EINVAL;
 
-	if (prog->type == BPF_PROG_TYPE_KPROBE && prog->sleepable && !is_uprobe)
+	if (prog->type == BPF_PROG_TYPE_KPROBE) {
 		/* only uprobe programs are allowed to be sleepable */
-		return -EINVAL;
+		if (prog->sleepable && !is_uprobe)
+			return -EINVAL;
+
+		/* only standard kprobe/uprobe programs are allowed to attach */
+		if (prog->expected_attach_type == BPF_TRACE_KPROBE_MULTI ||
+		    prog->expected_attach_type == BPF_TRACE_KPROBE_SESSION ||
+		    prog->expected_attach_type == BPF_TRACE_UPROBE_MULTI ||
+		    prog->expected_attach_type == BPF_TRACE_UPROBE_SESSION)
+			return -EINVAL;
+	}
 
 	if (prog->type == BPF_PROG_TYPE_TRACEPOINT && prog->sleepable) {
 		/*
