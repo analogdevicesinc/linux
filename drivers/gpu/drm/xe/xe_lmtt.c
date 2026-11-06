@@ -220,14 +220,8 @@ static void lmtt_setup_dir_ptr_gt(struct xe_gt *gt, u32 config)
 	struct xe_reg reg;
 	u32 val_read;
 
-	if (GRAPHICS_VER(xe) < 20) {
-		reg = LMEM_CFG;
-		xe_mmio_write32(&gt->mmio, reg, config);
-		return;
-	}
-
 	if (xe_gt_is_main_type(gt)) {
-		reg_mcr = XE2_LMEM_CFG_MCR;
+		reg_mcr = GRAPHICS_VER(xe) < 20 ? LMEM_CFG_MCR : XE2_LMEM_CFG_MCR;
 		xe_gt_mcr_multicast_write(gt, reg_mcr, config);
 		val_read = xe_gt_mcr_unicast_read_any(gt, reg_mcr);
 		xe_gt_assert_msg(gt, val_read == config, "LMEM_CFG_MCR: %#x != %#x\n",
