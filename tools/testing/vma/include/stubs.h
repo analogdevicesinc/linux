@@ -55,11 +55,6 @@ static inline void free_pgd_range(struct mmu_gather *tlb,
 {
 }
 
-static inline int ksm_execve(struct mm_struct *mm)
-{
-	return 0;
-}
-
 static inline void ksm_exit(struct mm_struct *mm)
 {
 }

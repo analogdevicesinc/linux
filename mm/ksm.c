@@ -2765,11 +2765,11 @@ no_vmas:
 
 		mm_slot_free(mm_slot_cache, mm_slot);
 		/*
-		 * Only clear MMF_VM_MERGEABLE. We must not clear
-		 * MMF_VM_MERGE_ANY, because for those MMF_VM_MERGE_ANY process,
-		 * perhaps their mm_struct has just been added to ksm_mm_slot
-		 * list, and its process has not yet officially started running
-		 * or has not yet performed mmap/brk to allocate anonymous VMAS.
+		 * Only clear MMF_VM_MERGEABLE. MMF_VM_MERGE_ANY is the
+		 * per-process setting inherited across exec, so it must
+		 * stay set until userspace disables it with
+		 * prctl(PR_SET_MEMORY_MERGE, 0). A later mergeable VMA
+		 * re-registers the mm through ksm_vma_flags().
 		 */
 		mm_flags_clear(MMF_VM_MERGEABLE, mm);
 		mmap_read_unlock(mm);
@@ -2897,8 +2897,10 @@ vma_flags_t ksm_vma_flags(struct mm_struct *mm, const struct file *file,
 		vma_flags_set(&vma_flags, VMA_MERGEABLE_BIT);
 		/*
 		 * Generally, the flags here always include MMF_VM_MERGEABLE.
-		 * However, in rare cases, this flag may be cleared by ksmd who
-		 * scans a cycle without finding any mergeable vma.
+		 * However, a newly execed process has not been added to
+		 * ksm_mm_slot. The first mergeable VMA registers the mm
+		 * with ksmd here. ksmd can also clear it after a full scan
+		 * cycle without finding any mergeable VMA.
 		 */
 		if (unlikely(!mm_flags_test(MMF_VM_MERGEABLE, mm)))
 			__ksm_enter(mm);
