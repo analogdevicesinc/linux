@@ -5,6 +5,8 @@
 
 #include "xe_bo_evict.h"
 
+#include <drm/ttm/ttm_bo.h>
+
 #include "xe_bo.h"
 #include "xe_device.h"
 #include "xe_ggtt.h"
@@ -104,8 +106,48 @@ void xe_bo_notifier_unprepare_all_pinned(struct xe_device *xe)
 				    xe_bo_notifier_unprepare_pinned);
 }
 
+static int xe_bo_evict_all_ccs(struct ttm_resource_manager *man)
+{
+	struct ttm_operation_ctx ctx = {
+		.interruptible = false,
+		.no_wait_gpu = false,
+	};
+	struct ttm_lru_walk_arg arg = {
+		.ctx = &ctx,
+		.sleeping_lock = true,
+	};
+	struct ttm_bo_lru_cursor cursor;
+	struct ttm_buffer_object *ttm_bo;
+	int ret = 0;
+
+	ttm_bo_lru_for_each_reserved_guarded(&cursor, man, &arg, ttm_bo) {
+		struct xe_bo *bo;
+
+		if (!xe_bo_is_xe_bo(ttm_bo) || ttm_bo->deleted)
+			continue;
+
+		bo = ttm_to_xe_bo(ttm_bo);
+		if (xe_bo_is_pinned(bo) || !xe_bo_needs_ccs_pages(bo) ||
+		    !bo->ccs_cleared)
+			continue;
+
+		if (xe_bo_madv_is_dontneed(bo)) {
+			ttm_bo_unmap_virtual(ttm_bo);
+			ret = xe_ttm_bo_purge(ttm_bo, &ctx);
+		} else {
+			ret = xe_bo_evict(bo, NULL);
+		}
+		if (ret)
+			break;
+	}
+	if (IS_ERR(ttm_bo))
+		return PTR_ERR(ttm_bo);
+
+	return ret;
+}
+
 /**
- * xe_bo_evict_all_user - evict all non-pinned user BOs from VRAM
+ * xe_bo_evict_all_user - evict all non-pinned user BOs from VRAM (and CCS in TT)
  * @xe: xe device
  *
  * Evict non-pinned user BOs (via GPU).
@@ -123,22 +165,26 @@ int xe_bo_evict_all_user(struct xe_device *xe)
 		struct ttm_resource_manager *man =
 			ttm_manager_type(bdev, mem_type);
 
+		if (!man)
+			continue;
+
 		/*
 		 * On igpu platforms with flat CCS we need to ensure we save and restore any CCS
 		 * state since this state lives inside graphics stolen memory which doesn't survive
 		 * hibernation.
-		 *
-		 * This can be further improved by only evicting objects that we know have actually
-		 * used a compression enabled PAT index.
 		 */
-		if (mem_type == XE_PL_TT && (IS_DGFX(xe) || !xe_device_has_flat_ccs(xe)))
+		if (mem_type == XE_PL_TT) {
+			if (!IS_DGFX(xe) && xe_device_has_flat_ccs(xe)) {
+				ret = xe_bo_evict_all_ccs(man);
+				if (ret)
+					return ret;
+			}
 			continue;
-
-		if (man) {
-			ret = ttm_resource_manager_evict_all(bdev, man);
-			if (ret)
-				return ret;
 		}
+
+		ret = ttm_resource_manager_evict_all(bdev, man);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
