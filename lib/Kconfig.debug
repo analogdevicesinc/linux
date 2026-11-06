@@ -3590,6 +3590,21 @@ config PRIME_NUMBERS_KUNIT_TEST
 
 	  If unsure, say N
 
+config GENALLOC_KUNIT_TEST
+	tristate "KUnit test for the general purpose allocator" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select GENERIC_ALLOCATOR
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for lib/genalloc.c, the
+	  allocator drivers use to manage on-chip SRAM and other special
+	  memory regions. The tests cover allocation and freeing, the
+	  first fit, best fit, aligned, order aligned and fixed offset
+	  algorithms, multiple chunks, virtual to physical translation,
+	  the DMA helpers and the device-managed pools.
+
+	  If unsure, say N.
+
 config GLOB_KUNIT_TEST
 	tristate "Glob matching test" if !KUNIT_ALL_TESTS
 	depends on GLOB
