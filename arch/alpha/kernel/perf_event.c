@@ -506,11 +506,17 @@ static void alpha_pmu_del(struct perf_event *event, int flags)
 					cpuc->current_idx[j];
 			}
 
-			/* Absorb the final count and turn off the event. */
-			alpha_perf_event_update(event, hwc, idx, 0);
-			perf_event_update_userpage(event);
+			/*
+			 * Absorb the final count and turn off the event,
+			 * unless a failed group schedule rolled it back
+			 * before it was given a counter.
+			 */
+			if (idx != PMC_NO_INDEX) {
+				alpha_perf_event_update(event, hwc, idx, 0);
+				perf_event_update_userpage(event);
 
-			cpuc->idx_mask &= ~(1UL<<idx);
+				cpuc->idx_mask &= ~(1UL<<idx);
+			}
 			cpuc->n_events--;
 			break;
 		}
