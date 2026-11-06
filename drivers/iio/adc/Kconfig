@@ -355,11 +355,19 @@ config AD7380
 	  called ad7380.
 
 config AD7405
-	tristate "Analog Devices AD7405 ADC Driver"
+	tristate "Analog Devices AD7405 and similar isolated sigma-delta modulators driver"
 	depends on IIO_BACKEND
 	help
-	  Say yes here to build support for Analog Devices AD7405, ADUM7701,
-	  ADUM7702, ADUM7703 analog to digital converters (ADC).
+	  Say yes here to build support for Analog Devices isolated
+	  sigma-delta modulators:
+	  - AD7405
+	  - ADuM7701
+	  - ADuM7702
+	  - ADuM7703
+	  - ADuM7801
+	  - ADuM7802
+	  - ADuM7811
+	  - ADuM7812
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad7405.
