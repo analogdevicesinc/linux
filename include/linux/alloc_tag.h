@@ -161,7 +161,7 @@ static __always_inline bool alloc_tag_is_traced(const struct alloc_tag *tag)
 	return !!(atomic_read(&tag->ct.flags) & CODETAG_FLAG_TRACE_ON);
 }
 
-static inline bool alloc_tag_trace_enabled(const struct alloc_tag *tag)
+static __always_inline bool alloc_tag_trace_enabled(const struct alloc_tag *tag)
 {
 	if (static_branch_unlikely(&alloc_tag_trace_key))
 		return tag && alloc_tag_is_traced(tag);
