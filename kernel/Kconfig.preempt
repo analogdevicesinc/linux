@@ -197,4 +197,4 @@ config SCHED_CLASS_EXT
 
 config PREFERRED_CPU
 	bool
-	depends on SMP && PARAVIRT
+	depends on SMP && HAVE_CPUTIME_STEAL
