@@ -377,7 +377,7 @@ impl CmdqInner<'_> {
                 let mut sbuffer = SBufferIter::new_reader([contents_1, rpc_message.contents.1]);
 
                 M::read(cmd, &mut sbuffer)
-                    .map_err(|e| e.into())
+                    .map_err(Error::from)
                     .inspect(|_| {
                         if !sbuffer.is_empty() {
                             dev_warn!(
@@ -387,10 +387,11 @@ impl CmdqInner<'_> {
                             );
                         }
                     })
+                    .map(Some)
             } else {
                 rpc_message.log(self.dev);
 
-                Err(ENOMSG)
+                Ok(None)
             }
         };
 
