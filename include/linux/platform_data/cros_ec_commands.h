@@ -6635,6 +6635,7 @@ enum ec_pwrmon_cmd {
 
 struct ec_params_pwrmon {
 	uint8_t cmd;
+	uint8_t reserved;
 	union {
 		uint16_t set_rate;
 		uint8_t channel_id;
@@ -6651,6 +6652,7 @@ struct ec_params_pwrmon {
 struct pwrmon_dump_info {
 	uint8_t channel_id;
 	char channel_name[32];
+	uint8_t reserved[3];
 } __ec_align4;
 
 struct ec_response_pwrmon {
