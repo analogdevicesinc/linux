@@ -33,6 +33,9 @@ properties:
   vio-supply:
     description: VIO power supply a phandle to a regulator
 
+  leda-supply:
+    description: LED anode power supply a phandle to a regulator
+
   io-channels:
     maxItems: 1
     description: ALSOUT ADC channel to read the ambient light
