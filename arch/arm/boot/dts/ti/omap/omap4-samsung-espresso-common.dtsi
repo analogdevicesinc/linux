@@ -632,7 +632,8 @@
 		vdd-supply = <&ldo4>;
 		iovdd-supply = <&ldo5>;
 		reset-gpios = <&gpio5 29 GPIO_ACTIVE_LOW>;
-		interrupts = <&gpio6 10 IRQ_TYPE_EDGE_RISING>;
+		interrupt-parent = <&gpio6>;
+		interrupts = <10 IRQ_TYPE_EDGE_RISING>;
 	};
 
 	light-sensor@44 {
