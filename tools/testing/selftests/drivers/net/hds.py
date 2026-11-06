@@ -274,6 +274,8 @@ def ioctl_enabled_set_xdp(cfg, netnl) -> None:
     defer(netnl.rings_set, {'header': {'dev-index': cfg.ifindex},
                             'tcp-data-split': 'unknown'})
 
+    _ioctl_ringparam_modify(cfg, netnl)
+
     with ksft_raises(CmdExitFailure) as e:
         _xdp_onoff(cfg)
 
