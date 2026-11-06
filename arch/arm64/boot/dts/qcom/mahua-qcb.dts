@@ -8,14 +8,6 @@
 #include "mahua.dtsi"
 #include "glymur-qcb.dtsi"
 
-/* PMICs tied to Glymur's cluster2 are absent on Mahua. */
-/delete-node/ &pmcx0102_d_e0;
-/delete-node/ &pmcx0102_d0_thermal;
-/delete-node/ &pmh0104_i_e0;
-/delete-node/ &pmh0104_i0_thermal;
-/delete-node/ &pmh0104_j_e0;
-/delete-node/ &pmh0104_j0_thermal;
-
 / {
 	model = "Qualcomm Technologies, Inc. Mahua QCB";
 	compatible = "qcom,mahua-qcb", "qcom,mahua";
