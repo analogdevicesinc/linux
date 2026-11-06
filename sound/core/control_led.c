@@ -518,6 +518,11 @@ static ssize_t set_led_id(struct snd_ctl_led_card *led_card, const char *buf, si
 
 	if (strscpy(buf2, buf, sizeof(buf2)) < 0)
 		return -E2BIG;
+
+	s = strim(buf2);
+	if (s != buf2)
+		memmove(buf2, s, strlen(s) + 1);
+
 	memset(&id, 0, sizeof(id));
 	id.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
 	s = buf2;
