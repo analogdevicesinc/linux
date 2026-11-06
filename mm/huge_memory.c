@@ -2100,7 +2100,7 @@ int copy_huge_pud(struct vm_area_struct *dst_vma, struct vm_area_struct *src_vma
 		 * TODO: once we support anonymous pages, use
 		 * folio_try_dup_anon_rmap_*() and split if duplicating fails.
 		 */
-		folio_add_file_rmap_pud(folio, page, dst_vma);
+		folio_dup_file_rmap_pud(folio, page, dst_vma);
 		add_mm_counter(dst_mm, mm_counter_file(folio), HPAGE_PUD_NR);
 	}
 
