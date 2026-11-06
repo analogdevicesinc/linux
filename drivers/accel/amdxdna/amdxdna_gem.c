@@ -443,7 +443,7 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 
 	down_read(&xdna->notifier_lock);
 	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		if (compare_range(mapp, current->mm, addr, addr + len)) {
+		if (compare_range(mapp, vma->vm_mm, addr, addr + len)) {
 			up_read(&xdna->notifier_lock);
 			return 0;
 		}
@@ -477,7 +477,7 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 	kref_init(&mapp->refcnt);
 
 	ret = mmu_interval_notifier_insert_locked(&mapp->notifier,
-						  current->mm,
+						  vma->vm_mm,
 						  addr,
 						  len,
 						  &amdxdna_hmm_ops);
