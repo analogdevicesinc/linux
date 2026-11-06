@@ -470,25 +470,8 @@ pgtable_populate_needed(struct vm_area_struct *vma, unsigned long cp_flags)
 }
 
 /*
- * Populate the pgtable underneath for whatever reason if requested.
- * When {pte|pmd|...}_alloc() failed we treat it the same way as pgtable
- * allocation failures during page faults by kicking OOM and returning
- * error.
- */
-#define  change_pmd_prepare(vma, pmd, cp_flags)				\
-	({								\
-		long err = 0;						\
-		if (unlikely(pgtable_populate_needed(vma, cp_flags))) {	\
-			if (pte_alloc(vma->vm_mm, pmd))			\
-				err = -ENOMEM;				\
-		}							\
-		err;							\
-	})
-
-/*
- * This is the general pud/p4d/pgd version of change_pmd_prepare(). We need to
- * have separate change_pmd_prepare() because pte_alloc() returns 0 on success,
- * while {pmd|pud|p4d}_alloc() returns the valid pointer on success.
+ * Populate the lower-level page table if marker installation requires it.
+ * Return -ENOMEM on allocation failure.
  */
 #define  change_prepare(vma, high, low, addr, cp_flags)			\
 	  ({								\
@@ -517,30 +500,21 @@ static inline long change_pmd_range(struct mmu_gather *tlb,
 again:
 		next = pmd_addr_end(addr, end);
 
-		ret = change_pmd_prepare(vma, pmd, cp_flags);
-		if (ret) {
-			pages = ret;
-			break;
-		}
-
-		if (pmd_none(*pmd))
+		if (unlikely(pgtable_populate_needed(vma, cp_flags))) {
+			if (pte_alloc(vma->vm_mm, pmd)) {
+				pages = -ENOMEM;
+				break;
+			}
+		} else if (pmd_none(*pmd)) {
 			goto next;
+		}
 
 		_pmd = pmdp_get_lockless(pmd);
 		if (pmd_is_huge(_pmd)) {
 			if ((next - addr != HPAGE_PMD_SIZE) ||
 			    pgtable_split_needed(vma, cp_flags)) {
 				__split_huge_pmd(vma, pmd, addr, false);
-				/*
-				 * For file-backed, the pmd could have been
-				 * cleared; make sure pmd populated if
-				 * necessary, then fall-through to pte level.
-				 */
-				ret = change_pmd_prepare(vma, pmd, cp_flags);
-				if (ret) {
-					pages = ret;
-					break;
-				}
+				goto again;
 			} else {
 				ret = change_huge_pmd(tlb, vma, pmd,
 						addr, newprot, cp_flags);
@@ -554,7 +528,7 @@ again:
 					goto next;
 				}
 			}
-			/* fall through, the trans huge pmd just split */
+			/* The PMD might have been split. */
 		}
 
 		ret = change_pte_range(tlb, vma, pmd, addr, next, newprot,
