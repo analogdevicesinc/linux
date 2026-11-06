@@ -103,6 +103,7 @@ properties:
               - lenovo,yoga-slim7x-gen11
               - qcom,glymur-crd
               - qcom,glymur-qcb
+              - qcom,glymur-sip-crd
           - const: qcom,glymur
 
       - items:
