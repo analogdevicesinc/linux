@@ -94,7 +94,7 @@
 		sd-card-en-hog {
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_LOW>;
-			output-high;
+			output-low;
 			line-name = "sd-card-en";
 		};
 
