@@ -364,8 +364,8 @@
 
 	vreg_l8b0: ldo8 {
 		regulator-name = "vreg_l8b0";
-		regulator-min-microvolt = <1504000>;
-		regulator-max-microvolt = <1504000>;
+		regulator-min-microvolt = <3304000>;
+		regulator-max-microvolt = <3304000>;
 		regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 	};
 
