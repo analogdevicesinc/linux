@@ -175,27 +175,27 @@ int cg_read_strstr(const char *cgroup, const char *control, const char *needle)
 	return strstr(buf, needle) ? 0 : -1;
 }
 
-long cg_read_long(const char *cgroup, const char *control)
+s64 cg_read_s64(const char *cgroup, const char *control)
 {
 	char buf[128];
 
 	if (cg_read(cgroup, control, buf, sizeof(buf)))
 		return -1;
 
-	return atol(buf);
+	return atoll(buf);
 }
 
-long cg_read_long_fd(int fd)
+s64 cg_read_s64_fd(int fd)
 {
 	char buf[128];
 
 	if (pread(fd, buf, sizeof(buf), 0) <= 0)
 		return -1;
 
-	return atol(buf);
+	return atoll(buf);
 }
 
-long cg_read_key_long(const char *cgroup, const char *control, const char *key)
+s64 cg_read_key_s64(const char *cgroup, const char *control, const char *key)
 {
 	char buf[BUF_SIZE];
 	char *ptr;
@@ -207,18 +207,18 @@ long cg_read_key_long(const char *cgroup, const char *control, const char *key)
 	if (!ptr)
 		return -1;
 
-	return atol(ptr + strlen(key));
+	return atoll(ptr + strlen(key));
 }
 
-long cg_read_key_long_poll(const char *cgroup, const char *control,
-			   const char *key, long expected, int retries,
-			   useconds_t wait_interval_us)
+s64 cg_read_key_s64_poll(const char *cgroup, const char *control,
+			 const char *key, s64 expected, int retries,
+			 useconds_t wait_interval_us)
 {
-	long val = -1;
+	s64 val = -1;
 	int i;
 
 	for (i = 0; i < retries; i++) {
-		val = cg_read_key_long(cgroup, control, key);
+		val = cg_read_key_s64(cgroup, control, key);
 		if (val < 0)
 			return val;
 
@@ -270,12 +270,12 @@ int cg_open(const char *cgroup, const char *control, int flags)
 	return open(path, flags);
 }
 
-int cg_write_numeric(const char *cgroup, const char *control, long value)
+int cg_write_numeric(const char *cgroup, const char *control, s64 value)
 {
 	char buf[64];
 	int ret;
 
-	ret = sprintf(buf, "%lu", value);
+	ret = sprintf(buf, "%" PRId64, value);
 	if (ret < 0)
 		return ret;
 
