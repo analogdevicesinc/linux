@@ -1846,6 +1846,7 @@ static int q6v5_init_mem(struct q6v5 *qproc, struct platform_device *pdev)
 		qproc->qaccept_mdm = args.args[0];
 		qproc->qaccept_cx = args.args[1];
 		qproc->qaccept_axi = args.args[2];
+		of_node_put(args.np);
 	}
 
 	if (qproc->has_ext_bhs_reg) {
@@ -1892,6 +1893,7 @@ static int q6v5_init_mem(struct q6v5 *qproc, struct platform_device *pdev)
 
 		qproc->axim1_clk_off = args.args[0];
 		qproc->crypto_clk_off = args.args[1];
+		of_node_put(args.np);
 	}
 
 	if (qproc->has_spare_reg) {
