@@ -37,6 +37,7 @@ use kernel::{
 };
 
 use crate::{
+    bounded_enum,
     fb::{
         FbRanges,
         FbSizes, //
@@ -905,6 +906,110 @@ impl RpcMessageHeader {
             .map_err(|_| self.inner.function)
     }
 }
+
+bounded_enum! {
+    /// Commands of the GMC API.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[repr(u32)]
+    pub(crate) enum GmcCommandId with TryFrom<Bounded<u32, 24>> {
+        GspInit = r000_00::GMCAPI_COMMANDS_GMCAPI_CMD_GSP_INIT,
+        ExecGenericBootloader = r000_00::GMCAPI_COMMANDS_GMCAPI_CMD_EXEC_GENERIC_BOOTLOADER,
+        ExecHsBinary = r000_00::GMCAPI_COMMANDS_GMCAPI_CMD_EXEC_HS_BINARY,
+        GspSuspend = r000_00::GMCAPI_COMMANDS_GMCAPI_CMD_GSP_SUSPEND,
+        MmuFaultQueued = r000_00::GMCAPI_COMMANDS_GMCAPI_CMD_MMU_FAULT_QUEUED,
+    }
+}
+
+bitfield! {
+    /// The `command` word of a [`GmcApiHeader`].
+    pub(crate) struct GmcCommandWord(u32) {
+        /// Command ID.
+        23:0 id ?=> GmcCommandId;
+        /// Set by GSP-RM on the response to a request. Not set for requests and events.
+        24:24 is_response => bool;
+    }
+}
+
+/// Header of a GMC (GPU Management Controller) API message.
+///
+/// In a queue element, it follows the queue element header and precedes the payload of the
+/// command.
+#[repr(transparent)]
+pub(crate) struct GmcApiHeader {
+    inner: r000_00::GMCAPI_HEADER,
+}
+
+#[expect(dead_code)]
+impl GmcApiHeader {
+    /// Creates the header of a request for `command`, sent with sequence number `sequence` and
+    /// followed by `payload_size` bytes of payload.
+    ///
+    /// `max_reply_size` is the largest reply the sender accepts. It is zero for a request that does
+    /// not expect a reply or expects a reply with an empty payload (i.e. just the status value).
+    ///
+    /// # Errors
+    ///
+    /// - `EOVERFLOW` if `payload_size` does not fit its 32-bit field.
+    pub(crate) fn init(
+        command: GmcCommandId,
+        sequence: u64,
+        payload_size: usize,
+        max_reply_size: u32,
+    ) -> impl Init<Self, Error> {
+        let init_inner = try_init!(r000_00::GMCAPI_HEADER {
+            command: GmcCommandWord::zeroed().with_id(command).into(),
+            size: payload_size.try_into().map_err(|_| EOVERFLOW)?,
+            sequence,
+            __bindgen_anon_1: r000_00::GMCAPI_HEADER__bindgen_ty_1 {
+                request: r000_00::GMCAPI_HEADER__bindgen_ty_1__bindgen_ty_1 {
+                    max_response_size: max_reply_size,
+                },
+            },
+            ..Zeroable::init_zeroed()
+        });
+
+        try_init!(GmcApiHeader {
+            inner <- init_inner,
+        })
+    }
+
+    /// Returns the `command` word of the header.
+    pub(crate) fn command(&self) -> GmcCommandWord {
+        GmcCommandWord::from(self.inner.command)
+    }
+
+    /// Returns the sequence number of the message.
+    pub(crate) fn sequence(&self) -> u64 {
+        self.inner.sequence
+    }
+
+    /// Returns the size in bytes of the payload following the header.
+    pub(crate) fn payload_size(&self) -> usize {
+        num::u32_as_usize(self.inner.size)
+    }
+
+    /// Returns the `NV_STATUS` carried by a response to a command.
+    ///
+    /// Returns `Some` with the `NV_STATUS` code if the `response` flag of [`Self::command`] is set;
+    /// otherwise returns `None`.
+    pub(crate) fn status(&self) -> Option<u32> {
+        if self.command().is_response() {
+            // SAFETY: we just checked that the message is a response.
+            let status = unsafe { self.inner.__bindgen_anon_1.response.status };
+
+            Some(status)
+        } else {
+            None
+        }
+    }
+}
+
+// SAFETY: This struct only contains integer types, including inside its union, and a zero-sized
+// array. It has no padding.
+unsafe impl AsBytes for GmcApiHeader {}
+
+// SAFETY: This struct only contains integer types for which all bit patterns are valid.
+unsafe impl FromBytes for GmcApiHeader {}
 
 /// Arguments for GSP startup.
 #[repr(transparent)]
