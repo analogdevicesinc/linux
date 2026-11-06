@@ -123,12 +123,24 @@
 #define GP2AP002_CON_OCON_HIGH		(0x3 << GP2AP002_CON_OCON_SHIFT)
 #define GP2AP002_CON_OCON_MASK		(0x3 << GP2AP002_CON_OCON_SHIFT)
 
+enum {
+	GP2AP002_SUPPLY_VIO,
+	GP2AP002_SUPPLY_VDD,
+	GP2AP002_SUPPLY_LEDA,
+	GP2AP002_NUM_SUPPLIES
+};
+
+static const char *const gp2ap002_supply_names[GP2AP002_NUM_SUPPLIES] = {
+	[GP2AP002_SUPPLY_VIO] = "vio",
+	[GP2AP002_SUPPLY_VDD] = "vdd",
+	[GP2AP002_SUPPLY_LEDA] = "leda",
+};
+
 /**
  * struct gp2ap002 - GP2AP002 state
  * @map: regmap pointer for the i2c regmap
  * @dev: pointer to parent device
- * @vdd: regulator controlling VDD
- * @vio: regulator controlling VIO
+ * @supplies: bulk regulator data
  * @alsout: IIO ADC channel to convert the ALSOUT signal
  * @hys_far: hysteresis control from device tree
  * @hys_close: hysteresis control from device tree
@@ -140,8 +152,7 @@
 struct gp2ap002 {
 	struct regmap *map;
 	struct device *dev;
-	struct regulator *vdd;
-	struct regulator *vio;
+	struct regulator_bulk_data supplies[GP2AP002_NUM_SUPPLIES];
 	struct iio_channel *alsout;
 	u8 hys_far;
 	u8 hys_close;
@@ -444,6 +455,7 @@ static int gp2ap002_probe(struct i2c_client *client)
 	struct regmap *regmap;
 	int num_chan;
 	const char *compat;
+	int vdd_volt;
 	u8 val;
 	int ret;
 
@@ -521,44 +533,39 @@ static int gp2ap002_probe(struct i2c_client *client)
 		}
 	}
 
-	gp2ap002->vdd = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(gp2ap002->vdd))
-		return dev_err_probe(dev, PTR_ERR(gp2ap002->vdd),
-				     "failed to get VDD regulator\n");
+	regulator_bulk_set_supply_names(gp2ap002->supplies,
+					gp2ap002_supply_names,
+					GP2AP002_NUM_SUPPLIES);
 
-	gp2ap002->vio = devm_regulator_get(dev, "vio");
-	if (IS_ERR(gp2ap002->vio))
-		return dev_err_probe(dev, PTR_ERR(gp2ap002->vio),
-				     "failed to get VIO regulator\n");
+	ret = devm_regulator_bulk_get(dev, GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
+	if (ret)
+		return dev_err_probe(dev, ret, "failed to get regulators\n");
 
-	/* Operating voltage 2.4V .. 3.6V according to datasheet */
-	ret = regulator_set_voltage(gp2ap002->vdd, 2400000, 3600000);
+	/* vdd operating voltage 2.4V .. 3.6V according to datasheet */
+	ret = regulator_set_voltage(gp2ap002->supplies[GP2AP002_SUPPLY_VDD].consumer,
+				    2400000, 3600000);
 	if (ret) {
 		dev_err(dev, "failed to sett VDD voltage\n");
 		return ret;
 	}
 
 	/* VIO should be between 1.65V and VDD */
-	ret = regulator_get_voltage(gp2ap002->vdd);
-	if (ret < 0) {
+	vdd_volt = regulator_get_voltage(gp2ap002->supplies[GP2AP002_SUPPLY_VDD].consumer);
+	if (vdd_volt < 0) {
 		dev_err(dev, "failed to get VDD voltage\n");
-		return ret;
+		return vdd_volt;
 	}
-	ret = regulator_set_voltage(gp2ap002->vio, 1650000, ret);
+	ret = regulator_set_voltage(gp2ap002->supplies[GP2AP002_SUPPLY_VIO].consumer,
+				    1650000, vdd_volt);
 	if (ret) {
 		dev_err(dev, "failed to set VIO voltage\n");
 		return ret;
 	}
 
-	ret = regulator_enable(gp2ap002->vdd);
+	ret = regulator_bulk_enable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 	if (ret) {
-		dev_err(dev, "failed to enable VDD regulator\n");
+		dev_err(dev, "failed to enable regulators\n");
 		return ret;
-	}
-	ret = regulator_enable(gp2ap002->vio);
-	if (ret) {
-		dev_err(dev, "failed to enable VIO regulator\n");
-		goto out_disable_vdd;
 	}
 
 	msleep(20);
@@ -570,7 +577,7 @@ static int gp2ap002_probe(struct i2c_client *client)
 	ret = gp2ap002_init(gp2ap002);
 	if (ret) {
 		dev_err(dev, "initialization failed\n");
-		goto out_disable_vio;
+		goto out_disable_power;
 	}
 	pm_runtime_get_noresume(dev);
 	pm_runtime_set_active(dev);
@@ -614,10 +621,8 @@ out_put_pm:
 	pm_runtime_put_noidle(dev);
 out_disable_pm:
 	pm_runtime_disable(dev);
-out_disable_vio:
-	regulator_disable(gp2ap002->vio);
-out_disable_vdd:
-	regulator_disable(gp2ap002->vdd);
+out_disable_power:
+	regulator_bulk_disable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 	return ret;
 }
 
@@ -631,8 +636,7 @@ static void gp2ap002_remove(struct i2c_client *client)
 	pm_runtime_put_noidle(dev);
 	pm_runtime_disable(dev);
 	iio_device_unregister(indio_dev);
-	regulator_disable(gp2ap002->vio);
-	regulator_disable(gp2ap002->vdd);
+	regulator_bulk_disable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 }
 
 static int gp2ap002_runtime_suspend(struct device *dev)
@@ -655,8 +659,7 @@ static int gp2ap002_runtime_suspend(struct device *dev)
 	 * As these regulators may be shared, at least we are now in
 	 * sleep even if the regulators aren't really turned off.
 	 */
-	regulator_disable(gp2ap002->vio);
-	regulator_disable(gp2ap002->vdd);
+	regulator_bulk_disable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 
 	return 0;
 }
@@ -667,15 +670,10 @@ static int gp2ap002_runtime_resume(struct device *dev)
 	struct gp2ap002 *gp2ap002 = iio_priv(indio_dev);
 	int ret;
 
-	ret = regulator_enable(gp2ap002->vdd);
+	ret = regulator_bulk_enable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 	if (ret) {
-		dev_err(dev, "failed to enable VDD regulator in resume path\n");
+		dev_err(dev, "failed to enable regulators in resume path\n");
 		return ret;
-	}
-	ret = regulator_enable(gp2ap002->vio);
-	if (ret) {
-		dev_err(dev, "failed to enable VIO regulator in resume path\n");
-		goto out_disable_vdd;
 	}
 
 	msleep(20);
@@ -683,7 +681,7 @@ static int gp2ap002_runtime_resume(struct device *dev)
 	ret = gp2ap002_init(gp2ap002);
 	if (ret) {
 		dev_err(dev, "re-initialization failed\n");
-		goto out_disable_vio;
+		goto out_disable_power;
 	}
 
 	/* Re-activate the IRQ */
@@ -691,10 +689,8 @@ static int gp2ap002_runtime_resume(struct device *dev)
 
 	return 0;
 
-out_disable_vio:
-	regulator_disable(gp2ap002->vio);
-out_disable_vdd:
-	regulator_disable(gp2ap002->vdd);
+out_disable_power:
+	regulator_bulk_disable(GP2AP002_NUM_SUPPLIES, gp2ap002->supplies);
 	return ret;
 }
 
