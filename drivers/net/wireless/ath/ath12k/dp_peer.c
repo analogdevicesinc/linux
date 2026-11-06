@@ -457,7 +457,6 @@ int ath12k_dp_peer_create(struct ath12k_dp_hw *dp_hw, u8 *addr,
 
 	dp_peer->sec_type = HAL_ENCRYPT_TYPE_OPEN;
 	dp_peer->sec_type_grp = HAL_ENCRYPT_TYPE_OPEN;
-	dp_peer->ucast_ra_only = params->ucast_ra_only;
 
 	spin_lock_bh(&dp_hw->peer_lock);
 
