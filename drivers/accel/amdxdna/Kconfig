@@ -8,10 +8,10 @@ config DRM_ACCEL_AMDXDNA
 	depends on X86_64
 	depends on AMD_NODE
 	depends on AMD_PMF || !AMD_PMF
+	select DRM_GPUSVM
 	select DRM_SCHED
 	select DRM_GEM_SHMEM_HELPER
 	select FW_LOADER
-	select HMM_MIRROR
 	help
 	  Choose this option to enable support for NPU integrated into AMD
 	  client CPUs like AMD Ryzen AI 300 Series. AMD NPU can be used to

@@ -7,19 +7,19 @@
 #define _AMDXDNA_GEM_H_
 
 #include <drm/drm_gem_shmem_helper.h>
-#include <linux/hmm.h>
+#include <drm/drm_gpusvm.h>
 #include <linux/iova.h>
 #include "amdxdna_pci_drv.h"
 
 struct amdxdna_umap {
 	struct mmu_interval_notifier	notifier;
-	struct hmm_range		range;
+	struct drm_gpusvm_pages		pages;
+	unsigned long			start;
+	unsigned long			end;
+	bool				read_only;
 	struct amdxdna_gem_obj		*abo;
 	struct list_head		node;
 	struct kref			refcnt;
-	bool				invalid;
-	bool				unmapped;
-	struct mutex			lock; /* protect range */
 };
 
 struct amdxdna_mem {
@@ -27,10 +27,16 @@ struct amdxdna_mem {
 	u64				dma_addr;
 	size_t				size;
 	struct list_head		umap_list;
+	/*
+	 * True, if the pages of the user mappings have to be faulted in before
+	 * the device accesses them. A mapping which mmap() populated upfront,
+	 * which is a VM_PFNMAP one, must not be faulted in: hmm_range_fault()
+	 * rejects such a VMA.
+	 */
 	bool				map_invalid;
 	/*
 	 * Cache the first mmap uva as PASID addr, which can be accessed by driver
-	 * without taking notifier_lock.
+	 * without taking the gpusvm notifier lock.
 	 */
 	u64				uva;
 };
@@ -103,8 +109,9 @@ static inline u64 amdxdna_obj_dma_addr(struct amdxdna_gem_obj *abo)
 		abo->mem.dma_addr : amdxdna_gem_uva(abo);
 }
 
-void amdxdna_umap_put(struct amdxdna_umap *mapp);
-int amdxdna_populate_range(struct amdxdna_gem_obj *abo);
+int amdxdna_gem_umap_populate(struct amdxdna_gem_obj *abo,
+			      unsigned long deadline);
+bool amdxdna_gem_umap_stale(struct amdxdna_gem_obj *abo);
 void amdxdna_gem_heap_free(struct amdxdna_client *client, struct amdxdna_gem_obj *abo);
 
 struct drm_gem_object *

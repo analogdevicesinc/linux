@@ -232,37 +232,46 @@ static bool amdxdna_hmm_invalidate(struct mmu_interval_notifier *mni,
 {
 	struct amdxdna_umap *mapp = container_of(mni, struct amdxdna_umap, notifier);
 	struct amdxdna_gem_obj *abo = mapp->abo;
-	struct amdxdna_dev *xdna;
+	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
+	bool unreg;
 
 	if (!mmu_notifier_range_blockable(range))
 		return false;
 
-	if (mapp->unmapped)
-		return true;
-
-	xdna = to_xdna_dev(to_gobj(abo)->dev);
 	XDNA_DBG(xdna, "Invalidating range 0x%lx, 0x%lx, type %d",
-		 mapp->range.start, mapp->range.end, abo->type);
+		 mapp->start, mapp->end, abo->type);
 
-	down_write(&xdna->notifier_lock);
-	abo->mem.map_invalid = true;
-	mapp->invalid = true;
-	mmu_interval_set_seq(&mapp->notifier, cur_seq);
-	up_write(&xdna->notifier_lock);
+	down_write(&xdna->gpusvm.notifier_lock);
+	mmu_interval_set_seq(mni, cur_seq);
+	/*
+	 * Flag the mapping as gone before the wait below, so that a submission
+	 * racing with the unmap does not try to fault it in again.
+	 */
+	unreg = !mapp->pages.flags.unmapped && range->event == MMU_NOTIFY_UNMAP;
+	if (unreg)
+		drm_gpusvm_pages_set_unmapped(&xdna->gpusvm, &mapp->pages, 1);
+	up_write(&xdna->gpusvm.notifier_lock);
 
 	/*
 	 * The pages must not be released while the device may still access
 	 * them, so this wait must be neither interruptible nor time limited.
+	 *
+	 * Every invalidation of the mapping has to wait, including the ones
+	 * which find it already flagged: the flag is set above before the wait,
+	 * so it does not tell whether the jobs of a concurrent invalidation
+	 * have finished.
 	 */
 	dma_resv_wait_timeout(to_gobj(abo)->resv, DMA_RESV_USAGE_BOOKKEEP,
 			      false, MAX_SCHEDULE_TIMEOUT);
 
-	if (range->event == MMU_NOTIFY_UNMAP) {
-		down_write(&xdna->notifier_lock);
-		mapp->unmapped = true;
+	/*
+	 * Queue the unregistration only once the jobs are done: it drops the
+	 * last reference of the mapping, and mmu_interval_notifier_remove()
+	 * waits for this callback, which would pin the single worker of the
+	 * ordered WQ_MEM_RECLAIM notifier_wq for as long as a job runs.
+	 */
+	if (unreg)
 		queue_work(xdna->notifier_wq, &abo->hmm_unreg_work);
-		up_write(&xdna->notifier_lock);
-	}
 
 	return true;
 }
@@ -271,12 +280,25 @@ static const struct mmu_interval_notifier_ops amdxdna_hmm_ops = {
 	.invalidate = amdxdna_hmm_invalidate,
 };
 
-static inline bool compare_range(struct amdxdna_umap *mapp,
-				 struct mm_struct *mm,
-				 unsigned long start, unsigned long end)
+static bool amdxdna_umap_match(struct amdxdna_umap *mapp,
+			       struct mm_struct *mm,
+			       unsigned long start, unsigned long end)
 {
-	return (!mapp->unmapped && mapp->notifier.mm == mm &&
-		mapp->range.start == start && mapp->range.end == end);
+	return !mapp->pages.flags.unmapped && mapp->notifier.mm == mm &&
+		mapp->start == start && mapp->end == end;
+}
+
+static bool amdxdna_umap_stale(struct drm_gpusvm *gpusvm,
+			       struct amdxdna_umap *mapp)
+{
+	/*
+	 * The pages of a BO whose mappings mmap() populated upfront are never
+	 * faulted in. Neither are the ones of a mapping which is gone: device
+	 * accesses through it are rejected by the IOMMU, so there is nothing
+	 * to fault in for it.
+	 */
+	return mapp->abo->mem.map_invalid && !mapp->pages.flags.unmapped &&
+		drm_gpusvm_pages_read_retry(gpusvm, &mapp->pages, &mapp->notifier);
 }
 
 static void amdxdna_hmm_unregister(struct amdxdna_gem_obj *abo,
@@ -285,15 +307,28 @@ static void amdxdna_hmm_unregister(struct amdxdna_gem_obj *abo,
 	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
 	struct amdxdna_umap *mapp;
 
-	down_write(&xdna->notifier_lock);
+	down_write(&xdna->gpusvm.notifier_lock);
 	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		if (!compare_range(mapp, vma->vm_mm, vma->vm_start, vma->vm_end))
+		if (!amdxdna_umap_match(mapp, vma->vm_mm, vma->vm_start, vma->vm_end))
 			continue;
 
-		mapp->unmapped = true;
+		drm_gpusvm_pages_set_unmapped(&xdna->gpusvm, &mapp->pages, 1);
 		queue_work(xdna->notifier_wq, &abo->hmm_unreg_work);
 	}
-	up_write(&xdna->notifier_lock);
+	up_write(&xdna->gpusvm.notifier_lock);
+}
+
+static void amdxdna_umap_release(struct kref *ref)
+{
+	struct amdxdna_umap *mapp = container_of(ref, struct amdxdna_umap, refcnt);
+
+	mmu_interval_notifier_remove(&mapp->notifier);
+	kfree(mapp);
+}
+
+static void amdxdna_umap_put(struct amdxdna_umap *mapp)
+{
+	kref_put(&mapp->refcnt, amdxdna_umap_release);
 }
 
 static void amdxdna_hmm_unreg_umaps(struct amdxdna_gem_obj *abo, bool force)
@@ -302,113 +337,20 @@ static void amdxdna_hmm_unreg_umaps(struct amdxdna_gem_obj *abo, bool force)
 	struct amdxdna_umap *mapp, *tmp;
 	LIST_HEAD(dead);
 
-	down_write(&xdna->notifier_lock);
+	down_write(&xdna->gpusvm.notifier_lock);
 	list_for_each_entry_safe(mapp, tmp, &abo->mem.umap_list, node) {
-		if (!force && !mapp->unmapped)
+		if (!force && !mapp->pages.flags.unmapped)
 			continue;
 
-		mapp->unmapped = true;
+		drm_gpusvm_pages_set_unmapped(&xdna->gpusvm, &mapp->pages, 1);
 		list_move(&mapp->node, &dead);
 	}
 	if (list_empty(&abo->mem.umap_list))
 		abo->mem.uva = AMDXDNA_INVALID_ADDR;
-	up_write(&xdna->notifier_lock);
+	up_write(&xdna->gpusvm.notifier_lock);
 
 	list_for_each_entry_safe(mapp, tmp, &dead, node)
 		amdxdna_umap_put(mapp);
-}
-
-static void amdxdna_umap_release(struct kref *ref)
-{
-	struct amdxdna_umap *mapp = container_of(ref, struct amdxdna_umap, refcnt);
-
-	mmu_interval_notifier_remove(&mapp->notifier);
-	mutex_destroy(&mapp->lock);
-	kvfree(mapp->range.hmm_pfns);
-	kfree(mapp);
-}
-
-void amdxdna_umap_put(struct amdxdna_umap *mapp)
-{
-	kref_put(&mapp->refcnt, amdxdna_umap_release);
-}
-
-int amdxdna_populate_range(struct amdxdna_gem_obj *abo)
-{
-	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
-	struct amdxdna_umap *mapp;
-	unsigned long timeout;
-	struct mm_struct *mm;
-	bool found;
-	int ret;
-
-	timeout = msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
-again:
-	found = false;
-	down_write(&xdna->notifier_lock);
-	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		/*
-		 * Skip entries that have already been unmapped.
-		 *
-		 * If userspace unmaps the address and later submits I/O using
-		 * it, the IOMMU will reject the access and report a fault.
-		 * Ignore such entries here.
-		 */
-		if (mapp->unmapped)
-			continue;
-
-		if (mapp->invalid && kref_get_unless_zero(&mapp->refcnt)) {
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		/*
-		 * This also covers the case where all mappings have been
-		 * removed. There are no invalid mappings left to process.
-		 * Any subsequent I/O using the unmapped address will be
-		 * rejected by the IOMMU.
-		 */
-		abo->mem.map_invalid = false;
-		up_write(&xdna->notifier_lock);
-		return 0;
-	}
-
-	up_write(&xdna->notifier_lock);
-
-	mm = mapp->notifier.mm;
-	if (!mmget_not_zero(mm)) {
-		amdxdna_umap_put(mapp);
-		return -EFAULT;
-	}
-
-	mutex_lock(&mapp->lock);
-	ret = hmm_range_fault_unlocked_timeout(&mapp->range, timeout);
-	if (ret) {
-		mutex_unlock(&mapp->lock);
-		goto put_mm;
-	}
-
-	down_write(&xdna->notifier_lock);
-	if (mmu_interval_read_retry(&mapp->notifier, mapp->range.notifier_seq)) {
-		up_write(&xdna->notifier_lock);
-		mutex_unlock(&mapp->lock);
-		amdxdna_umap_put(mapp);
-		mmput(mm);
-		goto again;
-	}
-	mapp->invalid = false;
-	up_write(&xdna->notifier_lock);
-	mutex_unlock(&mapp->lock);
-	amdxdna_umap_put(mapp);
-	mmput(mm);
-	goto again;
-
-put_mm:
-	amdxdna_umap_put(mapp);
-	mmput(mm);
-	return ret == -EBUSY ? -ETIME : ret;
 }
 
 static void amdxdna_hmm_unreg_work(struct work_struct *work)
@@ -419,6 +361,97 @@ static void amdxdna_hmm_unreg_work(struct work_struct *work)
 	amdxdna_hmm_unreg_umaps(abo, false);
 }
 
+/**
+ * amdxdna_gem_umap_populate() - Fault in the invalidated user mappings of a BO
+ * @abo: The BO.
+ * @deadline: Jiffies after which to give up.
+ *
+ * The device accesses user mappings through the PASID and cannot take page
+ * faults, so the CPU pages of every mapping of @abo invalidated since it was
+ * last faulted are faulted in again here. This is only a snapshot, the caller
+ * must check amdxdna_gem_umap_stale() under the notifier lock before using
+ * the mappings and retry if it fails.
+ *
+ * Two hardware contexts may fault the same mapping at the same time. That is
+ * left unserialized: with &drm_gpusvm_ctx.no_dma_map the only state recorded
+ * for a mapping is its notifier sequence, and the loser of such a race can
+ * only store an older sequence, which makes amdxdna_gem_umap_stale() report
+ * stale and the caller fault again.
+ *
+ * Return: 0 on success, -ETIME if @deadline passed, negative error code on
+ * other failures.
+ */
+int amdxdna_gem_umap_populate(struct amdxdna_gem_obj *abo,
+			      unsigned long deadline)
+{
+	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
+	struct drm_gpusvm *gpusvm = &xdna->gpusvm;
+	struct amdxdna_umap *mapp;
+	bool found, unmapped;
+	int ret;
+
+	for (;;) {
+		struct drm_gpusvm_ctx ctx = { .no_dma_map = 1 };
+
+		found = false;
+		drm_gpusvm_notifier_lock(gpusvm);
+		list_for_each_entry(mapp, &abo->mem.umap_list, node) {
+			if (amdxdna_umap_stale(gpusvm, mapp) &&
+			    kref_get_unless_zero(&mapp->refcnt)) {
+				found = true;
+				break;
+			}
+		}
+		drm_gpusvm_notifier_unlock(gpusvm);
+		if (!found)
+			return 0;
+
+		if (time_after(jiffies, deadline)) {
+			amdxdna_umap_put(mapp);
+			return -ETIME;
+		}
+
+		ctx.read_only = mapp->read_only;
+		ret = drm_gpusvm_get_pages(gpusvm, &mapp->pages, 1,
+					   mapp->notifier.mm, &mapp->notifier,
+					   mapp->start, mapp->end, &ctx);
+		if (ret == -EFAULT) {
+			drm_gpusvm_notifier_lock(gpusvm);
+			unmapped = mapp->pages.flags.unmapped;
+			drm_gpusvm_notifier_unlock(gpusvm);
+			if (unmapped)
+				ret = 0;
+		}
+		amdxdna_umap_put(mapp);
+		if (ret)
+			return ret == -EBUSY ? -ETIME : ret;
+	}
+}
+
+/**
+ * amdxdna_gem_umap_stale() - Check whether a BO needs its user mappings faulted
+ * @abo: The BO.
+ *
+ * Must be called with the notifier lock held, which must be kept held until
+ * the fences of the jobs using @abo are published in its reservation object.
+ *
+ * Return: True if amdxdna_gem_umap_populate() must be called for @abo.
+ */
+bool amdxdna_gem_umap_stale(struct amdxdna_gem_obj *abo)
+{
+	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
+	struct amdxdna_umap *mapp;
+
+	lockdep_assert_held(&xdna->gpusvm.notifier_lock);
+
+	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
+		if (amdxdna_umap_stale(&xdna->gpusvm, mapp))
+			return true;
+	}
+
+	return false;
+}
+
 static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 				struct vm_area_struct *vma)
 {
@@ -426,7 +459,6 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 	unsigned long len = vma->vm_end - vma->vm_start;
 	unsigned long addr = vma->vm_start;
 	struct amdxdna_umap *mapp;
-	unsigned long nr_pages;
 	int ret;
 
 	/*
@@ -441,38 +473,34 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 		return 0;
 	}
 
-	down_read(&xdna->notifier_lock);
+	down_read(&xdna->gpusvm.notifier_lock);
 	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		if (compare_range(mapp, vma->vm_mm, addr, addr + len)) {
-			up_read(&xdna->notifier_lock);
+		if (amdxdna_umap_match(mapp, vma->vm_mm, addr, addr + len)) {
+			up_read(&xdna->gpusvm.notifier_lock);
 			return 0;
 		}
 	}
-	up_read(&xdna->notifier_lock);
+	up_read(&xdna->gpusvm.notifier_lock);
 
 	mapp = kzalloc_obj(*mapp);
 	if (!mapp)
 		return -ENOMEM;
 
-	nr_pages = (PAGE_ALIGN(addr + len) - (addr & PAGE_MASK)) >> PAGE_SHIFT;
-	mapp->range.hmm_pfns = kvzalloc_objs(*mapp->range.hmm_pfns, nr_pages);
-	if (!mapp->range.hmm_pfns) {
-		ret = -ENOMEM;
-		goto free_map;
-	}
+	/*
+	 * Never faulted, so stale until the first amdxdna_gem_umap_populate(),
+	 * should the pages of the BO have to be faulted in at all.
+	 */
+	drm_gpusvm_init_pages(&mapp->pages, &xdna->ddev);
+	mapp->start = addr;
+	mapp->end = addr + len;
 
-	mapp->range.notifier = &mapp->notifier;
-	mapp->range.start = vma->vm_start;
-	mapp->range.end = vma->vm_end;
 	/*
 	 * Access permissions are fixed at mmap() time. Changing them later
-	 * with mprotect() is not supported: the range keeps requesting the
+	 * with mprotect() is not supported: the mapping keeps requesting the
 	 * original permissions, so the application may see a fault failure
 	 * or an IOMMU fault.
 	 */
-	mapp->range.default_flags = HMM_PFN_REQ_FAULT;
-	if (vma->vm_flags & VM_WRITE)
-		mapp->range.default_flags |= HMM_PFN_REQ_WRITE;
+	mapp->read_only = !(vma->vm_flags & VM_WRITE);
 	mapp->abo = abo;
 	kref_init(&mapp->refcnt);
 
@@ -483,23 +511,17 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 						  &amdxdna_hmm_ops);
 	if (ret) {
 		XDNA_ERR(xdna, "Insert mmu notifier failed, ret %d", ret);
-		goto free_pfns;
+		kfree(mapp);
+		return ret;
 	}
 
-	mutex_init(&mapp->lock);
-	down_write(&xdna->notifier_lock);
+	down_write(&xdna->gpusvm.notifier_lock);
 	if (list_empty(&abo->mem.umap_list))
 		abo->mem.uva = addr;
 	list_add_tail(&mapp->node, &abo->mem.umap_list);
-	up_write(&xdna->notifier_lock);
+	up_write(&xdna->gpusvm.notifier_lock);
 
 	return 0;
-
-free_pfns:
-	kvfree(mapp->range.hmm_pfns);
-free_map:
-	kfree(mapp);
-	return ret;
 }
 
 static struct amdxdna_gem_obj *
@@ -547,21 +569,13 @@ static void amdxdna_gem_dev_obj_free(struct drm_gem_object *gobj)
 	amdxdna_gem_destroy_obj(abo);
 }
 
-static void amdxdna_mark_mapp_invalid(struct amdxdna_gem_obj *abo,
-				      struct vm_area_struct *vma)
+static void amdxdna_mark_map_invalid(struct amdxdna_gem_obj *abo)
 {
 	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
-	struct amdxdna_umap *mapp;
 
-	down_write(&xdna->notifier_lock);
+	down_write(&xdna->gpusvm.notifier_lock);
 	abo->mem.map_invalid = true;
-	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		if (compare_range(mapp, vma->vm_mm, vma->vm_start, vma->vm_end)) {
-			mapp->invalid = true;
-			break;
-		}
-	}
-	up_write(&xdna->notifier_lock);
+	up_write(&xdna->gpusvm.notifier_lock);
 }
 
 static int amdxdna_remap_pages(struct amdxdna_gem_obj *abo,
@@ -628,7 +642,7 @@ static int amdxdna_insert_pages(struct amdxdna_gem_obj *abo,
 		}
 
 		if (!(vma->vm_flags & VM_PFNMAP))
-			amdxdna_mark_mapp_invalid(abo, vma);
+			amdxdna_mark_map_invalid(abo);
 
 		/* Drop the reference drm_gem_mmap_obj() acquired.*/
 		drm_gem_object_put(to_gobj(abo));

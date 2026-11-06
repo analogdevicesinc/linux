@@ -1059,8 +1059,7 @@ static int fence_job_bos(struct amdxdna_dev *xdna, struct amdxdna_sched_job *job
 {
 	struct ww_acquire_ctx acquire_ctx;
 	struct drm_gem_object **objs;
-	struct amdxdna_gem_obj *abo;
-	unsigned long timeout = 0;
+	unsigned long deadline;
 	u32 cnt = 0;
 	int ret;
 	u32 i;
@@ -1076,7 +1075,13 @@ static int fence_job_bos(struct amdxdna_dev *xdna, struct amdxdna_sched_job *job
 	for (i = 0; i < job->aie4_cmd_bo_cnt; i++)
 		add_lock_obj(objs, &cnt, to_gobj(job->aie4_cmd_bos[i]));
 
+	deadline = jiffies + msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
 retry:
+	for (i = 0; i < cnt; i++) {
+		ret = amdxdna_gem_umap_populate(to_xdna_obj(objs[i]), deadline);
+		if (ret)
+			goto free_objs;
+	}
 	ret = drm_gem_lock_reservations(objs, cnt, &acquire_ctx);
 	if (ret) {
 		XDNA_WARN(xdna, "Failed to lock BOs, ret %d", ret);
@@ -1091,23 +1096,11 @@ retry:
 		}
 	}
 
-	down_read(&xdna->notifier_lock);
+	drm_gpusvm_notifier_lock(&xdna->gpusvm);
 	for (i = 0; i < cnt; i++) {
-		abo = to_xdna_obj(objs[i]);
-		if (abo->mem.map_invalid) {
-			up_read(&xdna->notifier_lock);
+		if (amdxdna_gem_umap_stale(to_xdna_obj(objs[i]))) {
+			drm_gpusvm_notifier_unlock(&xdna->gpusvm);
 			drm_gem_unlock_reservations(objs, cnt, &acquire_ctx);
-			if (!timeout) {
-				timeout = jiffies +
-					msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
-			} else if (time_after(jiffies, timeout)) {
-				ret = -ETIME;
-				goto free_objs;
-			}
-
-			ret = amdxdna_populate_range(abo);
-			if (ret)
-				goto free_objs;
 			goto retry;
 		}
 	}
@@ -1115,7 +1108,7 @@ retry:
 	job->out_fence = dma_fence_get(job->fence);
 	for (i = 0; i < cnt; i++)
 		dma_resv_add_fence(objs[i]->resv, job->out_fence, DMA_RESV_USAGE_WRITE);
-	up_read(&xdna->notifier_lock);
+	drm_gpusvm_notifier_unlock(&xdna->gpusvm);
 
 unlock:
 	drm_gem_unlock_reservations(objs, cnt, &acquire_ctx);
