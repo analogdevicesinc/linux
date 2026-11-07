@@ -6116,6 +6116,8 @@ static int mark_recursive_subprogs(struct bpf_verifier_env *env)
 	}
 	for_each_set_bit(s, callx, cnt)
 		bitmap_or(calls + s * words, calls + s * words, taken, cnt);
+	for_each_set_bit(s, taken, cnt)
+		si[s].addr_taken = true;
 
 	/*
 	 * Callers of a global subprog look at can_unwind before the subprog is verified.
@@ -11377,7 +11379,8 @@ static void gen_subprog_arg_proto(const struct bpf_subprog_info *sub, const stru
 
 /*
  * The argument slots that the code of a static subprog takes, whatever its BTF says.
- * Liveness errs on the safe side: a callx in the subprog counts as a read of r1-r5.
+ * Liveness errs on the safe side: a callx in the subprog counts as a read of all that the subprogs
+ * whose address is taken read or declare.
  * But it misses r3-r5 of bpf_trace_printk() and the flags of bpf_get_branch_snapshot(), which
  * their protos do not declare. Such a subprog prints or passes a wrong number under a tracer.
  * The helpers are safe with any value there: the verifier never checks these registers.
@@ -12095,6 +12098,12 @@ static int check_func_callx_one(struct bpf_verifier_env *env, int subprog, int *
 	err = btf_check_subprog_call(env, subprog);
 	if (err == -EFAULT)
 		return err;
+
+	/* bpf_compute_live_registers() counts on it */
+	if (verifier_bug_if(!env->subprog_info[subprog].addr_taken, env,
+			    "callx of %s() whose address is not taken",
+			    bpf_subprog_name(env, subprog)))
+		return -EFAULT;
 
 	err = record_callx_edge(env, cur_func(env)->subprogno, subprog);
 	if (err)
