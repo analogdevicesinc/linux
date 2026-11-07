@@ -3470,6 +3470,13 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		return 0;
 	}
 
+	/*
+	 * It leaves the loop itself: a flag does that later. If one edge does the one and the
+	 * other edge the other, the last iteration goes on behind the jump as well.
+	 */
+	iters->count_insn = bpf_jump_leaves_loop(env, insn_idx, first.insn_idx) &&
+			    aux[first.insn_idx].edge_leaves != 3 ? first.insn_idx : -1;
+
 	if (iters->max_header_count == 0) {
 		if (log->level & BPF_LOG_LEVEL2)
 			bpf_log(log, "loop header at %d, 0 iterations count\n", insn_idx);
@@ -3822,12 +3829,31 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 	return 1;
 }
 
+/* (linear (+ rX imm) slope): the iteration has added a constant to rX so far */
+static bool is_moved_linear(struct scev *scev, u32 id, struct linear_coefs *out, s64 *moved)
+{
+	u32 base, slope, l, r;
+
+	out->spill32 = false;
+	return is_linear_or_linear32(scev, id, &base, &slope, &out->zext32) && !out->zext32 &&
+	       is_add(scev, base, &l, &r) && is_reg(scev, l, &out->base_reg) &&
+	       is_imm(scev, r, moved) && is_simple_slope(scev, slope, &out->slope);
+}
+
+/*
+ * The state came back to the head of a counted loop. Or, with @behind, it goes on in the loop
+ * behind the jump that counts. That jump leaves the loop in the last iteration, so this is
+ * not the last one:
+ *	for (i = 0; ; i++, p += 8) { if (i == 4) break; *p = 0; }
+ * At the head p is up to 32 bytes from where it was, at the store up to 24. The jump tells that
+ * about i only. It holds for all that is linear at the jump.
+ */
 int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur_func_state, u32 insn_idx,
-			const struct loop_stack_entry *entry)
+			const struct loop_stack_entry *entry, bool behind)
 {
 	struct bpf_verifier_state *entry_state = entry->entry_state;
 	struct bpf_func_state *entry_st = entry_state->frame[entry_state->curframe];
-	u32 max_header_count = entry->max_header_count;
+	u32 max_header_count = entry->max_header_count - behind;
 	struct bpf_verifier_log *log = &env->log;
 	struct bpf_reg_state *reg, *entry_reg;
 	struct scev *scev = env->scev;
@@ -3835,6 +3861,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 	struct env *header_env;
 	struct bounds bounds;
 	u32 r, r_scev;
+	s64 moved;
 	int err;
 
 	if (entry_state->curframe != cur_func_state->frameno) {
@@ -3843,16 +3870,21 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 		return -EFAULT;
 	}
 
-	header_env = find_header_env(scev, insn_idx);
+	header_env = find_loop_env(scev, insn_idx, behind ? entry->count_insn : insn_idx);
+	if (!max_header_count)
+		return 0;
 	for (r = 0; r < REGS_NUM; r++) {
 		r_scev = header_env->reg2scev[r];
+		moved = 0;
 		entry_reg = spill32_counter(scev, entry_st, r_scev, r, &coefs);
 		reg = spill32_counter(scev, cur_func_state, r_scev, r, &coefs);
 		if (entry_reg && reg)
 			goto clamp;
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (!is_simple_linear(scev, r_scev, &coefs) || coefs.base_reg != r)
+		if ((!is_simple_linear(scev, r_scev, &coefs) &&
+		     !(behind && is_moved_linear(scev, r_scev, &coefs, &moved))) ||
+		    coefs.base_reg != r)
 			continue;
 
 		entry_reg = scev_reg_for_linear(entry_st, r);
@@ -3878,8 +3910,22 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 			continue;
 clamp:
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
-		if (r == entry->iv_reg)
+		if (r == entry->iv_reg && !moved)
 			iv_bounds(&bounds, entry->iv_range);
+		if (moved) {
+			bounds.r64 = cnum64_add(bounds.r64, cnum64_from_srange(moved, moved));
+			bounds.base = imod(bounds.base + moved, bounds.step);
+		}
+		if (behind) {
+			/* jumps on the way may have told more */
+			bounds.r64 = cnum64_intersect(bounds.r64, reg->r64);
+			bounds.r32 = cnum32_intersect(bounds.r32, reg->r32);
+			if (type_is_pkt_pointer(reg->type) || cnum64_is_empty(bounds.r64) ||
+			    cnum32_is_empty(bounds.r32) ||
+			    (cnum64_is_subset(bounds.r64, reg->r64) &&
+			     cnum32_is_subset(bounds.r32, reg->r32)))
+				continue;
+		}
 		if (log->level & BPF_LOG_LEVEL2) {
 			bpf_log(log, "loop header at %d, clamping ", insn_idx);
 			log_reg(env, r);
@@ -3887,7 +3933,8 @@ clamp:
 			log_bounds(env, &bounds);
 			bpf_log(log, "\n");
 		}
-		scratch_widened_reg_id(env, reg);
+		if (!behind)
+			scratch_widened_reg_id(env, reg);
 		/*
 		 * The range of a packet pointer goes together with its id and with the offsets
 		 * that it had in the compare with pkt_end. Both are replaced here. What holds for

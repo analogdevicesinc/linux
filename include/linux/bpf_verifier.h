@@ -365,6 +365,8 @@ struct bpf_loop_iters {
 	 */
 	int iv_reg;
 	struct cnum64 iv_range;
+	/* a jump that counts: it leaves the loop in the last iteration, if not before. Or -1 */
+	int count_insn;
 	/* a pointer to the stack that stores go through moves in the loop */
 	bool spill_base;
 };
@@ -426,6 +428,7 @@ struct loop_stack_entry {
 	u32 walk_patience;
 	int iv_reg;
 	struct cnum64 iv_range;
+	int count_insn;
 };
 
 /* The state is in a walk on patience, which may not get to the end of the loop */
@@ -2216,6 +2219,6 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters,
 			bool back);
 int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *st, u32 insn_idx,
-			const struct loop_stack_entry *entry);
+			const struct loop_stack_entry *entry, bool behind);
 
 #endif /* _LINUX_BPF_VERIFIER_H */

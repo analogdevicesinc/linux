@@ -21329,7 +21329,7 @@ static int maybe_clamp_scev_regs(struct bpf_verifier_env *env)
 	if (!entry->terminates)
 		return 0;
 
-	return bpf_clamp_scev_regs(env, frame, env->insn_idx, entry);
+	return bpf_clamp_scev_regs(env, frame, env->insn_idx, entry, false);
 }
 
 /*
@@ -21501,8 +21501,12 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 		return 0;
 
 	entry = &frame->loop_stack[frame->loop_stack_cnt - 1];
-	if (env->insn_idx != entry->loop_id)
+	if (env->insn_idx != entry->loop_id) {
+		/* the jump that counts didn't leave the loop */
+		if (entry->entry_state && !entry->apart && cur->last_insn_idx == entry->count_insn)
+			return bpf_clamp_scev_regs(env, frame, entry->loop_id, entry, true);
 		return 0;
+	}
 
 	/*
 	 * No edge goes from a call to itself: the call goes on with one function of a set, see
@@ -21623,6 +21627,7 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 	entry->max_header_count = iters.max_header_count;
 	entry->iv_reg = iters.iv_reg;
 	entry->iv_range = iters.iv_range;
+	entry->count_insn = iters.count_insn;
 	entry->entry_state = entry_state;
 	entry->terminates = true;
 	/*
