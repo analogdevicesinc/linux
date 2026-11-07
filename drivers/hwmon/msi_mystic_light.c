@@ -18,6 +18,7 @@
 
 #include <linux/bits.h>
 #include <linux/build_bug.h>
+#include <linux/completion.h>
 #include <linux/dmi.h>
 #include <linux/err.h>
 #include <linux/hid.h>
@@ -25,11 +26,17 @@
 #include <linux/jiffies.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/unaligned.h>
 
 #define USB_VENDOR_ID_MSI_MB		0x0db0
 #define USB_PRODUCT_ID_MYSTIC_LIGHT	0x0076
+
+#define USB_VENDOR_ID_MSI_MB_500	0x1462
+#define USB_PRODUCT_ID_MYSTIC_LIGHT_7C94 0x7c94
+#define USB_PRODUCT_ID_MYSTIC_LIGHT_7D75 0x7d75
+#define USB_PRODUCT_ID_MYSTIC_LIGHT_7D76 0x7d76
 
 #define MSI_ML_SENSOR_REPORT_ID		0xf0
 #define MSI_ML_SENSOR_REPORT_SIZE	64
@@ -48,6 +55,9 @@ struct msi_ml_data {
 	struct hid_device *hdev;
 	struct device *hwmon_dev;
 	const struct msi_ml_board *board;
+	struct completion done;
+	/* For reinitializing the completion below */
+	spinlock_t report_lock;
 	u8 *buf;			/* report buffer, must be DMA safe */
 	u16 in[MSI_ML_MAX_IN];		/* mV */
 	unsigned int in_mask;		/* rails with a reading in probe */
@@ -62,12 +72,67 @@ struct msi_ml_board {
 	int (*read_report)(struct msi_ml_data *priv);
 };
 
+static int msi_ml_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
+{
+	struct msi_ml_data *priv = hid_get_drvdata(hdev);
+	const struct msi_ml_board *board = priv->board;
+	unsigned long flags;
+	int i;
+
+	if (size != MSI_ML_SENSOR_REPORT_SIZE ||
+	    data[0] != 0xfa || data[1] != MSI_ML_SENSOR_CMD ||
+	    data[2] != 0x01 || data[MSI_ML_SENSOR_PAGE_OFFSET] != MSI_ML_SENSOR_PAGE_HI ||
+	    data[MSI_ML_SENSOR_PAGE_OFFSET + 1] != MSI_ML_SENSOR_PAGE_LO)
+		return 0;
+
+	/* only read data when requested */
+	spin_lock_irqsave(&priv->report_lock, flags);
+	if (!completion_done(&priv->done)) {
+		for (i = 0; i < board->num_in; i++)
+			priv->in[i] = get_unaligned_le16(data + board->in_offset[i]);
+		complete_all(&priv->done);
+	}
+	spin_unlock_irqrestore(&priv->report_lock, flags);
+
+	return 0;
+}
+
 /*
  * Read the sensor report. Called from probe before the hwmon device is
  * registered, and afterwards only from the hwmon read callback, which the
  * hwmon core serializes. No additional locking is needed for the buffer
  * and the cached values.
  */
+
+static int msi_ml_read_report_7c94(struct msi_ml_data *priv)
+{
+	struct hid_device *hdev = priv->hdev;
+	u8 *buf = priv->buf;
+	int ret;
+
+	memset(buf, 0, MSI_ML_SENSOR_REPORT_SIZE);
+	buf[0] = 0xfa;
+	buf[1] = MSI_ML_SENSOR_CMD;
+	buf[MSI_ML_SENSOR_PAGE_OFFSET] = MSI_ML_SENSOR_PAGE_HI;
+	buf[MSI_ML_SENSOR_PAGE_OFFSET + 1] = MSI_ML_SENSOR_PAGE_LO;
+
+	spin_lock_irq(&priv->report_lock);
+	reinit_completion(&priv->done);
+	spin_unlock_irq(&priv->report_lock);
+
+	ret = hid_hw_output_report(hdev, buf, MSI_ML_SENSOR_REPORT_SIZE);
+	if (ret < 0)
+		return ret;
+
+	ret = wait_for_completion_timeout(&priv->done, msecs_to_jiffies(500));
+	if (!ret)
+		return -ETIMEDOUT;
+
+	priv->updated = get_jiffies_64();
+
+	return 0;
+}
+
 static int msi_ml_read_report_7e61(struct msi_ml_data *priv)
 {
 	const struct msi_ml_board *board = priv->board;
@@ -207,6 +272,18 @@ static int msi_ml_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	if (ret)
 		goto fail_stop;
 
+	spin_lock_init(&priv->report_lock);
+	init_completion(&priv->done);
+
+	/*
+	 * Start completion in the completed state so msi_ml_raw_event()
+	 * only sees !completion_done() while the read function is awaiting
+	 * a response.
+	 */
+	complete_all(&priv->done);
+
+	hid_device_io_start(hdev);
+
 	/* Check that the sensor report works, and which rails have a reading */
 	ret = msi_ml_read_report(priv);
 	if (ret) {
@@ -240,6 +317,7 @@ static int msi_ml_probe(struct hid_device *hdev, const struct hid_device_id *id)
 
 fail_close:
 	hid_hw_close(hdev);
+	hid_device_io_stop(hdev);
 fail_stop:
 	hid_hw_stop(hdev);
 	return ret;
@@ -274,6 +352,28 @@ static const struct msi_ml_board msi_ml_7e61 = {
 	.read_report = msi_ml_read_report_7e61,
 };
 
+static const char *const msi_ml_7c94_in_label[] = {
+	"CPU VDDP", "PROM Core",
+};
+
+static const u8 msi_ml_7c94_in_offset[] = { 11, 13 };
+
+static const struct msi_ml_board msi_ml_7c94 = {
+	.num_in = ARRAY_SIZE(msi_ml_7c94_in_label),
+	.in_label = msi_ml_7c94_in_label,
+	.in_offset = msi_ml_7c94_in_offset,
+	.read_report = msi_ml_read_report_7c94,
+};
+
+static const u8 msi_ml_7d75_in_offset[] = { 13, 15, 11 };
+
+static const struct msi_ml_board msi_ml_7d75 = {
+	.num_in = ARRAY_SIZE(msi_ml_7e61_in_label),
+	.in_label = msi_ml_7e61_in_label,
+	.in_offset = msi_ml_7d75_in_offset,
+	.read_report = msi_ml_read_report_7c94,
+};
+
 static const struct dmi_system_id msi_ml_dmi_table[] __initconst = {
 	{
 		.matches = {
@@ -282,11 +382,35 @@ static const struct dmi_system_id msi_ml_dmi_table[] __initconst = {
 		},
 		.driver_data = (void *)&msi_ml_7e61,
 	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International"),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-7C94"),
+		},
+		.driver_data = (void *)&msi_ml_7c94,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International"),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-7D75"),
+		},
+		.driver_data = (void *)&msi_ml_7d75,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International"),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-7D76"),
+		},
+		.driver_data = (void *)&msi_ml_7d75,
+	},
 	{ }
 };
 MODULE_DEVICE_TABLE(dmi, msi_ml_dmi_table);
 
 static const struct hid_device_id msi_ml_table[] = {
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MSI_MB_500, USB_PRODUCT_ID_MYSTIC_LIGHT_7C94) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MSI_MB_500, USB_PRODUCT_ID_MYSTIC_LIGHT_7D75) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MSI_MB_500, USB_PRODUCT_ID_MYSTIC_LIGHT_7D76) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MSI_MB, USB_PRODUCT_ID_MYSTIC_LIGHT) },
 	{ }
 };
@@ -296,6 +420,7 @@ static struct hid_driver msi_ml_driver = {
 	.id_table = msi_ml_table,
 	.probe = msi_ml_probe,
 	.remove = msi_ml_remove,
+	.raw_event = msi_ml_raw_event,
 };
 
 static int __init msi_ml_init(void)
