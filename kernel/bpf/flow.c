@@ -1152,3 +1152,327 @@ bool bpf_flow_is_needed(struct bpf_verifier_env *env, int idx, u32 r)
 	}
 	return false;
 }
+
+int bpf_flow_prepare(struct bpf_verifier_env *env)
+{
+	struct bpf_insn_aux_data *aux = env->insn_aux_data;
+	struct bpf_insn *insns = env->prog->insnsi;
+	/* the rest is for loops */
+	int len = env->prog->len, kinds = FLOW_NEED_VALUE_OFF, i, s, err;
+	struct bpf_iarray *succ;
+	struct bpf_flow *flow;
+	u8 *preds;
+
+	flow = kzalloc_obj(*flow, GFP_KERNEL_ACCOUNT);
+	if (!flow)
+		return -ENOMEM;
+	env->flow = flow;
+	INIT_LIST_HEAD(&flow->kept);
+	flow->pending = RB_ROOT_CACHED;
+
+	flow->pos = kvcalloc(len, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	flow->rank = kvcalloc(env->subprog_cnt + 1, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	flow->point = kvcalloc(BITS_TO_LONGS(len), sizeof(long), GFP_KERNEL_ACCOUNT);
+	flow->keep = kvcalloc(BITS_TO_LONGS(len), sizeof(long), GFP_KERNEL_ACCOUNT);
+	flow->states = kvmalloc_array(len, sizeof(*flow->states), GFP_KERNEL_ACCOUNT);
+	flow->enter = kvmalloc_array(len, sizeof(*flow->enter), GFP_KERNEL_ACCOUNT);
+	flow->nr_states = kvcalloc(len, sizeof(u32), GFP_KERNEL_ACCOUNT);
+	flow->funcs = kvcalloc(env->subprog_cnt + 1, sizeof(*flow->funcs), GFP_KERNEL_ACCOUNT);
+	preds = kvcalloc(len, 1, GFP_KERNEL_ACCOUNT);
+	if (!flow->pos || !flow->rank || !flow->point || !flow->keep || !flow->states ||
+	    !flow->enter ||
+	    !flow->nr_states || !flow->funcs || !preds) {
+		kvfree(preds);
+		return -ENOMEM;
+	}
+	for (i = 0; i < len; i++) {
+		INIT_LIST_HEAD(&flow->states[i].list);
+		INIT_LIST_HEAD(&flow->enter[i].list);
+	}
+	for (i = 0; i <= env->subprog_cnt; i++)
+		flow->funcs[i].exit_idx = -1;
+	/* from here on there is something for bpf_flow_reset() to look at */
+	flow->len = len;
+	flow->nr_funcs = env->subprog_cnt + 1;
+
+	/* subprog_topo_order[] has callees first */
+	for (i = 0; i < env->subprog_cnt; i++)
+		flow->rank[env->subprog_topo_order[i]] = env->subprog_cnt - i;
+
+	for (i = 0; i < len; i++) {
+		succ = bpf_insn_successors(env, i);
+		iarray_for_each(s, succ) {
+			if (preds[s] < 2)
+				preds[s]++;
+			if (aux[i].bb_end)
+				__set_bit(s, flow->point);
+		}
+		/* where the callees come back to */
+		if (bpf_pseudo_call(&insns[i]) || bpf_is_callx(&insns[i])) {
+			if (i + 1 < len) {
+				__set_bit(i + 1, flow->point);
+				__set_bit(i + 1, flow->keep);
+			}
+		}
+		if (aux[i].calls_callback) {
+			__set_bit(i, flow->point);
+			__set_bit(i, flow->keep);
+		}
+		if (aux[i].loop) {
+			__set_bit(i, flow->point);
+			__set_bit(i, flow->keep);
+			kinds = FLOW_NEED_KINDS;
+		}
+		if (bpf_is_ldimm64(&insns[i]))
+			i++;
+	}
+	for (i = 0; i < len; i++)
+		if (preds[i] > 1)
+			__set_bit(i, flow->keep);
+	for (i = 0; i < env->subprog_cnt; i++) {
+		__set_bit(env->subprog_info[i].start, flow->point);
+		__set_bit(env->subprog_info[i].start, flow->keep);
+	}
+	kvfree(preds);
+
+	err = flow_compute_order(env, flow);
+	if (err)
+		return err;
+	for (i = 0; !err && i < kinds; i++)
+		err = flow_compute_need_const(env, &flow->need[i], i);
+	return err;
+}
+
+static void flow_free_state(struct bpf_verifier_env *env, struct flow_state *s)
+{
+	bpf_free_verifier_state(&s->st, false);
+	kfree(s);
+	env->flow->live_states--;
+}
+
+/* What a pass leaves behind. */
+void bpf_flow_reset(struct bpf_verifier_env *env)
+{
+	struct bpf_flow *flow = env->flow;
+	struct flow_state *s, *sn;
+	struct flow_kept *k, *kn;
+	struct flow_exit *x, *xn;
+	struct flow_entry *e;
+	int i;
+
+	if (!flow || !flow->states || !flow->enter)
+		return;
+	for (i = 0; i < flow->len; i++) {
+		list_for_each_entry_safe(s, sn, &flow->states[i].list, node) {
+			list_del(&s->node);
+			flow_free_state(env, s);
+		}
+		list_for_each_entry_safe(s, sn, &flow->enter[i].list, node) {
+			list_del(&s->node);
+			flow_free_state(env, s);
+		}
+		flow->nr_states[i] = 0;
+	}
+	flow->pending = RB_ROOT_CACHED;
+	for (i = 0; i < flow->nr_funcs && flow->funcs; i++)
+		flow->funcs[i].exit_idx = -1;
+	for (i = 1; i <= flow->entry_cnt; i++) {
+		e = flow->entries[i];
+		list_for_each_entry_safe(s, sn, &e->calls, node) {
+			bpf_free_verifier_state(&s->st, false);
+			kfree(s);
+		}
+		list_for_each_entry_safe(x, xn, &e->exits, node) {
+			bpf_free_verifier_state(&x->st, false);
+			kfree(x);
+		}
+		kfree(e);
+	}
+	list_for_each_entry_safe(k, kn, &flow->kept, node) {
+		bpf_free_verifier_state(&k->st, false);
+		kfree(k);
+	}
+	INIT_LIST_HEAD(&flow->kept);
+	bpf_free_verifier_state(&flow->tmp, false);
+	memset(&flow->tmp, 0, sizeof(flow->tmp));
+	flow->entry_cnt = 0;
+	flow->united_cnt = 0;
+}
+
+void bpf_flow_free(struct bpf_verifier_env *env)
+{
+	struct bpf_flow *flow = env->flow;
+	int i;
+
+	if (!flow)
+		return;
+	bpf_flow_reset(env);
+	kvfree(flow->pos);
+	kvfree(flow->rank);
+	for (i = 0; i < FLOW_NEED_KINDS; i++)
+		kvfree(flow->need[i]);
+	kvfree(flow->point);
+	kvfree(flow->keep);
+	kvfree(flow->states);
+	kvfree(flow->enter);
+	kvfree(flow->nr_states);
+	kvfree(flow->funcs);
+	kvfree(flow->entries);
+	kvfree(flow->united);
+	kfree(flow);
+	env->flow = NULL;
+}
+
+bool bpf_flow_is_point(struct bpf_verifier_env *env, int insn_idx)
+{
+	return test_bit(insn_idx, env->flow->point);
+}
+
+/* A copy of @st that lives as long as the pass. */
+struct bpf_verifier_state *bpf_flow_keep_state(struct bpf_verifier_env *env,
+					       const struct bpf_verifier_state *st)
+{
+	struct flow_kept *k = kzalloc_obj(*k, GFP_KERNEL_ACCOUNT);
+
+	if (!k)
+		return NULL;
+	list_add(&k->node, &env->flow->kept);
+	if (bpf_copy_verifier_state(&k->st, st))
+		return NULL;
+	return &k->st;
+}
+
+/*
+ * Both are in a loop whose iterations are kept apart: an iteration is done with before
+ * the next one begins. A back edge in the middle of the loop would run ahead otherwise and
+ * leave the rest of every iteration behind, see flow_earlier_trip(). The state that stands
+ * for all iterations comes last.
+ */
+static int flow_cmp_trips(const struct bpf_func_state *fa, const struct bpf_func_state *fb)
+{
+	const struct loop_stack_entry *ea, *eb;
+	u32 i, ta, tb;
+
+	for (i = 0; i < fa->loop_stack_cnt && i < fb->loop_stack_cnt; i++) {
+		ea = &fa->loop_stack[i];
+		eb = &fb->loop_stack[i];
+		if (ea->loop_id != eb->loop_id)
+			break;
+		ta = ea->apart ? ea->trip : U32_MAX;
+		tb = eb->apart ? eb->trip : U32_MAX;
+		if (ta != tb)
+			return ta < tb ? -1 : 1;
+	}
+	return 0;
+}
+
+static bool flow_less(struct rb_node *na, const struct rb_node *nb)
+{
+	const struct flow_state *a = rb_entry(na, struct flow_state, rb);
+	const struct flow_state *b = rb_entry(nb, struct flow_state, rb);
+	int cmp;
+	u32 i;
+
+	for (i = 0; i < a->key_len && i < b->key_len; i++) {
+		/* key[i] is the place in frame[i - 1] */
+		if (i) {
+			cmp = flow_cmp_trips(a->st.frame[i - 1], b->st.frame[i - 1]);
+			if (cmp)
+				return cmp < 0;
+		}
+		if (a->key[i] != b->key[i])
+			return a->key[i] < b->key[i];
+	}
+	if (a->key_len != b->key_len)
+		return a->key_len < b->key_len;
+	return a->seq < b->seq;
+}
+
+/*
+ * Callers first, so that the calls of a function get to it before it is looked
+ * at. Then by the place of the call in every frame: what is called in the frames of
+ * its callers is done with before what follows the call. What follows the call of
+ * a function that is verified on its own goes on with every state that comes out.
+ */
+static void flow_set_pending(struct bpf_flow *flow, struct flow_state *s)
+{
+	const struct bpf_verifier_state *st = &s->st;
+	u32 i;
+
+	s->key[0] = flow->rank[st->frame[0]->subprogno];
+	/* the place in the function makes the rank of the function redundant below */
+	for (i = 0; i < st->curframe && i + 2 < ARRAY_SIZE(s->key); i++)
+		s->key[i + 1] = flow->pos[st->frame[i + 1]->callsite];
+	s->key[i + 1] = flow->pos[st->insn_idx];
+	s->key_len = i + 2;
+	s->pending = true;
+	rb_add_cached(&s->rb, &flow->pending, flow_less);
+}
+
+static void flow_unlink(struct bpf_verifier_env *env, struct flow_state *s)
+{
+	struct bpf_flow *flow = env->flow;
+
+	if (s->pending)
+		rb_erase_cached(&s->rb, &flow->pending);
+	s->pending = false;
+	list_del(&s->node);
+	flow->nr_states[s->st.insn_idx]--;
+}
+
+/* The entry that stands for the set that entry @id is in */
+static struct flow_entry *flow_entry_find(struct bpf_flow *flow, u32 id)
+{
+	struct flow_entry *e = flow->entries[id];
+
+	while (e->up != e) {
+		e->up = e->up->up;
+		e = e->up;
+	}
+	return e;
+}
+
+static int flow_entry_new(struct bpf_flow *flow)
+{
+	struct flow_entry **entries, *e;
+	u32 cap;
+
+	if (flow->entry_cnt + 1 >= flow->entry_cap) {
+		cap = max(64U, flow->entry_cap * 2);
+		entries = kvrealloc(flow->entries, cap * sizeof(*entries), GFP_KERNEL_ACCOUNT);
+		if (!entries)
+			return -ENOMEM;
+		flow->entries = entries;
+		flow->entry_cap = cap;
+	}
+	e = kmalloc_obj(*e, GFP_KERNEL_ACCOUNT);
+	if (!e)
+		return -ENOMEM;
+	e->up = e;
+	INIT_LIST_HEAD(&e->calls);
+	INIT_LIST_HEAD(&e->exits);
+	flow->entries[++flow->entry_cnt] = e;
+	return flow->entry_cnt;
+}
+
+/* It delivers states, so it is done when nothing is in the middle of that. */
+static int flow_unite(struct bpf_flow *flow, u32 a, u32 b)
+{
+	struct flow_united *u;
+	u32 cap;
+
+	if (!a || !b || flow_entry_find(flow, a) == flow_entry_find(flow, b))
+		return 0;
+	if (flow->united_cnt == flow->united_cap) {
+		cap = max(16U, flow->united_cap * 2);
+		u = kvrealloc(flow->united, cap * sizeof(*u), GFP_KERNEL_ACCOUNT);
+		if (!u)
+			return -ENOMEM;
+		flow->united = u;
+		flow->united_cap = cap;
+	}
+	u = &flow->united[flow->united_cnt++];
+	u->a = a;
+	u->b = b;
+	return 0;
+}
