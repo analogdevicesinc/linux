@@ -2190,6 +2190,22 @@ static bool flow_join_makes_up(const struct bpf_flow *flow, const struct bpf_ver
 }
 
 /*
+ * @s came back to the head of a loop, or from a callback to the helper that calls it. @t is there.
+ * Do they come from two states that entered the cycle?
+ */
+static bool flow_entries_differ(const struct bpf_verifier_state *t,
+				const struct bpf_verifier_state *s, enum flow_cycle cycle)
+{
+	const struct bpf_func_state *ft = t->frame[t->curframe], *fs = s->frame[s->curframe];
+	u32 cnt = fs->loop_stack_cnt;
+
+	if (cycle == FLOW_CALLBACK_CYCLE)
+		return ft->callback_entry_id != fs->callback_entry_id;
+	return cnt && ft->loop_stack_cnt == cnt &&
+	       ft->loop_stack[cnt - 1].entry_id != fs->loop_stack[cnt - 1].entry_id;
+}
+
+/*
  * States that have a join are kept apart while there is room: half of every limit.
  * After that they are joined, which may lose what the prog needs, and does not run into the limit.
  */
@@ -2200,4 +2216,265 @@ static bool flow_has_room(const struct bpf_verifier_env *env, u32 nr_states)
 	return nr_states < BPF_FLOW_MAX_STATES / 2 &&
 	       env->flow->live_states < (BPF_FLOW_LIVE_PER_INSN * len + BPF_FLOW_LIVE_BASE) / 2 &&
 	       env->total_states < (BPF_FLOW_TOTAL_PER_INSN * len + BPF_FLOW_TOTAL_BASE) / 2;
+}
+
+/* The state of @set behind @t, the first one if @t is NULL, that @s may be related to */
+static struct flow_state *flow_next_related(struct bpf_verifier_env *env,
+					    const struct flow_set *set, struct flow_state *s,
+					    struct flow_state *t, bool places)
+{
+	t = t ? list_next_entry(t, node) : list_first_entry(&set->list, struct flow_state, node);
+	list_for_each_entry_from(t, &set->list, node)
+		if (flow_may_relate(env, t, s, places))
+			return t;
+	return NULL;
+}
+
+static void flow_link(struct bpf_verifier_env *env, struct flow_set *set, struct flow_state *s)
+{
+	list_add_tail(&s->node, &set->list);
+	env->flow->nr_states[s->st.insn_idx]++;
+}
+
+static void flow_sweep_trip(struct bpf_verifier_env *env, struct flow_state *t,
+			    const struct flow_state *s)
+{
+	if (t->pending || !flow_earlier_trip(&t->st, &s->st))
+		return;
+	flow_unlink(env, t);
+	flow_free_state(env, t);
+}
+
+/* States of earlier iterations than @s go away, see flow_earlier_trip() */
+static void flow_sweep_trips(struct bpf_verifier_env *env, struct flow_set *set,
+			     const struct flow_state *s)
+{
+	struct flow_state *t, *tn;
+
+	if (!flow_has_earlier_trips(&s->st))
+		return;
+	list_for_each_entry_safe(t, tn, &set->list, node)
+		if (flow_same_shape(t, s, FLOW_CHAIN))
+			flow_sweep_trip(env, t, s);
+}
+
+/*
+ * Put *@ps into @set, one of the sets of states at its insn. Returns
+ * 1 if it is within a state of the set. It is gone then.
+ * 0 if it is in the set now, as it was or joined with states of the set.
+ * @cycle: it came around a cycle, what grew is forgotten.
+ */
+static int flow_merge(struct bpf_verifier_env *env, struct flow_set *set,
+		      struct flow_state **ps, enum flow_cycle cycle)
+{
+	struct bpf_flow *flow = env->flow;
+	struct flow_state *s = *ps, *t, *tn;
+	int insn_idx = s->st.insn_idx, err;
+	u32 *nr_states = &flow->nr_states[insn_idx];
+	bool places, widen_all, widen;
+	/* the set of the states that enter a loop is a stop on the way, see bpf_flow_deliver() */
+	bool log = (env->log.level & BPF_LOG_LEVEL2) && set == &flow->states[insn_idx];
+	const char *what = NULL;
+	int prev = s->prev_insn_idx;
+
+again:
+	if (signal_pending(current)) {
+		err = -EAGAIN;
+		goto err_free;
+	}
+	if (need_resched())
+		cond_resched();
+
+	/* again after a join: an offset may not be a constant any more, a pointer may be gone */
+	flow_shape_ctx(&s->st, &s->shape);
+	places = *nr_states >= BPF_FLOW_MIN_SHAPES;
+	for (t = flow_next_related(env, set, s, NULL, places); t;
+	     t = flow_next_related(env, set, s, t, places)) {
+		if (flow_cmp_pkt_range(t, s) > 0 || !flow_trips_near(&t->st, &s->st) ||
+		    !flow_within(env, &t->st, &s->st))
+			continue;
+		if (env->log.level & BPF_LOG_LEVEL2)
+			verbose(env, "from %d to %d: within\n", prev, insn_idx);
+		err = flow_cycle_closed(env, &t->st, &s->st) ?:
+		      flow_unite(flow, s->st.flow_entry, t->st.flow_entry);
+		flow_free_state(env, s);
+		return err ?: 1;
+	}
+
+	flow_sweep_trips(env, set, s);
+
+	widen_all = cycle == FLOW_CYCLE;
+	for (t = flow_next_related(env, set, s, NULL, places); t; t = tn) {
+		tn = flow_next_related(env, set, s, t, places);
+		/*
+		 * Iterations that are kept apart have no join. Neither does a state take the place
+		 * of a state of another iteration that it covers: that one is done with, or has its
+		 * own way to go, see flow_cycle_closed().
+		 * The shape is a hash, and what follows goes through the frames of both.
+		 */
+		if (flow_trips_behind(&t->st, &s->st))
+			continue;
+		widen = widen_all || (cycle == FLOW_CALLBACK_CYCLE &&
+				      max(s->joins, t->joins) >= BPF_FLOW_CALLBACK_JOINS);
+		/*
+		 *	ret = 0; if (...) { denied++; ret = -EPERM; }
+		 *	bpf_for(i, 0, n) { ... } return ret;
+		 * Two states enter the loop. What comes around it with 0 is for the state with 0.
+		 * Next to -EPERM it looks like a number that grew, and would be forgotten. The same
+		 * for the header of a packet at pkt + 34 and at pkt + 54. No rule has to tell which
+		 * numbers that holds for: a state knows where it comes from.
+		 * If it has no join with that state it is at the head on its own from now on.
+		 * The same for bpf_loop() in place of the loop.
+		 */
+		if (widen && flow_has_room(env, *nr_states) &&
+		    flow_entries_differ(&t->st, &s->st, cycle))
+			continue;
+		if (!widen && flow_has_room(env, *nr_states) &&
+		    flow_null_differs(flow, &t->st, &s->st))
+			continue;
+		if (!widen && flow_needed_consts_differ(flow, FLOW_NEED_ARG, &t->st, &s->st))
+			continue;
+		if (flow_callback_depth_differs(env, &t->st, &s->st))
+			continue;
+		/* what grows in a loop is not replaced with what is larger, it is forgotten */
+		if (!widen && flow_cmp_pkt_range(s, t) <= 0 && flow_within(env, &s->st, &t->st)) {
+			err = flow_unite(flow, s->st.flow_entry, t->st.flow_entry);
+			if (err)
+				goto err_free;
+			/*
+			 * What a callback comes back with and covers what is there grew, like
+			 * what is joined with it. It counts, or nothing ends "*ctx += 1".
+			 */
+			s->joins = max(s->joins, t->joins) + (cycle == FLOW_CALLBACK_CYCLE);
+			flow_unlink(env, t);
+			flow_free_state(env, t);
+			what = what ?: "joined";
+			continue;
+		}
+		if (!widen && flow_cmp_pkt_range(s, t))
+			continue;
+		if (flow_has_room(env, *nr_states) &&
+		    (flow_unset_differs(&t->st, &s->st) ||
+		     (!widen && flow_join_makes_up(flow, &t->st, &s->st))))
+			continue;
+		/*
+		 * Around a loop too:
+		 *	u8 stack[10], depth = 0;
+		 *	loop {
+		 *		if (...) { if (depth >= 10) break; stack[depth++] = x; }
+		 *		else { depth--; if (depth >= 10) break; x = stack[depth]; }
+		 *	}
+		 * depth is in a 32-bit register. A compiler tests 'depth & 255' and computes it
+		 * anew for the index. What is found out about a copy says nothing about
+		 * a range, and everything about a constant.
+		 */
+		if (flow_has_room(env, *nr_states) &&
+		    flow_needed_consts_differ(flow, FLOW_NEED_STACK_OFF, &t->st, &s->st))
+			continue;
+		if (!widen && flow_has_room(env, *nr_states) &&
+		    flow_needed_consts_differ(flow, FLOW_NEED_PTR_OFF, &t->st, &s->st))
+			continue;
+		err = bpf_states_join(env, &flow->tmp, &t->st, &s->st, widen);
+		if (err < 0)
+			goto err_free;
+		if (err)
+			continue;
+		what = widen ? "widened" : "joined";
+		err = flow_unite(flow, s->st.flow_entry, t->st.flow_entry);
+		if (err)
+			goto err_free;
+		flow->tmp.flow_entry = t->st.flow_entry;
+		flow->tmp.last_insn_idx = s->prev_insn_idx;
+		s->joins = max(s->joins, t->joins) + 1;
+		bpf_free_verifier_state(&s->st, false);
+		s->st = flow->tmp;
+		memset(&flow->tmp, 0, sizeof(flow->tmp));
+		flow_unlink(env, t);
+		flow_free_state(env, t);
+		/* the join may be within, or have a join with, what is left in the set */
+		goto again;
+	}
+
+	if (*nr_states >= BPF_FLOW_MAX_STATES) {
+		verbose(env, "more than %d states that cannot be joined at insn %d\n",
+			BPF_FLOW_MAX_STATES, insn_idx);
+		err = -E2BIG;
+		goto err_free;
+	}
+	if (flow->live_states > BPF_FLOW_LIVE_PER_INSN * env->prog->len + BPF_FLOW_LIVE_BASE ||
+	    env->total_states >
+	    BPF_FLOW_TOTAL_PER_INSN * (u64)env->prog->len + BPF_FLOW_TOTAL_BASE) {
+		verbose(env, "too many states for %d insns: %d, %d at a time\n",
+			env->prog->len, env->total_states, flow->live_states);
+		err = -E2BIG;
+		goto err_free;
+	}
+	/*
+	 * The state is printed when its turn comes. That says enough about a state that
+	 * is new, and about a state that goes on to the next insn.
+	 */
+	if (prev >= 0 && insn_idx == prev + 1 + bpf_is_ldimm64(&env->prog->insnsi[prev]) &&
+	    what && !strcmp(what, "joined"))
+		what = NULL;
+	if (log && what)
+		verbose(env, "from %d to %d: %s\n", prev, insn_idx, what);
+	flow_link(env, set, s);
+	env->max_states_per_insn = max(env->max_states_per_insn, *nr_states);
+	return 0;
+
+err_free:
+	flow_free_state(env, s);
+	return err;
+}
+
+static struct flow_state *flow_new_state(struct bpf_verifier_env *env, int prev_insn_idx)
+{
+	struct flow_state *s = kzalloc_obj(*s, GFP_KERNEL_ACCOUNT);
+	struct bpf_flow *flow = env->flow;
+
+	if (!s)
+		return NULL;
+	s->prev_insn_idx = prev_insn_idx;
+	s->seq = ++flow->seq;
+	env->total_states++;
+	flow->live_states++;
+	env->peak_states = max(env->peak_states, flow->live_states);
+	return s;
+}
+
+/* What @st holds is taken and @st is left empty. What doesn't matter at @insn_idx goes. */
+static struct flow_state *flow_arrive(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
+				      int insn_idx, int prev_insn_idx, bool *enters)
+{
+	struct bpf_verifier_state *cur = env->cur_state;
+	int cur_idx = env->insn_idx, err;
+	struct flow_state *s;
+
+	if (insn_idx < 0 || insn_idx >= env->prog->len) {
+		verbose(env, "invalid insn idx %d insn_cnt %d\n", insn_idx, env->prog->len);
+		return ERR_PTR(-EFAULT);
+	}
+
+	s = flow_new_state(env, prev_insn_idx);
+	if (!s)
+		return ERR_PTR(-ENOMEM);
+	s->st = *st;
+	memset(st, 0, sizeof(*st));
+	s->st.insn_idx = insn_idx;
+	s->st.last_insn_idx = prev_insn_idx;
+
+	env->cur_state = &s->st;
+	env->insn_idx = insn_idx;
+	err = bpf_flow_loop_leave(env, enters);
+	if (!err)
+		err = bpf_clean_verifier_state(env, &s->st);
+	env->cur_state = cur;
+	env->insn_idx = cur_idx;
+	if (err) {
+		flow_free_state(env, s);
+		return ERR_PTR(err);
+	}
+	/* when the registers that it was shared with are dead, or are those of the caller */
+	bpf_clear_singular_ids(env, &s->st);
+	return s;
 }
