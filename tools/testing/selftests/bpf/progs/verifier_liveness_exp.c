@@ -32,8 +32,12 @@ char _license[] SEC("license") = "GPL";
 			"r1 += -" #off ";"	\
 			"call " #fn ";"
 
-/* 50 calls, each with a distinct FP offset: -8, -16, ... -400 */
+/*
+ * 50 calls, each with a distinct FP offset: -8, -16, ... -400.
+ * The function reads r1 first: a register that the callee doesn't read is no argument.
+ */
 #define CALLS_50(fn)							\
+	"r0 = r1;"							\
 	C(fn,   8) C(fn,  16) C(fn,  24) C(fn,  32) C(fn,  40)		\
 	C(fn,  48) C(fn,  56) C(fn,  64) C(fn,  72) C(fn,  80)		\
 	C(fn,  88) C(fn,  96) C(fn, 104) C(fn, 112) C(fn, 120)		\
@@ -50,6 +54,7 @@ __naked __noinline __used
 static unsigned long exp_sub7(void)
 {
 	asm volatile (
+		"r0 = r1;"
 		"r0 = 0;"
 		"exit;"
 		::: __clobber_all);

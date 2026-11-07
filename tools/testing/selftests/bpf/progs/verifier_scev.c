@@ -8,6 +8,7 @@
 #include "../../../include/linux/filter.h"
 #include "bpf_misc.h"
 #include "bpf_kfuncs.h"
+#include "bpf_compiler.h"
 
 #define COND_TEST(name, _initial, _step, _bound, msg, body)                     \
 SEC("xdp")                                                                      \
@@ -238,7 +239,7 @@ __naked void meet_agrees(void)
 }
 
 SEC("xdp")
-__failure
+__success __retval(0)
 __log_level(2)
 __msg_next("scev at header 1:")
 __msg_next("  r6=(any r6 (+ r6 1)) / ?")
@@ -1234,23 +1235,20 @@ RANGE_TEST(backedges_first_is_a_range, "", 0, 3, 1, 0, 2,
 RANGE_TEST(backedges_two_variables, "", 0, 3, 1, 0, 1,
 	   BACKEDGES("r6 += 1; r7 += 1", "r9 & 1", "r6 < 3", "r7 < 6"),
 	   __msg("header_count is [0..6] ") __msg("widening r6 to 0..8 "))
-/* Explore with a bound of 3 first, of 5 next. The second state is not equal to the first. */
+/* A bound of 3 and a bound of 5 are joined in front of the loop */
 #define PRECISE_BOUND(reg)									\
 	"r4 = 2; r5 = 2; " reg " = 5; if r7 == 0 goto +1; " reg " = 3; r0 = 0;"		\
 	BACKEDGES("r6 += 1", "r9 & 1", "r6 < r4", "r6 < r5")
-#define EXPLORED_TWICE										\
-	__flag(BPF_F_TEST_STATE_FREQ)								\
-	__msg("header_count is [0..3] ") __msg("header_count is [0..5] ")
-RANGE_TEST(backedges_bound1_is_precise, "", 0, 0, 1, 0, 1, PRECISE_BOUND("r4"), EXPLORED_TWICE)
-RANGE_TEST(backedges_bound0_is_precise, "", 0, 0, 1, 0, 1, PRECISE_BOUND("r5"), EXPLORED_TWICE)
+#define EXPLORED_ONCE	__msg("header_count is [0..5] ") __not_msg("header_count is [0..3] ")
+RANGE_TEST(backedges_bound1_is_precise, "", 0, 0, 1, 0, 1, PRECISE_BOUND("r4"), EXPLORED_ONCE)
+RANGE_TEST(backedges_bound0_is_precise, "", 0, 0, 1, 0, 1, PRECISE_BOUND("r5"), EXPLORED_ONCE)
 
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 1, header_count is 10 ")
 __msg("loop header at 1, widening r0 to 0..9 step 1")
-__msg("processed 5 insns")
+__msg("processed 4 insns")
 __naked void post_cond_jlt(void)
 {
 	asm volatile ("					\
@@ -1262,8 +1260,8 @@ __naked void post_cond_jlt(void)
 }
 
 /*
- * Explore with r7=10 first, r7=4096 next.
- * Should trigger invalid stack read if r7 is marked precise.
+ * r7 is 10 on one path to the loop and 4096 on the other.
+ * Should trigger invalid stack read if the larger one counts.
  *
  *   r0 = 0;
  *   r6 = 0;
@@ -1278,11 +1276,7 @@ __naked void post_cond_jlt(void)
 SEC("xdp")
 __failure
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
-__msg("loop header at 6, header_count is 10 ")
-__msg("mark_precise: frame0: parent state regs=r6,r7 stack=:")
-__msg("loop header at 6, widening r0 to 0..9 step 1")
-__msg("loop header at 6, header_count is 4096 ")
+__msg("loop header at 6, header_count is [0..4096] ")
 __msg("loop header at 6, widening r0 to 0..4095 step 1")
 __msg("invalid variable-offset read from stack R2")
 __naked void mark_bound_precise(void)
@@ -1308,8 +1302,8 @@ __naked void mark_bound_precise(void)
 }
 
 /*
- * Explore with r6=4086 first, r6=0 next.
- * Should trigger invalid stack read if r6 is marked precise.
+ * r6 is 4086 on one path to the loop and 0 on the other.
+ * Should trigger invalid stack read if the smaller one counts.
  *
  *   r0 = 0;
  *   r6 = bpf_get_prandom_u32() == 42 ? 4086 : 0;
@@ -1323,11 +1317,7 @@ __naked void mark_bound_precise(void)
 SEC("xdp")
 __failure
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
-__msg("loop header at 5, header_count is 10 ")
-__msg("mark_precise: frame0: parent state regs=r6 stack=:")
-__msg("loop header at 5, widening r0 to 0..9 step 1")
-__msg("loop header at 5, header_count is 4096 ")
+__msg("loop header at 5, header_count is [0..4096] ")
 __msg("loop header at 5, widening r0 to 0..4095 step 1")
 __msg("invalid variable-offset read from stack R2")
 __naked void mark_base_precise(void)
@@ -1541,7 +1531,7 @@ __msg("scev at header 1:")
 __msg_next("r6=(+ r6 1) / (linear r6 1)")
 __msg_next("*fp-8=(any *fp-8 7) / (any *fp-8 7)")
 __msg("loop header at 1, widening r6 to 0..2 step 1")
-__msg("2: (7a) *(u64 *)(r10 -8) = 7          ; R10=fp0 fp-8=7 loop_stack=1")
+__msg("3: (79) r0 = *(u64 *)(r10 -8)         ; R0=scalar() R10=fp0 loop_stack=1")
 __naked void widen_any_unallocated_slot(void)
 {
 	asm volatile ("					\
@@ -1819,11 +1809,10 @@ BOUND_IN_MAP_TEST(bound_in_data, data_bound, 16)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 3, header_count is 8")
 __msg("loop header at 3, widening r0 to 2..9 step 1")
 __msg("3: R0=scalar(smin=umin=smin32=umin32=2,smax=umax=smax32=umax32=9,{{.*}})")
-__msg("processed 6 insns")
+__msg("processed 5 insns")
 __naked void post_cond_jlt_with_base(void)
 {
 	asm volatile ("					\
@@ -1910,11 +1899,10 @@ NO_ZEXT32_TEST(arsh_by_32, 0x7ffffffe, "r7 <<= 32; r7 s>>= 32;")
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 1, header_count is 11")
 __msg("loop header at 1, widening r0 to 0..10 step 1")
 __msg("1: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=10,{{.*}})")
-__msg("processed 5 insns")
+__msg("processed 4 insns")
 __naked void post_cond_jle(void)
 {
 	asm volatile ("					\
@@ -1928,11 +1916,10 @@ __naked void post_cond_jle(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 1, header_count is 10")
 __msg("loop header at 1, widening r0 to 0..9 step 1")
 __msg("1: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=9,{{.*}})")
-__msg("processed 6 insns")
+__msg("processed 5 insns")
 __naked void post_cond_jge(void)
 {
 	asm volatile ("					\
@@ -1947,11 +1934,10 @@ __naked void post_cond_jge(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 1, header_count is 11")
 __msg("loop header at 1, widening r0 to 0..10 step 1")
 __msg("1: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=10,{{.*}})")
-__msg("processed 6 insns")
+__msg("processed 5 insns")
 __naked void pre_cond_jge(void)
 {
 	asm volatile ("					\
@@ -1966,7 +1952,6 @@ __naked void pre_cond_jge(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg_next("scev at header 1:")
 __msg_next("  r0=(+ r0 1) / (linear r0 1)")
 __msg_next(" scev at latch 2:")
@@ -1975,10 +1960,9 @@ __msg("loop header at 1, widening r0")
 __msg("1: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,{{.*}})")
 __msg("1: (07) r0 += 1                       ; R0=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=3,{{.*}})")
 __msg("2: (55) if r0 != 0x3 goto pc-2")
-__msg("3: (95) exit")
 __msg("loop header at 1, clamping r0")
-__msg("from 2 to 1: safe")
-__msg("processed 5 insns")
+__msg("3: (95) exit")
+__msg("processed 4 insns")
 __naked void post_cond_jne(void)
 {
 	asm volatile ("					\
@@ -1992,16 +1976,15 @@ __naked void post_cond_jne(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg_next("scev at header 1:")
 __msg_next("  r0=(+ r0 -1) / (linear r0 -1)")
 __msg_next(" scev at latch 2:")
 __msg_next("  r0=(+ r0 -1) / (linear (+ r0 -1) -1)")
 __msg("loop header at 1, header_count is 3 ")
 __msg("loop header at 1, widening r0 to 1..3 step 1")
-__msg("1: R0=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=3,var_off=(0x0; 0x3)) loop_stack=1")
+__msg("1: R0=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=3,var_off=(0x0; 0x3)) R10=fp0 loop_stack=1")
 __msg("loop header at 1, clamping r0 to 1..3 step 1")
-__msg("processed 5 insns")
+__msg("processed 4 insns")
 __naked void post_cond_jne_neg_step(void)
 {
 	asm volatile ("					\
@@ -2025,7 +2008,7 @@ __msg("loop header at 2, widening r1 to 0..4 step 1")
 __msg("loop header at 2, widening r3 to 0..4 step 1")
 __msg("3: (55) if r3 != 0x5 goto pc+1 {{.*}}; R3=5")
 __msg("loop header at 2, clamping r3 to 0..4 step 1")
-__msg("from 6 to 2: safe")
+__msg("from 6 to 2: within")
 __naked void clamp_dependent_overshoot(void)
 {
 	asm volatile ("					\
@@ -2051,7 +2034,7 @@ __msg("loop header at 2, widening r1 to 0..4 step 1")
 __msg("loop header at 2, widening r3 to 0..4 step 1")
 __msg("3: (56) if w3 != 0x5 goto pc+1 {{.*}}; R3=5")
 __msg("loop header at 2, clamping r3 to 0..4 step 1")
-__msg("from 6 to 2: safe")
+__msg("from 6 to 2: within")
 __naked void clamp_dependent_overshoot32(void)
 {
 	asm volatile ("					\
@@ -2070,7 +2053,6 @@ __naked void clamp_dependent_overshoot32(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg_next("scev at header 1:")
 __msg_next("  r0=(+ r0 1) / (linear r0 1)")
 __msg_next(" scev at latch 1:")
@@ -2081,11 +2063,10 @@ __msg("1: (15) if r0 == 0x3 goto pc+2        ; R0=scalar(smin=smin32=0,smax=umax
 __msg("2: (07) r0 += 1                       ; R0=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=3,{{.*}})")
 __msg("3: (05) goto pc-3")
 __msg("loop header at 1, clamping r0")
-__msg("1: safe")
 __msg("from 1 to 4: R0=3")
 __msg("4: R0=3")
 __msg("4: (95) exit")
-__msg("processed 6 insns")
+__msg("processed 5 insns")
 __naked void pre_cond_je1(void)
 {
 	asm volatile ("					\
@@ -2100,7 +2081,6 @@ __naked void pre_cond_je1(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg_next("scev at header 1:")
 __msg_next("  r0=(zext32 (+ r0 1)) / (zext32 (linear r0 1))")
 __msg_next(" scev at latch 2:")
@@ -2109,10 +2089,9 @@ __msg("loop header at 1, widening r0")
 __msg("1: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,{{.*}})")
 __msg("1: (04) w0 += 1                       ; R0=scalar(smin=umin=smin32=umin32=1,smax=umax=smax32=umax32=3,{{.*}})")
 __msg("2: (56) if w0 != 0x3 goto pc-2")
-__msg("3: (95) exit")
 __msg("loop header at 1, clamping r0")
-__msg("from 2 to 1: safe")
-__msg("processed 5 insns")
+__msg("3: (95) exit")
+__msg("processed 4 insns")
 __naked void post_cond_jne32(void)
 {
 	asm volatile ("					\
@@ -2386,7 +2365,6 @@ __naked void loop_around_301_exits(void)
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg_next("scev at header 11:")
 __msg_next("  r0=(+ r0 1) / (linear r0 1)")
 __msg_next("  r1=(+ r1 2) / (linear r1 2)")
@@ -2396,18 +2374,15 @@ __msg_next("  r1=(+ r1 2) / (linear (+ r1 2) 2)")
 __msg("loop header at 11, widening r0")
 __msg("loop header at 11, widening r1")
 __msg("11: R0=scalar(smin=smin32=0,smax=umax=smax32=umax32=7,var_off=(0x0; 0x7)) R1=scalar(smin=smin32=0,smax=umax=smax32=umax32=14,var_off=(0x0; 0xe),step=0+2)")
-/* loop exit */
 __msg("16: (a5) if r0 < 0x8 goto pc-6")
-__msg("exiting loop 11")
-__msg("17: (95) exit")
 /* second iteration */
 __msg("loop header at 11, clamping r0")
 __msg("loop header at 11, clamping r1")
 /* iteration convergence */
-__msg("from 16 to 11: safe")
 __not_msg("{{^}}11:")
-/* map lookup error path */
-__msg("from 7 to 17: safe")
+/* loop exit */
+__msg("exiting loop 11")
+__msg("17: (95) exit")
 __naked void correlated_regs(void)
 {
 	asm volatile ("					\
@@ -2441,15 +2416,14 @@ __naked void correlated_regs(void)
  *     k += 1
  *     k <<= 1   // make SCEV construction not possible
  *     k >>= 1
- * map[k] = 1    // make k precise
+ * map[k] = 1    // k has to be known
  */
 SEC("xdp")
 __success
 __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __msg("19: (72) *(u8 *)(r4 +0) = 1           ; R4=map_value(id={{.*}},map=map,ks=4,vs=1024,imm=16)")
 __not_msg("19: ")
-__msg("processed 106 insns")
+__msg("processed 105 insns")
 __naked void nested_loops_precise_var1(void)
 {
 	asm volatile ("					\
@@ -2488,8 +2462,7 @@ __log_level(2)
 __msg("loop header at 2, header_count is 100 ")
 __msg("loop header at 4, header_count is [0..100] ")
 __msg("loop header at 6, header_count is [0..100] ")
-__msg("processed 20 insns")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("processed 14 insns")
 __naked void nested_loop_with_two_exits(void)
 {
 	asm volatile ("					\
@@ -2550,14 +2523,14 @@ __msg("loop at 5")
 __msg("loop at 6, nested in 5")
 __msg("loop at 11, irreducible")
 __msg("loop at 12, nested in 11")
-/* entry via if r0 == 5 goto d_%= false branch */
-__msg("loop header at 12, header_count is 3 ")
-__msg("loop header at 12, widening r9 to 0..2 step 1")
-__msg("12: R8=1 R9=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3)) loop_stack=11,12")
 /* entry via if r0 == 5 goto d_%= true branch */
 __msg("loop header at 12, header_count is 3 ")
 __msg("loop header at 12, widening r9 to 0..2 step 1")
-__msg("from 8 to 12: R8=0 R9=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3)) R10=fp0 loop_stack=11,12")
+/* entry via if r0 == 5 goto d_%= false branch */
+__msg("loop header at 12, header_count is 3 ")
+__msg("loop header at 12, widening r9 to 0..2 step 1")
+__msg("12: R8=0 R9=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3)) R10=fp0 iter(11)=0 loop_stack=11,12")
+__msg("12: R8=1 R9=scalar(smin=smin32=0,smax=umax=smax32=umax32=2,var_off=(0x0; 0x3)) R10=fp0 iter(11)=0 loop_stack=11,12")
 __naked void enter_nested_loop_from_side(void)
 {
 	asm volatile ("					\
@@ -3037,7 +3010,7 @@ __log_level(2)
 __flag(BPF_F_TEST_STATE_FREQ)
 __msg("loop header at 3, widening r6 to 0..9 step 1")
 __msg("loop header at 3, clamping r6 to 0..9 step 1")
-__msg("12: safe")
+__msg("from 12 to 6: within")
 __naked void clamp_callee_state_pruning(void)
 {
 	asm volatile ("					\
@@ -3204,11 +3177,14 @@ RANGE_TEST(spill32_first_is_a_range, "", 0, 3, 1, 6, 6,
 RANGE_TEST(spill32_first_is_a_range_pre, "", 0, 3, 1, 6, 6,
 	   SPILL32_LOOP(SPILL32_LOAD "if r1 >= r7 goto 2f;" SPILL32_INC "goto 1b;"),
 	   SPILL32_COUNTED(7, "0..6"))
-/* Explore with 2 in the slot first, with 0 next. The second state is not equal to the first. */
+/* 2 and 0 in the slot are joined in front of the loop */
 RANGE_TEST(spill32_first_is_precise, "", 0, 0, 1, 0, 1,
 	   "if r7 == 0 goto +1; r6 = 2;" SPILL32_LOOP(SPILL32_INC "if w1 != 5 goto 1b;"),
-	   __flag(BPF_F_TEST_STATE_FREQ)
-	   __msg("header_count is [0..3] ") __msg("header_count is [0..5] "))
+	   __msg("header_count is [0..5] ") __not_msg("header_count is [0..3] "))
+/* The slot holds 64 bits when the loop starts. Nothing reads the high half: it's dead. */
+RANGE_TEST(spill32_first_is_64bit, "", 0, 0, 1, 5, 5,
+	   "*(u64 *)(r10 - 8) = r6; 1:" LIMIT_ITERATIONS SPILL32_INC "if w1 != w7 goto 1b;",
+	   SPILL32_COUNTED(5, "0..4"))
 /* The counter makes the address of a spill. Such a loop is not summarized, as with a register. */
 PARTIAL_SPILL_TEST(spill32_is_a_stack_offset, u32, 4,
 	"can't widen *fp-8, expr is (spill32 (+ *fp-8 8)), requires exact stack-offset tracking",
@@ -3224,11 +3200,7 @@ PARTIAL_SPILL_TEST(spill32_unknown_is_a_stack_offset, u32, 1000000,
 /* A step above S16_MAX has no range, as with a register */
 PARTIAL_SPILL_TEST(spill32_large_step, u32, 4, "can't widen *fp-8, expr is (spill32 ",
 	SPILL32_0, SPILL32_LOAD "w1 += 0x8000; *(u32 *)(r10 - 8) = r1;")
-/* No formula: the slot holds 64 bits when the loop starts, */
-RANGE_TEST(spill32_first_is_64bit, "", 0, 0, 1, 5, 5,
-	   "*(u64 *)(r10 - 8) = r6; 1:" LIMIT_ITERATIONS SPILL32_INC "if w1 != w7 goto 1b;",
-	   NO_COUNT)
-/* the load extends the sign, */
+/* No formula: the load extends the sign, */
 RANGE_TEST(spill32_sext_load, "", 0, 0, 1, 5, 5,
 	   SPILL32_LOOP(SPILL32_INC "r1 = *(s32 *)(r10 - 8); if r1 != r7 goto 1b;"), NO_COUNT)
 /* the sum is made from a different slot. */
@@ -4298,12 +4270,23 @@ exit_%=:						\
  *        } while (r8 < 3);
  *    }
  *    return 0;
+ *
+ * The outer loop gets may_goto in front of the jump that leaves it, the inner loop doesn't.
+ * At run time it's may_goto that ends the prog.
  */
 SEC("xdp")
-__failure
-__log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
-__msg("The sequence of 8193 jumps is too complex.")
+__success __retval(0)
+__xlated("call unknown")
+__xlated("...")
+__xlated("if r0 == 0x2a goto pc+4")
+__xlated("r8 = 0")
+__xlated("r8 += 1")
+__xlated("if r8 < 0x3 goto pc-2")
+__xlated("goto pc-{{[0-9]+}}")
+__xlated("r0 = 0")
+__xlated("exit")
+__xlated("r0 = 0")
+__xlated("exit")
 __naked void nested_terminating_prune(void)
 {
 	asm volatile ("					\
@@ -4678,7 +4661,7 @@ __naked void widen_pkt_pointer_negative_offset(void)
 
 /* The access is in the second iteration only: the verifier gets to it after the clamp */
 SEC("tc")
-__failure __msg("invalid access to packet, off=56 size=2, R6(id=3,off=56,r=56)")
+__failure __msg("invalid access to packet, off=56 size=2, R6(id={{[0-9]+}},off=56,r=56)")
 __naked void clamp_pkt_pointer_step_lowers_umax(void)
 {
 	asm volatile (

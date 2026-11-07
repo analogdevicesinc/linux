@@ -2844,7 +2844,7 @@ __naked void merge_preserves_may_write(void)
 	"if r0 == 0 goto 1f;"
 	/* chain A: r2 = map value (ARG_NONE, not stack) */
 	"r1 = r10;"
-	"r1 += -16;"				/* unused fp anchor */
+	"r1 += -16;"				/* fp anchor */
 	"r2 = r0;"
 	"call mvs_mid;"
 	/* chain B: r2 = caller stack slot fp-8 */
@@ -2872,6 +2872,7 @@ static __used __naked void mvs_leaf(void)
 {
 	asm volatile (
 	"*(u64 *)(r2 + 0) = 42;"
+	"r0 = r1;"				/* a register that is not read is no argument */
 	"r0 = 0;"
 	"exit;"
 	::: __clobber_all);

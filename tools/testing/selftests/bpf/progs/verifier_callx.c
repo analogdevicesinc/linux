@@ -243,8 +243,7 @@ __naked void callx_scratches_args(void)
 /* return value of the callee is tracked */
 SEC("socket")
 __success __log_level(2)
-__msg("to caller at 4:")
-__msg("R0=6")
+__msg("4: R0=6 R10=fp0")
 __naked void callx_retval_is_tracked(void)
 {
 	asm volatile (
@@ -541,9 +540,11 @@ static unsigned long self(void)
 	);
 }
 
-/* unbounded recursion is caught by the main verification pass */
+/* unbounded recursion is stopped at run time */
 SEC("socket")
-__failure __msg("frames is too deep")
+__arch_x86_64
+__arch_arm64
+__success __retval(0)
 __naked void callx_unbounded_recursion(void)
 {
 	asm volatile (
@@ -569,12 +570,10 @@ static unsigned long countdown(void)
 	);
 }
 
-/*
- * The depth of the recursion is known to the main verification pass,
- * but recursive calls are not allowed regardless.
- */
 SEC("socket")
-__failure __msg("recursive call from countdown() to countdown()")
+__arch_x86_64
+__arch_arm64
+__success __retval(0)
 __naked void callx_bounded_recursion(void)
 {
 	asm volatile (
@@ -621,7 +620,9 @@ static unsigned long pong(void)
 }
 
 SEC("socket")
-__failure __msg("recursive call from")
+__arch_x86_64
+__arch_arm64
+__success
 __naked void callx_mutual_recursion(void)
 {
 	asm volatile (
@@ -633,6 +634,49 @@ __naked void callx_mutual_recursion(void)
 		:
 		: __imm_addr(ping),
 		  __imm_addr(pong)
+		: __clobber_all);
+}
+
+/* calls_arg(fn) { return fn(); } */
+__naked __noinline __used
+static unsigned long calls_arg(void)
+{
+	asm volatile (
+		"callx r1;"
+		"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long returns_7(void)
+{
+	asm volatile (
+		"r0 = 7;"
+		"exit;"
+	);
+}
+
+/*
+ * The address of calls_arg() is taken: its callx could call it. The main pass finds that it
+ * calls returns_7(). There is no cycle, so calls_arg() doesn't check the stack at run time.
+ */
+SEC("socket")
+__arch_x86_64
+__arch_arm64
+__success __retval(7)
+__xlated("...")
+__xlated("exit")
+__xlated("callx r1")
+__naked void callx_no_recursion_after_all(void)
+{
+	asm volatile (
+		"r2 = %[calls_arg] ll;"
+		"r1 = %[returns_7] ll;"
+		"callx r2;"
+		"exit;"
+		:
+		: __imm_addr(calls_arg),
+		  __imm_addr(returns_7)
 		: __clobber_all);
 }
 
@@ -944,11 +988,8 @@ long long vals[] SEC(".data.vals") = {1, 2, 3, 4};
 
 SEC("socket")
 __success __log_level(2)
-__msg("mark_precise: frame0: regs=r0 stack= before 12: (95) exit")
-__msg("mark_precise: frame1: regs=r0 stack= before 11: (bf) r0 = r1")
-__msg("mark_precise: frame1: regs=r1 stack= before 4: (8d) callx r2")
-__msg("mark_precise: frame0: regs=r1 stack= before 3: (bf) r1 = r6")
-__msg("mark_precise: frame0: regs=r6 stack= before 2: (b7) r6 = 3")
+__msg("5: R0=3 R10=fp0")
+__msg("8: (0f) r1 += r0                      ; R0=24 R1=map_value(map=.data.vals,ks=4,vs=32,imm=24)")
 __retval(4)
 __naked void callx_precision(void)
 {

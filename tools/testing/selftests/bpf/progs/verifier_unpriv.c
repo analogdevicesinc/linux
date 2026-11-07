@@ -394,8 +394,8 @@ __naked void fill_of_different_pointers_stx(void)
 	r2 = r10;					\
 	r2 += -16;					\
 	*(u64*)(r6 + 0) = r2;				\
-l0_%=:	if r1 != 0 goto l1_%=;				\
-	*(u64*)(r6 + 0) = r1;				\
+	goto l1_%=;					\
+l0_%=:	*(u64*)(r6 + 0) = r1;				\
 l1_%=:	r1 = *(u64*)(r6 + 0);				\
 	*(u32*)(r1 + %[__sk_buff_mark]) = r3;		\
 	r0 = 0;						\
@@ -420,8 +420,8 @@ __naked void fill_of_different_pointers_st(void)
 	r2 = r10;					\
 	r2 += -16;					\
 	*(u64*)(r6 + 0) = r2;				\
-l0_%=:	if r1 != 0 goto l1_%=;				\
-	*(u64*)(r6 + 0) = r1;				\
+	goto l1_%=;					\
+l0_%=:	*(u64*)(r6 + 0) = r1;				\
 l1_%=:	r1 = *(u64*)(r6 + 0);				\
 	.8byte %[st_mem];				\
 	r0 = 0;						\
@@ -435,7 +435,8 @@ l1_%=:	r1 = *(u64*)(r6 + 0);				\
 
 SEC("tc")
 __description("unpriv: spill/fill of different pointers stx - ctx and sock")
-__failure __msg("type=ctx expected=sock")
+/* bpf_sk_release(skb) is an error too: "type=ctx expected=sock". This one is found first. */
+__failure __msg("R1 invalid mem access 'sock_or_null'")
 __naked void pointers_stx_ctx_and_sock(void)
 {
 	asm volatile ("					\
@@ -449,10 +450,10 @@ __naked void pointers_stx_ctx_and_sock(void)
 	r6 += -8;					\
 	r1 = r8;					\
 	/* if (skb == NULL) *target = sock; */		\
-	if r1 == 0 goto l0_%=;				\
+	if r1 != 0 goto l0_%=;				\
 	*(u64*)(r6 + 0) = r2;				\
+	goto l1_%=;					\
 l0_%=:	/* else *target = skb; */			\
-	if r1 != 0 goto l1_%=;				\
 	*(u64*)(r6 + 0) = r1;				\
 l1_%=:	/* struct __sk_buff *skb = *target; */		\
 	r1 = *(u64*)(r6 + 0);				\
@@ -490,10 +491,10 @@ __naked void different_pointers_stx_leak_sock(void)
 	r6 += -8;					\
 	r1 = r8;					\
 	/* if (skb == NULL) *target = sock; */		\
-	if r1 == 0 goto l0_%=;				\
+	if r1 != 0 goto l0_%=;				\
 	*(u64*)(r6 + 0) = r2;				\
+	goto l1_%=;					\
 l0_%=:	/* else *target = skb; */			\
-	if r1 != 0 goto l1_%=;				\
 	*(u64*)(r6 + 0) = r1;				\
 l1_%=:	/* struct __sk_buff *skb = *target; */		\
 	r1 = *(u64*)(r6 + 0);				\
@@ -526,8 +527,8 @@ __naked void stx_sock_and_ctx_read(void)
 	/* if (skb) *target = skb */			\
 	if r1 == 0 goto l0_%=;				\
 	*(u64*)(r6 + 0) = r1;				\
+	goto l1_%=;					\
 l0_%=:	/* else *target = sock */			\
-	if r1 != 0 goto l1_%=;				\
 	*(u64*)(r6 + 0) = r2;				\
 l1_%=:	/* struct bpf_sock *sk = *target; */		\
 	r1 = *(u64*)(r6 + 0);				\
@@ -565,8 +566,8 @@ __naked void stx_sock_and_ctx_write(void)
 	/* if (skb) *target = skb */			\
 	if r1 == 0 goto l0_%=;				\
 	*(u64*)(r6 + 0) = r1;				\
+	goto l1_%=;					\
 l0_%=:	/* else *target = sock */			\
-	if r1 != 0 goto l1_%=;				\
 	*(u64*)(r6 + 0) = r2;				\
 l1_%=:	/* struct bpf_sock *sk = *target; */		\
 	r1 = *(u64*)(r6 + 0);				\

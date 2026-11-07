@@ -45,7 +45,7 @@ SEC("?raw_tp")
 __failure __msg("R1 type=scalar expected=fp")
 int unsafe_on_2nd_iter(void *unused)
 {
-	char buf[4];
+	char buf[8];
 	struct buf_context loop_ctx = { .buf = buf };
 
 	bpf_loop(100, unsafe_on_2nd_iter_cb, &loop_ctx, 0);
@@ -94,7 +94,7 @@ static int loop_detection_cb(__u32 idx, struct num_context *ctx)
 }
 
 SEC("?raw_tp")
-__failure __msg("infinite loop detected")
+__failure __msg("loop at insn {{[0-9]+}} never exits")
 int loop_detection(void *unused)
 {
 	struct num_context loop_ctx = { .i = 0 };
@@ -246,10 +246,9 @@ int bpf_loop_iter_limit_nested(void *unused)
 	/* This makes 'c' zero, but neither clang nor verifier know it. */
 	c /= 10;
 	/* Make sure that verifier does not visit 'impossible' states:
-	 * enumerate all possible callback visit masks.
+	 * one more call of any of the callbacks gives more than that.
 	 */
-	if (a != 0 && a != 1 && a != 11 && a != 101 && a != 111 &&
-	    b != 0 && b != 1 && b != 11 && b != 101 && b != 111)
+	if (a > 111 || b > 111)
 		asm volatile ("r0 /= 0;" ::: "r0");
 	return 1000 * a + b + c;
 }
@@ -291,9 +290,13 @@ static __naked void iter_limit_bug_cb(void)
 	);
 }
 
+/*
+ * may_goto doesn't leave the loop, so it's not what stops it. The address is greater than 10:
+ * the loop spins until may_goto that the verifier adds ends the prog.
+ */
 int tmp_var;
 SEC("socket")
-__failure __msg("infinite loop detected at insn 2")
+__success __retval(0)
 __naked void jgt_imm64_and_may_goto(void)
 {
 	asm volatile ("			\
@@ -310,7 +313,7 @@ l0_%=:	.byte 0xe5; /* may_goto */	\
 }
 
 SEC("socket")
-__failure __msg("infinite loop detected at insn 1")
+__success __retval(0)
 __naked void may_goto_self(void)
 {
 	asm volatile ("			\

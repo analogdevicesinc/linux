@@ -148,6 +148,33 @@ __naked void tail_call_caller_stack_ok(void)
 "	::: __clobber_all);
 }
 
+static __noinline int tail_calls(struct __sk_buff *skb)
+{
+	bpf_tail_call_static(skb, &jmp_table, 0);
+	return skb->len;
+}
+
+static __noinline int calls_itself(struct __sk_buff *skb, int n)
+{
+	int ret = 0;
+
+	if (n)
+		ret = calls_itself(skb, n - 1);
+	return ret + tail_calls(skb);
+}
+
+/* The frames of a subprog that calls itself stay on the stack too: up to a half of it. */
+SEC("tc")
+__description("tail call from subprog below a recursive subprog")
+__arch_x86_64
+__arch_arm64
+__failure
+__msg("tail_calls are not allowed when call stack of previous frames is {{[0-9]+}} bytes")
+int tail_call_below_recursion(struct __sk_buff *skb)
+{
+	return calls_itself(skb, 2);
+}
+
 SEC("tc")
 __description("tail call from subprog with 256 bytes of caller stack")
 __failure

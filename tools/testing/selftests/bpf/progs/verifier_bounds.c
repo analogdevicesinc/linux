@@ -1797,8 +1797,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 1")
-__msg("3: (b7) r0 = 0 {{.*}} R0=0")
 __msg("5: (b7) r0 = 1 {{.*}} R0=1")
+__msg("3: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_3(void *ctx)
 {
@@ -1818,8 +1818,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 2")
-__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __msg("6: (b7) r0 = 1 {{.*}} R0=1")
+__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_4(void *ctx)
 {
@@ -1840,8 +1840,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 3")
-__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __msg("6: (b7) r0 = 1 {{.*}} R0=1")
+__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_5(void *ctx)
 {

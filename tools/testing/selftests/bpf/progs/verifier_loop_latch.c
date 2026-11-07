@@ -120,7 +120,7 @@ BAD("down from a range, one unsigned test, one too many")
 LOOP(down_unsigned_range_bad, "if r7 > 2048 goto 9f;", "w7 += -1; if w7 < 2049 goto 1b;")
 
 /* below 0 a 32-bit counter is 0xffffffff for a 64-bit jump */
-BAD("down, a 64-bit test with a bound above 32 bits")
+NO_COUNT("down, a 64-bit test with a bound above 32 bits")
 LOOP(down_unsigned_wide_bound, "w8 = 2047; r9 = 0x100000800 ll;", "w8 += -1; if r8 < r9 goto 1b;")
 
 BAD("down, an unsigned and a signed 64-bit test")

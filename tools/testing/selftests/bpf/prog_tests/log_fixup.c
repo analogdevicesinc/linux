@@ -41,7 +41,7 @@ static void bad_core_relo(size_t log_buf_size, enum trunc_type trunc_type)
 				  "struct task_struct___bad.fake_field (0:1 @ offset 4)\n",
 				  "log_buf_part2");
 		ASSERT_HAS_SUBSTR(log_buf,
-				  "max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0\n",
+				  "max_states_per_insn 1 total_states 1 peak_states 1 mark_read 0\n",
 				  "log_buf_end");
 		break;
 	case TRUNC_PARTIAL:
@@ -50,7 +50,7 @@ static void bad_core_relo(size_t log_buf_size, enum trunc_type trunc_type)
 				  "struct task_struct___bad.fake_field (0:1 @ offset 4)\n",
 				  "log_buf_part2");
 		/* we shouldn't get full end of BPF verifier log */
-		ASSERT_NULL(strstr(log_buf, "max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0\n"),
+		ASSERT_NULL(strstr(log_buf, "max_states_per_insn 1 total_states 1 peak_states 1 mark_read 0\n"),
 			    "log_buf_end");
 		break;
 	case TRUNC_FULL:
@@ -58,7 +58,7 @@ static void bad_core_relo(size_t log_buf_size, enum trunc_type trunc_type)
 		ASSERT_NULL(strstr(log_buf, "struct task_struct___bad.fake_field (0:1 @ offset 4)\n"),
 			    "log_buf_part2");
 		/* we shouldn't get full end of BPF verifier log */
-		ASSERT_NULL(strstr(log_buf, "max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0\n"),
+		ASSERT_NULL(strstr(log_buf, "max_states_per_insn 1 total_states 1 peak_states 1 mark_read 0\n"),
 			    "log_buf_end");
 		break;
 	}
