@@ -852,8 +852,11 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 		break;
 	case BPF_JMP:
 	case BPF_JMP32:
-		if (opcode == BPF_CALL)
+		if (opcode == BPF_CALL) {
 			forget_call_regs(e);
+			/* made anew, like what is loaded. The parameter tells the two apart. */
+			return replace_reg(scev, e, BPF_REG_0, expr1(scev, OPAQUE, 1));
+		}
 		/* for non-CALL there are no changes in register states */
 		break;
 	case BPF_LD:
@@ -3254,14 +3257,15 @@ static void iv_bounds(struct bounds *bounds, struct cnum64 iv_range)
 
 /*
  * Nothing that @id is computed from is what a register had at the head of the loop, and
- * some of it is not known: it's made anew in every iteration.
+ * some of it is not known: it's made anew in every iteration. @call: by a call.
  */
-static bool expr_is_fresh(struct bpf_verifier_env *env, u32 id)
+static bool expr_is_fresh(struct bpf_verifier_env *env, u32 id, bool *call)
 {
 	struct scev *scev = env->scev;
 	bool opaque = false;
 	u32 order, regno;
 
+	*call = false;
 	scev->stack_sz = 0;
 	expr_stack_push(scev, id);
 	while (expr_next(scev, &id, &order)) {
@@ -3271,8 +3275,10 @@ static bool expr_is_fresh(struct bpf_verifier_env *env, u32 id)
 			continue;
 		if (is_reg(scev, id, &regno) || is_op(scev, id, UNKNOWN))
 			return false;
-		if (is_opaque(scev, id))
+		if (is_opaque(scev, id)) {
 			opaque = true;
+			*call |= scev->exprs[id].params[0];
+		}
 	}
 	return opaque;
 }
@@ -3402,7 +3408,7 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	struct bpf_loop *loop;
 	int insn_idx = st->insn_idx;
 	u64 until, false_until;
-	bool same = true, walk = false;
+	bool same = true, walk = false, call;
 	int err, i;
 	u32 r;
 
@@ -3605,15 +3611,18 @@ cant_widen:
 			continue;
 		}
 		/*
-		 * What is loaded from memory in every iteration is the same kind of thing in all
-		 * of them. One iteration tells what. There is nothing more to find out when
-		 * iterations are looked at one by one.
+		 * What is loaded from memory or returned by a call in every iteration is the same
+		 * kind of thing in all of them. One iteration tells what. There is nothing more
+		 * to find out when iterations are looked at one by one. But for what goes with it:
+		 * a call returns NULL and a flag is set. So a walk comes first for a call.
 		 */
-		if (expr_is_fresh(env, header_env->reg2expr[r])) {
+		if (expr_is_fresh(env, header_env->reg2expr[r], &call)) {
 			__set_bit(r, iters->fresh_regs);
-			continue;
+			if (!call)
+				continue;
+		} else {
+			__set_bit(r, iters->forget_regs);
 		}
-		__set_bit(r, iters->forget_regs);
 		/*
 		 *	for (i = 0; i < 40; i++) { if (i) sum += prev; prev = (x ^ i) * 3; }
 		 * It's not set in the first iteration only. That counts if the loop is not walked:
