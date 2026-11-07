@@ -802,6 +802,11 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 		verbose(env, " cb");
 	if (state->in_async_callback_fn)
 		verbose(env, " async_cb");
+	/* the iterations of the loops in which they are kept apart */
+	for (i = 0; i < state->loop_stack_cnt; i++)
+		if (state->loop_stack[i].apart)
+			verbose(env, " iter(%d)=%u", state->loop_stack[i].loop_id,
+				state->loop_stack[i].trip);
 	if (state->loop_stack_cnt) {
 		verbose(env, " loop_stack=");
 		for (i = 0; i < state->loop_stack_cnt; i++)

@@ -570,7 +570,7 @@ static u16 flow_tested_regs(struct bpf_verifier_env *env, int idx)
 }
 
 /* A jump that compares a register with 0 or 1 */
-static u16 flow_flag_regs(struct bpf_verifier_env *env, int idx)
+u16 bpf_flow_flag_regs(struct bpf_verifier_env *env, int idx)
 {
 	struct bpf_insn *insn = &env->prog->insnsi[idx];
 
@@ -1031,7 +1031,7 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 		if (jump)
 			gen[i] = flow_tested_regs(env, i);
 		else if (flag)
-			gen[i] = flow_flag_regs(env, i);
+			gen[i] = bpf_flow_flag_regs(env, i);
 		else if (kind == FLOW_NEED_STACK_OFF)
 			gen[i] = flow_stack_off_regs(env, i);
 		else if (kind == FLOW_NEED_PTR_OFF || kind == FLOW_NEED_VALUE_OFF)
@@ -2152,13 +2152,18 @@ static bool flow_gap(const struct bpf_reg_state *a, const struct bpf_reg_state *
  * with either, so none of the above keeps them apart. The join has ok = 1 with i >= 64. A flag is
  * made to send states different ways. So 0 and 1 are not joined where a jump that is not far
  * tells one from the other: FLOW_NEED_FLAG.
+ *	while (more) { ...; more = next(&x); }
+ * That jump can be the one that leaves a loop. It is decided in both states, one stays and one
+ * leaves. It's the jump that set the flag, which went both ways, once more: no sign that the
+ * loop gets anywhere. A walk on patience has to know, see mark_loop_exit_decided().
  *
  * The states go on to the jumps on their own. Behind the last one the numbers are dead, and what
  * is left is joined.
  */
-static bool flow_join_makes_up(const struct bpf_flow *flow, const struct bpf_verifier_state *a,
-			       const struct bpf_verifier_state *b)
+static bool flow_join_makes_up(const struct bpf_flow *flow, struct bpf_verifier_state *a,
+			       struct bpf_verifier_state *b)
 {
+	struct bpf_func_state *fa = a->frame[a->curframe], *fb = b->frame[b->curframe];
 	const struct bpf_reg_state *ra, *rb;
 	const struct flow_need *tested = flow->need[FLOW_NEED_JUMP], *need;
 	u32 fr, i, id = 0;
@@ -2186,7 +2191,13 @@ static bool flow_join_makes_up(const struct bpf_flow *flow, const struct bpf_ver
 			id = ra->id & ~BPF_ADD_CONST;
 		}
 	}
-	return flow_needed_consts_differ(flow, FLOW_NEED_FLAG, a, b);
+	if (!flow_needed_consts_differ(flow, FLOW_NEED_FLAG, a, b))
+		return false;
+	for (i = 0; i < fa->loop_stack_cnt; i++)
+		fa->loop_stack[i].flag_apart = fa->loop_stack[i].probe;
+	for (i = 0; i < fb->loop_stack_cnt; i++)
+		fb->loop_stack[i].flag_apart = fb->loop_stack[i].probe;
+	return true;
 }
 
 /*

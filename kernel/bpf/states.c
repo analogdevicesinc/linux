@@ -840,6 +840,7 @@ static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
 			    old_reg->iter.btf != cur_reg->iter.btf ||
 			    old_reg->iter.btf_id != cur_reg->iter.btf_id ||
 			    old_reg->iter.state != cur_reg->iter.state ||
+			    old_reg->iter.loops != cur_reg->iter.loops ||
 			    /* ignore {old_reg,cur_reg}->iter.depth, see above */
 			    !check_ids(old_reg->id, cur_reg->id, idmap))
 				return false;
@@ -872,16 +873,19 @@ static bool stack_arg_safe(struct bpf_verifier_env *env, struct bpf_func_state *
 			   struct bpf_func_state *cur, struct bpf_idmap *idmap,
 			   enum exact_level exact)
 {
-	int i, nslots;
+	int i, nslots, cur_cnt = cur->out_stack_arg_cnt;
 
-	nslots = max(old->out_stack_arg_cnt, cur->out_stack_arg_cnt);
+	/* incoming arguments are not compared with outgoing ones, the other way is ruled out */
+	if (bpf_stack_args_are_incoming(cur) && !bpf_stack_args_are_incoming(old))
+		cur_cnt = 0;
+	nslots = max(old->out_stack_arg_cnt, cur_cnt);
 	for (i = 0; i < nslots; i++) {
 		struct bpf_reg_state *old_arg, *cur_arg;
 		struct bpf_reg_state not_init = { .type = NOT_INIT };
 
 		old_arg = i < old->out_stack_arg_cnt ?
 			  &old->stack_arg_regs[i] : &not_init;
-		cur_arg = i < cur->out_stack_arg_cnt ?
+		cur_arg = i < cur_cnt ?
 			  &cur->stack_arg_regs[i] : &not_init;
 		if (!regsafe(env, old_arg, cur_arg, idmap, exact))
 			return false;
@@ -940,6 +944,23 @@ static bool refsafe(struct bpf_verifier_state *old, struct bpf_verifier_state *c
 	return true;
 }
 
+/*
+ * In a loop that is walked without a count a state of an earlier iteration stands for a state of
+ * a later one, see flow_cycle_closed(). Never the other way round.
+ *
+ * In a loop that is counted and walked the state that gets to iteration max_header_count is
+ * dropped: there is no such iteration at run time. The number in a state is the number of
+ * iterations that the program has done, and only states with the same number are compared. They
+ * differ in what is counted anyway.
+ *
+ * The walk of a loop with two entries is meant to get to the end of the loop, like today's walk of
+ * all paths. A state that is within the state of the iteration before it is on its way there:
+ *	for (i = 7; i >= 0; i--) { if (i >= n) continue; ... }
+ * i is in 0..6, then in 0..5. So here too only states with the same number are compared.
+ *
+ * Where the iterations are not kept apart a state stands for many of them, and the number says
+ * nothing about what it describes.
+ */
 static bool loop_stack_safe(struct bpf_verifier_env *env, struct bpf_func_state *old,
 			    struct bpf_func_state *cur)
 {
@@ -953,7 +974,13 @@ static bool loop_stack_safe(struct bpf_verifier_env *env, struct bpf_func_state 
 	for (i = 0; i < old->loop_stack_cnt; i++) {
 		if (old_stack[i].loop_id == cur_stack[i].loop_id &&
 		    old_stack[i].max_header_count == cur_stack[i].max_header_count &&
-		    old_stack[i].terminates == cur_stack[i].terminates)
+		    old_stack[i].terminates == cur_stack[i].terminates &&
+		    old_stack[i].guarded == cur_stack[i].guarded &&
+		    old_stack[i].counted == cur_stack[i].counted &&
+		    old_stack[i].apart == cur_stack[i].apart &&
+		    (!old_stack[i].apart ||
+		     (old_stack[i].probe ? old_stack[i].trip <= cur_stack[i].trip :
+					   old_stack[i].trip == cur_stack[i].trip)))
 			continue;
 		return false;
 	}
@@ -999,7 +1026,17 @@ static bool func_states_equal(struct bpf_verifier_env *env, struct bpf_func_stat
 	if (!old->no_stack_arg_load && cur->no_stack_arg_load)
 		return false;
 
+	if (memcmp(&old->callback_ret_range, &cur->callback_ret_range,
+		   sizeof(old->callback_ret_range)))
+		return false;
+
 	if (old->in_rcu_callback_fn != cur->in_rcu_callback_fn)
+		return false;
+
+	/* what the frame did to what its callers hold is a part of what it tells them */
+	if (old->entry_refs != cur->entry_refs ||
+	    old->entry_rcu_locks != cur->entry_rcu_locks ||
+	    old->entry_preempt_locks != cur->entry_preempt_locks)
 		return false;
 
 	for (i = 0; i < MAX_BPF_REG; i++)
@@ -1047,10 +1084,13 @@ static bool states_equal(struct bpf_verifier_env *env,
 	if (old->speculative && !cur->speculative)
 		return false;
 
+	if (old->callers_unknown != cur->callers_unknown)
+		return false;
+
 	if (old->in_sleepable != cur->in_sleepable)
 		return false;
 
-	if (old->unwound != cur->unwound)
+	if (old->unwound != cur->unwound || old->changed_pkt_data != cur->changed_pkt_data)
 		return false;
 
 	if (!refsafe(old, cur, &env->idmap_scratch))

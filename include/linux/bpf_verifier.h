@@ -391,6 +391,11 @@ struct loop_stack_entry {
 	/* this one did */
 	u32 decided:1;
 	/*
+	 * The state is kept apart from one with the other value of a flag, see
+	 * flow_join_makes_up(). The test of the flag is decided in both, and decides nothing.
+	 */
+	u32 flag_apart:1;
+	/*
 	 * How many times the state came back to the head of the loop. With @apart that is
 	 * the iteration that it is in. A state that stands for many iterations is a join, and has
 	 * the largest number of the states that it is made of.
@@ -934,6 +939,7 @@ struct bpf_insn_aux_data {
 	u64 guard_place:1; /* it's the place for may_goto if the loop needs one */
 	u64 guard_at_header:1; /* there is no better place than the head of the loop */
 	u64 guard_no_unwind:1; /* it cannot unwind from here, at least sometimes */
+	u64 guard_unset_reg:1; /* where it goes a register is read that is not set here */
 	u64 guard_edge_dropped:1; /* an edge of may_goto from here was dropped */
 	u64 need_scev:1;
 	/* a jump in a loop: the edge that is not taken, bit 0, or the other one leaves the loop */
@@ -1157,9 +1163,14 @@ struct bpf_subprog_info {
 	bool releases_inherited: 1;
 	/* it loads the end of the packet from the context */
 	bool loads_pkt_end: 1;
+	/* a call of it was verified on its own: its insns are not in insns_total of the caller */
+	bool on_its_own: 1;
 	/* it can leave with unwind_exit: it has one, or unwind_goto follows every call of it */
 	bool bail_unwinds: 1;
+	/* some call of it is not followed by unwind_goto */
+	bool plain_call: 1;
 	u8 code_stack_args;
+	int bail_insn; /* an exit of it, for the main pass. -1 if there is none */
 	u16 stack_arg_cnt; /* incoming + max outgoing */
 	u16 max_out_stack_arg_cnt;
 };
@@ -1713,6 +1724,7 @@ void bpf_flow_loop_gets_guards(struct bpf_verifier_env *env, int h);
 void bpf_flow_new_round(struct bpf_verifier_env *env);
 int bpf_flow_place_guards(struct bpf_verifier_env *env);
 int bpf_flow_compute_kinds(struct bpf_verifier_env *env);
+u16 bpf_flow_flag_regs(struct bpf_verifier_env *env, int idx);
 bool bpf_flow_is_needed(struct bpf_verifier_env *env, int idx, u32 r);
 /* verifier.c, for flow.c */
 int bpf_flow_loop_leave(struct bpf_verifier_env *env, bool *enters);

@@ -16,6 +16,9 @@ int bpf_push_jmp_history(struct bpf_verifier_env *env, struct bpf_verifier_state
 	struct bpf_jmp_history_entry *p;
 	size_t alloc_size;
 
+	/* FLOW: nothing looks at the history */
+	return 0;
+
 	/* combine instruction flags if we already recorded this instruction */
 	if (env->cur_hist_ent) {
 		/* atomic instructions push insn_flags twice, for READ and
@@ -861,6 +864,10 @@ int bpf_mark_chain_precision(struct bpf_verifier_env *env,
 	struct bpf_func_state *func;
 	bool tmp, skip_first = true;
 	struct bpf_stack_state *ss;
+
+	/* FLOW: there are no precision marks */
+	bt_reset(bt);
+	return 0;
 	struct bpf_reg_state *reg;
 	int i, fr, err;
 
