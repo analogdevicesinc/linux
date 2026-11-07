@@ -198,6 +198,57 @@ __naked void callx_rodata_array_of_structs_data(void)
 		: __clobber_all);
 }
 
+int calls_what_calls_it(void);
+
+__naked __noinline __used
+static unsigned long calls_global(void)
+{
+	asm volatile (
+		"call calls_what_calls_it;"
+		"r0 = 0;"
+		"exit;"
+		::: __clobber_all);
+}
+
+__naked __noinline __used
+int calls_what_calls_it(void)
+{
+	asm volatile (
+		RODATA(cb, ".quad calls_global;")
+		"r2 = cb_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 1;"
+		"r3 = 0;"
+		"r4 = 0;"
+		"call %[bpf_loop];"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_loop)
+		: __clobber_all);
+}
+
+/*
+ * No subprog takes the address of the callback, and calls of global functions are not
+ * followed. It's a recursion all the same, and nothing checks the stack.
+ */
+SEC("socket")
+__failure __msg("recursive call from calls_global() to calls_what_calls_it()")
+__naked void callx_rodata_callback_recursion(void)
+{
+	asm volatile (
+		FUNC_TABLE2(tbl, add1, add2)
+		"call calls_what_calls_it;"
+		/* libbpf resolves the pointers for progs that have callx */
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 1;"
+		"callx r2;"
+		"r0 = 0;"
+		"exit;"
+		::: __clobber_all);
+}
+
 /* but not the data and the pointer with the same load */
 SEC("socket")
 __failure __msg("overlaps with a pointer to a function")

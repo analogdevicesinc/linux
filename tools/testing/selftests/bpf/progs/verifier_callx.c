@@ -637,6 +637,39 @@ __naked void callx_mutual_recursion(void)
 		: __clobber_all);
 }
 
+static __noinline __used int pulls_data(struct __sk_buff *skb)
+{
+	return bpf_skb_pull_data(skb, 0);
+}
+
+/*
+ * The prog loads the address of the function, apply() calls it. The packet
+ * pointer of the prog is gone after the call of apply().
+ */
+SEC("tc")
+__failure __msg("R6 invalid mem access 'scalar'")
+__naked void callx_fn_as_arg_changes_pkt_data(void)
+{
+	asm volatile (
+		"r2 = r1;"
+		"r6 = *(u32 *)(r1 + %[data]);"
+		"r7 = *(u32 *)(r1 + %[data_end]);"
+		"r0 = 0;"
+		"r3 = r6;"
+		"r3 += 1;"
+		"if r3 > r7 goto 1f;"
+		"r1 = %[pulls_data] ll;"
+		"call apply;"
+		"*(u8 *)(r6 + 0) = 42;"
+		"r0 = 0;"
+	"1:	exit;"
+		:
+		: __imm_addr(pulls_data),
+		  __imm_const(data, offsetof(struct __sk_buff, data)),
+		  __imm_const(data_end, offsetof(struct __sk_buff, data_end))
+		: __clobber_all);
+}
+
 /* calls_arg(fn) { return fn(); } */
 __naked __noinline __used
 static unsigned long calls_arg(void)
