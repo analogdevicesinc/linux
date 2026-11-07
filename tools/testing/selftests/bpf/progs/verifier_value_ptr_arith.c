@@ -859,6 +859,61 @@ l0_%=:	r0 = 1;						\
 	: __clobber_all);
 }
 
+/*
+ * A list in a map value: it starts at element 0 and goes on with the element that the current one
+ * names. The offset is 0 in front of the loop and [0, 31] after every trip. The second of
+ * these states at the head of the loop stands for all that follow.
+ */
+SEC("tc")
+__description("map access: the offset of a value pointer grows in the first trip of a loop")
+__success
+__naked void loop_offset_settles(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r2 = r10; r2 += -8;"
+	"r1 = %[map_array_48b] ll;"
+	"call %[bpf_map_lookup_elem];"
+	"if r0 == 0 goto 2f;"
+	"r6 = r0;"
+	"r2 = r6;"
+"1:	r5 = *(u8 *)(r2 + 0);"
+	"r5 &= 31;"
+	"r2 = r6; r2 += r5;"
+	"may_goto 2f;"
+	"goto 1b;"
+"2:	r0 = 0; exit;"
+	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array_48b)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("map access: the offset of a value pointer grows in every trip of a loop")
+__failure __msg("invalid access to map value, value_size=48 off=48 size=1")
+__naked void loop_offset_grows(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r2 = r10; r2 += -8;"
+	"r1 = %[map_array_48b] ll;"
+	"call %[bpf_map_lookup_elem];"
+	"if r0 == 0 goto 2f;"
+	"r2 = r0;"
+"1:	r5 = *(u8 *)(r2 + 0);"
+	"r2 += 1;"
+	"may_goto 2f;"
+	"goto 1b;"
+"2:	r0 = 0; exit;"
+	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array_48b)
+	: __clobber_all);
+}
+
 SEC("socket")
 __description("map access: value_ptr += known scalar, 4")
 __success __success_unpriv __retval(1)

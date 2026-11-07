@@ -4411,6 +4411,136 @@ __naked void post_cond_jlt32_copy(void)
 }
 
 /*
+ * The loop loads r6 again in every iteration. It's 0 at the entry and a byte in all iterations
+ * but the first one: the first iteration is verified on its own, the state that comes back to
+ * the head stands for the rest.
+ */
+SEC("socket")
+__success __retval(0)
+__log_level(2)
+__msg("header_count is 10 ")
+__msg("can't widen r6, expr is _")
+__not_msg("widening r8")
+__msg("clamping r8 to 0..9 step 1")
+__naked void index_loaded_in_previous_iteration(void)
+{
+	asm volatile ("					\
+	*(u64 *)(r10 - 8) = 0;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map] ll;					\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto 2f;				\
+	r7 = r0;					\
+	r6 = 0;						\
+	r8 = 0;						\
+1:	r1 = r7;					\
+	r1 += r6;					\
+	r0 = *(u8 *)(r1 + 0);				\
+	r6 = *(u8 *)(r7 + 0);				\
+	r8 += 1;					\
+	if r8 < 10 goto 1b;				\
+2:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem), __imm_addr(map)
+	: __clobber_all);
+}
+
+/*
+ * What the first iteration makes of r6 is a guess about the rest. A byte in the first
+ * iteration, 16 bits in the others: the state that comes back to the head next is not within it.
+ */
+SEC("socket")
+__failure __msg("R1 unbounded memory access")
+__naked void first_iteration_loads_less(void)
+{
+	asm volatile ("					\
+	*(u64 *)(r10 - 8) = 0;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map] ll;					\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto 4f;				\
+	r7 = r0;					\
+	r6 = 0;						\
+	r8 = 0;						\
+1:	r1 = r7;					\
+	r1 += r6;					\
+	r0 = *(u8 *)(r1 + 0);				\
+	if r8 != 0 goto 2f;				\
+	r6 = *(u8 *)(r7 + 0);				\
+	goto 3f;					\
+2:	r6 = *(u16 *)(r7 + 0);				\
+3:	r8 += 1;					\
+	if r8 < 10 goto 1b;				\
+4:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem), __imm_addr(map)
+	: __clobber_all);
+}
+
+/*
+ * Every iteration takes a reference, only the last one is released. The state that comes back
+ * to the head of the loop has a reference that nothing holds.
+ */
+SEC("socket")
+__failure __msg("Unreleased reference")
+__naked void loop_takes_reference_every_time(void)
+{
+	asm volatile (
+	"r6 = 0;"
+"1:"
+	"r1 = %[ringbuf] ll;"
+	"r2 = 8;"
+	"r3 = 0;"
+	"call %[bpf_ringbuf_reserve];"
+	"if r0 == 0 goto 2f;"
+	"r8 = r0;"
+	"r6 += 1;"
+	"if r6 < 10 goto 1b;"
+	"r1 = r8;"
+	"r2 = 0;"
+	"call %[bpf_ringbuf_discard];"
+"2:"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_ringbuf_reserve), __imm(bpf_ringbuf_discard), __imm_addr(ringbuf)
+	: __clobber_all);
+}
+
+/*
+ * The first iteration that has something to say takes a reference, the rest use it. The state
+ * that comes back to the head has a reference more than the state that entered, once.
+ */
+__u64 nr_vals, vals[64];
+
+SEC("socket")
+__success __retval(0)
+int loop_takes_reference_once(void *ctx)
+{
+	__u64 *sum = NULL;
+	int i;
+
+	bpf_for(i, 0, nr_vals) {
+		if (i >= 64 || !vals[i])
+			continue;
+		if (!sum) {
+			sum = bpf_ringbuf_reserve(&ringbuf, sizeof(*sum), 0);
+			if (!sum)
+				break;
+			*sum = 0;
+		}
+		*sum += vals[i];
+	}
+	if (sum)
+		bpf_ringbuf_submit(sum, 0);
+	return 0;
+}
+
+/*
  * r6 is a pointer to ringbuf memory with a step of 1. bpf_ringbuf_discard() in the first iteration
  * makes a number of it. The offsets 0..1 of the pointer are not the range of this number: it's an
  * address. The flag in the 32-bit spill is not widened, so the second iteration is verified
