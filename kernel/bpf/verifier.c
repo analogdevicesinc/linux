@@ -18189,6 +18189,114 @@ bool bpf_reg_union_compatible(const struct bpf_reg_state *a, const struct bpf_re
 	       a->id == b->id && a->parent_id == b->parent_id && a->map_uid == b->map_uid;
 }
 
+/* Nothing is known about the number or the variable part of the offset anymore. */
+void bpf_reg_forget_range(struct bpf_reg_state *reg)
+{
+	reg->var_off = tnum_unknown;
+	__mark_reg_unbounded(reg);
+	reg_step_reset(reg);
+}
+
+/*
+ * @reg is what @old became after a trip around a cycle, @old included. The end
+ * of the range that moved is going to move again. Put it where it may come
+ * to rest. There are few such places, so this is done a few times at most.
+ * It's put at the nearest of these places: every value between the range and the place is
+ * made up, and the program is checked with it. Wherever it's put, the range only gets larger.
+ * @linear: every iteration adds a constant to it, in that many bits. Then nothing but a jump
+ * stops it. It goes on until it wraps, and is any number of that many bits.
+ */
+void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *old, int linear)
+{
+	bool moved = reg->r64.base != old->r64.base || reg->r64.size != old->r64.size ||
+		     reg->r32.base != old->r32.base || reg->r32.size != old->r32.size;
+	s64 min = reg_smin(reg), max = reg_smax(reg);
+
+	/* Only the step got weaker. It comes to rest without help, see below. */
+	if (!moved && reg->var_off.value == old->var_off.value &&
+	    reg->var_off.mask == old->var_off.mask)
+		return;
+
+	if (linear && (max > reg_smax(old) || min < reg_smin(old))) {
+		if (linear == 64 || min < 0 || max > U32_MAX) {
+			bpf_reg_forget_range(reg);
+			return;
+		}
+		min = 0;
+		max = U32_MAX;
+	}
+	if (max > reg_smax(old))
+		max = max <= 0 ? 0 :
+		      max <= S32_MAX ? S32_MAX :
+		      max <= U32_MAX ? U32_MAX : S64_MAX;
+	if (min < reg_smin(old))
+		min = min >= 0 ? 0 :
+		      min >= S32_MIN ? S32_MIN : S64_MIN;
+	if (min == S64_MIN && max == S64_MAX) {
+		bpf_reg_forget_range(reg);
+		return;
+	}
+	/*
+	 * A fixed stop is a guess. A number of 32 bits that gets past S32_MAX comes to rest at
+	 * U32_MAX. What gets past S32_MAX, U32_MAX or S32_MIN and out of 32 bits is stopped by
+	 * nothing:
+	 *	sum += a[i]; if (sum == 77) ...
+	 * It wraps in the next pass, and the other bound is gone as well.
+	 */
+	if ((max == S64_MAX && (reg_smax(old) == S32_MAX || reg_smax(old) == U32_MAX)) ||
+	    (min == S64_MIN && reg_smin(old) == S32_MIN)) {
+		bpf_reg_forget_range(reg);
+		return;
+	}
+	/* every part has to include what it did before, hence no reg_bounds_sync() */
+	reg->r64 = cnum64_union(reg->r64, cnum64_from_srange(min, max));
+	if (min >= 0 && max <= U32_MAX) {
+		reg->r32 = cnum32_union(reg->r32, cnum32_from_urange(min, max));
+		reg->var_off = tnum_union(reg->var_off, tnum_range(min, max));
+	} else if (min >= S32_MIN && max <= S32_MAX) {
+		reg->r32 = cnum32_union(reg->r32, cnum32_from_srange(min, max));
+		reg->var_off = tnum_unknown;
+	} else {
+		reg->r32 = CNUM32_UNBOUNDED;
+		reg->var_off = min >= 0 ? tnum_union(reg->var_off, tnum_range(min, max))
+					: tnum_unknown;
+	}
+	/*
+	 * No range moved: the known bits or the step got weaker. The step comes to rest without
+	 * help: it gives way to one of its divisors only.
+	 *	off = n * 4; do { sum += *(u32 *)(a + off); off -= 4; } while (off != -4);
+	 * counts on "a multiple of 4".
+	 */
+	if (moved)
+		reg_step_reset(reg);
+}
+
+void bpf_reg_union_range(struct bpf_reg_state *acc, const struct bpf_reg_state *src)
+{
+	bool acc_const = cnum64_is_const(acc->r64), src_const = cnum64_is_const(src->r64);
+	/* A constant is its own base. Its step is 0: every number divides 0. */
+	s64 a = acc_const ? cnum64_smin(acc->r64) : acc->base;
+	s64 b = src_const ? cnum64_smin(src->r64) : src->base;
+	u16 step = gcd(acc_const ? 0 : acc->step, src_const ? 0 : src->step);
+	s64 diff;
+
+	acc->r64 = cnum64_union(acc->r64, src->r64);
+	acc->r32 = cnum32_union(acc->r32, src->r32);
+	acc->var_off = tnum_union(acc->var_off, src->var_off);
+
+	/* a + s * k and b + t * k are both of the form a + gcd(s, t, a - b) * k */
+	if (check_sub_overflow(a, b, &diff) || (!step && (diff > U16_MAX || diff < -U16_MAX)))
+		step = 1;
+	else
+		step = (step ? gcd(step, imod(diff, step)) : abs(diff)) ?: 1;
+	acc->step = step;
+	acc->base = imod(a, step);
+	/*
+	 * No reg_bounds_sync(): every part of the result has to include that
+	 * part of both inputs, and an input is not always in sync.
+	 */
+}
+
 /*
  * Extends acc's scalar range to include src's scalar range.
  * Caller must ensure that other kinds of metadata is compatible.
