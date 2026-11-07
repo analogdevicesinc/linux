@@ -25,6 +25,7 @@ properties:
       - qcom,msm8998-slpi-pas
       - qcom,sdm660-adsp-pas
       - qcom,sdm660-cdsp-pas
+      - qcom,sdm670-adsp-pas
       - qcom,sdm845-adsp-pas
       - qcom,sdm845-cdsp-pas
       - qcom,sdm845-slpi-pas
@@ -127,6 +128,20 @@ allOf:
             - const: ssc_cx
       required:
         - px-supply
+
+  - if:
+      properties:
+        compatible:
+          enum:
+            - qcom,sdm670-adsp-pas
+    then:
+      properties:
+        power-domains:
+          items:
+            - description: LCX power domain
+        power-domain-names:
+          items:
+            - const: lcx
 
   - if:
       properties:
