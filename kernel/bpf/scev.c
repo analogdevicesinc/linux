@@ -1220,6 +1220,22 @@ static void collect_store_base_regs(struct bpf_verifier_env *env,
 			or_expr_regs(env, cur_env->reg2expr[r], mask);
 }
 
+/*
+ * Record the loop-entry registers that the operands of the conditional jump at 'idx' are
+ * computed from, best effort like or_expr_regs().
+ */
+static void collect_tested_regs(struct bpf_verifier_env *env, struct env *cur_env, int idx,
+				unsigned long *mask)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[idx];
+
+	if (!bpf_insn_is_cond_jump(insn->code) || BPF_OP(insn->code) == BPF_JCOND)
+		return;
+	or_expr_regs(env, cur_env->reg2expr[insn->dst_reg], mask);
+	if (BPF_SRC(insn->code) == BPF_X)
+		or_expr_regs(env, cur_env->reg2expr[insn->src_reg], mask);
+}
+
 /* Find the topmost loop header containing idx inside cur_header, or -1 if none. */
 static int topmost_nested_loop(struct bpf_verifier_env *env, int idx, int cur_header)
 {
@@ -1325,6 +1341,7 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 			return -ENOMEM;
 		/* The freshly allocated environment has all expressions unknown. */
 		bitmap_fill(cur_loop->store_base_regs, REGS_NUM);
+		bitmap_fill(cur_loop->tested_regs, REGS_NUM);
 		header_env->empty = false;
 		return 0;
 	}
@@ -1364,6 +1381,9 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 			/* Pull the nested loop's stack-store base dependencies up. */
 			for_each_set_bit(r, nested_loop->store_base_regs, BPF_SCEV_REGS_NUM)
 				or_expr_regs(env, cur_env->reg2expr[r], cur_loop->store_base_regs);
+			/* And what its jumps depend on. */
+			for_each_set_bit(r, nested_loop->tested_regs, BPF_SCEV_REGS_NUM)
+				or_expr_regs(env, cur_env->reg2expr[r], cur_loop->tested_regs);
 			forget_non_invariants(env, cur_env, idx);
 			if (log_level2)
 				log_env_changes(env, LOG_AT_TRANSFER, old_env, cur_env, idx);
@@ -1386,6 +1406,7 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 				if (log_level2)
 					memcpy(old_env, cur_env, sizeof(*old_env));
 				collect_store_base_regs(env, cur_env, idx, cur_loop->store_base_regs);
+				collect_tested_regs(env, cur_env, idx, cur_loop->tested_regs);
 				err = transfer(env, cur_env, idx);
 				if (err)
 					goto out;
@@ -1676,6 +1697,57 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 	}
 	return 0;
 }
+
+/*
+ * 'sum += a[i]', 'if (..) { len -= n; len -= 2; }': is 'id', what an iteration makes of
+ * register 'r', the register plus or minus something, or the register as it was?
+ * 'low32': it's computed in 32 bits.
+ */
+static bool expr_is_sum(struct scev *scev, u32 id, u32 r, bool low32, int depth)
+{
+	u32 a, b;
+
+	if (is_reg(scev, id, &a))
+		return a == r;
+	if (!depth--)
+		return false;
+	if (low32 && is_zext32(scev, id, &a))
+		return expr_is_sum(scev, a, r, low32, depth);
+	if (is_any(scev, id, &a, &b))
+		return expr_is_sum(scev, a, r, low32, depth) &&
+		       expr_is_sum(scev, b, r, low32, depth);
+	if (is_add(scev, id, &a, &b) && expr_is_sum(scev, b, r, low32, depth))
+		return true;
+	return (is_add(scev, id, &a, &b) || is_binop(scev, BPF_SUB, id, &a, &b)) &&
+	       expr_is_sum(scev, a, r, low32, depth);
+}
+
+/*
+ * Find the registers and stack slots that nothing but a jump stops: what gets a constant added in
+ * every iteration of the loop, and a sum that no jump of the loop depends on.
+ */
+static void scev_compute_linear_regs(struct scev *scev, struct bpf_loop *loop,
+				     struct env *header_env)
+{
+	u32 r, same, base, slope, id;
+	bool low32;
+	int bits;
+
+	for (r = 0; r < REGS_NUM; r++) {
+		id = header_env->reg2expr[r];
+		bits = 0;
+		if (is_linear_or_linear32(scev, header_env->reg2scev[r], &base, &slope, &low32) &&
+		    is_reg(scev, base, &same) && same == r)
+			bits = low32 ? 32 : 64;
+		/* what the loop leaves alone is no sum */
+		else if (!is_reg(scev, id, &same) && !test_bit(r, loop->tested_regs))
+			bits = expr_is_sum(scev, id, r, false, EXPR_STACK_DEPTH) ? 64 :
+			       expr_is_sum(scev, id, r, true, EXPR_STACK_DEPTH) ? 32 : 0;
+		if (bits)
+			__set_bit(r, bits == 32 ? loop->linear32_regs : loop->linear_regs);
+	}
+}
+
 static int instantiate_header_scevs(struct scev *scev, u32 id, void *priv)
 {
 	u32 reg, *reg2scev = priv;
@@ -1784,6 +1856,9 @@ int bpf_compute_scev(struct bpf_verifier_env *env)
 					   find_loop_env(scev, header, idx));
 		if (err)
 			return err;
+		if (aux[idx].loop)
+			scev_compute_linear_regs(scev, aux[idx].loop,
+						 find_header_env(scev, header));
 	}
 
 	for (i = 0; i < env->prog->len; i++)

@@ -760,6 +760,17 @@ struct bpf_loop {
 	 * loops.
 	 */
 	unsigned long store_base_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	/*
+	 * Loop-entry registers used to compute the operands of conditional jumps, in this and
+	 * nested loops.
+	 */
+	unsigned long tested_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	/*
+	 * what gets a constant added in every iteration, in 64 and in 32 bits. A sum that is
+	 * not among tested_regs is taken for that too: nothing stops it either
+	 */
+	unsigned long linear_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	unsigned long linear32_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 };
 
 struct bpf_insn_aux_data {
