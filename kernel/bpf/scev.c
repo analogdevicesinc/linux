@@ -1452,6 +1452,10 @@ static void mark_latches(struct bpf_verifier_env *env)
 	int i, j, k, from;
 
 	for (i = 0; i < len; i++) {
+		/* An exit by way of a flag. It may have no place yet, see bpf_scev_jump_counts() */
+		if (aux[i].edge_leaves &&
+		    can_compute_loop_scev(aux[bpf_loop_at_index(env, i)].loop))
+			aux[i].need_scev = true;
 		loop = aux[i].loop;
 		if (!loop)
 			continue;
@@ -1864,6 +1868,11 @@ int bpf_compute_scev(struct bpf_verifier_env *env)
 						 find_header_env(scev, header));
 	}
 
+	/* Now it's known which jumps test a counter: the places of a back edge are for them */
+	err = bpf_find_latches(env, false);
+	if (err)
+		return err;
+
 	if (env->log.level & BPF_LOG_LEVEL2) {
 		err = log_scevs(env);
 		if (err)
@@ -2188,6 +2197,21 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return true;
 
 	return false;
+}
+
+/*
+ * Can the jump at @n tell the number of iterations of the loop at @header? The status of a call
+ * and a NULL test cannot. 1 as long as scalar evolution has not looked at the program.
+ */
+int bpf_scev_jump_counts(struct bpf_verifier_env *env, int header, int n, bool taken_leaves)
+{
+	struct linear_latch latch;
+
+	if (!env->scev)
+		return 1;
+	if (!find_loop_env(env->scev, header, n))
+		return 0;
+	return match_linear_latch(env, header, n, taken_leaves, &latch);
 }
 
 /* What is known about a scalar or about the offset of a pointer. */

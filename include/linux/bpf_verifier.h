@@ -716,6 +716,7 @@ struct bpf_backedge {
 	 * Conditional jumps within the loop that dominate 'from' and have
 	 * a successor outside the loop, nearest first. latches[0] is the
 	 * latch; the remaining entries are additional exit conditions.
+	 * After scalar evolution: those that test a counter, see bpf_scev_jump_counts().
 	 * One of them may leave the loop by way of a flag, see bpf_edge_leaves_loop().
 	 * Each usable condition tells iterations in which the back edge is
 	 * not taken, so keeping only a subset is sound.
@@ -2212,6 +2213,7 @@ bool bpf_is_nested_loop(struct bpf_verifier_env *env, int inner_header, int oute
 int bpf_init_scev(struct bpf_verifier_env *env);
 void bpf_free_scev(struct bpf_verifier_env *env);
 int bpf_compute_scev(struct bpf_verifier_env *env);
+int bpf_scev_jump_counts(struct bpf_verifier_env *env, int header, int n, bool taken_leaves);
 
 int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
 			   struct bpf_loop_iters *iters);

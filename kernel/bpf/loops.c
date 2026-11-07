@@ -307,18 +307,19 @@ int bpf_loop_at_index(struct bpf_verifier_env *env, u32 idx)
 /*
  * Collect conditional jumps within n's loop that dominate 'n' and leave
  * the loop on one edge, see bpf_edge_leaves_loop(), nearest first.
+ * A jump that cannot count the iterations takes no place, see bpf_scev_jump_counts().
  */
-static void find_dominating_conditions(struct bpf_verifier_env *env, int n,
-				       struct bpf_backedge *backedge)
+static int find_dominating_conditions(struct bpf_verifier_env *env, int n,
+				      struct bpf_backedge *backedge)
 {
 	struct bpf_insn *insns = env->prog->insnsi;
 	bool t_exits_loop, f_exits_loop;
 	int *idoms = env->idoms;
-	int n_loop;
+	int n_loop, counts;
 
 	n_loop = bpf_loop_at_index(env, n);
 	if (idoms_intersect(env, n, n_loop) != n_loop)
-		return;
+		return 0;
 	while (n >= 0) {
 		if (is_cond_jmp_insn(&insns[n]) && bpf_loop_at_index(env, n) == n_loop) {
 			t_exits_loop = bpf_edge_leaves_loop(env, n_loop, n, n + insns[n].off + 1);
@@ -326,22 +327,32 @@ static void find_dominating_conditions(struct bpf_verifier_env *env, int n,
 			/* latches[0] is the latch: it has to leave the loop itself */
 			if ((t_exits_loop || f_exits_loop) &&
 			    (backedge->latches_cnt || bpf_jump_leaves_loop(env, n_loop, n))) {
+				counts = !backedge->latches_cnt ? 1 :
+					 bpf_scev_jump_counts(env, n_loop, n, t_exits_loop);
+				if (counts < 0)
+					return counts;
+				if (!counts)
+					goto next;
 				if (backedge->latches_cnt == MAX_LATCHES)
-					return;
+					return 0;
 				if (t_exits_loop)
 					backedge->taken_leaves |= BIT(backedge->latches_cnt);
 				backedge->latches[backedge->latches_cnt++] = n;
 			}
 		}
+next:
 		if (n == n_loop)
 			break;
 		n = idoms[n];
 	}
+	return 0;
 }
 
 /*
  * Without @flags: the jumps that leave a loop themselves. That tells where the verifier may add
  * may_goto. It takes the constants that hold with these edges to follow a flag.
+ * Once more after scalar evolution, which knows the jumps that count. The flags that were found
+ * are remembered.
  */
 int bpf_find_latches(struct bpf_verifier_env *env, bool flags)
 {
@@ -377,8 +388,10 @@ int bpf_find_latches(struct bpf_verifier_env *env, bool flags)
 			 */
 			if (bpf_loop_at_index(env, backedge->from) != i)
 				continue;
-			find_dominating_conditions(env, backedge->from, backedge);
-			for (k = 1; k < backedge->latches_cnt; k++)
+			err = find_dominating_conditions(env, backedge->from, backedge);
+			if (err)
+				return err;
+			for (k = 1; flags && k < backedge->latches_cnt; k++)
 				if ((env->log.level & BPF_LOG_LEVEL2) &&
 				    !bpf_jump_leaves_loop(env, i, backedge->latches[k]))
 					bpf_log(&env->log, "loop at %d, exit by way of a flag at %d\n",
