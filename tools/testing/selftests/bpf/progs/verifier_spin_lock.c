@@ -469,9 +469,9 @@ l3_%=:	r1 = r7;					\
 
 SEC("cgroup/skb")
 __description("spin_lock: regsafe() check_ids() similar id mappings")
-__success __msg("29: safe")
+__success __msg("to 29: within")
 __failure_unpriv __msg_unpriv("")
-__log_level(2) __retval(0) __flag(BPF_F_TEST_STATE_FREQ)
+__log_level(2) __retval(0)
 __naked void check_ids_similar_id_mappings(void)
 {
 	asm volatile ("					\

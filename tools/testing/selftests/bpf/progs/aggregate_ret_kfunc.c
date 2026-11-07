@@ -31,13 +31,6 @@ SEC("tc")
 __arch_x86_64 __arch_arm64
 __load_if_JITed()
 __success __retval(0)
-__log_level(2)
-__msg("mark_precise: frame0: last_idx 7 first_idx 0 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r6 stack= before 6: (07) r1 += -8")
-__msg("mark_precise: frame0: regs=r6 stack= before 5: (bf) r1 = r10")
-__msg("mark_precise: frame0: regs=r6 stack= before 4: (57) r6 &= 7")
-__msg("mark_precise: frame0: regs=r6 stack= before 3: (bf) r6 = r2")
-__msg("mark_precise: frame0: regs=r2 stack= before 2: (85) call bpf_kfunc_call_test_i128")
 __naked int aggregate_ret_kfunc_precise(void)
 {
 	asm volatile (

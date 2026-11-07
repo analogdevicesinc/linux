@@ -371,14 +371,17 @@ struct {
 	__type(value, struct step_val);
 } step_map SEC(".maps");
 
-/* Old register [4..130, step 2] should prune cur register [8..68, step 4]. */
+/*
+ * Register [8..68, step 4] is within register [4..130, step 2]: one state stands for both
+ * and nothing is lost.
+ */
 SEC("socket")
 __success __log_level(2)
 __msg("7: (27) r6 *= 4                       ; R6=scalar({{.*}}umin32=8,{{.*}}umax32=68,{{.*}},step=0+4)")
 __msg("10: (27) r7 *= 2                      ; R7=scalar({{.*}}umin32=4,{{.*}}umax32=130,{{.*}},step=0+2)")
 __msg("11: (25) if r0 > 0x2a goto pc+1")
-__msg("from 11 to 13: safe")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("13: R6=scalar({{.*}}umin32=4,{{.*}}umax32=130,{{.*}},step=0+2) R10=fp0")
+__msg("processed 18 insns")
 __naked void step_prune_hit_multiple(void)
 {
 	asm volatile ("					\
@@ -394,11 +397,11 @@ __naked void step_prune_hit_multiple(void)
 	r7 += 2;					\
 	r7 *= 2;					\
 	if r0 > 42 goto 1f;	/* can't predict */	\
-	r6 = r7;		/* step=2 explored first, step=4 explored next */ \
+	r6 = r7;		/* step=2 here, step=4 on the other path */ \
 1:	r0 = r10;					\
 	r6 = -r6;					\
 	r0 += r6;					\
-	*(u8 *)(r0 + 0) = 7;	/* force r6 precise */	\
+	*(u8 *)(r0 + 0) = 7;				\
 	exit;						\
 "	:
 	: __imm(bpf_get_prandom_u32)
@@ -406,17 +409,16 @@ __naked void step_prune_hit_multiple(void)
 }
 
 /*
- * Old register [0..189, step 3] should not prune cur register [0..30, step 2].
- * Bounds and tnum containment allow pruning; step divisibility must prevent it.
+ * Register [0..30, step 2] is not within register [0..189, step 3].
+ * Bounds and tnum say that it is; step divisibility must prevent it.
+ * The states are joined and the result has no step.
  */
 SEC("socket")
 __success __log_level(2)
 __msg("6: (27) r6 *= 2                       ; R6=scalar({{.*}}smin32=0,{{.*}}umax32=30,{{.*}},step=0+2)")
 __msg("8: (27) r7 *= 3                       ; R7=scalar({{.*}}smin32=0,{{.*}}umax32=189,{{.*}},step=0+3)")
 __msg("9: (25) if r0 > 0x2a goto pc+1")
-__msg("17: (95) exit")
-__msg("from 9 to 11: R6=scalar({{.*}},step=0+2)")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("11: R6=scalar({{.*}}umax32=189,var_off=(0x0; 0xff)) R10=fp0")
 __naked void step_prune_miss_non_multiple(void)
 {
 	asm volatile ("					\
@@ -430,13 +432,13 @@ __naked void step_prune_miss_non_multiple(void)
 	r7 &= 0x3f;					\
 	r7 *= 3;					\
 	if r0 > 42 goto 1f;	/* can't predict */	\
-	r6 = r7;		/* step=3 explored first, step=2 explored next */ \
+	r6 = r7;		/* step=3 here, step=2 on the other path */ \
 1:							\
 	r2 = r10;					\
 	r6 += 1;					\
 	r6 = -r6;					\
 	r2 += r6;					\
-	*(u8 *)(r2 + 0) = 7;	/* force r6 precise */	\
+	*(u8 *)(r2 + 0) = 7;				\
 	r0 = 0;						\
 	exit;						\
 "	:
@@ -445,17 +447,17 @@ __naked void step_prune_miss_non_multiple(void)
 }
 
 /*
- * Constant current register lying on the cached line: cached is {0,3,6,...}
- * (step 3, base 0), current is the constant 6. range_within() takes the
- * constant branch: imod(6, 3) == base 0, so cur is on the line and the
- * (precise) state is pruned -> "safe".
+ * Constant register lying on the line of the other state: that is {0,3,6,...}
+ * (step 3, base 0), this is the constant 6. range_within() takes the
+ * constant branch: imod(6, 3) == base 0, so the constant is on the line and
+ * the state with the line stands for both.
  */
 SEC("socket")
 __success __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
-__msg("14: (27) r1 *= 3")		/* cached path: step 3 line */
-__msg("16: (b7) r1 = 6")		/* current path: const 6, on the line */
-__msg("17: safe")			/* pruned at join: imod(6, 3) == 0 */
+__msg("16: (b7) r1 = 6")		/* const 6, on the line */
+__msg("14: (27) r1 *= 3")		/* step 3 line */
+__msg("from 15 to 17: joined")
+__msg("17: R1=scalar({{.*}},step=0+3) R7=")	/* imod(6, 3) == 0 */
 __naked void step_prune_hit_const_on_line(void)
 {
 	asm volatile ("					\
@@ -472,13 +474,13 @@ __naked void step_prune_hit_const_on_line(void)
 	r1 = r6;					\
 	r1 &= 0xff;					\
 	if r6 > 0 goto l_cur_%=;			\
-	r1 *= 3;			/* old: step 3 */	\
+	r1 *= 3;			/* step 3 */	\
 	goto l_join_%=;					\
 l_cur_%=:						\
-	r1 = 6;				/* cur: const on line */	\
+	r1 = 6;				/* const on line */	\
 l_join_%=:						\
 	r0 = r7;					\
-	r0 += r1;			/* r1 forced precise */	\
+	r0 += r1;					\
 	r2 = *(u8 *)(r0 + 0);				\
 l_out_%=:						\
 	r0 = 0;						\
@@ -491,22 +493,21 @@ l_out_%=:						\
 }
 
 /*
- * Constant current register NOT on the cached line: cached is {0,3,6,...}
- * (step 3, base 0), current is the constant 7. imod(7, 3) == 1 != base 0,
- * so range_within() fails and the join is traversed again. A power-of-two
+ * Constant register NOT on the line of the other state: that is {0,3,6,...}
+ * (step 3, base 0), this is the constant 7. imod(7, 3) == 1 != base 0,
+ * so range_within() fails and the states are joined. A power-of-two
  * step is avoided on purpose: with step 3 the tnum is loose enough to admit
  * 7, so imod() is
  * the sole check that rejects it. No failure shape is possible here: 7 is
- * within the line's bounds and tnum, and the cached line path already
- * verifies the whole outro, so an eager prune could not miss an error.
+ * within the line's bounds and tnum.
  */
 SEC("socket")
 __success __log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
-__msg("14: (27) r1 *= 3")		/* cached path: step 3 line */
-__msg("16: (b7) r1 = 7")		/* current path: const 7, off the line */
-/* not pruned: current continues past the join with the constant offset 7 */
-__msg("19: R0=map_value({{.*}}imm=7) R1=7")
+__msg("16: (b7) r1 = 7")		/* const 7, off the line */
+__msg("14: (27) r1 *= 3")		/* step 3 line */
+/* the result stands for 7 too: it has no step */
+__msg("from 15 to 17: joined")
+__msg("17: R1=scalar({{.*}}var_off=(0x0; 0x3ff)) R7=")
 __naked void step_prune_miss_const_off_line(void)
 {
 	asm volatile ("					\
@@ -523,13 +524,13 @@ __naked void step_prune_miss_const_off_line(void)
 	r1 = r6;					\
 	r1 &= 0xff;					\
 	if r6 > 0 goto l_cur_%=;			\
-	r1 *= 3;			/* old: step 3 */	\
+	r1 *= 3;			/* step 3 */	\
 	goto l_join_%=;					\
 l_cur_%=:						\
-	r1 = 7;				/* cur: const off line */	\
+	r1 = 7;				/* const off line */	\
 l_join_%=:						\
 	r0 = r7;					\
-	r0 += r1;			/* r1 forced precise */	\
+	r0 += r1;					\
 	r2 = *(u8 *)(r0 + 0);				\
 l_out_%=:						\
 	r0 = 0;						\

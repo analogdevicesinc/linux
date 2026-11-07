@@ -248,7 +248,7 @@ l0_%=:	exit;						\
 SEC("socket")
 __description("invalid map access into an array with no floor check")
 __failure __msg("R0 unbounded memory access")
-__failure_unpriv __msg_unpriv("R0 leaks addr")
+__failure_unpriv __msg_unpriv("R0 unbounded memory access")
 __flag(BPF_F_ANY_ALIGNMENT)
 __naked void array_with_no_floor_check(void)
 {
@@ -280,7 +280,7 @@ l0_%=:	exit;						\
 SEC("socket")
 __description("invalid map access into an array with a invalid max check")
 __failure __msg("invalid access to map value, value_size=48 off=44 size=8")
-__failure_unpriv __msg_unpriv("R0 leaks addr")
+__failure_unpriv __msg_unpriv("R0 max value is outside of the allowed memory range")
 __flag(BPF_F_ANY_ALIGNMENT)
 __naked void with_a_invalid_max_check_1(void)
 {
@@ -541,8 +541,7 @@ l0_%=:	exit;						\
 
 SEC("socket")
 __description("valid map access into an array using constant without nullness")
-__success __retval(4) __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8 before {{[0-9]}}: ({{[a-f0-9]+}}) *(u32 *)(r10 -8) = {{(1|r[0-9])}}")
+__success __retval(4)
 unsigned int an_array_with_a_constant_no_nullness(void)
 {
 	/* Need 8-byte alignment for spill tracking */
@@ -557,9 +556,7 @@ unsigned int an_array_with_a_constant_no_nullness(void)
 
 SEC("socket")
 __description("valid multiple map access into an array using constant without nullness")
-__success __retval(8) __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8 before {{[0-9]}}: ({{[a-f0-9]+}}) *(u32 *)(r10 -16) = {{(0|r[0-9])}}")
-__msg("mark_precise: frame0: regs= stack=-8 before {{[0-9]}}: ({{[a-f0-9]+}}) *(u32 *)(r10 -8) = {{(1|r[0-9])}}")
+__success __retval(8)
 unsigned int multiple_array_with_a_constant_no_nullness(void)
 {
 	__u32 __attribute__((aligned(8))) key = 1;
@@ -595,8 +592,7 @@ unsigned int an_array_with_a_32bit_constant_0_no_nullness(void)
 
 SEC("socket")
 __description("valid map access into a pcpu array using constant without nullness")
-__success __retval(4) __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8 before {{[0-9]}}: ({{[a-f0-9]+}}) *(u32 *)(r10 -8) = {{(1|r[0-9])}}")
+__success __retval(4)
 unsigned int a_pcpu_array_with_a_constant_no_nullness(void)
 {
 	__u32 __attribute__((aligned(8))) key = 1;

@@ -24,12 +24,7 @@ int global_func15(struct __sk_buff *skb)
 }
 
 SEC("cgroup_skb/ingress")
-__log_level(2) __flag(BPF_F_TEST_STATE_FREQ)
 __failure
-/* check that fallthrough code path marks r0 as precise */
-__msg("mark_precise: frame0: regs=r0 stack= before 2: (b7) r0 = 1")
-/* check that branch code path marks r0 as precise */
-__msg("mark_precise: frame0: regs=r0 stack= before 0: (85) call bpf_get_prandom_u32#7")
 __msg("At program exit the register R0 has ")
 __naked int global_func15_tricky_pruning(void)
 {

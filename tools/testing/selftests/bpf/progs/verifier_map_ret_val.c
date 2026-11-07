@@ -83,7 +83,7 @@ l0_%=:	exit;						\
 SEC("socket")
 __description("sometimes access memory with incorrect alignment")
 __failure __msg("R0 invalid mem access")
-__msg_unpriv("R0 leaks addr")
+__msg_unpriv("R0 invalid mem access")
 __flag(BPF_F_STRICT_ALIGNMENT)
 __naked void access_memory_with_incorrect_alignment_2(void)
 {

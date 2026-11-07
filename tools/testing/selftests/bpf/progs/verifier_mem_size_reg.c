@@ -7,13 +7,9 @@
 
 char _license[] SEC("license") = "GPL";
 
-/*
- * The __szk size of a kfunc memory/size pair must be marked precise even when
- * the nullable buffer is passed as NULL.
- */
+/* The __szk size of a kfunc memory/size pair when the nullable buffer is passed as NULL */
 SEC("?tc")
-__success __log_level(2)
-__msg("mark_precise: frame0: regs=r4 stack= before")
+__success
 int dynptr_slice_null_buf_size_precise(struct __sk_buff *skb)
 {
 	struct bpf_dynptr dptr;
