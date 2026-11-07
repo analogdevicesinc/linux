@@ -237,4 +237,9 @@ ifneq ($(silent),1)
   endif
 endif
 
+# Don't print DESCEND messages when executed from kbuild
+ifneq ($(origin KBUILD_VERBOSE),undefined)
+	QUIET_DESCEND = $(Q)
+endif
+
 pound := \#
