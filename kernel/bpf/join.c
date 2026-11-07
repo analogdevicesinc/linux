@@ -84,6 +84,9 @@ static void jid_note(struct bpf_join_state *js, u32 ida, u32 idb, bool consisten
 
 	if (!a || !b)
 		return;
+	/* a name of what the caller has, see BPF_INHERITED_ID */
+	if (a != b && (a | b) >= BPF_INHERITED_ID)
+		consistent = false;
 	for (i = 0; i < js->npairs; i++) {
 		p = &js->pairs[i];
 		if (p->a == a && p->b == b) {

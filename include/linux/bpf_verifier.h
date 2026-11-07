@@ -1100,6 +1100,8 @@ struct bpf_subprog_info {
 	 * a hidden pointer to the result, a pair in two registers, no dead arguments.
 	 */
 	bool stack_args_from_code: 1;
+	/* it releases what its caller holds, so it's verified in the context of such caller */
+	bool releases_inherited: 1;
 	/* it loads the end of the packet from the context */
 	bool loads_pkt_end: 1;
 	/* it can leave with unwind_exit: it has one, or unwind_goto follows every call of it */
@@ -1133,6 +1135,20 @@ struct bpf_id_pair {
 	u32 old;
 	u32 cur;
 };
+
+/*
+ * A function that is verified on its own, see func_is_on_its_own(), has no ids of its caller.
+ * It has names for the ids of what is held: BPF_INHERITED_ID + i is the id of refs[i] at the call.
+ * - A name depends only on the place. Each id in the state at the entry is replaced with its name.
+ *   The ids of the caller can be names that it got from its own caller: they are replaced too.
+ * - A name stands for the same thing in all states of the function. It is equal only to itself:
+ *   check_ids() and jid_note() do not rename it. So two calls share a state at the entry, and what
+ *   comes out for it, only if the same places have the same names.
+ * - bpf_flow_return() puts the ids of the call that waits back. All other ids get new values.
+ * - env->id_gen stays below BPF_MAX_ID. So no id is a name or has a bit of BPF_ADD_CONST.
+ */
+#define BPF_INHERITED_ID	0x20000000
+#define BPF_MAX_ID		(BPF_INHERITED_ID / 2)
 
 struct bpf_idmap {
 	u32 tmp_id_gen;
@@ -1615,6 +1631,8 @@ int bpf_states_join(struct bpf_verifier_env *env, struct bpf_verifier_state *dst
 		    bool widen);
 void bpf_join_free(struct bpf_verifier_env *env);
 
+int bpf_flow_return(struct bpf_verifier_env *env, struct bpf_verifier_state *caller,
+		    const struct bpf_verifier_state *exit, int call_idx);
 int bpf_insert_loop_guards(struct bpf_verifier_env *env);
 u16 bpf_call_const_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn);
 u16 bpf_call_checked_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn);
