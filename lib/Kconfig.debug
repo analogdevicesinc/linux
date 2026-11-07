@@ -3078,6 +3078,25 @@ config MIN_HEAP_KUNIT_TEST
 
 	  If unsure, say N
 
+config PLIST_KUNIT_TEST
+	tristate "KUnit test for priority sorted list (plist)" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  This builds the priority sorted list (plist) KUnit test suite.
+	  It checks that plist_add(), plist_del() and plist_requeue()
+	  maintain the ordering invariants of the two-level list, including
+	  the priority bucket boundary cases.
+
+	  KUnit tests run during boot and print their results in KTAP format.
+	  Only useful for kernel developers running the KUnit test harness,
+	  not for production builds.
+
+	  For more information on KUnit and unit tests in general please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
+
 config IS_SIGNED_TYPE_KUNIT_TEST
 	tristate "Test is_signed_type() macro" if !KUNIT_ALL_TESTS
 	depends on KUNIT
