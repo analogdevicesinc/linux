@@ -21680,8 +21680,22 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 	if (err < 0)
 		return err;
 
-	/* @per_trip: the insns of one iteration, times the walks around the loop. */
+	/*
+	 * There is no summary of what the loop does to something that is live.
+	 * Go through the iterations one by one if that is not too long.
+	 * @per_trip: the insns of one iteration, times the walks around the loop.
+	 */
 	per_trip = flow_walk_factor(cur) * loop->nr_insns;
+	if (err == 2 && per_trip <= BPF_FLOW_MAX_WALK &&
+	    iters.max_header_count <= BPF_FLOW_MAX_WALK / (u32)per_trip) {
+		entry->max_header_count = iters.max_header_count;
+		entry->terminates = true;
+		entry->counted = true;
+		entry->apart = true;
+		return 0;
+	}
+	if (err == 2 && iters.spill_base)
+		err = 0;
 	/* The walk has to get to the end of the loop, so it is known to have one. Or not: */
 	if (!err) {
 		err = flow_try_walk(env, entry);
