@@ -19,6 +19,7 @@
 #include <linux/gpio/consumer.h>
 #include <asm/div64.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 #include <linux/clk-provider.h>
 
 #include <linux/iio/iio.h>
@@ -40,6 +41,7 @@ struct adf4350_state {
 	struct clk			*clkout;
 	const char			*clk_out_name;
 	struct clk_hw			hw;
+	struct clock_scale		clkscale;
 	unsigned long			clkin;
 	unsigned long			chspc; /* Channel Spacing */
 	unsigned long			fpfd; /* Phase Frequency Detector */
@@ -388,7 +390,7 @@ static unsigned long adf4350_clk_recalc_rate(struct clk_hw *hw,
 	tmp = (u64)(st->r0_int * st->r1_mod + st->r0_fract) * st->fpfd;
 	do_div(tmp, st->r1_mod * (1 << st->r4_rf_div_sel));
 
-	return tmp;
+	return to_ccf_scaled(tmp, &st->clkscale);
 }
 
 static int adf4350_clk_set_rate(struct clk_hw *hw,
@@ -402,7 +404,7 @@ static int adf4350_clk_set_rate(struct clk_hw *hw,
 
 	st->clkin = parent_rate;
 
-	return adf4350_set_freq(st, rate);
+	return adf4350_set_freq(st, from_ccf_scaled(rate, &st->clkscale));
 }
 
 static int adf4350_clk_prepare(struct clk_hw *hw)
@@ -463,6 +465,8 @@ static int adf4350_clk_register(struct adf4350_state *st)
 		if (!init.name)
 			return -ENOMEM;
 	}
+
+	of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 
 	parent_name = of_clk_get_parent_name(spi->dev.of_node, 0);
 	if (!parent_name)
