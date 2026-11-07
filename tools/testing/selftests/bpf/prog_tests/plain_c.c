@@ -109,10 +109,11 @@ out:
 	plain_c_dynptr_success__destroy(skel);
 }
 
-void test_plain_c_arena_htab(void) { RUN(arena_htab); }
-void test_plain_c_arena_htab_asm(void) { RUN(arena_htab_asm); }
+/* Files with an arena map are serial, as prog_tests/arena_*.c: 512 MB of KASAN shadow per arena */
+void serial_test_plain_c_arena_htab(void) { RUN(arena_htab); }
+void serial_test_plain_c_arena_htab_asm(void) { RUN(arena_htab_asm); }
 
-void test_plain_c_arena_list(void)
+void serial_test_plain_c_arena_list(void)
 {
 	RUN(arena_list);
 	if (test__start_subtest("run"))
@@ -129,7 +130,7 @@ void test_plain_c_arena_race(void)
 	RUN(arena_race);
 }
 
-void test_plain_c_arena_strsearch(void) { RUN(arena_strsearch); }
+void serial_test_plain_c_arena_strsearch(void) { RUN(arena_strsearch); }
 
 void test_plain_c_bpf_ma_ttrace(void)
 {
@@ -173,7 +174,7 @@ void test_plain_c_test_wakeup_source(void)
 }
 
 void test_plain_c_tracing_stack_arg_tailcall_tgt(void) { RUN(tracing_stack_arg_tailcall_tgt); }
-void test_plain_c_verifier_arena_large(void) { RUN(verifier_arena_large); }
+void serial_test_plain_c_verifier_arena_large(void) { RUN(verifier_arena_large); }
 void test_plain_c_verifier_iterating_callbacks(void) { RUN(verifier_iterating_callbacks); }
 void test_plain_c_verifier_loop_as_is(void) { RUN(verifier_loop_as_is); }
 void test_plain_c_xdp_lb_bench(void) { RUN(xdp_lb_bench); }
