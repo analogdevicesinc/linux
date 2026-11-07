@@ -514,3 +514,317 @@ int bpf_flow_place_guards(struct bpf_verifier_env *env)
 	kvfree(seen);
 	return ret;
 }
+
+/*
+ * The places of a function that hold a value: the registers, the arguments on the stack that it
+ * got and those that it hands over, the slots of the stack that struct flow_need has a bit for.
+ */
+enum {
+	FLOW_ARG_IN	= 16,
+	FLOW_ARG_OUT	= FLOW_ARG_IN + MAX_STACK_ARG_SLOTS,
+	FLOW_SLOT	= 64,
+	FLOW_PLACES	= 128,
+};
+static_assert(FLOW_ARG_OUT + MAX_STACK_ARG_SLOTS <= FLOW_SLOT);
+
+enum flow_kind {
+	FLOW_IS_PLAIN,	/* a number or a pointer to arena: nothing checks where it points to */
+	FLOW_IS_VALUE,	/* that, or a pointer to a map value that holds nothing but numbers */
+	FLOW_IS_CTX,	/* the context, as the prog or a global function got it */
+	FLOW_KINDS,
+	FLOW_IS_OTHER = FLOW_KINDS,
+};
+
+/* What the places hold for sure in front of an insn */
+struct flow_kinds {
+	unsigned long is[FLOW_KINDS][BITS_TO_LONGS(FLOW_PLACES)];
+};
+
+static void flow_kind_set(struct flow_kinds *k, u32 place, enum flow_kind kind)
+{
+	int i;
+
+	for (i = 0; i < FLOW_KINDS; i++)
+		__assign_bit(place, k->is[i], i == kind);
+	if (kind == FLOW_IS_PLAIN)
+		__set_bit(place, k->is[FLOW_IS_VALUE]);
+}
+
+static void flow_kind_copy(struct flow_kinds *to, u32 place, const struct flow_kinds *from,
+			   u32 from_place)
+{
+	int i;
+
+	for (i = 0; i < FLOW_KINDS; i++)
+		__assign_bit(place, to->is[i], test_bit(from_place, from->is[i]));
+}
+
+/* What holds on both ways to an insn. Returns true if that is less than before. */
+static bool flow_kinds_meet(struct flow_kinds *to, const struct flow_kinds *from)
+{
+	unsigned long lost = 0;
+	int i, j;
+
+	for (i = 0; i < FLOW_KINDS; i++) {
+		for (j = 0; j < ARRAY_SIZE(to->is[i]); j++) {
+			lost |= to->is[i][j] & ~from->is[i][j];
+			to->is[i][j] &= from->is[i][j];
+		}
+	}
+	return lost;
+}
+
+/* The first insn of a function that is called from @k */
+static bool flow_kinds_enter(struct flow_kinds *to, const struct flow_kinds *k)
+{
+	struct flow_kinds e = {};
+	int i;
+
+	/* r12 points to arena. The rest is not set. */
+	bitmap_fill(e.is[FLOW_IS_PLAIN], FLOW_PLACES);
+	bitmap_fill(e.is[FLOW_IS_VALUE], FLOW_PLACES);
+	flow_kind_set(&e, BPF_REG_FP, FLOW_IS_OTHER);
+	for (i = BPF_REG_1; i <= BPF_REG_5; i++)
+		flow_kind_copy(&e, i, k, i);
+	for (i = 0; i < MAX_STACK_ARG_SLOTS; i++)
+		flow_kind_copy(&e, FLOW_ARG_IN + i, k, FLOW_ARG_OUT + i);
+	return flow_kinds_meet(to, &e);
+}
+
+/* The place that @insn loads from or stores to through r10 or r11, -1 if it's something else */
+static int flow_mem_place(const struct bpf_insn *insn, u8 base)
+{
+	int n = (abs(insn->off) - 1) / BPF_REG_SIZE;
+
+	if (!insn->off)
+		return -1;
+	if (base == BPF_REG_FP && insn->off < 0 && n < 64)
+		return FLOW_SLOT + n;
+	if (base == BPF_REG_PARAMS && n < MAX_STACK_ARG_SLOTS)
+		return (insn->off < 0 ? FLOW_ARG_OUT : FLOW_ARG_IN) + n;
+	return -1;
+}
+
+static enum flow_kind flow_map_value_kind(const struct bpf_map *map)
+{
+	if (map->map_type == BPF_MAP_TYPE_ARENA)
+		return FLOW_IS_PLAIN;
+	/* what is at a known offset of a read-only map is known: a number, a string, a function */
+	if (map->map_flags & BPF_F_RDONLY_PROG)
+		return FLOW_IS_OTHER;
+	return IS_ERR_OR_NULL(map->record) && !map->inner_map_meta ? FLOW_IS_VALUE : FLOW_IS_OTHER;
+}
+
+/* What @insn loads through the register @base */
+static enum flow_kind flow_loaded_kind(struct bpf_verifier_env *env, const struct flow_kinds *k,
+				       const struct bpf_insn *insn, u8 base)
+{
+	struct bpf_insn_access_aux info = { .reg_type = SCALAR_VALUE };
+	int size = bpf_size_to_bytes(BPF_SIZE(insn->code));
+	bool tstamp = env->prog->tstamp_type_access, valid;
+
+	/* a number that is good for a load is an address in arena */
+	if (test_bit(base, k->is[FLOW_IS_VALUE]))
+		return FLOW_IS_PLAIN;
+	if (size == BPF_REG_SIZE && !test_bit(base, k->is[FLOW_IS_CTX]))
+		return FLOW_IS_OTHER;
+	valid = env->ops->is_valid_access &&
+		env->ops->is_valid_access(insn->off, size, BPF_READ, env->prog, &info);
+	/* it notes what the prog reads, and this is a question */
+	env->prog->tstamp_type_access = tstamp;
+	if (valid && info.reg_type == PTR_TO_PACKET_END)
+		bpf_find_containing_subprog(env, insn - env->prog->insnsi)->loads_pkt_end = true;
+	/*
+	 * Only the context has pointers that are shorter than a register. A base that nothing is
+	 * known about can be the context: it came out of a struct, or only some paths have it.
+	 */
+	if (size < BPF_REG_SIZE)
+		return valid && info.reg_type != SCALAR_VALUE ? FLOW_IS_OTHER : FLOW_IS_PLAIN;
+	return valid && info.reg_type == SCALAR_VALUE ? FLOW_IS_PLAIN : FLOW_IS_OTHER;
+}
+
+/* What a helper or a kfunc returns */
+static enum flow_kind flow_returned_kind(struct bpf_verifier_env *env, int idx)
+{
+	struct bpf_insn_aux_data *aux = &env->insn_aux_data[idx];
+	struct bpf_insn *insn = &env->prog->insnsi[idx];
+	const struct bpf_func_proto *fn;
+	struct bpf_call_arg_meta meta;
+	const struct btf_type *t;
+
+	if (bpf_pseudo_kfunc_call(insn)) {
+		if (bpf_fetch_kfunc_arg_meta(env, insn->imm, insn->off, &meta) < 0)
+			return FLOW_IS_OTHER;
+		t = btf_type_skip_modifiers(meta.btf, meta.func_proto->type, NULL);
+		if (!btf_type_is_ptr(t))
+			return FLOW_IS_PLAIN;
+		/* void * is a number, unless the verifier knows the kfunc: it may fail, or casts */
+		t = btf_type_skip_modifiers(meta.btf, t->type, NULL);
+		return btf_type_is_void(t) && !(meta.kfunc_flags & KF_RET_NULL) &&
+		       !bpf_is_cast_kfunc(&meta) ? FLOW_IS_PLAIN : FLOW_IS_OTHER;
+	}
+	if (bpf_get_helper_proto(env, insn->imm, &fn) < 0)
+		return FLOW_IS_OTHER;
+	if (fn->ret_type == RET_INTEGER || fn->ret_type == RET_VOID)
+		return FLOW_IS_PLAIN;
+	if (base_type(fn->ret_type) == RET_PTR_TO_MAP_VALUE &&
+	    (aux->const_reg_map_mask & BIT(BPF_REG_1)))
+		return flow_map_value_kind(env->used_maps[aux->const_reg_vals[BPF_REG_1]]);
+	return FLOW_IS_OTHER;
+}
+
+/*
+ * @k is what holds in front of the insn at @idx. Make it what holds behind it.
+ * @ret: the registers that are FLOW_IS_PLAIN at all exits of a subprog.
+ * Returns true if less is known than before at the entry or about the exits of a subprog.
+ */
+static bool flow_kinds_step(struct bpf_verifier_env *env, struct flow_kinds *kinds, u16 *ret,
+			    struct flow_kinds *k, int idx)
+{
+	struct bpf_subprog_info *sub = env->subprog_info;
+	struct bpf_insn *insn = &env->prog->insnsi[idx];
+	u8 class = BPF_CLASS(insn->code), op = BPF_OP(insn->code);
+	u8 dst = insn->dst_reg, src = insn->src_reg;
+	bool wide = BPF_SIZE(insn->code) == BPF_DW && BPF_MODE(insn->code) == BPF_MEM &&
+		    !(insn->off % BPF_REG_SIZE);
+	bool lost = false;
+	u16 regs = U16_MAX;
+	int i, s;
+
+	if (class == BPF_ALU64 && (op == BPF_ADD || op == BPF_SUB)) {
+		__clear_bit(dst, k->is[FLOW_IS_CTX]);
+		for (i = 0; BPF_SRC(insn->code) == BPF_X && i < FLOW_IS_CTX; i++)
+			if (!test_bit(src, k->is[i]))
+				__clear_bit(dst, k->is[i]);
+	} else if (insn->code == (BPF_ALU64 | BPF_MOV | BPF_X) && !insn->off) {
+		flow_kind_copy(k, dst, k, src);
+	} else if (class == BPF_ALU || class == BPF_ALU64) {
+		/*
+		 * addr_space_cast too. It leaves a pointer that is not in arena as it is, and
+		 * a compiler casts what it cannot know. Nearly all of that is in arena.
+		 */
+		flow_kind_set(k, dst, FLOW_IS_PLAIN);
+	} else if (class == BPF_LDX) {
+		s = flow_mem_place(insn, src);
+		if (wide && s >= 0)
+			flow_kind_copy(k, dst, k, s);
+		else
+			flow_kind_set(k, dst, flow_loaded_kind(env, k, insn, src));
+	} else if (class == BPF_STX || class == BPF_ST) {
+		i = bpf_atomic_load_reg(insn);
+		if (i >= 0)
+			flow_kind_set(k, i, flow_loaded_kind(env, k, insn,
+						insn->imm == BPF_LOAD_ACQ ? src : dst));
+		s = flow_mem_place(insn, dst);
+		if (class == BPF_STX && wide && s >= 0)
+			flow_kind_copy(k, s, k, src);
+		else if (s >= 0)
+			flow_kind_set(k, s, FLOW_IS_PLAIN);
+	} else if (bpf_is_ldimm64(insn)) {
+		if (src == BPF_PSEUDO_MAP_VALUE || src == BPF_PSEUDO_MAP_IDX_VALUE)
+			flow_kind_set(k, dst, flow_map_value_kind(
+					env->used_maps[env->insn_aux_data[idx].map_index]));
+		else
+			flow_kind_set(k, dst, src ? FLOW_IS_OTHER : FLOW_IS_PLAIN);
+	} else if (insn->code == (BPF_JMP | BPF_EXIT) && !bpf_is_unwind_exit(insn)) {
+		s = bpf_find_containing_subprog(env, idx) - sub;
+		lost = ret[s] & ~k->is[FLOW_IS_PLAIN][0];
+		ret[s] &= k->is[FLOW_IS_PLAIN][0];
+	} else if (class == BPF_LD || (class == BPF_JMP && op == BPF_CALL)) {
+		s = bpf_pseudo_call(insn) ? bpf_find_subprog(env, idx + insn->imm + 1) : -1;
+		if (s >= 0 && !bpf_subprog_is_global(env, s)) {
+			lost = flow_kinds_enter(&kinds[sub[s].start], k);
+			regs = ret[s];
+		} else if (bpf_is_callx(insn)) {
+			regs = 0;
+		}
+		/* a subprog may return a pair in R0 and R2, the rest is not set */
+		regs |= ~(BIT(BPF_REG_0) | BIT(BPF_REG_2));
+		for (i = BPF_REG_0; i <= BPF_REG_5; i++)
+			flow_kind_set(k, i, regs & BIT(i) ? FLOW_IS_PLAIN : FLOW_IS_OTHER);
+		for (i = 0; i < MAX_STACK_ARG_SLOTS; i++)
+			flow_kind_set(k, FLOW_ARG_OUT + i, FLOW_IS_PLAIN);
+		if (bpf_helper_call(insn) || bpf_pseudo_kfunc_call(insn))
+			flow_kind_set(k, BPF_REG_0, flow_returned_kind(env, idx));
+	}
+	return lost;
+}
+
+/*
+ * Find the registers that hold a number or a pointer to arena, and those that point to the value
+ * of a map that holds nothing but numbers at worst, whichever way the prog gets to an insn:
+ * plain_regs and value_regs of struct bpf_insn_aux_data. The others may hold any pointer.
+ *
+ * Forwards, from "all is known" down, until nothing changes. Arguments go from the callers to
+ * the callees and results the other way, so the subprogs are looked at in both orders in turn.
+ *
+ * Nothing depends on it but which states are kept apart. A pointer that is taken for
+ * a number costs a rule. A number that is taken for a pointer costs states. So it's fine to
+ * miss a store through a pointer to the stack, and to take what callx calls for unknown.
+ *
+ * The edges that the verifier adds, see bpf_head_guard_target(): may_goto at the head of a loop
+ * takes what holds there to its target. A subprog that is out of budget goes to an exit with 0
+ * in place of the result, a number.
+ */
+int bpf_flow_compute_kinds(struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *sub = env->subprog_info;
+	int len = env->prog->len, cnt = env->subprog_cnt, i, j, n, s, t, idx, err = 0;
+	struct flow_kinds *kinds, k = {};
+	struct bpf_iarray *succ;
+	bool lost = true;
+	u16 *ret;
+
+	kinds = kvmalloc_array(len, sizeof(*kinds), GFP_KERNEL_ACCOUNT);
+	ret = kvmalloc_array(env->subprog_cnt, sizeof(*ret), GFP_KERNEL_ACCOUNT);
+	if (!kinds || !ret) {
+		kvfree(kinds);
+		kvfree(ret);
+		return -ENOMEM;
+	}
+	memset(kinds, 0xff, len * sizeof(*kinds));
+	memset(ret, 0xff, env->subprog_cnt * sizeof(*ret));
+
+	/* what the kernel, a helper, callx or another prog calls: only the context is known */
+	for (s = 0; s < env->subprog_cnt; s++) {
+		if (s && !bpf_subprog_is_global(env, s) && !sub[s].addr_taken)
+			continue;
+		flow_kinds_enter(&kinds[sub[s].start], &k);
+		for (i = 0; i < MAX_BPF_FUNC_REG_ARGS; i++)
+			if (sub[s].args[i].arg_type == ARG_PTR_TO_CTX ||
+			    (!s && !i && env->prog->type != BPF_PROG_TYPE_EXT))
+				flow_kind_set(&kinds[sub[s].start], BPF_REG_1 + i, FLOW_IS_CTX);
+	}
+
+	for (n = 0; lost; n++) {
+		lost = false;
+		/* a chain of calls takes a round for each link */
+		if (signal_pending(current)) {
+			err = -EAGAIN;
+			break;
+		}
+		cond_resched();
+		for (j = 0; j < cnt; j++) {
+			/* it has callees first */
+			s = env->subprog_topo_order[n & 1 ? j : cnt - 1 - j];
+			for (i = sub[s + 1].postorder_start; i-- > sub[s].postorder_start;) {
+				idx = env->cfg.insn_postorder[i];
+				k = kinds[idx];
+				lost |= flow_kinds_step(env, kinds, ret, &k, idx);
+				succ = bpf_insn_successors(env, idx);
+				iarray_for_each(t, succ)
+					lost |= flow_kinds_meet(&kinds[t], &k);
+				t = bpf_head_guard_target(env, idx);
+				if (t >= 0)
+					lost |= flow_kinds_meet(&kinds[t], &kinds[idx]);
+			}
+		}
+	}
+	for (i = 0; i < len; i++) {
+		env->insn_aux_data[i].plain_regs = kinds[i].is[FLOW_IS_PLAIN][0];
+		env->insn_aux_data[i].value_regs = kinds[i].is[FLOW_IS_VALUE][0];
+	}
+	kvfree(kinds);
+	kvfree(ret);
+	return err;
+}

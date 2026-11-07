@@ -14110,6 +14110,13 @@ static bool is_bpf_cast_to_kern_ctx_kfunc(const struct bpf_call_arg_meta *meta)
 	return is_kfunc_call(meta, special_kfunc_list[KF_bpf_cast_to_kern_ctx]);
 }
 
+/* void * in the prototype. What it returns points to an object of the kernel. */
+bool bpf_is_cast_kfunc(const struct bpf_call_arg_meta *meta)
+{
+	return is_kfunc_call(meta, special_kfunc_list[KF_bpf_cast_to_kern_ctx]) ||
+	       is_kfunc_call(meta, special_kfunc_list[KF_bpf_rdonly_cast]);
+}
+
 static bool is_bpf_dynptr_clone_kfunc(const struct bpf_call_arg_meta *meta)
 {
 	return is_kfunc_call(meta, special_kfunc_list[KF_bpf_dynptr_clone]);
