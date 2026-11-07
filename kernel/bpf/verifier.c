@@ -15614,6 +15614,9 @@ u16 bpf_call_checked_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *ins
 {
 	if (bpf_helper_call(insn) && insn->imm == BPF_FUNC_set_retval)
 		return BIT(BPF_REG_1);
+	/* without an exception callback the prog returns what bpf_throw() takes */
+	if (bpf_is_throw_kfunc(insn) && !env->exception_callback_subprog)
+		return BIT(BPF_REG_1);
 	return call_arg_regs(env, insn, arg_type_is_mem_size);
 }
 
