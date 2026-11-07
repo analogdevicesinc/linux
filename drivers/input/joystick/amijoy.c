@@ -30,7 +30,6 @@ MODULE_PARM_DESC(map, "Map of attached joysticks in form of <a>,<b> (default is 
 static int amijoy_used;
 static DEFINE_MUTEX(amijoy_mutex);
 static struct input_dev *amijoy_dev[2];
-static char *amijoy_phys[2] = { "amijoy/input0", "amijoy/input1" };
 
 static irqreturn_t amijoy_interrupt(int irq, void *dummy)
 {
@@ -108,7 +107,7 @@ static int __init amijoy_init(void)
 		}
 
 		amijoy_dev[i]->name = "Amiga joystick";
-		amijoy_dev[i]->phys = amijoy_phys[i];
+		amijoy_dev[i]->phys = i ? "amijoy/input1" : "amijoy/input0";
 		amijoy_dev[i]->id.bustype = BUS_AMIGA;
 		amijoy_dev[i]->id.vendor = 0x0001;
 		amijoy_dev[i]->id.product = 0x0003;
