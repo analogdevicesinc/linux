@@ -75,21 +75,28 @@ static void mark_subprog_might_throw(struct bpf_verifier_env *env, int off)
 	subprog->might_throw = true;
 }
 
-/* 't' is an index of a call-site.
+/*
+ * 't' is an index of a call-site.
  * 'w' is a callee entry point.
  * Eventually this function would be called when env->cfg.insn_state[w] == EXPLORED.
- * Rely on DFS traversal order and absence of recursive calls to guarantee that
- * callee's effect marks would be correct at that moment.
+ * DFS traversal order guarantees that callee's effect marks are correct at that
+ * moment, unless the callee calls one of its callers: see close_callee_effects().
+ * Returns true if the marks of the caller changed.
  */
-static void merge_callee_effects(struct bpf_verifier_env *env, int t, int w)
+static bool merge_callee_effects(struct bpf_verifier_env *env, int t, int w)
 {
 	struct bpf_subprog_info *caller, *callee;
 
 	caller = bpf_find_containing_subprog(env, t);
 	callee = bpf_find_containing_subprog(env, w);
+	if (caller->changes_pkt_data >= callee->changes_pkt_data &&
+	    caller->might_sleep >= callee->might_sleep &&
+	    caller->might_throw >= callee->might_throw)
+		return false;
 	caller->changes_pkt_data |= callee->changes_pkt_data;
 	caller->might_sleep |= callee->might_sleep;
 	caller->might_throw |= callee->might_throw;
+	return true;
 }
 
 enum {
@@ -534,6 +541,33 @@ static int visit_func_ptrs_insn(int t, struct bpf_verifier_env *env,
 	return DONE_EXPLORING;
 }
 
+/*
+ * A subprog that calls one of its callers is EXPLORED before that caller is: it
+ * took the marks that the caller had so far, and so did everybody who called it
+ * since. Merge again at every call until nothing changes.
+ */
+static void close_callee_effects(struct bpf_verifier_env *env)
+{
+	struct bpf_insn *insn = env->prog->insnsi;
+	struct bpf_func_ptr *ptrs;
+	bool changed;
+	u32 cnt, j;
+	int t;
+
+	do {
+		changed = false;
+		for (t = 0; t < env->prog->len; t++) {
+			if (bpf_pseudo_call(&insn[t]) || bpf_pseudo_func(&insn[t]))
+				changed |= merge_callee_effects(env, t, t + insn[t].imm + 1);
+			ptrs = insn_func_ptrs(env, t, &cnt);
+			for (j = 0; j < cnt; j++)
+				changed |= merge_callee_effects(env, t, ptrs[j].xlated_off);
+			if (bpf_is_ldimm64(&insn[t]))
+				t++;
+		}
+	} while (changed);
+}
+
 /* Visits the instruction at index t and returns one of the following:
  *  < 0 - an error occurred
  *  DONE_EXPLORING - the instruction was fully explored
@@ -759,6 +793,7 @@ walk_cfg:
 		}
 	}
 	ret = 0; /* cfg looks good */
+	close_callee_effects(env);
 	env->prog->aux->changes_pkt_data = env->subprog_info[0].changes_pkt_data;
 	env->prog->aux->might_sleep = env->subprog_info[0].might_sleep;
 

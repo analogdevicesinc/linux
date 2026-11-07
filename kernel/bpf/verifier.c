@@ -3441,7 +3441,7 @@ next:
 /*
  * The callee of callx is known to the main verification pass only, which
  * records the 'caller' -> 'callee' edge of the call graph for the checks
- * that follow it: absence of recursion and the maximum stack depth.
+ * that follow it: recursion that was not seen coming and the maximum stack depth.
  */
 static int record_callx_edge(struct bpf_verifier_env *env, int caller, int callee)
 {
@@ -3529,9 +3529,9 @@ static int check_unwind_insns(struct bpf_verifier_env *env)
  * the current subprog to discover callees (direct subprogs and sync
  * callbacks).
  *
- * The callees of callx are not known before the main verification pass.
- * When callx is used the sort is repeated after it with the recorded callx
- * edges added to the call graph to reject recursion through indirect calls.
+ * The callees of callx are not known before the main verification pass: callx
+ * is no edge here. The order within a cycle is arbitrary. For recursion see
+ * mark_recursive_subprogs() and check_recursion().
  */
 static int sort_subprogs_topo(struct bpf_verifier_env *env)
 {
@@ -3591,20 +3591,19 @@ static int sort_subprogs_topo(struct bpf_verifier_env *env)
 				}
 				if (color[callee] == 2)
 					continue;
-				if (color[callee] == 1) {
-					if (bpf_pseudo_func(&insn[idx]))
-						continue;
-					verbose(env, "recursive call from %s() to %s()\n",
-						bpf_subprog_name(env, cur),
-						bpf_subprog_name(env, callee));
-					bpf_diag_program_structure(
-						env, idx, "recursive subprogram call",
-						"Rewrite the recursion as an explicit bounded loop, or split the logic so subprogram calls do not form a cycle.",
-						"This bpf2bpf call would make the subprogram call graph recursive. "
-						"The verifier requires a finite, acyclic call graph so it can bound stack depth and analysis.");
+				/*
+				 * The call that is its own target never returns. It is
+				 * also what libbpf leaves in place of a call that it
+				 * could not resolve.
+				 */
+				if (bpf_pseudo_call(&insn[idx]) && insn[idx].imm == -1) {
+					verbose(env, "call at insn %d calls itself\n", idx);
 					ret = -EINVAL;
 					goto out;
 				}
+				/* recursion: the order within the cycle is arbitrary */
+				if (color[callee] == 1)
+					continue;
 				color[callee] = 1;
 				dfs_stack[top++] = callee;
 				pushed = true;
@@ -5860,7 +5859,8 @@ static void close_call_graph(unsigned long *calls, int cnt)
  *
  * What follows for a subprog from its callers, or from what it calls, is computed
  * over this graph and not by a walk of one chain of calls after another: the
- * number of chains grows exponentially.
+ * number of chains grows exponentially, and there is no end to them when subprogs
+ * call themselves.
  */
 struct bpf_call_graph {
 	int cnt; /* subprogs */
@@ -5870,6 +5870,7 @@ struct bpf_call_graph {
 	unsigned long *live; /* what the kernel calls and what that gets to */
 	unsigned long *in_cb; /* callbacks and what they get to */
 	unsigned long *in_async_cb; /* async callbacks and what they get to */
+	unsigned long *in_recursion; /* recursive subprogs and what they get to */
 	unsigned long *tail_calls; /* subprogs that have a tail call */
 	unsigned long *arena_sp; /* subprogs that count on r12 of the caller */
 };
@@ -5900,14 +5901,15 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 
 	cg->cnt = cnt;
 	cg->words = words;
-	cg->calls = kvcalloc((2 * cnt + 5) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	cg->calls = kvcalloc((2 * cnt + 6) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
 	if (!cg->calls)
 		return -ENOMEM;
 	cg->reach = cg->calls + cnt * words;
 	cg->live = cg->reach + cnt * words;
 	cg->in_cb = cg->live + words;
 	cg->in_async_cb = cg->in_cb + words;
-	cg->tail_calls = cg->in_async_cb + words;
+	cg->in_recursion = cg->in_async_cb + words;
+	cg->tail_calls = cg->in_recursion + words;
 	cg->arena_sp = cg->tail_calls + words;
 
 	for (s = 0; s < cnt; s++) {
@@ -5942,6 +5944,8 @@ static int build_call_graph(struct bpf_verifier_env *env, struct bpf_call_graph 
 			add_reach(cg, cg->in_cb, s);
 		if (si[s].is_async_cb)
 			add_reach(cg, cg->in_async_cb, s);
+		if (test_bit(s, subprog_reach(cg, s)))
+			add_reach(cg, cg->in_recursion, s);
 		if (si[s].has_tail_call)
 			__set_bit(s, cg->tail_calls);
 	}
@@ -5984,20 +5988,47 @@ static int check_exception_cb(struct bpf_verifier_env *env, struct bpf_call_grap
 	return 0;
 }
 
+static bool bpf_prog_reenters_datapath(const struct bpf_prog *prog);
+
 /*
- * The DFS of sort_subprogs_topo() follows the address of a function like a call, and
- * tolerates a cycle only when such address closes it, since it doesn't know what it is
- * taken for. Such cycle counts as a recursion, unless the function is an async callback:
- * its address is not an edge of the graph. The main verification pass limits the
- * depth of the recursion, but it doesn't follow calls of global functions.
+ * Every subprog on a cycle has to check the stack at run time. mark_recursive_subprogs()
+ * didn't see the cycle coming when a helper got the callback from a table of
+ * functions, or from another subprog. A subprog that it marked for callx, which turned out
+ * to call something else, needs no check.
  */
 static int check_recursion(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
 {
 	int j, s;
 
 	for_each_set_bit(s, cg->live, cg->cnt) {
-		if (!test_bit(s, subprog_reach(cg, s)))
+		if (!test_bit(s, subprog_reach(cg, s))) {
+			env->subprog_info[s].recursive = false;
 			continue;
+		}
+		if (env->subprog_info[s].recursive) {
+			/*
+			 * These progs run on top of other progs. Their frames belong in the
+			 * private stack, which has room for one frame of a subprog. A kprobe prog
+			 * that can be attached to a uprobe has no private stack, and is no better.
+			 */
+			if ((bpf_enable_priv_stack(env->prog) != NO_PRIV_STACK ||
+			     env->prog->type == BPF_PROG_TYPE_KPROBE) &&
+			    !env->prog->aux->priv_stack_requested) {
+				verbose(env, "recursive %s() in a tracing program\n",
+					bpf_subprog_name(env, s));
+				return -EINVAL;
+			}
+			/* It runs on top of its own frames. The half of the stack is not enough. */
+			if (bpf_prog_reenters_datapath(env->prog)) {
+				verbose(env, "recursive %s() in a program that calls bpf_clone_redirect()\n",
+					bpf_subprog_name(env, s));
+				return -EINVAL;
+			}
+			if (bpf_prog_has_invocation_budget(env->prog))
+				continue;
+			verbose(env, "JIT does not support recursive calls\n");
+			return -EOPNOTSUPP;
+		}
 		/* the last call of the cycle */
 		for_each_set_bit(j, subprog_reach(cg, s), cg->cnt)
 			if (test_bit(s, subprog_calls(cg, j)))
@@ -6006,9 +6037,9 @@ static int check_recursion(struct bpf_verifier_env *env, struct bpf_call_graph *
 			bpf_subprog_name(env, j), bpf_subprog_name(env, s));
 		bpf_diag_program_structure(
 			env, find_call_insn(env, j, s), "recursive subprogram call",
-			"Rewrite the recursion as an explicit bounded loop, or split the logic so subprogram calls do not form a cycle.",
-			"This call or callback would make the subprogram call graph recursive. "
-			"The verifier requires a finite, acyclic call graph so it can bound stack depth and analysis.");
+			"Load the address of the callback in the subprogram that passes it to the helper, or rewrite the recursion as a loop.",
+			"This call or callback closes a cycle of the call graph that was not seen before the main pass: "
+			"the callback comes from a table of functions or from another subprogram. Nothing checks the stack.");
 		return -EINVAL;
 	}
 	return 0;
@@ -6123,7 +6154,8 @@ static int subprog_stack_size(struct bpf_verifier_env *env, int s)
 
 /*
  * A subprog is entered with no more than what one of its callers is entered with plus
- * the frame of that caller. The graph has no cycles, so this comes to an end.
+ * the frame of that caller. Not when both are recursive: the callee checks the stack at run
+ * time. A cycle adds nothing, so this comes to an end.
  */
 static void compute_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph *cg,
 			       struct bpf_subprog_call_depth_info *dinfo)
@@ -6143,11 +6175,17 @@ static void compute_call_depth(struct bpf_verifier_env *env, struct bpf_call_gra
 		for_each_set_bit(s, cg->live, cg->cnt) {
 			if (dinfo[s].depth < 0)
 				continue;
-			depth = dinfo[s].depth + subprog_stack_size(env, s);
-			arena_depth = dinfo[s].arena_depth + si[s].arena_stack_depth;
 			for_each_set_bit(j, subprog_calls(cg, s), cg->cnt) {
 				callee = &dinfo[j];
-				frame = bpf_subprog_is_global(env, j) ? 0 : dinfo[s].frame + 1;
+				depth = dinfo[s].depth;
+				arena_depth = dinfo[s].arena_depth;
+				if (!si[s].recursive || !si[j].recursive) {
+					depth += subprog_stack_size(env, s);
+					arena_depth += si[s].arena_stack_depth;
+				}
+				frame = dinfo[s].frame + !si[j].recursive;
+				if (bpf_subprog_is_global(env, j))
+					frame = 0;
 				if (depth <= callee->depth && arena_depth <= callee->arena_depth &&
 				    frame <= callee->frame)
 					continue;
@@ -6274,6 +6312,10 @@ static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph 
 		 * of caller's stack as shown on the example above.
 		 */
 		depth = dinfo[s].depth;
+		/* nor of the frames of recursive subprogs, see bpf_insert_recursion_checks() */
+		si[s].in_recursion = test_bit(s, cg->in_recursion);
+		if (si[s].in_recursion)
+			depth += THREAD_SIZE / 2;
 		if (s && si[s].has_tail_call && depth >= 256) {
 			verbose(env,
 				"tail_calls are not allowed when call stack of previous frames is %d bytes. Too large\n",
@@ -6308,6 +6350,151 @@ static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph 
 	err = 0;
 out:
 	kvfree(dinfo);
+	return err;
+}
+
+/*
+ * The address of the callback at @idx goes nowhere but to a helper that keeps it for
+ * later: a timer, a work queue, call_rcu.
+ */
+static bool func_is_kept_for_later(struct bpf_verifier_env *env, int idx, int end)
+{
+	struct bpf_insn *insn = env->prog->insnsi;
+	u8 class, reg = insn[idx].dst_reg;
+	int i;
+
+	if (reg < BPF_REG_1 || reg > BPF_REG_5)
+		return false;
+	for (i = idx + 2; i < end; i++) {
+		class = BPF_CLASS(insn[i].code);
+		if (class == BPF_JMP || class == BPF_JMP32)
+			return bpf_is_async_callback_calling_insn(&insn[i]);
+		if (insn[i].dst_reg == reg)
+			return false;
+		if (bpf_is_ldimm64(&insn[i]))
+			i++;
+		else if (insn[i].src_reg == reg)
+			return false;
+	}
+	return false;
+}
+
+/*
+ * Find the subprogs on cycles of the call graph. It is not known yet what callx
+ * calls: it may be any subprog whose address is taken. A subprog that is
+ * marked for no reason is treated like a recursive one all the same.
+ */
+static int mark_recursive_subprogs(struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int cnt = env->subprog_cnt, words = BITS_TO_LONGS(cnt);
+	unsigned long *calls, *taken, *callx;
+	bool plain_callx = false;
+	int i, j, s, err = 0;
+
+	/* calls + s * words: the subprogs that s calls */
+	calls = kvcalloc((cnt + 2) * words, sizeof(long), GFP_KERNEL_ACCOUNT);
+	if (!calls)
+		return -ENOMEM;
+	taken = calls + cnt * words;
+	callx = taken + words;
+
+	for (s = 0; s < cnt; s++) {
+		for (i = si[s].start; i < si[s + 1].start; i++) {
+			if (bpf_is_callx(&insn[i])) {
+				__set_bit(s, callx);
+				if (!bpf_is_unwind_goto(&insn[i + 1]))
+					plain_callx = true;
+			}
+			if (bpf_pseudo_call(&insn[i]) || bpf_pseudo_func(&insn[i])) {
+				j = bpf_find_subprog(env, i + insn[i].imm + 1);
+				if (j < 0)
+					continue;
+				/*
+				 * The first insns of the main prog are for the kernel. A call from
+				 * an async callback is on no cycle.
+				 */
+				if (!j && bpf_pseudo_call(&insn[i])) {
+					verbose(env, "recursive call of the main program\n");
+					kvfree(calls);
+					return -EINVAL;
+				}
+				/* the helper that calls a callback doesn't expect it to unwind */
+				if (bpf_pseudo_func(&insn[i]) || !bpf_is_unwind_goto(&insn[i + 1]))
+					si[j].plain_call = true;
+				/*
+				 * The helper that takes a callback calls it, or keeps it: the
+				 * callback that arms itself again doesn't call itself.
+				 */
+				if (bpf_pseudo_call(&insn[i]) ||
+				    !func_is_kept_for_later(env, i, si[s + 1].start))
+					__set_bit(j, calls + s * words);
+				if (bpf_pseudo_func(&insn[i]))
+					__set_bit(j, taken);
+			}
+			if (bpf_is_ldimm64(&insn[i]))
+				i++;
+		}
+	}
+	for (i = 0; i < env->func_ptr_cnt; i++) {
+		j = bpf_find_subprog(env, env->func_ptrs[i].xlated_off);
+		if (j >= 0)
+			__set_bit(j, taken);
+	}
+	for_each_set_bit(s, callx, cnt)
+		bitmap_or(calls + s * words, calls + s * words, taken, cnt);
+
+	/*
+	 * Callers of a global subprog look at can_unwind before the subprog is verified.
+	 * The main prog returns to the kernel.
+	 */
+	for (s = 0; s < cnt; s++) {
+		if (plain_callx && test_bit(s, taken))
+			si[s].plain_call = true;
+		si[s].bail_unwinds = si[s].can_unwind ||
+				     (s && !si[s].plain_call && !bpf_subprog_is_global(env, s) &&
+				      bpf_jit_supports_unwind() &&
+				      !bpf_prog_is_offloaded(env->prog->aux));
+	}
+
+	close_call_graph(calls, cnt);
+
+	for (s = 0; s < cnt; s++) {
+		if (!test_bit(s, calls + s * words))
+			continue;
+		err = -EINVAL;
+		if (!s) {
+			verbose(env, "recursive call of the main program\n");
+			break;
+		}
+		/*
+		 * Each call of the function that it replaces is an invocation of its own: a
+		 * loop in the prog that it extends gets a new time slice each time.
+		 */
+		if (env->prog->type == BPF_PROG_TYPE_EXT) {
+			verbose(env, "recursive %s() in an extension\n", bpf_subprog_name(env, s));
+			break;
+		}
+		/* the device runs the insns that the driver was given, without the checks */
+		if (bpf_prog_is_offloaded(env->prog->aux)) {
+			verbose(env, "recursive %s() in an offloaded program\n",
+				bpf_subprog_name(env, s));
+			break;
+		}
+		if (si[s].has_tail_call || si[s].has_ld_abs) {
+			verbose(env, "recursive %s() cannot have %s\n", bpf_subprog_name(env, s),
+				si[s].has_tail_call ? "tail calls" : "LD_ABS");
+			break;
+		}
+		if (si[s].bail_insn < 0) {
+			verbose(env, "recursive %s() has no exit\n", bpf_subprog_name(env, s));
+			break;
+		}
+		si[s].recursive = true;
+		err = 0;
+	}
+	kvfree(calls);
 	return err;
 }
 
@@ -6351,10 +6538,11 @@ static int check_max_stack_depth(struct bpf_verifier_env *env)
 		 * All async_cb subprogs use normal kernel stack. If a particular
 		 * subprog appears in both main prog and async_cb subtree, that
 		 * subprog will use normal kernel stack to avoid potential nesting.
+		 * The private stack has room for one frame of a subprog.
 		 * x86-64 uses R9 for both private stack frame pointer and arg6.
 		 */
 		if (priv_stack_mode != PRIV_STACK_ADAPTIVE || test_bit(s, cg.in_async_cb) ||
-		    (IS_ENABLED(CONFIG_X86_64) && si[s].stack_arg_cnt)) {
+		    si[s].recursive || (IS_ENABLED(CONFIG_X86_64) && si[s].stack_arg_cnt)) {
 			si[s].priv_stack_mode = NO_PRIV_STACK;
 			continue;
 		}
@@ -22106,6 +22294,21 @@ static int flow_drain(struct bpf_verifier_env *env)
 	return err;
 }
 
+/*
+ * A subprog on a cycle of the call graph checks the stack at run time, see
+ * bpf_insert_recursion_checks(). When there is no room, or the time slice is over, it leaves
+ * at once with 0 in place of the result: it unwinds if it can, see bail_unwinds, otherwise
+ * it returns and callers have to be fine with that.
+ */
+static int check_recursion_guard(struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *sub = &env->subprog_info[cur_func(env)->subprogno];
+
+	if (!sub->recursive || env->insn_idx != sub->start)
+		return 0;
+	return push_budget_exit(env);
+}
+
 /* Process the current state until it gets to the start of a basic block. */
 static int do_check_block(struct bpf_verifier_env *env, int prev_insn_idx)
 {
@@ -22226,6 +22429,10 @@ static int do_check_block(struct bpf_verifier_env *env, int prev_insn_idx)
 			goto process_bpf_exit;
 
 		err = check_loop_guard(env);
+		if (err)
+			return err;
+
+		err = check_recursion_guard(env);
 		if (err)
 			return err;
 
@@ -24325,6 +24532,11 @@ int bpf_check_attach_target(struct bpf_verifier_log *log,
 			bpf_log(log, "Only fentry can attach to %s, which can unwind\n", tname);
 			return -EINVAL;
 		}
+		/* It can have tail calls, which are not allowed there, see check_call_depth() */
+		if (aux->func && aux->func[subprog]->aux->in_recursion && prog_extension) {
+			bpf_log(log, "Cannot replace %s, which is called in a recursion\n", tname);
+			return -EINVAL;
+		}
 		conservative = aux->func_info_aux[subprog].unreliable;
 		if (prog_extension) {
 			if (aux->func_info_aux[subprog].linkage != BTF_FUNC_GLOBAL ||
@@ -25757,10 +25969,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret < 0)
 		goto skip_full_check;
 
+	ret = sort_subprogs_topo(env);
 	if (ret < 0)
 		goto skip_full_check;
 
-	ret = sort_subprogs_topo(env);
+	/* what no JIT can run is reported first */
+	ret = mark_recursive_subprogs(env);
 	if (ret < 0)
 		goto skip_full_check;
 
@@ -25828,9 +26042,6 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 		goto skip_full_check;
 
 	ret = do_check_all(env);
-	/* reject recursion through the callx edges found by the main pass */
-	if (ret == 0 && env->callx_edges)
-		ret = sort_subprogs_topo(env);
 	/* while the calls are what they are in the program */
 	if (env->log.level & BPF_LOG_STATS)
 		add_insns_of_callees(env);

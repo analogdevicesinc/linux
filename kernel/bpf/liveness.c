@@ -2354,6 +2354,7 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 		struct func_instance *callee_instance;
 		int callee, target;
 		int caller_reg, cb_callee_reg;
+		u16 live;
 
 		j = idx - start; /* relative index within this subprog */
 		memset(callee_args, 0, MAX_AT_TRACK_REGS * sizeof(*callee_args));
@@ -2369,11 +2370,17 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 			if (callee < 0 || bpf_subprog_is_global(env, callee))
 				continue;
 
-			/* Build entry args: R1-R5 and stack args from at_in at call site */
+			/*
+			 * Build entry args: R1-R5 and stack args from at_in at call site.
+			 * What is left over in a register that the callee doesn't read is no arg.
+			 */
+			live = env->insn_aux_data[target].live_regs_before;
 			for (int r = BPF_REG_1; r <= BPF_REG_5; r++)
-				callee_args[r] = info[subprog].at_in[j][r];
+				callee_args[r] = live & BIT(r) ? info[subprog].at_in[j][r] : none;
 			for (int r = 0; r < MAX_STACK_ARG_SLOTS; r++)
-				callee_args[MAX_BPF_REG + r] = info[subprog].at_in[j][MAX_BPF_REG + r];
+				callee_args[MAX_BPF_REG + r] =
+					r < bpf_in_stack_arg_cnt(&env->subprog_info[callee]) ?
+					info[subprog].at_in[j][MAX_BPF_REG + r] : none;
 		} else if (bpf_calls_callback(env, idx)) {
 			callee = find_callback_subprog(env, insn, idx, &caller_reg, &cb_callee_reg);
 			if (callee == -2) {
@@ -2407,6 +2414,17 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 
 		if (!has_fp_args(callee_args))
 			continue;
+
+		/*
+		 * at_in[] is kept per subprog and the snapshot of the stack per call insn:
+		 * the walk must not enter a subprog that it has not left.
+		 */
+		if (env->subprog_info[subprog].recursive && env->subprog_info[callee].recursive) {
+			verbose(env, "recursive %s() passes a pointer to the stack to %s()\n",
+				bpf_subprog_name(env, subprog), bpf_subprog_name(env, callee));
+			err = -EINVAL;
+			goto out_free;
+		}
 
 		if (depth == MAX_CALL_FRAMES - 1) {
 			verbose(env, "%s() passes a pointer to the stack to %s()\n",
@@ -2781,14 +2799,15 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			compute_insn_live_regs(env, &insns[i], &state[i], ret_reg_pair);
 	}
 
-	/* Forward pass: resolve stack access through FP-derived pointers */
-	err = bpf_compute_subprog_arg_access(env);
-	if (err)
-		goto out;
-
 	changed = true;
 	while (changed) {
 		changed = false;
+		/* a cycle of calls takes a round for each link */
+		if (signal_pending(current)) {
+			err = -EAGAIN;
+			goto out;
+		}
+		cond_resched();
 		for (i = 0; i < env->cfg.cur_postorder; ++i) {
 			int insn_idx = env->cfg.insn_postorder[i];
 			struct insn_live_regs *live = &state[insn_idx];
@@ -2843,6 +2862,11 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			insn_aux[env->subprog_info[i].bail_insn].live_regs_before |=
 				BIT(BPF_REG_0) | (bpf_ret_reg_pair(env, i) ? BIT(BPF_REG_2) : 0);
 
+	/*
+	 * Forward pass: resolve stack access through FP-derived pointers.
+	 * It looks at live_regs_before of the callees.
+	 */
+	err = bpf_compute_subprog_arg_access(env);
 out:
 	kvfree(state);
 	return err;
