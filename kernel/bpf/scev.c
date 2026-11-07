@@ -3992,7 +3992,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 	struct env *header_env;
 	struct bounds bounds;
 	u32 r, r_scev;
-	s64 moved;
+	s64 moved, sum;
 	int err;
 
 	if (entry_state->curframe != cur_func_state->frameno) {
@@ -4044,8 +4044,12 @@ clamp:
 		if (coefs.base_reg == entry->iv_reg && !moved)
 			iv_bounds(&bounds, entry->iv_range);
 		if (moved) {
+			/* a sum that can wrap has another residue, see scalar_step_add() */
+			if (check_add_overflow(cnum64_smin(bounds.r64), moved, &sum) ||
+			    check_add_overflow(cnum64_smax(bounds.r64), moved, &sum))
+				continue;
 			bounds.r64 = cnum64_add(bounds.r64, cnum64_from_srange(moved, moved));
-			bounds.base = imod(bounds.base + moved, bounds.step);
+			bounds.base = (bounds.base + imod(moved, bounds.step)) % bounds.step;
 		}
 		if (behind) {
 			/* jumps on the way may have told more */
