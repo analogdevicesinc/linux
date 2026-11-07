@@ -206,6 +206,9 @@ int name(void *ctx)								\
 }
 
 OK("frames of a stack walker", "[0..9]") __retval(256)
+#ifndef __clang__
+__skip("GCC unrolls the inner loop")
+#endif
 FRAMES(eight_frames, 8)
 
 BAD("frames of a stack walker, one too many")
