@@ -59,6 +59,7 @@ struct msi_ml_board {
 	const char *const *in_label;
 	/* little endian u16 in mV, offset at most MSI_ML_SENSOR_REPORT_SIZE - 2 */
 	const u8 *in_offset;
+	int (*read_report)(struct msi_ml_data *priv);
 };
 
 /*
@@ -67,7 +68,7 @@ struct msi_ml_board {
  * hwmon core serializes. No additional locking is needed for the buffer
  * and the cached values.
  */
-static int msi_ml_read_report(struct msi_ml_data *priv)
+static int msi_ml_read_report_7e61(struct msi_ml_data *priv)
 {
 	const struct msi_ml_board *board = priv->board;
 	u8 *buf = priv->buf;
@@ -96,6 +97,11 @@ static int msi_ml_read_report(struct msi_ml_data *priv)
 	priv->updated = get_jiffies_64();
 
 	return 0;
+}
+
+static int msi_ml_read_report(struct msi_ml_data *priv)
+{
+	return priv->board->read_report(priv);
 }
 
 static umode_t msi_ml_is_visible(const void *data,
@@ -265,6 +271,7 @@ static const struct msi_ml_board msi_ml_7e61 = {
 	.num_in = ARRAY_SIZE(msi_ml_7e61_in_label),
 	.in_label = msi_ml_7e61_in_label,
 	.in_offset = msi_ml_7e61_in_offset,
+	.read_report = msi_ml_read_report_7e61,
 };
 
 static const struct dmi_system_id msi_ml_dmi_table[] __initconst = {
