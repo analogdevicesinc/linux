@@ -3798,8 +3798,13 @@ static int check_stack_write_fixed_off(struct bpf_verifier_env *env,
 		__mark_reg_known(tmp_reg, insn->imm);
 		tmp_reg->type = SCALAR_VALUE;
 		save_register_state(env, state, spi, tmp_reg, size);
-	} else if (reg && is_pointer_regtype(reg->type)) {
-		/* register containing pointer is being spilled into stack */
+	} else if (reg && is_pointer_regtype(reg->type) &&
+		   (size == BPF_REG_SIZE || !env->allow_ptr_leaks)) {
+		/*
+		 * register containing pointer is being spilled into stack.
+		 * A part of it is a number, which is fine when the program
+		 * may see values of pointers anyway.
+		 */
 		if (size != BPF_REG_SIZE) {
 			verbose_linfo(env, insn_idx, "; ");
 			verbose(env, "invalid size of register spill\n");
