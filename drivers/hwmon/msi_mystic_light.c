@@ -44,45 +44,6 @@
 #define MSI_ML_MAX_IN			3
 #define MSI_ML_CACHE_TIME		HZ
 
-struct msi_ml_board {
-	int num_in;
-	const char *const *in_label;
-	/* little endian u16 in mV, offset at most MSI_ML_SENSOR_REPORT_SIZE - 2 */
-	const u8 *in_offset;
-};
-
-/* MAG B850M MORTAR WIFI (MS-7E61) */
-static const char *const msi_ml_7e61_in_label[] = {
-	"CPU 1P8", "CHIP Core", "VDD MISC",
-};
-
-static const u8 msi_ml_7e61_in_offset[] = { 23, 17, 25 };
-
-static_assert(ARRAY_SIZE(msi_ml_7e61_in_label) ==
-	      ARRAY_SIZE(msi_ml_7e61_in_offset));
-static_assert(ARRAY_SIZE(msi_ml_7e61_in_label) <= MSI_ML_MAX_IN);
-
-static const struct msi_ml_board msi_ml_7e61 = {
-	.num_in = ARRAY_SIZE(msi_ml_7e61_in_label),
-	.in_label = msi_ml_7e61_in_label,
-	.in_offset = msi_ml_7e61_in_offset,
-};
-
-static const struct dmi_system_id msi_ml_dmi_table[] __initconst = {
-	{
-		.matches = {
-			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International"),
-			DMI_MATCH(DMI_BOARD_NAME, "MS-7E61"),
-		},
-		.driver_data = (void *)&msi_ml_7e61,
-	},
-	{ }
-};
-MODULE_DEVICE_TABLE(dmi, msi_ml_dmi_table);
-
-/* Board matched by DMI, set once before the HID driver is registered */
-static const struct msi_ml_board *msi_ml_board;
-
 struct msi_ml_data {
 	struct hid_device *hdev;
 	struct device *hwmon_dev;
@@ -91,6 +52,13 @@ struct msi_ml_data {
 	u16 in[MSI_ML_MAX_IN];		/* mV */
 	unsigned int in_mask;		/* rails with a reading in probe */
 	u64 updated;			/* jiffies of the last successful read */
+};
+
+struct msi_ml_board {
+	int num_in;
+	const char *const *in_label;
+	/* little endian u16 in mV, offset at most MSI_ML_SENSOR_REPORT_SIZE - 2 */
+	const u8 *in_offset;
 };
 
 /*
@@ -199,6 +167,9 @@ static const struct hwmon_chip_info msi_ml_chip_info = {
 	.info = msi_ml_info,
 };
 
+/* Board matched by DMI, set once before the HID driver is registered */
+static const struct msi_ml_board *msi_ml_board;
+
 static int msi_ml_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	struct msi_ml_data *priv;
@@ -284,6 +255,37 @@ static void msi_ml_remove(struct hid_device *hdev)
 	hid_hw_close(hdev);
 	hid_hw_stop(hdev);
 }
+
+/* Per-board data */
+
+/* MAG B850M MORTAR WIFI (MS-7E61) */
+static const char *const msi_ml_7e61_in_label[] = {
+	"CPU 1P8", "CHIP Core", "VDD MISC",
+};
+
+static const u8 msi_ml_7e61_in_offset[] = { 23, 17, 25 };
+
+static_assert(ARRAY_SIZE(msi_ml_7e61_in_label) ==
+	      ARRAY_SIZE(msi_ml_7e61_in_offset));
+static_assert(ARRAY_SIZE(msi_ml_7e61_in_label) <= MSI_ML_MAX_IN);
+
+static const struct msi_ml_board msi_ml_7e61 = {
+	.num_in = ARRAY_SIZE(msi_ml_7e61_in_label),
+	.in_label = msi_ml_7e61_in_label,
+	.in_offset = msi_ml_7e61_in_offset,
+};
+
+static const struct dmi_system_id msi_ml_dmi_table[] __initconst = {
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International"),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-7E61"),
+		},
+		.driver_data = (void *)&msi_ml_7e61,
+	},
+	{ }
+};
+MODULE_DEVICE_TABLE(dmi, msi_ml_dmi_table);
 
 static const struct hid_device_id msi_ml_table[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MSI_MB, USB_PRODUCT_ID_MYSTIC_LIGHT) },
