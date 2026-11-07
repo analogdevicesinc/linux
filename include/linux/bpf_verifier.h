@@ -120,6 +120,11 @@ struct bpf_reg_state {
 			/* packing following two fields to fit iter state into 16 bytes */
 			enum bpf_iter_state state:2;
 			int depth:30;
+			/*
+			 * The number of loops, in all frames, that the program was in
+			 * when it made the iterator, see iter_stops_loops().
+			 */
+			u32 loops:30;
 		} iter;
 
 		/* For irq stack slots */
@@ -363,11 +368,34 @@ struct loop_stack_entry {
 	struct bpf_verifier_state *entry_state;
 	u32 min_header_count;
 	u32 max_header_count;
-	u32 loop_id:31;
+	u32 loop_id:23;
 	u32 terminates:1;
+	/* the loop had may_goto when the state entered it, see check_loop_guard() */
+	u32 guarded:1;
+	/*
+	 * The iterations are kept apart: states with different @trip are not
+	 * joined for as long as they are in the loop.
+	 */
+	u32 apart:1;
+	/* max_header_count follows from the state at the entry, not from patience */
+	u32 counted:1;
+	/*
+	 * How many times the state came back to the head of the loop. With @apart that is
+	 * the iteration that it is in. A state that stands for many iterations is a join, and has
+	 * the largest number of the states that it is made of.
+	 */
+	u32 trip;
+	/* the number of references that the state had when it entered the loop */
+	u32 refs;
 	int iv_reg;
 	struct cnum64 iv_range;
 };
+
+/* The state is in a walk on patience, which may not get to the end of the loop */
+static inline bool bpf_loop_walk_may_give_up(const struct loop_stack_entry *entry)
+{
+	return entry->apart && entry->terminates && !entry->counted;
+}
 
 #define LOOP_STACK_SIZE 16
 
@@ -426,6 +454,14 @@ struct bpf_func_state {
 	 * subprogram (loops never cross subprogram boundaries).
 	 */
 	u32 loop_stack_cnt;
+	/*
+	 * How much of what was held when the frame was entered is held ever since. For
+	 * references that is the first entry_refs of refs[]. What is released and taken again
+	 * doesn't count. More than that is for this frame to release.
+	 */
+	u32 entry_refs;
+	u32 entry_rcu_locks;
+	u32 entry_preempt_locks;
 
 	/* The following fields should be last. See copy_func_state() */
 	/* The state of the stack. Each element of the array describes BPF_REG_SIZE
@@ -558,8 +594,15 @@ struct bpf_verifier_state {
 
 	bool speculative;
 	bool in_sleepable;
+	/* a global function or an extension, and what it calls: exit of frame 0 is not the end */
+	bool callers_unknown;
 	/* The callee left with unwind_exit. Next insn is unwind_goto. */
 	bool unwound;
+	/*
+	 * A function that is verified on its own changed packet data. Its callers
+	 * and their packet pointers are not in the state, see bpf_flow_return().
+	 */
+	bool changed_pkt_data;
 
 	/*
 	 * First and last insn idx of this verifier state.
@@ -618,6 +661,16 @@ bpf_get_spilled_stack_arg(int slot, struct bpf_func_state *frame)
 	    frame->stack_arg_regs[slot].type != NOT_INIT)
 		return &frame->stack_arg_regs[slot];
 	return NULL;
+}
+
+/*
+ * The function that is verified on its own has no caller to look at. Its incoming arguments
+ * are in stack_arg_regs of frame 0 until it is done with loading them. Until then it has
+ * no outgoing arguments.
+ */
+static inline bool bpf_stack_args_are_incoming(const struct bpf_func_state *frame)
+{
+	return !frame->frameno && !frame->no_stack_arg_load;
 }
 
 /* Iterate over 'frame', setting 'reg' to either NULL or a spilled register. */
@@ -754,6 +807,8 @@ struct bpf_loop {
 	bool exits_overflow;
 	/* @exits of a loop in this one is cut. Then @exits of this loop can lack exits too. */
 	bool nested_exits_overflow;
+	/* and it is going to be there, see bpf_flow_loop_gets_guards() */
+	bool guarded;
 	/*
 	 * Loop-entry registers used to compute stack addresses for loads,
 	 * stores and calls requiring fixed stack offsets, in this and nested
@@ -893,6 +948,11 @@ struct bpf_insn_aux_data {
 	 * For a loop header, identifies the parent loop instead.
 	 */
 	s32 loop_header;
+	/*
+	 * bpf_iter_*_next(): the innermost loop around it that counted on it and that it doesn't
+	 * stop, -1 if none was found. It doesn't stop the loops around that one either.
+	 */
+	s32 not_stopped;
 	/* where may_goto in front of this instruction goes */
 	s32 guard_to;
 	/* additional information about the loop if this instruction is a loop header */
@@ -1543,6 +1603,9 @@ void bpf_free_kfunc_btf_tab(struct bpf_kfunc_btf_tab *tab);
 int mark_chain_precision(struct bpf_verifier_env *env, int regno);
 
 int bpf_is_state_visited(struct bpf_verifier_env *env, int insn_idx);
+int bpf_clean_verifier_state(struct bpf_verifier_env *env, struct bpf_verifier_state *st);
+bool bpf_state_subsumes(struct bpf_verifier_env *env, struct bpf_verifier_state *old,
+			struct bpf_verifier_state *cur);
 
 /* join.c */
 int bpf_states_join(struct bpf_verifier_env *env, struct bpf_verifier_state *dst,

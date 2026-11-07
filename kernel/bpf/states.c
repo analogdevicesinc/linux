@@ -1765,3 +1765,15 @@ miss:
 	 */
 	return bpf_split_cur_state(env);
 }
+
+int bpf_clean_verifier_state(struct bpf_verifier_env *env, struct bpf_verifier_state *st)
+{
+	return clean_verifier_state(env, st);
+}
+
+/* Everything that @cur describes is described by @old. */
+bool bpf_state_subsumes(struct bpf_verifier_env *env, struct bpf_verifier_state *old,
+			struct bpf_verifier_state *cur)
+{
+	return states_equal(env, old, cur, RANGE_WITHIN);
+}

@@ -398,3 +398,250 @@ static bool join_slot(struct bpf_join_state *js, struct bpf_stack_state *ds,
 	bpf_mark_reg_not_init(js->env, &ds->spilled_ptr);
 	return true;
 }
+
+static bool join_loop_stack(const struct bpf_func_state *fa, const struct bpf_func_state *fb)
+{
+	u32 i;
+
+	if (fa->loop_stack_cnt != fb->loop_stack_cnt)
+		return false;
+	/* what is known about a counted loop comes from the state it was entered with */
+	for (i = 0; i < fa->loop_stack_cnt; i++)
+		if (fa->loop_stack[i].loop_id != fb->loop_stack[i].loop_id ||
+		    fa->loop_stack[i].terminates != fb->loop_stack[i].terminates ||
+		    fa->loop_stack[i].guarded != fb->loop_stack[i].guarded ||
+		    fa->loop_stack[i].counted != fb->loop_stack[i].counted ||
+		    fa->loop_stack[i].apart != fb->loop_stack[i].apart ||
+		    (fa->loop_stack[i].apart && fa->loop_stack[i].trip != fb->loop_stack[i].trip) ||
+		    fa->loop_stack[i].refs != fb->loop_stack[i].refs ||
+		    fa->loop_stack[i].max_header_count != fb->loop_stack[i].max_header_count ||
+		    fa->loop_stack[i].entry_state != fb->loop_stack[i].entry_state)
+			return false;
+	return true;
+}
+
+static bool join_func(struct bpf_join_state *js, struct bpf_func_state *fd,
+		      const struct bpf_func_state *fa, const struct bpf_func_state *fb,
+		      u16 live_regs, int pass)
+{
+	static const struct bpf_reg_state not_init = { .type = NOT_INIT };
+	struct bpf_verifier_env *env = js->env;
+	u32 i, nslots_b;
+	bool in_a, in_b;
+
+	if (pass == 1) {
+		if (fa->callsite != fb->callsite || fa->frameno != fb->frameno ||
+		    fa->subprogno != fb->subprogno)
+			return false;
+		if (fa->in_callback_fn != fb->in_callback_fn ||
+		    fa->in_async_callback_fn != fb->in_async_callback_fn ||
+		    fa->in_exception_callback_fn != fb->in_exception_callback_fn ||
+		    fa->in_rcu_callback_fn != fb->in_rcu_callback_fn ||
+		    fa->async_entry_cnt != fb->async_entry_cnt ||
+		    memcmp(&fa->callback_ret_range, &fb->callback_ret_range,
+			   sizeof(fa->callback_ret_range)))
+			return false;
+		if (fa->entry_refs != fb->entry_refs ||
+		    fa->entry_rcu_locks != fb->entry_rcu_locks ||
+		    fa->entry_preempt_locks != fb->entry_preempt_locks)
+			return false;
+		if (!join_loop_stack(fa, fb))
+			return false;
+	}
+
+	for (i = 0; i < MAX_BPF_REG; i++) {
+		if (!(live_regs & BIT(i))) {
+			if (pass == 2 && i < BPF_REG_FP)
+				bpf_mark_reg_not_init(env, &fd->regs[i]);
+			continue;
+		}
+		js->place = i;
+		if (!join_reg(js, &fd->regs[i], &fa->regs[i], &fb->regs[i], pass))
+			return false;
+	}
+
+	nslots_b = bpf_stack_nr_slots(fb);
+	for (i = 0; i < bpf_stack_nr_slots(fa); i++) {
+		const struct bpf_stack_state *sb = i < nslots_b ? bpf_stack_slot(fb, i) : NULL;
+
+		js->place = MAX_BPF_REG + i;
+		if (!join_slot(js, bpf_stack_slot(fd, i), bpf_stack_slot(fa, i), sb, pass))
+			return false;
+	}
+	js->place = -1;
+	/* Slots that exist only in 'b' are STACK_INVALID in the result. */
+	for (i = bpf_stack_nr_slots(fa); pass == 1 && i < nslots_b; i++) {
+		const struct bpf_stack_state *sb = bpf_stack_slot(fb, i);
+
+		if (slot_is_special(sb) ||
+		    (slot_has_spill(sb) && sb->spilled_ptr.type != SCALAR_VALUE))
+			return false;
+	}
+
+	if (fa->out_stack_arg_cnt < fb->out_stack_arg_cnt)
+		return false;
+	/* incoming arguments are not joined with outgoing ones: that side has no outgoing ones */
+	in_a = bpf_stack_args_are_incoming(fa) && !bpf_stack_args_are_incoming(fb);
+	in_b = bpf_stack_args_are_incoming(fb) && !bpf_stack_args_are_incoming(fa);
+	for (i = 0; i < fa->out_stack_arg_cnt; i++) {
+		const struct bpf_reg_state *rb;
+
+		if (in_a) {
+			if (pass == 2)
+				bpf_mark_reg_not_init(env, &fd->stack_arg_regs[i]);
+			continue;
+		}
+		rb = i < fb->out_stack_arg_cnt && !in_b ? &fb->stack_arg_regs[i] : &not_init;
+		if (!join_reg(js, &fd->stack_arg_regs[i], &fa->stack_arg_regs[i], rb, pass))
+			return false;
+	}
+
+	if (pass == 2) {
+		fd->no_stack_arg_load = fa->no_stack_arg_load || fb->no_stack_arg_load;
+		fd->callback_depth = min(fa->callback_depth, fb->callback_depth);
+		for (i = 0; i < fd->loop_stack_cnt; i++)
+			fd->loop_stack[i].trip = max(fd->loop_stack[i].trip, fb->loop_stack[i].trip);
+	}
+	return true;
+}
+
+/* Things that can't be different in two states that are joined */
+static bool join_check_state(const struct bpf_verifier_state *a,
+			     const struct bpf_verifier_state *b)
+{
+	int i;
+
+	if (a->curframe != b->curframe || a->insn_idx != b->insn_idx)
+		return false;
+	if (a->speculative != b->speculative || a->in_sleepable != b->in_sleepable ||
+	    a->callers_unknown != b->callers_unknown ||
+	    a->unwound != b->unwound || a->changed_pkt_data != b->changed_pkt_data)
+		return false;
+	if (a->active_locks != b->active_locks ||
+	    a->active_preempt_locks != b->active_preempt_locks ||
+	    a->active_rcu_locks != b->active_rcu_locks ||
+	    a->active_lock_ptr != b->active_lock_ptr ||
+	    !a->active_irq_id != !b->active_irq_id ||
+	    !a->active_lock_id != !b->active_lock_id)
+		return false;
+	if (a->acquired_refs != b->acquired_refs)
+		return false;
+	for (i = 0; i < a->acquired_refs; i++) {
+		if (a->refs[i].type != b->refs[i].type)
+			return false;
+		switch (a->refs[i].type) {
+		case REF_TYPE_PTR:
+		case REF_TYPE_IRQ:
+			break;
+		default:
+			if (a->refs[i].ptr != b->refs[i].ptr)
+				return false;
+		}
+	}
+	return true;
+}
+
+static void join_refs_note(struct bpf_join_state *js, const struct bpf_verifier_state *a,
+			   const struct bpf_verifier_state *b)
+{
+	int i;
+
+	jid_note(js, a->active_irq_id, b->active_irq_id, true);
+	jid_note(js, a->active_lock_id, b->active_lock_id, true);
+	for (i = 0; i < a->acquired_refs; i++) {
+		jid_note(js, a->refs[i].id, b->refs[i].id, true);
+		if (a->refs[i].type == REF_TYPE_PTR)
+			jid_note(js, a->refs[i].parent_id, b->refs[i].parent_id, true);
+	}
+}
+
+static bool join_refs_check(struct bpf_join_state *js, const struct bpf_verifier_state *a,
+			    const struct bpf_verifier_state *b)
+{
+	int i;
+
+	if (!jid_strict_ok(js, a->active_irq_id, b->active_irq_id) ||
+	    !jid_strict_ok(js, a->active_lock_id, b->active_lock_id))
+		return false;
+	for (i = 0; i < a->acquired_refs; i++) {
+		if (!jid_strict_ok(js, a->refs[i].id, b->refs[i].id))
+			return false;
+		if (a->refs[i].type == REF_TYPE_PTR &&
+		    !jid_strict_ok(js, a->refs[i].parent_id, b->refs[i].parent_id))
+			return false;
+	}
+	return true;
+}
+
+/* The result has to describe everything that an input describes */
+static int join_check(struct bpf_join_state *js, struct bpf_verifier_state *dst,
+		      const struct bpf_verifier_state *in, const char *which)
+{
+	struct bpf_verifier_env *env = js->env;
+
+	if (bpf_state_subsumes(env, dst, (struct bpf_verifier_state *)in))
+		return 0;
+	/* check_ids() has no room left: that says nothing about the join */
+	if (env->idmap_scratch.cnt == BPF_ID_MAP_SIZE)
+		return 1;
+	bpf_log(&env->log, "join:");
+	print_verifier_state(env, dst, dst->curframe, true);
+	bpf_log(&env->log, "input %s:", which);
+	print_verifier_state(env, in, in->curframe, true);
+	verifier_bug(env, "join of states at insn %u does not subsume input '%s'",
+		     dst->insn_idx, which);
+	return -EFAULT;
+}
+
+/*
+ * Compute in @dst the state that describes everything that @a or @b describe.
+ * @dst has to be a valid state (zeroed is fine) different from @a and @b, its
+ * previous content is released. Bookkeeping fields are copied from @a.
+ *
+ * Returns 0 on success, 1 if there is no join, negative error otherwise.
+ * When 1 is returned the content of @dst is undefined, but it's a valid state.
+ */
+int bpf_states_join(struct bpf_verifier_env *env, struct bpf_verifier_state *dst,
+		    const struct bpf_verifier_state *a, const struct bpf_verifier_state *b,
+		    bool widen)
+{
+	struct bpf_join_state *js = join_state(env);
+	const struct bpf_func_state *frame;
+	int pass, fr, err;
+
+	if (!js)
+		return -ENOMEM;
+	js->widen = widen;
+	js->npairs = 0;
+	js->pairs_overflow = false;
+
+	if (!join_check_state(a, b))
+		return 1;
+	err = bpf_copy_verifier_state(dst, a);
+	if (err)
+		return err;
+
+	for (pass = 1; pass <= 2; pass++) {
+		if (pass == 1)
+			join_refs_note(js, a, b);
+		else if (!join_refs_check(js, a, b))
+			return 1;
+		for (fr = 0; fr <= a->curframe; fr++) {
+			u32 insn_idx = bpf_frame_insn_idx((struct bpf_verifier_state *)a, fr);
+			u16 live_regs = env->insn_aux_data[insn_idx].live_regs_before;
+			u32 cnt;
+
+			/* not the states that get to the head through a call of the function */
+			frame = a->frame[fr];
+			cnt = frame->loop_stack_cnt;
+			js->loop = widen && fr == a->curframe && cnt &&
+				   frame->loop_stack[cnt - 1].loop_id == insn_idx ?
+				   env->insn_aux_data[insn_idx].loop : NULL;
+			if (!join_func(js, dst->frame[fr], a->frame[fr], b->frame[fr],
+				       live_regs, pass))
+				return 1;
+		}
+	}
+
+	return join_check(js, dst, a, "a") ?: join_check(js, dst, b, "b");
+}
