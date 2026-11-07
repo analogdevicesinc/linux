@@ -4411,17 +4411,17 @@ __naked void post_cond_jlt32_copy(void)
 }
 
 /*
- * The loop loads r6 again in every iteration. It's 0 at the entry and a byte in all iterations
- * but the first one: the first iteration is verified on its own, the state that comes back to
- * the head stands for the rest.
+ * The loop loads r6 again in every iteration, and is too long for a walk. r6 is 0 at the entry and
+ * a byte in all iterations but the first one: the first iteration is verified on its own, the state
+ * that comes back to the head stands for the rest.
  */
 SEC("socket")
 __success __retval(0)
 __log_level(2)
-__msg("header_count is 10 ")
+__msg("header_count is 100000 ")
 __msg("can't widen r6, expr is _")
 __not_msg("widening r8")
-__msg("clamping r8 to 0..9 step 1")
+__msg("clamping r8 to 0..0x1869f step 1")
 __naked void index_loaded_in_previous_iteration(void)
 {
 	asm volatile ("					\
@@ -4439,7 +4439,7 @@ __naked void index_loaded_in_previous_iteration(void)
 	r0 = *(u8 *)(r1 + 0);				\
 	r6 = *(u8 *)(r7 + 0);				\
 	r8 += 1;					\
-	if r8 < 10 goto 1b;				\
+	if r8 < 100000 goto 1b;				\
 2:	r0 = 0;						\
 	exit;						\
 "	:
@@ -4473,7 +4473,7 @@ __naked void first_iteration_loads_less(void)
 	goto 3f;					\
 2:	r6 = *(u16 *)(r7 + 0);				\
 3:	r8 += 1;					\
-	if r8 < 10 goto 1b;				\
+	if r8 < 100000 goto 1b;				\
 4:	r0 = 0;						\
 	exit;						\
 "	:

@@ -346,6 +346,101 @@ __naked void read_in_the_first_iteration(void)
 	SUM_OF_PREV(1, 40, "*(u64 *)(r10 - 8) = r9;");
 }
 
+/*
+ *	for (i = 0; i < 4; i++) { if (ok) sum += v[x]; x = *v; ok = x <= max; }
+ * x is loaded in every iteration and ok goes with it. One state for all iterations has both values
+ * of ok for each x.
+ */
+#define LOADED_WITH_FLAG(max)						\
+	asm volatile (							\
+	"r6 = %[vals] ll;"						\
+	"r7 = 0;"							\
+	"r8 = 0;"							\
+	"r9 = 0;"							\
+"1:	if r9 == 0 goto 2f;"						\
+	"r1 = r6;"							\
+	"r1 += r8;"							\
+	"r0 = *(u8 *)(r1 + 0);"						\
+"2:	r8 = *(u64 *)(r6 + 0);"						\
+	"r9 = 0;"							\
+	"if r8 > " #max " goto 3f;"					\
+	"r9 = 1;"							\
+"3:	r7 += 1;"							\
+	"if r7 < 4 goto 1b;"						\
+	"r0 = 0;"							\
+	"exit;"								\
+	:: __imm_addr(vals) : __clobber_all)
+
+OK("a short loop is walked for the flag that goes with what it loads")
+__naked void loaded_with_flag(void)
+{
+	LOADED_WITH_FLAG(63);
+}
+
+BAD("the flag is set for a number that is too large")
+__msg("invalid access to map value")
+__naked void loaded_with_wrong_flag(void)
+{
+	LOADED_WITH_FLAG(64);
+}
+
+/*
+ *	for (i = 0; i < 4; i++) { sum += v[x]; x = table[i]; }
+ * The table is in .rodata: in a walk each x is a known number.
+ */
+const u8 in_vals[4] = { 8, 16, 56, 255 }, past_vals[4] = { 8, 16, 57, 0 };
+
+#define INDEX_FROM_RODATA(table)					\
+	asm volatile (							\
+	"r6 = %[vals] ll;"						\
+	"r7 = 0;"							\
+	"r8 = 0;"							\
+"1:	r1 = r6;"							\
+	"r1 += r8;"							\
+	"r0 = *(u64 *)(r1 + 0);"					\
+	"r1 = %[" #table "] ll;"					\
+	"r1 += r7;"							\
+	"r8 = *(u8 *)(r1 + 0);"						\
+	"r7 += 1;"							\
+	"if r7 < 4 goto 1b;"						\
+	"r0 = 0;"							\
+	"exit;"								\
+	:: __imm_addr(vals), __imm_addr(table) : __clobber_all)
+
+OK("a short loop is walked for the numbers that it loads from .rodata")
+__naked void index_from_rodata(void)
+{
+	INDEX_FROM_RODATA(in_vals);
+}
+
+BAD("a number from .rodata is too large")
+__msg("invalid access to map value")
+__naked void index_from_rodata_too_large(void)
+{
+	INDEX_FROM_RODATA(past_vals);
+}
+
+/* A slot holds a leftover pointer. The loop fills it with what it loads. It's only copied later. */
+OK("no walk for what the loop loads if nothing looks at it")
+__log_level(2) __msg("processed 17 insns")
+__naked void leftover_in_a_slot(void)
+{
+	asm volatile (
+	"r6 = %[vals] ll;"
+	"*(u64 *)(r10 - 8) = r6;"
+	"r7 = 0;"
+"1:	if r7 >= 40 goto 2f;"
+	"r1 = *(u64 *)(r6 + 0);"
+	"*(u64 *)(r10 - 8) = r1;"
+	"r7 += 1;"
+	"goto 1b;"
+"2:	r1 = *(u64 *)(r10 - 8);"
+	"*(u64 *)(r6 + 0) = r1;"
+	"r0 = 0;"
+	"exit;"
+	:: __imm_addr(vals) : __clobber_all);
+}
+
 /* What a call returns is made anew in every iteration, like what is loaded */
 OK("a long loop carries what a call returns")
 int call_in_a_long_loop(void *ctx)
