@@ -21368,6 +21368,268 @@ static int handle_loop_entry_exit(struct bpf_verifier_env *env)
 	return 0;
 }
 
+/*
+ * The current state came back to the head of a loop. If it has a reference more than the states
+ * that are there it is neither within one of them nor joined with one. It goes around again:
+ *	bpf_for(i, 0, n) { if (!p) p = bpf_ringbuf_reserve(...); ... }
+ * That ends when the loop stops taking references, or when there is no place left to keep them.
+ * A reference that no live register and no live stack slot holds cannot be released any more.
+ * There is nothing to wait for.
+ *
+ * Only what was taken in the loop is looked at. New references are added at the end. What callers
+ * hold is not in the state of a function that is verified on its own.
+ */
+static int check_refs_taken_in_loop(struct bpf_verifier_env *env,
+				    const struct loop_stack_entry *entry)
+{
+	u32 mask = (1 << STACK_SPILL) | (1 << STACK_DYNPTR) | (1 << STACK_ITER);
+	struct bpf_verifier_state *st = env->cur_state;
+	struct bpf_stack_state *stack;
+	struct bpf_func_state *frame;
+	struct bpf_reg_state *reg;
+	bool held;
+	int i, j, id;
+
+	for (i = entry->refs; i < st->acquired_refs; i++) {
+		if (st->refs[i].type != REF_TYPE_PTR)
+			continue;
+		id = st->refs[i].id;
+		held = false;
+		for (j = 0; j < st->acquired_refs; j++)
+			if (st->refs[j].type == REF_TYPE_PTR && st->refs[j].parent_id == id)
+				held = true;
+		bpf_for_each_reg_in_vstate_mask(st, frame, reg, stack, mask, ({
+			if (reg->id == id || reg->parent_id == id)
+				held = true;
+		}));
+		if (held)
+			continue;
+		verbose(env, "Unreleased reference id=%d alloc_insn=%d\n", id, st->refs[i].insn_idx);
+		verbose(env, "nothing holds it in the next iteration of the loop at insn %d\n",
+			entry->loop_id);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+/* How many insns it may take to go through the iterations of a loop one by one. */
+#define BPF_FLOW_MAX_WALK	100000
+/* The same when it is not known that the walk gets to the end of the loop. */
+#define BPF_FLOW_MAX_TRY	4096
+
+/* How many times the current insn is looked at because of the loops around it that are walked. */
+static u64 flow_walk_factor(const struct bpf_verifier_state *st)
+{
+	const struct loop_stack_entry *e;
+	u64 factor = 1;
+	u32 fr, i;
+
+	for (fr = 0; fr <= st->curframe; fr++) {
+		for (i = 0; i < st->frame[fr]->loop_stack_cnt; i++) {
+			e = &st->frame[fr]->loop_stack[i];
+			/* the walk of a loop with two entries pays as it goes, see env->walk_insns */
+			if (e->counted || e->probe)
+				factor = min_t(u64, factor * max(e->max_header_count, 1U), U32_MAX);
+		}
+	}
+	return factor;
+}
+
+/*
+ * The current state enters the loop of @entry, for which there is no count. It's found out on the
+ * way whether the loop has an end: the walk goes on for as long as the jumps that leave the loop
+ * are decided. Returns 1 if the iterations are kept apart from now on, 0 if that takes too long.
+ */
+static int flow_try_walk(struct bpf_verifier_env *env, struct loop_stack_entry *entry)
+{
+	struct bpf_loop *loop = env->insn_aux_data[entry->loop_id].loop;
+	u64 factor = flow_walk_factor(env->cur_state);
+	u32 patience, *walk_insns;
+
+	patience = env->allow_uninit_stack && !loop->rt_bounded &&
+		   (!loop->has_calls || loop->has_guards) ? BPF_FLOW_MAX_TRY : 0;
+	if (loop->walk_failed)
+		patience = 0;
+	/* Two trips for a loop of any length. Many a loop is left in the second one. */
+	if (patience && factor == 1)
+		patience = max_t(u64, patience, 2ULL * loop->nr_insns);
+	if (factor * loop->nr_insns > patience)
+		return 0;
+	entry->max_header_count = max(patience / (u32)(factor * loop->nr_insns), 1U);
+	/*
+	 * A compiler makes a flag of the counter of
+	 *	for (i = 0; i < 2; i++) off += f(i);
+	 * and there is nothing to count. In the second trip the flag decides the jump.
+	 * A loop with calls gets these two trips, whatever they take, and no more: its size says
+	 * nothing about the functions that it calls. It gets may_goto at once, so that nothing is
+	 * done again when the second trip comes back to the head.
+	 */
+	if (loop->has_calls) {
+		entry->max_header_count = min(entry->max_header_count, 2U);
+		patience = U32_MAX;
+		bpf_flow_loop_gets_guards(env, entry->loop_id);
+		entry->guarded = true;
+	}
+	entry->terminates = true;
+	/* scalar evolution has nothing to say about a loop with two entries */
+	entry->probe = !loop->irreducible;
+	entry->walk_id = env->walk_cnt + 1;
+	if (is_power_of_2(entry->walk_id)) {
+		walk_insns = kvrealloc(env->walk_insns, 2 * entry->walk_id * sizeof(u32),
+				       GFP_KERNEL_ACCOUNT);
+		if (!walk_insns)
+			return -ENOMEM;
+		env->walk_insns = walk_insns;
+	}
+	env->walk_cnt++;
+	env->walk_insns[entry->walk_id] = 0;
+	entry->walk_patience = patience;
+	entry->apart = true;
+	return 1;
+}
+
+/*
+ * The current state gets to env->insn_idx. Leave the loops that the insn is not in.
+ * @enters: the insn is the head of a loop that the state is not in yet.
+ */
+int bpf_flow_loop_leave(struct bpf_verifier_env *env, bool *enters)
+{
+	struct bpf_func_state *frame = cur_func(env);
+	int err;
+
+	err = loop_stack_pop(env);
+	if (err)
+		return err;
+	*enters = env->insn_aux_data[env->insn_idx].loop &&
+		  (!frame->loop_stack_cnt ||
+		   frame->loop_stack[frame->loop_stack_cnt - 1].loop_id != env->insn_idx);
+	return 0;
+}
+
+/*
+ * Enter the loops that env->insn_idx is in.
+ *
+ * When the number of iterations follows from the state that enters a loop at its head
+ * induction variables get the ranges that they have in that many iterations, and the loop
+ * needs no may_goto.
+ * The rest of the state is left as it is. What comes back to the head is joined with it.
+ * @ends_walk: the state came back to the head and is the last one that is kept apart from
+ * the states of other iterations.
+ */
+int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop, bool *ends_walk)
+{
+	struct bpf_verifier_state *cur = env->cur_state, *entry_state;
+	const struct bpf_insn *insn = &env->prog->insnsi[env->insn_idx];
+	struct bpf_func_state *frame = cur_func(env);
+	struct loop_stack_entry *entry;
+	struct bpf_loop_iters iters;
+	struct bpf_loop *loop;
+	bool pushed, decided;
+	u32 trip;
+	u64 per_trip;
+	int err;
+
+	err = loop_stack_push(env, &pushed);
+	if (err)
+		return err;
+
+	if (frame->loop_stack_cnt == 0)
+		return 0;
+
+	entry = &frame->loop_stack[frame->loop_stack_cnt - 1];
+	if (env->insn_idx != entry->loop_id)
+		return 0;
+
+	/*
+	 * No edge goes from a call to itself: the call goes on with one function of a set, see
+	 * split_func_set(), in the same iteration.
+	 */
+	if (!pushed && cur->last_insn_idx == env->insn_idx &&
+	    BPF_CLASS(insn->code) == BPF_JMP && BPF_OP(insn->code) == BPF_CALL)
+		return 0;
+
+	/* The callback came back to the helper that calls it, in the same iteration. */
+	if (frame->callback_depth)
+		return 0;
+
+	/* If nothing was pushed and env->insn_idx is a loop header, we've taken a backedge. */
+	if (!pushed) {
+		if (!entry->apart) {
+			entry->trip++;
+			*backedge = true;
+			return check_refs_taken_in_loop(env, entry) ?: maybe_clamp_scev_regs(env);
+		}
+		loop = env->insn_aux_data[env->insn_idx].loop;
+		/* the next iteration is another kind of state, there is no cycle */
+		trip = entry->trip;
+		decided = !entry->probe || entry->decided || !trip;
+		entry->decided = false;
+		if (decided && ++entry->trip < entry->max_header_count &&
+		    (entry->counted ||
+		     env->walk_insns[entry->walk_id] <= entry->walk_patience))
+			return 0;
+		/* there is no such iteration at run time */
+		if (entry->counted) {
+			*drop = true;
+			return 0;
+		}
+		/*
+		 * The walk doesn't get to the end of the loop. From now on what comes back to
+		 * the head is joined with what is there. The loop gets may_goto.
+		 */
+		if (!loop->rt_bounded && !loop->has_guards) {
+			verbose(env, "loop at insn %d never exits\n", env->insn_idx);
+			return -EINVAL;
+		}
+		if (!loop->rt_bounded)
+			bpf_flow_loop_gets_guards(env, env->insn_idx);
+		/* the jumps were decided, it's the loop that is too long. Or it had its two trips */
+		if (decided || loop->has_calls)
+			loop->walk_failed = true;
+		/* the iteration that it went through: its state is at the head */
+		entry->trip = trip;
+		*ends_walk = true;
+		return 0;
+	}
+
+	loop = env->insn_aux_data[env->insn_idx].loop;
+	err = bpf_compute_loop_iters(env, cur, &iters);
+	if (err < 0)
+		return err;
+
+	/* @per_trip: the insns of one iteration, times the walks around the loop. */
+	per_trip = flow_walk_factor(cur) * loop->nr_insns;
+	/* The walk has to get to the end of the loop, so it is known to have one. Or not: */
+	if (!err) {
+		err = flow_try_walk(env, entry);
+		if (err)
+			return err < 0 ? err : 0;
+		if (!loop->rt_bounded && !loop->has_guards) {
+			verbose(env, "loop at insn %d never exits\n", env->insn_idx);
+			return -EINVAL;
+		}
+		if (!loop->rt_bounded) {
+			bpf_flow_loop_gets_guards(env, env->insn_idx);
+			entry->guarded = true;
+		}
+		return 0;
+	}
+
+	/* What the ranges are derived from for as long as the loop is looked at. */
+	entry_state = bpf_flow_keep_state(env, cur);
+	if (!entry_state)
+		return -ENOMEM;
+
+	entry->min_header_count = iters.min_header_count;
+	entry->max_header_count = iters.max_header_count;
+	entry->iv_reg = iters.iv_reg;
+	entry->iv_range = iters.iv_range;
+	entry->entry_state = entry_state;
+	entry->terminates = true;
+	err = bpf_widen_scev_regs(env, cur, entry_state, &iters);
+	return err < 0 ? err : 0;
+}
+
 static int do_check(struct bpf_verifier_env *env)
 {
 	bool pop_log = !(env->log.level & BPF_LOG_LEVEL2);
