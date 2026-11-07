@@ -119,7 +119,16 @@ void test_plain_c_arena_list(void)
 		arena_list_add_del();
 }
 
-void test_plain_c_arena_race(void) { RUN(arena_race); }
+void test_plain_c_arena_race(void)
+{
+	/* prog_tests/arena_race.c: the target of fentry */
+	if (libbpf_find_vmlinux_btf_id("zap_vma_range", BPF_TRACE_FENTRY) <= 0) {
+		test__skip();
+		return;
+	}
+	RUN(arena_race);
+}
+
 void test_plain_c_arena_strsearch(void) { RUN(arena_strsearch); }
 
 void test_plain_c_bpf_ma_ttrace(void)
