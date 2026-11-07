@@ -1822,6 +1822,7 @@ int bpf_copy_verifier_state(struct bpf_verifier_state *dst_state,
 	dst_state->in_sleepable = src->in_sleepable;
 	dst_state->callers_unknown = src->callers_unknown;
 	dst_state->unwound = src->unwound;
+	dst_state->changed_pkt_data = src->changed_pkt_data;
 	dst_state->flow_entry = src->flow_entry;
 	dst_state->insn_idx = src->insn_idx;
 	dst_state->curframe = src->curframe;
@@ -11301,6 +11302,8 @@ static void clear_all_pkt_pointers(struct bpf_verifier_env *env)
 			mark_reg_invalid(env, reg);
 		}
 	}));
+	if (env->cur_state->flow_entry)
+		env->cur_state->changed_pkt_data = true;
 }
 
 static bool holds_pkt_pointers(struct bpf_verifier_env *env)
@@ -11849,6 +11852,185 @@ static void account_current_path(struct bpf_verifier_env *env);
  * BPF_INHERITED_ID + the position for the function, and put back at the return.
  */
 
+/* 0 if it is not held */
+static u32 inherited_id(const struct bpf_verifier_state *state, u32 id)
+{
+	int i;
+
+	/* the first one: a lock in an object that the caller owns has the id of the reference */
+	for (i = 0; id && i < state->acquired_refs; i++)
+		if (state->refs[i].id == id)
+			return BPF_INHERITED_ID + i;
+	return 0;
+}
+
+/* What func_is_on_its_own() asks of an argument, be it in a register or on the stack */
+static bool arg_needs_caller(struct bpf_verifier_env *env, const struct bpf_verifier_state *state,
+			     const struct bpf_subprog_info *sub, const struct bpf_reg_state *reg)
+{
+	/* the id of a __ref argument is kept in ctx_arg_info[], see __check_ctx_access() */
+	if (reg->type == PTR_TO_CTX && state->acquired_refs &&
+	    env->prog->type == BPF_PROG_TYPE_STRUCT_OPS)
+		return true;
+	/* only the ids of what is held have names */
+	if (reg->type != SCALAR_VALUE &&
+	    ((reg->id && !inherited_id(state, reg->id)) ||
+	     (reg->parent_id && !inherited_id(state, reg->parent_id)) ||
+	     (reg->map_uid && !inherited_id(state, reg->map_uid))))
+		return true;
+	/*
+	 * Pointers to the packet that share an id have ranges of the same size, see
+	 * find_good_pkt_pointers(). What comes out of the function has the range of all calls.
+	 */
+	if (reg_is_pkt_pointer(reg) && reg->id)
+		return true;
+	/* it checks how much of the packet is there, for the caller */
+	if ((reg->type == PTR_TO_PACKET_END ||
+	     (reg->type == PTR_TO_PACKET && sub->loads_pkt_end)) && !sub->recursive)
+		return true;
+	/* or whether there is something to point to */
+	return type_may_be_null(reg->type) && !sub->recursive;
+}
+
+static bool func_is_on_its_own(struct bpf_verifier_env *env, struct bpf_verifier_state *state,
+			       int subprog)
+{
+	struct bpf_func_state *caller = state->frame[state->curframe];
+	struct bpf_subprog_info *sub = &env->subprog_info[subprog];
+	u16 live = env->insn_aux_data[sub->start].live_regs_before;
+	u32 i;
+
+	if (sub->changes_pkt_data || sub->has_tail_call || sub->has_ld_abs ||
+	    sub->is_cb || sub->is_async_cb || sub->is_exception_cb)
+		return false;
+	if (state->speculative)
+		return false;
+	if (sub->releases_inherited &&
+	    (state->acquired_refs || state->active_rcu_locks || state->active_preempt_locks))
+		return false;
+	/* what must not be done in that callback is refused by looking at the frames */
+	if (in_rbtree_lock_required_cb(env))
+		return false;
+	/* there are that many names for what is held, and bpf_flow_return() has room for them */
+	if (state->acquired_refs > BPF_ID_MAP_SIZE / 2)
+		return false;
+	for (i = BPF_REG_1; i <= BPF_REG_5; i++) {
+		if (!(live & BIT(i)))
+			continue;
+		if (caller->regs[i].type == PTR_TO_STACK ||
+		    base_type(caller->regs[i].type) == CONST_PTR_TO_DYNPTR)
+			return false;
+		if (arg_needs_caller(env, state, sub, &caller->regs[i]))
+			return false;
+	}
+	for (i = 0; i < bpf_in_stack_arg_cnt(sub); i++) {
+		if (caller->stack_arg_regs[i].type == PTR_TO_STACK ||
+		    base_type(caller->stack_arg_regs[i].type) == CONST_PTR_TO_DYNPTR)
+			return false;
+		if (arg_needs_caller(env, state, sub, &caller->stack_arg_regs[i]))
+			return false;
+	}
+	return true;
+}
+
+static int call_func_on_its_own(struct bpf_verifier_env *env, int subprog, int insn_idx)
+{
+	u16 live = env->insn_aux_data[env->subprog_info[subprog].start].live_regs_before;
+	struct bpf_verifier_state *state = env->cur_state;
+	struct bpf_func_state *caller = state->frame[state->curframe], *callee;
+	struct bpf_verifier_state entry = {};
+	int i, err;
+
+	callee = kzalloc_obj(*callee, GFP_KERNEL_ACCOUNT);
+	if (!callee)
+		return -ENOMEM;
+	entry.frame[0] = callee;
+	entry.in_sleepable = state->in_sleepable;
+	entry.callers_unknown = state->callers_unknown;
+	init_func_state(env, callee, BPF_MAIN_FUNC, 0, subprog);
+	/* the frame that says so is not there when the function is verified */
+	callee->in_rcu_callback_fn = in_rcu_callback(env);
+	for (i = BPF_REG_1; i <= BPF_REG_5; i++)
+		if (live & BIT(i))
+			callee->regs[i] = caller->regs[i];
+	err = grow_stack_arg_slots(env, callee, bpf_in_stack_arg_cnt(&env->subprog_info[subprog]));
+	if (err) {
+		bpf_free_verifier_state(&entry, false);
+		return err;
+	}
+	for (i = 0; i < callee->out_stack_arg_cnt; i++)
+		callee->stack_arg_regs[i] = caller->stack_arg_regs[i];
+
+	err = copy_reference_state(&entry, state);
+	if (err) {
+		bpf_free_verifier_state(&entry, false);
+		return err;
+	}
+	for (i = 0; i < entry.acquired_refs; i++) {
+		/* the id of a lock is the id of the pointer to it, which may have none */
+		entry.refs[i].id = inherited_id(state, entry.refs[i].id);
+		if (entry.refs[i].type == REF_TYPE_PTR)
+			entry.refs[i].parent_id = inherited_id(state, entry.refs[i].parent_id);
+	}
+	entry.active_irq_id = inherited_id(state, entry.active_irq_id);
+	entry.active_lock_id = inherited_id(state, entry.active_lock_id);
+	callee->entry_refs = entry.acquired_refs;
+	callee->entry_rcu_locks = entry.active_rcu_locks;
+	callee->entry_preempt_locks = entry.active_preempt_locks;
+	for (i = BPF_REG_1; i <= BPF_REG_5; i++) {
+		/* what a scalar is linked to stays with the caller, so does the delta to it */
+		if (callee->regs[i].type == SCALAR_VALUE)
+			clear_scalar_id(&callee->regs[i]);
+		callee->regs[i].id = inherited_id(state, callee->regs[i].id);
+		callee->regs[i].parent_id = inherited_id(state, callee->regs[i].parent_id);
+		callee->regs[i].map_uid = inherited_id(state, callee->regs[i].map_uid);
+	}
+	for (i = 0; i < callee->out_stack_arg_cnt; i++) {
+		if (callee->stack_arg_regs[i].type == SCALAR_VALUE)
+			clear_scalar_id(&callee->stack_arg_regs[i]);
+		callee->stack_arg_regs[i].id = inherited_id(state, callee->stack_arg_regs[i].id);
+		callee->stack_arg_regs[i].parent_id =
+			inherited_id(state, callee->stack_arg_regs[i].parent_id);
+		callee->stack_arg_regs[i].map_uid =
+			inherited_id(state, callee->stack_arg_regs[i].map_uid);
+	}
+
+	account_current_path(env);
+	env->subprog_info[subprog].on_its_own = true;
+	err = bpf_flow_call(env, state, &entry, subprog, insn_idx);
+	bpf_free_verifier_state(&entry, false);
+	/* the call waits, there is nothing to go on with */
+	return err ?: PROCESS_BPF_EXIT;
+}
+
+/* The current state is at exit of a function that is verified on its own. */
+static int exit_func_on_its_own(struct bpf_verifier_env *env)
+{
+	struct bpf_verifier_state *state = env->cur_state;
+	struct bpf_func_state *callee = state->frame[0];
+	u32 i, nregs;
+	int err;
+
+	nregs = bpf_ret_reg_pair(env, callee->subprogno) ? 2 : 1;
+	for (i = 0; i < nregs; i++) {
+		if (callee->regs[ret_regs[i]].type != PTR_TO_STACK)
+			continue;
+		verbose(env, "cannot return stack pointer to the caller\n");
+		return -EINVAL;
+	}
+	state->unwound |= bpf_is_unwind_exit(&env->prog->insnsi[env->insn_idx]);
+
+	/* Invalidate callee-local dynptrs and their slices before the frame goes away. */
+	err = destroy_dynptrs_in_stack_slots(env, callee, 0,
+					     callee->allocated_stack / BPF_REG_SIZE - 1);
+	if (err)
+		return err;
+
+	account_current_path(env);
+	err = bpf_flow_exit(env, state, env->insn_idx);
+	return err ?: PROCESS_BPF_EXIT;
+}
+
 static u32 fresh_id(struct bpf_verifier_env *env, struct bpf_idmap *idmap, u32 id)
 {
 	u32 flags = id & BPF_ADD_CONST, i;
@@ -12011,6 +12193,9 @@ static int check_static_func_call(struct bpf_verifier_env *env, int subprog,
 					bpf_subprog_name(env, subprog), NULL, NULL);
 	if (err)
 		return err;
+
+	if (func_is_on_its_own(env, state, subprog))
+		return call_func_on_its_own(env, subprog, *insn_idx);
 
 	/*
 	 * For regular function entry setup new frame and continue
@@ -20957,6 +21142,9 @@ static int process_bpf_exit_full(struct bpf_verifier_env *env,
 {
 	struct bpf_func_state *cur_frame = cur_func(env);
 
+	if (!exception_exit && !env->cur_state->curframe && env->cur_state->flow_entry)
+		return exit_func_on_its_own(env);
+
 	/* We must do check_reference_leak here before
 	 * prepare_func_exit to handle the case when
 	 * state->curframe > 0, it may be a callback function,
@@ -21936,6 +22124,12 @@ static int do_check_block(struct bpf_verifier_env *env, int prev_insn_idx)
 
 		if (need_resched())
 			cond_resched();
+
+		/* no insn makes as many ids as there are from here to BPF_INHERITED_ID */
+		if (env->id_gen >= BPF_MAX_ID) {
+			verbose(env, "too many ids\n");
+			return -E2BIG;
+		}
 
 		env->prev_insn_idx = prev_insn_idx;
 		if (env->insn_idx >= insn_cnt) {
@@ -23530,6 +23724,37 @@ static int do_check_all(struct bpf_verifier_env *env)
 			sub_aux->called_with_pkt_ptrs = false;
 		}
 	}
+}
+
+/*
+ * What it took to verify a static subprog on its own is not in insns_total of its callers.
+ * Add it, once per caller. The main prog and global subprogs have all of it already.
+ */
+static void add_insns_of_callees(struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn *insn = env->prog->insnsi;
+	int *added, i, j, s, c;
+
+	added = kvcalloc(env->subprog_cnt, sizeof(*added), GFP_KERNEL_ACCOUNT);
+	if (!added)
+		return;
+	/* callees first */
+	for (i = 0; i < env->subprog_cnt; i++) {
+		s = env->subprog_topo_order[i];
+		if (!s || bpf_subprog_is_global(env, s))
+			continue;
+		for (j = si[s].start; j < si[s + 1].start; j++) {
+			if (!bpf_pseudo_call(&insn[j]))
+				continue;
+			c = bpf_find_subprog(env, j + insn[j].imm + 1);
+			if (c <= 0 || c == s || !si[c].on_its_own || added[c] == s)
+				continue;
+			added[c] = s;
+			si[s].insns_total += si[c].insns_total;
+		}
+	}
+	kvfree(added);
 }
 
 static void print_verification_stats(struct bpf_verifier_env *env)
@@ -25603,10 +25828,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 		goto skip_full_check;
 
 	ret = do_check_all(env);
-
 	/* reject recursion through the callx edges found by the main pass */
 	if (ret == 0 && env->callx_edges)
 		ret = sort_subprogs_topo(env);
+	/* while the calls are what they are in the program */
+	if (env->log.level & BPF_LOG_STATS)
+		add_insns_of_callees(env);
 
 	/* the driver numbers the insns like the program that it was given */
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))

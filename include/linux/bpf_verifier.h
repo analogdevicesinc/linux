@@ -1213,6 +1213,9 @@ struct bpf_id_pair {
  *   check_ids() and jid_note() do not rename it. So two calls share a state at the entry, and what
  *   comes out for it, only if the same places have the same names.
  * - bpf_flow_return() puts the ids of the call that waits back. All other ids get new values.
+ * - What comes out has the ranges of all calls that share the state at the entry. So a name is good
+ *   for what holds whatever the ranges are: the same object. Other ids have no name: a number
+ *   loses its id, any other argument keeps the frames of the caller, see arg_needs_caller().
  * - env->id_gen stays below BPF_MAX_ID. So no id is a name or has a bit of BPF_ADD_CONST.
  */
 #define BPF_INHERITED_ID	0x20000000
