@@ -412,8 +412,6 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 {
 	struct gpio_button_data *bdata = dev_id;
 
-	BUG_ON(irq != bdata->irq);
-
 	if (bdata->button->wakeup) {
 		const struct gpio_keys_button *button = bdata->button;
 
@@ -464,8 +462,6 @@ static irqreturn_t gpio_keys_irq_isr(int irq, void *dev_id)
 {
 	struct gpio_button_data *bdata = dev_id;
 	struct input_dev *input = bdata->input;
-
-	BUG_ON(irq != bdata->irq);
 
 	guard(spinlock_irqsave)(&bdata->lock);
 
