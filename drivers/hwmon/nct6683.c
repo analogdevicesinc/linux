@@ -502,20 +502,10 @@ nct6683_create_attr_group(struct device *dev,
 	return group;
 }
 
-/* LSB is 16 mV, except for the following sources, where it is 32 mV */
-#define MON_SRC_VCC	0x60
-#define MON_SRC_VSB	0x61
-#define MON_SRC_AVSB	0x62
-#define MON_SRC_VBAT	0x64
-
-static inline long in_from_reg(u16 reg, u8 src)
+/* LSB is 16 mV */
+static inline long in_from_reg(u8 reg)
 {
-	int scale = 16;
-
-	if (src == MON_SRC_VCC || src == MON_SRC_VSB || src == MON_SRC_AVSB ||
-	    src == MON_SRC_VBAT)
-		scale <<= 1;
-	return reg * scale;
+	return reg * 16;
 }
 
 static u16 nct6683_read(struct nct6683_data *data, u16 reg)
@@ -700,7 +690,7 @@ show_in_reg(struct device *dev, struct device_attribute *attr, char *buf)
 	int nr = sattr->nr;
 
 	return sprintf(buf, "%ld\n",
-		       in_from_reg(data->in[index][nr], data->in_index[index]));
+		       in_from_reg(data->in[index][nr]));
 }
 
 static umode_t nct6683_in_is_visible(struct kobject *kobj,
