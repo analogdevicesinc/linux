@@ -9215,6 +9215,13 @@ static bool arg_type_is_mem_size(enum bpf_arg_type type)
 	return type == ARG_MEM_SIZE || type == ARG_MEM_SIZE_OR_ZERO;
 }
 
+/* A number that check_func_arg() takes only when it is a known constant */
+static bool arg_type_is_const(enum bpf_arg_type type)
+{
+	return type == ARG_CONST_SCALAR || type == ARG_CONST_MEM_SIZE ||
+	       type == ARG_CONST_ALLOC_SIZE_OR_ZERO;
+}
+
 static bool arg_type_is_raw_mem(enum bpf_arg_type type)
 {
 	/*
@@ -15377,6 +15384,61 @@ out:
 		info.must_write = false;
 	}
 	return info;
+}
+
+/* insn_aux_data->is_iter_next is not there before the main pass */
+bool bpf_insn_is_iter_next(struct bpf_verifier_env *env, struct bpf_insn *insn)
+{
+	struct bpf_call_arg_meta meta;
+
+	return bpf_pseudo_kfunc_call(insn) &&
+	       !bpf_fetch_kfunc_arg_meta(env, insn->imm, insn->off, &meta) &&
+	       bpf_is_iter_next_kfunc(&meta);
+}
+
+/*
+ * check_func_arg() goes by the types of the arguments in the proto of a helper or a kfunc.
+ * So does what has to be known ahead of the call: the registers with arguments of a kind.
+ */
+static u16 call_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn,
+			 bool (*is)(enum bpf_arg_type type))
+{
+	const struct btf_func_model *fm = NULL;
+	const struct bpf_func_proto *fn;
+	struct bpf_kfunc_desc *desc;
+	u32 i, slot = 0;
+	u16 mask = 0;
+
+	if (bpf_pseudo_kfunc_call(insn)) {
+		desc = find_kfunc_desc(env->prog, insn->imm, insn->off);
+		if (!desc)
+			return 0;
+		fn = &desc->proto;
+		fm = &desc->func_model;
+	} else if (bpf_get_helper_proto(env, insn->imm, &fn) < 0) {
+		return 0;
+	}
+	for (i = 0; i < ARRAY_SIZE(fn->arg_type) && fn->arg_type[i] != ARG_UNUSED &&
+		    slot < MAX_BPF_FUNC_REG_ARGS; i++) {
+		if (is(fn->arg_type[i]))
+			mask |= BIT(BPF_REG_1 + slot);
+		slot += fm ? btf_func_model_arg_slots(fm, i) : 1;
+	}
+	return mask;
+}
+
+/* The registers in which the helper or the kfunc takes nothing but a known constant */
+u16 bpf_call_const_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+{
+	return call_arg_regs(env, insn, arg_type_is_const);
+}
+
+/* The registers in which it takes a number that has to be in a range */
+u16 bpf_call_checked_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn)
+{
+	if (bpf_helper_call(insn) && insn->imm == BPF_FUNC_set_retval)
+		return BIT(BPF_REG_1);
+	return call_arg_regs(env, insn, arg_type_is_mem_size);
 }
 
 /*
