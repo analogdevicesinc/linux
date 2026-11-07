@@ -637,8 +637,6 @@ static void print_reg_state(struct bpf_verifier_env *env,
 	const char *sep = "";
 
 	t = reg->type;
-	if (t == SCALAR_VALUE && reg->precise)
-		verbose(env, "P");
 	if (t == SCALAR_VALUE && tnum_is_const(reg->var_off)) {
 		bpf_verbose_snum(env, reg->var_off.value);
 		return;

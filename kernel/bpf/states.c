@@ -5,8 +5,6 @@
 #include <linux/cnum.h>
 #include <linux/filter.h>
 
-#define verbose(env, fmt, args...) bpf_verifier_log_write(env, fmt, ##args)
-
 /* check %cur's range satisfies %old's */
 static bool range_within(const struct bpf_reg_state *old,
 			 const struct bpf_reg_state *cur)
@@ -182,10 +180,7 @@ static void __clean_func_state(struct bpf_verifier_env *env,
 				if (lo_live && stype == STACK_SPILL) {
 					if (spill->type != SCALAR_VALUE)
 						continue;
-					/*
-					 * Can't replace with STACK_ZERO, because
-					 * that requires bpf_mark_chain_precision().
-					 */
+					/* keep what is known about the low half */
 					if (bpf_register_is_null(spill))
 						continue;
 					for (j = 0; j < 4; j++) {
@@ -281,8 +276,6 @@ static bool regsafe(struct bpf_verifier_env *env, struct bpf_reg_state *rold,
 			return memcmp(rold, rcur, offsetof(struct bpf_reg_state, id)) == 0 &&
 			       check_scalar_ids(rold->id, rcur->id, idmap);
 		}
-		if (!rold->precise && exact == NOT_EXACT)
-			return true;
 		/*
 		 * Linked register tracking uses rold->id to detect relationships.
 		 * When rold->id == 0, the register is independent and any linking
@@ -394,7 +387,7 @@ static struct bpf_reg_state unbound_reg;
 
 static __init int unbound_reg_init(void)
 {
-	bpf_mark_reg_unknown_imprecise(&unbound_reg);
+	bpf_mark_reg_unknown(&unbound_reg);
 	return 0;
 }
 late_initcall(unbound_reg_init);

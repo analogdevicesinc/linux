@@ -1912,7 +1912,7 @@ int bpf_init_scev(struct bpf_verifier_env *env)
 		return -ENOMEM;
 	env->scev = scev;
 	bpf_mark_reg_known_scalar(&scev->zero_reg, 0);
-	bpf_mark_reg_unknown_imprecise(&scev->unknown_reg);
+	bpf_mark_reg_unknown(&scev->unknown_reg);
 	/* A power of two for hash & (exprs_ht_cnt - 1)` indexing. */
 	scev->exprs_ht_cnt = roundup_pow_of_two(max(256U, DIV_ROUND_UP(env->prog->len, 4)));
 	scev->exprs_ht = kvcalloc(scev->exprs_ht_cnt, sizeof(*scev->exprs_ht), GFP_KERNEL_ACCOUNT);
@@ -3256,30 +3256,6 @@ static void iv_bounds(struct bounds *bounds, struct cnum64 iv_range)
 		bounds->r64 = r64;
 }
 
-static int mark_expr_precise(struct bpf_verifier_env *env, struct bpf_func_state *st, u32 id,
-			     unsigned long *precise_regs)
-{
-	struct scev *scev = env->scev;
-	struct bpf_reg_state *reg;
-	u32 r, order;
-
-	scev->stack_sz = 0;
-	expr_stack_push(scev, id);
-	while (expr_next(scev, &id, &order)) {
-		if (order & DEPTH_LIMIT) {
-			verifier_bug(env, "scev precision marking exceeds expression depth limit");
-			return -EFAULT;
-		}
-		if (!(order & PRE) || !is_reg(scev, id, &r))
-			continue;
-		/* Synthetic values have no spilled register to mark precise. */
-		reg = scev_reg_for_linear(st, r) ?: scev_reg_for_spill32(st, r);
-		if (reg && reg->type == SCALAR_VALUE)
-			__set_bit(r, precise_regs);
-	}
-	return 0;
-}
-
 /*
  * Does @id have no bit that register @r doesn't have at the head of the loop? 'x & e' and the
  * low bits of x lose bits only. 'x >> e', 'x / e' and 'x % e' are not greater than x as well, but
@@ -3434,16 +3410,10 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	 * which iterations it can be taken. The loop ends, at the latest, in an iteration
 	 * in which no back edge can be taken.
 	 */
-	bitmap_zero(iters->precise_regs, REGS_NUM);
 	for (i = 0; i < loop->backedges_cnt; i++) {
 		err = count_backedge(env, cur_func, insn_idx, &loop->backedges[i],
 				     i ? &tmp : iters, &latch, &until);
 		if (err <= 0)
-			return err;
-		err = mark_expr_precise(env, cur_func, latch.base_expr, iters->precise_regs) ?:
-		      mark_expr_precise(env, cur_func, latch.step_expr, iters->precise_regs) ?:
-		      mark_expr_precise(env, cur_func, latch.bound_expr, iters->precise_regs);
-		if (err)
 			return err;
 		if (!i) {
 			false_until = until;
@@ -3693,16 +3663,6 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 	u32 r, r_expr, a, b;
 	int insn_idx = st->insn_idx;
 	int err;
-
-	for_each_set_bit(r, iters->precise_regs, REGS_NUM) {
-		if (r < MAX_BPF_REG)
-			bpf_bt_set_frame_reg(&env->bt, st->curframe, r);
-		else
-			bpf_bt_set_frame_slot(&env->bt, st->curframe, r - MAX_BPF_REG);
-	}
-	err = bpf_mark_chain_precision(env, st, -1, NULL);
-	if (err)
-		return err;
 
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
