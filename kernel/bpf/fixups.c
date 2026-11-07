@@ -587,6 +587,337 @@ static int bpf_adj_moved_insn(struct bpf_insn *insn, u32 delta)
 	return 0;
 }
 
+static bool jumps_to_itself(const struct bpf_insn *insn)
+{
+	u8 class = BPF_CLASS(insn->code), op = BPF_OP(insn->code);
+
+	return (class == BPF_JMP || class == BPF_JMP32) && op != BPF_CALL && op != BPF_EXIT &&
+	       insn->code != (BPF_JMP32 | BPF_JA) && insn->off == -1;
+}
+
+/* How a subprog leaves when it is out of budget, see push_budget_exit() */
+static struct bpf_insn budget_exit_insn(struct bpf_verifier_env *env, struct bpf_subprog_info *sub)
+{
+	if (!sub->bail_unwinds)
+		return BPF_EXIT_INSN();
+	sub->can_unwind = true;
+	env->prog->jit_required = 1;
+	return BPF_RAW_INSN(BPF_JMP | BPF_EXIT, 0, BPF_UNWIND_EXIT, 0, 0);
+}
+
+/*
+ * may_goto has 16 bits for the offset, and what is between it and its target is going
+ * to grow: may_goto itself becomes 10 insns, 14 when it has to save a register.
+ */
+#define BPF_GUARD_NEAR	2048
+
+static bool guard_leaves_subprog(const struct bpf_insn_aux_data *aux)
+{
+	return aux->loop_guard && !aux->guard_no_unwind;
+}
+
+/*
+ * 'r0 = 0; exit' behind the last insn of the subprog, for all its guards that are near.
+ * Returns the number of insns that are going to be added.
+ */
+static int append_budget_exit(struct bpf_verifier_env *env, int s)
+{
+	struct bpf_subprog_info *sub = &env->subprog_info[s];
+	int last = (sub + 1)->start - 1, n = 0, i;
+	struct bpf_insn buf[4], *insn;
+
+	for (i = max_t(int, sub->start, last + 1 - BPF_GUARD_NEAR); i <= last; i++)
+		if (guard_leaves_subprog(&env->insn_aux_data[i]))
+			break;
+	if (i > last)
+		return 0;
+
+	buf[n++] = env->prog->insnsi[last];
+	buf[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+	if (bpf_ret_reg_pair(env, s))
+		buf[n++] = BPF_MOV64_IMM(BPF_REG_2, 0);
+	buf[n++] = budget_exit_insn(env, sub);
+	insn = bpf_patch_list_add(env, last, buf, n);
+	return IS_ERR(insn) ? PTR_ERR(insn) : n - 1;
+}
+
+/*
+ * Add may_goto in front of the insns that the main pass marked, see
+ * check_loop_guard(). It verified the edge from the insn to where may_goto goes.
+ */
+int bpf_insert_loop_guards(struct bpf_verifier_env *env)
+{
+	struct bpf_insn_aux_data *aux = env->insn_aux_data;
+	int len = env->prog->len, i, r, s, to, n, jmp, err = 0;
+	struct bpf_insn *patch, *insn;
+	int *target, *leave, *moved;
+	bool indirect;
+	u16 *zero;
+	s64 off;
+
+	for (i = 0; i < len; i++)
+		if (aux[i].loop_guard)
+			break;
+	if (i == len)
+		return 0;
+
+	/*
+	 * Where the subprog has 'r0 = 0; exit', 0 if it has none. And how far that moved
+	 * the subprog: guard_to is from the time before.
+	 */
+	leave = kvcalloc(2 * env->subprog_cnt, sizeof(int), GFP_KERNEL_ACCOUNT);
+	if (!leave)
+		return -ENOMEM;
+	moved = leave + env->subprog_cnt;
+	for (s = 0; s < env->subprog_cnt && !err; s++) {
+		leave[s] = append_budget_exit(env, s);
+		if (leave[s] < 0)
+			err = leave[s];
+	}
+	/* A guard cannot jump into a patch that is in the list: 'r0 = 0' has no index yet. */
+	err = err ?: bpf_patch_list_commit(env);
+	if (err) {
+		kvfree(leave);
+		return err;
+	}
+	aux = env->insn_aux_data;
+	len = env->prog->len;
+	for (s = 0, n = 0; s < env->subprog_cnt; s++) {
+		moved[s] = n;
+		n += leave[s];
+		if (!leave[s])
+			continue;
+		i = env->subprog_info[s + 1].start;
+		leave[s] = i - leave[s];
+		/*
+		 * The list gives what is known about an insn to the last insn of its patch,
+		 * but for indirect_target. Here the original insn is the first one.
+		 */
+		indirect = aux[leave[s] - 1].indirect_target;
+		swap(aux[leave[s] - 1], aux[i - 1]);
+		aux[leave[s] - 1].indirect_target = indirect;
+		aux[i - 1].indirect_target = false;
+		/* the last insn may be dead code */
+		while (--i >= leave[s])
+			aux[i].seen = 1;
+	}
+
+	/* where the guard of the insn goes */
+	target = kvcalloc(len, sizeof(int), GFP_KERNEL_ACCOUNT);
+	zero = kvcalloc(len, sizeof(u16), GFP_KERNEL_ACCOUNT);
+	patch = kvcalloc(8, sizeof(*patch), GFP_KERNEL_ACCOUNT);
+	if (!target || !zero || !patch) {
+		err = -ENOMEM;
+		goto out;
+	}
+	for (i = 0; i < len; i++) {
+		s = bpf_find_containing_subprog(env, i) - env->subprog_info;
+		target[i] = aux[i].loop_guard ? aux[i].guard_to + moved[s] : -1;
+		if (guard_leaves_subprog(&aux[i])) {
+			/* see push_budget_exit() */
+			if (leave[s] && leave[s] - i <= BPF_GUARD_NEAR) {
+				target[i] = leave[s];
+			} else {
+				target[i] = -2;
+				zero[i] = BIT(BPF_REG_0);
+				if (bpf_ret_reg_pair(env, s))
+					zero[i] |= BIT(BPF_REG_2);
+			}
+		}
+	}
+
+	for (i = 0; i < len; i++) {
+		to = target[i];
+		if (to == -1)
+			continue;
+		/*
+		 *	may_goto to		or	may_goto +1
+		 *	insn				goto +N
+		 *					r0 = 0, ...
+		 *					exit
+		 *					insn
+		 */
+		n = 0;
+		if (zero[i]) {
+			patch[n++] = BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 1, 0);
+			patch[n++] = BPF_JMP_A(hweight16(zero[i]) + 1);
+			for (r = BPF_REG_0; r < BPF_REG_FP; r++)
+				if (zero[i] & BIT(r))
+					patch[n++] = BPF_MOV64_IMM(r, 0);
+		}
+		jmp = n++;
+		/* What is behind moves with this patch. The other patches are not there yet. */
+		if (to == -2)
+			off = 0;
+		else if (to > i)
+			off = to - i + n - jmp - 1;
+		else
+			off = to - (i + jmp) - 1;
+		if (off > S16_MAX || off < S16_MIN) {
+			verbose(env, "exit of the loop is too far from insn %d for may_goto\n", i);
+			err = -ERANGE;
+			break;
+		}
+		patch[jmp] = BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, off, 0);
+		if (to == -2)
+			patch[jmp] = budget_exit_insn(env, bpf_find_containing_subprog(env, i));
+		patch[n] = env->prog->insnsi[i];
+		/* A jump to itself is a back edge. It goes through may_goto like the others. */
+		if (jumps_to_itself(&patch[n]))
+			patch[n].off -= n;
+		else
+			err = bpf_adj_moved_insn(&patch[n], n);
+		if (err) {
+			verbose(env, "insn %d cannot be patched due to 16-bit range\n", i);
+			break;
+		}
+		n++;
+		insn = bpf_patch_list_add(env, i, patch, n);
+		if (IS_ERR(insn)) {
+			err = PTR_ERR(insn);
+			break;
+		}
+	}
+	err = err ?: bpf_patch_list_commit(env);
+	if (err)
+		goto out;
+	/*
+	 * bpf_do_misc_fixups() keeps the address of the count of may_goto in a register that is
+	 * dead at the may_goto. A new insn has no live_regs_before: all registers would be dead.
+	 * What is live in front of the insn is live in front of its guard. Nothing else is:
+	 *  - The guard of a jump goes where the jump goes.
+	 *  - What is live where the guard at the head of a loop goes is live at the head,
+	 *    see bpf_head_guard_target().
+	 *  - On the way out of the subprog R0, and R2 of a pair, are set to 0.
+	 */
+	aux = env->insn_aux_data;
+	for (i = 0, n = 0; i < len; i++) {
+		if (target[i] == -1)
+			continue;
+		r = zero[i] ? 3 + hweight16(zero[i]) : 1;
+		aux[i + n].live_regs_before = aux[i + n + r].live_regs_before;
+		n += r;
+	}
+out:
+	kvfree(leave);
+	kvfree(target);
+	kvfree(zero);
+	kvfree(patch);
+	return err;
+}
+
+/*
+ * if (r10 is in the upper half of the kernel stack) goto +@off
+ *
+ * r10 of a subprog without a private stack is an address in the kernel stack that it runs on.
+ * arm64: the stacks of tasks, of interrupts and of SDEI events have THREAD_SIZE bytes and are
+ * aligned to twice that size. One bit of an address tells the half.
+ * x86-64: the stack for interrupts is aligned to a page only. But the cpu has the top of the stack
+ * of the task and the top of its stack for interrupts. In any other stack (NMI, #DB, #MC, #DF,
+ * #VC) the check fails: they have half of the size.
+ * R0 has nothing at the entry of a subprog.
+ */
+static int emit_stack_check(struct bpf_insn *buf, int off)
+{
+	int n = 0;
+
+#if defined(CONFIG_X86_64) && !defined(CONFIG_UML)
+	const void __percpu *top[] = { &cpu_current_top_of_stack, &hardirq_stack_ptr };
+	int i;
+
+	static_assert(IRQ_STACK_SIZE == THREAD_SIZE);
+	for (i = 0; i < 2; i++) {
+		buf[n++] = BPF_MOV64_IMM(BPF_REG_0, (u32)(__force unsigned long)top[i]);
+		buf[n++] = BPF_MOV64_PERCPU_REG(BPF_REG_0, BPF_REG_0);
+		buf[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_0, 0);
+		buf[n++] = BPF_ALU64_REG(BPF_SUB, BPF_REG_0, BPF_REG_10);
+		buf[n++] = BPF_JMP_IMM(BPF_JLT, BPF_REG_0, THREAD_SIZE / 2, i ? off : off + 5);
+	}
+#else
+	buf[n++] = BPF_JMP_IMM(BPF_JSET, BPF_REG_10, THREAD_SIZE / 2, off);
+#endif
+	return n;
+}
+
+/*
+ * How deep a recursion goes is not known, so it is limited at run time. In the same
+ * spirit as may_goto: the program goes on for as long as there is room and takes a way
+ * out that was verified when there is none.
+ *
+ * Every subprog on a cycle of the call graph begins with:
+ *
+ *	may_goto bail;
+ *	if (r10 is in the upper half of the kernel stack) goto body;
+ *	bpf_prog_report_recursion();
+ * bail:
+ *	r0 = 0;
+ *	exit;
+ * body:
+ *
+ * It is the stack as it is: whatever is there is counted, be it the callers of the prog in the
+ * kernel, another prog, a trampoline or a helper that calls a callback. An invocation in
+ * another stack has nothing to do with it.
+ *
+ * The lower half is for what is below r10: the frame of the subprog, then what it calls.
+ * That is the next recursive subprog, which doesn't get past its check, or a chain of calls that
+ * check_max_stack_depth() looked at together with that frame.
+ *
+ * A subprog that calls itself twice doesn't have to go deep to go on forever: hence may_goto.
+ * Once the time slice of the invocation is over every call returns at once, and the frames
+ * that are there come to an end.
+ */
+int bpf_insert_recursion_checks(struct bpf_verifier_env *env)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	struct bpf_insn buf[24], nop = BPF_JMP_A(0), *insn;
+	bool found = false;
+	int s, n, jmp, err;
+
+	for (s = 1; s < env->subprog_cnt; s++)
+		found |= si[s].recursive;
+	if (!found)
+		return 0;
+	env->prog->jit_required = 1;
+
+	for (s = 1; s < env->subprog_cnt; s++) {
+		if (!si[s].recursive)
+			continue;
+		n = 0;
+		/* The exit drops the frame in the stack in arena. Take it before the check. */
+		if (is_arena_sp_adj(&env->prog->insnsi[si[s].start])) {
+			buf[n++] = env->prog->insnsi[si[s].start];
+			/* one insn for one: done at once, the list copies the nop */
+			insn = bpf_patch_list_add(env, si[s].start, &nop, 1);
+			if (IS_ERR(insn))
+				return PTR_ERR(insn);
+		}
+		jmp = n++;
+		n += emit_stack_check(buf + n, bpf_ret_reg_pair(env, s) ? 4 : 3);
+		/* The arguments are not needed any more */
+		buf[n++] = BPF_EMIT_KERNEL_CALL(bpf_prog_report_recursion);
+		buf[jmp] = BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, n - jmp - 1, 0);
+		buf[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+		if (bpf_ret_reg_pair(env, s))
+			buf[n++] = BPF_MOV64_IMM(BPF_REG_2, 0);
+		buf[n++] = budget_exit_insn(env, &si[s]);
+		/* calls get to the check, jumps to the first insn do not */
+		err = bpf_patch_list_insert(env, si[s].start, buf, n);
+		if (err)
+			return err;
+	}
+	err = bpf_patch_list_commit(env);
+	if (err)
+		return err;
+	/* may_goto keeps the address of its count in a register that is dead: R0 */
+	for (s = 1; s < env->subprog_cnt; s++) {
+		if (!si[s].recursive)
+			continue;
+		n = si[s].start + is_arena_sp_adj(&env->prog->insnsi[si[s].start]);
+		env->insn_aux_data[n].live_regs_before = (u16)~BIT(BPF_REG_0);
+	}
+	return 0;
+}
+
 /* Clean up dynamically allocated fields of aux data for instructions [start, ...] */
 void bpf_clear_insn_aux_data(struct bpf_verifier_env *env, int start, int len)
 {
@@ -597,6 +928,7 @@ void bpf_clear_insn_aux_data(struct bpf_verifier_env *env, int start, int len)
 	for (i = start; i < end; i++) {
 		if (aux_data[i].loop) {
 			kvfree(aux_data[i].loop->exits);
+			kvfree(aux_data[i].loop->rungs);
 			kvfree(aux_data[i].loop);
 			aux_data[i].loop = NULL;
 		}
@@ -1659,6 +1991,7 @@ static int jit_subprogs(struct bpf_verifier_env *env)
 		func[i]->aux->changes_pkt_data = env->subprog_info[i].changes_pkt_data;
 		func[i]->aux->might_sleep = env->subprog_info[i].might_sleep;
 		func[i]->aux->can_unwind = env->subprog_info[i].can_unwind;
+		func[i]->aux->in_recursion = env->subprog_info[i].in_recursion;
 		func[i]->aux->token = prog->aux->token;
 		if (!i)
 			func[i]->aux->exception_boundary = env->seen_exception;

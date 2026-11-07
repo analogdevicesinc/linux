@@ -205,6 +205,131 @@ int global_func3_32_frames(struct __sk_buff *skb)
 	return f31(skb);
 }
 
+volatile int again;
+
+static __attribute__ ((noinline))
+int calls_itself(struct __sk_buff *skb)
+{
+	if (again)
+		return (calls_itself(skb) >> 1) ^ 1;
+	return f16(skb);
+}
+
+#define FRAME(name, next)			\
+static __attribute__ ((noinline))		\
+int name(struct __sk_buff *skb)			\
+{						\
+	return next(skb);			\
+}
+
+FRAME(g1, calls_itself)
+FRAME(g2, g1)
+FRAME(g3, g2)
+FRAME(g4, g3)
+FRAME(g5, g4)
+FRAME(g6, g5)
+FRAME(g7, g6)
+FRAME(g8, g7)
+FRAME(g9, g8)
+FRAME(g10, g9)
+FRAME(g11, g10)
+FRAME(g12, g11)
+FRAME(g13, g12)
+FRAME(g14, g13)
+FRAME(g15, g14)
+FRAME(g16, g15)
+
+/*
+ * 16 frames above the subprog that calls itself and 16 below it. The call of it
+ * with nothing above it comes first.
+ */
+SEC("tc")
+__arch_x86_64
+__arch_arm64
+__failure __msg("the call stack of {{[0-9]+}} frames is too deep")
+int global_func3_frames_around_recursion(struct __sk_buff *skb)
+{
+	return calls_itself(skb) + g16(skb);
+}
+
+static __attribute__ ((noinline))
+int depth(int n)
+{
+	return n > 0 ? (depth(n - 1) + 1) & 255 : 0;
+}
+
+SEC("kprobe")
+__arch_x86_64
+__arch_arm64
+__failure __msg("recursive depth() in a tracing program")
+int global_func3_recursion_in_tracing_prog(void *ctx)
+{
+	return depth(again + 7);
+}
+
+__attribute__ ((noinline))
+int redirects(struct __sk_buff *skb, int n)
+{
+	int ret = n > 0 ? redirects(skb, n - 1) : 0;
+
+	return ret + bpf_clone_redirect(skb, 1, 0);
+}
+
+/* The prog would run again on top of the frames of its recursion */
+SEC("tc")
+__arch_x86_64
+__arch_arm64
+__failure __msg("recursive redirects() in a program that calls bpf_clone_redirect()")
+int global_func3_recursion_redirects(struct __sk_buff *skb)
+{
+	return redirects(skb, again + 7);
+}
+
+static __attribute__ ((noinline))
+int depth_to(int n, long *out)
+{
+	*out = depth(n);
+	return 0;
+}
+
+/* The pointer to the stack is left over in r2 at the call of depth(), which doesn't read r2 */
+SEC("tc")
+__arch_x86_64
+__arch_arm64
+__success __retval(7)
+int global_func3_recursion_stale_stack_pointer(struct __sk_buff *skb)
+{
+	long x = 0;
+
+	depth_to(again + 7, &x);
+	return x;
+}
+
+/* It writes to the stack of its caller, or a compiler hands down the value and no pointer */
+static __attribute__ ((noinline))
+long hands_down_its_stack(long *up, int n)
+{
+	long mine = n;
+
+	*up += 1;
+	if (n <= 0)
+		return mine;
+	return hands_down_its_stack(&mine, n - 1) + mine;
+}
+
+/* What a subprog does with the stack of its callers is not found for chains without an end */
+SEC("tc")
+__arch_x86_64
+__arch_arm64
+__failure
+__msg("recursive hands_down_its_stack() passes a pointer to the stack to hands_down_its_stack()")
+int global_func3_recursion_stack_pointer(struct __sk_buff *skb)
+{
+	long x = skb->len;
+
+	return hands_down_its_stack(&x, skb->mark & 7);
+}
+
 #define PTR_FRAME(name, next)			\
 static __attribute__ ((noinline))		\
 long name(long *p)				\

@@ -3956,6 +3956,25 @@ static noinline void bpf_prog_report_may_goto_violation(void)
 #endif
 }
 
+/* Called by a recursive subprog that finds no room, see bpf_insert_recursion_checks() */
+u64 bpf_prog_report_recursion(void)
+{
+#ifdef CONFIG_BPF_SYSCALL
+	struct bpf_stream_stage ss;
+	struct bpf_prog *prog;
+
+	prog = bpf_prog_find_from_stack();
+	/* The calls that follow get here too. One report is enough until user space reads it. */
+	if (!prog || atomic_read(&prog->aux->stream[BPF_STDERR - 1]->capacity))
+		return 0;
+	bpf_stream_stage(ss, prog, BPF_STDERR, ({
+		bpf_stream_printk(ss, "ERROR: No room in the stack for a call of a recursive function\n");
+		bpf_stream_dump_stack(ss);
+	}));
+#endif
+	return 0;
+}
+
 u64 bpf_check_timed_may_goto(struct bpf_timed_may_goto *p)
 {
 	u64 time = ktime_get_mono_fast_ns();

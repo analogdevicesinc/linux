@@ -36,8 +36,8 @@ In both cases only static functions can be referenced. Therefore all functions
 that can be called indirectly are known to the verifier before it starts to
 analyze the program, and ``callx`` is verified as a direct call of every
 function that ``dst`` may point to at that instruction. The same rules apply:
-the calls can not be recursive, and the depth of the call chain and its
-combined stack size are limited.
+the depth of the call chain and its combined stack size are limited, and
+recursive calls are limited at run time.
 
 Calling helper or kernel functions through a register, indirect calls of global
 functions, and tail calls in functions that are called via ``callx`` are not

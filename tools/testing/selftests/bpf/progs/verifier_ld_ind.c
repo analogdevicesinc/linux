@@ -291,8 +291,8 @@ int ld_ind_global_subprog_ok(struct __sk_buff *skb)
 }
 
 /*
- * ld_{abs,ind} in subprogs require scalar (int) return type in BTF.
- * A test with void return must be rejected.
+ * ld_{abs,ind} in subprogs require scalar (int) or void return type in BTF.
+ * The failure return is modeled for a void subprog too.
  */
 __naked __noinline __used
 static void ldabs_void_subprog(void)
@@ -308,12 +308,27 @@ static void ldabs_void_subprog(void)
 }
 
 SEC("socket")
-__description("ld_abs: reject void return subprog")
-__failure __msg("LD_ABS is only allowed in functions that return 'int'")
-__naked void ld_abs_void_subprog_reject(void)
+__description("ld_abs: void return subprog")
+__success
+__naked void ld_abs_void_subprog(void)
 {
 	asm volatile (
 	"call ldabs_void_subprog;"
+	"r0 = 0;"
+	"exit;"
+	::: __clobber_all);
+}
+
+SEC("socket")
+__description("ld_abs: void return subprog, early exit on ld_abs failure")
+__failure __msg("R9 !read_ok")
+__naked void ld_abs_void_subprog_early_exit(void)
+{
+	asm volatile (
+	"call ldabs_void_subprog;"
+	"if r0 != 0 goto l_exit_%=;"
+	"r0 = r9;"
+	"l_exit_%=:"
 	"r0 = 0;"
 	"exit;"
 	::: __clobber_all);
@@ -334,9 +349,9 @@ static void ldind_void_subprog(void)
 }
 
 SEC("socket")
-__description("ld_ind: reject void return subprog")
-__failure __msg("LD_ABS is only allowed in functions that return 'int'")
-__naked void ld_ind_void_subprog_reject(void)
+__description("ld_ind: void return subprog")
+__success
+__naked void ld_ind_void_subprog(void)
 {
 	asm volatile (
 	"call ldind_void_subprog;"

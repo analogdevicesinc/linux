@@ -171,6 +171,53 @@ __naked void check_corrupted_spill_fill_msb(void)
 "	::: __clobber_all);
 }
 
+SEC("socket")
+__description("32-bit spill of a pointer")
+__success __failure_unpriv __msg_unpriv("invalid size of register spill")
+__retval(0)
+__naked void spill_32bit_of_pointer(void)
+{
+	asm volatile ("					\
+	*(u32*)(r10 - 8) = r1;				\
+	r0 = *(u32*)(r10 - 8);				\
+	r0 -= r0;					\
+	exit;						\
+"	::: __clobber_all);
+}
+
+SEC("socket")
+__description("32-bit spills of both halves of a pointer")
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("invalid size of register spill")
+__naked void spill_32bit_of_pointer_twice(void)
+{
+	asm volatile ("					\
+	*(u32*)(r10 - 8) = r1;				\
+	r1 >>= 32;					\
+	*(u32*)(r10 - 4) = r1;				\
+	/* R0 has the value of R1(ctx). It's a number */\
+	r0 = *(u64*)(r10 - 8);				\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	::: __clobber_all);
+}
+
+SEC("socket")
+__description("32-bit spill of a pointer over its 64-bit spill")
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("attempt to corrupt spilled")
+__naked void spill_32bit_of_pointer_over_spill(void)
+{
+	asm volatile ("					\
+	*(u64*)(r10 - 8) = r1;				\
+	/* the same bytes. The spill of R1(ctx) is gone */\
+	*(u32*)(r10 - 8) = r1;				\
+	r0 = *(u64*)(r10 - 8);				\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	::: __clobber_all);
+}
+
 SEC("tc")
 __description("Spill and refill a u32 const scalar.  Offset to skb->data")
 __success __retval(0)
@@ -518,15 +565,6 @@ __msg("6: (71) r2 = *(u8 *)(r10 -1)          ; R2=0 R10=fp0 fp-8=0")
  */
 __msg("10: (71) r2 = *(u8 *)(r10 -9)         ; R2=0 R10=fp0 fp-16=0")
 __msg("11: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 11 first_idx 0 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 10: (71) r2 = *(u8 *)(r10 -9)")
-__msg("mark_precise: frame0: regs= stack=-16 before 9: (bf) r1 = r6")
-__msg("mark_precise: frame0: regs= stack=-16 before 8: (73) *(u8 *)(r1 +0) = r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 7: (0f) r1 += r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 6: (71) r2 = *(u8 *)(r10 -1)")
-__msg("mark_precise: frame0: regs= stack=-16 before 5: (bf) r1 = r6")
-__msg("mark_precise: frame0: regs= stack=-16 before 4: (7b) *(u64 *)(r10 -16) = r0")
-__msg("mark_precise: frame0: regs=r0 stack= before 3: (b7) r0 = 0")
 __naked void partial_stack_load_preserves_zeros(void)
 {
 	asm volatile (
@@ -600,8 +638,6 @@ __success
 __msg("2: (62) *(u32 *)(r10 -4) = 0          ; R10=fp0 fp-8=0000????")
 __msg("4: (71) r2 = *(u8 *)(r10 -1)          ; R2=0 R10=fp0 fp-8=0000????")
 __msg("5: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 5 first_idx 0 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 4: (71) r2 = *(u8 *)(r10 -1)")
 __naked void partial_stack_load_preserves_partial_zeros(void)
 {
 	asm volatile (
@@ -637,7 +673,6 @@ __naked void partial_stack_load_preserves_partial_zeros(void)
 SEC("raw_tp")
 __log_level(2)
 __success
-__msg("mark_precise: frame0: regs= stack=-8")
 __msg("R2=0")
 __naked void stack_load_preserves_mixed_zero_and_zero_spill(void)
 {
@@ -663,50 +698,21 @@ __naked void stack_load_preserves_mixed_zero_and_zero_spill(void)
 char two_byte_buf[2] SEC(".data.two_byte_buf");
 
 SEC("raw_tp")
-__log_level(2) __flag(BPF_F_TEST_STATE_FREQ)
+__log_level(2)
 __success
-/* make sure fp-8 is IMPRECISE fake register spill */
+/* make sure fp-8 is fake register spill */
 __msg("3: (7a) *(u64 *)(r10 -8) = 1          ; R10=fp0 fp-8=1")
-/* and fp-16 is spilled IMPRECISE const reg */
+/* and fp-16 is spilled const reg */
 __msg("5: (7b) *(u64 *)(r10 -16) = r0        ; R0=1 R10=fp0 fp-16=1")
 /* validate load from fp-8, which was initialized using BPF_ST_MEM */
 __msg("8: (79) r2 = *(u64 *)(r10 -8)         ; R2=1 R10=fp0 fp-8=1")
-__msg("9: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 9 first_idx 7 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 8: (79) r2 = *(u64 *)(r10 -8)")
-__msg("mark_precise: frame0: regs= stack=-8 before 7: (bf) r1 = r6")
-/* note, fp-8 is precise, fp-16 is not yet precise, we'll get there */
-__msg("mark_precise: frame0: parent state regs= stack=-8:  R6=map_value(map=.data.two_byte_,ks=4,vs=2) R10=fp0 fp-8=P1 fp-16=1")
-__msg("mark_precise: frame0: last_idx 6 first_idx 3 subseq_idx 7")
-__msg("mark_precise: frame0: regs= stack=-8 before 6: (05) goto pc+0")
-__msg("mark_precise: frame0: regs= stack=-8 before 5: (7b) *(u64 *)(r10 -16) = r0")
-__msg("mark_precise: frame0: regs= stack=-8 before 4: (b7) r0 = 1")
-__msg("mark_precise: frame0: regs= stack=-8 before 3: (7a) *(u64 *)(r10 -8) = 1")
-__msg("10: R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
+__msg("9: (0f) r1 += r2                      ; R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
 /* validate load from fp-16, which was initialized using BPF_STX_MEM */
 __msg("12: (79) r2 = *(u64 *)(r10 -16)       ; R2=1 R10=fp0 fp-16=1")
-__msg("13: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 13 first_idx 7 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 12: (79) r2 = *(u64 *)(r10 -16)")
-__msg("mark_precise: frame0: regs= stack=-16 before 11: (bf) r1 = r6")
-__msg("mark_precise: frame0: regs= stack=-16 before 10: (73) *(u8 *)(r1 +0) = r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 9: (0f) r1 += r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 8: (79) r2 = *(u64 *)(r10 -8)")
-__msg("mark_precise: frame0: regs= stack=-16 before 7: (bf) r1 = r6")
-/* now both fp-8 and fp-16 are precise, very good */
-__msg("mark_precise: frame0: parent state regs= stack=-16:  R6=map_value(map=.data.two_byte_,ks=4,vs=2) R10=fp0 fp-8=P1 fp-16=P1")
-__msg("mark_precise: frame0: last_idx 6 first_idx 3 subseq_idx 7")
-__msg("mark_precise: frame0: regs= stack=-16 before 6: (05) goto pc+0")
-__msg("mark_precise: frame0: regs= stack=-16 before 5: (7b) *(u64 *)(r10 -16) = r0")
-__msg("mark_precise: frame0: regs=r0 stack= before 4: (b7) r0 = 1")
-__msg("14: R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
+__msg("13: (0f) r1 += r2                     ; R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
 __naked void stack_load_preserves_const_precision(void)
 {
 	asm volatile (
-		/* establish checkpoint with state that has no stack slots;
-		 * if we bubble up to this state without finding desired stack
-		 * slot, then it's a bug and should be caught
-		 */
 		"goto +0;"
 
 		/* fp-8 is const 1 *fake* register */
@@ -716,7 +722,6 @@ __naked void stack_load_preserves_const_precision(void)
 		"r0 = 1;"
 		"*(u64 *)(r10 -16) = r0;"
 
-		/* force checkpoint to check precision marks preserved in parent states */
 		"goto +0;"
 
 		/* load single U64 from aligned FAKE_REG=1 slot */
@@ -740,48 +745,21 @@ __naked void stack_load_preserves_const_precision(void)
 }
 
 SEC("raw_tp")
-__log_level(2) __flag(BPF_F_TEST_STATE_FREQ)
+__log_level(2)
 __success
 /* make sure fp-8 is 32-bit FAKE subregister spill */
 __msg("3: (62) *(u32 *)(r10 -8) = 1          ; R10=fp0 fp-8=????1")
-/* but fp-16 is spilled IMPRECISE zero const reg */
+/* and fp-16 is spilled const reg */
 __msg("5: (63) *(u32 *)(r10 -16) = r0        ; R0=1 R10=fp0 fp-16=????1")
 /* validate load from fp-8, which was initialized using BPF_ST_MEM */
 __msg("8: (61) r2 = *(u32 *)(r10 -8)         ; R2=1 R10=fp0 fp-8=????1")
-__msg("9: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 9 first_idx 7 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 8: (61) r2 = *(u32 *)(r10 -8)")
-__msg("mark_precise: frame0: regs= stack=-8 before 7: (bf) r1 = r6")
-__msg("mark_precise: frame0: parent state regs= stack=-8:  R6=map_value(map=.data.two_byte_,ks=4,vs=2) R10=fp0 fp-8=????P1 fp-16=????1")
-__msg("mark_precise: frame0: last_idx 6 first_idx 3 subseq_idx 7")
-__msg("mark_precise: frame0: regs= stack=-8 before 6: (05) goto pc+0")
-__msg("mark_precise: frame0: regs= stack=-8 before 5: (63) *(u32 *)(r10 -16) = r0")
-__msg("mark_precise: frame0: regs= stack=-8 before 4: (b7) r0 = 1")
-__msg("mark_precise: frame0: regs= stack=-8 before 3: (62) *(u32 *)(r10 -8) = 1")
-__msg("10: R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
+__msg("9: (0f) r1 += r2                      ; R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
 /* validate load from fp-16, which was initialized using BPF_STX_MEM */
 __msg("12: (61) r2 = *(u32 *)(r10 -16)       ; R2=1 R10=fp0 fp-16=????1")
-__msg("13: (0f) r1 += r2")
-__msg("mark_precise: frame0: last_idx 13 first_idx 7 subseq_idx -1")
-__msg("mark_precise: frame0: regs=r2 stack= before 12: (61) r2 = *(u32 *)(r10 -16)")
-__msg("mark_precise: frame0: regs= stack=-16 before 11: (bf) r1 = r6")
-__msg("mark_precise: frame0: regs= stack=-16 before 10: (73) *(u8 *)(r1 +0) = r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 9: (0f) r1 += r2")
-__msg("mark_precise: frame0: regs= stack=-16 before 8: (61) r2 = *(u32 *)(r10 -8)")
-__msg("mark_precise: frame0: regs= stack=-16 before 7: (bf) r1 = r6")
-__msg("mark_precise: frame0: parent state regs= stack=-16:  R6=map_value(map=.data.two_byte_,ks=4,vs=2) R10=fp0 fp-8=????P1 fp-16=????P1")
-__msg("mark_precise: frame0: last_idx 6 first_idx 3 subseq_idx 7")
-__msg("mark_precise: frame0: regs= stack=-16 before 6: (05) goto pc+0")
-__msg("mark_precise: frame0: regs= stack=-16 before 5: (63) *(u32 *)(r10 -16) = r0")
-__msg("mark_precise: frame0: regs=r0 stack= before 4: (b7) r0 = 1")
-__msg("14: R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
+__msg("13: (0f) r1 += r2                     ; R1=map_value(map=.data.two_byte_,ks=4,vs=2,imm=1) R2=1")
 __naked void stack_load_preserves_const_precision_subreg(void)
 {
 	asm volatile (
-		/* establish checkpoint with state that has no stack slots;
-		 * if we bubble up to this state without finding desired stack
-		 * slot, then it's a bug and should be caught
-		 */
 		"goto +0;"
 
 		/* fp-8 is const 1 *fake* SUB-register */
@@ -791,7 +769,6 @@ __naked void stack_load_preserves_const_precision_subreg(void)
 		"r0 = 1;"
 		"*(u32 *)(r10 -16) = r0;"
 
-		/* force checkpoint to check precision marks preserved in parent states */
 		"goto +0;"
 
 		/* load single U32 from aligned FAKE_REG=1 slot */
@@ -1118,41 +1095,37 @@ l0_%=:	r1 >>= 32;					\
 	: __clobber_all);
 }
 
-/* stacksafe(): check if stack spill of an imprecise scalar in old state
- * is considered equivalent to STACK_{MISC,INVALID} in cur state.
+/*
+ * stacksafe(): the state with a stack spill of a scalar is there (label 1 is
+ * looked at first), the state with STACK_{MISC,INVALID} arrives.
+ * The first one is within the second one, which stands for both.
  */
 SEC("socket")
 __success __log_level(2)
+__msg("8: R0=scalar() R10=fp0 fp-8=??mm??mm")
 __msg("8: (79) r1 = *(u64 *)(r10 -8)")
-__msg("8: safe")
-__msg("processed 11 insns")
-/* STACK_INVALID should prevent verifier in unpriv mode from
- * considering states equivalent and force an error on second
- * verification path (entry - label 1 - label 2).
- */
+__msg("processed 10 insns")
+/* STACK_INVALID is an error in unpriv mode */
 __failure_unpriv
 __msg_unpriv("8: (79) r1 = *(u64 *)(r10 -8)")
-__msg_unpriv("9: (95) exit")
-__msg_unpriv("8: (79) r1 = *(u64 *)(r10 -8)")
 __msg_unpriv("invalid read from stack off -8+2 size 8")
-__flag(BPF_F_TEST_STATE_FREQ)
 __naked void old_imprecise_scalar_vs_cur_stack_misc(void)
 {
 	asm volatile(
 	/* get a random value for branching */
 	"call %[bpf_ktime_get_ns];"
 	"if r0 == 0 goto 1f;"
-	/* conjure scalar at fp-8 */
-	"r0 = 42;"
-	"*(u64*)(r10 - 8) = r0;"
-	"goto 2f;"
-"1:"
 	/* conjure STACK_{MISC,INVALID} at fp-8 */
 	"call %[bpf_ktime_get_ns];"
 	"*(u16*)(r10 - 8) = r0;"
 	"*(u16*)(r10 - 4) = r0;"
+	"goto 2f;"
+"1:"
+	/* conjure scalar at fp-8 */
+	"r0 = 42;"
+	"*(u64*)(r10 - 8) = r0;"
 "2:"
-	/* read fp-8, should be considered safe on second visit */
+	/* read fp-8, it's looked at once */
 	"r1 = *(u64*)(r10 - 8);"
 	"exit;"
 	:
@@ -1160,71 +1133,69 @@ __naked void old_imprecise_scalar_vs_cur_stack_misc(void)
 	: __clobber_all);
 }
 
-/* stacksafe(): check that stack spill of a precise scalar in old state
- * is not considered equivalent to STACK_MISC in cur state.
+/*
+ * stacksafe(): check that the state with STACK_MISC is not considered to be
+ * within the state with a stack spill of a known scalar, which is there.
  */
 SEC("socket")
 __success __log_level(2)
-/* verifier should visit 'if r1 == 0x2a ...' two times:
- * - once for path entry - label 2;
- * - once for path entry - label 1 - label 2.
- */
-__msg("if r1 == 0x2a goto pc+0")
-__msg("if r1 == 0x2a goto pc+0")
-__msg("processed 15 insns")
-__flag(BPF_F_TEST_STATE_FREQ)
+/* what is loaded is not known to be 42 */
+__msg("8: (79) r1 = *(u64 *)(r10 -8)         ; R1=scalar() R10=fp0 fp-8=mmmmmmmm")
+__msg("9: (15) if r1 == 0x2a goto pc+0       ; R1=scalar()")
+__msg("processed 12 insns")
 __naked void old_precise_scalar_vs_cur_stack_misc(void)
 {
 	asm volatile(
 	/* get a random value for branching */
 	"call %[bpf_ktime_get_ns];"
 	"if r0 == 0 goto 1f;"
-	/* conjure scalar at fp-8 */
-	"r0 = 42;"
-	"*(u64*)(r10 - 8) = r0;"
-	"goto 2f;"
-"1:"
 	/* conjure STACK_MISC at fp-8 */
 	"call %[bpf_ktime_get_ns];"
 	"*(u64*)(r10 - 8) = r0;"
 	"*(u32*)(r10 - 4) = r0;"
+	"goto 2f;"
+"1:"
+	/* conjure scalar at fp-8 */
+	"r0 = 42;"
+	"*(u64*)(r10 - 8) = r0;"
 "2:"
-	/* read fp-8, should not be considered safe on second visit */
 	"r1 = *(u64*)(r10 - 8);"
-	/* use r1 in precise context */
+	/* the value of r1 matters */
 	"if r1 == 42 goto +0;"
+	/* r0 is dead where the states meet: they differ in fp-8 only */
+	"r0 = 0;"
 	"exit;"
 	:
 	: __imm(bpf_ktime_get_ns)
 	: __clobber_all);
 }
 
-/* stacksafe(): check if STACK_MISC in old state is considered
- * equivalent to stack spill of a scalar in cur state.
+/*
+ * stacksafe(): check if the state with a stack spill of a scalar is considered
+ * to be within the state with STACK_MISC, which is there.
  */
 SEC("socket")
 __success  __log_level(2)
+__msg("from 4 to 8: within")
 __msg("8: (79) r0 = *(u64 *)(r10 -8)")
-__msg("8: safe")
-__msg("processed 11 insns")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("processed 10 insns")
 __naked void old_stack_misc_vs_cur_scalar(void)
 {
 	asm volatile(
 	/* get a random value for branching */
 	"call %[bpf_ktime_get_ns];"
 	"if r0 == 0 goto 1f;"
+	/* conjure scalar at fp-8 */
+	"r0 = 42;"
+	"*(u64*)(r10 - 8) = r0;"
+	"goto 2f;"
+"1:"
 	/* conjure STACK_{MISC,INVALID} at fp-8 */
 	"call %[bpf_ktime_get_ns];"
 	"*(u16*)(r10 - 8) = r0;"
 	"*(u16*)(r10 - 4) = r0;"
-	"goto 2f;"
-"1:"
-	/* conjure scalar at fp-8 */
-	"r0 = 42;"
-	"*(u64*)(r10 - 8) = r0;"
 "2:"
-	/* read fp-8, should be considered safe on second visit */
+	/* read fp-8, it's looked at once */
 	"r0 = *(u64*)(r10 - 8);"
 	"exit;"
 	:
@@ -1232,21 +1203,16 @@ __naked void old_stack_misc_vs_cur_scalar(void)
 	: __clobber_all);
 }
 
-/* stacksafe(): check that STACK_MISC in old state is not considered
- * equivalent to stack spill of a non-scalar in cur state.
+/*
+ * stacksafe(): the state with STACK_MISC is there, the state with a stack spill
+ * of a non-scalar arrives. A program that may read uninitialized stack may
+ * take a pointer for a number: the second state is within the first one.
  */
 SEC("socket")
 __success  __log_level(2)
-/* verifier should process exit instructions twice:
- * - once for path entry - label 2;
- * - once for path entry - label 1 - label 2.
- */
-__msg("8: (79) r1 = *(u64 *)(r10 -8)")
-__msg("9: (95) exit")
-__msg("from 2 to 7")
-__msg("8: safe")
-__msg("processed 11 insns")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("from 4 to 8: within")
+__msg("8: (79) r1 = *(u64 *)(r10 -8)         ; R1=scalar()")
+__msg("processed 10 insns")
 __naked void old_stack_misc_vs_cur_ctx_ptr(void)
 {
 	asm volatile(
@@ -1255,16 +1221,16 @@ __naked void old_stack_misc_vs_cur_ctx_ptr(void)
 	/* get a random value for branching */
 	"call %[bpf_ktime_get_ns];"
 	"if r0 == 0 goto 1f;"
+	/* conjure context pointer in fp-8 */
+	"*(u64*)(r10 - 8) = r9;"
+	"goto 2f;"
+"1:"
 	/* conjure STACK_MISC at fp-8 */
 	"call %[bpf_ktime_get_ns];"
 	"*(u64*)(r10 - 8) = r0;"
 	"*(u32*)(r10 - 4) = r0;"
-	"goto 2f;"
-"1:"
-	/* conjure context pointer in fp-8 */
-	"*(u64*)(r10 - 8) = r9;"
 "2:"
-	/* read fp-8, should not be considered safe on second visit */
+	/* read fp-8, it's looked at once */
 	"r1 = *(u64*)(r10 - 8);"
 	"exit;"
 	:
@@ -1310,35 +1276,34 @@ __naked void stack_noperfmon_spill_32bit_onto_64bit_slot(void)
 }
 
 /*
- * stacksafe(): check if 32-bit scalar spill in old state is considered
- * equivalent to STACK_MISC in cur state.
+ * stacksafe(): the state with a 32-bit spill of an unknown scalar is there, the
+ * state with STACK_MISC arrives. The second one is within the first one.
  * 32-bit scalar spill creates slot[0-3] = STACK_MISC, slot[4-7] = STACK_SPILL.
  * Without 32-bit spill support in stacksafe(), the STACK_SPILL vs STACK_MISC
- * mismatch at slot[4] causes pruning to fail.
+ * mismatch at slot[4] says that it is not.
  */
 SEC("socket")
 __success __log_level(2)
+__msg("from 5 to 8: within")
 __msg("8: (79) r1 = *(u64 *)(r10 -8)")
-__msg("8: safe")
-__msg("processed 11 insns")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("processed 10 insns")
 __naked void old_imprecise_scalar32_vs_cur_stack_misc(void)
 {
 	asm volatile(
 	/* get a random value for branching */
 	"call %[bpf_ktime_get_ns];"
 	"if r0 == 0 goto 1f;"
-	/* conjure 32-bit scalar spill at fp-8 */
-	"r0 = 42;"
-	"*(u32*)(r10 - 8) = r0;"
-	"goto 2f;"
-"1:"
 	/* conjure STACK_MISC at fp-8 */
 	"call %[bpf_ktime_get_ns];"
 	"*(u16*)(r10 - 8) = r0;"
 	"*(u16*)(r10 - 6) = r0;"
+	"goto 2f;"
+"1:"
+	/* conjure 32-bit scalar spill at fp-8 */
+	"call %[bpf_ktime_get_ns];"
+	"*(u32*)(r10 - 8) = r0;"
 "2:"
-	/* read fp-8, should be considered safe on second visit */
+	/* read fp-8, it's looked at once */
 	"r1 = *(u64*)(r10 - 8);"
 	"exit;"
 	:

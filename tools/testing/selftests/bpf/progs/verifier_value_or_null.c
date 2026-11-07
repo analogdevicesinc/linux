@@ -183,7 +183,7 @@ l1_%=:	exit;						\
 SEC("socket")
 __description("invalid map access from else condition")
 __failure __msg("R0 unbounded memory access")
-__failure_unpriv __msg_unpriv("R0 leaks addr")
+__failure_unpriv __msg_unpriv("R0 unbounded memory access")
 __flag(BPF_F_ANY_ALIGNMENT)
 __naked void map_access_from_else_condition(void)
 {

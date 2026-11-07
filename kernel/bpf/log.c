@@ -637,8 +637,6 @@ static void print_reg_state(struct bpf_verifier_env *env,
 	const char *sep = "";
 
 	t = reg->type;
-	if (t == SCALAR_VALUE && reg->precise)
-		verbose(env, "P");
 	if (t == SCALAR_VALUE && tnum_is_const(reg->var_off)) {
 		bpf_verbose_snum(env, reg->var_off.value);
 		return;
@@ -666,6 +664,8 @@ static void print_reg_state(struct bpf_verifier_env *env,
 		verbose_a("parent_id=%d", reg->parent_id);
 	if (type_is_non_owning_ref(reg->type))
 		verbose_a("%s", "non_own_ref");
+	if (t == PTR_TO_FUNC && reg->func_set)
+		verbose_a("one_of=%d", env->func_sets[reg->func_set - 1]->cnt);
 	if (type_is_map_ptr(t)) {
 		if (reg->map_ptr->name[0])
 			verbose_a("map=%s", reg->map_ptr->name);
@@ -779,11 +779,10 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 			if (!reg->id)
 				continue;
 
-			verbose(env, " fp%d=iter_%s(id=%d,state=%s,depth=%u)",
+			verbose(env, " fp%d=iter_%s(id=%d,state=%s)",
 				(-i - 1) * BPF_REG_SIZE,
 				iter_type_str(reg->iter.btf, reg->iter.btf_id),
-				reg->id, iter_state_str(reg->iter.state),
-				reg->iter.depth);
+				reg->id, iter_state_str(reg->iter.state));
 			break;
 		case STACK_MISC:
 		case STACK_ZERO:
@@ -802,6 +801,11 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 		verbose(env, " cb");
 	if (state->in_async_callback_fn)
 		verbose(env, " async_cb");
+	/* the iterations of the loops in which they are kept apart */
+	for (i = 0; i < state->loop_stack_cnt; i++)
+		if (state->loop_stack[i].apart)
+			verbose(env, " iter(%d)=%u", state->loop_stack[i].loop_id,
+				state->loop_stack[i].trip);
 	if (state->loop_stack_cnt) {
 		verbose(env, " loop_stack=");
 		for (i = 0; i < state->loop_stack_cnt; i++)

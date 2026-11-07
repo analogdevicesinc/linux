@@ -1401,6 +1401,21 @@ bool bpf_jit_supports_large_stack(void);
 bool bpf_jit_supports_timed_may_goto(void);
 bool bpf_jit_supports_fsession(void);
 
+/*
+ * Whether a recursion in @prog can be limited at run time:
+ *  - r10 tells how much of the kernel stack is used, on the architectures whose stacks
+ *    emit_stack_check() knows.
+ *  - All may_goto of the prog share one time slice. That is the timed form, which only JITed
+ *    progs get, see bpf_do_misc_fixups(). The other form counts in each frame.
+ *  - A walk of the stack finds the prog when there is no room, to tell user space, see
+ *    bpf_prog_report_recursion().
+ */
+static inline bool bpf_prog_has_invocation_budget(const struct bpf_prog *prog)
+{
+	return (IS_ENABLED(CONFIG_X86_64) || IS_ENABLED(CONFIG_ARM64)) && prog->jit_requested &&
+	       bpf_jit_supports_timed_may_goto() && bpf_jit_supports_exceptions();
+}
+
 struct bpf_jit_arg_abi {
 	/* Argument registers of the kernel convention. */
 	u8 nr_arg_regs;
@@ -1438,6 +1453,7 @@ u64 arch_bpf_timed_may_goto(void);
 u64 bpf_check_timed_may_goto(struct bpf_timed_may_goto *);
 void bpf_timed_may_goto_save(const struct bpf_prog *prog, struct bpf_timed_may_goto *saved);
 void bpf_timed_may_goto_restore(const struct bpf_prog *prog, struct bpf_timed_may_goto *saved);
+u64 bpf_prog_report_recursion(void);
 bool bpf_helper_changes_pkt_data(enum bpf_func_id func_id);
 
 static inline bool bpf_dump_raw_ok(const struct cred *cred)

@@ -43,6 +43,11 @@ enum expr_op {
 	 * bpf_loop_at_index().
 	 */
 	LINEAR_SCEV,
+	/*
+	 * param[1], given that register param[0] and the register that param[1] starts from are
+	 * equal when the loop is entered. Not known otherwise.
+	 */
+	COPY_SCEV,
 };
 
 struct expr {
@@ -259,6 +264,13 @@ static bool is_linear(struct scev *scev, int id, u32 *base, u32 *slope)
 	return is_binop(scev, LINEAR_SCEV, id, base, slope);
 }
 
+static bool is_copy(struct scev *scev, int id, u32 *reg, u32 *orig)
+{
+	u32 t;
+
+	return is_binop(scev, COPY_SCEV, id, &t, orig) && is_reg(scev, t, reg);
+}
+
 static bool is_linear_or_linear32(struct scev *scev, int id, u32 *base, u32 *slope, bool *zext32)
 {
 	u32 t;
@@ -319,6 +331,7 @@ static const char *op_str(u32 op)
 	case SPILL32:  return "spill32";
 	case ANY:      return "any";
 	case LINEAR_SCEV:  return "linear";
+	case COPY_SCEV:    return "copy";
 	}
 	return NULL;
 }
@@ -341,6 +354,7 @@ static u32 op_params_num(u32 op)
 	case SMOD:
 	case ANY:
 	case LINEAR_SCEV:
+	case COPY_SCEV:
 		return 2;
 	case BPF_NEG:
 	case SEXT8:
@@ -852,8 +866,11 @@ static int transfer(struct bpf_verifier_env *env, struct env *e, int idx)
 		break;
 	case BPF_JMP:
 	case BPF_JMP32:
-		if (opcode == BPF_CALL)
+		if (opcode == BPF_CALL) {
 			forget_call_regs(e);
+			/* made anew, like what is loaded. The parameter tells the two apart. */
+			return replace_reg(scev, e, BPF_REG_0, expr1(scev, OPAQUE, 1));
+		}
 		/* for non-CALL there are no changes in register states */
 		break;
 	case BPF_LD:
@@ -1220,6 +1237,22 @@ static void collect_store_base_regs(struct bpf_verifier_env *env,
 			or_expr_regs(env, cur_env->reg2expr[r], mask);
 }
 
+/*
+ * Record the loop-entry registers that the operands of the conditional jump at 'idx' are
+ * computed from, best effort like or_expr_regs().
+ */
+static void collect_tested_regs(struct bpf_verifier_env *env, struct env *cur_env, int idx,
+				unsigned long *mask)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[idx];
+
+	if (!bpf_insn_is_cond_jump(insn->code) || BPF_OP(insn->code) == BPF_JCOND)
+		return;
+	or_expr_regs(env, cur_env->reg2expr[insn->dst_reg], mask);
+	if (BPF_SRC(insn->code) == BPF_X)
+		or_expr_regs(env, cur_env->reg2expr[insn->src_reg], mask);
+}
+
 /* Find the topmost loop header containing idx inside cur_header, or -1 if none. */
 static int topmost_nested_loop(struct bpf_verifier_env *env, int idx, int cur_header)
 {
@@ -1325,6 +1358,7 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 			return -ENOMEM;
 		/* The freshly allocated environment has all expressions unknown. */
 		bitmap_fill(cur_loop->store_base_regs, REGS_NUM);
+		bitmap_fill(cur_loop->tested_regs, REGS_NUM);
 		header_env->empty = false;
 		return 0;
 	}
@@ -1364,6 +1398,9 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 			/* Pull the nested loop's stack-store base dependencies up. */
 			for_each_set_bit(r, nested_loop->store_base_regs, BPF_SCEV_REGS_NUM)
 				or_expr_regs(env, cur_env->reg2expr[r], cur_loop->store_base_regs);
+			/* And what its jumps depend on. */
+			for_each_set_bit(r, nested_loop->tested_regs, BPF_SCEV_REGS_NUM)
+				or_expr_regs(env, cur_env->reg2expr[r], cur_loop->tested_regs);
 			forget_non_invariants(env, cur_env, idx);
 			if (log_level2)
 				log_env_changes(env, LOG_AT_TRANSFER, old_env, cur_env, idx);
@@ -1386,6 +1423,7 @@ static int compute_scev_for_loop(struct bpf_verifier_env *env, int cur_header)
 				if (log_level2)
 					memcpy(old_env, cur_env, sizeof(*old_env));
 				collect_store_base_regs(env, cur_env, idx, cur_loop->store_base_regs);
+				collect_tested_regs(env, cur_env, idx, cur_loop->tested_regs);
 				err = transfer(env, cur_env, idx);
 				if (err)
 					goto out;
@@ -1428,6 +1466,10 @@ static void mark_latches(struct bpf_verifier_env *env)
 	int i, j, k, from;
 
 	for (i = 0; i < len; i++) {
+		/* An exit by way of a flag. It may have no place yet, see bpf_scev_jump_counts() */
+		if (aux[i].edge_leaves &&
+		    can_compute_loop_scev(aux[bpf_loop_at_index(env, i)].loop))
+			aux[i].need_scev = true;
 		loop = aux[i].loop;
 		if (!loop)
 			continue;
@@ -1598,6 +1640,7 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 {
 	struct scev *scev = env->scev;
 	int l, r, t, id, ra, rb, ra_expr;
+	bool zext32;
 	s64 imm;
 
 	/*
@@ -1674,8 +1717,81 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 		}
 
 	}
+	/*
+	 *	do { i++; if (old > 1021) break; c = buf[old]; old = i; } while (c);
+	 * rA = (+ rB IMM) and rB = (+ rB IMM): an iteration leaves the same number in both. If
+	 * they are equal when the loop is entered rA is at the header what rB is.
+	 */
+	for (ra = 0; ra < REGS_NUM; ra++) {
+		if (header_env->reg2scev[ra] != UNKNOWN_EXPR_ID ||
+		    header_env->reg2expr[ra] == UNKNOWN_EXPR_ID)
+			continue;
+		for (rb = 0; rb < REGS_NUM; rb++) {
+			id = header_env->reg2scev[rb];
+			if (header_env->reg2expr[rb] != header_env->reg2expr[ra] ||
+			    !is_linear_or_linear32(scev, id, &l, &r, &zext32) ||
+			    !is_reg(scev, l, &t) || t != rb)
+				continue;
+			id = expr2(scev, COPY_SCEV, expr1(scev, REG, ra), id);
+			if (id < 0)
+				return id;
+			header_env->reg2scev[ra] = id;
+			break;
+		}
+	}
 	return 0;
 }
+
+/*
+ * 'sum += a[i]', 'if (..) { len -= n; len -= 2; }': is 'id', what an iteration makes of
+ * register 'r', the register plus or minus something, or the register as it was?
+ * 'low32': it's computed in 32 bits.
+ */
+static bool expr_is_sum(struct scev *scev, u32 id, u32 r, bool low32, int depth)
+{
+	u32 a, b;
+
+	if (is_reg(scev, id, &a))
+		return a == r;
+	if (!depth--)
+		return false;
+	if (low32 && is_zext32(scev, id, &a))
+		return expr_is_sum(scev, a, r, low32, depth);
+	if (is_any(scev, id, &a, &b))
+		return expr_is_sum(scev, a, r, low32, depth) &&
+		       expr_is_sum(scev, b, r, low32, depth);
+	if (is_add(scev, id, &a, &b) && expr_is_sum(scev, b, r, low32, depth))
+		return true;
+	return (is_add(scev, id, &a, &b) || is_binop(scev, BPF_SUB, id, &a, &b)) &&
+	       expr_is_sum(scev, a, r, low32, depth);
+}
+
+/*
+ * Find the registers and stack slots that nothing but a jump stops: what gets a constant added in
+ * every iteration of the loop, and a sum that no jump of the loop depends on.
+ */
+static void scev_compute_linear_regs(struct scev *scev, struct bpf_loop *loop,
+				     struct env *header_env)
+{
+	u32 r, same, base, slope, id;
+	bool low32;
+	int bits;
+
+	for (r = 0; r < REGS_NUM; r++) {
+		id = header_env->reg2expr[r];
+		bits = 0;
+		if (is_linear_or_linear32(scev, header_env->reg2scev[r], &base, &slope, &low32) &&
+		    is_reg(scev, base, &same) && same == r)
+			bits = low32 ? 32 : 64;
+		/* what the loop leaves alone is no sum */
+		else if (!is_reg(scev, id, &same) && !test_bit(r, loop->tested_regs))
+			bits = expr_is_sum(scev, id, r, false, EXPR_STACK_DEPTH) ? 64 :
+			       expr_is_sum(scev, id, r, true, EXPR_STACK_DEPTH) ? 32 : 0;
+		if (bits)
+			__set_bit(r, bits == 32 ? loop->linear32_regs : loop->linear_regs);
+	}
+}
+
 static int instantiate_header_scevs(struct scev *scev, u32 id, void *priv)
 {
 	u32 reg, *reg2scev = priv;
@@ -1784,11 +1900,15 @@ int bpf_compute_scev(struct bpf_verifier_env *env)
 					   find_loop_env(scev, header, idx));
 		if (err)
 			return err;
+		if (aux[idx].loop)
+			scev_compute_linear_regs(scev, aux[idx].loop,
+						 find_header_env(scev, header));
 	}
 
-	for (i = 0; i < env->prog->len; i++)
-		if (aux[i].loop)
-			aux[i].prune_point = true;
+	/* Now it's known which jumps test a counter: the places of a back edge are for them */
+	err = bpf_find_latches(env, false);
+	if (err)
+		return err;
 
 	if (env->log.level & BPF_LOG_LEVEL2) {
 		err = log_scevs(env);
@@ -1837,7 +1957,7 @@ int bpf_init_scev(struct bpf_verifier_env *env)
 		return -ENOMEM;
 	env->scev = scev;
 	bpf_mark_reg_known_scalar(&scev->zero_reg, 0);
-	bpf_mark_reg_unknown_imprecise(&scev->unknown_reg);
+	bpf_mark_reg_unknown(&scev->unknown_reg);
 	/* A power of two for hash & (exprs_ht_cnt - 1)` indexing. */
 	scev->exprs_ht_cnt = roundup_pow_of_two(max(256U, DIV_ROUND_UP(env->prog->len, 4)));
 	scev->exprs_ht = kvcalloc(scev->exprs_ht_cnt, sizeof(*scev->exprs_ht), GFP_KERNEL_ACCOUNT);
@@ -1892,6 +2012,19 @@ static struct bpf_reg_state *scev_reg_for_linear(struct bpf_func_state *st, u32 
 	if (!stack || bpf_spill_size(stack) != BPF_REG_SIZE)
 		return NULL;
 	return &stack->spilled_ptr;
+}
+
+/* Do the registers or stack slots @a and @b hold the same number in @st? */
+static bool scev_regs_equal(struct bpf_func_state *st, u32 a, u32 b)
+{
+	const struct bpf_reg_state *ra = scev_reg_for_linear(st, a);
+	const struct bpf_reg_state *rb = scev_reg_for_linear(st, b);
+
+	if (!ra || !rb || ra->type != SCALAR_VALUE || rb->type != SCALAR_VALUE)
+		return false;
+	if (tnum_is_const(ra->var_off) && tnum_is_const(rb->var_off))
+		return ra->var_off.value == rb->var_off.value;
+	return ra->id && ra->id == rb->id && ra->delta == rb->delta;
 }
 
 /* '*(u32 *)(r10 - 8) = rX' left a number in the low half of the slot. */
@@ -1950,8 +2083,10 @@ scev_reg_for_read(struct bpf_verifier_env *env, const struct bpf_func_state *st,
 
 /*
  * Materialize a writable value in the current state, growing its stack if needed.
- * This does not go through check_stack_write(). The callers skip is_unbound_scev_reg() slots,
- * thus the buffer of a live dynptr slice, see bpf_reg_state::buf, does not become a spill here.
+ * This does not go through check_stack_write(). The buffer of a live dynptr slice, see
+ * bpf_reg_state::buf, does not become a spill here. The callers skip the slots that are
+ * is_unbound_scev_reg() when the loop is entered. A slot that a call in the loop may write
+ * has no description: it is in forget_regs or fresh_regs, and they skip these too.
  */
 static int scev_reg_for_write(struct bpf_verifier_env *env, struct bpf_func_state *st,
 			      u32 r, struct bpf_reg_state **out)
@@ -2005,12 +2140,16 @@ static bool scev_reg_alive(struct bpf_verifier_env *env, struct bpf_verifier_sta
  * 'i' is the loop iteration number, starting from 0.
  * 'zext32' indicates the latch is for (zext32 (linear ...)) SCEV.
  * 'jmp32' indicates that the latch is a JMP32 instruction.
+ * 'base_reg' is the register in <base>. 'copy_reg' is -1, or <reg> is made from that register,
+ * which has to be equal to 'base_reg' at the entry of the loop, see COPY_SCEV.
  */
 struct linear_latch {
 	u32 insn_idx;
 	u32 base_expr;
 	u32 step_expr;
 	u32 bound_expr;
+	u32 base_reg;
+	int copy_reg;
 	u8 op;
 	bool zext32;
 	bool jmp32;
@@ -2026,13 +2165,12 @@ static bool loop_invariant(struct scev *scev, u32 id)
 
 static int match_linear_latch(struct bpf_verifier_env *env,
 			      u32 header,
-			      u32 latch_idx,
+			      u32 latch_idx, bool taken_leaves,
 			      struct linear_latch *latch)
 {
 	struct bpf_insn *insn = &env->prog->insnsi[latch_idx];
 	struct scev *scev = env->scev;
 	struct env *latch_env;
-	u32 true_branch_tgt;
 	u32 src_reg_scev;
 	u32 dst_reg_scev;
 	u32 t, l, r, op;
@@ -2041,8 +2179,7 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	op = BPF_OP(insn->code);
 	latch->jmp32 = BPF_CLASS(insn->code) == BPF_JMP32;
 	/* Flip the condition if true branch jumps out of the loop. */
-	true_branch_tgt = latch_idx + bpf_jmp_offset(insn) + 1;
-	if (bpf_edge_leaves_loop(env, header, latch_idx, true_branch_tgt))
+	if (taken_leaves)
 		op = bpf_rev_opcode(op);
 	switch (op) {
 	case BPF_JSLT:
@@ -2066,6 +2203,11 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return -EFAULT;
 	dst_reg_scev = latch_env->reg2scev[insn->dst_reg];
 	src_reg_scev = latch_env->reg2scev[insn->src_reg];
+	latch->copy_reg = -1;
+	if (is_copy(scev, dst_reg_scev, &latch->copy_reg, &t))
+		dst_reg_scev = t;
+	else if (BPF_SRC(insn->code) == BPF_X && is_copy(scev, src_reg_scev, &latch->copy_reg, &t))
+		src_reg_scev = t;
 	/*
 	 * Make sure (linear ...) is in dst_reg_scev:
 	 *   'if <invariant> <op> <linear>' ⇔
@@ -2104,16 +2246,31 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return false;
 
 	/* (linear register step) */
-	if (is_reg_or_low32(scev, latch->base_expr, &t))
+	if (is_reg_or_low32(scev, latch->base_expr, &latch->base_reg))
 		return true;
 
 	/* (linear (+ register imm) step) */
 	if (is_add(scev, latch->base_expr, &l, &r) &&
-	    is_reg_or_low32(scev, l, &t) &&
+	    is_reg_or_low32(scev, l, &latch->base_reg) &&
 	    loop_invariant(scev, r))
 		return true;
 
 	return false;
+}
+
+/*
+ * Can the jump at @n tell the number of iterations of the loop at @header? The status of a call
+ * and a NULL test cannot. 1 as long as scalar evolution has not looked at the program.
+ */
+int bpf_scev_jump_counts(struct bpf_verifier_env *env, int header, int n, bool taken_leaves)
+{
+	struct linear_latch latch;
+
+	if (!env->scev)
+		return 1;
+	if (!find_loop_env(env->scev, header, n))
+		return 0;
+	return match_linear_latch(env, header, n, taken_leaves, &latch);
 }
 
 /* What is known about a scalar or about the offset of a pointer. */
@@ -2748,6 +2905,8 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 
 	iters->iv_reg = -1;
 
+	if (latch->copy_reg >= 0 && !scev_regs_equal(st, latch->copy_reg, latch->base_reg))
+		return false;
 	if (!eval_expr(env, scev, st, latch->base_expr, &initial_val) ||
 	    !eval_expr(env, scev, st, latch->step_expr, &step_val) ||
 	    !eval_expr(env, scev, st, latch->bound_expr, &bound_val))
@@ -3083,6 +3242,50 @@ static bool is_simple_linear(struct scev *scev, u32 id, struct linear_coefs *out
 }
 
 /*
+ * Is @r 'what it is in @st + slope * k' at the header in iteration k? @id is its SCEV there, @st is
+ * the state that entered the loop. At a jump in the loop @id can be what another register was at
+ * the header. @st says nothing about @r then.
+ */
+static bool is_linear_at_header(struct scev *scev, struct bpf_func_state *st, u32 id, u32 r,
+				struct linear_coefs *out)
+{
+	u32 copy, orig;
+
+	if (is_copy(scev, id, &copy, &orig))
+		return copy == r && is_simple_linear(scev, orig, out) &&
+		       scev_regs_equal(st, r, out->base_reg);
+	return is_simple_linear(scev, id, out) && out->base_reg == r;
+}
+
+/*
+ * @st is at the header of a loop that @entry entered. A copy of an induction variable is equal to
+ * it there in every iteration. They got their ranges one by one: give them one id, like 'r2 = r1'
+ * does, so that a test of one of them is a test of both.
+ */
+static void link_copies(struct bpf_verifier_env *env, struct env *header_env,
+			struct bpf_func_state *entry, struct bpf_func_state *st)
+{
+	struct bpf_reg_state *reg, *orig;
+	struct linear_coefs coefs;
+	u32 r;
+
+	for (r = 0; r < REGS_NUM; r++) {
+		if (!is_linear_at_header(env->scev, entry, header_env->reg2scev[r], r, &coefs) ||
+		    coefs.base_reg == r)
+			continue;
+		reg = scev_reg_for_linear(st, r);
+		orig = scev_reg_for_linear(st, coefs.base_reg);
+		if (!reg || !orig || reg->type != SCALAR_VALUE || orig->type != SCALAR_VALUE ||
+		    tnum_is_const(orig->var_off))
+			continue;
+		if (!orig->id)
+			orig->id = ++env->id_gen;
+		reg->id = orig->id;
+		reg->delta = orig->delta;
+	}
+}
+
+/*
  * A 32-bit counter that lives on the stack: the SCEV of slot @r is
  * (spill32 (linear (zext32 @r) slope)) and there is a 32-bit number in the slot in @st.
  * Return what is known about that number.
@@ -3181,28 +3384,32 @@ static void iv_bounds(struct bounds *bounds, struct cnum64 iv_range)
 		bounds->r64 = r64;
 }
 
-static int mark_expr_precise(struct bpf_verifier_env *env, struct bpf_func_state *st, u32 id,
-			     unsigned long *precise_regs)
+/*
+ * Nothing that @id is computed from is what a register had at the head of the loop, and
+ * some of it is not known: it's made anew in every iteration. @call: by a call.
+ */
+static bool expr_is_fresh(struct bpf_verifier_env *env, u32 id, bool *call)
 {
 	struct scev *scev = env->scev;
-	struct bpf_reg_state *reg;
-	u32 r, order;
+	bool opaque = false;
+	u32 order, regno;
 
+	*call = false;
 	scev->stack_sz = 0;
 	expr_stack_push(scev, id);
 	while (expr_next(scev, &id, &order)) {
-		if (order & DEPTH_LIMIT) {
-			verifier_bug(env, "scev precision marking exceeds expression depth limit");
-			return -EFAULT;
-		}
-		if (!(order & PRE) || !is_reg(scev, id, &r))
+		if (order & DEPTH_LIMIT)
+			return false;
+		if (!(order & PRE))
 			continue;
-		/* Synthetic values have no spilled register to mark precise. */
-		reg = scev_reg_for_linear(st, r) ?: scev_reg_for_spill32(st, r);
-		if (reg && reg->type == SCALAR_VALUE)
-			__set_bit(r, precise_regs);
+		if (is_reg(scev, id, &regno) || is_op(scev, id, UNKNOWN))
+			return false;
+		if (is_opaque(scev, id)) {
+			opaque = true;
+			*call |= scev->exprs[id].params[0];
+		}
 	}
-	return 0;
+	return opaque;
 }
 
 /*
@@ -3272,7 +3479,8 @@ static int count_backedge(struct bpf_verifier_env *env, struct bpf_func_state *s
 
 	for (j = 0; j < backedge->latches_cnt; j++) {
 		latch_idx = backedge->latches[j];
-		linear_latch = match_linear_latch(env, insn_idx, latch_idx, &latch);
+		linear_latch = match_linear_latch(env, insn_idx, latch_idx,
+						  backedge->taken_leaves & BIT(j), &latch);
 		if (linear_latch < 0)
 			return linear_latch;
 		if (!linear_latch) {
@@ -3288,6 +3496,9 @@ static int count_backedge(struct bpf_verifier_env *env, struct bpf_func_state *s
 					insn_idx, latch_idx);
 			continue;
 		}
+		/* a flag can have other reasons to end the loop */
+		if (!bpf_jump_leaves_loop(env, insn_idx, latch_idx))
+			tmp.min_header_count = 0;
 		if (!found || tmp.max_header_count < iters->max_header_count) {
 			iters->max_header_count = tmp.max_header_count;
 			iters->iv_reg = tmp.iv_reg;
@@ -3326,7 +3537,7 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	struct bpf_loop *loop;
 	int insn_idx = st->insn_idx;
 	u64 until, false_until;
-	bool same = true;
+	bool same = true, walk = false, call;
 	int err, i;
 	u32 r;
 
@@ -3355,16 +3566,10 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	 * which iterations it can be taken. The loop ends, at the latest, in an iteration
 	 * in which no back edge can be taken.
 	 */
-	bitmap_zero(iters->precise_regs, REGS_NUM);
 	for (i = 0; i < loop->backedges_cnt; i++) {
 		err = count_backedge(env, cur_func, insn_idx, &loop->backedges[i],
 				     i ? &tmp : iters, &latch, &until);
 		if (err <= 0)
-			return err;
-		err = mark_expr_precise(env, cur_func, latch.base_expr, iters->precise_regs) ?:
-		      mark_expr_precise(env, cur_func, latch.step_expr, iters->precise_regs) ?:
-		      mark_expr_precise(env, cur_func, latch.bound_expr, iters->precise_regs);
-		if (err)
 			return err;
 		if (!i) {
 			false_until = until;
@@ -3394,6 +3599,13 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		return 0;
 	}
 
+	/*
+	 * It leaves the loop itself: a flag does that later. If one edge does the one and the
+	 * other edge the other, the last iteration goes on behind the jump as well.
+	 */
+	iters->count_insn = bpf_jump_leaves_loop(env, insn_idx, first.insn_idx) &&
+			    aux[first.insn_idx].edge_leaves != 3 ? first.insn_idx : -1;
+
 	if (iters->max_header_count == 0) {
 		if (log->level & BPF_LOG_LEVEL2)
 			bpf_log(log, "loop header at %d, 0 iterations count\n", insn_idx);
@@ -3419,10 +3631,13 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 	if (err)
 		return err;
 
+	bitmap_zero(iters->forget_regs, REGS_NUM);
+	bitmap_zero(iters->fresh_regs, REGS_NUM);
 	bitmap_zero(iters->mask_regs, REGS_NUM);
+	iters->spill_base = false;
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
-		struct bpf_reg_state *reg;
+		struct bpf_reg_state *reg = NULL;
 		u32 ra, r_scev, r_expr;
 		bool spill_base = false;
 
@@ -3469,15 +3684,17 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 
 		reg = scev_reg_for_linear(cur_func, r);
 		/*
-		 * The offset of a pointer to arena is not tracked: what enters the loop stands
-		 * for all iterations. If the loop makes something else of it the state that
-		 * returns to the head is not covered by the state at the head, and the body is
-		 * verified again from that state.
+		 * The offset of a pointer to arena is not tracked, so there is nothing to lose.
+		 * If the loop makes something else of it the state that returns to the head
+		 * is not covered by the state at the head.
 		 */
-		if (reg && reg->type == PTR_TO_ARENA)
+		if (reg && reg->type == PTR_TO_ARENA) {
+			__set_bit(r, iters->forget_regs);
 			continue;
+		}
 		/* If SCEV for r is (linear <reg> <slope>) */
-		if (reg && is_simple_linear(scev, r_scev, &coefs) && is_widenable_reg_type(reg)) {
+		if (reg && is_linear_at_header(scev, cur_func, r_scev, r, &coefs) &&
+		    is_widenable_reg_type(reg)) {
 			/* 32-bit ALU operations on pointers convert them to scalars */
 			if (coefs.zext32 && reg->type != SCALAR_VALUE)
 				goto cant_widen;
@@ -3524,10 +3741,49 @@ cant_widen:
 				bpf_log(log, ", requires exact stack-offset tracking");
 			bpf_log(log, "\n");
 		}
-		return 0;
+		/* the count stands, it is this one that is not known in the loop */
+		if (spill_base) {
+			iters->spill_base = true;
+			walk = true;
+			continue;
+		}
+		/*
+		 * What is loaded from memory or returned by a call in every iteration is the same
+		 * kind of thing in all of them. One iteration tells what. There is nothing more
+		 * to find out when iterations are looked at one by one. But for what goes with it:
+		 * a call returns NULL and a flag is set. So a walk comes first for a call.
+		 */
+		if (expr_is_fresh(env, header_env->reg2expr[r], &call)) {
+			__set_bit(r, iters->fresh_regs);
+			if (!call)
+				continue;
+		} else {
+			__set_bit(r, iters->forget_regs);
+		}
+		/*
+		 *	for (i = 0; i < 40; i++) { if (i) sum += prev; prev = (x ^ i) * 3; }
+		 * It's not set in the first iteration only. That counts if the loop is not walked:
+		 * nothing looks at prev, or there are too many iterations.
+		 */
+		if (reg && reg->type == NOT_INIT)
+			__set_bit(r, iters->fresh_regs);
+		/*
+		 * Only a walk through the iterations tells what it is in each of them. That is not
+		 * worth it for a number that nothing looks at: a sum, a hash, what a call leaves in
+		 * r1 - r5. What comes back to the head is joined with what entered then. A pointer,
+		 * or a slot that holds something else than a register, has no such join.
+		 */
+		if (!reg || (reg->type != SCALAR_VALUE && reg->type != NOT_INIT) ||
+		    bpf_flow_is_needed(env, insn_idx, r)) {
+			walk = true;
+			continue;
+		}
+		if (log->level & BPF_LOG_LEVEL2)
+			bpf_log(log, "loop header at %d, nothing looks at it\n", insn_idx);
 	}
 
-	return 1;
+	/* 2: the count is known, what some of the live registers are is not and it matters */
+	return walk ? 2 : 1;
 }
 
 /* bpf_compute_loop_iters() checked that every leaf can be unioned into acc. */
@@ -3572,11 +3828,21 @@ static int union_any_reg(struct bpf_verifier_env *env, struct bpf_func_state *lo
 	return 0;
 }
 
+/*
+ * Make @st, which is at the head of a counted loop, stand for all iterations. @loop_entry is the
+ * state that entered the loop and @iters is what bpf_compute_loop_iters() says about it.
+ *
+ * @st is a copy of @loop_entry, or, if the loop has iters->fresh_regs, the state that comes back to
+ * the head after the first iteration, @back. These registers are left as the first iteration
+ * made them. At the entry they are something else: 0, a pointer, not set.
+ */
 int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
-			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters)
+			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters,
+			bool back)
 {
 	struct bpf_func_state *cur_func = st->frame[st->curframe];
 	struct bpf_func_state *entry_func = loop_entry->frame[loop_entry->curframe];
+	const struct bpf_reg_state *val, *entry_val;
 	struct bpf_verifier_log *log = &env->log;
 	struct scev *scev = env->scev;
 	struct bpf_reg_state *reg, *spill32;
@@ -3587,34 +3853,47 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 	int insn_idx = st->insn_idx;
 	int err;
 
-	for_each_set_bit(r, iters->precise_regs, REGS_NUM) {
-		if (r < MAX_BPF_REG)
-			bpf_bt_set_frame_reg(&env->bt, st->curframe, r);
-		else
-			bpf_bt_set_frame_slot(&env->bt, st->curframe, r - MAX_BPF_REG);
-	}
-	err = bpf_mark_chain_precision(env, st, -1, NULL);
-	if (err)
-		return err;
-
 	header_env = find_header_env(scev, insn_idx);
 	for (r = 0; r < REGS_NUM; r++) {
 		if (!scev_reg_alive(env, st, r))
 			continue;
 
+		/*
+		 * It stays what it is in @st. What comes back to the head is joined with it and
+		 * widened to where the jumps of the loop stop it, like in a loop without a count.
+		 * NULL or not is all that is known about a pointer to arena.
+		 */
+		if (test_bit(r, iters->forget_regs)) {
+			reg = scev_reg_for_linear(cur_func, r);
+			if (reg && reg->type == PTR_TO_ARENA) {
+				bpf_reg_forget_range(reg);
+				mark_scev_reg_scratched(env, r);
+			}
+			continue;
+		}
+		if (test_bit(r, iters->fresh_regs))
+			continue;
+
 		r_expr = header_env->reg2scev[r];
 		spill32 = spill32_counter(scev, cur_func, r_expr, r, &coefs);
-		if (!spill32 && (is_unbound_scev_reg(env, cur_func, r) ||
+		/* @iters says nothing about a register that is not known in @loop_entry */
+		if (!spill32 && (is_unbound_scev_reg(env, entry_func, r) ||
 				 is_const_scev_reg(env, insn_idx, r)))
 			continue;
 
-		reg = scev_reg_for_linear(cur_func, r);
-		if (reg && reg->type == PTR_TO_ARENA)
+		/*
+		 * A call in the loop can change the type, see bpf_clamp_scev_regs(). Then the
+		 * register is left alone. What comes back to the head next is compared with it.
+		 */
+		val = scev_reg_for_read(env, cur_func, r);
+		entry_val = scev_reg_for_read(env, entry_func, r);
+		if (back && (!val || !entry_val || !bpf_reg_union_compatible(val, entry_val)))
 			continue;
-
 		if (test_bit(r, iters->mask_regs)) {
 			/* The range stays. It's no longer equal to the registers with its id. */
 			err = scev_reg_for_write(env, cur_func, r, &reg);
+			if (!err && back)
+				err = bpf_reg_union(env, reg, entry_val);
 			if (err)
 				return err;
 			if (log->level & BPF_LOG_LEVEL2) {
@@ -3629,14 +3908,17 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 		}
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (spill32 || (is_simple_linear(scev, r_expr, &coefs) && coefs.base_reg == r)) {
+		if (spill32 || is_linear_at_header(scev, entry_func, r_expr, r, &coefs)) {
+			/* the range is derived from @loop_entry: bpf_clamp_scev_regs() */
+			if (back)
+				continue;
 			/* the other half of the slot stays as it is */
 			reg = spill32;
 			err = reg ? 0 : scev_reg_for_write(env, cur_func, r, &reg);
 			if (err)
 				return err;
 			linear_bounds(reg, iters->max_header_count, &coefs, &bounds);
-			if (r == iters->iv_reg)
+			if (coefs.base_reg == iters->iv_reg)
 				iv_bounds(&bounds, iters->iv_range);
 			if (log->level & BPF_LOG_LEVEL2) {
 				bpf_log(log, "loop header at %d, widening ", insn_idx);
@@ -3674,15 +3956,35 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			mark_scev_reg_scratched(env, r);
 		}
 	}
+	link_copies(env, header_env, entry_func, cur_func);
 	return 1;
 }
 
+/* (linear (+ rX imm) slope): the iteration has added a constant to rX so far */
+static bool is_moved_linear(struct scev *scev, u32 id, struct linear_coefs *out, s64 *moved)
+{
+	u32 base, slope, l, r;
+
+	out->spill32 = false;
+	return is_linear_or_linear32(scev, id, &base, &slope, &out->zext32) && !out->zext32 &&
+	       is_add(scev, base, &l, &r) && is_reg(scev, l, &out->base_reg) &&
+	       is_imm(scev, r, moved) && is_simple_slope(scev, slope, &out->slope);
+}
+
+/*
+ * The state came back to the head of a counted loop. Or, with @behind, it goes on in the loop
+ * behind the jump that counts. That jump leaves the loop in the last iteration, so this is
+ * not the last one:
+ *	for (i = 0; ; i++, p += 8) { if (i == 4) break; *p = 0; }
+ * At the head p is up to 32 bytes from where it was, at the store up to 24. The jump tells that
+ * about i only. It holds for all that is linear at the jump.
+ */
 int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur_func_state, u32 insn_idx,
-			const struct loop_stack_entry *entry)
+			const struct loop_stack_entry *entry, bool behind)
 {
 	struct bpf_verifier_state *entry_state = entry->entry_state;
 	struct bpf_func_state *entry_st = entry_state->frame[entry_state->curframe];
-	u32 max_header_count = entry->max_header_count;
+	u32 max_header_count = entry->max_header_count - behind;
 	struct bpf_verifier_log *log = &env->log;
 	struct bpf_reg_state *reg, *entry_reg;
 	struct scev *scev = env->scev;
@@ -3690,6 +3992,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 	struct env *header_env;
 	struct bounds bounds;
 	u32 r, r_scev;
+	s64 moved;
 	int err;
 
 	if (entry_state->curframe != cur_func_state->frameno) {
@@ -3698,16 +4001,21 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 		return -EFAULT;
 	}
 
-	header_env = find_header_env(scev, insn_idx);
+	header_env = find_loop_env(scev, insn_idx, behind ? entry->count_insn : insn_idx);
+	if (!max_header_count)
+		return 0;
 	for (r = 0; r < REGS_NUM; r++) {
 		r_scev = header_env->reg2scev[r];
+		moved = 0;
 		entry_reg = spill32_counter(scev, entry_st, r_scev, r, &coefs);
 		reg = spill32_counter(scev, cur_func_state, r_scev, r, &coefs);
 		if (entry_reg && reg)
 			goto clamp;
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (!is_simple_linear(scev, r_scev, &coefs) || coefs.base_reg != r)
+		if (!is_linear_at_header(scev, entry_st, r_scev, r, &coefs) &&
+		    !(behind && is_moved_linear(scev, r_scev, &coefs, &moved) &&
+		      coefs.base_reg == r))
 			continue;
 
 		entry_reg = scev_reg_for_linear(entry_st, r);
@@ -3733,8 +4041,22 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 			continue;
 clamp:
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
-		if (r == entry->iv_reg)
+		if (coefs.base_reg == entry->iv_reg && !moved)
 			iv_bounds(&bounds, entry->iv_range);
+		if (moved) {
+			bounds.r64 = cnum64_add(bounds.r64, cnum64_from_srange(moved, moved));
+			bounds.base = imod(bounds.base + moved, bounds.step);
+		}
+		if (behind) {
+			/* jumps on the way may have told more */
+			bounds.r64 = cnum64_intersect(bounds.r64, reg->r64);
+			bounds.r32 = cnum32_intersect(bounds.r32, reg->r32);
+			if (type_is_pkt_pointer(reg->type) || cnum64_is_empty(bounds.r64) ||
+			    cnum32_is_empty(bounds.r32) ||
+			    (cnum64_is_subset(bounds.r64, reg->r64) &&
+			     cnum32_is_subset(bounds.r32, reg->r32)))
+				continue;
+		}
 		if (log->level & BPF_LOG_LEVEL2) {
 			bpf_log(log, "loop header at %d, clamping ", insn_idx);
 			log_reg(env, r);
@@ -3742,7 +4064,8 @@ clamp:
 			log_bounds(env, &bounds);
 			bpf_log(log, "\n");
 		}
-		scratch_widened_reg_id(env, reg);
+		if (!behind)
+			scratch_widened_reg_id(env, reg);
 		/*
 		 * The range of a packet pointer goes together with its id and with the offsets
 		 * that it had in the compare with pkt_end. Both are replaced here. What holds for
@@ -3756,5 +4079,8 @@ clamp:
 			return err;
 		mark_scev_reg_scratched(env, r);
 	}
+	/* behind the jump the variable may have moved on: its copy is what it was at the head */
+	if (!behind)
+		link_copies(env, header_env, entry_st, cur_func_state);
 	return 0;
 }

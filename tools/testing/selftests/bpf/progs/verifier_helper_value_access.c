@@ -717,12 +717,12 @@ __naked void bounds_check_using_bad_access_1(void)
 	*(u64*)(r2 + 0) = r1;				\
 	r1 = %[map_hash_48b] ll;			\
 	call %[bpf_map_lookup_elem];			\
-	if r0 == 0 goto l0_%=;				\
+	if r0 == 0 goto l1_%=;				\
 	r1 = r0;					\
 	r3 = *(u32*)(r0 + 0);				\
 	if r3 < 32 goto l1_%=;				\
 	r1 += r3;					\
-l0_%=:	r0 = 0;						\
+	r0 = 0;						\
 	*(u8*)(r1 + 0) = r0;				\
 	r0 = 0;						\
 	exit;						\
@@ -775,12 +775,12 @@ __naked void bounds_check_using_bad_access_2(void)
 	*(u64*)(r2 + 0) = r1;				\
 	r1 = %[map_hash_48b] ll;			\
 	call %[bpf_map_lookup_elem];			\
-	if r0 == 0 goto l0_%=;				\
+	if r0 == 0 goto l1_%=;				\
 	r1 = r0;					\
 	r3 = *(u32*)(r0 + 0);				\
 	if r3 <= 32 goto l1_%=;				\
 	r1 += r3;					\
-l0_%=:	r0 = 0;						\
+	r0 = 0;						\
 	*(u8*)(r1 + 0) = r0;				\
 	r0 = 0;						\
 	exit;						\

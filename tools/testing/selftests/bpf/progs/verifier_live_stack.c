@@ -368,7 +368,6 @@ static __used __naked void arg_track_join_convergence_subprog(void)
 }
 
 SEC("socket")
-__flag(BPF_F_TEST_STATE_FREQ)
 __log_level(2)
 /* fp0-8 consumed at insn 9, dead by insn 11. stack_def at insn 4 kills slots 0,1. */
 __msg("4: (7b) *(u64 *)(r10 -8) = r0        ; def: fp0-8")
@@ -380,9 +379,9 @@ __msg("10: (b7) r0 = 0{{$}}")
 __msg("11: (05) goto pc+0{{$}}")
 __msg("12: (95) exit")
 /*
- * Checkpoint at goto +0 fires because fp0-8 is dead → state pruning.
+ * fp0-8 is dead after goto +0, so one state stands for both.
  */
-__msg("12: safe")
+__msg("from 11 to 12: within")
 __naked void caller_stack_pruning(void)
 {
 	asm volatile (
@@ -497,7 +496,6 @@ struct {
 
 SEC("socket")
 __failure __msg("invalid read from stack R2 off=-4096 size=8")
-__flag(BPF_F_TEST_STATE_FREQ)
 __naked unsigned long caller_stack_write_tail_call(void)
 {
         asm volatile (
@@ -855,7 +853,7 @@ static __used __naked void maybe_clobber_key(void)
 
 /*
  * Demonstrate that subprog arg spill/reload breaks arg tracking,
- * inflating caller stack liveness and preventing state pruning.
+ * inflating caller stack liveness and keeping states apart.
  *
  * modifier2(fp-24) has two paths: one writes a scalar to *(r1+8)
  * = caller fp-16, the other leaves it as zero.  After modifier2
@@ -871,16 +869,15 @@ static __used __naked void maybe_clobber_key(void)
  * the reader never touches it.
  *
  * Result: at modifier2's return point two states with different
- * fp-16 values cannot be pruned.
+ * fp-16 values are kept apart.
  *
- * With correct (or old dynamic) liveness fp-16 is dead at that
- * point and the states prune → "6: safe" appears in the log.
+ * With correct liveness fp-16 is dead at that point and one state is
+ * within the other one.
  */
 SEC("socket")
-__flag(BPF_F_TEST_STATE_FREQ)
 __log_level(2)
 __success
-__msg("6: safe")
+__msg("from 16 to 6: within")
 __naked void spill_reload_inflates_stack_liveness(void)
 {
 	asm volatile (
@@ -1366,31 +1363,32 @@ __naked void half_spi_clean_preserves_stack_zero(void)
  * conditional block with helper call and temporary stack spill,
  * spill dead after merge.
  *
- * Path A (fall-through): spill r6 to fp-8 across helper call
- * Path B (branch taken): skip the block entirely
- * At merge (insn 6): fp-8 is dead (never read after merge)
+ * Path A (branch taken, verified first): spill r6 to fp-8 across helper call
+ * Path B (fall-through): skip the block entirely
+ * At merge (insn 7): fp-8 is dead (never read after merge)
  *
  * Static liveness marks fp-8 dead at merge. clean_verifier_state()
  * converts path A's STACK_SPILL to STACK_INVALID. Path B has
- * STACK_INVALID. stacksafe() matches -> path B pruned -> "6: safe".
+ * STACK_INVALID. stacksafe() matches -> one state stands for both paths.
  */
 SEC("socket")
-__flag(BPF_F_TEST_STATE_FREQ)
 __success
 __log_level(2)
-__msg("6: safe")
+__msg("from 3 to 7: within")
 __naked void dead_spill_at_merge_enables_pruning(void)
 {
 	asm volatile (
 	"call %[bpf_get_prandom_u32];"
 	"r6 = 7;"
-	"if r0 != 0 goto l_skip%=;"
+	"if r0 == 0 goto l_spill%=;"
+	"goto l_skip%=;"
+"l_spill%=:"
 	/* conditional block: spill, call, reload */
 	"*(u64 *)(r10 - 8) = r6;"
 	"call %[bpf_get_prandom_u32];"
 	"r6 = *(u64 *)(r10 - 8);"
 "l_skip%=:"
-	/* fp-8 dead. Path B pruned here -> "6: safe" */
+	/* fp-8 dead. The states of both paths are the same here */
 	"r0 = r6;"
 	"exit;"
 	:
@@ -2846,7 +2844,7 @@ __naked void merge_preserves_may_write(void)
 	"if r0 == 0 goto 1f;"
 	/* chain A: r2 = map value (ARG_NONE, not stack) */
 	"r1 = r10;"
-	"r1 += -16;"				/* unused fp anchor */
+	"r1 += -16;"				/* fp anchor */
 	"r2 = r0;"
 	"call mvs_mid;"
 	/* chain B: r2 = caller stack slot fp-8 */
@@ -2874,6 +2872,7 @@ static __used __naked void mvs_leaf(void)
 {
 	asm volatile (
 	"*(u64 *)(r2 + 0) = 42;"
+	"r0 = r1;"				/* a register that is not read is no argument */
 	"r0 = 0;"
 	"exit;"
 	::: __clobber_all);

@@ -50,6 +50,75 @@ static int subprog_tail_call(void)
 	: __clobber_all);
 }
 
+__used __naked
+static void void_subprog_tail_call(void)
+{
+	asm volatile ("			\
+	r2 = %[jmp_table] ll;		\
+	r3 = 0;				\
+	call %[bpf_tail_call];		\
+	r0 = 1;				\
+	exit;				\
+"	:
+	: __imm(bpf_tail_call),
+	  __imm_addr(jmp_table)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("tail call in a subprog that returns void")
+__success
+__naked void tail_call_in_void_subprog(void)
+{
+	asm volatile ("			\
+	call void_subprog_tail_call;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+/* r0 is what the other program returns when the tail call is taken */
+SEC("tc")
+__description("tail call in a subprog that returns void, the caller counts on r0")
+__failure __msg("R9 !read_ok")
+__naked void tail_call_in_void_subprog_r0(void)
+{
+	asm volatile ("			\
+	call void_subprog_tail_call;	\
+	if r0 == 1 goto +1;		\
+	r0 = r9;			\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+__used __naked
+static void *ptr_subprog_tail_call(void)
+{
+	asm volatile ("			\
+	r2 = %[jmp_table] ll;		\
+	r3 = 0;				\
+	call %[bpf_tail_call];		\
+	r0 = 0;				\
+	exit;				\
+"	:
+	: __imm(bpf_tail_call),
+	  __imm_addr(jmp_table)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("tail call in a subprog that returns a pointer")
+__failure __msg("tail_call is only allowed in functions that return 'int' or 'void'")
+__naked void tail_call_in_ptr_subprog(void)
+{
+	asm volatile ("			\
+	call ptr_subprog_tail_call;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
 /* The exception callback has no ctx, so its tail call can only be dead code */
 __used __noinline
 int exception_cb_tail_call(__u64 cookie)
@@ -146,6 +215,33 @@ __naked void tail_call_caller_stack_ok(void)
 	r0 = 0;				\
 	exit;				\
 "	::: __clobber_all);
+}
+
+static __noinline int tail_calls(struct __sk_buff *skb)
+{
+	bpf_tail_call_static(skb, &jmp_table, 0);
+	return skb->len;
+}
+
+static __noinline int calls_itself(struct __sk_buff *skb, int n)
+{
+	int ret = 0;
+
+	if (n)
+		ret = calls_itself(skb, n - 1);
+	return ret + tail_calls(skb);
+}
+
+/* The frames of a subprog that calls itself stay on the stack too: up to a half of it. */
+SEC("tc")
+__description("tail call from subprog below a recursive subprog")
+__arch_x86_64
+__arch_arm64
+__failure
+__msg("tail_calls are not allowed when call stack of previous frames is {{[0-9]+}} bytes")
+int tail_call_below_recursion(struct __sk_buff *skb)
+{
+	return calls_itself(skb, 2);
 }
 
 SEC("tc")

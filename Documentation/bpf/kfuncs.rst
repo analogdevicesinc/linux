@@ -159,7 +159,7 @@ An example is given below::
 Here, bpf_obj_new uses local_type_id argument to find out the size of that type
 ID in program's BTF and return a sized pointer to it. Each type ID will have a
 distinct size, hence it is crucial to treat each such call as distinct when
-values don't match during verifier state pruning checks.
+values don't match when the verifier compares and joins states.
 
 Hence, whenever a constant scalar argument is accepted by a kfunc which is not a
 size parameter, and the value of the constant matters for program safety, __k

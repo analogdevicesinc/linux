@@ -1944,6 +1944,8 @@ struct bpf_prog_aux {
 	bool has_prologue;
 	bool might_sleep;
 	bool can_unwind;
+	/* frames of recursive subprogs can be on the stack when it is called */
+	bool in_recursion;
 	bool kprobe_write_ctx;
 	/* has insns that work with the arena base, see bpf_prog_has_arena_insns() */
 	bool uses_arena_insns;
@@ -2631,6 +2633,10 @@ struct bpf_array {
  */
 int bpf_array_get_next_key(struct bpf_map *map, void *key, void *next_key);
 
+/*
+ * the longest program. The verifier limits the number of states, not of
+ * processed insns, see BPF_FLOW_MAX_STATES.
+ */
 #define BPF_COMPLEXITY_LIMIT_INSNS      1000000 /* yes. 1M insns */
 #define MAX_TAIL_CALL_CNT 33
 

@@ -127,13 +127,13 @@ static __u64 stats_async_schedule(struct bpf_map *map, __u32 *key,
 SEC("?raw_tp")
 __success __log_level(4)
 /*
- * self: 9 + 7 + 2 = 18
- * totals: leaf 2, scheduler 7, main root 18
+ * self: 8 + 7 + 2 = 17
+ * totals: leaf 2, scheduler 7, main root 17
  */
-__msg("subprog 0 (stats_async_direct) main insns_self 9 insns_total 18 stack 0")
+__msg("subprog 0 (stats_async_direct) main insns_self 8 insns_total 17 stack 0")
 __msg("subprog {{[0-9]+}} (stats_async_schedule) static insns_self 7 insns_total 7 stack 0")
 __msg("subprog {{[0-9]+}} (stats_async_leaf) static insns_self 2 insns_total 2 stack 0")
-__msg("processed 18 insns")
+__msg("processed 17 insns")
 __naked int stats_async_direct(void)
 {
 	asm volatile (
@@ -194,14 +194,14 @@ static __u64 stats_async_nested_schedule(struct bpf_map *map, __u32 *key,
 SEC("?raw_tp")
 __success __log_level(4)
 /*
- * self: 9 + 7 + 7 + 2 = 25
- * totals: leaf 2, outer 7, scheduler 7, main root 25
+ * self: 8 + 7 + 7 + 2 = 24
+ * totals: leaf 2, outer 7, scheduler 7, main root 24
  */
-__msg("subprog 0 (stats_async_nested) main insns_self 9 insns_total 25 stack 0")
+__msg("subprog 0 (stats_async_nested) main insns_self 8 insns_total 24 stack 0")
 __msg("subprog {{[0-9]+}} (stats_async_nested_schedule) static insns_self 7 insns_total 7 stack 0")
 __msg("subprog {{[0-9]+}} (stats_async_outer) static insns_self 7 insns_total 7 stack 0")
 __msg("subprog {{[0-9]+}} (stats_async_nested_leaf) static insns_self 2 insns_total 2 stack 0")
-__msg("processed 25 insns")
+__msg("processed 24 insns")
 __naked int stats_async_nested(void)
 {
 	asm volatile (

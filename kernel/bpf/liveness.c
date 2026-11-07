@@ -1054,6 +1054,22 @@ static bool arg_track_join(struct bpf_verifier_env *env, int idx, int target, in
 	return true;
 }
 
+/* What leaves @idx gets to @target */
+static bool arg_track_join_all(struct bpf_verifier_env *env, int idx, int target,
+			       struct arg_track *in, struct arg_track *stack_in,
+			       const struct arg_track *out, const struct arg_track *stack_out,
+			       u32 nslots)
+{
+	bool changed = false;
+	int r;
+
+	for (r = 0; r < MAX_AT_TRACK_REGS; r++)
+		changed |= arg_track_join(env, idx, target, r, &in[r], out[r]);
+	for (r = 0; r < nslots; r++)
+		changed |= arg_track_join(env, idx, target, -r - 1, &stack_in[r], stack_out[r]);
+	return changed;
+}
+
 /*
  * Compute the result when an ALU op destroys offset precision.
  * If a single arg is identifiable, preserve it with OFF_IMPRECISE.
@@ -2069,12 +2085,19 @@ redo:
 		int i = idx - start;
 		struct bpf_insn *insn = &insns[idx];
 		struct bpf_iarray *succ;
+		int ti;
 
 		if (!arg_is_visited(&at_in[i][0]) && !arg_is_visited(&at_in[i][1]))
 			continue;
 
 		memcpy(at_out, at_in[i], sizeof(at_out));
 		memcpy(at_stack_out, &at_stack_in[(size_t)i * nslots], nslots * sizeof(*at_stack_out));
+
+		ti = bpf_head_guard_target(env, idx) - start;
+		if (ti >= 0)
+			changed |= arg_track_join_all(env, idx, start + ti, at_in[ti],
+						      &at_stack_in[(size_t)ti * nslots],
+						      at_out, at_stack_out, nslots);
 
 		arg_track_xfer(env, insn, idx, at_out, at_stack_out, nslots,
 			       at_stack_arg_entry, instance, callsites);
@@ -2085,21 +2108,14 @@ redo:
 		succ = bpf_insn_successors(env, idx);
 		for (int s = 0; s < succ->cnt; s++) {
 			int target = succ->items[s];
-			int ti;
 
 			/* Filter: stay within the subprogram's range */
 			if (target < start || target >= end)
 				continue;
 			ti = target - start;
-
-			for (r = 0; r < MAX_AT_TRACK_REGS; r++)
-				changed |= arg_track_join(env, idx, target, r,
-							  &at_in[ti][r], at_out[r]);
-
-			for (r = 0; r < nslots; r++)
-				changed |= arg_track_join(env, idx, target, -r - 1,
-							  &at_stack_in[(size_t)ti * nslots + r],
-							  at_stack_out[r]);
+			changed |= arg_track_join_all(env, idx, target, at_in[ti],
+						      &at_stack_in[(size_t)ti * nslots],
+						      at_out, at_stack_out, nslots);
 		}
 	}
 	if (changed)
@@ -2338,6 +2354,7 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 		struct func_instance *callee_instance;
 		int callee, target;
 		int caller_reg, cb_callee_reg;
+		u16 live;
 
 		j = idx - start; /* relative index within this subprog */
 		memset(callee_args, 0, MAX_AT_TRACK_REGS * sizeof(*callee_args));
@@ -2353,11 +2370,17 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 			if (callee < 0 || bpf_subprog_is_global(env, callee))
 				continue;
 
-			/* Build entry args: R1-R5 and stack args from at_in at call site */
+			/*
+			 * Build entry args: R1-R5 and stack args from at_in at call site.
+			 * What is left over in a register that the callee doesn't read is no arg.
+			 */
+			live = env->insn_aux_data[target].live_regs_before;
 			for (int r = BPF_REG_1; r <= BPF_REG_5; r++)
-				callee_args[r] = info[subprog].at_in[j][r];
+				callee_args[r] = live & BIT(r) ? info[subprog].at_in[j][r] : none;
 			for (int r = 0; r < MAX_STACK_ARG_SLOTS; r++)
-				callee_args[MAX_BPF_REG + r] = info[subprog].at_in[j][MAX_BPF_REG + r];
+				callee_args[MAX_BPF_REG + r] =
+					r < bpf_in_stack_arg_cnt(&env->subprog_info[callee]) ?
+					info[subprog].at_in[j][MAX_BPF_REG + r] : none;
 		} else if (bpf_calls_callback(env, idx)) {
 			callee = find_callback_subprog(env, insn, idx, &caller_reg, &cb_callee_reg);
 			if (callee == -2) {
@@ -2391,6 +2414,17 @@ static int analyze_subprog(struct bpf_verifier_env *env,
 
 		if (!has_fp_args(callee_args))
 			continue;
+
+		/*
+		 * at_in[] is kept per subprog and the snapshot of the stack per call insn:
+		 * the walk must not enter a subprog that it has not left.
+		 */
+		if (env->subprog_info[subprog].recursive && env->subprog_info[callee].recursive) {
+			verbose(env, "recursive %s() passes a pointer to the stack to %s()\n",
+				bpf_subprog_name(env, subprog), bpf_subprog_name(env, callee));
+			err = -EINVAL;
+			goto out_free;
+		}
 
 		if (depth == MAX_CALL_FRAMES - 1) {
 			verbose(env, "%s() passes a pointer to the stack to %s()\n",
@@ -2698,9 +2732,12 @@ static void compute_insn_live_regs(struct bpf_verifier_env *env,
 			}
 			def = mask_widen(def);
 			use = mask_widen(use);
-			/* callx reads the address of the callee from dst_reg */
+			/*
+			 * callx reads the address of the callee from dst_reg. What the callee
+			 * reads is added in bpf_compute_live_registers().
+			 */
 			if (bpf_is_callx(insn))
-				use |= dst;
+				use = dst;
 			break;
 		default:
 			def = 0;
@@ -2765,14 +2802,34 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			compute_insn_live_regs(env, &insns[i], &state[i], ret_reg_pair);
 	}
 
-	/* Forward pass: resolve stack access through FP-derived pointers */
-	err = bpf_compute_subprog_arg_access(env);
-	if (err)
-		goto out;
-
 	changed = true;
 	while (changed) {
+		u32 args = mask_widen(GENMASK(BPF_REG_5, BPF_REG_1)), callx_use = 0, declared;
+		bool taken = false;
+
+		/*
+		 * callx calls one of the subprogs whose address is taken, see
+		 * check_func_callx_one(). It reads what they read, as computed so far.
+		 */
+		for (subprog = 0; subprog < env->subprog_cnt; subprog++) {
+			if (!env->subprog_info[subprog].addr_taken)
+				continue;
+			callx_use |= state[env->subprog_info[subprog].start].in & args;
+			/* and what its BTF declares: the BTF is unreliable when one is not set */
+			declared = env->subprog_info[subprog].arg_slot_cnt;
+			callx_use |= mask_widen(GENMASK(declared, 1)) & args;
+			taken = true;
+		}
+		if (!taken)
+			callx_use = args;
+
 		changed = false;
+		/* a cycle of calls takes a round for each link */
+		if (signal_pending(current)) {
+			err = -EAGAIN;
+			goto out;
+		}
+		cond_resched();
 		for (i = 0; i < env->cfg.cur_postorder; ++i) {
 			int insn_idx = env->cfg.insn_postorder[i];
 			struct insn_live_regs *live = &state[insn_idx];
@@ -2780,6 +2837,7 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			u32 new_out = 0;
 			u32 new_in = 0;
 			u32 use;
+			int t;
 
 			succ = bpf_insn_successors(env, insn_idx);
 			for (int s = 0; s < succ->cnt; ++s)
@@ -2793,7 +2851,13 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			    !bpf_subprog_is_global(env, callee_subprog(env, &insns[insn_idx])))
 				use |= state[insn_idx + insns[insn_idx].imm + 1].in &
 				       mask_widen(GENMASK(BPF_REG_5, BPF_REG_1));
+			if (bpf_is_callx(&insns[insn_idx]))
+				use |= callx_use;
 			new_in = (new_out & ~live->def) | use;
+			/* may_goto that is added at the head of a loop goes there */
+			t = bpf_head_guard_target(env, insn_idx);
+			if (t >= 0)
+				new_in |= state[t].in;
 			if (new_out != live->out || new_in != live->in) {
 				live->in = new_in;
 				live->out = new_out;
@@ -2816,7 +2880,17 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 		 */
 		insn_aux[i].zext_dst = def32 >= 0 && (mask_hi(out) & BIT(def32));
 	}
+	/* the exit that stands for 'r0 = 0; exit' may be dead code, see push_budget_exit() */
+	for (i = 0; i < env->subprog_cnt; i++)
+		if (env->subprog_info[i].bail_insn >= 0)
+			insn_aux[env->subprog_info[i].bail_insn].live_regs_before |=
+				BIT(BPF_REG_0) | (bpf_ret_reg_pair(env, i) ? BIT(BPF_REG_2) : 0);
 
+	/*
+	 * Forward pass: resolve stack access through FP-derived pointers.
+	 * It looks at live_regs_before of the callees.
+	 */
+	err = bpf_compute_subprog_arg_access(env);
 out:
 	kvfree(state);
 	return err;

@@ -1276,7 +1276,7 @@ static int parse_range_cmp_log(const char *log_buf, struct case_spec spec,
 		{true_pos + 1,  7, "R7=", true2_reg},
 	};
 	char buf[32];
-	const char *p = log_buf, *q;
+	const char *p, *q;
 	int i, err;
 
 	for (i = 0; i < 4; i++) {
@@ -1291,8 +1291,9 @@ static int parse_range_cmp_log(const char *log_buf, struct case_spec spec,
 		 * Different verifier passes may print
 		 *   18: (bf) r0 = r6
 		 * as well, but never followed by ';'.
+		 * The branches are in the log in the order the verifier looked at them.
 		 */
-		q = p;
+		q = log_buf;
 		while ((q = strstr(q, buf)) != NULL) {
 			const char *s = q + strlen(buf);
 

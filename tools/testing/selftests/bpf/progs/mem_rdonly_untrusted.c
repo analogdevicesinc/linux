@@ -219,9 +219,9 @@ int mixed_mem_untrusted_btf_id_type(void *ctx)
 	 * returning 0.
 	 */
 	asm volatile (
-	"r7 = %[p];"
-	"if %[zero] != 0 goto +1;"
 	"r7 = %[q];"
+	"if %[zero] == 0 goto +1;"
+	"r7 = %[p];"
 	"r8 = *(u64 *)(r7 + 0);"
 	"%[v] = r8;"
 	: [v]"=r"(v)
@@ -263,9 +263,9 @@ int mixed_mem_btf_id_type(void *ctx)
 	 * gotten on its own.
 	 */
 	asm volatile (
-	"r7 = %[p];"
-	"if %[zero] != 0 goto +1;"
 	"r7 = %[q];"
+	"if %[zero] == 0 goto +1;"
+	"r7 = %[p];"
 	"r8 = *(u32 *)(r7 + 0);"
 	"%[v] = r8;"
 	: [v]"=r"(v)
@@ -305,9 +305,9 @@ int mixed_rdonly_mem_btf_id_type(void *ctx)
 	 * only its PTR_UNTRUSTED variant is.
 	 */
 	asm volatile (
-	"r7 = %[p];"
-	"if %[zero] != 0 goto +1;"
 	"r7 = %[q];"
+	"if %[zero] == 0 goto +1;"
+	"r7 = %[p];"
 	"r8 = *(u32 *)(r7 + 0);"
 	"%[v] = r8;"
 	: [v]"=r"(v)
@@ -340,9 +340,9 @@ int mixed_mem_mem_type(void *ctx)
 	 * hence without the BPF_PROBE_MEM rewrite the other path needs.
 	 */
 	asm volatile (
-	"r7 = %[q];"
-	"if %[zero] == 0 goto +1;"
 	"r7 = %[p];"
+	"if %[zero] != 0 goto +1;"
+	"r7 = %[q];"
 	"r8 = *(u64 *)(r7 + 0);"
 	"%[v] = r8;"
 	: [v]"=r"(v)
