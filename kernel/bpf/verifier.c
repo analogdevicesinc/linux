@@ -25268,6 +25268,21 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret < 0)
 		goto skip_full_check;
 
+	/*
+	 * It took the constants to remove dead branches and find the loops. Now it's known
+	 * which edges the verifier may add, see bpf_head_guard_target(). What follows
+	 * believes the constants.
+	 */
+	ret = bpf_flow_place_guards(env);
+	if (ret > 0)
+		ret = bpf_compute_const_regs(env);
+	if (ret < 0)
+		goto skip_full_check;
+
+	ret = bpf_find_latches(env, true);
+	if (ret < 0)
+		goto skip_full_check;
+
 	ret = bpf_compute_live_registers(env);
 	if (ret < 0)
 		goto skip_full_check;

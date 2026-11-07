@@ -1054,6 +1054,22 @@ static bool arg_track_join(struct bpf_verifier_env *env, int idx, int target, in
 	return true;
 }
 
+/* What leaves @idx gets to @target */
+static bool arg_track_join_all(struct bpf_verifier_env *env, int idx, int target,
+			       struct arg_track *in, struct arg_track *stack_in,
+			       const struct arg_track *out, const struct arg_track *stack_out,
+			       u32 nslots)
+{
+	bool changed = false;
+	int r;
+
+	for (r = 0; r < MAX_AT_TRACK_REGS; r++)
+		changed |= arg_track_join(env, idx, target, r, &in[r], out[r]);
+	for (r = 0; r < nslots; r++)
+		changed |= arg_track_join(env, idx, target, -r - 1, &stack_in[r], stack_out[r]);
+	return changed;
+}
+
 /*
  * Compute the result when an ALU op destroys offset precision.
  * If a single arg is identifiable, preserve it with OFF_IMPRECISE.
@@ -2069,12 +2085,19 @@ redo:
 		int i = idx - start;
 		struct bpf_insn *insn = &insns[idx];
 		struct bpf_iarray *succ;
+		int ti;
 
 		if (!arg_is_visited(&at_in[i][0]) && !arg_is_visited(&at_in[i][1]))
 			continue;
 
 		memcpy(at_out, at_in[i], sizeof(at_out));
 		memcpy(at_stack_out, &at_stack_in[(size_t)i * nslots], nslots * sizeof(*at_stack_out));
+
+		ti = bpf_head_guard_target(env, idx) - start;
+		if (ti >= 0)
+			changed |= arg_track_join_all(env, idx, start + ti, at_in[ti],
+						      &at_stack_in[(size_t)ti * nslots],
+						      at_out, at_stack_out, nslots);
 
 		arg_track_xfer(env, insn, idx, at_out, at_stack_out, nslots,
 			       at_stack_arg_entry, instance, callsites);
@@ -2085,21 +2108,14 @@ redo:
 		succ = bpf_insn_successors(env, idx);
 		for (int s = 0; s < succ->cnt; s++) {
 			int target = succ->items[s];
-			int ti;
 
 			/* Filter: stay within the subprogram's range */
 			if (target < start || target >= end)
 				continue;
 			ti = target - start;
-
-			for (r = 0; r < MAX_AT_TRACK_REGS; r++)
-				changed |= arg_track_join(env, idx, target, r,
-							  &at_in[ti][r], at_out[r]);
-
-			for (r = 0; r < nslots; r++)
-				changed |= arg_track_join(env, idx, target, -r - 1,
-							  &at_stack_in[(size_t)ti * nslots + r],
-							  at_stack_out[r]);
+			changed |= arg_track_join_all(env, idx, target, at_in[ti],
+						      &at_stack_in[(size_t)ti * nslots],
+						      at_out, at_stack_out, nslots);
 		}
 	}
 	if (changed)
@@ -2780,6 +2796,7 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 			u32 new_out = 0;
 			u32 new_in = 0;
 			u32 use;
+			int t;
 
 			succ = bpf_insn_successors(env, insn_idx);
 			for (int s = 0; s < succ->cnt; ++s)
@@ -2794,6 +2811,10 @@ int bpf_compute_live_registers(struct bpf_verifier_env *env)
 				use |= state[insn_idx + insns[insn_idx].imm + 1].in &
 				       mask_widen(GENMASK(BPF_REG_5, BPF_REG_1));
 			new_in = (new_out & ~live->def) | use;
+			/* may_goto that is added at the head of a loop goes there */
+			t = bpf_head_guard_target(env, insn_idx);
+			if (t >= 0)
+				new_in |= state[t].in;
 			if (new_out != live->out || new_in != live->in) {
 				live->in = new_in;
 				live->out = new_out;

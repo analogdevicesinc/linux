@@ -316,11 +316,15 @@ __naked void gotol(void)
 }
 #endif
 
+/*
+ * If the verifier had to add may_goto to this loop it would be at the head, insn 0, and go to
+ * insn 3. What is live at 3 is live at 0.
+ */
 SEC("socket")
 __log_level(2)
-__msg("0: .......... (b7) r1 = 1")
+__msg("0: .1........ (b7) r1 = 1")
 __msg("1: .1........ (e5) may_goto pc+1")
-__msg("2: .......... (05) goto pc-3")
+__msg("2: .1........ (05) goto pc-3")
 __msg("3: .1........ (bf) r0 = r1")
 __msg("4: 0......... (95) exit")
 __naked void may_goto(void)

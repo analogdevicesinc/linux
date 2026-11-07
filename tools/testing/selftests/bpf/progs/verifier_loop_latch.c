@@ -130,17 +130,17 @@ LOOP(down_two_tests, "w8 = 4; r6 += 2043;",
 /* 'while (n--)': the jump that counts sets a flag, the jump that leaves the loop tests it */
 #define FLAG(mid)	"w8 += 1; w2 = 1; if w8 == 0 goto 2f; w2 = 0; 2: " mid " if w2 != 1 goto 1b;"
 
-OK("a flag", "2048")
+OK("a flag", "[0..2048]")
 LOOP(flag, "w8 = -2048;", FLAG("r3 = r6;"))
 
 BAD("a flag, one too many")
 LOOP(flag_bad, "w8 = -2049;", FLAG("r3 = r6;"))
 
-OK("a flag, a store behind it", "2048")
+OK("a flag, a store behind it", "[0..2048]")
 LOOP(flag_store, "w8 = -2048;",
      "w8 += 1; w2 = 1; *(u32 *)(r10 - 4) = r8; if w8 == 0 goto 2f; w2 = 0; 2: if w2 != 1 goto 1b;")
 
-OK("a flag, a call behind it", "2048")
+OK("a flag, a call behind it", "[0..2048]")
 LOOP(flag_call, "w8 = -2048;",
      "w8 += 1; w9 = 1; if w8 == 0 goto 2f; w9 = 0; 2: call %[bpf_get_prandom_u32]; if w9 != 1 goto 1b;")
 

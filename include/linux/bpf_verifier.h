@@ -817,6 +817,8 @@ struct bpf_backedge {
 	 */
 	int latches[MAX_LATCHES];
 	u8 latches_cnt;
+	/* bit k: the loop is left on the edge of latches[k] that is taken, not on the other one */
+	u8 taken_leaves;
 };
 
 struct bpf_loop_exit {
@@ -934,6 +936,8 @@ struct bpf_insn_aux_data {
 	u64 guard_no_unwind:1; /* it cannot unwind from here, at least sometimes */
 	u64 guard_edge_dropped:1; /* an edge of may_goto from here was dropped */
 	u64 need_scev:1;
+	/* a jump in a loop: the edge that is not taken, bit 0, or the other one leaves the loop */
+	u64 edge_leaves:2;
 	u64 alu_state:5; /* used in combination with alu_limit */
 	/* true if STX or LDX instruction is a part of a spill/fill
 	 * pattern for a bpf_fastcall call.
@@ -1483,6 +1487,8 @@ struct bpf_verifier_env {
 	struct bpf_iarray *succ;
 	struct bpf_iarray *gotox_tmp_buf;
 	int *idoms;
+	/* per insn, while bpf_compute_leave_conds() runs */
+	struct bpf_leave_cond *leave_conds;
 	struct scev *scev;
 	struct bpf_flow *flow;
 	struct bpf_join_state *join;
@@ -1718,7 +1724,9 @@ u16 bpf_call_const_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn)
 u16 bpf_call_checked_arg_regs(struct bpf_verifier_env *env, struct bpf_insn *insn);
 bool bpf_insn_is_iter_next(struct bpf_verifier_env *env, struct bpf_insn *insn);
 bool bpf_insn_leaves_loop(struct bpf_verifier_env *env, int h, int n);
+int bpf_compute_leave_conds(struct bpf_verifier_env *env);
 bool bpf_edge_leaves_loop(struct bpf_verifier_env *env, int h, int n, int t);
+int bpf_find_latches(struct bpf_verifier_env *env, bool flags);
 bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n);
 int bpf_insert_recursion_checks(struct bpf_verifier_env *env);
 int bpf_split_cur_state(struct bpf_verifier_env *env);

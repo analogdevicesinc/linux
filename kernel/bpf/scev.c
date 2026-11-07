@@ -2101,13 +2101,12 @@ static bool loop_invariant(struct scev *scev, u32 id)
 
 static int match_linear_latch(struct bpf_verifier_env *env,
 			      u32 header,
-			      u32 latch_idx,
+			      u32 latch_idx, bool taken_leaves,
 			      struct linear_latch *latch)
 {
 	struct bpf_insn *insn = &env->prog->insnsi[latch_idx];
 	struct scev *scev = env->scev;
 	struct env *latch_env;
-	u32 true_branch_tgt;
 	u32 src_reg_scev;
 	u32 dst_reg_scev;
 	u32 t, l, r, op;
@@ -2116,8 +2115,7 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 	op = BPF_OP(insn->code);
 	latch->jmp32 = BPF_CLASS(insn->code) == BPF_JMP32;
 	/* Flip the condition if true branch jumps out of the loop. */
-	true_branch_tgt = latch_idx + bpf_jmp_offset(insn) + 1;
-	if (bpf_edge_leaves_loop(env, header, latch_idx, true_branch_tgt))
+	if (taken_leaves)
 		op = bpf_rev_opcode(op);
 	switch (op) {
 	case BPF_JSLT:
@@ -3347,7 +3345,8 @@ static int count_backedge(struct bpf_verifier_env *env, struct bpf_func_state *s
 
 	for (j = 0; j < backedge->latches_cnt; j++) {
 		latch_idx = backedge->latches[j];
-		linear_latch = match_linear_latch(env, insn_idx, latch_idx, &latch);
+		linear_latch = match_linear_latch(env, insn_idx, latch_idx,
+						  backedge->taken_leaves & BIT(j), &latch);
 		if (linear_latch < 0)
 			return linear_latch;
 		if (!linear_latch) {
@@ -3363,6 +3362,9 @@ static int count_backedge(struct bpf_verifier_env *env, struct bpf_func_state *s
 					insn_idx, latch_idx);
 			continue;
 		}
+		/* a flag can have other reasons to end the loop */
+		if (!bpf_jump_leaves_loop(env, insn_idx, latch_idx))
+			tmp.min_header_count = 0;
 		if (!found || tmp.max_header_count < iters->max_header_count) {
 			iters->max_header_count = tmp.max_header_count;
 			iters->iv_reg = tmp.iv_reg;
