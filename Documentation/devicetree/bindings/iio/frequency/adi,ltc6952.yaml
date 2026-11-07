@@ -25,14 +25,26 @@ properties:
     maxItems: 1
 
   clocks:
-    description:
-      Definition of the external clock (see clock/clock-bindings.txt)
-    maxItems: 1
+    minItems: 1
+    items:
+      - description: Reference input clock.
+      - description: External VCO input clock.
 
   clock-names:
+    minItems: 1
+    items:
+      - const: clkin
+      - const: vcoin
+
+  vcoin-clock-scales:
     description:
-      Must be "clkin"
-    maxItems: 1
+      Clock scaling factors for the VCO input clock. Multiplier is
+      vcoin-clock-scales[0] and divider is vcoin-clock-scales[1].
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    items:
+      minimum: 1
+    minItems: 2
+    maxItems: 2
 
   clock-output-names:
     description: |
