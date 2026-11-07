@@ -572,6 +572,60 @@ __naked void null_check_of_stack_arg(void)
 	: __clobber_all);
 }
 
+static __naked __noinline __used long adds_arg6_arg7(long a, long b, long c, long d, long e,
+						     long f, long g)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r11 + 8);"
+	"r1 = *(u64 *)(r11 + 16);"
+	"r0 += r1;"
+	"exit;"
+	::: __clobber_all);
+}
+
+static __naked __noinline __used long subs_arg6_arg7(long a, long b, long c, long d, long e,
+						     long f, long g)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r11 + 8);"
+	"r1 = *(u64 *)(r11 + 16);"
+	"r0 -= r1;"
+	"exit;"
+	::: __clobber_all);
+}
+
+SEC("tc")
+__description("stack_arg: callx of one of two functions, args are not written")
+__failure __msg("callee expects 7 args, stack arg1 is not initialized")
+__naked void callx_one_of_two_not_written(void)
+{
+	asm volatile (
+	".pushsection .rodata,\"a\",@progbits;"
+	".balign 8;"
+"two_funcs_%=:"
+	".quad adds_arg6_arg7;"
+	".quad subs_arg6_arg7;"
+	".type two_funcs_%=, @object;"
+	".size two_funcs_%=, .-two_funcs_%=;"
+	".popsection;"
+	"call %[bpf_get_prandom_u32];"
+	"r0 &= 1;"
+	"r0 <<= 3;"
+	"r2 = two_funcs_%= ll;"
+	"r2 += r0;"
+	"r6 = *(u64 *)(r2 + 0);"
+	"r1 = 1;"
+	"r2 = 2;"
+	"r3 = 3;"
+	"r4 = 4;"
+	"r5 = 5;"
+	"callx r6;"
+	"exit;"
+	:
+	: __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
 /* r1 - r5 and all 19 slots. Its prototype has no parameters: what it takes is seen in its code. */
 __naked __noinline __used
 static unsigned long subprog_24args(void)

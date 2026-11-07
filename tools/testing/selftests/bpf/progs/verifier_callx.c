@@ -985,6 +985,30 @@ __naked void callx_callee_reads_caller_stack_nested(void)
 		: __clobber_all);
 }
 
+__naked __noinline __used
+static unsigned long reads_one_of_two(long a, long b)
+{
+	asm volatile (
+		"r0 = r1;"
+		"exit;"
+		::: __clobber_all);
+}
+
+/* r2 is live at callx: the BTF of the callee, which a tracer counts on, declares it */
+SEC("socket")
+__success __retval(1) __log_level(2)
+__msg(".123...... (8d) callx r3")
+__naked void callx_reads_declared_args(void)
+{
+	asm volatile (
+		"r1 = 1;"
+		"r2 = 2;"
+		"r3 = reads_one_of_two ll;"
+		"callx r3;"
+		"exit;"
+		::: __clobber_all);
+}
+
 /* registers that are constant before callx are not constant after it */
 SEC("socket")
 __success __retval(1)
