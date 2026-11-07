@@ -43,6 +43,11 @@ enum expr_op {
 	 * bpf_loop_at_index().
 	 */
 	LINEAR_SCEV,
+	/*
+	 * param[1], given that register param[0] and the register that param[1] starts from are
+	 * equal when the loop is entered. Not known otherwise.
+	 */
+	COPY_SCEV,
 };
 
 struct expr {
@@ -259,6 +264,13 @@ static bool is_linear(struct scev *scev, int id, u32 *base, u32 *slope)
 	return is_binop(scev, LINEAR_SCEV, id, base, slope);
 }
 
+static bool is_copy(struct scev *scev, int id, u32 *reg, u32 *orig)
+{
+	u32 t;
+
+	return is_binop(scev, COPY_SCEV, id, &t, orig) && is_reg(scev, t, reg);
+}
+
 static bool is_linear_or_linear32(struct scev *scev, int id, u32 *base, u32 *slope, bool *zext32)
 {
 	u32 t;
@@ -319,6 +331,7 @@ static const char *op_str(u32 op)
 	case SPILL32:  return "spill32";
 	case ANY:      return "any";
 	case LINEAR_SCEV:  return "linear";
+	case COPY_SCEV:    return "copy";
 	}
 	return NULL;
 }
@@ -341,6 +354,7 @@ static u32 op_params_num(u32 op)
 	case SMOD:
 	case ANY:
 	case LINEAR_SCEV:
+	case COPY_SCEV:
 		return 2;
 	case BPF_NEG:
 	case SEXT8:
@@ -1626,6 +1640,7 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 {
 	struct scev *scev = env->scev;
 	int l, r, t, id, ra, rb, ra_expr;
+	bool zext32;
 	s64 imm;
 
 	/*
@@ -1701,6 +1716,28 @@ static int compute_header_scevs(struct bpf_verifier_env *env, struct env *header
 			continue;
 		}
 
+	}
+	/*
+	 *	do { i++; if (old > 1021) break; c = buf[old]; old = i; } while (c);
+	 * rA = (+ rB IMM) and rB = (+ rB IMM): an iteration leaves the same number in both. If
+	 * they are equal when the loop is entered rA is at the header what rB is.
+	 */
+	for (ra = 0; ra < REGS_NUM; ra++) {
+		if (header_env->reg2scev[ra] != UNKNOWN_EXPR_ID ||
+		    header_env->reg2expr[ra] == UNKNOWN_EXPR_ID)
+			continue;
+		for (rb = 0; rb < REGS_NUM; rb++) {
+			id = header_env->reg2scev[rb];
+			if (header_env->reg2expr[rb] != header_env->reg2expr[ra] ||
+			    !is_linear_or_linear32(scev, id, &l, &r, &zext32) ||
+			    !is_reg(scev, l, &t) || t != rb)
+				continue;
+			id = expr2(scev, COPY_SCEV, expr1(scev, REG, ra), id);
+			if (id < 0)
+				return id;
+			header_env->reg2scev[ra] = id;
+			break;
+		}
 	}
 	return 0;
 }
@@ -1977,6 +2014,19 @@ static struct bpf_reg_state *scev_reg_for_linear(struct bpf_func_state *st, u32 
 	return &stack->spilled_ptr;
 }
 
+/* Do the registers or stack slots @a and @b hold the same number in @st? */
+static bool scev_regs_equal(struct bpf_func_state *st, u32 a, u32 b)
+{
+	const struct bpf_reg_state *ra = scev_reg_for_linear(st, a);
+	const struct bpf_reg_state *rb = scev_reg_for_linear(st, b);
+
+	if (!ra || !rb || ra->type != SCALAR_VALUE || rb->type != SCALAR_VALUE)
+		return false;
+	if (tnum_is_const(ra->var_off) && tnum_is_const(rb->var_off))
+		return ra->var_off.value == rb->var_off.value;
+	return ra->id && ra->id == rb->id && ra->delta == rb->delta;
+}
+
 /* '*(u32 *)(r10 - 8) = rX' left a number in the low half of the slot. */
 static struct bpf_reg_state *scev_reg_for_spill32(struct bpf_func_state *st, u32 r)
 {
@@ -2090,12 +2140,16 @@ static bool scev_reg_alive(struct bpf_verifier_env *env, struct bpf_verifier_sta
  * 'i' is the loop iteration number, starting from 0.
  * 'zext32' indicates the latch is for (zext32 (linear ...)) SCEV.
  * 'jmp32' indicates that the latch is a JMP32 instruction.
+ * 'base_reg' is the register in <base>. 'copy_reg' is -1, or <reg> is made from that register,
+ * which has to be equal to 'base_reg' at the entry of the loop, see COPY_SCEV.
  */
 struct linear_latch {
 	u32 insn_idx;
 	u32 base_expr;
 	u32 step_expr;
 	u32 bound_expr;
+	u32 base_reg;
+	int copy_reg;
 	u8 op;
 	bool zext32;
 	bool jmp32;
@@ -2149,6 +2203,11 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return -EFAULT;
 	dst_reg_scev = latch_env->reg2scev[insn->dst_reg];
 	src_reg_scev = latch_env->reg2scev[insn->src_reg];
+	latch->copy_reg = -1;
+	if (is_copy(scev, dst_reg_scev, &latch->copy_reg, &t))
+		dst_reg_scev = t;
+	else if (BPF_SRC(insn->code) == BPF_X && is_copy(scev, src_reg_scev, &latch->copy_reg, &t))
+		src_reg_scev = t;
 	/*
 	 * Make sure (linear ...) is in dst_reg_scev:
 	 *   'if <invariant> <op> <linear>' ⇔
@@ -2187,12 +2246,12 @@ static int match_linear_latch(struct bpf_verifier_env *env,
 		return false;
 
 	/* (linear register step) */
-	if (is_reg_or_low32(scev, latch->base_expr, &t))
+	if (is_reg_or_low32(scev, latch->base_expr, &latch->base_reg))
 		return true;
 
 	/* (linear (+ register imm) step) */
 	if (is_add(scev, latch->base_expr, &l, &r) &&
-	    is_reg_or_low32(scev, l, &t) &&
+	    is_reg_or_low32(scev, l, &latch->base_reg) &&
 	    loop_invariant(scev, r))
 		return true;
 
@@ -2846,6 +2905,8 @@ static bool compute_max_iters(struct bpf_verifier_env *env,
 
 	iters->iv_reg = -1;
 
+	if (latch->copy_reg >= 0 && !scev_regs_equal(st, latch->copy_reg, latch->base_reg))
+		return false;
 	if (!eval_expr(env, scev, st, latch->base_expr, &initial_val) ||
 	    !eval_expr(env, scev, st, latch->step_expr, &step_val) ||
 	    !eval_expr(env, scev, st, latch->bound_expr, &bound_val))
@@ -3178,6 +3239,50 @@ static bool is_simple_linear(struct scev *scev, u32 id, struct linear_coefs *out
 	return is_linear_or_linear32(scev, id, &base, &slope, &out->zext32) &&
 	       is_reg(scev, base, &out->base_reg) &&
 	       is_simple_slope(scev, slope, &out->slope);
+}
+
+/*
+ * Is @r 'what it is in @st + slope * k' at the header in iteration k? @id is its SCEV there, @st is
+ * the state that entered the loop. At a jump in the loop @id can be what another register was at
+ * the header. @st says nothing about @r then.
+ */
+static bool is_linear_at_header(struct scev *scev, struct bpf_func_state *st, u32 id, u32 r,
+				struct linear_coefs *out)
+{
+	u32 copy, orig;
+
+	if (is_copy(scev, id, &copy, &orig))
+		return copy == r && is_simple_linear(scev, orig, out) &&
+		       scev_regs_equal(st, r, out->base_reg);
+	return is_simple_linear(scev, id, out) && out->base_reg == r;
+}
+
+/*
+ * @st is at the header of a loop that @entry entered. A copy of an induction variable is equal to
+ * it there in every iteration. They got their ranges one by one: give them one id, like 'r2 = r1'
+ * does, so that a test of one of them is a test of both.
+ */
+static void link_copies(struct bpf_verifier_env *env, struct env *header_env,
+			struct bpf_func_state *entry, struct bpf_func_state *st)
+{
+	struct bpf_reg_state *reg, *orig;
+	struct linear_coefs coefs;
+	u32 r;
+
+	for (r = 0; r < REGS_NUM; r++) {
+		if (!is_linear_at_header(env->scev, entry, header_env->reg2scev[r], r, &coefs) ||
+		    coefs.base_reg == r)
+			continue;
+		reg = scev_reg_for_linear(st, r);
+		orig = scev_reg_for_linear(st, coefs.base_reg);
+		if (!reg || !orig || reg->type != SCALAR_VALUE || orig->type != SCALAR_VALUE ||
+		    tnum_is_const(orig->var_off))
+			continue;
+		if (!orig->id)
+			orig->id = ++env->id_gen;
+		reg->id = orig->id;
+		reg->delta = orig->delta;
+	}
 }
 
 /*
@@ -3588,7 +3693,8 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 			continue;
 		}
 		/* If SCEV for r is (linear <reg> <slope>) */
-		if (reg && is_simple_linear(scev, r_scev, &coefs) && is_widenable_reg_type(reg)) {
+		if (reg && is_linear_at_header(scev, cur_func, r_scev, r, &coefs) &&
+		    is_widenable_reg_type(reg)) {
 			/* 32-bit ALU operations on pointers convert them to scalars */
 			if (coefs.zext32 && reg->type != SCALAR_VALUE)
 				goto cant_widen;
@@ -3802,7 +3908,7 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 		}
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if (spill32 || (is_simple_linear(scev, r_expr, &coefs) && coefs.base_reg == r)) {
+		if (spill32 || is_linear_at_header(scev, entry_func, r_expr, r, &coefs)) {
 			/* the range is derived from @loop_entry: bpf_clamp_scev_regs() */
 			if (back)
 				continue;
@@ -3812,7 +3918,7 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			if (err)
 				return err;
 			linear_bounds(reg, iters->max_header_count, &coefs, &bounds);
-			if (r == iters->iv_reg)
+			if (coefs.base_reg == iters->iv_reg)
 				iv_bounds(&bounds, iters->iv_range);
 			if (log->level & BPF_LOG_LEVEL2) {
 				bpf_log(log, "loop header at %d, widening ", insn_idx);
@@ -3850,6 +3956,7 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			mark_scev_reg_scratched(env, r);
 		}
 	}
+	link_copies(env, header_env, entry_func, cur_func);
 	return 1;
 }
 
@@ -3906,9 +4013,9 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 			goto clamp;
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
-		if ((!is_simple_linear(scev, r_scev, &coefs) &&
-		     !(behind && is_moved_linear(scev, r_scev, &coefs, &moved))) ||
-		    coefs.base_reg != r)
+		if (!is_linear_at_header(scev, entry_st, r_scev, r, &coefs) &&
+		    !(behind && is_moved_linear(scev, r_scev, &coefs, &moved) &&
+		      coefs.base_reg == r))
 			continue;
 
 		entry_reg = scev_reg_for_linear(entry_st, r);
@@ -3934,7 +4041,7 @@ int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *cur
 			continue;
 clamp:
 		linear_bounds(entry_reg, max_header_count, &coefs, &bounds);
-		if (r == entry->iv_reg && !moved)
+		if (coefs.base_reg == entry->iv_reg && !moved)
 			iv_bounds(&bounds, entry->iv_range);
 		if (moved) {
 			bounds.r64 = cnum64_add(bounds.r64, cnum64_from_srange(moved, moved));
@@ -3972,5 +4079,8 @@ clamp:
 			return err;
 		mark_scev_reg_scratched(env, r);
 	}
+	/* behind the jump the variable may have moved on: its copy is what it was at the head */
+	if (!behind)
+		link_copies(env, header_env, entry_st, cur_func_state);
 	return 0;
 }
