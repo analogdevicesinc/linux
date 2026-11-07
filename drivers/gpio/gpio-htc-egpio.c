@@ -395,9 +395,5 @@ static struct platform_driver egpio_driver = {
 	},
 };
 
-static int __init egpio_init(void)
-{
-	return platform_driver_probe(&egpio_driver, egpio_probe);
-}
 /* start early for dependencies */
-subsys_initcall(egpio_init);
+subsys_platform_driver_probe(egpio_driver, egpio_probe);
