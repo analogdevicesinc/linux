@@ -24050,9 +24050,9 @@ int bpf_check_attach_target(struct bpf_verifier_log *log,
 			bpf_log(log, "Only fentry can attach to %s, which can unwind\n", tname);
 			return -EINVAL;
 		}
-		/* It can have tail calls, which are not allowed there, see check_call_depth() */
-		if (aux->func && aux->func[subprog]->aux->in_recursion && prog_extension) {
-			bpf_log(log, "Cannot replace %s, which is called in a recursion\n", tname);
+		/* What it takes of the stack is not counted, see bpf_insert_recursion_checks() */
+		if (aux->func && aux->func[subprog]->aux->in_recursion) {
+			bpf_log(log, "Cannot attach to %s, which is called in a recursion\n", tname);
 			return -EINVAL;
 		}
 		conservative = aux->func_info_aux[subprog].unreliable;
