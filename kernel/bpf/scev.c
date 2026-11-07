@@ -3749,13 +3749,14 @@ cant_widen:
 		}
 		/*
 		 * What is loaded from memory or returned by a call in every iteration is the same
-		 * kind of thing in all of them. One iteration tells what. There is nothing more
-		 * to find out when iterations are looked at one by one. But for what goes with it:
-		 * a call returns NULL and a flag is set. So a walk comes first for a call.
+		 * kind of thing in all of them. One iteration tells what. A walk through the
+		 * iterations tells more: what goes with it, like a flag that is set if it's not
+		 * NULL, and each number of a table in .rodata. So a walk comes first. What is
+		 * loaded is often a leftover in a stack slot: not if nothing looks at it.
 		 */
 		if (expr_is_fresh(env, header_env->reg2expr[r], &call)) {
 			__set_bit(r, iters->fresh_regs);
-			if (!call)
+			if (!call && !bpf_flow_is_needed(env, insn_idx, r))
 				continue;
 		} else {
 			__set_bit(r, iters->forget_regs);

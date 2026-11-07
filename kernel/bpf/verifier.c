@@ -21639,7 +21639,7 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 	entry->entry_state = entry_state;
 	entry->terminates = true;
 	/*
-	 *	idx = 0; for (i = 0; i < 100; i++) idx = table[idx];
+	 *	idx = 0; for (i = 0; i < 100000; i++) idx = table[idx];
 	 * What the loop makes of idx is not known before its body is looked at, and what idx is
 	 * at the entry goes with i == 0 only. So the state goes through the first iteration as
 	 * it is. The state that comes back to the head has idx in 0..255.
