@@ -1891,8 +1891,8 @@ static void flow_shape_ctx(const struct bpf_verifier_state *st, struct flow_shap
 		for (i = 0; i < frame->loop_stack_cnt; i++) {
 			entry = &frame->loop_stack[i];
 			chain = jhash_1word(entry->loop_id << 1 | entry->apart, chain);
-			ctx = jhash_3words(entry->counted << 2 | entry->guarded << 1 |
-					   entry->terminates,
+			ctx = jhash_3words(entry->counted << 3 | entry->guarded << 2 |
+					   entry->first << 1 | entry->terminates,
 					   entry->max_header_count,
 					   entry->counted ? entry->trip : 0, ctx);
 		}

@@ -21511,6 +21511,26 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 			*backedge = true;
 			return check_refs_taken_in_loop(env, entry) ?: maybe_clamp_scev_regs(env);
 		}
+		/*
+		 * The first iteration is over. What the loop makes anew in every iteration is
+		 * in this state. The rest is what the count says, like at the entry.
+		 */
+		if (entry->first) {
+			entry->first = false;
+			entry->apart = false;
+			entry->trip++;
+			err = bpf_compute_loop_iters(env, entry->entry_state, &iters);
+			if (err < 0)
+				return err;
+			if (verifier_bug_if(!err, env, "loop at %d is not counted any more",
+					    env->insn_idx))
+				return -EFAULT;
+			err = maybe_clamp_scev_regs(env);
+			if (err)
+				return err;
+			err = bpf_widen_scev_regs(env, cur, entry->entry_state, &iters, true);
+			return err < 0 ? err : 0;
+		}
 		loop = env->insn_aux_data[env->insn_idx].loop;
 		/* the next iteration is another kind of state, there is no cycle */
 		trip = entry->trip;
@@ -21593,7 +21613,18 @@ int bpf_flow_loop_enter(struct bpf_verifier_env *env, bool *backedge, bool *drop
 	entry->iv_range = iters.iv_range;
 	entry->entry_state = entry_state;
 	entry->terminates = true;
-	err = bpf_widen_scev_regs(env, cur, entry_state, &iters);
+	/*
+	 *	idx = 0; for (i = 0; i < 100; i++) idx = table[idx];
+	 * What the loop makes of idx is not known before its body is looked at, and what idx is
+	 * at the entry goes with i == 0 only. So the state goes through the first iteration as
+	 * it is. The state that comes back to the head has idx in 0..255.
+	 */
+	if (!bitmap_empty(iters.fresh_regs, BPF_SCEV_REGS_NUM)) {
+		entry->first = true;
+		entry->apart = true;
+		return 0;
+	}
+	err = bpf_widen_scev_regs(env, cur, entry_state, &iters, false);
 	return err < 0 ? err : 0;
 }
 

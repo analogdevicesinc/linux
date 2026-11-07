@@ -351,6 +351,11 @@ struct bpf_loop_iters {
 	u32 max_header_count;   /* max number of times header is executed */
 	/* live, changed by the loop, no summary of how: left to the join at the head */
 	unsigned long forget_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	/*
+	 * live, made anew in every iteration: the first one tells what it is in the rest.
+	 * Or not set at the entry, and also in forget_regs: the first one sets it.
+	 */
+	unsigned long fresh_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 	/* [0, max] at the entry, and the loop only clears bits */
 	unsigned long mask_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 	/*
@@ -396,6 +401,11 @@ struct loop_stack_entry {
 	 */
 	u32 flag_apart:1;
 	/*
+	 * The first iteration of a counted loop is kept apart. The state that comes back
+	 * to the head is made to stand for the rest.
+	 */
+	u32 first:1;
+	/*
 	 * How many times the state came back to the head of the loop. With @apart that is
 	 * the iteration that it is in. A state that stands for many iterations is a join, and has
 	 * the largest number of the states that it is made of.
@@ -421,7 +431,7 @@ struct loop_stack_entry {
 /* The state is in a walk on patience, which may not get to the end of the loop */
 static inline bool bpf_loop_walk_may_give_up(const struct loop_stack_entry *entry)
 {
-	return entry->apart && entry->terminates && !entry->counted;
+	return entry->apart && entry->terminates && !entry->counted && !entry->first;
 }
 
 #define LOOP_STACK_SIZE 16
@@ -2181,7 +2191,8 @@ int bpf_compute_scev(struct bpf_verifier_env *env);
 int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
 			   struct bpf_loop_iters *iters);
 int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
-			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters);
+			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters,
+			bool back);
 int bpf_clamp_scev_regs(struct bpf_verifier_env *env, struct bpf_func_state *st, u32 insn_idx,
 			const struct loop_stack_entry *entry);
 

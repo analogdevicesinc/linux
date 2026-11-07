@@ -646,6 +646,7 @@ static bool loop_stack_safe(struct bpf_verifier_env *env, struct bpf_func_state 
 		    old_stack[i].guarded == cur_stack[i].guarded &&
 		    old_stack[i].counted == cur_stack[i].counted &&
 		    old_stack[i].apart == cur_stack[i].apart &&
+		    old_stack[i].first == cur_stack[i].first &&
 		    (!old_stack[i].apart ||
 		     (old_stack[i].probe ? old_stack[i].trip <= cur_stack[i].trip :
 					   old_stack[i].trip == cur_stack[i].trip)))

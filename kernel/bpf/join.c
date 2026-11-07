@@ -415,6 +415,7 @@ static bool join_loop_stack(const struct bpf_func_state *fa, const struct bpf_fu
 		    fa->loop_stack[i].guarded != fb->loop_stack[i].guarded ||
 		    fa->loop_stack[i].counted != fb->loop_stack[i].counted ||
 		    fa->loop_stack[i].apart != fb->loop_stack[i].apart ||
+		    fa->loop_stack[i].first != fb->loop_stack[i].first ||
 		    (fa->loop_stack[i].apart && fa->loop_stack[i].trip != fb->loop_stack[i].trip) ||
 		    fa->loop_stack[i].refs != fb->loop_stack[i].refs ||
 		    fa->loop_stack[i].max_header_count != fb->loop_stack[i].max_header_count ||

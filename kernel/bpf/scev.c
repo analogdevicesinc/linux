@@ -2024,7 +2024,7 @@ scev_reg_for_read(struct bpf_verifier_env *env, const struct bpf_func_state *st,
  * This does not go through check_stack_write(). The buffer of a live dynptr slice, see
  * bpf_reg_state::buf, does not become a spill here. The callers skip the slots that are
  * is_unbound_scev_reg() when the loop is entered. A slot that a call in the loop may write
- * has no description: it is in forget_regs, and they skip these too.
+ * has no description: it is in forget_regs or fresh_regs, and they skip these too.
  */
 static int scev_reg_for_write(struct bpf_verifier_env *env, struct bpf_func_state *st,
 			      u32 r, struct bpf_reg_state **out)
@@ -3253,6 +3253,31 @@ static void iv_bounds(struct bounds *bounds, struct cnum64 iv_range)
 }
 
 /*
+ * Nothing that @id is computed from is what a register had at the head of the loop, and
+ * some of it is not known: it's made anew in every iteration.
+ */
+static bool expr_is_fresh(struct bpf_verifier_env *env, u32 id)
+{
+	struct scev *scev = env->scev;
+	bool opaque = false;
+	u32 order, regno;
+
+	scev->stack_sz = 0;
+	expr_stack_push(scev, id);
+	while (expr_next(scev, &id, &order)) {
+		if (order & DEPTH_LIMIT)
+			return false;
+		if (!(order & PRE))
+			continue;
+		if (is_reg(scev, id, &regno) || is_op(scev, id, UNKNOWN))
+			return false;
+		if (is_opaque(scev, id))
+			opaque = true;
+	}
+	return opaque;
+}
+
+/*
  * Does @id have no bit that register @r doesn't have at the head of the loop? 'x & e' and the
  * low bits of x lose bits only. 'x >> e', 'x / e' and 'x % e' are not greater than x as well, but
  * iterations one by one tell more about them: a number that is halved 8 times.
@@ -3465,6 +3490,7 @@ int bpf_compute_loop_iters(struct bpf_verifier_env *env, struct bpf_verifier_sta
 		return err;
 
 	bitmap_zero(iters->forget_regs, REGS_NUM);
+	bitmap_zero(iters->fresh_regs, REGS_NUM);
 	bitmap_zero(iters->mask_regs, REGS_NUM);
 	iters->spill_base = false;
 	header_env = find_header_env(scev, insn_idx);
@@ -3578,7 +3604,23 @@ cant_widen:
 			walk = true;
 			continue;
 		}
+		/*
+		 * What is loaded from memory in every iteration is the same kind of thing in all
+		 * of them. One iteration tells what. There is nothing more to find out when
+		 * iterations are looked at one by one.
+		 */
+		if (expr_is_fresh(env, header_env->reg2expr[r])) {
+			__set_bit(r, iters->fresh_regs);
+			continue;
+		}
 		__set_bit(r, iters->forget_regs);
+		/*
+		 *	for (i = 0; i < 40; i++) { if (i) sum += prev; prev = (x ^ i) * 3; }
+		 * It's not set in the first iteration only. That counts if the loop is not walked:
+		 * nothing looks at prev, or there are too many iterations.
+		 */
+		if (reg && reg->type == NOT_INIT)
+			__set_bit(r, iters->fresh_regs);
 		/*
 		 * Only a walk through the iterations tells what it is in each of them. That is not
 		 * worth it for a number that nothing looks at: a sum, a hash, what a call leaves in
@@ -3643,13 +3685,18 @@ static int union_any_reg(struct bpf_verifier_env *env, struct bpf_func_state *lo
 /*
  * Make @st, which is at the head of a counted loop, stand for all iterations. @loop_entry is the
  * state that entered the loop and @iters is what bpf_compute_loop_iters() says about it.
- * @st is a copy of @loop_entry.
+ *
+ * @st is a copy of @loop_entry, or, if the loop has iters->fresh_regs, the state that comes back to
+ * the head after the first iteration, @back. These registers are left as the first iteration
+ * made them. At the entry they are something else: 0, a pointer, not set.
  */
 int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
-			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters)
+			struct bpf_verifier_state *loop_entry, struct bpf_loop_iters *iters,
+			bool back)
 {
 	struct bpf_func_state *cur_func = st->frame[st->curframe];
 	struct bpf_func_state *entry_func = loop_entry->frame[loop_entry->curframe];
+	const struct bpf_reg_state *val, *entry_val;
 	struct bpf_verifier_log *log = &env->log;
 	struct scev *scev = env->scev;
 	struct bpf_reg_state *reg, *spill32;
@@ -3678,6 +3725,8 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 			}
 			continue;
 		}
+		if (test_bit(r, iters->fresh_regs))
+			continue;
 
 		r_expr = header_env->reg2scev[r];
 		spill32 = spill32_counter(scev, cur_func, r_expr, r, &coefs);
@@ -3686,9 +3735,19 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 				 is_const_scev_reg(env, insn_idx, r)))
 			continue;
 
+		/*
+		 * A call in the loop can change the type, see bpf_clamp_scev_regs(). Then the
+		 * register is left alone. What comes back to the head next is compared with it.
+		 */
+		val = scev_reg_for_read(env, cur_func, r);
+		entry_val = scev_reg_for_read(env, entry_func, r);
+		if (back && (!val || !entry_val || !bpf_reg_union_compatible(val, entry_val)))
+			continue;
 		if (test_bit(r, iters->mask_regs)) {
 			/* The range stays. It's no longer equal to the registers with its id. */
 			err = scev_reg_for_write(env, cur_func, r, &reg);
+			if (!err && back)
+				err = bpf_reg_union(env, reg, entry_val);
 			if (err)
 				return err;
 			if (log->level & BPF_LOG_LEVEL2) {
@@ -3704,6 +3763,9 @@ int bpf_widen_scev_regs(struct bpf_verifier_env *env, struct bpf_verifier_state 
 
 		/* If SCEV for r is (linear <reg> <slope>)*/
 		if (spill32 || (is_simple_linear(scev, r_expr, &coefs) && coefs.base_reg == r)) {
+			/* the range is derived from @loop_entry: bpf_clamp_scev_regs() */
+			if (back)
+				continue;
 			/* the other half of the slot stays as it is */
 			reg = spill32;
 			err = reg ? 0 : scev_reg_for_write(env, cur_func, r, &reg);
