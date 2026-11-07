@@ -6056,6 +6056,9 @@ sub process {
 			$dstat =~ s/^\s*//s;
 			$dstat =~ s/\s*$//s;
 
+			# Make asm volatile uses seem like a generic function
+			$dstat =~ s/\b_*asm_*\s+_*volatile_*\b/asm_volatile/g;
+
 			# Flatten any parentheses and braces
 			while ($dstat =~ s/\([^\(\)]*\)/1u/ ||
 			       $dstat =~ s/\{[^\{\}]*\}/1u/ ||
@@ -6068,9 +6071,6 @@ sub process {
 			       $dstat =~ s/$Ident\s*($String)/$1/)
 			{
 			}
-
-			# Make asm volatile uses seem like a generic function
-			$dstat =~ s/\b_*asm_*\s+_*volatile_*\b/asm_volatile/g;
 
 			my $exceptions = qr{
 				$Declare|
