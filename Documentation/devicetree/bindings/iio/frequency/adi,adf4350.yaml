@@ -34,6 +34,16 @@ properties:
   clock-output-names:
     maxItems: 1
 
+  clock-scales:
+    description:
+      Clock scaling factors for the output clock. Multiplier is
+      clock-scales[0] and divider is clock-scales[1].
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    items:
+      minimum: 1
+    minItems: 2
+    maxItems: 2
+
   gpios:
     maxItems: 1
     description: Lock detect GPIO.
@@ -188,6 +198,7 @@ examples:
             spi-max-frequency = <10000000>;
             clocks = <&clk0_ad9523 9>;
             clock-names = "clkin";
+            clock-scales = <1 10>;
             adi,channel-spacing = <10000>;
             adi,power-up-frequency = <2400000000>;
             adi,phase-detector-polarity-positive-enable;
