@@ -39,7 +39,7 @@ struct bpf_join_state {
 	bool widen;
 	/* the states came around this loop in the frame that is joined, NULL if not */
 	const struct bpf_loop *loop;
-	/* the register or stack slot that is joined, as scalar evolution numbers it, or -1 */
+	/* the register or stack slot that is joined, as in struct bpf_loop_rungs, or -1 */
 	int place;
 };
 
@@ -142,13 +142,26 @@ static bool range_equal(const struct bpf_reg_state *ra, const struct bpf_reg_sta
 	       ra->base == rb->base && ra->step == rb->step;
 }
 
+static const struct bpf_loop_rungs *join_rungs(const struct bpf_join_state *js)
+{
+	u32 i;
+
+	for (i = 0; js->loop && i < js->loop->rungs_cnt; i++)
+		if (js->loop->rungs[i].place == js->place)
+			return &js->loop->rungs[i];
+	return NULL;
+}
+
 /* Does every iteration add a constant to what is in the place? In 64 or in 32 bits, 0 if not */
 static int join_place_is_linear(const struct bpf_join_state *js)
 {
-	if (!js->loop || js->place < 0 || js->place >= BPF_SCEV_REGS_NUM)
+	/* the place as scalar evolution numbers it */
+	u32 r = js->place < BPF_LOOP_SLOT ? js->place : js->place - BPF_LOOP_SLOT + MAX_BPF_REG;
+
+	if (!js->loop || js->place < 0 || r >= BPF_SCEV_REGS_NUM)
 		return 0;
-	return test_bit(js->place, js->loop->linear_regs) ? 64 :
-	       test_bit(js->place, js->loop->linear32_regs) ? 32 : 0;
+	return test_bit(r, js->loop->linear_regs) ? 64 :
+	       test_bit(r, js->loop->linear32_regs) ? 32 : 0;
 }
 
 /*
@@ -172,7 +185,7 @@ static bool join_range(struct bpf_join_state *js, struct bpf_reg_state *dst,
 	 */
 	if (dst->type != SCALAR_VALUE)
 		return false;
-	bpf_reg_widen_range(dst, ra, join_place_is_linear(js));
+	bpf_reg_widen_range(dst, ra, join_rungs(js), join_place_is_linear(js));
 	return true;
 }
 
@@ -468,7 +481,7 @@ static bool join_func(struct bpf_join_state *js, struct bpf_func_state *fd,
 	for (i = 0; i < bpf_stack_nr_slots(fa); i++) {
 		const struct bpf_stack_state *sb = i < nslots_b ? bpf_stack_slot(fb, i) : NULL;
 
-		js->place = MAX_BPF_REG + i;
+		js->place = BPF_LOOP_SLOT + i;
 		if (!join_slot(js, bpf_stack_slot(fd, i), bpf_stack_slot(fa, i), sb, pass))
 			return false;
 	}

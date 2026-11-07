@@ -728,6 +728,23 @@ struct bpf_loop_exit {
 	int to; /* instruction outside the loop */
 };
 
+/* The places that the table of a loop knows: registers, then stack slots, fp-8 first */
+#define BPF_LOOP_SLOT	64
+#define BPF_LOOP_PLACES	128
+
+/*
+ * Where the bounds of the number in @place may come to rest at the head of a loop: the lowest and
+ * the highest upper bound, the highest and the lowest lower bound that the jumps of the loop
+ * let come back to the head, see flow_compute_rungs().
+ */
+struct bpf_loop_rungs {
+	s64 max[2];
+	s64 min[2];
+	bool has_max;
+	bool has_min;
+	u8 place;
+};
+
 struct bpf_loop {
 	struct bpf_backedge backedges[MAX_BACKEDGES];
 	/* edges exiting from this loop, includes edges from nested loops */
@@ -774,6 +791,10 @@ struct bpf_loop {
 	 */
 	unsigned long linear_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
 	unsigned long linear32_regs[BITS_TO_LONGS(BPF_SCEV_REGS_NUM)];
+	/* the places that insns of the loop write, as far as the insns tell */
+	unsigned long writes[BITS_TO_LONGS(BPF_LOOP_PLACES)];
+	struct bpf_loop_rungs *rungs;
+	u32 rungs_cnt;
 };
 
 struct bpf_insn_aux_data {
@@ -2032,7 +2053,8 @@ int bpf_set_reg_range(struct bpf_verifier_env *env, struct bpf_reg_state *reg,
 bool bpf_reg_union_compatible(const struct bpf_reg_state *a, const struct bpf_reg_state *b);
 void bpf_reg_union_range(struct bpf_reg_state *acc, const struct bpf_reg_state *src);
 void bpf_reg_forget_range(struct bpf_reg_state *reg);
-void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *old, int linear);
+void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *old,
+			 const struct bpf_loop_rungs *rungs, int linear);
 int bpf_reg_union(struct bpf_verifier_env *env, struct bpf_reg_state *acc,
 		  const struct bpf_reg_state *src);
 

@@ -18425,23 +18425,27 @@ void bpf_reg_forget_range(struct bpf_reg_state *reg)
  * @reg is what @old became after a trip around a cycle, @old included. The end
  * of the range that moved is going to move again. Put it where it may come
  * to rest. There are few such places, so this is done a few times at most.
- * It's put at the nearest of these places: every value between the range and the place is
+ * @rungs: where the jumps of the loop stop it, if they do.
+ * It's put at the nearest of all these places: every value between the range and the place is
  * made up, and the program is checked with it. Wherever it's put, the range only gets larger.
  * @linear: every iteration adds a constant to it, in that many bits. Then nothing but a jump
- * stops it. It goes on until it wraps, and is any number of that many bits.
+ * stops it. If there is none ahead it goes on until it wraps, and is any number of that many bits.
  */
-void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *old, int linear)
+void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *old,
+			 const struct bpf_loop_rungs *rungs, int linear)
 {
 	bool moved = reg->r64.base != old->r64.base || reg->r64.size != old->r64.size ||
 		     reg->r32.base != old->r32.base || reg->r32.size != old->r32.size;
-	s64 min = reg_smin(reg), max = reg_smax(reg);
+	s64 min = reg_smin(reg), max = reg_smax(reg), stop;
 
 	/* Only the step got weaker. It comes to rest without help, see below. */
 	if (!moved && reg->var_off.value == old->var_off.value &&
 	    reg->var_off.mask == old->var_off.mask)
 		return;
 
-	if (linear && (max > reg_smax(old) || min < reg_smin(old))) {
+	if (linear &&
+	    ((max > reg_smax(old) && !(rungs && rungs->has_max && max <= rungs->max[1])) ||
+	     (min < reg_smin(old) && !(rungs && rungs->has_min && min >= rungs->min[1])))) {
 		if (linear == 64 || min < 0 || max > U32_MAX) {
 			bpf_reg_forget_range(reg);
 			return;
@@ -18449,13 +18453,21 @@ void bpf_reg_widen_range(struct bpf_reg_state *reg, const struct bpf_reg_state *
 		min = 0;
 		max = U32_MAX;
 	}
-	if (max > reg_smax(old))
-		max = max <= 0 ? 0 :
-		      max <= S32_MAX ? S32_MAX :
-		      max <= U32_MAX ? U32_MAX : S64_MAX;
-	if (min < reg_smin(old))
-		min = min >= 0 ? 0 :
-		      min >= S32_MIN ? S32_MIN : S64_MIN;
+	if (max > reg_smax(old)) {
+		stop = max <= 0 ? 0 :
+		       max <= S32_MAX ? S32_MAX :
+		       max <= U32_MAX ? U32_MAX : S64_MAX;
+		if (rungs && rungs->has_max && max <= rungs->max[1])
+			stop = min(stop, max <= rungs->max[0] ? rungs->max[0] : rungs->max[1]);
+		max = stop;
+	}
+	if (min < reg_smin(old)) {
+		stop = min >= 0 ? 0 :
+		       min >= S32_MIN ? S32_MIN : S64_MIN;
+		if (rungs && rungs->has_min && min >= rungs->min[1])
+			stop = max(stop, min >= rungs->min[0] ? rungs->min[0] : rungs->min[1]);
+		min = stop;
+	}
 	if (min == S64_MIN && max == S64_MAX) {
 		bpf_reg_forget_range(reg);
 		return;
