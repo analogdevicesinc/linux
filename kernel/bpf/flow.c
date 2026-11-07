@@ -148,6 +148,7 @@ enum flow_need_kind {
 	FLOW_NEED_STACK_OFF,
 	FLOW_NEED_PTR_OFF,
 	FLOW_NEED_JUMP,
+	FLOW_NEED_FLAG,
 	FLOW_NEED_VALUE_OFF,
 	FLOW_NEED_BASE,
 	FLOW_NEED_JUMP_ALU,
@@ -568,6 +569,19 @@ static u16 flow_tested_regs(struct bpf_verifier_env *env, int idx)
 	return consts & BIT(insn->dst_reg) ? BIT(insn->src_reg) : 0;
 }
 
+/* A jump that compares a register with 0 or 1 */
+static u16 flow_flag_regs(struct bpf_verifier_env *env, int idx)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[idx];
+
+	if (BPF_SRC(insn->code) != BPF_K || !bpf_insn_is_cond_jump(insn->code) ||
+	    BPF_OP(insn->code) == BPF_JCOND)
+		return 0;
+	if (BPF_OP(insn->code) == BPF_JSET ? !(insn->imm & 1) : (u32)insn->imm > 1)
+		return 0;
+	return BIT(insn->dst_reg);
+}
+
 /* With or without sign extension */
 static bool flow_is_copy(const struct bpf_insn *insn)
 {
@@ -960,6 +974,15 @@ static u16 flow_base_regs(struct bpf_verifier_env *env, int idx)
  * A slot that is filled through another pointer to the stack than r10 is not one of them, and
  * flow_null_differs() counts on that.
  *
+ * FLOW_NEED_FLAG: those of which a jump tells 0 from 1, see flow_join_makes_up(). As they are,
+ * extended, or masked: a bool is tested as "w1 &= 1; if w1 != 0". Not through a call.
+ * The jump ends the basic block of the insn, or a block that this block leads to. Not further:
+ * every state that is kept apart goes through all that is on the way to the jump once more.
+ * So there are two rounds. In the first one nothing comes from the blocks ahead. What it finds
+ * at the first insn of a block is what the second one takes at the end of the blocks that lead
+ * there. In both a block depends on nothing that the round itself computes for another block,
+ * so the order in which the insns are looked at doesn't matter.
+ *
  * The last three kinds keep no states apart. They are for bpf_flow_is_needed(), which asks
  * whether anything ahead looks at a number that a loop changes from iteration to iteration.
  * FLOW_NEED_VALUE_OFF: FLOW_NEED_PTR_OFF, and the offset in a map value that holds nothing but
@@ -981,10 +1004,11 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 				   enum flow_need_kind kind)
 {
 	struct bpf_insn *insns = env->prog->insnsi, *insn;
-	struct flow_need in, out, *need;
+	struct flow_need in, out, *need, *from, *ahead = NULL;
 	struct bpf_iarray *succ;
 	bool jump = kind == FLOW_NEED_JUMP || kind == FLOW_NEED_JUMP_ALU;
 	bool callx = kind == FLOW_NEED_BASE || kind == FLOW_NEED_JUMP_ALU;
+	bool flag = kind == FLOW_NEED_FLAG, second = false;
 	bool changed = true, any = false, keep, from_src, reg;
 	int i, s, idx, slot, err = 0;
 	u16 *gen, callx_regs = 0, pair = BIT(BPF_REG_0) | BIT(BPF_REG_2);
@@ -994,8 +1018,11 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 	gen = kvcalloc(env->prog->len, sizeof(u16), GFP_KERNEL_ACCOUNT);
 	/* the callers need what the subprog returns: r0, and r2 of a pair */
 	ret = kvcalloc(env->subprog_cnt, sizeof(u8), GFP_KERNEL_ACCOUNT);
+	if (flag)
+		ahead = kvcalloc(env->prog->len, sizeof(*need), GFP_KERNEL_ACCOUNT);
 	*pneed = need;
-	if (!need || !gen || !ret) {
+	if (!need || !gen || !ret || (flag && !ahead)) {
+		kvfree(ahead);
 		kvfree(gen);
 		kvfree(ret);
 		return -ENOMEM;
@@ -1003,6 +1030,8 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 	for (i = 0; i < env->prog->len; i++) {
 		if (jump)
 			gen[i] = flow_tested_regs(env, i);
+		else if (flag)
+			gen[i] = flow_flag_regs(env, i);
 		else if (kind == FLOW_NEED_STACK_OFF)
 			gen[i] = flow_stack_off_regs(env, i);
 		else if (kind == FLOW_NEED_PTR_OFF || kind == FLOW_NEED_VALUE_OFF)
@@ -1031,6 +1060,7 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 		}
 		any = true;
 	}
+again:
 	while (any && changed) {
 		changed = false;
 		if (signal_pending(current)) {
@@ -1048,9 +1078,10 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 			succ = bpf_insn_successors(env, idx);
 			out.regs = 0;
 			out.slots = 0;
+			from = flag && env->insn_aux_data[idx].bb_end ? ahead : need;
 			for (s = 0; s < succ->cnt; s++) {
-				out.regs |= need[succ->items[s]].regs;
-				out.slots |= need[succ->items[s]].slots;
+				out.regs |= from[succ->items[s]].regs;
+				out.slots |= from[succ->items[s]].slots;
 			}
 			in = out;
 			if (class == BPF_JMP && BPF_OP(insn->code) == BPF_CALL) {
@@ -1058,7 +1089,7 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 				if (bpf_is_callx(insn))
 					in.regs |= callx_regs & GENMASK(BPF_REG_5, BPF_REG_1);
 				s = idx + insn->imm + 1;
-				if (bpf_pseudo_call(insn) &&
+				if (bpf_pseudo_call(insn) && !flag &&
 				    !bpf_subprog_is_global(env, bpf_find_subprog(env, s))) {
 					if (kind != FLOW_NEED_PTR_OFF)
 						in.regs |= need[s].regs &
@@ -1097,10 +1128,12 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 				/* the result is known when what it is made of is */
 				keep = op != BPF_MOV;
 				from_src = reg;
-				if (jump)
+				if (jump || flag)
 					from_src = flow_is_copy(insn);
-				if (kind == FLOW_NEED_JUMP)
+				if (kind == FLOW_NEED_JUMP || flag)
 					keep = flow_is_shift(insn) && !reg;
+				if (flag && op == BPF_AND && !reg)
+					keep = insn->imm & 1;
 				if (kind == FLOW_NEED_BASE) {
 					keep = !reg && (op == BPF_ADD || op == BPF_SUB);
 					from_src = reg && op == BPF_MOV;
@@ -1117,12 +1150,18 @@ static int flow_compute_need_const(struct bpf_verifier_env *env, struct flow_nee
 			}
 		}
 	}
+	if (flag && !err && !second) {
+		memcpy(ahead, need, env->prog->len * sizeof(*need));
+		second = changed = true;
+		goto again;
+	}
 	/*
 	 * An offset that is an argument: not through the call, see above, and not where the calls
 	 * meet. A function would be looked at once for each offset that it's called with.
 	 */
 	for (s = 0; kind == FLOW_NEED_PTR_OFF && s < env->subprog_cnt; s++)
 		need[env->subprog_info[s].start].regs = 0;
+	kvfree(ahead);
 	kvfree(gen);
 	kvfree(ret);
 	if (!any) {
@@ -1648,4 +1687,517 @@ static bool flow_has_earlier_trips(const struct bpf_verifier_state *s)
 		}
 	}
 	return false;
+}
+
+/* @flag: 0 and 1 */
+static bool flow_two_consts(const struct bpf_reg_state *ra, const struct bpf_reg_state *rb,
+			    bool flag)
+{
+	return ra->type == SCALAR_VALUE && rb->type == SCALAR_VALUE &&
+	       tnum_is_const(ra->var_off) && tnum_is_const(rb->var_off) &&
+	       ra->var_off.value != rb->var_off.value &&
+	       (!flag || (ra->var_off.value | rb->var_off.value) == 1);
+}
+
+/* Constants that have to stay constants, see flow_compute_need_const() */
+static bool flow_needed_consts_differ(const struct bpf_flow *flow, enum flow_need_kind kind,
+				      const struct bpf_verifier_state *a,
+				      const struct bpf_verifier_state *b)
+{
+	const struct flow_need *needs = flow->need[kind], *need;
+	const struct bpf_stack_state *sa, *sb;
+	const struct bpf_func_state *fa, *fb;
+	bool flag = kind == FLOW_NEED_FLAG;
+	u32 fr, i, nr;
+
+	if (!needs || a->curframe != b->curframe)
+		return false;
+	for (fr = 0; fr <= a->curframe; fr++) {
+		/* the callers need what they need when the call returns */
+		need = &needs[fr == a->curframe ? a->insn_idx : a->frame[fr + 1]->callsite + 1];
+		fa = a->frame[fr];
+		fb = b->frame[fr];
+		for (i = BPF_REG_0; need->regs && i < BPF_REG_FP; i++)
+			if ((need->regs & BIT(i)) &&
+			    flow_two_consts(&fa->regs[i], &fb->regs[i], flag))
+				return true;
+		nr = min(bpf_stack_nr_slots(fa), bpf_stack_nr_slots(fb));
+		for (i = 0; i < nr && i < 64 && need->slots >> i; i++) {
+			sa = bpf_stack_slot(fa, i);
+			sb = bpf_stack_slot(fb, i);
+			if ((need->slots & BIT_ULL(i)) &&
+			    bpf_is_spilled_scalar_reg(sa) && bpf_is_spilled_scalar_reg(sb) &&
+			    flow_two_consts(&sa->spilled_ptr, &sb->spilled_ptr, flag))
+				return true;
+		}
+	}
+	return false;
+}
+
+/* regsafe() and join_reg() say what each type needs */
+static void flow_shape_ptr(struct flow_shape *sh, u32 place, const struct bpf_reg_state *reg)
+{
+	u32 ids = (reg->id != 0) | (reg->parent_id != 0) << 1 | (reg->map_uid != 0) << 2;
+	u32 len = offsetof(struct bpf_reg_state, var_off);
+	bool has_off = false, var_off = false;
+	u64 off = reg->var_off.value;
+
+	switch (base_type(reg->type)) {
+	case NOT_INIT:
+	case SCALAR_VALUE:
+		return;
+	case PTR_TO_ARENA:
+		/* the offset is not tracked */
+		len = sizeof(reg->type);
+		ids = 0;
+		break;
+	case PTR_TO_PACKET_META:
+	case PTR_TO_PACKET:
+		len = sizeof(reg->type);
+		ids &= 1;
+		/* behind the end of the packet, or at the end: the same in both states */
+		if (reg->range < 0)
+			ids |= -reg->range << 1;
+		else
+			sh->pkt_range += reg->range;
+		if (reg->id) {
+			/* displacements between pointers that share an id are kept */
+			has_off = true;
+			off = reg->r64.base;
+		} else if (reg->range >= 0) {
+			/* join_reg() takes two such constants for two places in the packet */
+			has_off = true;
+			var_off = !tnum_is_const(reg->var_off) || off > MAX_PACKET_OFF;
+		}
+		break;
+	case PTR_TO_INSN:
+		/* a range of offsets is a set of targets */
+		ids = 0;
+		break;
+	case PTR_TO_MAP_KEY:
+	case PTR_TO_MAP_VALUE:
+	case PTR_TO_MEM:
+	case PTR_TO_BUF:
+	case PTR_TO_TP_BUFFER:
+	case PTR_TO_STACK:
+	case PTR_TO_BTF_ID:
+		has_off = true;
+		var_off = !tnum_is_const(reg->var_off);
+		break;
+	default:
+		len = offsetof(struct bpf_reg_state, id);
+	}
+	sh->word[FLOW_LAYOUT] = jhash_1word(place << 1 | var_off, sh->word[FLOW_LAYOUT]);
+	sh->word[FLOW_PTRS] = jhash2((const u32 *)reg, len / sizeof(u32),
+				     sh->word[FLOW_PTRS] + ids);
+	if (has_off && !var_off)
+		sh->word[FLOW_OFFS] = jhash_2words(lower_32_bits(off), upper_32_bits(off),
+						   sh->word[FLOW_OFFS]);
+}
+
+/* stacksafe() and join_special_slot() say what each kind needs */
+static void flow_shape_special(struct flow_shape *sh, u32 place, const struct bpf_stack_state *slot)
+{
+	const struct bpf_reg_state *reg = &slot->spilled_ptr;
+	u32 kind = slot->slot_type[BPF_REG_SIZE - 1] << 2 | (reg->id != 0);
+	u32 *ptrs = &sh->word[FLOW_PTRS];
+
+	switch (slot->slot_type[BPF_REG_SIZE - 1]) {
+	case STACK_DYNPTR:
+		kind |= (reg->parent_id != 0) << 1;
+		*ptrs = jhash_3words(kind, reg->dynptr.type, reg->dynptr.first_slot, *ptrs);
+		break;
+	case STACK_ITER:
+		*ptrs = jhash_3words(lower_32_bits((unsigned long)reg->iter.btf),
+				     upper_32_bits((unsigned long)reg->iter.btf),
+				     reg->iter.btf_id, *ptrs + kind);
+		*ptrs = jhash_3words(reg->type, reg->iter.state, reg->iter.loops, *ptrs);
+		break;
+	case STACK_IRQ_FLAG:
+		*ptrs = jhash_2words(kind, reg->irq.kfunc_class, *ptrs);
+		break;
+	}
+	sh->word[FLOW_LAYOUT] = jhash_1word(place << 1, sh->word[FLOW_LAYOUT]);
+}
+
+/* The part of the shape that is made of the registers and the stack, when it is asked for */
+static void flow_shape_places(struct bpf_verifier_env *env, struct flow_state *s)
+{
+	struct bpf_verifier_state *st = &s->st;
+	const struct bpf_stack_state *slot;
+	const struct bpf_func_state *frame;
+	struct flow_shape *sh = &s->shape;
+	u32 fr, i, args;
+	u16 live;
+
+	sh->places = true;
+	for (fr = 0; fr <= st->curframe; fr++) {
+		frame = st->frame[fr];
+		/* a state that does a call again is not cleaned, dead registers are not compared */
+		live = env->insn_aux_data[bpf_frame_insn_idx(st, fr)].live_regs_before;
+		for (i = BPF_REG_0; i < BPF_REG_FP; i++)
+			if (live & BIT(i))
+				flow_shape_ptr(sh, fr << 10 | i, &frame->regs[i]);
+		for (i = 0; i < bpf_stack_nr_slots(frame); i++) {
+			slot = bpf_stack_slot(frame, i);
+			switch (slot->slot_type[BPF_REG_SIZE - 1]) {
+			case STACK_SPILL:
+				flow_shape_ptr(sh, fr << 10 | (i + 16), &slot->spilled_ptr);
+				break;
+			case STACK_DYNPTR:
+			case STACK_ITER:
+			case STACK_IRQ_FLAG:
+				flow_shape_special(sh, fr << 10 | (i + 16), slot);
+				break;
+			}
+		}
+		/* incoming arguments are not compared with outgoing ones: other places */
+		args = 16 + MAX_BPF_STACK_SLOTS;
+		if (bpf_stack_args_are_incoming(frame))
+			args += MAX_STACK_ARG_SLOTS;
+		for (i = 0; i < frame->out_stack_arg_cnt; i++)
+			flow_shape_ptr(sh, fr << 10 | (i + args), &frame->stack_arg_regs[i]);
+	}
+}
+
+/* The part of the shape that is not */
+static void flow_shape_ctx(const struct bpf_verifier_state *st, struct flow_shape *sh)
+{
+	const struct bpf_reference_state *ref;
+	const struct loop_stack_entry *entry;
+	const struct bpf_func_state *frame;
+	u32 chain = st->curframe, ctx, fr, i;
+
+	ctx = jhash_3words(st->in_sleepable | st->callers_unknown << 1 |
+			   st->unwound << 2 | st->changed_pkt_data << 3 |
+			   (st->active_irq_id != 0) << 4 | (st->active_lock_id != 0) << 5,
+			   st->acquired_refs, st->active_locks, 0);
+	ctx = jhash_2words(st->active_preempt_locks, st->active_rcu_locks, ctx);
+	ctx = jhash_2words(lower_32_bits((unsigned long)st->active_lock_ptr),
+			   upper_32_bits((unsigned long)st->active_lock_ptr), ctx);
+	for (i = 0; i < st->acquired_refs; i++) {
+		ref = &st->refs[i];
+		ctx = jhash_1word(ref->type, ctx);
+		if (ref->type != REF_TYPE_PTR && ref->type != REF_TYPE_IRQ)
+			ctx = jhash_2words(lower_32_bits((unsigned long)ref->ptr),
+					   upper_32_bits((unsigned long)ref->ptr), ctx);
+	}
+	for (fr = 0; fr <= st->curframe; fr++) {
+		frame = st->frame[fr];
+		chain = jhash_3words(frame->subprogno, frame->callsite, frame->loop_stack_cnt,
+				     chain);
+		ctx = jhash_2words(frame->entry_refs, frame->in_rcu_callback_fn, ctx);
+		ctx = jhash_2words(frame->entry_rcu_locks, frame->entry_preempt_locks, ctx);
+		for (i = 0; i < frame->loop_stack_cnt; i++) {
+			entry = &frame->loop_stack[i];
+			chain = jhash_1word(entry->loop_id << 1 | entry->apart, chain);
+			ctx = jhash_3words(entry->counted << 2 | entry->guarded << 1 |
+					   entry->terminates,
+					   entry->max_header_count,
+					   entry->counted ? entry->trip : 0, ctx);
+		}
+	}
+	memset(sh, 0, sizeof(*sh));
+	sh->word[FLOW_CHAIN] = chain;
+	sh->word[FLOW_CTX] = ctx;
+}
+
+/* Are the words up to @last the same? */
+static __always_inline bool flow_same_shape(const struct flow_state *a, const struct flow_state *b,
+					    enum flow_word last)
+{
+	u32 i;
+
+	for (i = 0; i <= last; i++)
+		if (a->shape.word[i] != b->shape.word[i])
+			return false;
+	return true;
+}
+
+/*
+ * A state that arrives is compared with the states at the insn: is it within one of them, see
+ * bpf_state_subsumes(), does it have a join with one of them, see bpf_states_join()? Most of
+ * them have nothing to do with it. The shape of a state tells that before the registers are
+ * compared or, for a join, copied. It has what must be the same in two states that are related:
+ *
+ * FLOW_CHAIN	the chain of calls and the loops that every frame is in
+ * FLOW_CTX	what is known about every loop, the iteration of a counted one,
+ *		the flags of the state and of its frames, locks and references
+ * FLOW_LAYOUT	which registers, stack slots and stack arguments hold a pointer, a dynptr,
+ *		an iterator or an irq flag, which of the pointers are at a constant offset
+ * FLOW_PTRS	what the pointers point to and which of their ids are set, the kind of the others
+ * FLOW_OFFS	the constant offsets
+ *
+ * Nothing about numbers is in it.
+ *
+ * States that differ in one of the first two words are not related. Neither are states of
+ * the same layout that differ in one of the last two: a pointer is related to a pointer to the same
+ * thing only, and two constant offsets are two places in it.
+ * States of different layout may be related, whatever the last two words are: nothing in
+ * a register or in a slot stands for a pointer there, and a range of offsets stands for a constant,
+ * or is joined with it.
+ *
+ * A word is a hash. It is a filter and proves nothing: the states that get through it go
+ * through all the comparisons. So it's fine to look at the first two words only: @places.
+ */
+static bool flow_may_relate(struct bpf_verifier_env *env, struct flow_state *t,
+			    struct flow_state *s, bool places)
+{
+	if (!flow_same_shape(t, s, FLOW_CTX))
+		return false;
+	if (!places)
+		return true;
+	if (!t->shape.places)
+		flow_shape_places(env, t);
+	if (!s->shape.places)
+		flow_shape_places(env, s);
+	return !flow_same_shape(t, s, FLOW_LAYOUT) || flow_same_shape(t, s, FLOW_OFFS);
+}
+
+/*
+ * A pointer to the packet stands for one with at least as many checked bytes, and without
+ * widening it's joined with one that has as many. In states of the same layout that holds for
+ * the sums too. Returns 0 if the sums are the same, or say nothing.
+ */
+static int flow_cmp_pkt_range(const struct flow_state *t, const struct flow_state *s)
+{
+	if (!t->shape.places || !s->shape.places || !flow_same_shape(t, s, FLOW_LAYOUT) ||
+	    t->shape.pkt_range == s->shape.pkt_range)
+		return 0;
+	return t->shape.pkt_range < s->shape.pkt_range ? -1 : 1;
+}
+
+/*
+ * bpf_loop(N, ...) with a small N: the calls of the callback are looked at one by one, like
+ * the iterations of a loop that is walked. The call stops to enter the callback when
+ * callback_depth gets to N.
+ */
+static bool flow_callback_depth_differs(struct bpf_verifier_env *env,
+					const struct bpf_verifier_state *a,
+					const struct bpf_verifier_state *b)
+{
+	u32 max = BPF_FLOW_MAX_CALLBACKS, fr;
+	const struct bpf_func_state *fa, *fb;
+	struct bpf_insn *insn;
+
+	if (a->curframe != b->curframe)
+		return false;
+	/* at the call, and in the callback and what it calls */
+	for (fr = 0; fr <= a->curframe; fr++) {
+		insn = &env->prog->insnsi[fr == a->curframe ? a->insn_idx :
+					  a->frame[fr + 1]->callsite];
+		if (!bpf_helper_call(insn) || insn->imm != BPF_FUNC_loop)
+			continue;
+		fa = a->frame[fr];
+		fb = b->frame[fr];
+		if (fa->callback_depth != fb->callback_depth &&
+		    fa->regs[BPF_REG_1].type == SCALAR_VALUE &&
+		    reg_umax(&fa->regs[BPF_REG_1]) <= max &&
+		    fb->regs[BPF_REG_1].type == SCALAR_VALUE &&
+		    reg_umax(&fb->regs[BPF_REG_1]) <= max)
+			return true;
+	}
+	return false;
+}
+
+static const struct bpf_reg_state *flow_slot_number(const struct bpf_func_state *frame, u32 i)
+{
+	const struct bpf_stack_state *slot = bpf_stack_slot(frame, i);
+
+	if (slot->slot_type[0] != STACK_SPILL || slot->slot_type[BPF_REG_SIZE - 1] != STACK_SPILL ||
+	    slot->spilled_ptr.type != SCALAR_VALUE)
+		return NULL;
+	return &slot->spilled_ptr;
+}
+
+/* Returns true when the answer is known */
+static bool flow_null_pair(const struct bpf_reg_state *ra, const struct bpf_reg_state *rb,
+			   bool *a_null, bool *b_null)
+{
+	if (tnum_equals_const(ra->var_off, 0) && !tnum_is_const(rb->var_off)) {
+		*a_null = true;
+		if (reg_umin(rb) == 1 && reg_umax(rb) == U64_MAX)
+			return true;
+	}
+	if (tnum_equals_const(rb->var_off, 0) && !tnum_is_const(ra->var_off)) {
+		*b_null = true;
+		if (reg_umin(ra) == 1 && reg_umax(ra) == U64_MAX)
+			return true;
+	}
+	return *a_null && *b_null;
+}
+
+/*
+ * Two things of which one is there: "if (hdr->ipv4) ... else if (hdr->ipv6)". The one that
+ * is not there is 0. What the other one is may be unknown, e.g. a pointer to the packet
+ * after the packet was changed. (0, x) is not within (y, 0) and the join (?, ?) forgets that
+ * it's one or the other.
+ * The same for a number that was compared with 0: 0 on one path, not 0 on the other.
+ *
+ * Only where a jump ahead can see it: FLOW_NEED_JUMP, see flow_join_makes_up(). What no jump
+ * looks at again sends no state another way, and every such number doubles the states.
+ *
+ *	for (i = 0; i < n; i++) { p = a[i]; if (!p) continue; put(p); }
+ * a[] is on the stack. The jump finds out about the slot that p was filled from too. Nothing
+ * looks at a[i] again, but the loop reads through a pointer that moves, so all of a[] is live
+ * until the loop is done: 2^n states if they stay apart.
+ * They don't, because FLOW_NEED_JUMP has only what is filled through r10, see flow_fp_slot().
+ * It cannot tell a[i] from a[i + 1]. With what is filled through other pointers to the stack in
+ * it, all of a[] is tested in all of the loop.
+ */
+static bool flow_null_differs(const struct bpf_flow *flow, const struct bpf_verifier_state *a,
+			      const struct bpf_verifier_state *b)
+{
+	const struct bpf_func_state *fa, *fb;
+	const struct bpf_reg_state *ra, *rb;
+	const struct flow_need *need = flow->need[FLOW_NEED_JUMP];
+	bool a_null = false, b_null = false;
+	u32 i;
+
+	if (!need || a->curframe != b->curframe)
+		return false;
+	need += a->insn_idx;
+	fa = a->frame[a->curframe];
+	fb = b->frame[b->curframe];
+	for (i = BPF_REG_0; i < BPF_REG_FP; i++) {
+		ra = &fa->regs[i];
+		rb = &fb->regs[i];
+		if ((need->regs & BIT(i)) &&
+		    ra->type == SCALAR_VALUE && rb->type == SCALAR_VALUE &&
+		    flow_null_pair(ra, rb, &a_null, &b_null))
+			return true;
+	}
+	for (i = 0; i < 64 && i < bpf_stack_nr_slots(fa) && i < bpf_stack_nr_slots(fb); i++) {
+		if (!(need->slots & BIT_ULL(i)))
+			continue;
+		ra = flow_slot_number(fa, i);
+		rb = flow_slot_number(fb, i);
+		if (ra && rb && flow_null_pair(ra, rb, &a_null, &b_null))
+			return true;
+	}
+	return false;
+}
+
+static const struct bpf_reg_state *flow_number_at(const struct bpf_func_state *frame, u8 loc)
+{
+	const struct bpf_reg_state *reg;
+
+	if (loc <= BPF_REG_FP)
+		reg = &frame->regs[loc];
+	else if (loc - BPF_REG_FP - 1 < bpf_stack_nr_slots(frame) &&
+		 bpf_is_spilled_scalar_reg(bpf_stack_slot(frame, loc - BPF_REG_FP - 1)))
+		reg = &bpf_stack_slot(frame, loc - BPF_REG_FP - 1)->spilled_ptr;
+	else
+		return NULL;
+	return reg->type == SCALAR_VALUE ? reg : NULL;
+}
+
+/*
+ * A register is set in one of the states and not in the other. Only live registers are in
+ * a state, so something ahead may read it. The state in which it's not set doesn't get there:
+ * a jump sends it another way. The join would not know which way to go, and would get
+ * there without the register. There is nothing to gain from such a join but a state less.
+ */
+static bool flow_unset_differs(const struct bpf_verifier_state *a,
+			       const struct bpf_verifier_state *b)
+{
+	u32 fr, i;
+
+	for (fr = 0; fr <= a->curframe; fr++)
+		for (i = BPF_REG_0; i < BPF_REG_FP; i++)
+			if ((a->frame[fr]->regs[i].type == NOT_INIT) !=
+			    (b->frame[fr]->regs[i].type == NOT_INIT))
+				return true;
+	return false;
+}
+
+static bool flow_disjoint(const struct bpf_reg_state *a, const struct bpf_reg_state *b)
+{
+	return cnum64_is_empty(cnum64_intersect(a->r64, b->r64)) ||
+	       cnum32_is_empty(cnum32_intersect(a->r32, b->r32)) ||
+	       ((a->var_off.value ^ b->var_off.value) & ~(a->var_off.mask | b->var_off.mask));
+}
+
+/* The smallest range that has both has numbers that are in neither */
+static bool flow_gap(const struct bpf_reg_state *a, const struct bpf_reg_state *b)
+{
+	if (cnum64_is_empty(cnum64_intersect(a->r64, b->r64)) &&
+	    a->r64.size + b->r64.size + 1 > a->r64.size &&
+	    cnum64_union(a->r64, b->r64).size > a->r64.size + b->r64.size + 1)
+		return true;
+	return cnum32_is_empty(cnum32_intersect(a->r32, b->r32)) &&
+	       cnum32_union(a->r32, b->r32).size > (u64)a->r32.size + b->r32.size + 1;
+}
+
+/*
+ * Numbers always have a join. It must not make up what neither state has where a jump ahead
+ * can see it. FLOW_NEED_JUMP has the registers and the stack slots that a jump ahead compares
+ * with a constant, or the verifier does at a call or at the exit.
+ *
+ *	if (ret < 0) goto err; if (ret > 0) goto skip; use(p);
+ * ret = [-2, -1] and ret = [1, 2], both without p, meet in front of that. [-2, 2] has 0, gets
+ * through both jumps, and there is no p. So two ranges that leave a gap are not joined. Ranges
+ * that touch, 0 and 1, -1 and 0, or have something in common make up no number.
+ *
+ *	err = update(); ret = err < 0 ? DROP : 0; ... if (err < 0) goto out; ... if (ret < 0) ...
+ * (err >= 0, ret = 0) and (err < 0, ret = DROP) meet. The join has err < 0 with ret = 0. So
+ * two numbers, each with nothing in common between the states, are not joined either.
+ *
+ *	fatal = err == -ENOMEM; ... if (fatal) bpf_set_retval(err);
+ * (fatal = 0, err = 1) and (fatal = 1, err = -ENOMEM) meet. The same: the join has
+ * fatal = 1 with err = 1, which bpf_set_retval() doesn't take.
+ *
+ *	ok = i < 64 && in[i]; if (x) n++; if (ok) a[i] = 1;
+ * (ok = 0, i >= 64), (ok = 0, i < 64) and (ok = 1, i < 64) meet. 0 and 1 touch, and i < 64 comes
+ * with either, so none of the above keeps them apart. The join has ok = 1 with i >= 64. A flag is
+ * made to send states different ways. So 0 and 1 are not joined where a jump that is not far
+ * tells one from the other: FLOW_NEED_FLAG.
+ *
+ * The states go on to the jumps on their own. Behind the last one the numbers are dead, and what
+ * is left is joined.
+ */
+static bool flow_join_makes_up(const struct bpf_flow *flow, const struct bpf_verifier_state *a,
+			       const struct bpf_verifier_state *b)
+{
+	const struct bpf_reg_state *ra, *rb;
+	const struct flow_need *tested = flow->need[FLOW_NEED_JUMP], *need;
+	u32 fr, i, id = 0;
+	bool one = false;
+
+	if (!tested)
+		return false;
+	for (fr = 0; fr <= a->curframe; fr++) {
+		/* the callers go on when the call returns */
+		need = &tested[fr == a->curframe ? a->insn_idx : a->frame[fr + 1]->callsite + 1];
+		for (i = BPF_REG_0; i < BPF_REG_FP + 1 + 64; i++) {
+			if (i <= BPF_REG_FP ? !(need->regs & BIT(i)) :
+					      !(need->slots & BIT_ULL(i - BPF_REG_FP - 1)))
+				continue;
+			ra = flow_number_at(a->frame[fr], i);
+			rb = flow_number_at(b->frame[fr], i);
+			if (!ra || !rb || !flow_disjoint(ra, rb))
+				continue;
+			if (flow_gap(ra, rb))
+				return true;
+			/* copies of a number are one number */
+			if (one && (!id || id != (ra->id & ~BPF_ADD_CONST)))
+				return true;
+			one = true;
+			id = ra->id & ~BPF_ADD_CONST;
+		}
+	}
+	return flow_needed_consts_differ(flow, FLOW_NEED_FLAG, a, b);
+}
+
+/*
+ * States that have a join are kept apart while there is room: half of every limit.
+ * After that they are joined, which may lose what the prog needs, and does not run into the limit.
+ */
+static bool flow_has_room(const struct bpf_verifier_env *env, u32 nr_states)
+{
+	u64 len = env->prog->len;
+
+	return nr_states < BPF_FLOW_MAX_STATES / 2 &&
+	       env->flow->live_states < (BPF_FLOW_LIVE_PER_INSN * len + BPF_FLOW_LIVE_BASE) / 2 &&
+	       env->total_states < (BPF_FLOW_TOTAL_PER_INSN * len + BPF_FLOW_TOTAL_BASE) / 2;
 }
