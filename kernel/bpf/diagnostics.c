@@ -392,13 +392,6 @@ static u32 log_pos(const struct bpf_diag_log *log, u32 idx)
 	return pos < log->cap ? pos : pos - log->cap;
 }
 
-u64 bpf_diag_event_log_save(struct bpf_verifier_env *env)
-{
-	struct bpf_diag *diag = env->diag;
-
-	return diag ? log_end(&diag->log) : 0;
-}
-
 void bpf_diag_event_log_restore(struct bpf_verifier_env *env, u64 log_pos)
 {
 	struct bpf_diag *diag = env->diag;
@@ -1357,10 +1350,6 @@ void bpf_diag_unreadable_reg(struct bpf_verifier_env *env, u32 insn_idx, int reg
 		diag_reason(
 			env, "R%d is not readable here. A previous operation invalidated this register, so the verifier cannot use it as an input.",
 			regno);
-	else if (log && !log->first_seq)
-		diag_reason(env,
-			    "R%d has never been initialized on this path, so the verifier cannot use it as an input.",
-			    regno);
 	else
 		diag_reason(
 			env, "R%d is not readable here. It may never have been initialized, or an earlier operation may have invalidated it.",
@@ -1375,8 +1364,6 @@ void bpf_diag_unreadable_reg(struct bpf_verifier_env *env, u32 insn_idx, int reg
 	if (invalidated)
 		diag_suggestion(
 			env, "Avoid using the register after it is invalidated, or initialize it again before this instruction.");
-	else if (log && !log->first_seq)
-		diag_suggestion(env, "Initialize R%d on every path before this instruction.", regno);
 	else
 		diag_suggestion(
 			env, "Initialize the register on every path, or initialize it again after any operation that invalidates it.");

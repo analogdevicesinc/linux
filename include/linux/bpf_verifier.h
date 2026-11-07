@@ -814,7 +814,6 @@ struct bpf_insn_aux_data {
 	u64 needs_zext:1; /* alu op needs to clear upper bits */
 	u64 prevent_zext:1; /* alu op cannot be zext (already used with 64-bit scalars) */
 	u64 non_sleepable:1; /* helper/kfunc may be called from non-sleepable context */
-	u64 is_iter_next:1; /* bpf_iter_<type>_next() kfunc call */
 	u64 call_with_percpu_alloc_ptr:1; /* {this,per}_cpu_ptr() with prog percpu alloc */
 	u64 cast_arena:1; /* addr_space_cast of an address in arena */
 	u64 cast_mov:1; /* addr_space_cast of a pointer that is not in arena, it's a move */
@@ -848,12 +847,6 @@ struct bpf_insn_aux_data {
 	u64 non_arena_load:1;
 
 	/* below flags are initialized once */
-	u64 jmp_point:1;
-	u64 prune_point:1;
-	/* ensure we check state equivalence and save state checkpoint and
-	 * this instruction, regardless of any heuristics
-	 */
-	u64 force_checkpoint:1;
 	/* true if instruction is a call to a helper function that
 	 * accepts callback function as a parameter.
 	 */
@@ -1184,7 +1177,6 @@ struct bpf_verifier_env {
 	const struct bpf_verifier_ops *ops;
 	struct module *attach_btf_mod;	/* The owner module of prog->aux->attach_btf */
 	struct bpf_verifier_stack_elem *head; /* stack of verifier states to be processed */
-	int stack_size;			/* number of states to be processed */
 	bool strict_alignment;		/* perform strict pointer alignment checks */
 	bool test_reg_invariants;	/* fail verification on register invariants violations */
 	bool uses_arena_sp;		/* the program has insns with BPF_REG_ARENA_SP */
@@ -1405,26 +1397,6 @@ void bpf_verbose_snum32(struct bpf_verifier_env *env, s32 num);
 		bpf_log(&env->log, "verifier bug: " fmt "\n", ##args);				\
 	})
 
-static inline void mark_prune_point(struct bpf_verifier_env *env, int idx)
-{
-	env->insn_aux_data[idx].prune_point = true;
-}
-
-static inline bool bpf_is_prune_point(struct bpf_verifier_env *env, int insn_idx)
-{
-	return env->insn_aux_data[insn_idx].prune_point;
-}
-
-static inline void mark_force_checkpoint(struct bpf_verifier_env *env, int idx)
-{
-	env->insn_aux_data[idx].force_checkpoint = true;
-}
-
-static inline bool bpf_is_force_checkpoint(struct bpf_verifier_env *env, int insn_idx)
-{
-	return env->insn_aux_data[insn_idx].force_checkpoint;
-}
-
 static inline void clear_scalar_id(struct bpf_reg_state *reg)
 {
 	reg->id = 0;
@@ -1439,11 +1411,6 @@ static inline void mark_calls_callback(struct bpf_verifier_env *env, int idx)
 static inline bool bpf_calls_callback(struct bpf_verifier_env *env, int insn_idx)
 {
 	return env->insn_aux_data[insn_idx].calls_callback;
-}
-
-static inline void mark_jmp_point(struct bpf_verifier_env *env, int idx)
-{
-	env->insn_aux_data[idx].jmp_point = true;
 }
 
 static inline void mark_jump_target(struct bpf_verifier_env *env, int idx)
@@ -1617,11 +1584,6 @@ static inline u32 bpf_frame_insn_idx(struct bpf_verifier_state *st, u32 frame)
 	return frame == st->curframe
 	       ? st->insn_idx
 	       : st->frame[frame + 1]->callsite;
-}
-
-static inline bool bpf_is_jmp_point(struct bpf_verifier_env *env, int insn_idx)
-{
-	return env->insn_aux_data[insn_idx].jmp_point;
 }
 
 static inline bool bpf_is_spilled_reg(const struct bpf_stack_state *stack)

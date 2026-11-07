@@ -130,12 +130,8 @@ static int push_insn(int t, int w, int e, struct bpf_verifier_env *env)
 		return -EINVAL;
 	}
 
-	if (e == BRANCH) {
-		/* mark branch target for state pruning */
-		mark_prune_point(env, w);
-		mark_jmp_point(env, w);
+	if (e == BRANCH)
 		mark_jump_target(env, w);
-	}
 
 	if (insn_state[w] == 0) {
 		/* tree-edge */
@@ -179,13 +175,8 @@ static int visit_func_call_insn(int t, struct bpf_insn *insns,
 	if (ret)
 		return ret;
 
-	mark_prune_point(env, t + insn_sz);
-	/* when we exit from subprog, we need to record non-linear history */
-	mark_jmp_point(env, t + insn_sz);
-
 	if (visit_callee) {
 		w = t + insns[t].imm + 1;
-		mark_prune_point(env, t);
 		merge_callee_effects(env, t, w);
 		ret = push_insn(t, w, BRANCH, env);
 	}
@@ -446,14 +437,12 @@ static int visit_gotox_insn(int t, struct bpf_verifier_env *env)
 		return -E2BIG;
 	}
 
-	mark_prune_point(env, t);
 	for (i = 0; i < jt->cnt; i++) {
 		w = jt->items[i];
 		if (verifier_bug_if(w < 0 || w >= env->prog->len, env,
 				    "indirect jump from insn %d to %d out of range", t, w))
 			return -EFAULT;
 
-		mark_jmp_point(env, w);
 		mark_jump_target(env, w);
 
 		/* EXPLORED || DISCOVERED */
@@ -528,14 +517,11 @@ static int visit_func_ptrs_insn(int t, struct bpf_verifier_env *env,
 	}
 
 	/* all functions are explored, their effects are known */
-	mark_prune_point(env, t);
 	for (i = 0; i < cnt; i++) {
 		w = ptrs[i].xlated_off;
 		merge_callee_effects(env, t, w);
 
-		/* the same marks as push_insn() leaves on a branch target */
-		mark_prune_point(env, w);
-		mark_jmp_point(env, w);
+		/* the same mark as push_insn() leaves on a branch target */
 		mark_jump_target(env, w);
 	}
 	return DONE_EXPLORING;
@@ -599,28 +585,13 @@ static int visit_insn(int t, struct bpf_verifier_env *env)
 		return DONE_EXPLORING;
 
 	case BPF_CALL:
-		if (bpf_is_async_callback_calling_insn(insn))
-			/* Mark this call insn as a prune point to trigger
-			 * is_state_visited() check before call itself is
-			 * processed by __check_func_call(). Otherwise new
-			 * async state will be pushed for further exploration.
-			 */
-			mark_prune_point(env, t);
 		/* For functions that invoke callbacks it is not known how many times
 		 * callback would be called. Verifier models callback calling functions
 		 * by repeatedly visiting callback bodies and returning to origin call
 		 * instruction.
-		 * In order to stop such iteration verifier needs to identify when a
-		 * state identical some state from a previous iteration is reached.
-		 * Check below forces creation of checkpoint before callback calling
-		 * instruction to allow search for such identical states.
 		 */
-		if (bpf_is_sync_callback_calling_insn(insn)) {
+		if (bpf_is_sync_callback_calling_insn(insn))
 			mark_calls_callback(env, t);
-			mark_force_checkpoint(env, t);
-			mark_prune_point(env, t);
-			mark_jmp_point(env, t);
-		}
 		if (bpf_helper_call(insn)) {
 			const struct bpf_func_proto *fp;
 
@@ -640,21 +611,6 @@ static int visit_insn(int t, struct bpf_verifier_env *env)
 			struct bpf_call_arg_meta meta;
 
 			ret = bpf_fetch_kfunc_arg_meta(env, insn->imm, insn->off, &meta);
-			if (ret == 0 && bpf_is_iter_next_kfunc(&meta)) {
-				mark_prune_point(env, t);
-				/* Checking and saving state checkpoints at iter_next() call
-				 * is crucial for fast convergence of open-coded iterator loop
-				 * logic, so we need to force it. If we don't do that,
-				 * is_state_visited() might skip saving a checkpoint, causing
-				 * unnecessarily long sequence of not checkpointed
-				 * instructions and jumps, leading to exhaustion of jump
-				 * history buffer, and potentially other undesired outcomes.
-				 * It is expected that with correct open-coded iterators
-				 * convergence will happen quickly, so we don't run a risk of
-				 * exhausting memory.
-				 */
-				mark_force_checkpoint(env, t);
-			}
 			/* Same as helpers, if called in a non-sleepable context
 			 * program will be rejected anyway, so we should end up
 			 * with precise sleepable marks on subprogs, except for
@@ -683,18 +639,12 @@ static int visit_insn(int t, struct bpf_verifier_env *env)
 		if (ret)
 			return ret;
 
-		mark_prune_point(env, t + off + 1);
-		mark_jmp_point(env, t + off + 1);
 		mark_jump_target(env, t + off + 1);
 
 		return ret;
 
 	default:
 		/* conditional jump with two edges */
-		mark_prune_point(env, t);
-		if (bpf_is_may_goto_insn(insn))
-			mark_force_checkpoint(env, t);
-
 		ret = push_insn(t, t + 1, FALLTHROUGH, env);
 		if (ret)
 			return ret;

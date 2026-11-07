@@ -185,7 +185,10 @@ static bool bpf_global_percpu_ma_set;
  * reference remains at the end of the program, the verifier rejects it.
  */
 
-/* verifier_state + insn_idx are pushed to stack when branch is encountered */
+/*
+ * verifier_state + insn_idx are pushed to stack when branch is encountered.
+ * It's emptied after every insn, see flow_drain().
+ */
 struct bpf_verifier_stack_elem {
 	/* verifier state is 'st'
 	 * before processing instruction 'insn_idx'
@@ -197,9 +200,6 @@ struct bpf_verifier_stack_elem {
 	/* it goes there only if may_goto in front of prev_insn_idx does, see check_loop_guard() */
 	enum bpf_guard_edge guard_edge;
 	struct bpf_verifier_stack_elem *next;
-	/* length of verifier log at the time this state was pushed on stack */
-	u32 log_pos;
-	u64 diag_log_pos;
 };
 
 #define BPF_GLOBAL_PERCPU_MA_MAX_SIZE  512
@@ -1816,36 +1816,6 @@ int bpf_copy_verifier_state(struct bpf_verifier_state *dst_state,
 	return 0;
 }
 
-static int pop_stack(struct bpf_verifier_env *env, int *prev_insn_idx,
-		     int *insn_idx, bool pop_log)
-{
-	struct bpf_verifier_state *cur = env->cur_state;
-	struct bpf_verifier_stack_elem *elem, *head = env->head;
-	int err;
-
-	if (env->head == NULL)
-		return -ENOENT;
-
-	if (cur) {
-		err = bpf_copy_verifier_state(cur, &head->st);
-		if (err)
-			return err;
-		bpf_diag_event_log_restore(env, head->diag_log_pos);
-	}
-	if (pop_log)
-		bpf_vlog_reset(&env->log, head->log_pos);
-	if (insn_idx)
-		*insn_idx = head->insn_idx;
-	if (prev_insn_idx)
-		*prev_insn_idx = head->prev_insn_idx;
-	elem = head->next;
-	bpf_free_verifier_state(&head->st, false);
-	kfree(head);
-	env->head = elem;
-	env->stack_size--;
-	return 0;
-}
-
 static bool error_recoverable_with_nospec(int err)
 {
 	/* Should only return true for non-fatal errors that are allowed to
@@ -1873,10 +1843,7 @@ static struct bpf_verifier_state *push_stack(struct bpf_verifier_env *env,
 	elem->insn_idx = insn_idx;
 	elem->prev_insn_idx = prev_insn_idx;
 	elem->next = env->head;
-	elem->log_pos = env->log.end_pos;
-	elem->diag_log_pos = bpf_diag_event_log_save(env);
 	env->head = elem;
-	env->stack_size++;
 	err = bpf_copy_verifier_state(&elem->st, cur);
 	if (err)
 		return ERR_PTR(-ENOMEM);
@@ -2529,10 +2496,7 @@ static struct bpf_verifier_state *push_async_cb(struct bpf_verifier_env *env,
 	elem->insn_idx = insn_idx;
 	elem->prev_insn_idx = prev_insn_idx;
 	elem->next = env->head;
-	elem->log_pos = env->log.end_pos;
-	elem->diag_log_pos = bpf_diag_event_log_save(env);
 	env->head = elem;
-	env->stack_size++;
 	/* Unlike push_stack() do not bpf_copy_verifier_state().
 	 * The caller state doesn't matter.
 	 * This is async callback. It starts in a fresh stack.
@@ -15530,7 +15494,6 @@ out:
 	return info;
 }
 
-/* insn_aux_data->is_iter_next is not there before the main pass */
 bool bpf_insn_is_iter_next(struct bpf_verifier_env *env, struct bpf_insn *insn)
 {
 	struct bpf_call_arg_meta meta;
@@ -15990,7 +15953,6 @@ static int check_kfunc_call(struct bpf_verifier_env *env, struct bpf_insn *insn,
 	}
 	meta.fn = &desc->proto;
 
-	insn_aux->is_iter_next = bpf_is_iter_next_kfunc(&meta);
 
 	if (!insn->off &&
 	    (insn->imm == special_kfunc_list[KF_bpf_res_spin_lock] ||
@@ -21742,7 +21704,6 @@ static int flow_drain(struct bpf_verifier_env *env)
 
 	while ((elem = env->head)) {
 		env->head = elem->next;
-		env->stack_size--;
 		if (!err && elem->guard_edge)
 			err = bpf_flow_guard_edge(env, &elem->st, elem->insn_idx,
 						  elem->prev_insn_idx, elem->guard_edge);
@@ -23051,9 +23012,15 @@ static void sanitize_dead_code(struct bpf_verifier_env *env)
 
 static void free_states(struct bpf_verifier_env *env)
 {
+	struct bpf_verifier_stack_elem *elem;
+
 	bpf_free_verifier_state(env->cur_state, true);
 	env->cur_state = NULL;
-	while (!pop_stack(env, NULL, NULL, false));
+	while ((elem = env->head)) {
+		env->head = elem->next;
+		bpf_free_verifier_state(&elem->st, false);
+		kfree(elem);
+	}
 	bpf_flow_reset(env);
 }
 
@@ -23410,10 +23377,10 @@ static void print_verification_stats(struct bpf_verifier_env *env)
 				env->subprog_info[i].stack_depth);
 		}
 	}
-	/* user space parses this line. There are no read marks. */
-	verbose(env, "processed %d insns (limit %d) max_states_per_insn %d "
+	/* user space parses this line. There is no limit and there are no read marks. */
+	verbose(env, "processed %d insns (limit 0) max_states_per_insn %d "
 		"total_states %d peak_states %d mark_read 0\n",
-		env->insn_processed, BPF_COMPLEXITY_LIMIT_INSNS,
+		env->insn_processed,
 		env->max_states_per_insn, env->total_states,
 		env->peak_states);
 }

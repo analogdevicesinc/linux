@@ -1861,10 +1861,6 @@ int bpf_compute_scev(struct bpf_verifier_env *env)
 						 find_header_env(scev, header));
 	}
 
-	for (i = 0; i < env->prog->len; i++)
-		if (aux[i].loop)
-			aux[i].prune_point = true;
-
 	if (env->log.level & BPF_LOG_LEVEL2) {
 		err = log_scevs(env);
 		if (err)

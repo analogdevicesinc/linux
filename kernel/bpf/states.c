@@ -198,8 +198,7 @@ static void __clean_func_state(struct bpf_verifier_env *env,
 	}
 }
 
-static int clean_verifier_state(struct bpf_verifier_env *env,
-				 struct bpf_verifier_state *st)
+int bpf_clean_verifier_state(struct bpf_verifier_env *env, struct bpf_verifier_state *st)
 {
 	int i, err;
 
@@ -225,20 +224,10 @@ static bool regs_exact(const struct bpf_reg_state *rold,
 	       check_ids(rold->map_uid, rcur->map_uid, idmap);
 }
 
-enum exact_level {
-	NOT_EXACT,
-	EXACT,
-	RANGE_WITHIN
-};
-
 /* Returns true if (rold safe implies rcur safe) */
 static bool regsafe(struct bpf_verifier_env *env, struct bpf_reg_state *rold,
-		    struct bpf_reg_state *rcur, struct bpf_idmap *idmap,
-		    enum exact_level exact)
+		    struct bpf_reg_state *rcur, struct bpf_idmap *idmap)
 {
-	if (exact == EXACT)
-		return regs_exact(rold, rcur, idmap);
-
 	if (rold->type == NOT_INIT)
 		/* explored state can't have used this */
 		return true;
@@ -427,8 +416,7 @@ static struct bpf_reg_state *scalar_reg_for_stack(struct bpf_verifier_env *env,
 }
 
 static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
-		      struct bpf_func_state *cur, struct bpf_idmap *idmap,
-		      enum exact_level exact)
+		      struct bpf_func_state *cur, struct bpf_idmap *idmap)
 {
 	int i, spi;
 
@@ -446,18 +434,6 @@ static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
 		old_slot = bpf_stack_slot(old, spi);
 		old_type = old_slot->slot_type[im];
 		cur_slot = i < cur->allocated_stack ? bpf_stack_slot(cur, spi) : NULL;
-
-		if (exact == EXACT) {
-			u8 cur_type = cur_slot ? cur_slot->slot_type[im] : STACK_INVALID;
-
-			/* STACK_INVALID and STACK_POISON are equivalent for pruning */
-			if (old_type == STACK_POISON)
-				old_type = STACK_INVALID;
-			if (cur_type == STACK_POISON)
-				cur_type = STACK_INVALID;
-			if (!cur_slot || old_type != cur_type)
-				return false;
-		}
 
 		if (old_type == STACK_INVALID || old_type == STACK_POISON)
 			continue;
@@ -481,7 +457,7 @@ static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
 			old_reg = scalar_reg_for_stack(env, old_slot, im);
 			cur_reg = scalar_reg_for_stack(env, cur_slot, im);
 			if (old_reg && cur_reg) {
-				if (!regsafe(env, old_reg, cur_reg, idmap, exact))
+				if (!regsafe(env, old_reg, cur_reg, idmap))
 					return false;
 				i += (im == 0 ? BPF_REG_SIZE - 1 : 3);
 				continue;
@@ -516,8 +492,7 @@ static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
 			 * such verifier states are not equivalent.
 			 * return false to continue verification of this path
 			 */
-			if (!regsafe(env, &old_slot->spilled_ptr, &cur_slot->spilled_ptr,
-				     idmap, exact))
+			if (!regsafe(env, &old_slot->spilled_ptr, &cur_slot->spilled_ptr, idmap))
 				return false;
 			break;
 		case STACK_DYNPTR:
@@ -565,8 +540,7 @@ static bool stacksafe(struct bpf_verifier_env *env, struct bpf_func_state *old,
  * Outgoing stack args are path-local state and must agree for pruning.
  */
 static bool stack_arg_safe(struct bpf_verifier_env *env, struct bpf_func_state *old,
-			   struct bpf_func_state *cur, struct bpf_idmap *idmap,
-			   enum exact_level exact)
+			   struct bpf_func_state *cur, struct bpf_idmap *idmap)
 {
 	int i, nslots, cur_cnt = cur->out_stack_arg_cnt;
 
@@ -582,7 +556,7 @@ static bool stack_arg_safe(struct bpf_verifier_env *env, struct bpf_func_state *
 			  &old->stack_arg_regs[i] : &not_init;
 		cur_arg = i < cur_cnt ?
 			  &cur->stack_arg_regs[i] : &not_init;
-		if (!regsafe(env, old_arg, cur_arg, idmap, exact))
+		if (!regsafe(env, old_arg, cur_arg, idmap))
 			return false;
 	}
 
@@ -710,7 +684,7 @@ static bool loop_stack_safe(struct bpf_verifier_env *env, struct bpf_func_state 
  * the current state will reach 'bpf_exit' instruction safely
  */
 static bool func_states_equal(struct bpf_verifier_env *env, struct bpf_func_state *old,
-			      struct bpf_func_state *cur, u32 insn_idx, enum exact_level exact)
+			      struct bpf_func_state *cur, u32 insn_idx)
 {
 	u16 live_regs = env->insn_aux_data[insn_idx].live_regs_before;
 	u16 i;
@@ -736,14 +710,13 @@ static bool func_states_equal(struct bpf_verifier_env *env, struct bpf_func_stat
 
 	for (i = 0; i < MAX_BPF_REG; i++)
 		if (((1 << i) & live_regs) &&
-		    !regsafe(env, &old->regs[i], &cur->regs[i],
-			     &env->idmap_scratch, exact))
+		    !regsafe(env, &old->regs[i], &cur->regs[i], &env->idmap_scratch))
 			return false;
 
-	if (!stacksafe(env, old, cur, &env->idmap_scratch, exact))
+	if (!stacksafe(env, old, cur, &env->idmap_scratch))
 		return false;
 
-	if (!stack_arg_safe(env, old, cur, &env->idmap_scratch, exact))
+	if (!stack_arg_safe(env, old, cur, &env->idmap_scratch))
 		return false;
 
 	if (!loop_stack_safe(env, old, cur))
@@ -760,10 +733,9 @@ static void reset_idmap_scratch(struct bpf_verifier_env *env)
 	idmap->cnt = 0;
 }
 
-static bool states_equal(struct bpf_verifier_env *env,
-			 struct bpf_verifier_state *old,
-			 struct bpf_verifier_state *cur,
-			 enum exact_level exact)
+/* Everything that @cur describes is described by @old. */
+bool bpf_state_subsumes(struct bpf_verifier_env *env, struct bpf_verifier_state *old,
+			struct bpf_verifier_state *cur)
 {
 	u32 insn_idx;
 	int i;
@@ -798,21 +770,9 @@ static bool states_equal(struct bpf_verifier_env *env,
 		insn_idx = bpf_frame_insn_idx(old, i);
 		if (old->frame[i]->callsite != cur->frame[i]->callsite)
 			return false;
-		if (!func_states_equal(env, old->frame[i], cur->frame[i], insn_idx, exact))
+		if (!func_states_equal(env, old->frame[i], cur->frame[i], insn_idx))
 			return false;
 	}
 
 	return true;
-}
-
-int bpf_clean_verifier_state(struct bpf_verifier_env *env, struct bpf_verifier_state *st)
-{
-	return clean_verifier_state(env, st);
-}
-
-/* Everything that @cur describes is described by @old. */
-bool bpf_state_subsumes(struct bpf_verifier_env *env, struct bpf_verifier_state *old,
-			struct bpf_verifier_state *cur)
-{
-	return states_equal(env, old, cur, RANGE_WITHIN);
 }
