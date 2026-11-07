@@ -117,6 +117,29 @@ LOOP(behind_moved, "w8 = 0; r9 = r6; r9 += 2043;", MOVED(4) "goto 1b;")
 BAD("a store behind the jump that counts, the pointer has moved too far")
 LOOP(behind_moved_bad, "w8 = 0; r9 = r6; r9 += 2044;", MOVED(4) "goto 1b;")
 
+/*
+ * A number goes up by 3 and has moved in front of the jump. At the store it is @first or
+ * @first + 3. Moved over S64_MAX it has another residue: 2^64 is not a multiple of 3. It keeps
+ * the range of all three iterations then.
+ */
+#define NUM(by, back, first, off)						\
+	"r3 = " #by " ll; r9 += r3; if w8 == 2 goto 9f; r2 = r9; r3 = " #first " ll; r2 -= r3;" \
+	"r2 += r5; *(u8 *)(r2 + " #off ") = r1; r3 = " #back " ll; r9 += r3; w8 += 1; goto 1b;"
+#define OVER(off)	NUM(100, -97, 0x8000000000000031, off)
+#define FAR(off)	NUM(0x7fffffffffffffff, 0x8000000000000004, 0x7ffffffffffffffa, off)
+
+OK("behind the jump that counts, a number has moved over S64_MAX", "3")
+LOOP(moved_over, "w8 = 0; r5 = r6; r9 = 0x7fffffffffffffcd ll;", OVER(2041))
+
+BAD("behind the jump that counts, a number has moved over S64_MAX, too far")
+LOOP(moved_over_bad, "w8 = 0; r5 = r6; r9 = 0x7fffffffffffffcd ll;", OVER(2045))
+
+OK("behind the jump that counts, a number has moved by S64_MAX", "3")
+LOOP(moved_far, "w8 = 0; r5 = r6; r9 = -5;", FAR(2044))
+
+BAD("behind the jump that counts, a number has moved by S64_MAX, one too far")
+LOOP(moved_far_bad, "w8 = 0; r5 = r6; r9 = -5;", FAR(2045))
+
 OK("a store behind the jump that counts two back edges", "5")
 LOOP(behind_two, "w8 = 0; r9 = r6; r9 += 2044;", AT_TOP(4) "if r7 == 7 goto 1b; goto 1b;")
 
@@ -183,6 +206,9 @@ int name(void *ctx)								\
 }
 
 OK("frames of a stack walker", "[0..9]") __retval(256)
+#ifndef __clang__
+__skip("GCC unrolls the inner loop")
+#endif
 FRAMES(eight_frames, 8)
 
 BAD("frames of a stack walker, one too many")

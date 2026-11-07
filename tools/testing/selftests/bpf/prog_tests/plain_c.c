@@ -109,18 +109,28 @@ out:
 	plain_c_dynptr_success__destroy(skel);
 }
 
-void test_plain_c_arena_htab(void) { RUN(arena_htab); }
-void test_plain_c_arena_htab_asm(void) { RUN(arena_htab_asm); }
+/* Files with an arena map are serial, as prog_tests/arena_*.c: 512 MB of KASAN shadow per arena */
+void serial_test_plain_c_arena_htab(void) { RUN(arena_htab); }
+void serial_test_plain_c_arena_htab_asm(void) { RUN(arena_htab_asm); }
 
-void test_plain_c_arena_list(void)
+void serial_test_plain_c_arena_list(void)
 {
 	RUN(arena_list);
 	if (test__start_subtest("run"))
 		arena_list_add_del();
 }
 
-void test_plain_c_arena_race(void) { RUN(arena_race); }
-void test_plain_c_arena_strsearch(void) { RUN(arena_strsearch); }
+void test_plain_c_arena_race(void)
+{
+	/* prog_tests/arena_race.c: the target of fentry */
+	if (libbpf_find_vmlinux_btf_id("zap_vma_range", BPF_TRACE_FENTRY) <= 0) {
+		test__skip();
+		return;
+	}
+	RUN(arena_race);
+}
+
+void serial_test_plain_c_arena_strsearch(void) { RUN(arena_strsearch); }
 
 void test_plain_c_bpf_ma_ttrace(void)
 {
@@ -152,9 +162,19 @@ void test_plain_c_tailcall_bpf2bpf_hierarchy1(void) { RUN(tailcall_bpf2bpf_hiera
 void test_plain_c_tailcall_bpf2bpf_hierarchy2(void) { RUN(tailcall_bpf2bpf_hierarchy2); }
 void test_plain_c_tailcall_bpf2bpf_hierarchy3(void) { RUN(tailcall_bpf2bpf_hierarchy3); }
 void test_plain_c_tailcall_callback(void) { RUN(tailcall_callback); }
-void test_plain_c_test_wakeup_source(void) { RUN(test_wakeup_source); }
+
+void test_plain_c_test_wakeup_source(void)
+{
+	/* prog_tests/wakeup_source.c: the kfuncs are there with CONFIG_PM_SLEEP */
+	if (libbpf_find_vmlinux_btf_id("bpf_wakeup_sources_get_head", BPF_TRACE_FENTRY) <= 0) {
+		test__skip();
+		return;
+	}
+	RUN(test_wakeup_source);
+}
+
 void test_plain_c_tracing_stack_arg_tailcall_tgt(void) { RUN(tracing_stack_arg_tailcall_tgt); }
-void test_plain_c_verifier_arena_large(void) { RUN(verifier_arena_large); }
+void serial_test_plain_c_verifier_arena_large(void) { RUN(verifier_arena_large); }
 void test_plain_c_verifier_iterating_callbacks(void) { RUN(verifier_iterating_callbacks); }
 void test_plain_c_verifier_loop_as_is(void) { RUN(verifier_loop_as_is); }
 void test_plain_c_xdp_lb_bench(void) { RUN(xdp_lb_bench); }

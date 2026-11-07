@@ -523,6 +523,63 @@ __naked void flag_and_retval(void)
 	);
 }
 
+extern void bpf_throw(__u64 cookie) __ksym;
+
+/* BTF FUNC records are not generated for kfuncs referenced from inline assembly */
+void __kfunc_btf_root(void)
+{
+	bpf_throw(0);
+}
+
+/*
+ *	err = policy();
+ *	count(a); count(b);
+ *	if (err == -EPERM || err == -EACCES)
+ *		bpf_throw(err);
+ *	return 0;
+ * There is no exception callback: the prog returns err. The jump that looks at the flag is too
+ * far ahead to keep 0 and 1 of the flag apart.
+ */
+#define FLAG_AND_COOKIE(name, no, yes)			\
+__arch_x86_64 __arch_arm64 __arch_s390x			\
+__naked void name(void)					\
+{							\
+	asm volatile (					\
+		"call %[bpf_get_prandom_u32];"		\
+		"w8 = " #no ";"				\
+		"r9 = 1;"				\
+		"if r0 == 0 goto 1f;"			\
+		"w8 = " #yes ";"			\
+		"r9 = -13;"				\
+	"1:"						\
+		"call %[bpf_get_prandom_u32];"		\
+		"if r0 == 0 goto +1;"			\
+		"r7 = r0;"				\
+		"call %[bpf_get_prandom_u32];"		\
+		"if r0 == 0 goto +1;"			\
+		"r7 = r0;"				\
+		"if w8 == 0 goto 2f;"			\
+		"r1 = r9;"				\
+		"call %[bpf_throw];"			\
+	"2:"						\
+		"r0 = 0;"				\
+		"exit;"					\
+		:					\
+		: __imm(bpf_get_prandom_u32), __imm(bpf_throw)	\
+		: __clobber_all				\
+	);						\
+}
+
+SEC("lsm/file_permission")
+__description("jumps ahead: a flag goes together with what bpf_throw() takes")
+__success
+FLAG_AND_COOKIE(flag_and_cookie, 0, 1)
+
+SEC("lsm/file_permission")
+__description("jumps ahead: a flag goes together with what bpf_throw() does not take")
+__failure __msg("At program exit the register R1 has smin=1 smax=1 should have been in [-4095, 0]")
+FLAG_AND_COOKIE(flag_and_bad_cookie, 1, 0)
+
 char buf[8];
 
 /* As in test_seg6_loop.c without 32-bit insns: the copy is tested, the original is used */

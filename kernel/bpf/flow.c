@@ -549,8 +549,8 @@ static u16 flow_stack_off_regs(struct bpf_verifier_env *env, int idx)
 
 /*
  * A jump that compares a register with a constant, which may be in the other register.
- * A call does the same: the verifier compares a size, or what bpf_set_retval() takes,
- * with what is allowed. So does the exit of the prog, see flow_compute_need_const().
+ * A call does the same: the verifier compares a size, or what bpf_set_retval() or bpf_throw()
+ * takes, with what is allowed. So does the exit of the prog, see flow_compute_need_const().
  */
 static u16 flow_tested_regs(struct bpf_verifier_env *env, int idx)
 {
