@@ -311,8 +311,8 @@ l0_%=:	exit;						\
 
 SEC("socket")
 __description("invalid map access into an array with a invalid max check")
-__failure __msg("R0 pointer += pointer")
-__failure_unpriv
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("R0 pointer += pointer")
 __flag(BPF_F_ANY_ALIGNMENT)
 __naked void with_a_invalid_max_check_2(void)
 {

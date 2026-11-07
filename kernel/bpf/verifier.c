@@ -16911,7 +16911,7 @@ static int adjust_ptr_min_max_vals(struct bpf_verifier_env *env, struct bpf_insn
 
 	dst_reg = &regs[dst];
 	/*
-	 * Only += and -= keep a pointer. Any other op makes a number of it,
+	 * Only 64-bit += and -= keep a pointer. Any other op makes a number of it,
 	 * which is fine when the program may see values of pointers anyway.
 	 */
 	to_scalar = opcode != BPF_ADD && opcode != BPF_SUB && env->allow_ptr_leaks;
@@ -16927,7 +16927,7 @@ static int adjust_ptr_min_max_vals(struct bpf_verifier_env *env, struct bpf_insn
 
 	if (BPF_CLASS(insn->code) != BPF_ALU64 && !to_scalar) {
 		/* 32-bit ALU ops on pointers produce (meaningless) scalars */
-		if (opcode == BPF_SUB && env->allow_ptr_leaks) {
+		if (env->allow_ptr_leaks) {
 			bpf_mark_reg_unknown(dst_reg);
 			return 0;
 		}
@@ -18218,11 +18218,11 @@ static int adjust_reg_min_max_vals(struct bpf_verifier_env *env,
 	if (BPF_SRC(insn->code) == BPF_X) {
 		if (src_reg->type != SCALAR_VALUE) {
 			if (dst_reg->type != SCALAR_VALUE) {
-				/* Combining two pointers by any ALU op yields
-				 * an arbitrary scalar. Disallow all math except
-				 * pointer subtraction
+				/*
+				 * Combining two pointers by any ALU op yields
+				 * an arbitrary scalar.
 				 */
-				if (opcode == BPF_SUB && env->allow_ptr_leaks) {
+				if (env->allow_ptr_leaks) {
 					mark_reg_unknown(env, regs, insn->dst_reg);
 					return 0;
 				}

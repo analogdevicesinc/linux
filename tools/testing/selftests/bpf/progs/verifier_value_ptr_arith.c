@@ -1156,8 +1156,8 @@ l0_%=:	r0 = 2;						\
 
 SEC("socket")
 __description("map access: value_ptr += value_ptr")
-__failure __msg("R0 pointer += pointer prohibited")
-__failure_unpriv
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("R0 pointer += pointer prohibited")
 __naked void access_value_ptr_value_ptr_1(void)
 {
 	asm volatile ("					\

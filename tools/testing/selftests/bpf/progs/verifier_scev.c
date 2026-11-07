@@ -3842,10 +3842,9 @@ __naked void ptr_map_value_jmp32(void)
 }
 
 SEC("xdp")
-__failure
+__success
 __log_level(2)
 __msg("loop header at 11, can't compute iterations count")
-__msg("R6 32-bit pointer arithmetic prohibited")
 __naked void ptr_map_value_alu32_latch(void)
 {
 	asm volatile ("					\

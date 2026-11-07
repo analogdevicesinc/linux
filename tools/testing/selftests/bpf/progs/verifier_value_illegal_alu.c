@@ -46,8 +46,8 @@ l0_%=:	exit;						\
 
 SEC("socket")
 __description("map element value illegal alu op, 2")
-__failure __msg("R0 32-bit pointer arithmetic prohibited")
-__failure_unpriv
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("R0 32-bit pointer arithmetic prohibited")
 __naked void value_illegal_alu_op_2(void)
 {
 	asm volatile ("					\

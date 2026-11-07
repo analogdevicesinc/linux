@@ -140,8 +140,8 @@ __naked void unpriv_add_const_to_pointer(void)
 
 SEC("socket")
 __description("unpriv: add pointer to pointer")
-__failure __msg("R1 pointer += pointer")
-__failure_unpriv
+__success __failure_unpriv __msg_unpriv("R1 pointer += pointer")
+__retval(0)
 __naked void unpriv_add_pointer_to_pointer(void)
 {
 	asm volatile ("					\
