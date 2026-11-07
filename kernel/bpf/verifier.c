@@ -24673,8 +24673,12 @@ int bpf_check(struct bpf_prog **prog, union bpf_attr *attr, bpfptr_t uattr,
 	if (ret == 0 && env->callx_edges)
 		ret = sort_subprogs_topo(env);
 
+	/* the driver numbers the insns like the program that it was given */
 	if (ret == 0 && bpf_prog_is_offloaded(env->prog->aux))
 		ret = bpf_prog_offload_finalize(env);
+
+	if (ret == 0)
+		ret = bpf_insert_loop_guards(env);
 
 skip_full_check:
 	kvfree(env->explored_states);

@@ -815,6 +815,10 @@ struct bpf_insn_aux_data {
 	u64 cast_arena:1; /* addr_space_cast of an address in arena */
 	u64 cast_mov:1; /* addr_space_cast of a pointer that is not in arena, it's a move */
 	u64 bb_end:1; /* last instruction of a basic block */
+	u64 loop_guard:1; /* may_goto is added in front of this instruction */
+	u64 guard_place:1; /* it's the place for may_goto if the loop needs one */
+	u64 guard_at_header:1; /* there is no better place than the head of the loop */
+	u64 guard_no_unwind:1; /* it cannot unwind from here, at least sometimes */
 	u64 need_scev:1;
 	u64 alu_state:5; /* used in combination with alu_limit */
 	/* true if STX or LDX instruction is a part of a spill/fill
@@ -878,6 +882,8 @@ struct bpf_insn_aux_data {
 	 * For a loop header, identifies the parent loop instead.
 	 */
 	s32 loop_header;
+	/* where may_goto in front of this instruction goes */
+	s32 guard_to;
 	/* additional information about the loop if this instruction is a loop header */
 	struct bpf_loop *loop;
 };
@@ -1021,6 +1027,8 @@ struct bpf_subprog_info {
 	 * a hidden pointer to the result, a pair in two registers, no dead arguments.
 	 */
 	bool stack_args_from_code: 1;
+	/* it can leave with unwind_exit: it has one, or unwind_goto follows every call of it */
+	bool bail_unwinds: 1;
 	u8 code_stack_args;
 	u16 stack_arg_cnt; /* incoming + max outgoing */
 	u16 max_out_stack_arg_cnt;
@@ -1521,6 +1529,7 @@ void bpf_free_kfunc_btf_tab(struct bpf_kfunc_btf_tab *tab);
 int mark_chain_precision(struct bpf_verifier_env *env, int regno);
 
 int bpf_is_state_visited(struct bpf_verifier_env *env, int insn_idx);
+int bpf_insert_loop_guards(struct bpf_verifier_env *env);
 bool bpf_edge_leaves_loop(struct bpf_verifier_env *env, int h, int n, int t);
 bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n);
 int bpf_split_cur_state(struct bpf_verifier_env *env);
@@ -1845,6 +1854,30 @@ struct bpf_subprog_info *bpf_find_containing_subprog(struct bpf_verifier_env *en
 const char *bpf_subprog_name(const struct bpf_verifier_env *env, int subprog);
 int bpf_jmp_offset(struct bpf_insn *insn);
 struct bpf_iarray *bpf_insn_successors(struct bpf_verifier_env *env, u32 idx);
+
+/*
+ * Where the program goes from may_goto and from the checks that the verifier adds:
+ * - May_goto in front of a jump goes where the jump goes, with the registers and the stack
+ *   as they are in front of the jump. bpf_insn_successors() has that edge.
+ * - A subprog that is out of budget goes to bail_insn, an exit. No such edge.
+ * - May_goto in front of the head of a loop goes to where the loops around it are left: from
+ *   @idx to what is returned here, -1 if there is none. No such edge either. The registers
+ *   and the stack are what they are in front of @idx.
+ *
+ * The main pass looks at the states that go there. What is computed from the graph before
+ * the main pass has to take these edges into account where the main pass believes it:
+ * - Against the direction of the edges, liveness: a register that is live at the target is
+ *   live at @idx. Stack that is dead at @idx stays dead: a read of it at the target is
+ *   rejected.
+ * - In the direction of the edges, bpf_compute_const_regs() and compute_subprog_args(): what
+ *   holds on all edges of the graph to the target doesn't hold on this one.
+ */
+static inline int bpf_head_guard_target(const struct bpf_verifier_env *env, int idx)
+{
+	const struct bpf_insn_aux_data *aux = &env->insn_aux_data[idx];
+
+	return aux->guard_at_header ? aux->guard_to : -1;
+}
 void bpf_fmt_stack_mask(char *buf, ssize_t buf_sz, const unsigned long *stack_mask);
 bool bpf_subprog_is_global(const struct bpf_verifier_env *env, int subprog);
 
