@@ -1476,3 +1476,176 @@ static int flow_unite(struct bpf_flow *flow, u32 a, u32 b)
 	u->b = b;
 	return 0;
 }
+
+/*
+ * What is known about a counted loop comes from the state it was entered
+ * with. @t stands for @s only if that holds for these states too.
+ */
+static bool flow_loops_within(struct bpf_verifier_env *env, const struct bpf_verifier_state *t,
+			      const struct bpf_verifier_state *s)
+{
+	const struct loop_stack_entry *lt, *ls;
+	u32 fr, i;
+
+	for (fr = 0; fr <= t->curframe; fr++) {
+		if (t->frame[fr]->loop_stack_cnt != s->frame[fr]->loop_stack_cnt)
+			return false;
+		for (i = 0; i < t->frame[fr]->loop_stack_cnt; i++) {
+			lt = &t->frame[fr]->loop_stack[i];
+			ls = &s->frame[fr]->loop_stack[i];
+			if (!lt->terminates || lt->entry_state == ls->entry_state)
+				continue;
+			if (!ls->terminates ||
+			    !bpf_state_subsumes(env, lt->entry_state, ls->entry_state))
+				return false;
+		}
+	}
+	return true;
+}
+
+static bool flow_within(struct bpf_verifier_env *env, struct bpf_verifier_state *t,
+			struct bpf_verifier_state *s)
+{
+	return t->curframe == s->curframe &&
+	       t->frame[0]->subprogno == s->frame[0]->subprogno &&
+	       /* an async callback returns to the kernel, a call of the function to its caller */
+	       !t->flow_entry == !s->flow_entry &&
+	       bpf_state_subsumes(env, t, s) && flow_loops_within(env, t, s);
+}
+
+/*
+ * How many iterations is @t behind @s, in the loop in which that is the most? Only the loops
+ * whose iterations are kept apart are looked at.
+ * 0 if both are in the same iteration of every loop, U32_MAX if @t is ahead of @s in a loop.
+ */
+static u32 flow_trips_behind(const struct bpf_verifier_state *t, const struct bpf_verifier_state *s)
+{
+	const struct loop_stack_entry *lt, *ls;
+	u32 fr, i, behind = 0;
+
+	if (t->curframe != s->curframe)
+		return U32_MAX;
+	for (fr = 0; fr <= t->curframe; fr++) {
+		if (t->frame[fr]->loop_stack_cnt != s->frame[fr]->loop_stack_cnt)
+			return U32_MAX;
+		for (i = 0; i < t->frame[fr]->loop_stack_cnt; i++) {
+			lt = &t->frame[fr]->loop_stack[i];
+			ls = &s->frame[fr]->loop_stack[i];
+			if (!lt->apart && !ls->apart)
+				continue;
+			if (lt->trip > ls->trip)
+				return U32_MAX;
+			behind = max(behind, ls->trip - lt->trip);
+		}
+	}
+	return behind;
+}
+
+/*
+ * A state is compared with the states of its own iteration and of the two before it. The older ones
+ * are gone, see flow_earlier_trip(), but for what is pending or waits: every iteration of a loop
+ * calls a recursive function, and what comes out of it goes to all the calls at once.
+ */
+static bool flow_trips_near(const struct bpf_verifier_state *t, const struct bpf_verifier_state *s)
+{
+	return flow_trips_behind(t, s) <= 2;
+}
+
+/*
+ * @s is within @t, and from now on @t stands for it.
+ *
+ * A walk on patience gets to the end of a loop when no state comes back to the head any more.
+ * Then the loop ends at run time too: the number of the iteration grows at the head, nothing makes
+ * it smaller, and there is a largest one.
+ * If @t is of an earlier iteration than @s that is not true any more. What becomes of @t got to @s
+ * and is @t again: as far as the verifier can see the program goes around for ever. A spin lock
+ * is such a loop. So the loop gets may_goto.
+ *
+ * It's asked for every loop that @t is behind in, not only for the outermost one. This is the only
+ * way for the number of a loop to get smaller. In a walk it doesn't change in another way but at
+ * the head: a state never stands for a state of an earlier iteration, see loop_stack_safe(), and it
+ * takes the place of, or is joined with, states of its own iterations only, see flow_merge().
+ * Where the iterations are not kept apart a join has the larger number, and a state may stand
+ * for one with a smaller number. Such loop has a count or may_goto, or something stops it, since
+ * the state entered it.
+ */
+static int flow_cycle_closed(struct bpf_verifier_env *env, const struct bpf_verifier_state *t,
+			     const struct bpf_verifier_state *s)
+{
+	const struct loop_stack_entry *lt, *ls;
+	struct bpf_loop *loop;
+	u32 fr, i;
+
+	for (fr = 0; fr <= t->curframe; fr++) {
+		for (i = 0; i < t->frame[fr]->loop_stack_cnt; i++) {
+			lt = &t->frame[fr]->loop_stack[i];
+			ls = &s->frame[fr]->loop_stack[i];
+			if (lt->trip >= ls->trip)
+				continue;
+			/* counted: what comes back is expected to be within what is at the head */
+			if (lt->terminates && !bpf_loop_walk_may_give_up(lt))
+				continue;
+			loop = env->insn_aux_data[lt->loop_id].loop;
+			/* it goes around for as long as the iterator has elements or may_goto budget */
+			if (loop->rt_bounded)
+				continue;
+			if (!loop->has_guards) {
+				verbose(env, "loop at insn %d never exits\n", lt->loop_id);
+				return -EINVAL;
+			}
+			bpf_flow_loop_gets_guards(env, lt->loop_id);
+		}
+	}
+	return 0;
+}
+
+/*
+ * @t is of an earlier iteration of a loop whose iterations are kept apart than @s.
+ * What comes after @s is of later iterations too, so @t is not going to be
+ * of use. If something of its iteration does come it is looked at again.
+ *
+ * Not so where a state stands for many iterations. States of different kinds are at the head of
+ * such loop. One of them comes to rest early, and what comes around is within it for as long as
+ * the others take.
+ */
+static bool flow_earlier_trip(const struct bpf_verifier_state *t,
+			      const struct bpf_verifier_state *s)
+{
+	const struct bpf_func_state *ft, *fs;
+	u32 fr, i;
+
+	if (t->curframe != s->curframe)
+		return false;
+	for (fr = 0; fr <= t->curframe; fr++) {
+		ft = t->frame[fr];
+		fs = s->frame[fr];
+		if (ft->subprogno != fs->subprogno || ft->callsite != fs->callsite ||
+		    ft->loop_stack_cnt != fs->loop_stack_cnt)
+			return false;
+		for (i = 0; i < ft->loop_stack_cnt; i++) {
+			if (ft->loop_stack[i].loop_id != fs->loop_stack[i].loop_id ||
+			    ft->loop_stack[i].apart != fs->loop_stack[i].apart)
+				return false;
+			if (ft->loop_stack[i].apart &&
+			    ft->loop_stack[i].trip != fs->loop_stack[i].trip)
+				return ft->loop_stack[i].trip + 1 < fs->loop_stack[i].trip;
+		}
+	}
+	return false;
+}
+
+/* Can flow_earlier_trip() be true for a state and @s? */
+static bool flow_has_earlier_trips(const struct bpf_verifier_state *s)
+{
+	const struct loop_stack_entry *entry;
+	u32 fr, i;
+
+	for (fr = 0; fr <= s->curframe; fr++) {
+		for (i = 0; i < s->frame[fr]->loop_stack_cnt; i++) {
+			entry = &s->frame[fr]->loop_stack[i];
+			if (entry->apart && entry->trip > 1)
+				return true;
+		}
+	}
+	return false;
+}
