@@ -1570,6 +1570,19 @@ config SENSORS_MR75203
 	  This driver can also be built as a module. If so, the module
 	  will be called mr75203.
 
+config SENSORS_MSI_MYSTIC_LIGHT
+	tristate "MSI Mystic Light USB controller voltage sensors"
+	depends on USB_HID
+	depends on DMI || COMPILE_TEST
+	help
+	  If you say yes here you get support for the voltage sensors of the
+	  MSI Mystic Light USB controller (0db0:0076) found on MSI 800-series
+	  motherboards. Currently the MSI MAG B850M MORTAR WIFI (MS-7E61) is
+	  supported.
+
+	  This driver can also be built as a module. If so, the module
+	  will be called msi_mystic_light.
+
 config SENSORS_ADCXX
 	tristate "National Semiconductor ADCxxxSxxx"
 	depends on SPI_MASTER

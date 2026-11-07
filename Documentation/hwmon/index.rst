@@ -213,6 +213,7 @@ Hardware Monitoring Kernel Drivers
    mpq82d00
    mpq8646
    mpq8785
+   msi_mystic_light
    nct6683
    nct6775
    nct7363
