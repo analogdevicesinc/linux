@@ -540,6 +540,14 @@ bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n)
 	       (f != h && !bpf_is_nested_loop(env, f, h));
 }
 
+/* The same for an insn that is in the loop @h itself */
+bool bpf_insn_leaves_loop(struct bpf_verifier_env *env, int h, int n)
+{
+	if (bpf_loop_at_index(env, n) != h)
+		return false;
+	return bpf_jump_leaves_loop(env, h, n);
+}
+
 int bpf_compute_loops(struct bpf_verifier_env *env)
 {
 	int i, j, k, s, t, iloop, sloop, err = 0, len = env->prog->len;
