@@ -319,6 +319,21 @@ __naked void ld_abs_void_subprog(void)
 	::: __clobber_all);
 }
 
+SEC("socket")
+__description("ld_abs: void return subprog, early exit on ld_abs failure")
+__failure __msg("R9 !read_ok")
+__naked void ld_abs_void_subprog_early_exit(void)
+{
+	asm volatile (
+	"call ldabs_void_subprog;"
+	"if r0 != 0 goto l_exit_%=;"
+	"r0 = r9;"
+	"l_exit_%=:"
+	"r0 = 0;"
+	"exit;"
+	::: __clobber_all);
+}
+
 __naked __noinline __used
 static void ldind_void_subprog(void)
 {

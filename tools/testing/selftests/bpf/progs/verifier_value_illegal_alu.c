@@ -330,6 +330,44 @@ l0_%=:	r0 = 0;						\
 	: __clobber_all);
 }
 
+SEC("socket")
+__description("32-bit add to a pointer")
+__success __retval(0)
+__failure_unpriv __msg_unpriv("R0 32-bit pointer arithmetic prohibited")
+__naked void ptr_add32(void)
+{
+	asm volatile ("					\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = 0;						\
+	*(u64*)(r2 + 0) = r1;				\
+	r1 = %[map_hash_48b] ll;			\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l0_%=;				\
+	w0 += 1;					\
+l0_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_48b)
+	: __clobber_all);
+}
+
+SEC("socket")
+__description("or of two pointers")
+__failure __msg("R1 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("R1 pointer |= pointer prohibited")
+__naked void ptr_or_ptr(void)
+{
+	asm volatile ("					\
+	r1 = r10;					\
+	r1 |= r10;					\
+	r0 = 0;						\
+	*(u64*)(r1 - 8) = r0;				\
+	exit;						\
+"	::: __clobber_all);
+}
+
 SEC("flow_dissector")
 __description("flow_keys illegal alu op with variable offset")
 __failure __msg("R7 pointer arithmetic on flow_keys prohibited")

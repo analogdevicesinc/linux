@@ -171,6 +171,53 @@ __naked void check_corrupted_spill_fill_msb(void)
 "	::: __clobber_all);
 }
 
+SEC("socket")
+__description("32-bit spill of a pointer")
+__success __failure_unpriv __msg_unpriv("invalid size of register spill")
+__retval(0)
+__naked void spill_32bit_of_pointer(void)
+{
+	asm volatile ("					\
+	*(u32*)(r10 - 8) = r1;				\
+	r0 = *(u32*)(r10 - 8);				\
+	r0 -= r0;					\
+	exit;						\
+"	::: __clobber_all);
+}
+
+SEC("socket")
+__description("32-bit spills of both halves of a pointer")
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("invalid size of register spill")
+__naked void spill_32bit_of_pointer_twice(void)
+{
+	asm volatile ("					\
+	*(u32*)(r10 - 8) = r1;				\
+	r1 >>= 32;					\
+	*(u32*)(r10 - 4) = r1;				\
+	/* R0 has the value of R1(ctx). It's a number */\
+	r0 = *(u64*)(r10 - 8);				\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	::: __clobber_all);
+}
+
+SEC("socket")
+__description("32-bit spill of a pointer over its 64-bit spill")
+__failure __msg("R0 invalid mem access 'scalar'")
+__failure_unpriv __msg_unpriv("attempt to corrupt spilled")
+__naked void spill_32bit_of_pointer_over_spill(void)
+{
+	asm volatile ("					\
+	*(u64*)(r10 - 8) = r1;				\
+	/* the same bytes. The spill of R1(ctx) is gone */\
+	*(u32*)(r10 - 8) = r1;				\
+	r0 = *(u64*)(r10 - 8);				\
+	r0 = *(u32*)(r0 + 0);				\
+	exit;						\
+"	::: __clobber_all);
+}
+
 SEC("tc")
 __description("Spill and refill a u32 const scalar.  Offset to skb->data")
 __success __retval(0)

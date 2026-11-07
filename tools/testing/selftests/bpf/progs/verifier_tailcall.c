@@ -50,6 +50,75 @@ static int subprog_tail_call(void)
 	: __clobber_all);
 }
 
+__used __naked
+static void void_subprog_tail_call(void)
+{
+	asm volatile ("			\
+	r2 = %[jmp_table] ll;		\
+	r3 = 0;				\
+	call %[bpf_tail_call];		\
+	r0 = 1;				\
+	exit;				\
+"	:
+	: __imm(bpf_tail_call),
+	  __imm_addr(jmp_table)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("tail call in a subprog that returns void")
+__success
+__naked void tail_call_in_void_subprog(void)
+{
+	asm volatile ("			\
+	call void_subprog_tail_call;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+/* r0 is what the other program returns when the tail call is taken */
+SEC("tc")
+__description("tail call in a subprog that returns void, the caller counts on r0")
+__failure __msg("R9 !read_ok")
+__naked void tail_call_in_void_subprog_r0(void)
+{
+	asm volatile ("			\
+	call void_subprog_tail_call;	\
+	if r0 == 1 goto +1;		\
+	r0 = r9;			\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
+__used __naked
+static void *ptr_subprog_tail_call(void)
+{
+	asm volatile ("			\
+	r2 = %[jmp_table] ll;		\
+	r3 = 0;				\
+	call %[bpf_tail_call];		\
+	r0 = 0;				\
+	exit;				\
+"	:
+	: __imm(bpf_tail_call),
+	  __imm_addr(jmp_table)
+	: __clobber_all);
+}
+
+SEC("tc")
+__description("tail call in a subprog that returns a pointer")
+__failure __msg("tail_call is only allowed in functions that return 'int' or 'void'")
+__naked void tail_call_in_ptr_subprog(void)
+{
+	asm volatile ("			\
+	call ptr_subprog_tail_call;	\
+	r0 = 0;				\
+	exit;				\
+"	::: __clobber_all);
+}
+
 /* The exception callback has no ctx, so its tail call can only be dead code */
 __used __noinline
 int exception_cb_tail_call(__u64 cookie)
