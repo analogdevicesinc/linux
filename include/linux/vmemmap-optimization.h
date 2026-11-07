@@ -63,6 +63,7 @@ static inline unsigned int pfn_to_section_compound_order(unsigned long pfn)
 }
 
 struct page *vmemmap_shared_tail_page(unsigned int order, struct zone *zone);
+void section_vmemmap_optimization_disable(unsigned long start, unsigned long end);
 #else
 static inline unsigned int section_compound_order(const struct mem_section *section)
 {
@@ -76,6 +77,11 @@ static inline void section_set_compound_order(struct mem_section *section,
 
 static inline void section_set_compound_order_range(unsigned long pfn,
 		unsigned long nr_pages, unsigned int order)
+{
+}
+
+static inline void section_vmemmap_optimization_disable(unsigned long start,
+		unsigned long end)
 {
 }
 
