@@ -375,6 +375,20 @@ static const struct usbmix_name_map dell_alc4020_map[] = {
 };
 
 /*
+ * Weltrend XiiSound chips (040b:0897, e.g. Redragon H878):
+ * the playback feature unit is broken; its volume controls act like
+ * mute switches below the maximum value and the channel mapping is
+ * unreliable, so any hardware volume change mutes one or both
+ * channels.  Skip the unit entirely and let userspace fall back to
+ * software volume; the unit is pinned to maximum/unmuted by the
+ * mixer quirk in mixer_quirks.c.
+ */
+static const struct usbmix_name_map xiisound_map[] = {
+	{ 5, NULL },	/* playback feature unit */
+	{ 0 }
+};
+
+/*
  * Corsair Virtuoso calls everything "Headset" without this, leading to
  * applications moving the sidetone control instead of the main one.
  */
@@ -789,6 +803,11 @@ static const struct usbmix_ctl_map usbmix_ctl_maps[] = {
 		/* Sennheiser Communications Headset [PC 8] */
 		.id = USB_ID(0x1395, 0x0025),
 		.map = sennheiser_pc8_map,
+	},
+	{
+		/* Weltrend XiiSound (Redragon H878) */
+		.id = USB_ID(0x040b, 0x0897),
+		.map = xiisound_map,
 	},
 	{
 		/* Microsoft USB Link headset */
