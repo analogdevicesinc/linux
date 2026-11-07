@@ -6112,6 +6112,47 @@ static void compute_call_depth(struct bpf_verifier_env *env, struct bpf_call_gra
 	} while (changed);
 }
 
+/*
+ * The stack in arena has no check of its own, see bpf_insert_recursion_checks(). A frame
+ * of a recursive subprog takes at least the same part of a half of the kernel stack as of the
+ * room in the stack in arena: there is room in arena for the frames that pass the check. The
+ * last of them and the one that doesn't pass come on top.
+ *
+ * Returns 1 when frames in the kernel stack grew.
+ */
+static int pad_recursive_frames(struct bpf_verifier_env *env, struct bpf_call_graph *cg,
+				struct bpf_subprog_call_depth_info *dinfo)
+{
+	struct bpf_subprog_info *si = env->subprog_info;
+	u32 arena_frame = 0, depth = 0, room, frame;
+	int s;
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		depth = max_t(u32, depth, dinfo[s].arena_depth + si[s].arena_stack_depth);
+		if (si[s].recursive)
+			arena_frame = max(arena_frame, si[s].arena_stack_depth);
+	}
+	if (!arena_frame)
+		return 0;
+	if (depth + 2 * arena_frame >= BPF_ARENA_STACK_MAX)
+		goto no_room;
+	room = BPF_ARENA_STACK_MAX - depth - 2 * arena_frame;
+	env->max_arena_stack_depth = BPF_ARENA_STACK_MAX;
+
+	for_each_set_bit(s, cg->live, cg->cnt) {
+		if (!si[s].recursive)
+			continue;
+		frame = DIV_ROUND_UP(si[s].arena_stack_depth * (THREAD_SIZE / 2), room);
+		if (frame > env->stack_limit)
+			goto no_room;
+		si[s].stack_depth = max(si[s].stack_depth, frame);
+	}
+	return 1;
+no_room:
+	verbose(env, "no room in the stack in arena for recursion\n");
+	return -EACCES;
+}
+
 static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph *cg)
 {
 	struct bpf_subprog_info *si = env->subprog_info;
@@ -6122,6 +6163,11 @@ static int check_call_depth(struct bpf_verifier_env *env, struct bpf_call_graph 
 	if (!dinfo)
 		return -ENOMEM;
 	compute_call_depth(env, cg, dinfo);
+	err = pad_recursive_frames(env, cg, dinfo);
+	if (err < 0)
+		goto out;
+	if (err)
+		compute_call_depth(env, cg, dinfo);
 
 	for_each_set_bit(s, cg->live, cg->cnt) {
 		/* A caller of it is over a limit. That one is reported, not what it calls. */
@@ -24695,6 +24741,9 @@ skip_full_check:
 	/* instruction rewrites happen after this point */
 	if (ret == 0)
 		ret = bpf_optimize_bpf_loop(env);
+
+	if (ret == 0)
+		ret = bpf_insert_recursion_checks(env);
 
 	if (ret == 0)
 		bpf_lower_cast_mov(env);
