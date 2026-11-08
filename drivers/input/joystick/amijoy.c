@@ -97,13 +97,12 @@ static int __init amijoy_init(void)
 		amijoy_dev[i] = input_allocate_device();
 		if (!amijoy_dev[i]) {
 			err = -ENOMEM;
-			goto fail;
+			goto err_unregister;
 		}
 
 		if (!request_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2, "amijoy [Denise]")) {
-			input_free_device(amijoy_dev[i]);
 			err = -EBUSY;
-			goto fail;
+			goto err_free_dev;
 		}
 
 		amijoy_dev[i]->name = "Amiga joystick";
@@ -126,14 +125,17 @@ static int __init amijoy_init(void)
 		}
 
 		err = input_register_device(amijoy_dev[i]);
-		if (err) {
-			input_free_device(amijoy_dev[i]);
-			goto fail;
-		}
+		if (err)
+			goto err_release_mem;
 	}
 	return 0;
 
- fail:	while (--i >= 0)
+err_release_mem:
+	release_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2);
+err_free_dev:
+	input_free_device(amijoy_dev[i]);
+err_unregister:
+	while (--i >= 0)
 		if (amijoy[i]) {
 			input_unregister_device(amijoy_dev[i]);
 			release_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2);
