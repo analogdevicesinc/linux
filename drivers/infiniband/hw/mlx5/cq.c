@@ -1125,6 +1125,7 @@ int mlx5_ib_pre_destroy_cq(struct ib_cq *cq)
 
 void mlx5_ib_post_destroy_cq(struct ib_cq *cq)
 {
+	WARN_ON(!list_empty(&to_mcq(cq)->wc_list));
 	destroy_cq_kernel(to_mdev(cq->device), to_mcq(cq));
 }
 
