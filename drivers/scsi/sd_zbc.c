@@ -20,9 +20,6 @@
 
 #include "sd.h"
 
-#define CREATE_TRACE_POINTS
-#include "sd_trace.h"
-
 /* Whether or not a SCSI zone descriptor describes a gap zone. */
 static bool sd_zbc_is_gap_zone(const u8 buf[64])
 {
