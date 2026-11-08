@@ -1380,6 +1380,8 @@ static void keembay_gpio_irq_enable(struct irq_data *data)
 	if (src < 0 || slot < 0)
 		return;
 
+	gpiochip_enable_irq(gc, pin);
+
 	if (trig & KEEMBAY_GPIO_SENSE_LOW)
 		keembay_gpio_invert(kpc, pin);
 
@@ -1412,6 +1414,7 @@ static void keembay_gpio_irq_disable(struct irq_data *data)
 		for_each_set_clump8(pos, clump, &reg, BITS_PER_TYPE(typeof(reg))) {
 			if ((clump & ~KEEMBAY_GPIO_IRQ_ENABLE) == pin) {
 				keembay_gpio_clear_irq(data, pos, src, pin);
+				gpiochip_disable_irq(gc, pin);
 				return;
 			}
 		}
@@ -1451,12 +1454,14 @@ static int keembay_gpio_add_pin_ranges(struct gpio_chip *chip)
 	return ret;
 }
 
-static struct irq_chip keembay_gpio_irqchip = {
+static const struct irq_chip keembay_gpio_irqchip = {
 	.name = "keembay-gpio",
 	.irq_enable = keembay_gpio_irq_enable,
 	.irq_disable = keembay_gpio_irq_disable,
 	.irq_set_type = keembay_gpio_irq_set_type,
 	.irq_ack = keembay_gpio_irq_ack,
+	.flags = IRQCHIP_IMMUTABLE,
+	GPIOCHIP_IRQ_RESOURCE_HELPERS,
 };
 
 static int keembay_gpiochip_probe(struct keembay_pinctrl *kpc,
@@ -1468,7 +1473,7 @@ static int keembay_gpiochip_probe(struct keembay_pinctrl *kpc,
 
 	/* Setup GPIO IRQ chip */
 	girq			= &kpc->chip.irq;
-	girq->chip		= &keembay_gpio_irqchip;
+	gpio_irq_chip_set_chip(girq, &keembay_gpio_irqchip);
 	girq->parent_handler	= keembay_gpio_irq_handler;
 	girq->num_parents	= KEEMBAY_GPIO_NUM_IRQ;
 	girq->parents		= devm_kcalloc(kpc->dev, girq->num_parents,

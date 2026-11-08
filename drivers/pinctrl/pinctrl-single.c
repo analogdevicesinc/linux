@@ -1097,6 +1097,19 @@ static int pcs_parse_one_pinctrl_entry(struct pcs_device *pcs,
 	} else {
 		*num_maps = 1;
 	}
+
+	/*
+	 * The core deduplicates groups/functions by name and keeps the first
+	 * for the controller's lifetime; drop our now-redundant copies when the
+	 * node is mapped again (consumer re-probe). The group is deduplicated
+	 * together with the function, so testing the latter is enough.
+	 */
+	if (pinmux_generic_get_function(pcs->pctl, fsel)->data != function) {
+		devm_kfree(pcs->dev, pins);
+		devm_kfree(pcs->dev, vals);
+		devm_kfree(pcs->dev, function);
+		devm_kfree(pcs->dev, pgnames);
+	}
 	mutex_unlock(&pcs->mutex);
 
 	return 0;
@@ -1235,6 +1248,14 @@ static int pcs_parse_bits_in_pinctrl_entry(struct pcs_device *pcs,
 	(*map)->data.mux.function = np->name;
 
 	*num_maps = 1;
+
+	/* See pcs_parse_one_pinctrl_entry() for the deduplication rationale. */
+	if (pinmux_generic_get_function(pcs->pctl, fsel)->data != function) {
+		devm_kfree(pcs->dev, pins);
+		devm_kfree(pcs->dev, vals);
+		devm_kfree(pcs->dev, function);
+		devm_kfree(pcs->dev, pgnames);
+	}
 	mutex_unlock(&pcs->mutex);
 
 	return 0;

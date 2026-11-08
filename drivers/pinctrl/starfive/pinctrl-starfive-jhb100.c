@@ -20,6 +20,7 @@
 #include <linux/seq_file.h>
 #include <linux/spinlock.h>
 #include <linux/string.h>
+#include <linux/string_choices.h>
 
 #include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/pinconf.h>
@@ -1152,7 +1153,7 @@ static int jhb100_irq_set_wake(struct irq_data *d, unsigned int enable)
 		ret = disable_irq_wake(sfp->irq);
 	if (ret)
 		dev_err(sfp->dev, "failed to %s wake-up interrupt\n",
-			enable ? "enable" : "disable");
+			str_enable_disable(enable));
 
 	return ret;
 }
