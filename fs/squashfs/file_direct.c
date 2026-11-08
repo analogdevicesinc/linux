@@ -118,7 +118,6 @@ mark_errored:
 		put_page(page[i]);
 	}
 
-out:
 	kfree(page);
 	return res;
 }
