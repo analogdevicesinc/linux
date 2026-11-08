@@ -582,14 +582,10 @@ static void test_alu_imm_regs(void)
 }
 
 /*
- * Division and modulo by constants for every width, signedness and
- * destination register with a set of divisors and dividends around the
- * multiple boundaries and the extremes of each range. This covers a JIT
- * replacing the division with a multiplication by a magic number in all
- * of its forms: magic numbers needing the extra add step, zero shifts,
- * both signed corrections, and the divisors like 1, -1 and the ones
- * above 2^63 that are still emitted as a real division. The dividends
- * of the 32-bit operations carry garbage in the upper 32 bits.
+ * Division and modulo by constants for every width, signedness and register,
+ * with dividends at the multiple boundaries and the extremes: every form of
+ * the verifier's multiplication by the magic number and the divisors it keeps.
+ * The dividends of the 32-bit operations carry garbage in the upper half.
  */
 static const __s32 unsigned_divisors[] = {
 	2, 3, 7, 10, 25, 641, 1000, 4096, 65536, 1000000007, 0x7fffffff,
@@ -2486,15 +2482,9 @@ static void test_acq_rel(void)
 }
 
 /*
- * A jump with the maximal offset over instructions which expand to several
- * native ones, so that the native offset outgrows the field of a short
- * branch and takes the JITs through their branch conversion. The region
- * must not grow in the verifier, or the jump could not reach over it any
- * more: the divisions are by constants, as a division by a register gets
- * a zero check in front, and the region sticks to one width, as a 32-bit
- * result read by a 64-bit instruction gets a zero extension on the JITs
- * which need one. The region is the not taken path and ends with a result
- * different from the taken one, so a jump landing inside it fails the run.
+ * A jump with the maximal offset over insns that expand natively, through the
+ * JITs' long branch forms. The region must not grow in the verifier: one width
+ * and divisions by constants it keeps. A jump landing inside it fails the run.
  */
 static void max_jmp(bool alu32, bool taken)
 {
@@ -2524,7 +2514,7 @@ static void max_jmp(bool alu32, bool taken)
 
 		if (op == BPF_DIV || op == BPF_MOD)
 			insns[i++] = alu32 ? BPF_ALU32_IMM(op, BPF_REG_3, 7) :
-					     BPF_ALU64_IMM(op, BPF_REG_3, 7);
+					     BPF_ALU64_IMM(op, BPF_REG_3, -7);
 		else
 			insns[i++] = alu32 ? BPF_ALU32_REG(op, BPF_REG_3, BPF_REG_2) :
 					     BPF_ALU64_REG(op, BPF_REG_3, BPF_REG_2);
