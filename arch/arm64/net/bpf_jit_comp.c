@@ -365,6 +365,73 @@ static bool is_lsi_offset(int offset, int scale)
 	return true;
 }
 
+/* The A64 size of a BPF load or store, and the scale of its offset */
+static enum aarch64_insn_size_type a64_ldst_size(const u8 code, int *scale)
+{
+	switch (BPF_SIZE(code)) {
+	case BPF_B:
+		*scale = 0;
+		return AARCH64_INSN_SIZE_8;
+	case BPF_H:
+		*scale = 1;
+		return AARCH64_INSN_SIZE_16;
+	case BPF_W:
+		*scale = 2;
+		return AARCH64_INSN_SIZE_32;
+	default:
+		*scale = 3;
+		return AARCH64_INSN_SIZE_64;
+	}
+}
+
+/* The A64 type of a BPF load or store, in the immediate or register offset form */
+static enum aarch64_insn_ldst_type a64_ldst_type(const u8 code, bool reg_offset)
+{
+	if (BPF_CLASS(code) != BPF_LDX)
+		return reg_offset ? AARCH64_INSN_LDST_STORE_REG_OFFSET :
+				    AARCH64_INSN_LDST_STORE_IMM_OFFSET;
+	if (BPF_MODE(code) == BPF_MEMSX || BPF_MODE(code) == BPF_PROBE_MEMSX ||
+	    BPF_MODE(code) == BPF_PROBE_MEM32SX)
+		return reg_offset ? AARCH64_INSN_LDST_SIGNED_LOAD_REG_OFFSET :
+				    AARCH64_INSN_LDST_SIGNED_LOAD_IMM_OFFSET;
+	return reg_offset ? AARCH64_INSN_LDST_LOAD_REG_OFFSET :
+			    AARCH64_INSN_LDST_LOAD_IMM_OFFSET;
+}
+
+/*
+ * Load or store of a BPF access size at rn + off, from the (private) stack
+ * pointer with the frame size added for the frame pointer, which the register
+ * offset form keeps.
+ */
+static void emit_ldst(const u8 code, const u8 rt, const u8 rn, const s32 off,
+		      const u8 tmp, struct jit_ctx *ctx)
+{
+	enum aarch64_insn_size_type size;
+	s32 off_adj = off;
+	u8 rn_adj = rn;
+	int scale;
+
+	size = a64_ldst_size(code, &scale);
+	if (rn == bpf2a64[BPF_REG_FP]) {
+		if (ctx->priv_sp_used) {
+			rn_adj = bpf2a64[PRIVATE_SP];
+			off_adj += ctx->stack_size;
+		} else {
+			rn_adj = A64_SP;
+			off_adj += ctx->stack_size + ctx->stack_arg_size;
+		}
+	}
+
+	if (is_lsi_offset(off_adj, scale)) {
+		emit(aarch64_insn_gen_load_store_imm(rt, rn_adj, off_adj, size,
+						     a64_ldst_type(code, false)), ctx);
+	} else {
+		emit_a64_mov_i(1, tmp, off, ctx);
+		emit(aarch64_insn_gen_load_store_reg(rt, rn, tmp, AARCH64_INSN_EXTEND_UXTX,
+						     0, size, a64_ldst_type(code, true)), ctx);
+	}
+}
+
 /* generated main prog prologue:
  *      bti c // if CONFIG_ARM64_BTI_KERNEL
  *      mov x9, lr
@@ -1468,9 +1535,7 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 tmp2 = bpf2a64[TMP_REG_2];
 	const u8 tmp3 = bpf2a64[TMP_REG_3];
-	const u8 fp = bpf2a64[BPF_REG_FP];
 	const u8 arena_vm_base = bpf2a64[ARENA_VM_START];
-	const u8 priv_sp = bpf2a64[PRIVATE_SP];
 	const s16 off = insn->off;
 	const s32 imm = insn->imm;
 	const int i = insn - ctx->prog->insnsi;
@@ -1479,11 +1544,8 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	u8 jmp_cond;
 	s32 jmp_offset;
 	u32 a64_insn;
-	u8 src_adj;
-	u8 dst_adj;
 	int off_adj;
 	int ret;
-	bool sign_extend;
 
 	if (bpf_insn_is_indirect_target(env, ctx->prog, i))
 		emit_bti(A64_BTI_J, ctx);
@@ -1976,15 +2038,7 @@ emit_cond_jmp:
 			emit(A64_ADD(1, tmp2, src, arena_vm_base), ctx);
 			src = tmp2;
 		}
-		if (src == fp) {
-			src_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			src_adj = src;
-			off_adj = off;
-		}
+		off_adj = off;
 		if (BPF_MODE(insn->code) == BPF_PROBE_MEM ||
 		    BPF_MODE(insn->code) == BPF_PROBE_MEMSX) {
 			/*
@@ -1995,69 +2049,15 @@ emit_cond_jmp:
 			 */
 			if (off) {
 				emit_a64_add_i(1, tmp2, src, tmp, off, ctx);
-				src_adj = tmp2;
+				src = tmp2;
 				off_adj = 0;
 			}
-			emit(A64_TST_I(1, src_adj, BIT(55)), ctx);
+			emit(A64_TST_I(1, src, BIT(55)), ctx);
 			emit(A64_B_(A64_COND_NE, 3), ctx);
 			emit(A64_MOVZ(1, dst, 0, 0), ctx);
 			emit(A64_B(2), ctx);
 		}
-		sign_extend = (BPF_MODE(insn->code) == BPF_MEMSX ||
-				BPF_MODE(insn->code) == BPF_PROBE_MEMSX ||
-				 BPF_MODE(insn->code) == BPF_PROBE_MEM32SX);
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				if (sign_extend)
-					emit(A64_LDRSWI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDR32I(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSW(dst, src, tmp), ctx);
-				else
-					emit(A64_LDR32(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				if (sign_extend)
-					emit(A64_LDRSHI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDRHI(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSH(dst, src, tmp), ctx);
-				else
-					emit(A64_LDRH(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				if (sign_extend)
-					emit(A64_LDRSBI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDRBI(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSB(dst, src, tmp), ctx);
-				else
-					emit(A64_LDRB(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_LDR64I(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_LDR64(dst, src, tmp), ctx);
-			}
-			break;
-		}
+		emit_ldst(code, dst, src, off_adj, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, dst);
 		if (ret)
@@ -2092,51 +2092,9 @@ emit_cond_jmp:
 			emit(A64_ADD(1, tmp3, dst, arena_vm_base), ctx);
 			dst = tmp3;
 		}
-		if (dst == fp) {
-			dst_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			dst_adj = dst;
-			off_adj = off;
-		}
 		/* Load imm to a register then store it */
 		emit_a64_mov_i(1, tmp, imm, ctx);
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				emit(A64_STR32I(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STR32(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				emit(A64_STRHI(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STRH(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				emit(A64_STRBI(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STRB(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_STR64I(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STR64(tmp, dst, tmp2), ctx);
-			}
-			break;
-		}
+		emit_ldst(code, tmp, dst, off, tmp2, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
@@ -2161,49 +2119,7 @@ emit_cond_jmp:
 			emit(A64_ADD(1, tmp2, dst, arena_vm_base), ctx);
 			dst = tmp2;
 		}
-		if (dst == fp) {
-			dst_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			dst_adj = dst;
-			off_adj = off;
-		}
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				emit(A64_STR32I(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STR32(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				emit(A64_STRHI(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STRH(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				emit(A64_STRBI(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STRB(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_STR64I(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STR64(src, dst, tmp), ctx);
-			}
-			break;
-		}
+		emit_ldst(code, src, dst, off, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
