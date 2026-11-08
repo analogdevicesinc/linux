@@ -365,6 +365,12 @@ static bool is_lsi_offset(int offset, int scale)
 	return true;
 }
 
+/* The unscaled forms take a signed 9-bit byte offset instead */
+static bool is_lsu_offset(int offset)
+{
+	return offset >= -SZ_256 && offset < SZ_256;
+}
+
 /* The A64 size of a BPF load or store, and the scale of its offset */
 static enum aarch64_insn_size_type a64_ldst_size(const u8 code, int *scale)
 {
@@ -384,18 +390,36 @@ static enum aarch64_insn_size_type a64_ldst_size(const u8 code, int *scale)
 	}
 }
 
-/* The A64 type of a BPF load or store, in the immediate or register offset form */
-static enum aarch64_insn_ldst_type a64_ldst_type(const u8 code, bool reg_offset)
+/* The forms of a load or store: scaled unsigned immediate, unscaled, register offset */
+enum a64_ldst_form { A64_LDST_IMM, A64_LDST_UNSCALED, A64_LDST_REG };
+
+/* The A64 type of a BPF load or store in the given form */
+static enum aarch64_insn_ldst_type a64_ldst_type(const u8 code, enum a64_ldst_form form)
 {
+	static const enum aarch64_insn_ldst_type types[][3] = {
+		[A64_LDST_IMM] = {
+			AARCH64_INSN_LDST_LOAD_IMM_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_IMM_OFFSET,
+			AARCH64_INSN_LDST_STORE_IMM_OFFSET,
+		},
+		[A64_LDST_UNSCALED] = {
+			AARCH64_INSN_LDST_LOAD_UNSCALED_IMM_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_UNSCALED_IMM_OFFSET,
+			AARCH64_INSN_LDST_STORE_UNSCALED_IMM_OFFSET,
+		},
+		[A64_LDST_REG] = {
+			AARCH64_INSN_LDST_LOAD_REG_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_REG_OFFSET,
+			AARCH64_INSN_LDST_STORE_REG_OFFSET,
+		},
+	};
+
 	if (BPF_CLASS(code) != BPF_LDX)
-		return reg_offset ? AARCH64_INSN_LDST_STORE_REG_OFFSET :
-				    AARCH64_INSN_LDST_STORE_IMM_OFFSET;
+		return types[form][2];
 	if (BPF_MODE(code) == BPF_MEMSX || BPF_MODE(code) == BPF_PROBE_MEMSX ||
 	    BPF_MODE(code) == BPF_PROBE_MEM32SX)
-		return reg_offset ? AARCH64_INSN_LDST_SIGNED_LOAD_REG_OFFSET :
-				    AARCH64_INSN_LDST_SIGNED_LOAD_IMM_OFFSET;
-	return reg_offset ? AARCH64_INSN_LDST_LOAD_REG_OFFSET :
-			    AARCH64_INSN_LDST_LOAD_IMM_OFFSET;
+		return types[form][1];
+	return types[form][0];
 }
 
 /*
@@ -407,6 +431,7 @@ static void emit_ldst(const u8 code, const u8 rt, const u8 rn, const s32 off,
 		      const u8 tmp, struct jit_ctx *ctx)
 {
 	enum aarch64_insn_size_type size;
+	enum aarch64_insn_ldst_type type;
 	s32 off_adj = off;
 	u8 rn_adj = rn;
 	int scale;
@@ -423,12 +448,16 @@ static void emit_ldst(const u8 code, const u8 rt, const u8 rn, const s32 off,
 	}
 
 	if (is_lsi_offset(off_adj, scale)) {
-		emit(aarch64_insn_gen_load_store_imm(rt, rn_adj, off_adj, size,
-						     a64_ldst_type(code, false)), ctx);
+		type = a64_ldst_type(code, A64_LDST_IMM);
+		emit(aarch64_insn_gen_load_store_imm(rt, rn_adj, off_adj, size, type), ctx);
+	} else if (is_lsu_offset(off_adj)) {
+		type = a64_ldst_type(code, A64_LDST_UNSCALED);
+		emit(aarch64_insn_gen_load_store_unscaled(rt, rn_adj, off_adj, size, type), ctx);
 	} else {
+		type = a64_ldst_type(code, A64_LDST_REG);
 		emit_a64_mov_i(1, tmp, off, ctx);
 		emit(aarch64_insn_gen_load_store_reg(rt, rn, tmp, AARCH64_INSN_EXTEND_UXTX,
-						     0, size, a64_ldst_type(code, true)), ctx);
+						     0, size, type), ctx);
 	}
 }
 
