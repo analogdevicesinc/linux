@@ -205,19 +205,15 @@ int ad_sd_reset(struct ad_sigma_delta *sigma_delta)
 {
 	unsigned int reset_length = sigma_delta->info->num_resetclks;
 	unsigned int size;
-	u8 *buf;
-	int ret;
 
 	size = BITS_TO_BYTES(reset_length);
-	buf = kcalloc(size, sizeof(*buf), GFP_KERNEL);
+	u8 *buf __free(kfree) = kcalloc(size, sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return -ENOMEM;
 
 	memset(buf, 0xff, size);
-	ret = spi_write(sigma_delta->spi, buf, size);
-	kfree(buf);
 
-	return ret;
+	return spi_write(sigma_delta->spi, buf, size);
 }
 EXPORT_SYMBOL_NS_GPL(ad_sd_reset, "IIO_AD_SIGMA_DELTA");
 
@@ -249,7 +245,6 @@ static int ad_sigma_delta_clear_pending_event(struct ad_sigma_delta *sigma_delta
 {
 	bool pending_event;
 	unsigned int data_read_len = BITS_TO_BYTES(sigma_delta->info->num_resetclks);
-	u8 *data;
 	struct spi_transfer t[] = {
 		{
 			.len = 1,
@@ -317,7 +312,7 @@ static int ad_sigma_delta_clear_pending_event(struct ad_sigma_delta *sigma_delta
 	 * shorter than the reset procedure.
 	 */
 
-	data = kzalloc(data_read_len + 1, GFP_KERNEL);
+	u8 *data __free(kfree) = kzalloc(data_read_len + 1, GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
 
@@ -340,11 +335,7 @@ static int ad_sigma_delta_clear_pending_event(struct ad_sigma_delta *sigma_delta
 	memset(data + 2, 0xff, data_read_len - 1);
 	spi_message_add_tail(&t[1], &m);
 
-	ret = spi_sync_locked(sigma_delta->spi, &m);
-
-	kfree(data);
-
-	return ret;
+	return spi_sync_locked(sigma_delta->spi, &m);
 }
 
 int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
