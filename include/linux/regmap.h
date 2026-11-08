@@ -10,6 +10,7 @@
  * Author: Mark Brown <broonie@opensource.wolfsonmicro.com>
  */
 
+#include <linux/bits.h>
 #include <linux/bug.h>
 #include <linux/cleanup.h>
 #include <linux/delay.h>
@@ -248,9 +249,9 @@ struct regmap_range {
  * check function will return true. "no_ranges" are searched first.
  */
 struct regmap_access_table {
-	const struct regmap_range *yes_ranges;
+	const struct regmap_range *yes_ranges __counted_by_ptr(n_yes_ranges);
 	unsigned int n_yes_ranges;
-	const struct regmap_range *no_ranges;
+	const struct regmap_range *no_ranges __counted_by_ptr(n_no_ranges);
 	unsigned int n_no_ranges;
 };
 
@@ -1476,6 +1477,8 @@ struct reg_field {
 				.id_size = _size,		\
 				.id_offset = _offset,		\
 				}
+
+#define REG_FIELD_GENMASK(_reg_field)	GENMASK(_reg_field.msb, _reg_field.lsb)
 
 struct regmap_field *regmap_field_alloc(struct regmap *regmap,
 		struct reg_field reg_field);

@@ -589,6 +589,9 @@ int regcache_drop_region(struct regmap *map, unsigned int min,
 
 	trace_regcache_drop_region(map, min, max);
 
+	if (min > max)
+		return -EINVAL;
+
 	return map->cache_ops->drop(map, min, max);
 }
 EXPORT_SYMBOL_GPL(regcache_drop_region);
