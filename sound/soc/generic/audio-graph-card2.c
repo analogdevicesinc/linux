@@ -1199,8 +1199,9 @@ static int graph_count_c2c(struct simple_util_priv *priv,
 			   struct link_info *li)
 {
 	struct device_node *ports	__free(device_node) = port_to_ports(lnk);
-	struct device_node *port0	= of_node_get(lnk);
-	struct device_node *port1	= of_node_get(of_graph_get_next_port(ports, of_node_get(port0)));
+	struct device_node *port0	__free(device_node) = of_node_get(lnk);
+	struct device_node *port1	__free(device_node) =
+		of_graph_get_next_port(ports, of_node_get(port0));
 	struct device_node *ep0		__free(device_node) = of_graph_get_next_port_endpoint(port0, NULL);
 	struct device_node *ep1		__free(device_node) = of_graph_get_next_port_endpoint(port1, NULL);
 	struct device_node *codec0	__free(device_node) = of_graph_get_remote_port(ep0);

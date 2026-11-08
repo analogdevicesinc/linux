@@ -1541,7 +1541,10 @@ static int __maybe_unused nau8824_suspend(struct snd_soc_component *component)
 	struct nau8824 *nau8824 = snd_soc_component_get_drvdata(component);
 
 	if (nau8824->irq) {
-		disable_irq(nau8824->irq);
+		if (!nau8824->suspend_irq_disabled) {
+			disable_irq(nau8824->irq);
+			nau8824->suspend_irq_disabled = true;
+		}
 		snd_soc_dapm_force_bias_level(nau8824->dapm, SND_SOC_BIAS_OFF);
 	}
 	regcache_cache_only(nau8824->regmap, true);
@@ -1556,7 +1559,12 @@ static int __maybe_unused nau8824_resume(struct snd_soc_component *component)
 	int ret;
 
 	regcache_cache_only(nau8824->regmap, false);
-	regcache_sync(nau8824->regmap);
+	ret = regcache_sync(nau8824->regmap);
+	if (ret) {
+		regcache_cache_only(nau8824->regmap, true);
+		regcache_mark_dirty(nau8824->regmap);
+		return ret;
+	}
 	if (nau8824->irq) {
 		/* Hold semaphore to postpone playback happening
 		 * until jack detection done.
@@ -1565,7 +1573,10 @@ static int __maybe_unused nau8824_resume(struct snd_soc_component *component)
 		ret = nau8824_sema_acquire(nau8824, 0);
 		if (ret)
 			nau8824->resume_lock = false;
-		enable_irq(nau8824->irq);
+		if (nau8824->suspend_irq_disabled) {
+			nau8824->suspend_irq_disabled = false;
+			enable_irq(nau8824->irq);
+		}
 	}
 
 	return 0;

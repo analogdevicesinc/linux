@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config SND_SOC_CDNS_I2S_SC
+	tristate "Cadence I2S-SC controller support"
+	depends on ARCH_CIX || COMPILE_TEST
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select REGMAP_MMIO
+	help
+	  Say Y or M if you want to add support for the Cadence I2S-SC
+	  controller found in the CIX SKY1 audio subsystem. It provides
+	  full-duplex stereo playback and capture in standard I2S and
+	  TDM modes with up to 16 slots.
+
+config SND_SOC_CDNS_I2S_MC
+	tristate "Cadence I2S-MC controller support"
+	depends on ARCH_CIX || COMPILE_TEST
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	select REGMAP_MMIO
+	help
+	  Say Y or M if you want to add support for the Cadence I2S-MC
+	  multi-channel controller found in the CIX SKY1 audio subsystem.
+	  It provides multi-channel playback and capture through a
+	  configurable number of I2S data pins.

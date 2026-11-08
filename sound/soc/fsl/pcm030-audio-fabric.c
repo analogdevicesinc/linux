@@ -50,6 +50,11 @@ static struct snd_soc_card pcm030_card = {
 	.num_links = ARRAY_SIZE(pcm030_fabric_dai),
 };
 
+static void pcm030_put_platform_node(void *data)
+{
+	of_node_put(data);
+}
+
 static int pcm030_fabric_probe(struct platform_device *op)
 {
 	struct device_node *np = op->dev.of_node;
@@ -77,6 +82,11 @@ static int pcm030_fabric_probe(struct platform_device *op)
 		dev_err(&op->dev, "ac97 not registered\n");
 		return -ENODEV;
 	}
+
+	ret = devm_add_action_or_reset(&op->dev, pcm030_put_platform_node,
+				       platform_np);
+	if (ret)
+		return ret;
 
 	for_each_card_prelinks(card, i, dai_link)
 		dai_link->platforms->of_node = platform_np;

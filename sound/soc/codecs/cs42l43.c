@@ -1345,19 +1345,27 @@ static const struct snd_kcontrol_new cs42l43_controls[] = {
 	SOC_ENUM("Decimator 3 WNF Corner Frequency", cs42l43_dec3_wnf_corner),
 	SOC_ENUM("Decimator 4 WNF Corner Frequency", cs42l43_dec4_wnf_corner),
 
-	SOC_SINGLE("Decimator 1 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL1,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
-	SOC_SINGLE("Decimator 2 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL2,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
-	SOC_SINGLE("Decimator 3 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL3,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
-	SOC_SINGLE("Decimator 4 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL4,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
+	SOC_SINGLE_EXT("Decimator 1 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL1,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
+	SOC_SINGLE_EXT("Decimator 2 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL2,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
+	SOC_SINGLE_EXT("Decimator 3 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL3,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
+	SOC_SINGLE_EXT("Decimator 4 HPF Switch", CS42L43_DECIM_HPF_WNF_CTRL4,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
 
-	SOC_ENUM("Decimator 1 HPF Corner Frequency", cs42l43_dec1_hpf_corner),
-	SOC_ENUM("Decimator 2 HPF Corner Frequency", cs42l43_dec2_hpf_corner),
-	SOC_ENUM("Decimator 3 HPF Corner Frequency", cs42l43_dec3_hpf_corner),
-	SOC_ENUM("Decimator 4 HPF Corner Frequency", cs42l43_dec4_hpf_corner),
+	SOC_ENUM_EXT("Decimator 1 HPF Corner Frequency", cs42l43_dec1_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
+	SOC_ENUM_EXT("Decimator 2 HPF Corner Frequency", cs42l43_dec2_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
+	SOC_ENUM_EXT("Decimator 3 HPF Corner Frequency", cs42l43_dec3_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
+	SOC_ENUM_EXT("Decimator 4 HPF Corner Frequency", cs42l43_dec4_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
 
 	SOC_DOUBLE_R_EXT("Speaker Digital Switch",
 			 CS42L43_INTP_VOLUME_CTRL1, CS42L43_INTP_VOLUME_CTRL2,
@@ -1736,97 +1744,99 @@ static int cs42l43_hp_ev(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+struct decim_info {
+	unsigned int freg;
+	unsigned int vreg;
+	unsigned int vmask;
+};
+
+static const struct decim_info cs42l43_decim_info[] = {
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL1,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL2,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL1,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL2,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL3,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM3_VD_RAMP_MASK | CS42L43_DECIM3_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL4,
+		.vreg = CS42L43_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM4_VD_RAMP_MASK | CS42L43_DECIM4_MUTE_MASK,
+	}
+};
+
+static const struct decim_info cs42l43b_decim_info[] = {
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL1,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM1_VD_RAMP_MASK | CS42L43_DECIM1_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL2,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2,
+		.vmask = CS42L43_DECIM2_VD_RAMP_MASK | CS42L43_DECIM2_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL3,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM3_VD_RAMP_MASK | CS42L43_DECIM3_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43_DECIM_HPF_WNF_CTRL4,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4,
+		.vmask = CS42L43_DECIM4_VD_RAMP_MASK | CS42L43_DECIM4_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43B_DECIM_HPF_WNF_CTRL5,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6,
+		.vmask = CS42L43B_DECIM5_PATH1_VOL_FALL_RATE_MASK | CS42L43B_DECIM5_MUTE_MASK,
+	},
+	{
+		.freg = CS42L43B_DECIM_HPF_WNF_CTRL6,
+		.vreg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6,
+		.vmask = CS42L43B_DECIM6_PATH1_VOL_FALL_RATE_MASK | CS42L43B_DECIM6_MUTE_MASK,
+	}
+};
+
 static int cs42l43_mic_ev(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_component *component = snd_soc_dapm_to_component(w->dapm);
 	struct cs42l43_codec *priv = snd_soc_component_get_drvdata(component);
+	const struct decim_info *info = &cs42l43_decim_info[w->shift];
 	struct cs42l43 *cs42l43 = priv->core;
-	unsigned int reg, ramp, mute;
-	unsigned int *val;
+	unsigned int fmask = CS42L43_DECIM_HPF_EN_MASK | CS42L43_DECIM_HPF_CF_MASK;
+	unsigned int fval = CS42L43_DECIM_HPF_EN_MASK | 3 << CS42L43_DECIM_HPF_CF_SHIFT;
+	unsigned int vval = CS42L43_DECIM1_MUTE_MASK | CS42L43_DECIM2_MUTE_MASK;
 	int ret;
 
-	if (cs42l43->variant_id == CS42L43_DEVID_VAL) {
-		switch (w->shift) {
-		case CS42L43_ADC1_EN_SHIFT:
-		case CS42L43_PDM1_DIN_L_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM1_VD_RAMP_MASK;
-			mute = CS42L43_DECIM1_MUTE_MASK;
-			val = &priv->decim_cache[0];
-			break;
-		case CS42L43_ADC2_EN_SHIFT:
-		case CS42L43_PDM1_DIN_R_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM2_VD_RAMP_MASK;
-			mute = CS42L43_DECIM2_MUTE_MASK;
-			val = &priv->decim_cache[1];
-			break;
-		case CS42L43_PDM2_DIN_L_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH3_CH4;
-			ramp  = CS42L43_DECIM3_VD_RAMP_MASK;
-			mute = CS42L43_DECIM3_MUTE_MASK;
-			val = &priv->decim_cache[2];
-			break;
-		case CS42L43_PDM2_DIN_R_EN_SHIFT:
-			reg = CS42L43_DECIM_VOL_CTRL_CH3_CH4;
-			ramp = CS42L43_DECIM4_VD_RAMP_MASK;
-			mute = CS42L43_DECIM4_MUTE_MASK;
-			val = &priv->decim_cache[3];
-			break;
-		default:
-			dev_err(priv->dev, "Invalid microphone shift: %d\n", w->shift);
-			return -EINVAL;
-		}
-	} else if (cs42l43->variant_id == CS42L43B_DEVID_VAL) {
-		switch (w->shift) {
-		case CS42L43_ADC1_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM1_VD_RAMP_MASK;
-			mute = CS42L43_DECIM1_MUTE_MASK;
-			val = &priv->decim_cache[0];
-			break;
-		case CS42L43_ADC2_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH1_CH2;
-			ramp = CS42L43_DECIM2_VD_RAMP_MASK;
-			mute = CS42L43_DECIM2_MUTE_MASK;
-			val = &priv->decim_cache[1];
-			break;
-		case CS42L43_PDM1_DIN_L_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4;
-			ramp  = CS42L43_DECIM3_VD_RAMP_MASK;
-			mute = CS42L43_DECIM3_MUTE_MASK;
-			val = &priv->decim_cache[2];
-			break;
-		case CS42L43_PDM1_DIN_R_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH3_CH4;
-			ramp = CS42L43_DECIM4_VD_RAMP_MASK;
-			mute = CS42L43_DECIM4_MUTE_MASK;
-			val = &priv->decim_cache[3];
-			break;
-		case CS42L43_PDM2_DIN_L_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6;
-			ramp  = CS42L43B_DECIM5_PATH1_VOL_FALL_RATE_MASK;
-			mute = CS42L43B_DECIM5_MUTE_MASK;
-			val = &priv->decim_cache[4];
-			break;
-		case CS42L43_PDM2_DIN_R_EN_SHIFT:
-			reg = CS42L43B_DECIM_VOL_CTRL_CH5_CH6;
-			ramp = CS42L43B_DECIM6_PATH1_VOL_FALL_RATE_MASK;
-			mute = CS42L43B_DECIM6_MUTE_MASK;
-			val = &priv->decim_cache[5];
-			break;
-		default:
-			dev_err(priv->dev, "Invalid microphone shift: %d\n", w->shift);
-			return -EINVAL;
-		}
-	} else {
-		return -EINVAL;
-	}
+	if (cs42l43->variant_id == CS42L43B_DEVID_VAL)
+		info = &cs42l43b_decim_info[w->shift];
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		ret = regmap_read(cs42l43->regmap, reg, val);
+		priv->decim_pre_pmu = true;
+
+		ret = regmap_read(cs42l43->regmap, info->vreg,
+				  &priv->decim_cache[w->shift][0]);
 		if (ret) {
 			dev_err(priv->dev,
 				"Failed to cache decimator settings: %d\n",
@@ -1834,10 +1844,27 @@ static int cs42l43_mic_ev(struct snd_soc_dapm_widget *w,
 			return ret;
 		}
 
-		regmap_update_bits(cs42l43->regmap, reg, mute | ramp, mute);
+		ret = regmap_read(cs42l43->regmap, info->freg,
+				  &priv->decim_cache[w->shift][1]);
+		if (ret) {
+			dev_err(priv->dev,
+				"Failed to cache decimator filter settings: %d\n", ret);
+			return ret;
+		}
+
+		regmap_update_bits(cs42l43->regmap, info->vreg,  info->vmask, vval);
+		regmap_update_bits(cs42l43->regmap, info->freg, fmask, fval);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		regmap_update_bits(cs42l43->regmap, reg, mute | ramp, *val);
+		if (priv->decim_pre_pmu) {
+			msleep(150);
+			priv->decim_pre_pmu = false;
+		}
+
+		regmap_update_bits(cs42l43->regmap, info->freg, fmask,
+				   priv->decim_cache[w->shift][1]);
+		regmap_update_bits(cs42l43->regmap, info->vreg, info->vmask,
+				   priv->decim_cache[w->shift][0]);
 		break;
 	default:
 		break;
@@ -2296,13 +2323,17 @@ static const struct snd_kcontrol_new cs42l43_b_controls[] = {
 	SOC_ENUM("Decimator 5 WNF Corner Frequency", cs42l43b_dec5_wnf_corner),
 	SOC_ENUM("Decimator 6 WNF Corner Frequency", cs42l43b_dec6_wnf_corner),
 
-	SOC_SINGLE("Decimator 5 HPF Switch", CS42L43B_DECIM_HPF_WNF_CTRL5,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
-	SOC_SINGLE("Decimator 6 HPF Switch", CS42L43B_DECIM_HPF_WNF_CTRL6,
-		   CS42L43_DECIM_HPF_EN_SHIFT, 1, 0),
+	SOC_SINGLE_EXT("Decimator 5 HPF Switch", CS42L43B_DECIM_HPF_WNF_CTRL5,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
+	SOC_SINGLE_EXT("Decimator 6 HPF Switch", CS42L43B_DECIM_HPF_WNF_CTRL6,
+		       CS42L43_DECIM_HPF_EN_SHIFT, 1, 0,
+		       cs42l43_dapm_get_volsw, cs42l43_dapm_put_volsw),
 
-	SOC_ENUM("Decimator 5 HPF Corner Frequency", cs42l43b_dec5_hpf_corner),
-	SOC_ENUM("Decimator 6 HPF Corner Frequency", cs42l43b_dec6_hpf_corner),
+	SOC_ENUM_EXT("Decimator 5 HPF Corner Frequency", cs42l43b_dec5_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
+	SOC_ENUM_EXT("Decimator 6 HPF Corner Frequency", cs42l43b_dec6_hpf_corner,
+		     cs42l43_dapm_get_enum, cs42l43_dapm_put_enum),
 };
 
 static const struct snd_soc_dapm_widget cs42l43_a_widgets[] = {
@@ -2821,6 +2852,10 @@ static int cs42l43_codec_probe(struct platform_device *pdev)
 	ret = devm_pm_runtime_enable(priv->dev);
 	if (ret)
 		goto err_pm;
+
+	// Enable quick charge to improve analogue microphone startup
+	regmap_update_bits(cs42l43->regmap, CS42L43_ADC_B_CTRL1, 0x20, 0x20);
+	regmap_update_bits(cs42l43->regmap, CS42L43_ADC_B_CTRL2, 0x20, 0x20);
 
 	for (i = 0; i < ARRAY_SIZE(cs42l43_irqs); i++) {
 		ret = cs42l43_request_irq(priv, cs42l43_irqs[i].name,

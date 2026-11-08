@@ -562,6 +562,8 @@ static int q6apm_dai_open(struct snd_soc_component *component,
 
 	return 0;
 err:
+	if (!IS_ERR_OR_NULL(prtd->graph))
+		q6apm_graph_close(prtd->graph);
 	kfree(prtd);
 
 	return ret;
@@ -832,7 +834,7 @@ static int q6apm_dai_compr_open(struct snd_soc_component *component,
 	size = COMPR_PLAYBACK_MAX_FRAGMENT_SIZE * COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
 	ret = snd_dma_alloc_pages(SNDRV_DMA_TYPE_DEV, dev, size, &prtd->dma_buffer);
 	if (ret)
-		return ret;
+		goto err_close_graph;
 
 	if (pdata->use_scm_assign && !pdata->has_reserved_mem) {
 		ret = q6apm_dai_scm_assign(pdata, prtd->dma_buffer.addr,
@@ -841,7 +843,7 @@ static int q6apm_dai_compr_open(struct snd_soc_component *component,
 			dev_err(dev, "SCM assign compr buffer failed: %d\n",
 				ret);
 			snd_dma_free_pages(&prtd->dma_buffer);
-			return ret;
+			goto err_close_graph;
 		}
 	}
 
@@ -855,6 +857,13 @@ static int q6apm_dai_compr_open(struct snd_soc_component *component,
 
 	q6apm_enable_compress_module(dev, prtd->graph, true);
 	return 0;
+
+err_close_graph:
+	runtime->private_data = NULL;
+	q6apm_graph_close(prtd->graph);
+	kfree(prtd);
+
+	return ret;
 }
 
 static int q6apm_dai_compr_free(struct snd_soc_component *component,

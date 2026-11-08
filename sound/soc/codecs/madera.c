@@ -4608,8 +4608,17 @@ out:
 			   MADERA_FLL1_HOLD_MASK,
 			   0);
 
-	if (!already_enabled)
-		madera_wait_for_fll(fll, true);
+	/*
+	 * If configuring the FLL failed it is left disabled, so a later
+	 * madera_fllhj_disable() will not see the ENA bit set and will not
+	 * drop the runtime PM reference taken above.
+	 */
+	if (!already_enabled) {
+		if (ret)
+			pm_runtime_put_autosuspend(madera->dev);
+		else
+			madera_wait_for_fll(fll, true);
+	}
 
 	return 0;
 }

@@ -83,6 +83,7 @@ static int cs4341_hw_params(struct snd_pcm_substream *substream,
 	struct cs4341_priv *cs4341 = snd_soc_component_get_drvdata(component);
 	unsigned int mode = 0;
 	int b24 = 0;
+	int ret;
 
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S24_LE:
@@ -112,8 +113,17 @@ static int cs4341_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	return snd_soc_component_update_bits(component, CS4341_REG_MODE2,
-					     CS4341_MODE2_DIF, mode);
+	ret = snd_soc_component_update_bits(component, CS4341_REG_MODE2,
+					    CS4341_MODE2_DIF, mode);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI hw_params as done when .hw_params() returns 0.
+	 * Since snd_soc_component_update_bits() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked.
+	 */
+	return 0;
 }
 
 static int cs4341_mute(struct snd_soc_dai *dai, int mute, int direction)

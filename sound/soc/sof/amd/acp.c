@@ -1278,8 +1278,7 @@ int amd_sof_acp_probe(struct snd_sof_dev *sdev)
 	ret = amd_sof_sdw_probe(sdev);
 	if (ret < 0) {
 		dev_err(sdev->dev, "error: SoundWire probe error\n");
-		free_irq(sdev->ipc_irq, sdev);
-		return ret;
+		goto free_ipc_irq;
 	}
 
 skip_soundwire:

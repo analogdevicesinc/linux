@@ -490,7 +490,7 @@ static int img_i2s_in_probe(struct platform_device *pdev)
 	if (IS_ERR(rst)) {
 		if (PTR_ERR(rst) == -EPROBE_DEFER) {
 			ret = -EPROBE_DEFER;
-			pm_runtime_put(&pdev->dev);
+			pm_runtime_put_noidle(&pdev->dev);
 			goto err_suspend;
 		}
 
@@ -534,8 +534,12 @@ static int img_i2s_in_probe(struct platform_device *pdev)
 	return 0;
 
 err_suspend:
-	if (!pm_runtime_enabled(&pdev->dev))
+	pm_runtime_disable(&pdev->dev);
+	if (!pm_runtime_status_suspended(&pdev->dev))
 		img_i2s_in_runtime_suspend(&pdev->dev);
+
+	return ret;
+
 err_pm_disable:
 	pm_runtime_disable(&pdev->dev);
 

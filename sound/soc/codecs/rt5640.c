@@ -2433,11 +2433,13 @@ static void rt5640_disable_irq_and_cancel_work(void *data)
 	if (rt5640->jd_gpio_irq_requested) {
 		free_irq(rt5640->jd_gpio_irq, rt5640);
 		rt5640->jd_gpio_irq_requested = false;
+		rt5640->suspend_jd_gpio_irq_disabled = false;
 	}
 
 	if (rt5640->irq_requested) {
 		free_irq(rt5640->irq, rt5640);
 		rt5640->irq_requested = false;
+		rt5640->suspend_irq_disabled = false;
 	}
 
 	cancel_delayed_work_sync(&rt5640->jack_work);
@@ -2646,6 +2648,10 @@ static int rt5640_set_jack(struct snd_soc_component *component,
 {
 	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
 
+	/* Do not publish fresh IRQs while the register cache is unrestored. */
+	if (jack && rt5640->resume_failed)
+		return -EIO;
+
 	if (jack) {
 		if (rt5640->jd_src == RT5640_JD_SRC_HDA_HEADER)
 			rt5640_enable_hda_jack_detect(component, jack);
@@ -2803,7 +2809,15 @@ static int rt5640_suspend(struct snd_soc_component *component)
 
 	if (rt5640->jack) {
 		/* disable jack interrupts during system suspend */
-		disable_irq(rt5640->irq);
+		if (rt5640->irq_requested && !rt5640->suspend_irq_disabled) {
+			disable_irq(rt5640->irq);
+			rt5640->suspend_irq_disabled = true;
+		}
+		if (rt5640->jd_gpio_irq_requested &&
+		    !rt5640->suspend_jd_gpio_irq_disabled) {
+			disable_irq(rt5640->jd_gpio_irq);
+			rt5640->suspend_jd_gpio_irq_disabled = true;
+		}
 		cancel_delayed_work_sync(&rt5640->jack_work);
 		cancel_delayed_work_sync(&rt5640->bp_work);
 	}
@@ -2821,6 +2835,7 @@ static int rt5640_suspend(struct snd_soc_component *component)
 static int rt5640_resume(struct snd_soc_component *component)
 {
 	struct rt5640_priv *rt5640 = snd_soc_component_get_drvdata(component);
+	int ret;
 
 	if (rt5640->ldo1_en) {
 		gpiod_set_value_cansleep(rt5640->ldo1_en, 1);
@@ -2828,7 +2843,16 @@ static int rt5640_resume(struct snd_soc_component *component)
 	}
 
 	regcache_cache_only(rt5640->regmap, false);
-	regcache_sync(rt5640->regmap);
+	ret = regcache_sync(rt5640->regmap);
+	if (ret) {
+		rt5640->resume_failed = true;
+		regcache_cache_only(rt5640->regmap, true);
+		regcache_mark_dirty(rt5640->regmap);
+		if (rt5640->ldo1_en)
+			gpiod_set_value_cansleep(rt5640->ldo1_en, 0);
+		return ret;
+	}
+	rt5640->resume_failed = false;
 
 	if (rt5640->jack) {
 		if (rt5640->jd_src == RT5640_JD_SRC_HDA_HEADER) {
@@ -2857,7 +2881,14 @@ static int rt5640_resume(struct snd_soc_component *component)
 			}
 		}
 
-		enable_irq(rt5640->irq);
+		if (rt5640->suspend_irq_disabled) {
+			rt5640->suspend_irq_disabled = false;
+			enable_irq(rt5640->irq);
+		}
+		if (rt5640->suspend_jd_gpio_irq_disabled) {
+			rt5640->suspend_jd_gpio_irq_disabled = false;
+			enable_irq(rt5640->jd_gpio_irq);
+		}
 		queue_delayed_work(system_dfl_long_wq, &rt5640->jack_work, 0);
 	}
 

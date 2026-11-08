@@ -1772,24 +1772,31 @@ static int pcm512x_resume(struct device *dev)
 				    pcm512x->supplies);
 	if (ret != 0) {
 		dev_err(dev, "Failed to enable supplies: %d\n", ret);
-		return ret;
+		goto err_sclk;
 	}
 
 	regcache_cache_only(pcm512x->regmap, false);
 	ret = regcache_sync(pcm512x->regmap);
 	if (ret != 0) {
 		dev_err(dev, "Failed to sync cache: %d\n", ret);
-		return ret;
+		goto err_supplies;
 	}
 
 	ret = regmap_update_bits(pcm512x->regmap, PCM512x_POWER,
 				 PCM512x_RQPD, 0);
 	if (ret != 0) {
 		dev_err(dev, "Failed to remove power down: %d\n", ret);
-		return ret;
+		goto err_supplies;
 	}
 
 	return 0;
+
+err_supplies:
+	regulator_bulk_disable(ARRAY_SIZE(pcm512x->supplies), pcm512x->supplies);
+err_sclk:
+	if (!IS_ERR(pcm512x->sclk))
+		clk_disable_unprepare(pcm512x->sclk);
+	return ret;
 }
 
 EXPORT_GPL_DEV_PM_OPS(pcm512x_pm_ops) = {

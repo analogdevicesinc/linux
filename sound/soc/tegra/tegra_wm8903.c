@@ -93,8 +93,7 @@ static int tegra_wm8903_init(struct snd_soc_pcm_runtime *rtd)
 		if (of_property_read_bool(card->dev->of_node, "nvidia,headset"))
 			shrt = SND_JACK_MICROPHONE;
 
-		wm8903_mic_detect(component, machine->mic_jack,
-				  SND_JACK_MICROPHONE, shrt);
+		snd_soc_component_set_jack(component, machine->mic_jack, &shrt);
 	}
 
 	snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
@@ -109,7 +108,7 @@ static int tegra_wm8903_remove(struct snd_soc_card *card)
 	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
 	struct snd_soc_component *component = codec_dai->component;
 
-	wm8903_mic_detect(component, NULL, 0, 0);
+	snd_soc_component_set_jack(component, NULL, NULL);
 
 	return 0;
 }

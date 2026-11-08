@@ -952,17 +952,40 @@ static int wm8978_resume(struct snd_soc_component *component)
 {
 	struct wm8978_priv *wm8978 = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
+	int ret, err;
 
 	/* Sync reg_cache with the hardware */
-	regcache_sync(wm8978->regmap);
+	regcache_cache_only(wm8978->regmap, false);
+	ret = regcache_sync(wm8978->regmap);
+	if (ret)
+		goto restore_off;
 
-	snd_soc_dapm_force_bias_level(dapm, SND_SOC_BIAS_STANDBY);
+	ret = snd_soc_dapm_force_bias_level(dapm, SND_SOC_BIAS_STANDBY);
+	if (ret)
+		goto restore_off;
 
-	if (wm8978->f_pllout)
+	if (wm8978->f_pllout) {
 		/* Switch PLL on */
-		snd_soc_component_update_bits(component, WM8978_POWER_MANAGEMENT_1, 0x20, 0x20);
+		ret = snd_soc_component_update_bits(component,
+						    WM8978_POWER_MANAGEMENT_1,
+						    0x20, 0x20);
+		if (ret < 0)
+			goto restore_off;
+	}
 
 	return 0;
+
+restore_off:
+	err = snd_soc_dapm_force_bias_level(dapm, SND_SOC_BIAS_OFF);
+	if (err)
+		dev_err(component->dev, "Failed to restore bias OFF: %d\n", err);
+	/* Bias OFF preserves PLL; system suspend turns it off as well. */
+	err = snd_soc_component_write(component, WM8978_POWER_MANAGEMENT_1, 0);
+	if (err)
+		dev_err(component->dev, "Failed to disable PLL: %d\n", err);
+	regcache_cache_only(wm8978->regmap, true);
+	regcache_mark_dirty(wm8978->regmap);
+	return ret;
 }
 
 /*

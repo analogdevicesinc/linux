@@ -722,7 +722,8 @@ static int img_spdif_in_probe(struct platform_device *pdev)
 	if (IS_ERR(rst)) {
 		if (PTR_ERR(rst) == -EPROBE_DEFER) {
 			ret = -EPROBE_DEFER;
-			goto err_pm_put;
+			pm_runtime_put_noidle(&pdev->dev);
+			goto err_suspend;
 		}
 		dev_dbg(dev, "No top level reset found\n");
 		img_spdif_in_writel(spdif, IMG_SPDIF_IN_SOFT_RESET_MASK,
@@ -763,11 +764,13 @@ static int img_spdif_in_probe(struct platform_device *pdev)
 
 	return 0;
 
-err_pm_put:
-	pm_runtime_put(&pdev->dev);
 err_suspend:
-	if (!pm_runtime_enabled(&pdev->dev))
+	pm_runtime_disable(&pdev->dev);
+	if (!pm_runtime_status_suspended(&pdev->dev))
 		img_spdif_in_runtime_suspend(&pdev->dev);
+
+	return ret;
+
 err_pm_disable:
 	pm_runtime_disable(&pdev->dev);
 

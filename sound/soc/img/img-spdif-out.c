@@ -386,8 +386,12 @@ static int img_spdif_out_probe(struct platform_device *pdev)
 	return 0;
 
 err_suspend:
+	pm_runtime_disable(&pdev->dev);
 	if (!pm_runtime_status_suspended(&pdev->dev))
 		img_spdif_out_runtime_suspend(&pdev->dev);
+
+	return ret;
+
 err_pm_disable:
 	pm_runtime_disable(&pdev->dev);
 

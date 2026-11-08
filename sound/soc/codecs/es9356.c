@@ -293,13 +293,15 @@ static int es9356_sdca_button(unsigned int *buffer)
 
 static int es9356_sdca_button_detect(struct es9356_sdw_priv *es9356)
 {
-	unsigned int btn_type = 0, offset, idx, val, owner;
+	unsigned int offset, idx, val, owner;
 	unsigned int button[3];
-	int ret;
+	int btn_type = 0, ret;
 
 	ret = regmap_read(es9356->regmap,
 		SDW_SDCA_CTL(FUNC_NUM_HID, ES9356_SDCA_ENT_HID01, ES9356_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), &owner);
-	if (ret < 0 || owner == 0x01)
+	if (ret < 0)
+		return ret;
+	if (owner == 0x01)
 		return 0;
 
 	ret = regmap_read(es9356->regmap, ES9356_BUF_ADDR_HID, &offset);
@@ -319,6 +321,9 @@ button_det_end:
 	if (owner == 0x00)
 		regmap_write(es9356->regmap,
 			SDW_SDCA_CTL(FUNC_NUM_HID, ES9356_SDCA_ENT_HID01, ES9356_SDCA_CTL_HIDTX_CURRENT_OWNER, 0), 0x01);
+
+	if (ret < 0)
+		return ret;
 
 	return btn_type;
 }

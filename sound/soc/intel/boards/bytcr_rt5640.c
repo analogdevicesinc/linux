@@ -1764,6 +1764,7 @@ static int snd_byt_rt5640_mc_probe(struct platform_device *pdev)
 			dev_err(dev, "Error '%s' is not an i2c_client\n",
 				BYT_RT5640_FALLBACK_CODEC_DEV_NAME);
 			put_device(codec_dev);
+			return -ENODEV;
 		}
 
 		/* fixup codec name */
