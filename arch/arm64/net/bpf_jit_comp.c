@@ -268,6 +268,12 @@ static inline int bpf2a64_offset(int bpf_insn, int off,
 	/* BPF JMP offset is relative to the next instruction */
 	bpf_insn++;
 	/*
+	 * A branch back counts from itself, as the offsets from the next
+	 * instruction on are not yet those of this pass.
+	 */
+	if (off < 0)
+		return ctx->offset[bpf_insn + off] - ctx->idx;
+	/*
 	 * Whereas arm64 branch instructions encode the offset
 	 * from the branch itself, so we must subtract 1 from the
 	 * instruction offset.
