@@ -389,6 +389,12 @@ u32 aarch64_insn_gen_load_store_reg(enum aarch64_insn_register reg,
 		insn = aarch64_insn_get_ldr_reg_value();
 		break;
 	case AARCH64_INSN_LDST_SIGNED_LOAD_REG_OFFSET:
+		/* With the size of 64 bits this encodes PRFM */
+		if (size == AARCH64_INSN_SIZE_64) {
+			pr_err("%s: invalid size for a signed load %d\n",
+			       __func__, size);
+			return AARCH64_BREAK_FAULT;
+		}
 		insn = aarch64_insn_get_signed_ldr_reg_value();
 		break;
 	case AARCH64_INSN_LDST_STORE_REG_OFFSET:
@@ -437,6 +443,12 @@ u32 aarch64_insn_gen_load_store_imm(enum aarch64_insn_register reg,
 		insn = aarch64_insn_get_ldr_imm_value();
 		break;
 	case AARCH64_INSN_LDST_SIGNED_LOAD_IMM_OFFSET:
+		/* With the size of 64 bits this encodes PRFM */
+		if (size == AARCH64_INSN_SIZE_64) {
+			pr_err("%s: invalid size for a signed load %d\n",
+			       __func__, size);
+			return AARCH64_BREAK_FAULT;
+		}
 		insn = aarch64_insn_get_signed_load_imm_value();
 		break;
 	case AARCH64_INSN_LDST_STORE_IMM_OFFSET:
