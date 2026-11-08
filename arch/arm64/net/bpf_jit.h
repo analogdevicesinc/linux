@@ -55,11 +55,13 @@
 #define A64_BLR(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_LINK)
 #define A64_RET(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_RETURN)
 
-/* Load/store register (register offset) */
-#define A64_LS_REG(Rt, Rn, Rm, size, type) \
-	aarch64_insn_gen_load_store_reg(Rt, Rn, Rm, \
-		AARCH64_INSN_SIZE_##size, \
+/* Load/store register (register offset), at Rn + (EXT(Rm) << shift) */
+#define A64_LS_REG_EXT(Rt, Rn, Rm, ext, shift, size, type) \
+	aarch64_insn_gen_load_store_reg(Rt, Rn, Rm, AARCH64_INSN_EXTEND_##ext, \
+		shift, AARCH64_INSN_SIZE_##size, \
 		AARCH64_INSN_LDST_##type##_REG_OFFSET)
+#define A64_LS_REG(Rt, Rn, Rm, size, type) \
+	A64_LS_REG_EXT(Rt, Rn, Rm, UXTX, 0, size, type)
 #define A64_STRB(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 8, STORE)
 #define A64_LDRB(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 8, LOAD)
 #define A64_LDRSB(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 8, SIGNED_LOAD)
