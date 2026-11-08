@@ -475,18 +475,7 @@ static struct platform_driver da903x_regulator_driver = {
 	},
 	.probe		= da903x_regulator_probe,
 };
-
-static int __init da903x_regulator_init(void)
-{
-	return platform_driver_register(&da903x_regulator_driver);
-}
-subsys_initcall(da903x_regulator_init);
-
-static void __exit da903x_regulator_exit(void)
-{
-	platform_driver_unregister(&da903x_regulator_driver);
-}
-module_exit(da903x_regulator_exit);
+subsys_platform_driver(da903x_regulator_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Eric Miao <eric.miao@marvell.com>"

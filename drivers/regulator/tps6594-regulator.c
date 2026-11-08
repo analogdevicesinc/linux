@@ -457,7 +457,7 @@ static const struct regulator_desc tps6594_ldo_regs[] = {
 			  TPS6594_BIT_LDO_EN, 0, 0, ldos_1_2_3_ranges,
 			  1, 0, 0, NULL, 0, TPS6594_BIT_LDO_BYPASS),
 	TPS6594_REGULATOR("LDO4", "ldo4", TPS6594_LDO_4,
-			  REGULATOR_VOLTAGE, tps6594_ldos_4_ops, TPS6594_MASK_LDO4_VSET >> 1,
+			  REGULATOR_VOLTAGE, tps6594_ldos_4_ops, TPS6594_MASK_LDO4_VSET,
 			  TPS6594_REG_LDOX_VOUT(3),
 			  TPS6594_MASK_LDO4_VSET,
 			  TPS6594_REG_LDOX_CTRL(3),

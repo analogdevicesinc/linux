@@ -1165,18 +1165,7 @@ static struct platform_driver max8997_pmic_driver = {
 	.probe = max8997_pmic_probe,
 	.id_table = max8997_pmic_id,
 };
-
-static int __init max8997_pmic_init(void)
-{
-	return platform_driver_register(&max8997_pmic_driver);
-}
-subsys_initcall(max8997_pmic_init);
-
-static void __exit max8997_pmic_cleanup(void)
-{
-	platform_driver_unregister(&max8997_pmic_driver);
-}
-module_exit(max8997_pmic_cleanup);
+subsys_platform_driver(max8997_pmic_driver);
 
 MODULE_DESCRIPTION("MAXIM 8997/8966 Regulator Driver");
 MODULE_AUTHOR("MyungJoo Ham <myungjoo.ham@samsung.com>");

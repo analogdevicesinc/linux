@@ -765,18 +765,7 @@ static struct platform_driver max8998_pmic_driver = {
 	.probe = max8998_pmic_probe,
 	.id_table = max8998_pmic_id,
 };
-
-static int __init max8998_pmic_init(void)
-{
-	return platform_driver_register(&max8998_pmic_driver);
-}
-subsys_initcall(max8998_pmic_init);
-
-static void __exit max8998_pmic_cleanup(void)
-{
-	platform_driver_unregister(&max8998_pmic_driver);
-}
-module_exit(max8998_pmic_cleanup);
+subsys_platform_driver(max8998_pmic_driver);
 
 MODULE_DESCRIPTION("MAXIM 8998 voltage regulator driver");
 MODULE_AUTHOR("Kyungmin Park <kyungmin.park@samsung.com>");

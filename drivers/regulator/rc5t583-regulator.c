@@ -152,18 +152,7 @@ static struct platform_driver rc5t583_regulator_driver = {
 	},
 	.probe		= rc5t583_regulator_probe,
 };
-
-static int __init rc5t583_regulator_init(void)
-{
-	return platform_driver_register(&rc5t583_regulator_driver);
-}
-subsys_initcall(rc5t583_regulator_init);
-
-static void __exit rc5t583_regulator_exit(void)
-{
-	platform_driver_unregister(&rc5t583_regulator_driver);
-}
-module_exit(rc5t583_regulator_exit);
+subsys_platform_driver(rc5t583_regulator_driver);
 
 MODULE_AUTHOR("Laxman Dewangan <ldewangan@nvidia.com>");
 MODULE_DESCRIPTION("RC5T583 regulator driver");

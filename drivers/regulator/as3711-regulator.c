@@ -247,18 +247,7 @@ static struct platform_driver as3711_regulator_driver = {
 	},
 	.probe		= as3711_regulator_probe,
 };
-
-static int __init as3711_regulator_init(void)
-{
-	return platform_driver_register(&as3711_regulator_driver);
-}
-subsys_initcall(as3711_regulator_init);
-
-static void __exit as3711_regulator_exit(void)
-{
-	platform_driver_unregister(&as3711_regulator_driver);
-}
-module_exit(as3711_regulator_exit);
+subsys_platform_driver(as3711_regulator_driver);
 
 MODULE_AUTHOR("Guennadi Liakhovetski <g.liakhovetski@gmx.de>");
 MODULE_DESCRIPTION("AS3711 regulator driver");

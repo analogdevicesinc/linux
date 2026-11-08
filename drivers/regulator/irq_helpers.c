@@ -403,7 +403,7 @@ void regulator_irq_helper_cancel(void **handle)
 				destroy_workqueue(h->wq);
 		}
 
-		h = NULL;
+		*handle = NULL;
 	}
 }
 EXPORT_SYMBOL_GPL(regulator_irq_helper_cancel);

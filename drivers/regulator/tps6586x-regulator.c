@@ -524,18 +524,7 @@ static struct platform_driver tps6586x_regulator_driver = {
 	},
 	.probe		= tps6586x_regulator_probe,
 };
-
-static int __init tps6586x_regulator_init(void)
-{
-	return platform_driver_register(&tps6586x_regulator_driver);
-}
-subsys_initcall(tps6586x_regulator_init);
-
-static void __exit tps6586x_regulator_exit(void)
-{
-	platform_driver_unregister(&tps6586x_regulator_driver);
-}
-module_exit(tps6586x_regulator_exit);
+subsys_platform_driver(tps6586x_regulator_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Mike Rapoport <mike@compulab.co.il>");
