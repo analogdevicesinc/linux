@@ -2121,9 +2121,10 @@ emit_cond_jmp:
 			emit(A64_ADD(1, tmp3, dst, arena_vm_base), ctx);
 			dst = tmp3;
 		}
-		/* Load imm to a register then store it */
-		emit_a64_mov_i(1, tmp, imm, ctx);
-		emit_ldst(code, tmp, dst, off, tmp2, ctx);
+		/* A zero comes from the zero register, any other imm through a register */
+		if (imm)
+			emit_a64_mov_i(1, tmp, imm, ctx);
+		emit_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp2, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
