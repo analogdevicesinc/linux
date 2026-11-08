@@ -538,7 +538,6 @@
 	qcom,current-limit-microamp = <20000>;
 	qcom,ovp-millivolt = <29600>;
 	qcom,switching-freq = <800>;
-	qcom,num-strings = <3>;
 	qcom,cabc;
 	status = "okay";
 };
