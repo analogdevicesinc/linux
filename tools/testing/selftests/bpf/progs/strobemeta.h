@@ -5,7 +5,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <linux/bpf.h>
-#include <linux/ptrace.h>
 #include <linux/sched.h>
 #include <linux/types.h>
 #include <bpf/bpf_helpers.h>
