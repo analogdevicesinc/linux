@@ -455,6 +455,20 @@ YAMAHA_DEVICE(0x7000, "DTX"),
 YAMAHA_DEVICE(0x7010, "UB99"),
 #undef YAMAHA_DEVICE
 #undef YAMAHA_INTERFACE
+/* Steinberg UR22C (configuration 2) */
+{
+	USB_DEVICE_VENDOR_SPEC(0x0499, 0x172f),
+	QUIRK_DRIVER_INFO {
+		QUIRK_DATA_COMPOSITE {
+			{ QUIRK_DATA_STANDARD_MIXER(0) },
+			{ QUIRK_DATA_STANDARD_AUDIO(1) },
+			{ QUIRK_DATA_STANDARD_AUDIO(2) },
+			{ QUIRK_DATA_MIDI_YAMAHA(3) },
+			{ QUIRK_DATA_MIDI_YAMAHA(4) },
+			QUIRK_COMPOSITE_END
+		}
+	}
+},
 /* this catches most recent vendor-specific Yamaha devices */
 {
 	.match_flags = USB_DEVICE_ID_MATCH_VENDOR |
