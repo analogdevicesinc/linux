@@ -2131,13 +2131,19 @@ static int cxl_region_check_coherency(struct cxl_region *cxlr,
 		return -ENXIO;
 	}
 
-	/* a committed decoder cannot inherit the region's type */
-	if ((cxled->cxld.flags & CXL_DECODER_F_ENABLE) &&
-	    cxled->cxld.target_type != cxlr->type) {
-		dev_dbg(&cxlr->dev, "%s:%s type mismatch: %d vs %d\n",
-			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev),
-			cxled->cxld.target_type, cxlr->type);
-		return -ENXIO;
+	/* a committed decoder cannot inherit the region's flavor */
+	if (cxled->cxld.flags & CXL_DECODER_F_ENABLE) {
+		bool bi = cxled->cxld.flags & CXL_DECODER_F_BI;
+
+		if (cxled->cxld.target_type != cxlr->type || bi != root_bi) {
+			dev_dbg(&cxlr->dev,
+				"%s:%s coherency model mismatch: %s vs %s\n",
+				dev_name(&cxlmd->dev),
+				dev_name(&cxled->cxld.dev),
+				cxl_coherency_name(cxled->cxld.target_type, bi),
+				cxl_coherency_name(cxlr->type, root_bi));
+			return -ENXIO;
+		}
 	}
 
 	return 0;
@@ -3900,6 +3906,7 @@ static struct cxl_region *construct_region(struct cxl_root_decoder *cxlrd,
 	struct cxl_endpoint_decoder *cxled = ctx->cxled;
 	struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
 	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	bool bi = cxled->cxld.flags & CXL_DECODER_F_BI;
 	int rc, part = READ_ONCE(cxled->part);
 	struct cxl_region *cxlr;
 	unsigned long need;
@@ -3909,14 +3916,16 @@ static struct cxl_region *construct_region(struct cxl_root_decoder *cxlrd,
 
 	/*
 	 * A committed decoder defines the region built from it, so no
-	 * attach check can find its range type wrong. Only the window's
-	 * restrictions can.
+	 * attach check can find its coherency model wrong. Only the
+	 * window's restrictions can, if they do not permit its BI bit or
+	 * range type.
 	 */
 	need = cxled->cxld.target_type == CXL_DECODER_DEVMEM ?
 	       CXL_DECODER_F_DEVMEM : CXL_DECODER_F_HOSTONLY;
-	if (!(cxlrd->cxlsd.cxld.flags & need)) {
-		dev_dbg(&cxlrd->cxlsd.cxld.dev,
-			"%s:%s range type not permitted by the window\n",
+	if (bi != cxl_root_decoder_is_bi(cxlrd) ||
+	    !(cxlrd->cxlsd.cxld.flags & need)) {
+		dev_err(&cxlrd->cxlsd.cxld.dev,
+			"%s:%s coherency model not permitted by the window\n",
 			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
 		return ERR_PTR(-ENXIO);
 	}

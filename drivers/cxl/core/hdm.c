@@ -1145,10 +1145,31 @@ static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 		cxld->flags |= CXL_DECODER_F_ENABLE;
 		if (ctrl & CXL_HDM_DECODER0_CTRL_LOCK)
 			cxld->flags |= CXL_DECODER_F_LOCK;
+		if (ctrl & CXL_HDM_DECODER0_CTRL_BI)
+			cxld->flags |= CXL_DECODER_F_BI;
+
 		if (FIELD_GET(CXL_HDM_DECODER0_CTRL_HOSTONLY, ctrl))
 			cxld->target_type = CXL_DECODER_HOSTONLYMEM;
 		else
 			cxld->target_type = CXL_DECODER_DEVMEM;
+
+		if (FIELD_GET(CXL_HDM_DECODER0_CTRL_BI, ctrl)) {
+			struct cxl_dev_state *cxlds = cxled ?
+				cxled_to_memdev(cxled)->cxlds : NULL;
+
+			if (cxld->target_type == CXL_DECODER_HOSTONLYMEM) {
+				dev_warn(&port->dev,
+					 "decoder%d.%d: BI with host-only\n",
+					 port->id, cxld->id);
+				return -ENXIO;
+			}
+			if (cxlds && !cxlds->bi_capable) {
+				dev_warn(&port->dev,
+					 "decoder%d.%d: path not BI capable\n",
+					 port->id, cxld->id);
+				return -ENXIO;
+			}
+		}
 
 		guard(rwsem_write)(&cxl_rwsem.region);
 		if (cxld->id != cxl_num_decoders_committed(port)) {
@@ -1428,7 +1449,8 @@ int devm_cxl_endpoint_decoders_setup(struct cxl_port *port)
 	 * Between the port's HDM state and its decoders: devres,
 	 * unwinding in reverse, brings BI down only after the decoders
 	 * quiesce, while its slow walk still precedes the HDM state
-	 * free.
+	 * free. Must also precede region discovery, where HDM-DB
+	 * assembly requires cxlds->bi.
 	 */
 	rc = cxl_bi_setup(port);
 	if (rc)

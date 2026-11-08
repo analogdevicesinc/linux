@@ -1109,6 +1109,32 @@ static int __cxl_bi_commit_decoder(struct device *dev, void __iomem *bi)
 				    scale, base);
 }
 
+/* Committed, or no explicit commit required */
+static bool __cxl_bi_committed(void __iomem *caps_reg, void __iomem *status_reg,
+			       u32 req_bit, u32 committed_bit)
+{
+	if (!(readl(caps_reg) & req_bit))
+		return true;
+
+	return readl(status_reg) & committed_bit;
+}
+
+static bool cxl_bi_rt_committed(void __iomem *bi)
+{
+	return __cxl_bi_committed(bi + CXL_BI_RT_CAPS_OFFSET,
+				  bi + CXL_BI_RT_STATUS_OFFSET,
+				  CXL_BI_RT_CAPS_EXPLICIT_COMMIT_REQ,
+				  CXL_BI_RT_STATUS_BI_COMMITTED);
+}
+
+static bool cxl_bi_decoder_committed(void __iomem *bi)
+{
+	return __cxl_bi_committed(bi + CXL_BI_DECODER_CAPS_OFFSET,
+				  bi + CXL_BI_DECODER_STATUS_OFFSET,
+				  CXL_BI_DECODER_CAPS_EXPLICIT_COMMIT_REQ,
+				  CXL_BI_DECODER_STATUS_BI_COMMITTED);
+}
+
 static int cxl_bi_commit_dport(struct cxl_dport *dport)
 {
 	struct cxl_port *port = dport->port;
@@ -1136,7 +1162,8 @@ static int cxl_bi_commit_dport(struct cxl_dport *dport)
  * @direct says the device is connected directly to this dport, which
  * takes BI Enable; every dport above it takes BI Forward.
  */
-static int cxl_bi_ctrl_dport_enable(struct cxl_dport *dport, bool direct)
+static int cxl_bi_ctrl_dport_enable(struct cxl_dport *dport, bool direct,
+				    bool *adopt)
 {
 	struct cxl_port *port = dport->port;
 	u32 ctrl, value, set, clr;
@@ -1168,6 +1195,20 @@ static int cxl_bi_ctrl_dport_enable(struct cxl_dport *dport, bool direct)
 		       CXL_BI_DECODER_CTRL_BI_ENABLE;
 
 	value = (ctrl | set) & ~clr;
+
+	/*
+	 * Adopt this level as firmware left it: nothing below it that
+	 * firmware did not account for, nothing this driver has routed
+	 * through it, the value this walk would write already in place,
+	 * and the decoder (and route table) committed.
+	 */
+	if (*adopt && !dport->nr_bi && value == ctrl &&
+	    cxl_bi_decoder_committed(bi) &&
+	    (!port->regs.bi_rt || cxl_bi_rt_committed(port->regs.bi_rt)))
+		goto done;
+	/* firmware did not bring this level up, so nothing above may */
+	*adopt = false;
+
 	if (value != ctrl)
 		writel(value, bi + CXL_BI_DECODER_CTRL_OFFSET);
 
@@ -1181,6 +1222,7 @@ static int cxl_bi_ctrl_dport_enable(struct cxl_dport *dport, bool direct)
 		}
 		return rc;
 	}
+done:
 	dport->nr_bi++;
 
 	return 0;
@@ -1277,7 +1319,9 @@ static int cxl_bi_ctrl_endpoint_disable(struct cxl_dev_state *cxlds)
 /*
  * Release the device's BI, then each dport up the path short of @stop,
  * following the deallocate sequence in the implementation notes of
- * CXL 4.0 9.14.2. Setup's unwind and teardown alike.
+ * CXL 4.0 9.14.2. Setup's unwind and teardown alike: a level the
+ * walk adopted was found up and is held, so the unwind leaves its
+ * register as it found it.
  *
  * A decoder that still decodes with its BI bit set needs BI Enable,
  * the device-wide permission behind it, so the device keeps it. The
@@ -1341,14 +1385,24 @@ static void cxl_bi_dealloc(void *data)
 static int cxl_bi_enable_path(struct cxl_dev_state *cxlds,
 			      struct cxl_port *port, struct cxl_dport *dport)
 {
+	struct cxl_port *endpoint = cxlds->cxlmd->endpoint;
 	struct cxl_dport *dport_iter;
 	struct cxl_port *port_iter;
+	bool adopt;
 	int rc;
+
+	/*
+	 * Adoption is a path property, not a per-dport one: only when
+	 * firmware enabled the device itself does a dport's committed
+	 * state cover this device's BI-ID.
+	 */
+	adopt = cxl_bi_decoder_enabled(endpoint);
 
 	port_iter = port;
 	dport_iter = dport;
 	while (!is_cxl_root(port_iter)) {
-		rc = cxl_bi_ctrl_dport_enable(dport_iter, dport_iter == dport);
+		rc = cxl_bi_ctrl_dport_enable(dport_iter, dport_iter == dport,
+					      &adopt);
 		if (rc)
 			goto err_rollback;
 
