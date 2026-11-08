@@ -125,24 +125,47 @@ static inline void emit_u32_data(const u32 data, struct jit_ctx *ctx)
 	ctx->idx++;
 }
 
+/*
+ * A 32-bit immediate, sign extended for the 64-bit variant: one movz, movn or
+ * orr where one encodes it, else a movz or movn and a movk.
+ */
 static inline void emit_a64_mov_i(const int is64, const int reg,
 				  const s32 val, struct jit_ctx *ctx)
 {
 	u16 hi = val >> 16;
 	u16 lo = val & 0xffff;
+	u32 insn;
+
+	if (hi == 0xffff) {
+		emit(A64_MOVN(is64, reg, (u16)~lo, 0), ctx);
+		return;
+	}
+	if (!hi) {
+		emit(A64_MOVZ(is64, reg, lo, 0), ctx);
+		return;
+	}
+	/* The 64-bit variant has the upper half set or clear with the sign */
+	if (!lo && (!is64 || !(hi & 0x8000))) {
+		emit(A64_MOVZ(is64, reg, hi, 16), ctx);
+		return;
+	}
+	if (lo == 0xffff && (!is64 || (hi & 0x8000))) {
+		emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
+		return;
+	}
+
+	insn = A64_ORR_I(is64, reg, A64_ZR, val);
+	if (insn != AARCH64_BREAK_FAULT) {
+		emit(insn, ctx);
+		return;
+	}
 
 	if (hi & 0x8000) {
-		if (hi == 0xffff) {
-			emit(A64_MOVN(is64, reg, (u16)~lo, 0), ctx);
-		} else {
-			emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
-			if (lo != 0xffff)
-				emit(A64_MOVK(is64, reg, lo, 0), ctx);
-		}
+		emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
+		emit(A64_MOVK(is64, reg, lo, 0), ctx);
 	} else {
 		emit(A64_MOVZ(is64, reg, lo, 0), ctx);
-		if (hi)
-			emit(A64_MOVK(is64, reg, hi, 16), ctx);
+		emit(A64_MOVK(is64, reg, hi, 16), ctx);
 	}
 }
 
@@ -170,10 +193,42 @@ static inline void emit_a64_mov_i64(const int reg, const u64 val,
 {
 	u64 nrm_tmp = val, rev_tmp = ~val;
 	bool inverse;
-	int shift;
+	u32 insn;
+	int shift, blocks;
 
 	if (!(nrm_tmp >> 32))
 		return emit_a64_mov_i(0, reg, (u32)val, ctx);
+	if ((s64)(s32)val == (s64)val)
+		return emit_a64_mov_i(1, reg, (s32)val, ctx);
+
+	/* A bitmask immediate in a single orr */
+	insn = A64_ORR_I(1, reg, A64_ZR, val);
+	if (insn != AARCH64_BREAK_FAULT)
+		return emit(insn, ctx);
+
+	/*
+	 * A 16-bit chunk occurring more than once whose replication is a
+	 * bitmask immediate comes from one orr, with a movk for each of
+	 * the other chunks, when that beats the moves of the chunks.
+	 */
+	blocks = min(i64_i16_blocks(nrm_tmp, true), i64_i16_blocks(nrm_tmp, false));
+	for (shift = 0; shift < 64; shift += 16) {
+		u16 chunk = val >> shift;
+		int i, n = 0;
+
+		for (i = 0; i < 64; i += 16)
+			n += (u16)(val >> i) == chunk;
+		if (n < 2 || 1 + 4 - n >= blocks)
+			continue;
+		insn = A64_ORR_I(1, reg, A64_ZR, chunk * 0x0001000100010001ULL);
+		if (insn == AARCH64_BREAK_FAULT)
+			continue;
+		emit(insn, ctx);
+		for (i = 0; i < 64; i += 16)
+			if ((u16)(val >> i) != chunk)
+				emit(A64_MOVK(1, reg, (u16)(val >> i), i), ctx);
+		return;
+	}
 
 	inverse = i64_i16_blocks(nrm_tmp, true) < i64_i16_blocks(nrm_tmp, false);
 	shift = max(round_down((inverse ? (fls64(rev_tmp) - 1) :
