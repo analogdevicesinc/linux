@@ -22035,9 +22035,17 @@ process_bpf_exit:
 	}
 }
 
+/* All is done again, whatever came out, see do_check_all() */
+static bool round_is_dropped(struct bpf_verifier_env *env)
+{
+	return (env->restart && bpf_flow_loops_lost_bound(env)) || env->guards_late;
+}
+
 static int do_check(struct bpf_verifier_env *env)
 {
-	int prev_insn_idx = -1;
+	bool level1 = (env->log.level & BPF_LOG_LEVEL) == BPF_LOG_LEVEL1;
+	u64 log_pos = env->log.end_pos;
+	int prev_insn_idx = -1, insn_idx;
 	int err;
 
 	err = bpf_flow_deliver(env, env->cur_state, env->insn_idx, -1);
@@ -22049,7 +22057,15 @@ static int do_check(struct bpf_verifier_env *env)
 			break;
 		/* What is known about how the state came to be is not kept with it. */
 		bpf_diag_event_log_restore(env, 0);
+		/* Neither is the text: the level 1 log has one basic block at a time. */
+		if (level1) {
+			bpf_vlog_reset(&env->log, log_pos);
+			env->prev_linfo = NULL;
+		}
+		insn_idx = env->insn_idx;
 		err = do_check_block(env, prev_insn_idx);
+		if (err && level1 && !round_is_dropped(env))
+			bpf_flow_print_way(env, log_pos, insn_idx, prev_insn_idx);
 	}
 	return err;
 }
@@ -23435,7 +23451,7 @@ static int do_check_all(struct bpf_verifier_env *env)
 		bpf_flow_new_round(env);
 		ret = do_check_main(env);
 		ret = ret ?: do_check_subprogs(env);
-		if (!(env->restart && bpf_flow_loops_lost_bound(env)) && !env->guards_late)
+		if (!round_is_dropped(env))
 			return ret;
 		/* the log is dropped when a function is found to be safe */
 		bpf_vlog_reset(&env->log, min(log_pos, env->log.end_pos));

@@ -83,7 +83,7 @@ done:
 
 #define TEST_FB(op, dolock)					\
 SEC("syscall")							\
-__failure __msg(MSG)						\
+__failure __msg(MSG) __log_level(2)				\
 long test_##op##_spinlock_##dolock(void *ctx)			\
 {								\
 	struct bpf_list_node *l_n;				\

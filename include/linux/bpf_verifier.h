@@ -1553,6 +1553,7 @@ int bpf_flow_deliver(struct bpf_verifier_env *env, struct bpf_verifier_state *st
 int bpf_flow_guard_edge(struct bpf_verifier_env *env, struct bpf_verifier_state *st,
 			int insn_idx, int prev_insn_idx, enum bpf_guard_edge edge);
 int bpf_flow_next(struct bpf_verifier_env *env, int *prev_insn_idx);
+void bpf_flow_print_way(struct bpf_verifier_env *env, u64 log_pos, int head, int i);
 int bpf_flow_call(struct bpf_verifier_env *env, struct bpf_verifier_state *caller,
 		  struct bpf_verifier_state *entry, int subprog, int call_idx);
 int bpf_flow_exit(struct bpf_verifier_env *env, struct bpf_verifier_state *st, int exit_idx);

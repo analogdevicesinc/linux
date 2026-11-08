@@ -92,6 +92,7 @@ struct flow_state {
 	struct rb_node rb;		/* pending states */
 	int prev_insn_idx;
 	u32 seq;
+	u32 from;			/* seq of the last state on the way to it that is kept */
 	struct flow_shape shape;
 	u16 joins;
 	bool pending;
@@ -178,6 +179,7 @@ struct bpf_flow {
 	struct list_head kept;
 	struct bpf_verifier_state tmp;
 	u32 seq;
+	u32 from;			/* flow_state.from of what comes from the current state */
 	u32 live_states;
 };
 
@@ -416,17 +418,14 @@ void bpf_flow_next_is_no_bound(struct bpf_verifier_env *env, int insn_idx, int h
 bool bpf_flow_loops_lost_bound(struct bpf_verifier_env *env)
 {
 	struct bpf_loop *loop;
-	bool lost = false;
 	int h;
 
 	for (h = 0; h < env->prog->len; h++) {
 		loop = env->insn_aux_data[h].loop;
-		if (!loop || !loop->rt_bounded || flow_loop_is_bounded(env, h))
-			continue;
-		loop->rt_bounded = false;
-		lost = true;
+		if (loop && loop->rt_bounded && !flow_loop_is_bounded(env, h))
+			return true;
 	}
-	return lost;
+	return false;
 }
 
 /*
@@ -459,8 +458,12 @@ void bpf_flow_new_round(struct bpf_verifier_env *env)
 	env->guards_late = false;
 	for (i = 0; i < env->prog->len; i++) {
 		aux[i].guard_edge_dropped = false;
-		if (aux[i].loop)
-			aux[i].loop->no_guard_edges = false;
+		if (!aux[i].loop)
+			continue;
+		aux[i].loop->no_guard_edges = false;
+		/* what the last round found out */
+		if (aux[i].loop->rt_bounded)
+			aux[i].loop->rt_bounded = flow_loop_is_bounded(env, i);
 	}
 }
 
@@ -2883,6 +2886,7 @@ static struct flow_state *flow_new_state(struct bpf_verifier_env *env, int prev_
 		return NULL;
 	s->prev_insn_idx = prev_insn_idx;
 	s->seq = ++flow->seq;
+	s->from = flow->from;
 	env->total_states++;
 	flow->live_states++;
 	env->peak_states = max(env->peak_states, flow->live_states);
@@ -3308,12 +3312,101 @@ int bpf_flow_next(struct bpf_verifier_env *env, int *prev_insn_idx)
 
 	env->insn_idx = s->st.insn_idx;
 	*prev_insn_idx = s->prev_insn_idx;
-	if (test_bit(s->st.insn_idx, flow->keep))
+	if (test_bit(s->st.insn_idx, flow->keep)) {
+		flow->from = s->seq;
 		return bpf_copy_verifier_state(env->cur_state, &s->st);
+	}
+	flow->from = s->from;
 	*env->cur_state = s->st;
 	memset(&s->st, 0, sizeof(s->st));
 	s->st.insn_idx = env->insn_idx;
 	flow_unlink(env, s);
 	flow_free_state(env, s);
 	return 0;
+}
+
+/* A basic block on the way to the block that is rejected, up to the insn that leads on */
+struct flow_step {
+	const struct flow_state *s;	/* the state at its head, if one is kept */
+	int head, last;
+};
+
+/*
+ * The state at @head with that @seq. If it is gone a state that came later took its place:
+ * the last one then.
+ */
+static const struct flow_state *flow_find_state(const struct bpf_flow *flow, int head, u32 seq)
+{
+	const struct list_head *list = &flow->states[head].list;
+	const struct flow_state *s;
+
+	if (!test_bit(head, flow->keep))
+		return NULL;
+	list_for_each_entry(s, list, node)
+		if (s->seq == seq)
+			return s;
+	return list_empty(list) ? NULL : list_last_entry(list, struct flow_state, node);
+}
+
+/*
+ * The basic block at @head, which the current state got to from insn @i, is rejected. The block
+ * and the message are what was printed since @log_pos. Print the way to the block in front of it.
+ *
+ * The way is put together backwards from what is there. A state that is kept knows the edge that
+ * it came by, after a join the edge that changed it last, and the kept state that it comes from.
+ * A block whose state is not kept has one predecessor, which is its dominator.
+ * A block is on the way once. Where it would come again, after a round of a loop, the way goes on
+ * from its dominator: all that gets into the loop goes through it.
+ */
+void bpf_flow_print_way(struct bpf_verifier_env *env, u64 log_pos, int head, int i)
+{
+	struct bpf_insn *insns = env->prog->insnsi;
+	const struct bpf_flow *flow = env->flow;
+	const struct flow_state *s;
+	struct bpf_vlog_stash stash;
+	struct flow_step *way, *w;
+	u32 from = flow->from, cnt = 0;
+	unsigned long *seen;
+
+	seen = bitmap_zalloc(flow->len, GFP_KERNEL_ACCOUNT);
+	way = kvmalloc_array(bitmap_weight(flow->point, flow->len), sizeof(*way),
+			     GFP_KERNEL_ACCOUNT);
+	if (!seen || !way)
+		goto out;
+
+	s = flow_find_state(flow, head, from);
+	from = s ? s->from : from;
+	while (i >= 0) {
+		head = find_last_bit(flow->point, i + 1);
+		s = NULL;
+		if (!__test_and_set_bit(head, seen)) {
+			s = flow_find_state(flow, head, from);
+			way[cnt++] = (struct flow_step){ s, head, i };
+		}
+		from = s ? s->from : from;
+		i = s ? s->prev_insn_idx : env->idoms[head];
+		cond_resched();
+	}
+
+	if (!cnt || bpf_vlog_stash(&env->log, log_pos, &stash))
+		goto out;
+	env->prev_linfo = NULL;
+	while (cnt-- && !signal_pending(current)) {
+		w = &way[cnt];
+		if (w->s) {
+			verbose(env, "from %d to %d:", w->s->prev_insn_idx, w->head);
+			print_verifier_state(env, &w->s->st, w->s->st.curframe, true);
+		}
+		for (i = w->head; i <= w->last; i += 1 + bpf_is_ldimm64(&insns[i])) {
+			verbose_linfo(env, i, "; ");
+			verbose(env, "%d: ", i);
+			bpf_verbose_insn(env, &insns[i]);
+			verbose(env, "\n");
+		}
+		cond_resched();
+	}
+	bpf_vlog_unstash(&env->log, &stash);
+out:
+	bitmap_free(seen);
+	kvfree(way);
 }
