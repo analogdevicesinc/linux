@@ -219,7 +219,8 @@ static void dump_request(struct seq_file *s, struct ceph_osd_request *req)
 	seq_printf(s, "%llu\t", req->r_tid);
 	dump_target(s, &req->r_t);
 
-	seq_printf(s, "\t%d", req->r_attempts);
+	seq_printf(s, "\t%d\t%u", req->r_attempts,
+		   jiffies_to_msecs(jiffies - req->r_start_stamp));
 
 	for (i = 0; i < req->r_num_ops; i++) {
 		struct ceph_osd_req_op *op = &req->r_ops[i];
@@ -255,10 +256,17 @@ static void dump_requests(struct seq_file *s, struct ceph_osd *osd)
 static void dump_linger_request(struct seq_file *s,
 				struct ceph_osd_linger_request *lreq)
 {
+	struct ceph_osd_request *req =
+	    list_first_entry_or_null(&lreq->osd_reqs, struct ceph_osd_request,
+				     r_private_item);
+
 	seq_printf(s, "%llu\t", lreq->linger_id);
 	dump_target(s, &lreq->t);
 
-	seq_printf(s, "\t%u\t%s%s/%d\n", lreq->register_gen,
+	seq_printf(s, "\t%u\t%u\t%u\t%s%s/%d\n", lreq->register_gen,
+		   req ? jiffies_to_msecs(jiffies - req->r_start_stamp) : 0,
+		   lreq->is_watch && lreq->committed && !lreq->last_error ?
+                        jiffies_to_msecs(jiffies - lreq->watch_valid_thru) : 0,
 		   lreq->is_watch ? "W" : "N", lreq->committed ? "C" : "",
 		   lreq->last_error);
 }
