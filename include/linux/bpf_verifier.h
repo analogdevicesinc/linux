@@ -1417,6 +1417,15 @@ __printf(2, 3) void bpf_log(struct bpf_verifier_log *log,
 int bpf_vlog_init(struct bpf_verifier_log *log, u32 log_level,
 		  char __user *log_buf, u32 log_size);
 void bpf_vlog_reset(struct bpf_verifier_log *log, u64 new_pos);
+
+/* The end of the log, taken out of it by bpf_vlog_stash() */
+struct bpf_vlog_stash {
+	char *buf;
+	u64 len, lost_start, lost_end;
+};
+
+int bpf_vlog_stash(struct bpf_verifier_log *log, u64 pos, struct bpf_vlog_stash *stash);
+void bpf_vlog_unstash(struct bpf_verifier_log *log, struct bpf_vlog_stash *stash);
 int bpf_vlog_finalize(struct bpf_verifier_log *log, u32 *log_size_actual);
 
 __printf(3, 4) void verbose_linfo(struct bpf_verifier_env *env,

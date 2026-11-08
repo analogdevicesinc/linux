@@ -177,6 +177,53 @@ void bpf_vlog_reset(struct bpf_verifier_log *log, u64 new_pos)
 		log->ubuf = NULL;
 }
 
+/*
+ * Take what was written since @pos out of the log. bpf_vlog_unstash() appends it to what is
+ * written in between. The text is in the buffer of the user and nowhere else. What the buffer
+ * doesn't hold, the start of the text if it's rolling and the end if it's fixed, is counted.
+ */
+int bpf_vlog_stash(struct bpf_verifier_log *log, u64 pos, struct bpf_vlog_stash *stash)
+{
+	u64 from = max(pos, log->start_pos), to = log->end_pos, i;
+	u32 off, n;
+
+	if (!log->ubuf)
+		from = to;
+	else if (log->level & BPF_LOG_FIXED)
+		to = clamp(log->len_total - 1ULL, from, to);
+	stash->lost_start = from - pos;
+	stash->lost_end = log->end_pos - to;
+	stash->len = to - from;
+	/* as large as the buffer at worst: fail before the OOM killer is called */
+	stash->buf = kvzalloc(stash->len, GFP_KERNEL_ACCOUNT | __GFP_NOWARN | __GFP_RETRY_MAYFAIL);
+	if (!stash->buf)
+		return -ENOMEM;
+	/* two pieces if it wraps around */
+	for (i = from; i < to && log->ubuf; i += n) {
+		div_u64_rem(i, log->len_total, &off);
+		n = min(to - i, log->len_total - off);
+		if (copy_from_user(stash->buf + (i - from), log->ubuf + off, n))
+			log->ubuf = NULL;
+	}
+	bpf_vlog_reset(log, pos);
+	return 0;
+}
+
+void bpf_vlog_unstash(struct bpf_verifier_log *log, struct bpf_vlog_stash *stash)
+{
+	u64 i, n;
+
+	log->end_pos += stash->lost_start;
+	for (i = 0; i < stash->len; i += n) {
+		n = min(stash->len - i, sizeof(log->kbuf) - 1);
+		bpf_log(log, "%.*s", (int)n, stash->buf + i);
+		cond_resched();
+	}
+	log->end_pos += stash->lost_end;
+	bpf_vlog_update_len_max(log, 1);
+	kvfree(stash->buf);
+}
+
 static void bpf_vlog_reverse_kbuf(char *buf, int len)
 {
 	int i, j;
