@@ -426,7 +426,7 @@ u32 aarch64_insn_gen_load_store_imm(enum aarch64_insn_register reg,
 	u32 shift;
 
 	if (size < AARCH64_INSN_SIZE_8 || size > AARCH64_INSN_SIZE_64) {
-		pr_err("%s: unknown size encoding %d\n", __func__, type);
+		pr_err("%s: unknown size encoding %d\n", __func__, size);
 		return AARCH64_BREAK_FAULT;
 	}
 
@@ -542,6 +542,18 @@ u32 aarch64_insn_gen_load_store_pair(enum aarch64_insn_register reg1,
 		return AARCH64_BREAK_FAULT;
 	}
 
+	/*
+	 * CONSTRAINED UNPREDICTABLE: LDP with Rt == Rt2, and a base written
+	 * back that is Rt or Rt2
+	 */
+	if ((reg1 == reg2 && (type == AARCH64_INSN_LDST_LOAD_PAIR_PRE_INDEX ||
+			      type == AARCH64_INSN_LDST_LOAD_PAIR_POST_INDEX)) ||
+	    (base != AARCH64_INSN_REG_SP && (reg1 == base || reg2 == base))) {
+		pr_err("%s: overlapping registers %d, %d, %d\n", __func__,
+		       reg1, reg2, base);
+		return AARCH64_BREAK_FAULT;
+	}
+
 	insn = aarch64_insn_encode_register(AARCH64_INSN_REGTYPE_RT, insn,
 					    reg1);
 
@@ -607,6 +619,15 @@ u32 aarch64_insn_gen_load_store_ex(enum aarch64_insn_register reg,
 		break;
 	default:
 		pr_err("%s: unknown load/store exclusive encoding %d\n", __func__, type);
+		return AARCH64_BREAK_FAULT;
+	}
+
+	/* CONSTRAINED UNPREDICTABLE: the status register Rs as Rt or Rn */
+	if ((type == AARCH64_INSN_LDST_STORE_EX ||
+	     type == AARCH64_INSN_LDST_STORE_REL_EX) &&
+	    (state == reg || (state == base && base != AARCH64_INSN_REG_SP))) {
+		pr_err("%s: overlapping registers %d, %d, %d\n", __func__,
+		       state, reg, base);
 		return AARCH64_BREAK_FAULT;
 	}
 
@@ -1042,6 +1063,12 @@ u32 aarch64_insn_gen_add_sub_extended_reg(enum aarch64_insn_register dst,
 		return AARCH64_BREAK_FAULT;
 	}
 
+	if (extend < AARCH64_INSN_EXTEND_UXTB ||
+	    extend > AARCH64_INSN_EXTEND_SXTX) {
+		pr_err("%s: invalid extend encoding %d\n", __func__, extend);
+		return AARCH64_BREAK_FAULT;
+	}
+
 	if (shift < 0 || shift > 4) {
 		pr_err("%s: invalid shift encoding %d\n", __func__, shift);
 		return AARCH64_BREAK_FAULT;
@@ -1293,6 +1320,9 @@ u32 aarch64_insn_gen_adr(unsigned long pc, unsigned long addr,
 	switch (type) {
 	case AARCH64_INSN_ADR_TYPE_ADR:
 		insn = aarch64_insn_get_adr_value();
+		/* The s32 offset would truncate a difference beyond 4GB */
+		if ((long)(addr - pc) != (s32)(addr - pc))
+			return AARCH64_BREAK_FAULT;
 		offset = addr - pc;
 		break;
 	case AARCH64_INSN_ADR_TYPE_ADRP:
