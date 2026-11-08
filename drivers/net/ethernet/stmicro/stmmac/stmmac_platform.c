@@ -356,12 +356,17 @@ static int stmmac_mdio_setup(struct plat_stmmacenet_data *plat,
 						   sizeof(*plat->mdio_bus_data),
 						   GFP_KERNEL);
 		if (!plat->mdio_bus_data)
-			return -ENOMEM;
+			goto err_put_mdio_node;
 
 		plat->mdio_bus_data->needs_reset = true;
 	}
 
 	return 0;
+
+err_put_mdio_node:
+	of_node_put(plat->mdio_node);
+	plat->mdio_node = NULL;
+	return -ENOMEM;
 }
 
 /**
