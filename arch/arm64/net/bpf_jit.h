@@ -19,12 +19,16 @@
 #define A64_VARIANT(sf) \
 	((sf) ? AARCH64_INSN_VARIANT_64BIT : AARCH64_INSN_VARIANT_32BIT)
 
+/* Branch offsets in bytes, widened first so a far count cannot wrap */
+#define A64_BR_OFF(imm) ((long)(imm) * AARCH64_INSN_SIZE)
+
 /* Compare & branch (immediate) */
 #define A64_COMP_BRANCH(sf, Rt, offset, type) \
 	aarch64_insn_gen_comp_branch_imm(0, offset, Rt, A64_VARIANT(sf), \
 		AARCH64_INSN_BRANCH_COMP_##type)
-#define A64_CBZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, (imm19) << 2, ZERO)
-#define A64_CBNZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, (imm19) << 2, NONZERO)
+#define A64_CBZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, A64_BR_OFF(imm19), ZERO)
+#define A64_CBNZ(sf, Rt, imm19) \
+	A64_COMP_BRANCH(sf, Rt, A64_BR_OFF(imm19), NONZERO)
 
 /* Conditional branch (immediate) */
 #define A64_COND_BRANCH(cond, offset) \
@@ -39,12 +43,12 @@
 #define A64_COND_GT	AARCH64_INSN_COND_GT /* signed > */
 #define A64_COND_LE	AARCH64_INSN_COND_LE /* signed <= */
 #define A64_COND_LT	AARCH64_INSN_COND_LT /* signed < */
-#define A64_B_(cond, imm19) A64_COND_BRANCH(cond, (imm19) << 2)
+#define A64_B_(cond, imm19) A64_COND_BRANCH(cond, A64_BR_OFF(imm19))
 
 /* Unconditional branch (immediate) */
 #define A64_BRANCH(offset, type) aarch64_insn_gen_branch_imm(0, offset, \
 	AARCH64_INSN_BRANCH_##type)
-#define A64_B(imm26)  A64_BRANCH((imm26) << 2, NOLINK)
+#define A64_B(imm26)  A64_BRANCH(A64_BR_OFF(imm26), NOLINK)
 
 /* Unconditional branch (register) */
 #define A64_BR(Rn)  aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_NOLINK)
