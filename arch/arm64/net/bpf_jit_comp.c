@@ -481,6 +481,73 @@ static void emit_arena_ldst(const u8 code, const u8 rt, const u8 reg, const s32 
 					     a64_ldst_type(code, A64_LDST_REG)), ctx);
 }
 
+/*
+ * Compare against C - 1 or C + 1 with the adjusted condition when C does not
+ * encode, for the masks and powers of two plus one that LLVM's x >= C to
+ * x > C - 1 and x <= C to x < C + 1 bring here.
+ */
+static bool adjust_cmp_imm(u8 *op, s32 *imm)
+{
+	s64 c = *imm;
+	u8 new_op;
+
+	switch (*op) {
+	case BPF_JLT:
+	case BPF_JGE:
+		if (!c)
+			return false;
+		fallthrough;
+	case BPF_JSLT:
+	case BPF_JSGE:
+		c--;
+		break;
+	case BPF_JGT:
+	case BPF_JLE:
+		if (c == -1)
+			return false;
+		fallthrough;
+	case BPF_JSGT:
+	case BPF_JSLE:
+		c++;
+		break;
+	default:
+		return false;
+	}
+	/* Past a signed limit the neighbor does not fit the 32-bit immediate */
+	if (c != (s32)c || (!is_addsub_imm(c) && !is_addsub_imm(-(u32)c)))
+		return false;
+
+	switch (*op) {
+	case BPF_JLT:
+		new_op = BPF_JLE;
+		break;
+	case BPF_JGE:
+		new_op = BPF_JGT;
+		break;
+	case BPF_JSLT:
+		new_op = BPF_JSLE;
+		break;
+	case BPF_JSGE:
+		new_op = BPF_JSGT;
+		break;
+	case BPF_JGT:
+		new_op = BPF_JGE;
+		break;
+	case BPF_JLE:
+		new_op = BPF_JLT;
+		break;
+	case BPF_JSGT:
+		new_op = BPF_JSGE;
+		break;
+	default:
+		new_op = BPF_JSLT;
+		break;
+	}
+	*op = new_op;
+	*imm = c;
+	return true;
+}
+
 /* generated main prog prologue:
  *      bti c // if CONFIG_ARM64_BTI_KERNEL
  *      mov x9, lr
@@ -1609,6 +1676,8 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	const int i = insn - ctx->prog->insnsi;
 	const bool is64 = BPF_CLASS(code) == BPF_ALU64 ||
 			  BPF_CLASS(code) == BPF_JMP;
+	u8 jmp_op = BPF_OP(code);
+	s32 cmp_imm = imm;
 	u8 jmp_cond;
 	s32 jmp_offset;
 	u32 a64_insn;
@@ -1886,7 +1955,7 @@ emit_bswap_uxt:
 emit_cond_jmp:
 		jmp_offset = bpf2a64_offset(i, off, ctx);
 		check_imm19(jmp_offset);
-		switch (BPF_OP(code)) {
+		switch (jmp_op) {
 		case BPF_JEQ:
 			jmp_cond = A64_COND_EQ;
 			break;
@@ -1948,12 +2017,14 @@ emit_cond_jmp:
 	case BPF_JMP32 | BPF_JSLT | BPF_K:
 	case BPF_JMP32 | BPF_JSGE | BPF_K:
 	case BPF_JMP32 | BPF_JSLE | BPF_K:
-		if (is_addsub_imm(imm)) {
-			emit(A64_CMP_I(is64, dst, imm), ctx);
-		} else if (is_addsub_imm(-(u32)imm)) {
-			emit(A64_CMN_I(is64, dst, -imm), ctx);
+		if (!is_addsub_imm(imm) && !is_addsub_imm(-(u32)imm))
+			adjust_cmp_imm(&jmp_op, &cmp_imm);
+		if (is_addsub_imm(cmp_imm)) {
+			emit(A64_CMP_I(is64, dst, cmp_imm), ctx);
+		} else if (is_addsub_imm(-(u32)cmp_imm)) {
+			emit(A64_CMN_I(is64, dst, -cmp_imm), ctx);
 		} else {
-			emit_a64_mov_i(is64, tmp, imm, ctx);
+			emit_a64_mov_i(is64, tmp, cmp_imm, ctx);
 			emit(A64_CMP(is64, dst, tmp), ctx);
 		}
 		goto emit_cond_jmp;
