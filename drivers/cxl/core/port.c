@@ -751,6 +751,7 @@ static struct cxl_port *cxl_port_alloc(struct device *uport_dev,
 	xa_init(&port->dports);
 	xa_init(&port->endpoints);
 	xa_init(&port->regions);
+	mutex_init(&port->bi_lock);
 	port->component_reg_phys = CXL_RESOURCE_NONE;
 
 	device_initialize(dev);

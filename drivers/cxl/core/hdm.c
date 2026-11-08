@@ -191,6 +191,38 @@ static struct cxl_hdm *devm_cxl_setup_hdm(struct cxl_port *port,
 	return cxlhdm;
 }
 
+/*
+ * Whether any of the endpoint's HDM decoders still decodes with its BI
+ * bit set, read from the hardware: a decoder can outlive the driver's
+ * teardown committed, whether locked, in a region that is never reset,
+ * or never in a region at all.
+ */
+bool cxl_hdm_bi_committed(struct cxl_port *endpoint)
+{
+	struct cxl_hdm *cxlhdm = dev_get_drvdata(&endpoint->dev);
+	void __iomem *hdm;
+	u32 ctrl;
+	int i;
+
+	if (!cxlhdm || !cxlhdm->regs.hdm_decoder)
+		return false;
+	hdm = cxlhdm->regs.hdm_decoder;
+
+	/* nothing decodes with decoding off, emulated, or the device gone */
+	ctrl = readl(hdm + CXL_HDM_DECODER_CTRL_OFFSET);
+	if (ctrl == U32_MAX || !(ctrl & CXL_HDM_DECODER_ENABLE))
+		return false;
+
+	for (i = 0; i < cxlhdm->decoder_count; i++) {
+		ctrl = readl(hdm + CXL_HDM_DECODER0_CTRL_OFFSET(i));
+		if ((ctrl & CXL_HDM_DECODER0_CTRL_COMMITTED) &&
+		    (ctrl & CXL_HDM_DECODER0_CTRL_BI))
+			return true;
+	}
+
+	return false;
+}
+
 static void __cxl_dpa_debug(struct seq_file *file, struct resource *r, int depth)
 {
 	unsigned long long start = r->start, end = r->end;
@@ -1357,6 +1389,16 @@ int devm_cxl_endpoint_decoders_setup(struct cxl_port *port)
 	rc = cxl_hdm_decode_init(cxlds, cxlhdm, &info);
 	if (rc)
 		return rc;
+
+	/*
+	 * Between the port's HDM state and its decoders: devres,
+	 * unwinding in reverse, brings BI down only after the decoders
+	 * quiesce, while its slow walk still precedes the HDM state
+	 * free.
+	 */
+	rc = cxl_bi_setup(port);
+	if (rc)
+		dev_dbg(&port->dev, "BI setup failed rc=%d\n", rc);
 
 	return devm_cxl_enumerate_decoders(cxlhdm, &info);
 }

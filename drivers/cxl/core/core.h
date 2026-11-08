@@ -206,9 +206,17 @@ static inline void devm_cxl_dport_ras_setup(struct cxl_dport *dport) { }
 int cxl_gpf_port_setup(struct cxl_dport *dport);
 void devm_cxl_dport_bi_setup(struct cxl_dport *dport);
 
+static inline bool cxl_bi_decoder_enabled(struct cxl_port *port)
+{
+	return FIELD_GET(CXL_BI_DECODER_CTRL_BI_ENABLE,
+			 readl(port->regs.bi_decoder +
+			       CXL_BI_DECODER_CTRL_OFFSET));
+}
+
 struct cxl_hdm;
 int cxl_hdm_decode_init(struct cxl_dev_state *cxlds, struct cxl_hdm *cxlhdm,
 			struct cxl_endpoint_dvsec_info *info);
+bool cxl_hdm_bi_committed(struct cxl_port *endpoint);
 int cxl_port_get_possible_dports(struct cxl_port *port);
 
 #ifdef CONFIG_CXL_FEATURES
