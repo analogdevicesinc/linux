@@ -2384,6 +2384,8 @@ static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 		const void __user *p;
 		int node;
 
+		cond_resched();
+
 		err = -EFAULT;
 		if (in_compat_syscall()) {
 			compat_uptr_t cp;
