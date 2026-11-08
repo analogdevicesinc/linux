@@ -461,6 +461,26 @@ static void emit_ldst(const u8 code, const u8 rt, const u8 rn, const s32 off,
 	}
 }
 
+/*
+ * Load or store at the arena base, plus off added into tmp_addr, plus reg zero
+ * extended from 32 bits in the access, which keeps it in the arena and its
+ * guard whatever the upper bits of reg hold.
+ */
+static void emit_arena_ldst(const u8 code, const u8 rt, const u8 reg, const s32 off,
+			    const u8 tmp_addr, const u8 tmp, struct jit_ctx *ctx)
+{
+	u8 base = bpf2a64[ARENA_VM_START];
+	int scale;
+
+	if (off) {
+		emit_a64_add_i(1, tmp_addr, base, tmp, off, ctx);
+		base = tmp_addr;
+	}
+	emit(aarch64_insn_gen_load_store_reg(rt, base, reg, AARCH64_INSN_EXTEND_UXTW,
+					     0, a64_ldst_size(code, &scale),
+					     a64_ldst_type(code, A64_LDST_REG)), ctx);
+}
+
 /* generated main prog prologue:
  *      bti c // if CONFIG_ARM64_BTI_KERNEL
  *      mov x9, lr
@@ -846,6 +866,7 @@ static int emit_atomic_ld_st(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const u8 dst = bpf2a64[insn->dst_reg];
 	const u8 src = bpf2a64[insn->src_reg];
 	const u8 tmp = bpf2a64[TMP_REG_1];
+	const u8 tmp2 = bpf2a64[TMP_REG_2];
 	u8 reg;
 
 	switch (imm) {
@@ -860,12 +881,21 @@ static int emit_atomic_ld_st(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if (off) {
-		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
-		reg = tmp;
-	}
+	/*
+	 * The arena base with the offset first and the arena offset zero
+	 * extended onto it, see emit_arena_ldst()
+	 */
 	if (arena) {
-		emit(A64_ADD(1, tmp, reg, arena_vm_base), ctx);
+		u8 base = arena_vm_base;
+
+		if (off) {
+			emit_a64_add_i(1, tmp, base, tmp, off, ctx);
+			base = tmp;
+		}
+		emit(A64_ADD_UXTW(tmp2, base, reg), ctx);
+		reg = tmp2;
+	} else if (off) {
+		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
 		reg = tmp;
 	}
 
@@ -919,17 +949,27 @@ static int emit_lse_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const u8 src = bpf2a64[insn->src_reg];
 	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 tmp2 = bpf2a64[TMP_REG_2];
+	const u8 tmp3 = bpf2a64[TMP_REG_3];
 	const bool isdw = BPF_SIZE(code) == BPF_DW;
 	const bool arena = BPF_MODE(code) == BPF_PROBE_ATOMIC;
 	const s16 off = insn->off;
 	u8 reg = dst;
 
-	if (off) {
-		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
-		reg = tmp;
-	}
+	/*
+	 * The arena base with the offset first and the arena offset zero
+	 * extended onto it, see emit_arena_ldst()
+	 */
 	if (arena) {
-		emit(A64_ADD(1, tmp, reg, arena_vm_base), ctx);
+		u8 base = arena_vm_base;
+
+		if (off) {
+			emit_a64_add_i(1, tmp, base, tmp, off, ctx);
+			base = tmp;
+		}
+		emit(A64_ADD_UXTW(tmp3, base, reg), ctx);
+		reg = tmp3;
+	} else if (off) {
+		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
 		reg = tmp;
 	}
 
@@ -1564,7 +1604,6 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 tmp2 = bpf2a64[TMP_REG_2];
 	const u8 tmp3 = bpf2a64[TMP_REG_3];
-	const u8 arena_vm_base = bpf2a64[ARENA_VM_START];
 	const s16 off = insn->off;
 	const s32 imm = insn->imm;
 	const int i = insn - ctx->prog->insnsi;
@@ -2062,11 +2101,6 @@ emit_cond_jmp:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_B:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_H:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_W:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32 ||
-		    BPF_MODE(insn->code) == BPF_PROBE_MEM32SX) {
-			emit(A64_ADD(1, tmp2, src, arena_vm_base), ctx);
-			src = tmp2;
-		}
 		off_adj = off;
 		if (BPF_MODE(insn->code) == BPF_PROBE_MEM ||
 		    BPF_MODE(insn->code) == BPF_PROBE_MEMSX) {
@@ -2086,7 +2120,11 @@ emit_cond_jmp:
 			emit(A64_MOVZ(1, dst, 0, 0), ctx);
 			emit(A64_B(2), ctx);
 		}
-		emit_ldst(code, dst, src, off_adj, tmp, ctx);
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32 ||
+		    BPF_MODE(insn->code) == BPF_PROBE_MEM32SX)
+			emit_arena_ldst(code, dst, src, off, tmp2, tmp, ctx);
+		else
+			emit_ldst(code, dst, src, off_adj, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, dst);
 		if (ret)
@@ -2117,14 +2155,13 @@ emit_cond_jmp:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_H:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_W:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_DW:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32) {
-			emit(A64_ADD(1, tmp3, dst, arena_vm_base), ctx);
-			dst = tmp3;
-		}
 		/* A zero comes from the zero register, any other imm through a register */
 		if (imm)
 			emit_a64_mov_i(1, tmp, imm, ctx);
-		emit_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp2, ctx);
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32)
+			emit_arena_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp3, tmp2, ctx);
+		else
+			emit_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp2, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
@@ -2145,11 +2182,10 @@ emit_cond_jmp:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_H:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_W:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_DW:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32) {
-			emit(A64_ADD(1, tmp2, dst, arena_vm_base), ctx);
-			dst = tmp2;
-		}
-		emit_ldst(code, src, dst, off, tmp, ctx);
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32)
+			emit_arena_ldst(code, src, dst, off, tmp2, tmp, ctx);
+		else
+			emit_ldst(code, src, dst, off, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
