@@ -94,6 +94,7 @@ struct jit_ctx {
 	bool fp_used;
 	bool priv_sp_used;
 	bool write;
+	unsigned long *tb;
 };
 
 struct bpf_plt {
@@ -600,6 +601,95 @@ static bool adjust_cmp_imm(u8 *op, s32 *imm)
 	}
 	*op = new_op;
 	*imm = c;
+	return true;
+}
+
+/*
+ * The bit that a sign test, an unsigned 32-bit compare at the sign bit or a
+ * single bit test checks, with *nonzero set if it branches on a set bit, or -1.
+ */
+static int tb_bit(u8 op, bool is64, s32 imm, bool *nonzero)
+{
+	const int sign = is64 ? 63 : 31;
+	u64 mask;
+
+	switch (op) {
+	case BPF_JSLT:
+	case BPF_JSGE:
+		/* x < 0, x >= 0 */
+		if (imm)
+			return -1;
+		*nonzero = op == BPF_JSLT;
+		return sign;
+	case BPF_JSGT:
+	case BPF_JSLE:
+		/* x > -1, x <= -1 */
+		if (imm != -1)
+			return -1;
+		*nonzero = op == BPF_JSLE;
+		return sign;
+	case BPF_JGT:
+	case BPF_JLE:
+		/* x > 0x7fffffff, x <= 0x7fffffff in 32 bits */
+		if (is64 || imm != 0x7fffffff)
+			return -1;
+		*nonzero = op == BPF_JGT;
+		return 31;
+	case BPF_JGE:
+	case BPF_JLT:
+		/* x >= 0x80000000, x < 0x80000000 in 32 bits */
+		if (is64 || imm != INT_MIN)
+			return -1;
+		*nonzero = op == BPF_JGE;
+		return 31;
+	case BPF_JSET:
+		mask = is64 ? (u64)(s64)imm : (u32)imm;
+		if (!is_power_of_2(mask))
+			return -1;
+		*nonzero = true;
+		return ilog2(mask);
+	default:
+		return -1;
+	}
+}
+
+/*
+ * Pass 1 takes the compare and branch for every test and the indirect form for
+ * every call, no later layout is longer, so a test within reach of the test bit
+ * and branch there is within reach in every image.
+ */
+static void find_tb(struct jit_ctx *ctx)
+{
+	const struct bpf_prog *prog = ctx->prog;
+	bool nonzero;
+	int i, d;
+
+	for (i = 0; i < prog->len; i++) {
+		const struct bpf_insn *insn = &prog->insnsi[i];
+		const u8 class = BPF_CLASS(insn->code);
+
+		if ((class != BPF_JMP && class != BPF_JMP32) ||
+		    BPF_SRC(insn->code) != BPF_K)
+			continue;
+		if (tb_bit(BPF_OP(insn->code), class == BPF_JMP, insn->imm, &nonzero) < 0)
+			continue;
+		d = ctx->offset[i + 1 + insn->off] - (ctx->offset[i + 1] - 1);
+		if (d >= -SZ_8K && d < SZ_8K)
+			__set_bit(i, ctx->tb);
+	}
+}
+
+static bool emit_tb(bool nonzero, u8 reg, int bit, int i, s16 off, struct jit_ctx *ctx)
+{
+	int jmp_offset;
+
+	if (!test_bit(i, ctx->tb))
+		return false;
+	jmp_offset = bpf2a64_offset(i, off, ctx);
+	if (nonzero)
+		emit(A64_TBNZ(reg, bit, jmp_offset), ctx);
+	else
+		emit(A64_TBZ(reg, bit, jmp_offset), ctx);
 	return true;
 }
 
@@ -1740,6 +1830,8 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	s32 jmp_offset;
 	u32 a64_insn;
 	int off_adj;
+	bool nonzero;
+	int bit;
 	int ret;
 
 	if (bpf_insn_is_indirect_target(env, ctx->prog, i))
@@ -2091,6 +2183,20 @@ emit_cond_jmp:
 	case BPF_JMP32 | BPF_JSLT | BPF_K:
 	case BPF_JMP32 | BPF_JSGE | BPF_K:
 	case BPF_JMP32 | BPF_JSLE | BPF_K:
+		/* A test of the sign within reach is a test bit and branch */
+		bit = tb_bit(jmp_op, is64, imm, &nonzero);
+		if (bit >= 0 && emit_tb(nonzero, dst, bit, i, off, ctx))
+			break;
+		/* A compare against zero for equality is a compare and branch */
+		if (!imm && (jmp_op == BPF_JEQ || jmp_op == BPF_JNE)) {
+			jmp_offset = bpf2a64_offset(i, off, ctx);
+			check_imm19(jmp_offset);
+			if (jmp_op == BPF_JEQ)
+				emit(A64_CBZ(is64, dst, jmp_offset), ctx);
+			else
+				emit(A64_CBNZ(is64, dst, jmp_offset), ctx);
+			break;
+		}
 		if (!is_addsub_imm(imm) && !is_addsub_imm(-(u32)imm))
 			adjust_cmp_imm(&jmp_op, &cmp_imm);
 		if (is_addsub_imm(cmp_imm)) {
@@ -2104,6 +2210,10 @@ emit_cond_jmp:
 		goto emit_cond_jmp;
 	case BPF_JMP | BPF_JSET | BPF_K:
 	case BPF_JMP32 | BPF_JSET | BPF_K:
+		/* A test of a single bit within reach is a test bit and branch */
+		bit = tb_bit(jmp_op, is64, imm, &nonzero);
+		if (bit >= 0 && emit_tb(nonzero, dst, bit, i, off, ctx))
+			break;
 		a64_insn = A64_TST_I(is64, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -2539,6 +2649,9 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 	ctx.offset = kvzalloc_objs(int, prog->len + 1);
 	if (ctx.offset == NULL)
 		goto out_off;
+	ctx.tb = kvzalloc_objs(unsigned long, BITS_TO_LONGS(prog->len));
+	if (ctx.tb == NULL)
+		goto out_off;
 
 	if (bpf_prog_uses_arena_insns(prog)) {
 		ctx.user_vm_start = bpf_arena_get_user_vm_start(prog->aux->arena);
@@ -2566,6 +2679,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 
 	if (build_body(env, &ctx, extra_pass))
 		goto out_off;
+	find_tb(&ctx);
 
 	ctx.epilogue_offset = ctx.idx;
 	build_epilogue(&ctx, was_classic, false);
@@ -2686,6 +2800,7 @@ out_off:
 			prog->aux->priv_stack_ptr = NULL;
 		}
 		kvfree(ctx.offset);
+		kvfree(ctx.tb);
 out_priv_stack:
 		kfree(jit_data);
 		prog->aux->jit_data = NULL;
@@ -3759,6 +3874,7 @@ void bpf_jit_free(struct bpf_prog *prog)
 		if (jit_data) {
 			bpf_jit_binary_pack_finalize(jit_data->ro_header, jit_data->header);
 			kvfree(jit_data->ctx.offset);
+			kvfree(jit_data->ctx.tb);
 			kfree(jit_data);
 		}
 		prog->bpf_func = (void *)prog->bpf_func - cfi_get_offset();
