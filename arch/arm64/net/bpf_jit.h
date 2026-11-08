@@ -45,7 +45,6 @@
 #define A64_BRANCH(offset, type) aarch64_insn_gen_branch_imm(0, offset, \
 	AARCH64_INSN_BRANCH_##type)
 #define A64_B(imm26)  A64_BRANCH((imm26) << 2, NOLINK)
-#define A64_BL(imm26) A64_BRANCH((imm26) << 2, LINK)
 
 /* Unconditional branch (register) */
 #define A64_BR(Rn)  aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_NOLINK)
@@ -87,8 +86,6 @@
 #define A64_LDR64I(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 64, LOAD)
 
 /* LDR (literal) */
-#define A64_LDR32LIT(Wt, offset) \
-	aarch64_insn_gen_load_literal(0, offset, Wt, false)
 #define A64_LDR64LIT(Xt, offset) \
 	aarch64_insn_gen_load_literal(0, offset, Xt, true)
 
@@ -324,7 +321,6 @@
 #define A64_AUTIASP A64_HINT(AARCH64_INSN_HINT_AUTIASP)
 
 /* BTI */
-#define A64_BTI_C  A64_HINT(AARCH64_INSN_HINT_BTIC)
 #define A64_BTI_J  A64_HINT(AARCH64_INSN_HINT_BTIJ)
 #define A64_BTI_JC A64_HINT(AARCH64_INSN_HINT_BTIJC)
 #define A64_NOP    A64_HINT(AARCH64_INSN_HINT_NOP)
