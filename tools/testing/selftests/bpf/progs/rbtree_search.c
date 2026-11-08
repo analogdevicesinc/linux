@@ -133,7 +133,7 @@ long rbtree_search(void *ctx)
 
 #define TEST_ROOT(dolock)				\
 SEC("syscall")						\
-__failure __msg(MSG)					\
+__failure __msg(MSG) __log_level(2)			\
 long test_root_spinlock_##dolock(void *ctx)		\
 {							\
 	struct bpf_rb_node *rb_n;			\
@@ -152,7 +152,7 @@ long test_root_spinlock_##dolock(void *ctx)		\
 
 #define TEST_LR(op, dolock)				\
 SEC("syscall")						\
-__failure __msg(MSG)					\
+__failure __msg(MSG) __log_level(2)			\
 long test_##op##_spinlock_##dolock(void *ctx)		\
 {							\
 	struct bpf_rb_node *rb_n;			\

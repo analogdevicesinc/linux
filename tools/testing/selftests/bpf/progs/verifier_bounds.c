@@ -1648,7 +1648,7 @@ l0_%=:	r0 = 0;				\
  */
 SEC("socket")
 __description("bounds deduction cross sign boundary, two overlaps")
-__failure
+__failure __log_level(2)
 __msg("3: (2d) if r0 > r1 {{.*}} R0=scalar(smin=smin32=-128,smax=smax32=127)")
 /* smin=-128 includes point 0xffffffffffffff80 */
 __msg("frame pointer is read only")
