@@ -3904,7 +3904,7 @@ static struct cxl_region *construct_region(struct cxl_root_decoder *cxlrd,
 	 * restrictions can.
 	 */
 	need = cxled->cxld.target_type == CXL_DECODER_DEVMEM ?
-	       CXL_DECODER_F_TYPE2 : CXL_DECODER_F_TYPE3;
+	       CXL_DECODER_F_DEVMEM : CXL_DECODER_F_HOSTONLY;
 	if (!(cxlrd->cxlsd.cxld.flags & need)) {
 		dev_dbg(&cxlrd->cxlsd.cxld.dev,
 			"%s:%s range type not permitted by the window\n",
