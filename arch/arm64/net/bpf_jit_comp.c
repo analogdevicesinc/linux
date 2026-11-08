@@ -888,6 +888,7 @@ static int emit_ll_sc_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const s32 imm = insn->imm;
 	const s16 off = insn->off;
 	const bool isdw = BPF_SIZE(code) == BPF_DW;
+	const int load_reg = bpf_atomic_load_reg(insn);
 	u8 reg = dst;
 	s32 jmp_offset;
 
@@ -899,6 +900,11 @@ static int emit_ll_sc_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 
 	if (off) {
 		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
+		reg = tmp;
+	}
+	/* The load of the old value must not clobber the address */
+	if (load_reg >= 0 && bpf2a64[load_reg] == reg) {
+		emit(A64_MOV(1, tmp, reg), ctx);
 		reg = tmp;
 	}
 
