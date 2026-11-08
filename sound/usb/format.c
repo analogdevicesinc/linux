@@ -57,6 +57,11 @@ static u64 parse_audio_format_i_type(struct snd_usb_audio *chip,
 		sample_width = fmt->bBitResolution;
 		sample_bytes = fmt->bSubslotSize;
 
+		/* Steinberg UR22C workaround: config 2 capture sets 0xffffffff */
+		if (chip->usb_id == USB_ID(0x0499, 0x172f) &&
+		    format == 0xffffffff)
+			format = 1;
+
 		if (format & UAC2_FORMAT_TYPE_I_RAW_DATA) {
 			pcm_formats |= SNDRV_PCM_FMTBIT_SPECIAL;
 			/* flag potentially raw DSD capable altsettings */
