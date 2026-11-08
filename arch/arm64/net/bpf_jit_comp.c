@@ -1911,6 +1911,12 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_AND | BPF_K:
 	case BPF_ALU64 | BPF_AND | BPF_K:
+		/* All ones only zero extends the 32-bit variant */
+		if (imm == -1) {
+			if (!is64)
+				emit(A64_MOV(0, dst, dst), ctx);
+			break;
+		}
 		a64_insn = A64_AND_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1921,6 +1927,11 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_OR | BPF_K:
 	case BPF_ALU64 | BPF_OR | BPF_K:
+		/* The or with all ones is the move of -1 */
+		if (imm == -1) {
+			emit(A64_MOVN(is64, dst, 0, 0), ctx);
+			break;
+		}
 		a64_insn = A64_ORR_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1931,6 +1942,11 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_XOR | BPF_K:
 	case BPF_ALU64 | BPF_XOR | BPF_K:
+		/* The xor with all ones is the not */
+		if (imm == -1) {
+			emit(A64_MVN(is64, dst, dst), ctx);
+			break;
+		}
 		a64_insn = A64_EOR_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
