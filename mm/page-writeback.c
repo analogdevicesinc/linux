@@ -1827,9 +1827,15 @@ static int balance_dirty_pages(struct bdi_writeback *wb,
 			balance_domain_limits(mdtc, strictlimit);
 		}
 
+		/*
+		 * gdtc->wb_dirty includes pages under writeback, so use it as
+		 * a cheap preliminary check before wb_over_bg_thresh() decides
+		 * whether background writeback is needed.
+		 */
 		if (!writeback_in_progress(wb) &&
 		    (nr_dirty > gdtc->bg_thresh ||
-		     (strictlimit && gdtc->wb_dirty > gdtc->wb_bg_thresh)))
+		     (strictlimit && gdtc->wb_dirty > gdtc->wb_bg_thresh &&
+		      wb_over_bg_thresh(wb))))
 			wb_start_background_writeback(wb);
 
 		/*
