@@ -1807,7 +1807,7 @@ static int ads1262_parse_channel_node(struct ads1262 *st,
 		pins[0] = ADS1262_IDACMUX_NO_CONN;
 		pins[1] = ADS1262_IDACMUX_NO_CONN;
 		ret = fwnode_property_read_u32_array(node, "excitation-channels",
-						     pins, min(count, ARRAY_SIZE(pins)));
+						     pins, umin(count, ARRAY_SIZE(pins)));
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "%pfwP: failed to read excitation-channels\n", node);
@@ -1820,7 +1820,7 @@ static int ads1262_parse_channel_node(struct ads1262 *st,
 		mags[0] = 0;
 		mags[1] = 0;
 		ret = fwnode_property_read_u32_array(node, "excitation-current-nanoamp",
-						     mags, min(count, ARRAY_SIZE(mags)));
+						     mags, umin(count, ARRAY_SIZE(mags)));
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "%pfwP: failed to read excitation-current-nanoamp\n",
