@@ -157,8 +157,7 @@ spi_ingenic_prepare_dma(struct spi_controller *ctlr, struct dma_chan *chan,
 		return ERR_PTR(-ENOMEM);
 
 	if (dir == DMA_DEV_TO_MEM) {
-		desc->callback = spi_ingenic_finalize_transfer;
-		desc->callback_param = ctlr;
+		dmaengine_desc_set_callback(desc, spi_ingenic_finalize_transfer, NULL, ctlr);
 	}
 
 	cookie = dmaengine_submit(desc);

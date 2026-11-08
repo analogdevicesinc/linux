@@ -14,7 +14,7 @@
 
 static bool pxa2xx_spi_idma_filter(struct dma_chan *chan, void *param)
 {
-	return param == chan->device->dev;
+	return param == dmaengine_get_provider_device(chan);
 }
 
 static int
@@ -198,7 +198,7 @@ static const struct of_device_id pxa2xx_spi_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, pxa2xx_spi_of_match);
 
-static struct platform_driver driver = {
+static struct platform_driver pxa2xx_spi_driver = {
 	.driver = {
 		.name	= "pxa2xx-spi",
 		.pm	= pm_ptr(&pxa2xx_spi_pm_ops),
@@ -208,18 +208,7 @@ static struct platform_driver driver = {
 	.probe = pxa2xx_spi_platform_probe,
 	.remove = pxa2xx_spi_platform_remove,
 };
-
-static int __init pxa2xx_spi_init(void)
-{
-	return platform_driver_register(&driver);
-}
-subsys_initcall(pxa2xx_spi_init);
-
-static void __exit pxa2xx_spi_exit(void)
-{
-	platform_driver_unregister(&driver);
-}
-module_exit(pxa2xx_spi_exit);
+subsys_platform_driver(pxa2xx_spi_driver);
 
 MODULE_AUTHOR("Stephen Street");
 MODULE_DESCRIPTION("PXA2xx SSP SPI Controller platform driver");

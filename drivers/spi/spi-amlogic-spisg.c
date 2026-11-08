@@ -165,6 +165,7 @@ struct spisg_device {
 	struct clk			*sclk;
 	struct clk_div_table		*tbl;
 	struct completion		completion;
+	int				irq;
 	const struct aml_spisg_data	*data;
 	u32				status;
 	u32				speed_hz;
@@ -692,21 +693,19 @@ static int aml_spisg_clk_init(struct spisg_device *spisg, void __iomem *base)
 	char name[32];
 	int ret, i;
 
-	spisg->core = devm_clk_get_enabled(dev, "core");
+	spisg->core = devm_clk_get(dev, "core");
 	if (IS_ERR(spisg->core)) {
 		dev_err(dev, "core clock request failed\n");
 		return PTR_ERR(spisg->core);
 	}
 
-	spisg->pclk = devm_clk_get_enabled(dev, "pclk");
+	spisg->pclk = devm_clk_get(dev, "pclk");
 	if (IS_ERR(spisg->pclk)) {
 		dev_err(dev, "pclk clock request failed\n");
 		return PTR_ERR(spisg->pclk);
 	}
 
 	clk_set_min_rate(spisg->pclk, SPISG_PCLK_RATE_MIN);
-
-	clk_disable_unprepare(spisg->pclk);
 
 	tbl = devm_kcalloc(dev, (DIV_NUM + 1), sizeof(*tbl), GFP_KERNEL);
 	if (!tbl)
@@ -728,6 +727,10 @@ static int aml_spisg_clk_init(struct spisg_device *spisg, void __iomem *base)
 	div->width = CLK_DIV_WIDTH;
 	div->table = tbl;
 
+	ret = clk_prepare_enable(spisg->core);
+	if (ret)
+		return ret;
+
 	/* Register value should not be outside of the table */
 	regmap_update_bits(spisg->map, SPISG_REG_CFG_BUS, CFG_CLK_DIV,
 			   FIELD_PREP(CFG_CLK_DIV, SPISG_CLK_DIV_MIN - 1));
@@ -745,20 +748,25 @@ static int aml_spisg_clk_init(struct spisg_device *spisg, void __iomem *base)
 	ret = devm_clk_hw_register(dev, &div->hw);
 	if (ret) {
 		dev_err(dev, "clock registration failed\n");
-		return ret;
+		goto out_core;
 	}
 
 	spisg->sclk = devm_clk_hw_get_clk(dev, &div->hw, NULL);
 	if (IS_ERR(spisg->sclk)) {
 		dev_err(dev, "get clock failed\n");
-		return PTR_ERR(spisg->sclk);
+		ret = PTR_ERR(spisg->sclk);
+		goto out_core;
 	}
 
 	ret = clk_prepare_enable(spisg->sclk);
 	if (ret)
-		return ret;
+		goto out_core;
 
 	return 0;
+
+out_core:
+	clk_disable_unprepare(spisg->core);
+	return ret;
 }
 
 static int aml_spisg_probe(struct platform_device *pdev)
@@ -802,6 +810,7 @@ static int aml_spisg_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
+	spisg->irq = irq;
 
 	ret = device_reset_optional(dev);
 	if (ret)
@@ -832,9 +841,13 @@ static int aml_spisg_probe(struct platform_device *pdev)
 	/* default pending */
 	spisg->cfg_start = FIELD_PREP(CFG_PEND, 1);
 
-	pm_runtime_set_active(&spisg->pdev->dev);
-	pm_runtime_enable(&spisg->pdev->dev);
-	pm_runtime_resume_and_get(&spisg->pdev->dev);
+	ret = pm_runtime_set_active(dev);
+	if (ret)
+		goto out_clk;
+
+	/* Clock initialization has already powered up the controller. */
+	pm_runtime_get_noresume(dev);
+	pm_runtime_enable(dev);
 
 	ctlr->num_chipselect = 4;
 	ctlr->mode_bits = SPI_CPHA | SPI_CPOL | SPI_LSB_FIRST |
@@ -856,22 +869,26 @@ static int aml_spisg_probe(struct platform_device *pdev)
 	ret = devm_request_irq(&pdev->dev, irq, aml_spisg_irq, 0, NULL, spisg);
 	if (ret) {
 		dev_err(&pdev->dev, "irq request failed\n");
-		goto out_clk;
+		goto out_pm;
 	}
 
 	ret = spi_register_controller(ctlr);
 	if (ret) {
 		dev_err(&pdev->dev, "spi controller registration failed\n");
-		goto out_clk;
+		devm_free_irq(dev, irq, spisg);
+		goto out_pm;
 	}
 
 	pm_runtime_put(&spisg->pdev->dev);
 
 	return 0;
+out_pm:
+	pm_runtime_disable(dev);
+	pm_runtime_put_noidle(dev);
 out_clk:
-	if (spisg->core)
-		clk_disable_unprepare(spisg->core);
-	clk_disable_unprepare(spisg->pclk);
+	clk_disable_unprepare(spisg->sclk);
+	clk_disable_unprepare(spisg->core);
+	pm_runtime_set_suspended(dev);
 
 	return ret;
 }
@@ -882,11 +899,15 @@ static void aml_spisg_remove(struct platform_device *pdev)
 
 	spi_unregister_controller(spisg->controller);
 
-	if (!pm_runtime_suspended(&pdev->dev)) {
+	pm_runtime_disable(&pdev->dev);
+	devm_free_irq(&pdev->dev, spisg->irq, spisg);
+
+	if (!pm_runtime_status_suspended(&pdev->dev)) {
 		pinctrl_pm_select_sleep_state(&spisg->pdev->dev);
+		clk_disable_unprepare(spisg->sclk);
 		clk_disable_unprepare(spisg->core);
-		clk_disable_unprepare(spisg->pclk);
 	}
+	pm_runtime_set_suspended(&pdev->dev);
 }
 
 static int spisg_suspend_runtime(struct device *dev)

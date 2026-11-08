@@ -1690,11 +1690,9 @@ static int stm32_spi_transfer_one_dma(struct stm32_spi *spi,
 
 	if (rx_dma_desc) {
 		if (rx_mdma_desc) {
-			rx_mdma_desc->callback = spi->cfg->dma_rx_cb;
-			rx_mdma_desc->callback_param = spi;
+			dmaengine_desc_set_callback(rx_mdma_desc, spi->cfg->dma_rx_cb, NULL, spi);
 		} else {
-			rx_dma_desc->callback = spi->cfg->dma_rx_cb;
-			rx_dma_desc->callback_param = spi;
+			dmaengine_desc_set_callback(rx_dma_desc, spi->cfg->dma_rx_cb, NULL, spi);
 		}
 
 		/* Enable Rx DMA request */
@@ -1719,8 +1717,7 @@ static int stm32_spi_transfer_one_dma(struct stm32_spi *spi,
 	if (tx_dma_desc) {
 		if (spi->cur_comm == SPI_SIMPLEX_TX ||
 		    spi->cur_comm == SPI_3WIRE_TX) {
-			tx_dma_desc->callback = spi->cfg->dma_tx_cb;
-			tx_dma_desc->callback_param = spi;
+			dmaengine_desc_set_callback(tx_dma_desc, spi->cfg->dma_tx_cb, NULL, spi);
 		}
 
 		if (dma_submit_error(dmaengine_submit(tx_dma_desc))) {

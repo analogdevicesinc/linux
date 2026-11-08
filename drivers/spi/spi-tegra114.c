@@ -480,8 +480,7 @@ static int tegra_spi_start_tx_dma(struct tegra_spi_data *tspi, int len)
 		return -EIO;
 	}
 
-	tspi->tx_dma_desc->callback = tegra_spi_dma_complete;
-	tspi->tx_dma_desc->callback_param = &tspi->tx_dma_complete;
+	dmaengine_desc_set_callback(tspi->tx_dma_desc, tegra_spi_dma_complete, NULL, &tspi->tx_dma_complete);
 
 	dmaengine_submit(tspi->tx_dma_desc);
 	dma_async_issue_pending(tspi->tx_dma_chan);
@@ -499,8 +498,7 @@ static int tegra_spi_start_rx_dma(struct tegra_spi_data *tspi, int len)
 		return -EIO;
 	}
 
-	tspi->rx_dma_desc->callback = tegra_spi_dma_complete;
-	tspi->rx_dma_desc->callback_param = &tspi->rx_dma_complete;
+	dmaengine_desc_set_callback(tspi->rx_dma_desc, tegra_spi_dma_complete, NULL, &tspi->rx_dma_complete);
 
 	dmaengine_submit(tspi->rx_dma_desc);
 	dma_async_issue_pending(tspi->rx_dma_chan);
@@ -770,7 +768,7 @@ static int tegra_spi_set_hw_cs_timing(struct spi_device *spi)
 static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 					struct spi_transfer *t,
 					bool is_first_of_msg,
-					bool is_single_xfer)
+					bool use_hw_cs)
 {
 	struct tegra_spi_data *tspi = spi_controller_get_devdata(spi->controller);
 	struct tegra_spi_client_data *cdata = spi->controller_data;
@@ -779,6 +777,7 @@ static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 	u32 command1, command2;
 	int req_mode;
 	u32 tx_tap = 0, rx_tap = 0;
+	bool keep_cs;
 
 	if (speed != tspi->cur_speed) {
 		clk_set_rate(tspi->clk, speed);
@@ -794,7 +793,17 @@ static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 	if (is_first_of_msg) {
 		tegra_spi_clear_status(tspi);
 
-		command1 = tspi->def_command1_reg;
+		/*
+		 * If the previous message left CS asserted (cs_change=1
+		 * on its last transfer, e.g. across a bus-locked group),
+		 * start from the current SPI_COMMAND1 value so the
+		 * software CS bits are inherited as-is. Otherwise start
+		 * from the reset default and program CS below.
+		 */
+		keep_cs = (tspi->cs_control == spi);
+		command1 = keep_cs ? tspi->command1_reg : tspi->def_command1_reg;
+
+		command1 &= ~SPI_BIT_LENGTH(~0);
 		command1 |= SPI_BIT_LENGTH(bits_per_word - 1);
 
 		command1 &= ~SPI_CONTROL_MODE_MASK;
@@ -818,28 +827,35 @@ static u32 tegra_spi_setup_transfer_one(struct spi_device *spi,
 		else
 			command1 &= ~SPI_BIDIROE;
 
-		if (tspi->cs_control) {
-			if (tspi->cs_control != spi)
-				tegra_spi_writel(tspi, command1, SPI_COMMAND1);
-			tspi->cs_control = NULL;
-		} else
+		if (keep_cs) {
+			/*
+			 * CS is already asserted and the CS bits above
+			 * were inherited from command1_reg, so the
+			 * SPI_COMMAND1 write in start_transfer_one() will
+			 * update bit length / mode / LSB / BIDIROE for
+			 * this transfer while leaving CS untouched.
+			 */
+			tspi->use_hw_based_cs = false;
+		} else {
 			tegra_spi_writel(tspi, command1, SPI_COMMAND1);
 
-		/* GPIO based chip select control */
-		if (spi_get_csgpiod(spi, 0))
-			gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
+			/* GPIO based chip select control */
+			if (spi_get_csgpiod(spi, 0))
+				gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
 
-		if (is_single_xfer && !(t->cs_change)) {
-			tspi->use_hw_based_cs = true;
-			command1 &= ~(SPI_CS_SW_HW | SPI_CS_SW_VAL);
-		} else {
-			tspi->use_hw_based_cs = false;
-			command1 |= SPI_CS_SW_HW;
-			if (spi->mode & SPI_CS_HIGH)
-				command1 |= SPI_CS_SW_VAL;
-			else
-				command1 &= ~SPI_CS_SW_VAL;
+			if (use_hw_cs) {
+				tspi->use_hw_based_cs = true;
+				command1 &= ~(SPI_CS_SW_HW | SPI_CS_SW_VAL);
+			} else {
+				tspi->use_hw_based_cs = false;
+				command1 |= SPI_CS_SW_HW;
+				if (spi->mode & SPI_CS_HIGH)
+					command1 |= SPI_CS_SW_VAL;
+				else
+					command1 &= ~SPI_CS_SW_VAL;
+			}
 		}
+		tspi->cs_control = NULL;
 
 		if (tspi->last_used_cs != spi_get_chipselect(spi, 0)) {
 			if (cdata && cdata->tx_clk_tap_delay)
@@ -908,7 +924,8 @@ static int tegra_spi_start_transfer_one(struct spi_device *spi,
 	ret = tegra_spi_flush_fifos(tspi);
 	if (ret < 0)
 		return ret;
-	if (total_fifo_words > SPI_FIFO_DEPTH)
+	if (total_fifo_words > SPI_FIFO_DEPTH &&
+	    tspi->tx_dma_chan && tspi->rx_dma_chan)
 		ret = tegra_spi_start_dma_based_transfer(tspi, t);
 	else
 		ret = tegra_spi_start_cpu_based_transfer(tspi, t);
@@ -1044,19 +1061,35 @@ static int tegra_spi_transfer_one_message(struct spi_controller *host,
 	struct spi_device *spi = msg->spi;
 	int ret;
 	bool skip = false;
-	int single_xfer;
+	bool use_hw_cs = false;
 
 	msg->status = 0;
 	msg->actual_length = 0;
 
-	single_xfer = list_is_singular(&msg->transfers);
+	/*
+	 * Use hardware CS only for a single-transfer message with
+	 * cs_change=0, and only when CS is not already held from a
+	 * previous message (cs_control == spi). Switching to hardware
+	 * CS while CS is held would release it between packets, which
+	 * breaks bus-locked sequences such as TPM TIS-SPI.
+	 *
+	 * Any multi-transfer message must use software CS: the
+	 * controller treats each programmed packet as a separate
+	 * transaction and would pulse CS between transfers.
+	 */
+	if (tspi->cs_control != spi && list_is_singular(&msg->transfers)) {
+		xfer = list_first_entry(&msg->transfers,
+					struct spi_transfer, transfer_list);
+		use_hw_cs = !xfer->cs_change;
+	}
+
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		u32 cmd1;
 
 		reinit_completion(&tspi->xfer_completion);
 
 		cmd1 = tegra_spi_setup_transfer_one(spi, xfer, is_first_msg,
-						    single_xfer);
+						    use_hw_cs);
 
 		if (!xfer->len) {
 			ret = 0;
@@ -1102,20 +1135,31 @@ static int tegra_spi_transfer_one_message(struct spi_controller *host,
 
 complete_xfer:
 		if (ret < 0 || skip) {
-			tegra_spi_transfer_end(spi);
 			spi_transfer_delay_exec(xfer);
+			tegra_spi_transfer_end(spi);
 			goto exit;
 		} else if (list_is_last(&xfer->transfer_list,
 					&msg->transfers)) {
 			if (xfer->cs_change)
 				tspi->cs_control = spi;
 			else {
-				tegra_spi_transfer_end(spi);
 				spi_transfer_delay_exec(xfer);
+				tegra_spi_transfer_end(spi);
 			}
 		} else if (xfer->cs_change) {
-			tegra_spi_transfer_end(spi);
 			spi_transfer_delay_exec(xfer);
+			tegra_spi_transfer_end(spi);
+			spi_transfer_cs_change_delay_exec(msg, xfer);
+			if (spi_get_csgpiod(spi, 0))
+				gpiod_set_value(spi_get_csgpiod(spi, 0), 1);
+			if (!tspi->use_hw_based_cs) {
+				if (spi->mode & SPI_CS_HIGH)
+					tspi->command1_reg |= SPI_CS_SW_VAL;
+				else
+					tspi->command1_reg &= ~SPI_CS_SW_VAL;
+				tegra_spi_writel(tspi, tspi->command1_reg,
+						 SPI_COMMAND1);
+			}
 		}
 
 	}
@@ -1376,15 +1420,21 @@ static int tegra_spi_probe(struct platform_device *pdev)
 	tspi->max_buf_size = SPI_FIFO_DEPTH << 2;
 	tspi->dma_buf_size = DEFAULT_SPI_DMA_BUF_LEN;
 
-	ret = tegra_spi_init_dma_param(tspi, true);
-	if (ret < 0)
-		return ret;
-	ret = tegra_spi_init_dma_param(tspi, false);
-	if (ret < 0)
-		goto exit_rx_dma_free;
-	tspi->max_buf_size = tspi->dma_buf_size;
-	init_completion(&tspi->tx_dma_complete);
-	init_completion(&tspi->rx_dma_complete);
+	if (of_property_present(pdev->dev.of_node, "dmas")) {
+		ret = tegra_spi_init_dma_param(tspi, true);
+		if (ret < 0)
+			return ret;
+		ret = tegra_spi_init_dma_param(tspi, false);
+		if (ret < 0)
+			goto exit_rx_dma_free;
+
+		tspi->max_buf_size = tspi->dma_buf_size;
+		init_completion(&tspi->tx_dma_complete);
+		init_completion(&tspi->rx_dma_complete);
+	} else {
+		dev_warn(&pdev->dev,
+			 "'dmas' is required by the binding, falling back to PIO\n");
+	}
 
 	init_completion(&tspi->xfer_completion);
 

@@ -1016,8 +1016,7 @@ static int mtk_snand_read_page_cache(struct mtk_snand *snf,
 
 			if (req_left)
 				memcpy(op->data.buf.in + snf->nfi_cfg.page_size,
-				       buf_fdm,
-				       cap_len < req_left ? cap_len : req_left);
+				       buf_fdm, min(cap_len, req_left));
 		} else if (rd_offset < snf->buf_len) {
 			u32 cap_len = snf->buf_len - rd_offset;
 

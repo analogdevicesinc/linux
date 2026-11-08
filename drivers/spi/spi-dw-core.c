@@ -46,6 +46,8 @@ struct dw_spi_enh_cfg {
 	u8 inst_l;
 	u8 addr_l;
 	u8 trans_t;
+	/* Address, dummy and data phases in DDR (SPI_CTRLR0.SPI_DDR_EN) */
+	bool addr_data_ddr;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -418,6 +420,7 @@ static void dw_spi_update_config(struct dw_spi *dws, struct spi_device *spi,
 	u32 cr0 = chip->cr0;
 	u32 speed_hz;
 	u16 clk_div;
+	u32 tde = 0;
 
 	/* CTRLR0[ 4/3: 0] or CTRLR0[ 20: 16] Data Frame Size */
 	cr0 |= (cfg->dfs - 1) << dws->dfs_offset;
@@ -468,11 +471,26 @@ static void dw_spi_update_config(struct dw_spi *dws, struct spi_device *spi,
 
 	if (enh_cfg) {
 		cr0 = DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN;
+		if (enh_cfg->addr_data_ddr)
+			cr0 |= DW_SPI_ENH_CTRLR0_SPI_DDR_EN;
 		cr0 |= FIELD_PREP(DW_SPI_ENH_CTRLR0_WAIT_CYCLE_MASK, enh_cfg->wait_c);
 		cr0 |= FIELD_PREP(DW_SPI_ENH_CTRLR0_INST_L_MASK, enh_cfg->inst_l);
 		cr0 |= FIELD_PREP(DW_SPI_ENH_CTRLR0_ADDR_L_MASK, enh_cfg->addr_l);
 		cr0 |= FIELD_PREP(DW_SPI_ENH_CTRLR0_TRANS_TYPE_MASK, enh_cfg->trans_t);
 		dw_writel(dws, DW_SPI_SPI_CTRLR0, cr0);
+
+		/*
+		 * The recommended TDE is SCKDV / 4, and it must not exceed
+		 * SCKDV / 2 - 1. DDR_DRIVE_EDGE only exists if DDR is supported.
+		 */
+		if (dws->caps & DW_SPI_CAP_DDR) {
+			if (enh_cfg->addr_data_ddr)
+				tde = min3(clk_div / 4U, clk_div / 2U - 1,
+					   FIELD_MAX(DW_SPI_DDR_DRIVE_EDGE_TDE_MASK));
+
+			dw_writel(dws, DW_SPI_DDR_DRIVE_EDGE,
+				  FIELD_PREP(DW_SPI_DDR_DRIVE_EDGE_TDE_MASK, tde));
+		}
 	}
 }
 
@@ -656,6 +674,49 @@ static int dw_spi_adjust_mem_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 	return 0;
 }
 
+static u32 dw_spi_enh_wait_cycles(const struct spi_mem_op *op)
+{
+	u32 wait_c;
+
+	if (!op->dummy.nbytes || !op->dummy.buswidth)
+		return 0;
+
+	wait_c = op->dummy.nbytes * BITS_PER_BYTE / op->dummy.buswidth;
+	/* DTR transfers two bits per clock on each line. */
+	if (op->dummy.dtr)
+		wait_c >>= 1;
+
+	return wait_c;
+}
+
+/*
+ * SPI_DDR_EN switches the address, dummy and data phases to DDR all
+ * together, and only in the Dual/Quad/Octal frame formats with the
+ * address sent on the data lines. DDR instruction phase is not
+ * supported, so only accept 1S-xD-xD operations.
+ */
+static bool dw_spi_supports_enh_ddr_op(const struct spi_mem_op *op)
+{
+	if (op->cmd.dtr || op->cmd.nbytes != 1 || op->cmd.buswidth != 1)
+		return false;
+
+	if (op->data.dir == SPI_MEM_NO_DATA || !op->data.dtr ||
+	    op->data.buswidth < 2)
+		return false;
+
+	if (op->addr.nbytes &&
+	    (!op->addr.dtr || op->addr.buswidth != op->data.buswidth))
+		return false;
+
+	/* WAIT_CYCLES counts full clock cycles. */
+	if (op->dummy.nbytes &&
+	    (!op->dummy.dtr || !op->dummy.buswidth ||
+	     (op->dummy.nbytes * BITS_PER_BYTE / op->dummy.buswidth) % 2))
+		return false;
+
+	return true;
+}
+
 static bool dw_spi_supports_enh_mem_op(struct spi_mem *mem,
 				       const struct spi_mem_op *op)
 {
@@ -675,13 +736,14 @@ static bool dw_spi_supports_enh_mem_op(struct spi_mem *mem,
 	if (op->dummy.nbytes && !op->dummy.buswidth)
 		return false;
 
+	if ((op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr) &&
+	    !dw_spi_supports_enh_ddr_op(op))
+		return false;
+
 	if (op->dummy.nbytes != 0 && op->data.dir == SPI_MEM_DATA_OUT)
 		return false;
 
-	/* WAIT_CYCLES is a 5-bit field in SPI_CTRLR0 */
-	if (op->dummy.nbytes != 0 &&
-	    op->dummy.nbytes * BITS_PER_BYTE / op->dummy.buswidth >
-	    FIELD_MAX(DW_SPI_ENH_CTRLR0_WAIT_CYCLE_MASK))
+	if (dw_spi_enh_wait_cycles(op) > FIELD_MAX(DW_SPI_ENH_CTRLR0_WAIT_CYCLE_MASK))
 		return false;
 
 	if ((dws->quirk_flags & DW_SPI_QUIRK_JHB100) && op->addr.nbytes &&
@@ -1074,8 +1136,10 @@ static int dw_spi_exec_enh_mem_op(struct spi_mem *mem, const struct spi_mem_op *
 	else
 		enh_cfg.inst_l = DW_SPI_ENH_CTRLR0_INST_L_INST_L0;
 
-	if (op->dummy.buswidth)
-		enh_cfg.wait_c = op->dummy.nbytes * BITS_PER_BYTE / op->dummy.buswidth;
+	enh_cfg.wait_c = dw_spi_enh_wait_cycles(op);
+
+	/* All phases but the instruction share the DDR setting, see supports_op */
+	enh_cfg.addr_data_ddr = op->data.dtr;
 
 	dw_spi_enable_chip(dws, 0);
 
@@ -1269,9 +1333,11 @@ static u16 detect_enh_mode(struct dw_spi *dws)
 		goto disable_enh;
 
 	/* test clock stretching */
-	dw_writel(dws, DW_SPI_SPI_CTRLR0, DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN);
-	if ((DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN & dw_readl(dws, DW_SPI_SPI_CTRLR0)) !=
-	    DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN) {
+	dw_writel(dws, DW_SPI_SPI_CTRLR0,
+		  DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN | DW_SPI_ENH_CTRLR0_SPI_DDR_EN);
+
+	tmp_val = dw_readl(dws, DW_SPI_SPI_CTRLR0);
+	if (!(tmp_val & DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN)) {
 		/*
 		 * If clock stretching is not enabled then do not use
 		 * enhanced mode.
@@ -1281,6 +1347,10 @@ static u16 detect_enh_mode(struct dw_spi *dws)
 	}
 
 	dws->caps |= DW_SPI_CAP_EMODE;
+
+	/* test DDR support, SPI_DDR_EN is read-only zero if not implemented */
+	if (tmp_val & DW_SPI_ENH_CTRLR0_SPI_DDR_EN)
+		dws->caps |= DW_SPI_CAP_DDR;
 
 disable_enh:
 	dw_writel(dws, DW_SPI_CTRLR0, tmp_ctrlr0);
@@ -1383,6 +1453,11 @@ static const struct spi_controller_mem_caps dw_spi_mem_caps = {
 	.per_op_freq = true,
 };
 
+static const struct spi_controller_mem_caps dw_spi_ddr_mem_caps = {
+	.per_op_freq = true,
+	.dtr = true,
+};
+
 int dw_spi_add_controller(struct device *dev, struct dw_spi *dws)
 {
 	struct spi_controller *ctlr;
@@ -1439,7 +1514,8 @@ int dw_spi_add_controller(struct device *dev, struct dw_spi *dws)
 			ctlr->set_cs = dw_spi_set_cs;
 		if (dws->mem_ops.exec_op) {
 			ctlr->mem_ops = &dws->mem_ops;
-			ctlr->mem_caps = &dw_spi_mem_caps;
+			ctlr->mem_caps = (dws->caps & DW_SPI_CAP_DDR) ?
+					 &dw_spi_ddr_mem_caps : &dw_spi_mem_caps;
 		}
 		ctlr->max_speed_hz = dws->max_freq;
 		ctlr->flags = SPI_CONTROLLER_GPIO_SS;

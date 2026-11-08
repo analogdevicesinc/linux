@@ -553,8 +553,7 @@ static int rspi_dma_transfer(struct rspi_data *rspi, struct sg_table *tx,
 			goto no_dma_rx;
 		}
 
-		desc_rx->callback = rspi_dma_complete;
-		desc_rx->callback_param = rspi;
+		dmaengine_desc_set_callback(desc_rx, rspi_dma_complete, NULL, rspi);
 		cookie = dmaengine_submit(desc_rx);
 		if (dma_submit_error(cookie)) {
 			ret = cookie;
@@ -575,10 +574,9 @@ static int rspi_dma_transfer(struct rspi_data *rspi, struct sg_table *tx,
 
 		if (rx) {
 			/* No callback */
-			desc_tx->callback = NULL;
+			dmaengine_desc_set_callback(desc_tx, NULL, NULL, NULL);
 		} else {
-			desc_tx->callback = rspi_dma_complete;
-			desc_tx->callback_param = rspi;
+			dmaengine_desc_set_callback(desc_tx, rspi_dma_complete, NULL, rspi);
 		}
 		cookie = dmaengine_submit(desc_tx);
 		if (dma_submit_error(cookie)) {

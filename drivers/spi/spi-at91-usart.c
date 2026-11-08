@@ -228,8 +228,7 @@ static int at91_usart_spi_dma_transfer(struct spi_controller *ctlr,
 	if (!txdesc)
 		goto at91_usart_spi_err_dma;
 
-	rxdesc->callback = dma_callback;
-	rxdesc->callback_param = ctlr;
+	dmaengine_desc_set_callback(rxdesc, dma_callback, NULL, ctlr);
 
 	cookie = dmaengine_submit(rxdesc);
 	if (dma_submit_error(cookie))

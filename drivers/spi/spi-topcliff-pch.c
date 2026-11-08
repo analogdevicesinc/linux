@@ -808,7 +808,7 @@ static bool pch_spi_filter(struct dma_chan *chan, void *slave)
 	struct pch_dma_slave *param = slave;
 
 	if ((chan->chan_id == param->chan_id) &&
-	    (param->dma_dev == chan->device->dev)) {
+	    (param->dma_dev == dmaengine_get_provider_device(chan))) {
 		chan->private = param;
 		return true;
 	} else {
@@ -934,9 +934,10 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 	}
 	data->bpw_len = data->cur_trans->len / (*bpw / 8);
 
-	if (data->bpw_len > PCH_BUF_SIZE) {
-		data->bpw_len = PCH_BUF_SIZE;
-		data->cur_trans->len -= PCH_BUF_SIZE;
+	/* DMA buffers are PCH_BUF_SIZE bytes, bpw_len is in words */
+	if (data->bpw_len > PCH_BUF_SIZE / (*bpw / 8)) {
+		data->bpw_len = PCH_BUF_SIZE / (*bpw / 8);
+		data->cur_trans->len -= data->bpw_len * (*bpw / 8);
 	}
 
 	/* copy Tx Data */
@@ -1021,8 +1022,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		return;
 	}
 	dma_sync_sg_for_device(&data->host->dev, sg, num, DMA_FROM_DEVICE);
-	desc_rx->callback = pch_dma_rx_complete;
-	desc_rx->callback_param = data;
+	dmaengine_desc_set_callback(desc_rx, pch_dma_rx_complete, NULL, data);
 	dma->nent = num;
 	dma->desc_rx = desc_rx;
 
@@ -1083,8 +1083,7 @@ static void pch_spi_handle_dma(struct pch_spi_data *data, int *bpw)
 		return;
 	}
 	dma_sync_sg_for_device(&data->host->dev, sg, num, DMA_TO_DEVICE);
-	desc_tx->callback = NULL;
-	desc_tx->callback_param = data;
+	dmaengine_desc_set_callback(desc_tx, NULL, NULL, data);
 	dma->nent = num;
 	dma->desc_tx = desc_tx;
 
