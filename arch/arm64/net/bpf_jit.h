@@ -343,6 +343,6 @@
 /* Barriers */
 #define A64_SB aarch64_insn_get_sb_value()
 #define A64_DSB_NSH (aarch64_insn_get_dsb_base_value() | 0x7 << 8)
-#define A64_ISB aarch64_insn_get_isb_value()
+#define A64_ISB (aarch64_insn_get_isb_value() | 0xf << 8)
 
 #endif /* _BPF_JIT_H */

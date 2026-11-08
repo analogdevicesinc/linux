@@ -1044,7 +1044,7 @@ static void __maybe_unused build_bhb_mitigation(struct jit_ctx *ctx)
 		emit(A64_SUBS_I(true, r1, r1, 1), ctx);
 		emit(A64_B_(A64_COND_NE, -2), ctx);
 		emit(aarch64_insn_gen_dsb(AARCH64_INSN_MB_ISH), ctx);
-		emit(aarch64_insn_get_isb_value(), ctx);
+		emit(A64_ISB, ctx);
 	}
 
 	if (is_spectre_bhb_fw_mitigated()) {
