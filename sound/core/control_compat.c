@@ -183,6 +183,10 @@ static int get_ctl_type(struct snd_card *card, struct snd_ctl_elem_id *id,
 	info->id = *id;
 	err = kctl->info(kctl, info);
 	if (err >= 0) {
+		err = snd_ctl_check_elem_info(card, info);
+		if (err < 0)
+			return err;
+
 		err = info->type;
 		*countp = info->count;
 	}
