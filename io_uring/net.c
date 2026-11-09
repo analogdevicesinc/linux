@@ -189,10 +189,10 @@ static struct io_async_msghdr *io_msg_alloc_async(struct io_kiocb *req)
 	struct io_ring_ctx *ctx = req->ctx;
 	struct io_async_msghdr *hdr;
 
-	hdr = io_uring_alloc_async_data(&ctx->netmsg_cache, req);
-	if (!hdr)
+	if (!io_uring_alloc_cached_async_data(&ctx->netmsg_cache, req))
 		return NULL;
 
+	hdr = req->async_data;
 	/* If the async data was cached, we might have an iov cached inside. */
 	if (hdr->vec.iovec)
 		req->flags |= REQ_F_NEED_CLEANUP;
@@ -1848,7 +1848,7 @@ int io_connect_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 	conn->addr_len =  READ_ONCE(sqe->addr2);
 	conn->in_progress = conn->seen_econnaborted = false;
 
-	addr = io_uring_alloc_async_data(NULL, req);
+	addr = io_uring_alloc_async_data(req);
 	if (unlikely(!addr))
 		return -ENOMEM;
 
@@ -1946,7 +1946,7 @@ int io_bind_prep(struct io_kiocb *req, const struct io_uring_sqe *sqe)
 	uaddr = u64_to_user_ptr(READ_ONCE(sqe->addr));
 	bind->addr_len =  READ_ONCE(sqe->addr2);
 
-	addr = io_uring_alloc_async_data(NULL, req);
+	addr = io_uring_alloc_async_data(req);
 	if (unlikely(!addr))
 		return -ENOMEM;
 	ret = move_addr_to_kernel(uaddr, bind->addr_len, addr);

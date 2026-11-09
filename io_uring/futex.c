@@ -319,7 +319,7 @@ int io_futex_wait(struct io_kiocb *req, unsigned int issue_flags)
 {
 	struct io_futex *iof = io_kiocb_to_cmd(req, struct io_futex);
 	struct io_ring_ctx *ctx = req->ctx;
-	struct io_futex_data *ifd = NULL;
+	struct io_futex_data *ifd;
 	int ret;
 
 	if (!iof->futex_mask) {
@@ -328,8 +328,7 @@ int io_futex_wait(struct io_kiocb *req, unsigned int issue_flags)
 	}
 
 	io_ring_submit_lock(ctx, issue_flags);
-	ifd = io_cache_alloc(&ctx->futex_cache, GFP_NOWAIT);
-	if (!ifd) {
+	if (!io_cache_alloc(&ctx->futex_cache, GFP_NOWAIT, (void **)&ifd)) {
 		ret = -ENOMEM;
 		goto done_unlock;
 	}
@@ -352,12 +351,10 @@ int io_futex_wait(struct io_kiocb *req, unsigned int issue_flags)
 		return IOU_ISSUE_SKIP_COMPLETE;
 	}
 
+	/* As in io_futex_complete(), or failed arms would drain it. */
+	io_cache_free(&ctx->futex_cache, ifd);
+	io_req_async_data_clear(req, 0);
 done_unlock:
-	if (ifd) {
-		/* As in io_futex_complete(), or failed arms would drain it. */
-		io_cache_free(&ctx->futex_cache, ifd);
-		io_req_async_data_clear(req, 0);
-	}
 	io_ring_submit_unlock(ctx, issue_flags);
 done:
 	if (ret < 0)

@@ -59,7 +59,8 @@ struct io_imu_folio_data {
 
 bool io_rsrc_cache_init(struct io_ring_ctx *ctx);
 void io_rsrc_cache_free(struct io_ring_ctx *ctx);
-struct io_rsrc_node *io_rsrc_node_alloc(struct io_ring_ctx *ctx, int type);
+bool io_rsrc_node_alloc(struct io_ring_ctx *ctx, int type,
+			struct io_rsrc_node **node);
 void io_free_rsrc_node(struct io_ring_ctx *ctx, struct io_rsrc_node *node);
 void io_rsrc_data_free(struct io_ring_ctx *ctx, struct io_rsrc_data *data);
 int io_rsrc_data_alloc(struct io_rsrc_data *data, unsigned nr);

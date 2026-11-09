@@ -194,9 +194,9 @@ static int io_rw_alloc_async(struct io_kiocb *req)
 	struct io_ring_ctx *ctx = req->ctx;
 	struct io_async_rw *rw;
 
-	rw = io_uring_alloc_async_data(&ctx->rw_cache, req);
-	if (!rw)
+	if (!io_uring_alloc_cached_async_data(&ctx->rw_cache, req))
 		return -ENOMEM;
+	rw = req->async_data;
 	if (rw->vec.iovec)
 		req->flags |= REQ_F_NEED_CLEANUP;
 	rw->bytes_done = 0;
