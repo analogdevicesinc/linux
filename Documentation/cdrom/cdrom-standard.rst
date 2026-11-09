@@ -1014,7 +1014,7 @@ How to update your driver
   just calls to the routines you adapted in the previous step.
 - You may remove all remaining memory checking code in the
   *audio_ioctl()* function that deals with audio commands (these are
-  listed in the second part of cdrom_ioctl_. There is no
+  listed in the second part of cdrom_ioctl()). There is no
   need for memory allocation either, so most *case*s in the *switch*
   statement look similar to::
 
