@@ -51,4 +51,14 @@ static inline bool kho_bootmem_overlap(phys_addr_t phys, size_t size)
 	return false;
 }
 
+static inline bool kho_is_enabled(void)
+{
+	return false;
+}
+
+static inline bool is_kho_boot(void)
+{
+	return false;
+}
+
 #endif
