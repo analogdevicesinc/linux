@@ -107,7 +107,7 @@
 		usb-phy-reset-hog {
 			gpio-hog;
 			gpios = <3 GPIO_ACTIVE_LOW>;
-			output-high;
+			output-low;
 			line-name = "usb-phy-reset";
 		};
 
