@@ -48,6 +48,14 @@ Supported chips:
 
     Datasheet: Available from the Nuvoton web site
 
+  * Nuvoton NCT5525D
+
+    Prefix: 'nct5525'
+
+    Addresses scanned: ISA address retrieved from Super I/O registers
+
+    Datasheet: Available from Nuvoton upon request
+
   * Nuvoton NCT5572D/NCT6771F/NCT6772F/NCT6775F/W83677HG-I
 
     Prefix: 'nct6775'
@@ -159,7 +167,7 @@ direct temperature sensor inputs, the others are special sources such as PECI,
 PCH, and SMBUS. Depending on the chip type, 2 to 6 of the temperature sources
 can be monitored and compared against minimum, maximum, and critical
 temperatures. The driver reports up to 10 of the temperatures to the user.
-There are 4 to 5 fan rotation speed sensors, 8 to 15 analog voltage sensors,
+There are 3 to 7 fan rotation speed sensors, 8 to 18 analog voltage sensors,
 one VID, alarms with beep warnings (control unimplemented), and some automatic
 fan regulation strategies (plus manual fan control mode).
 
