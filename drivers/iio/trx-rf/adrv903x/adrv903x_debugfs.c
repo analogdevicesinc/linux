@@ -7,6 +7,9 @@
 
 #include <linux/cleanup.h>
 #include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/gpio/consumer.h>
+#include <linux/jesd204/jesd204.h>
 #include <linux/uaccess.h>
 #include <linux/spi/spi.h>
 #include <linux/slab.h>
@@ -173,6 +176,9 @@ static ssize_t adrv903x_debugfs_read(struct file *file, char __user *userbuf,
 			      (ffs(tx_orx0) ? (ffs(tx_orx0) - 1) : 0);
 			break;
 		}
+		case DBGFS_HARD_RESET:
+			val = !gpiod_get_value_cansleep(phy->linux_hal.reset_gpio);
+			break;
 		default:
 			val = entry->val;
 		}
@@ -349,6 +355,29 @@ static ssize_t adrv903x_debugfs_write(struct file *file,
 
 		return count;
 
+	case DBGFS_HARD_RESET:
+		if (val != 0 && val != 1)
+			return -EINVAL;
+
+		if (val) {
+			if (!phy->jdev)
+				return -EOPNOTSUPP;
+
+			jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+			jesd204_fsm_clear_errors(phy->jdev, JESD204_LINKS_ALL);
+			phy->is_initialized = 0;
+
+			gpiod_set_value_cansleep(phy->linux_hal.reset_gpio, 0);
+		} else {
+			gpiod_set_value_cansleep(phy->linux_hal.reset_gpio, 1);
+
+			ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+			if (ret)
+				return ret;
+		}
+
+		return count;
+
 	default:
 		break;
 	}
@@ -451,6 +480,8 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 		}
 	}
 
+	adrv903x_add_debugfs_entry(phy, "hard_reset", DBGFS_HARD_RESET);
+
 	for (i = 0; i < phy->adrv903x_debugfs_entry_index; i++) {
 		switch (phy->debugfs_entry[i].cmd) {
 		case DBGFS_BIST_FRAMER_0_PRBS:
@@ -482,6 +513,9 @@ void adrv903x_register_debugfs(struct iio_dev *indio_dev)
 		case DBGFS_TX6_QEC_SOFT_RESET:
 		case DBGFS_TX7_QEC_SOFT_RESET:
 			mode = 0200;
+			break;
+		case DBGFS_HARD_RESET:
+			mode = 0644;
 			break;
 		default:
 			mode = 0444;

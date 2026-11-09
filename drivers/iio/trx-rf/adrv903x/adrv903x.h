@@ -95,6 +95,7 @@ enum debugfs_cmd {
 	DBGFS_TX5_QEC_SOFT_RESET,
 	DBGFS_TX6_QEC_SOFT_RESET,
 	DBGFS_TX7_QEC_SOFT_RESET,
+	DBGFS_HARD_RESET,
 };
 
 enum adrv903x_rx_ext_info {
