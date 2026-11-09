@@ -401,6 +401,97 @@ static int process_n_sample(void *ctx, void *data, size_t len)
 	return 0;
 }
 
+static int process_noop_sample(void *ctx, void *data, size_t len)
+{
+	return 0;
+}
+
+static void ringbuf_null_cb_subtest(void)
+{
+	struct test_ringbuf_n_lskel *skel_n;
+	struct ring_buffer *ringbuf = NULL;
+	struct ring *ring;
+	unsigned long consumer_pos;
+	int no_cb_map_fd = -1;
+	int err;
+
+	skel_n = test_ringbuf_n_lskel__open();
+	if (!ASSERT_OK_PTR(skel_n, "test_ringbuf_n_lskel__open"))
+		return;
+
+	skel_n->maps.ringbuf.max_entries = getpagesize();
+	skel_n->bss->pid = getpid();
+	skel_n->bss->value = SAMPLE_VALUE;
+
+	err = test_ringbuf_n_lskel__load(skel_n);
+	if (!ASSERT_OK(err, "test_ringbuf_n_lskel__load"))
+		goto cleanup;
+
+	err = test_ringbuf_n_lskel__attach(skel_n);
+	if (!ASSERT_OK(err, "test_ringbuf_n_lskel__attach"))
+		goto cleanup;
+
+	syscall(__NR_getpgid);
+
+	no_cb_map_fd = bpf_map_create(BPF_MAP_TYPE_RINGBUF, NULL, 0, 0,
+				      getpagesize(), NULL);
+	if (!ASSERT_OK_FD(no_cb_map_fd, "bpf_map_create"))
+		goto cleanup;
+
+	/* Manager APIs must validate all rings before consuming any of them. */
+	ringbuf = ring_buffer__new(skel_n->maps.ringbuf.map_fd,
+				   process_noop_sample, NULL, NULL);
+	if (!ASSERT_OK_PTR(ringbuf, "ring_buffer__new"))
+		goto cleanup_fd;
+
+	ring = ring_buffer__ring(ringbuf, 0);
+	if (!ASSERT_OK_PTR(ring, "ring_buffer__ring"))
+		goto cleanup_ringbuf;
+
+	err = ring_buffer__add(ringbuf, no_cb_map_fd, NULL, NULL);
+	if (!ASSERT_OK(err, "ring_buffer__add_no_cb"))
+		goto cleanup_ringbuf;
+
+	consumer_pos = ring__consumer_pos(ring);
+	ASSERT_GT(ring__producer_pos(ring), consumer_pos,
+		  "producer_pos_mixed_cb");
+
+	err = ring_buffer__consume_n(ringbuf, 0);
+	ASSERT_EQ(err, -EINVAL, "ringbuf_consume_zero_mixed_cb");
+	err = ring_buffer__consume(ringbuf);
+	ASSERT_EQ(err, -EINVAL, "ringbuf_consume_mixed_cb");
+	err = ring_buffer__poll(ringbuf, 0);
+	ASSERT_EQ(err, -EINVAL, "ringbuf_poll_mixed_cb");
+	ASSERT_EQ(ring__consumer_pos(ring), consumer_pos,
+		  "consumer_pos_mixed_cb");
+
+	ring_buffer__free(ringbuf);
+	ringbuf =
+		ring_buffer__new(skel_n->maps.ringbuf.map_fd, NULL, NULL, NULL);
+	if (!ASSERT_OK_PTR(ringbuf, "ring_buffer__new_no_cb"))
+		goto cleanup_fd;
+
+	ring = ring_buffer__ring(ringbuf, 0);
+	if (!ASSERT_OK_PTR(ring, "ring_buffer__ring_no_cb"))
+		goto cleanup_ringbuf;
+	consumer_pos = ring__consumer_pos(ring);
+
+	err = ring_buffer__consume_n(ringbuf, 0);
+	ASSERT_EQ(err, -EINVAL, "ringbuf_consume_zero_no_cb");
+	err = ring__consume_n(ring, 0);
+	ASSERT_EQ(err, -EINVAL, "ring_consume_zero_no_cb");
+	err = ring__consume(ring);
+	ASSERT_EQ(err, -EINVAL, "ring_consume_no_cb");
+	ASSERT_EQ(ring__consumer_pos(ring), consumer_pos, "consumer_pos_no_cb");
+
+cleanup_ringbuf:
+	ring_buffer__free(ringbuf);
+cleanup_fd:
+	close(no_cb_map_fd);
+cleanup:
+	test_ringbuf_n_lskel__destroy(skel_n);
+}
+
 static void ringbuf_n_subtest(void)
 {
 	struct test_ringbuf_n_lskel *skel_n;
@@ -579,6 +670,8 @@ void test_ringbuf(void)
 		ringbuf_subtest();
 	if (test__start_subtest("ringbuf_n"))
 		ringbuf_n_subtest();
+	if (test__start_subtest("ringbuf_null_cb"))
+		ringbuf_null_cb_subtest();
 	if (test__start_subtest("ringbuf_map_key"))
 		ringbuf_map_key_subtest();
 	if (test__start_subtest("ringbuf_write"))
