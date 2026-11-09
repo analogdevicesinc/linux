@@ -205,6 +205,7 @@ struct vcnl4000_data {
 	struct mutex vcnl4000_lock;
 	struct vcnl4200_channel vcnl4200_al;
 	struct vcnl4200_channel vcnl4200_ps;
+	struct iio_trigger *trig;
 	uint32_t near_level;
 };
 
@@ -1547,7 +1548,7 @@ static irqreturn_t vcnl4010_irq_thread(int irq, void *p)
 	}
 
 	if (isr & VCNL4010_INT_DRDY && iio_buffer_enabled(indio_dev))
-		iio_trigger_poll_nested(indio_dev->trig);
+		iio_trigger_poll_nested(data->trig);
 
 end:
 	return IRQ_HANDLED;
@@ -1893,6 +1894,7 @@ static int vcnl4010_probe_trigger(struct iio_dev *indio_dev)
 	if (!trigger)
 		return -ENOMEM;
 
+	data->trig = trigger;
 	trigger->ops = &vcnl4010_trigger_ops;
 	iio_trigger_set_drvdata(trigger, indio_dev);
 
