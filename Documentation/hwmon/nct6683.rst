@@ -65,6 +65,21 @@ pwmN_enable selects the fan control mode:
 pwmN can only be written in manual mode. Switching to manual mode keeps the
 current duty cycle.
 
+For each fan with a pwmN_enable attribute, the fan curve configured in the
+BIOS setup is reported with the following read-only attributes, if the
+curve sets a duty cycle:
+
+  * pwmN_auto_point[1-7]_temp: temperature of the curve point, in
+    millidegrees Celsius
+  * pwmN_auto_point[1-7]_pwm: duty cycle of the curve point (0-255)
+  * pwmN_auto_channels_temp: temperature channels used by the curve, as a
+    bitmap (1 is temp1, 2 is temp2, 4 is temp3 etc.)
+
+A fan with Smart Fan disabled in the BIOS setup has a flat curve, with its
+fixed duty cycle at all points. The curve is read from the EC on each
+access. Reading pwmN_auto_channels_temp returns -ENODATA if the curve uses
+a temperature source which the driver does not report.
+
 Tested Boards and Firmware Versions
 -----------------------------------
 
