@@ -404,6 +404,7 @@ static int process_n_sample(void *ctx, void *data, size_t len)
 static void ringbuf_n_subtest(void)
 {
 	struct test_ringbuf_n_lskel *skel_n;
+	struct ring *ring;
 	int err, i;
 
 	skel_n = test_ringbuf_n_lskel__open();
@@ -430,6 +431,18 @@ static void ringbuf_n_subtest(void)
 	skel_n->bss->value = SAMPLE_VALUE;
 	for (i = 0; i < N_TOT_SAMPLES; i++)
 		syscall(__NR_getpgid);
+
+	ring = ring_buffer__ring(ringbuf, 0);
+	if (!ASSERT_OK_PTR(ring, "ring_buffer__ring"))
+		goto cleanup_ringbuf;
+
+	err = ring_buffer__consume_n(ringbuf, 0);
+	if (!ASSERT_EQ(err, 0, "ringbuf_consume_zero"))
+		goto cleanup_ringbuf;
+
+	err = ring__consume_n(ring, 0);
+	if (!ASSERT_EQ(err, 0, "ring_consume_zero"))
+		goto cleanup_ringbuf;
 
 	/* Consume all samples from the ring buffer in batches of N_SAMPLES */
 	for (i = 0; i < N_TOT_SAMPLES; i += err) {
