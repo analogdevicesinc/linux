@@ -1434,11 +1434,15 @@ static int nct6775_update_pwm(struct device *dev)
 		if (!(data->has_pwm & BIT(i)))
 			continue;
 
-		err = nct6775_read_value(data, data->REG_PWM_MODE[i], &reg);
-		if (err)
-			return err;
-		duty_is_dc = data->REG_PWM_MODE[i] && (reg & data->PWM_MODE_MASK[i]);
-		data->pwm_mode[i] = !duty_is_dc;
+		if (data->REG_PWM_MODE[i] == 0) {
+			data->pwm_mode[i] = 1;
+		} else {
+			err = nct6775_read_value(data, data->REG_PWM_MODE[i], &reg);
+			if (err)
+				return err;
+			duty_is_dc = data->REG_PWM_MODE[i] && (reg & data->PWM_MODE_MASK[i]);
+			data->pwm_mode[i] = !duty_is_dc;
+		}
 
 		err = nct6775_read_value(data, data->REG_FAN_MODE[i], &fanmodecfg);
 		if (err)
