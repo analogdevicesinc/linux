@@ -2062,9 +2062,25 @@ static int ocfs2_filecheck_repair_inode_block(struct super_block *sb,
 {
 	int changed = 0;
 	struct ocfs2_dinode *di = (struct ocfs2_dinode *)bh->b_data;
+	void *orig;
+	int rc;
 
-	if (!ocfs2_filecheck_validate_inode_block(sb, bh))
-		return 0;
+	/*
+	 * Snapshot the whole block before validating it, and keep the snapshot
+	 * until the repair is known to be good.  ocfs2_validate_meta_ecc()
+	 * mutates the block in place while attempting a hamming fix and leaves
+	 * the flipped bit behind when the crc32 still fails, so a snapshot
+	 * taken afterwards would record that stray flip rather than what was
+	 * read from disk.  A field by field undo would not restore it either.
+	 */
+	orig = kmalloc(sb->s_blocksize, GFP_NOFS);
+	if (!orig)
+		return -OCFS2_FILECHECK_ERR_FAILED;
+	memcpy(orig, bh->b_data, sb->s_blocksize);
+
+	rc = ocfs2_filecheck_validate_inode_block(sb, bh);
+	if (!rc)
+		goto out_free;
 
 	trace_ocfs2_filecheck_repair_inode_block(
 		(unsigned long long)bh->b_blocknr);
@@ -2074,7 +2090,8 @@ static int ocfs2_filecheck_repair_inode_block(struct super_block *sb,
 		     "Filecheck: cannot repair dinode #%llu "
 		     "on readonly filesystem\n",
 		     (unsigned long long)bh->b_blocknr);
-		return -OCFS2_FILECHECK_ERR_READONLY;
+		rc = -OCFS2_FILECHECK_ERR_READONLY;
+		goto out_restore;
 	}
 
 	if (buffer_jbd(bh)) {
@@ -2082,20 +2099,34 @@ static int ocfs2_filecheck_repair_inode_block(struct super_block *sb,
 		     "Filecheck: cannot repair dinode #%llu, "
 		     "its buffer is in jbd\n",
 		     (unsigned long long)bh->b_blocknr);
-		return -OCFS2_FILECHECK_ERR_INJBD;
+		rc = -OCFS2_FILECHECK_ERR_INJBD;
+		goto out_restore;
 	}
 
 	if (!OCFS2_IS_VALID_DINODE(di)) {
 		/* Cannot fix invalid inode block */
-		return -OCFS2_FILECHECK_ERR_INVALIDINO;
+		rc = -OCFS2_FILECHECK_ERR_INVALIDINO;
+		goto out_restore;
 	}
 
 	if (ocfs2_dinode_has_no_valid_flag(di)) {
 		/* Cannot just add VALID_FL flag back as a fix,
 		 * need more things to check here.
 		 */
-		return -OCFS2_FILECHECK_ERR_VALIDFLAG;
+		rc = -OCFS2_FILECHECK_ERR_VALIDFLAG;
+		goto out_restore;
 	}
+
+	/*
+	 * A failed ecc check means the hamming fixup did not produce a crc32
+	 * valid block, so the bit it flipped is bogus.  Undo that before
+	 * repairing fields, otherwise the ecc recompute below would stamp the
+	 * stray flip with a valid checksum and write it out.  An ecc check that
+	 * passed leaves good data behind, a successful single bit fixup
+	 * included, and must be kept.
+	 */
+	if (rc == -OCFS2_FILECHECK_ERR_BLOCKECC)
+		memcpy(bh->b_data, orig, sb->s_blocksize);
 
 	if (ocfs2_dinode_has_wrong_blkno(di, bh->b_blocknr)) {
 		di->i_blkno = cpu_to_le64(bh->b_blocknr);
@@ -2115,7 +2146,14 @@ static int ocfs2_filecheck_repair_inode_block(struct super_block *sb,
 		     le32_to_cpu(di->i_fs_generation));
 	}
 
+	/*
+	 * Only copy l_count into l_next_free_rec when l_count itself is
+	 * sane, otherwise the repair would spread the corruption to a
+	 * second field and stamp it with a freshly computed ecc.
+	 */
 	if (ocfs2_dinode_has_extents(di) &&
+	    !ocfs2_dinode_has_zero_extent_count(di) &&
+	    !ocfs2_dinode_has_oversized_extent_count(sb, di) &&
 	    ocfs2_dinode_has_bad_extent_next_free(di)) {
 		di->id2.i_list.l_next_free_rec = di->id2.i_list.l_count;
 		changed = 1;
@@ -2125,15 +2163,44 @@ static int ocfs2_filecheck_repair_inode_block(struct super_block *sb,
 		     le16_to_cpu(di->id2.i_list.l_next_free_rec));
 	}
 
-	if (changed || ocfs2_validate_meta_ecc(sb, bh->b_data, &di->i_check)) {
+	/*
+	 * Recompute the ecc before revalidating, but do not mark the buffer
+	 * dirty yet.  The initial validation already told us whether the ecc
+	 * was bad, and any field repair above invalidates it anyway.
+	 */
+	if (changed || rc == -OCFS2_FILECHECK_ERR_BLOCKECC) {
 		ocfs2_compute_meta_ecc(sb, bh->b_data, &di->i_check);
-		mark_buffer_dirty(bh);
 		mlog(ML_ERROR,
 		     "Filecheck: reset dinode #%llu: compute meta ecc\n",
 		     (unsigned long long)bh->b_blocknr);
 	}
 
-	return 0;
+	/*
+	 * Only i_blkno, fs_generation and l_next_free_rec are repairable, so
+	 * report whatever is still wrong instead of claiming success.
+	 *
+	 * Validate before dirtying.  ocfs2_read_blocks() clears BH_Uptodate
+	 * when the validate callback fails, and a dirty non-uptodate buffer
+	 * left in the block device cache makes every later
+	 * OCFS2_BH_IGNORE_CACHE read of this block skip the disk read and
+	 * fail with -EIO.  ocfs2_read_locked_inode() also bails out before
+	 * upgrading to an exclusive cluster lock and writing the block, so
+	 * the repair would be flushed later without that lock.  Roll back
+	 * instead, leaving the buffer clean.
+	 */
+	rc = ocfs2_filecheck_validate_inode_block(sb, bh);
+	if (rc)
+		goto out_restore;
+
+	mark_buffer_dirty(bh);
+	goto out_free;
+
+out_restore:
+	/* Leave the buffer exactly as it was read from disk. */
+	memcpy(bh->b_data, orig, sb->s_blocksize);
+out_free:
+	kfree(orig);
+	return rc;
 }
 
 static int
