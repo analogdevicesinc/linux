@@ -2174,12 +2174,6 @@ static int update_parent_effective_cpumask(struct cpuset *cs, int cmd,
 			else
 				part_error = PERR_NOTEXCL;
 		}
-		/*
-		 * When both cs and parent remain valid, parent's
-		 * compute_partition_effective_cpumask() call would have removed
-		 * cs's effective_xcpus from the parent's effective_cpus. So
-		 * there is no need to adjust parent's effective_cpus here.
-		 */
 	}
 
 write_error:
