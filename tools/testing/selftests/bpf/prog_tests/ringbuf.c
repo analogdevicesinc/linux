@@ -602,6 +602,43 @@ cleanup:
 	test_ringbuf_map_key_lskel__destroy(skel_map_key);
 }
 
+static void ringbuf_overwrite_callback_subtest(void)
+{
+	LIBBPF_OPTS(bpf_map_create_opts, opts, .map_flags = BPF_F_RB_OVERWRITE);
+	struct ring_buffer *ringbuf;
+	struct ring *ring;
+	int map_fd, err;
+
+	map_fd = bpf_map_create(BPF_MAP_TYPE_RINGBUF, NULL, 0, 0, getpagesize(),
+				&opts);
+	if (!ASSERT_OK_FD(map_fd, "bpf_map_create"))
+		return;
+
+	ringbuf = ring_buffer__new(map_fd, process_noop_sample, NULL, NULL);
+	if (!ASSERT_OK_PTR(ringbuf, "ring_buffer__new"))
+		goto cleanup_fd;
+
+	ring = ring_buffer__ring(ringbuf, 0);
+	if (!ASSERT_OK_PTR(ring, "ring_buffer__ring"))
+		goto cleanup_ringbuf;
+
+	err = ring_buffer__consume_n(ringbuf, 0);
+	ASSERT_EQ(err, -EOPNOTSUPP, "ringbuf_consume_zero");
+	err = ring_buffer__consume(ringbuf);
+	ASSERT_EQ(err, -EOPNOTSUPP, "ringbuf_consume");
+	err = ring_buffer__poll(ringbuf, 0);
+	ASSERT_EQ(err, -EOPNOTSUPP, "ringbuf_poll");
+	err = ring__consume_n(ring, 0);
+	ASSERT_EQ(err, -EOPNOTSUPP, "ring_consume_zero");
+	err = ring__consume(ring);
+	ASSERT_EQ(err, -EOPNOTSUPP, "ring_consume");
+
+cleanup_ringbuf:
+	ring_buffer__free(ringbuf);
+cleanup_fd:
+	close(map_fd);
+}
+
 static void ringbuf_overwrite_mode_subtest(void)
 {
 	unsigned long size, len1, len2, len3, len4, len5;
@@ -676,6 +713,8 @@ void test_ringbuf(void)
 		ringbuf_map_key_subtest();
 	if (test__start_subtest("ringbuf_write"))
 		ringbuf_write_subtest();
+	if (test__start_subtest("ringbuf_overwrite_callback"))
+		ringbuf_overwrite_callback_subtest();
 	if (test__start_subtest("ringbuf_overwrite_mode"))
 		ringbuf_overwrite_mode_subtest();
 }
