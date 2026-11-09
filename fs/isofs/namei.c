@@ -74,18 +74,20 @@ isofs_find_entry(struct inode *dir, struct dentry *dentry,
 				return 0;
 		}
 
-		de = (struct iso_directory_record *) (bh->b_data + offset);
-
-		de_len = *(unsigned char *) de;
-		if (!de_len) {
+		de = (struct iso_directory_record *)(bh->b_data + offset);
+		/*
+		 * If we are at the end of the block or at its zero-padded
+		 * tail, move to the next block.
+		 */
+		if (offset >= bufsize || de->length[0] == 0) {
 			brelse(bh);
 			bh = NULL;
-			f_pos = (f_pos + ISOFS_BLOCK_SIZE) & ~(ISOFS_BLOCK_SIZE - 1);
-			block = f_pos >> bufbits;
+			block++;
+			f_pos = block << bufbits;
 			offset = 0;
 			continue;
 		}
-
+		de_len = de->length[0];
 		block_saved = bh->b_blocknr;
 		offset_saved = offset;
 		offset += de_len;
@@ -102,12 +104,14 @@ isofs_find_entry(struct inode *dir, struct dentry *dentry,
 		dpnt = de->name;
 
 		if (sbi->s_rock &&
-		    ((i = get_rock_ridge_filename(de, tmpname, dir)))) {
+		    ((i = get_rock_ridge_filename(de, tmpname, NAME_MAX + 1,
+						  dir)))) {
 			dlen = i;	/* possibly -1 */
 			dpnt = tmpname;
 #ifdef CONFIG_JOLIET
 		} else if (sbi->s_joliet_level) {
-			dlen = get_joliet_filename(de, tmpname, dir);
+			dlen = get_joliet_filename(de, tmpname,
+						   JOLIET_NAME_MAX + 1, dir);
 			dpnt = tmpname;
 #endif
 		} else if (sbi->s_mapping == 'a') {
@@ -153,7 +157,7 @@ struct dentry *isofs_lookup(struct inode *dir, struct dentry *dentry, unsigned i
 	struct inode *inode;
 	char *tmpname;
 
-	tmpname = kmalloc(1024, GFP_USER);
+	tmpname = kmalloc(JOLIET_NAME_MAX + 1, GFP_USER);
 	if (!tmpname)
 		return ERR_PTR(-ENOMEM);
 

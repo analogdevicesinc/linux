@@ -41,6 +41,7 @@ skf_net_off
 socket
 so_incoming_cpu
 so_netns_cookie
+so_reserve_mem
 so_rcv_listener
 stress_reuseport_listen
 tap
@@ -55,6 +56,7 @@ tools
 tun
 txring_overwrite
 txtimestamp
+udp_splice_checksum
 udpgso
 udpgso_bench_rx
 udpgso_bench_tx

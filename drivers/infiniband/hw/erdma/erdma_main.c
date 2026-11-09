@@ -50,7 +50,7 @@ static int erdma_enum_and_get_netdev(struct erdma_dev *dev)
 	struct net_device *netdev;
 	int ret = -EPROBE_DEFER;
 
-	/* Already binded to a net_device, so we skip. */
+	/* Already bound to a net_device, so we skip. */
 	if (dev->netdev)
 		return 0;
 
@@ -572,8 +572,8 @@ static int erdma_ib_device_add(struct pci_dev *pdev)
 	INIT_LIST_HEAD(&dev->cep_list);
 
 	spin_lock_init(&dev->lock);
-	xa_init_flags(&dev->qp_xa, XA_FLAGS_ALLOC1);
-	xa_init_flags(&dev->cq_xa, XA_FLAGS_ALLOC1);
+	xa_init_flags(&dev->qp_xa, XA_FLAGS_ALLOC1 | XA_FLAGS_LOCK_IRQ);
+	xa_init_flags(&dev->cq_xa, XA_FLAGS_ALLOC1 | XA_FLAGS_LOCK_IRQ);
 	dev->next_alloc_cqn = 1;
 	dev->next_alloc_qpn = 1;
 

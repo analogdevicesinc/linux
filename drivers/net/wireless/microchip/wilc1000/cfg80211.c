@@ -535,10 +535,13 @@ static int wilc_wfi_cfg_copy_wpa_info(struct wilc_wfi_key *key_info,
 }
 
 static int add_key(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
-		   u8 key_index, bool pairwise, const u8 *mac_addr,
+		   u8 key_index,
+		   enum nl80211_key_type type,
+		   const u8 *mac_addr,
 		   struct key_params *params)
 
 {
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	int ret = 0, keylen = params->key_len;
 	const u8 *rx_mic = NULL;
 	const u8 *tx_mic = NULL;
@@ -641,9 +644,10 @@ static int add_key(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
 
 static int del_key(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
 		   u8 key_index,
-		   bool pairwise,
+		   enum nl80211_key_type type,
 		   const u8 *mac_addr)
 {
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	struct wilc_vif *vif = netdev_priv(wdev->netdev);
 	struct wilc_priv *priv = &vif->priv;
 
@@ -681,10 +685,11 @@ static int del_key(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
 }
 
 static int get_key(struct wiphy *wiphy, struct wireless_dev *wdev, int link_id,
-		   u8 key_index, bool pairwise, const u8 *mac_addr,
-		   void *cookie,
+		   u8 key_index, enum nl80211_key_type type,
+		   const u8 *mac_addr, void *cookie,
 		   void (*callback)(void *cookie, struct key_params *))
 {
+	bool pairwise = type == NL80211_KEYTYPE_PAIRWISE;
 	struct wilc_vif *vif = netdev_priv(wdev->netdev);
 	struct wilc_priv *priv = &vif->priv;
 	struct  key_params key_params;
@@ -1058,6 +1063,13 @@ void wilc_wfi_p2p_rx(struct wilc_vif *vif, u8 *buff, u32 size)
 	if (!ieee80211_is_public_action((struct ieee80211_hdr *)buff, size))
 		goto out_rx_mgmt;
 
+	/* ieee80211_is_public_action() only validates up to the category
+	 * byte, so reject frames too short for the P2P public action header
+	 * before dereferencing it or computing size - ie_offset.
+	 */
+	if (size < ie_offset)
+		goto out_rx_mgmt;
+
 	d = (struct wilc_p2p_pub_act_frame *)(&mgmt->u.action);
 	if (d->oui_subtype != GO_NEG_REQ && d->oui_subtype != GO_NEG_RSP &&
 	    d->oui_subtype != P2P_INV_REQ && d->oui_subtype != P2P_INV_RSP)
@@ -1199,6 +1211,13 @@ static int mgmt_tx(struct wiphy *wiphy,
 
 		goto out_set_timeout;
 	}
+
+	/* ieee80211_is_public_action() only validates up to the category
+	 * byte, so reject frames too short for the P2P public action header
+	 * before dereferencing it or computing len - ie_offset.
+	 */
+	if (len < ie_offset)
+		goto out_set_timeout;
 
 	d = (struct wilc_p2p_pub_act_frame *)(&mgmt->u.action);
 	if (d->oui_type != WLAN_OUI_TYPE_WFA_P2P ||

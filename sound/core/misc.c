@@ -125,7 +125,7 @@ int snd_fasync_helper(int fd, struct file *file, int on,
 	struct snd_fasync *fasync = NULL;
 
 	if (on) {
-		fasync = kzalloc(sizeof(*fasync), GFP_KERNEL);
+		fasync = kzalloc_obj(*fasync);
 		if (!fasync)
 			return -ENOMEM;
 		INIT_LIST_HEAD(&fasync->list);
@@ -183,11 +183,13 @@ void snd_refcount_init(struct snd_refcount *ref)
 {
 	atomic_set(&ref->count, 0);
 	init_waitqueue_head(&ref->waiter);
+	spin_lock_init(&ref->lock);
 }
 EXPORT_SYMBOL_GPL(snd_refcount_init);
 
 void snd_refcount_put(struct snd_refcount *ref)
 {
+	guard(spinlock_irqsave)(&ref->lock);
 	if (atomic_dec_and_test(&ref->count))
 		wake_up(&ref->waiter);
 }
@@ -195,6 +197,7 @@ EXPORT_SYMBOL_GPL(snd_refcount_put);
 
 void snd_refcount_sync(struct snd_refcount *ref)
 {
-	wait_event(ref->waiter, !atomic_read(&ref->count));
+	guard(spinlock_irq)(&ref->lock);
+	wait_event_lock_irq(ref->waiter, !atomic_read(&ref->count), ref->lock);
 }
 EXPORT_SYMBOL_GPL(snd_refcount_sync);

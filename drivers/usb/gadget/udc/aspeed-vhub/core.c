@@ -267,6 +267,9 @@ static void ast_vhub_remove(struct platform_device *pdev)
 	for (i = 0; i < vhub->max_ports; i++)
 		ast_vhub_del_dev(&vhub->ports[i].dev);
 
+	/* Final drain; the worker takes vhub->lock, so stay outside of it */
+	cancel_work_sync(&vhub->wake_work);
+
 	spin_lock_irqsave(&vhub->lock, flags);
 
 	/* Mask & ack all interrupts  */
@@ -328,6 +331,7 @@ static int ast_vhub_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	spin_lock_init(&vhub->lock);
+	INIT_WORK(&vhub->wake_work, ast_vhub_wake_work);
 	vhub->pdev = pdev;
 	vhub->port_irq_mask = GENMASK(VHUB_IRQ_DEV1_BIT + vhub->max_ports - 1,
 				      VHUB_IRQ_DEV1_BIT);
@@ -379,10 +383,8 @@ static int ast_vhub_probe(struct platform_device *pdev)
 	}
 	rc = devm_request_irq(&pdev->dev, vhub->irq, ast_vhub_irq, 0,
 			      KBUILD_MODNAME, vhub);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to request interrupt\n");
+	if (rc)
 		goto err;
-	}
 
 	dma_mask_ptr = (u64 *)of_device_get_match_data(&pdev->dev);
 	if (dma_mask_ptr) {

@@ -23,6 +23,7 @@ struct parmarea parmarea __section(".parmarea") = {
 };
 
 char __bootdata(early_command_line)[COMMAND_LINE_SIZE];
+static char command_line_buf[COMMAND_LINE_SIZE];
 
 unsigned int __bootdata_preserved(zlib_dfltcc_support) = ZLIB_DFLTCC_FULL;
 struct ipl_parameter_block __bootdata_preserved(ipl_block);
@@ -39,9 +40,9 @@ static inline int __diag308(unsigned long subcode, void *addr)
 	union register_pair r1 = { .even = (unsigned long)addr, .odd = 0 };
 
 	asm_inline volatile(
-		"	diag	%[r1],%[subcode],0x308\n"
-		"0:\n"
-		EX_TABLE(0b, 0b)
+		"0:	diag	%[r1],%[subcode],0x308\n"
+		"1:\n"
+		EX_TABLE_INSN(0b, 1b)
 		: [r1] "+d" (r1.pair)
 		: [subcode] "d" (subcode)
 		: "cc", "memory");
@@ -135,31 +136,29 @@ out:
 
 static void append_ipl_block_parm(void)
 {
-	char *parm, *delim;
-	size_t len, rc = 0;
+	size_t len, extra = 0;
+	char *delim;
 
 	len = strlen(early_command_line);
-
-	delim = early_command_line + len;    /* '\0' character position */
-	parm = early_command_line + len + 1; /* append right after '\0' */
+	delim = early_command_line + len; /* '\0' character position */
 
 	switch (ipl_block.pb0_hdr.pbt) {
 	case IPL_PBT_CCW:
-		rc = ipl_block_get_ascii_vmparm(
-			parm, COMMAND_LINE_SIZE - len - 1, &ipl_block);
+		extra = ipl_block_get_ascii_vmparm(command_line_buf, sizeof(command_line_buf), &ipl_block);
 		break;
 	case IPL_PBT_FCP:
 	case IPL_PBT_NVME:
 	case IPL_PBT_ECKD:
-		rc = ipl_block_get_ascii_scpdata(
-			parm, COMMAND_LINE_SIZE - len - 1, &ipl_block);
+		extra = ipl_block_get_ascii_scpdata(command_line_buf, sizeof(command_line_buf), &ipl_block);
 		break;
 	}
-	if (rc) {
-		if (*parm == '=')
-			memmove(early_command_line, parm + 1, rc);
-		else
+	if (extra) {
+		if (command_line_buf[0] == '=') {
+			memmove(early_command_line, command_line_buf + 1, extra);
+		} else if (len < COMMAND_LINE_SIZE - 2) {
 			*delim = ' '; /* replace '\0' with space */
+			sized_strscpy(delim + 1, command_line_buf, COMMAND_LINE_SIZE - len - 1);
+		}
 	}
 }
 
@@ -173,12 +172,23 @@ static inline int has_ebcdic_char(const char *str)
 	return 0;
 }
 
+static inline bool has_nonprintable_ebcdic_char(const char *str)
+{
+	for (; *str; str++)
+		if (!isprint_ebc_asc(*str) && !isspace_ebc_asc(*str))
+			return true;
+	return false;
+}
+
 void setup_boot_command_line(void)
 {
 	parmarea.command_line[COMMAND_LINE_SIZE - 1] = 0;
 	/* convert arch command line to ascii if necessary */
-	if (has_ebcdic_char(parmarea.command_line))
+	if (has_ebcdic_char(parmarea.command_line)) {
+		if (has_nonprintable_ebcdic_char(parmarea.command_line))
+			boot_warn("Kernel command line was treated as EBCDIC, but contains non-printable characters\n");
 		EBCASC(parmarea.command_line, COMMAND_LINE_SIZE);
+	}
 	/* copy arch command line */
 	strscpy(early_command_line, strim(parmarea.command_line));
 
@@ -231,7 +241,7 @@ static void modify_fac_list(char *str)
 			if (str == endp)
 				break;
 			str = endp;
-			while (val <= endval) {
+			while (val <= endval && val < MAX_FACILITY_BIT) {
 				modify_facility(val, clear);
 				val++;
 			}
@@ -245,7 +255,6 @@ static void modify_fac_list(char *str)
 	check_cleared_facilities();
 }
 
-static char command_line_buf[COMMAND_LINE_SIZE];
 void parse_boot_command_line(void)
 {
 	char *param, *val;

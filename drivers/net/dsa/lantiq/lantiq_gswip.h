@@ -42,7 +42,7 @@
 #define  GSWIP_MDIO_PHY_FDUP_DIS	0x0600
 #define  GSWIP_MDIO_PHY_FCONTX_MASK	0x0180
 #define  GSWIP_MDIO_PHY_FCONTX_AUTO	0x0000
-#define  GSWIP_MDIO_PHY_FCONTX_EN	0x0100
+#define  GSWIP_MDIO_PHY_FCONTX_EN	0x0080
 #define  GSWIP_MDIO_PHY_FCONTX_DIS	0x0180
 #define  GSWIP_MDIO_PHY_FCONRX_MASK	0x0060
 #define  GSWIP_MDIO_PHY_FCONRX_AUTO	0x0000
@@ -261,6 +261,8 @@ struct gswip_hw_info {
 	const struct gswip_pce_microcode (*pce_microcode)[];
 	size_t pce_microcode_size;
 	enum dsa_tag_protocol tag_protocol;
+
+	int (*setup)(struct dsa_switch *ds);
 	void (*phylink_get_caps)(struct dsa_switch *ds, int port,
 				 struct phylink_config *config);
 	struct phylink_pcs *(*mac_select_pcs)(struct phylink_config *config,

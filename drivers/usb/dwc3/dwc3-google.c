@@ -235,10 +235,8 @@ static int dwc3_google_request_irq(struct dwc3_google *google, struct platform_d
 					dwc3_google_resume_irq,
 					IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
 					req_name, google);
-	if (ret < 0) {
-		dev_err(google->dev, "failed to request irq %s\n", req_name);
+	if (ret < 0)
 		return ret;
-	}
 
 	return irq;
 }
@@ -442,6 +440,7 @@ static int dwc3_google_probe(struct platform_device *pdev)
 	probe_data.dwc = &google->dwc;
 	probe_data.res = res;
 	probe_data.ignore_clocks_and_resets = true;
+	probe_data.properties = DWC3_DEFAULT_PROPERTIES;
 	ret = dwc3_core_probe(&probe_data);
 	if (ret)  {
 		ret = dev_err_probe(dev, ret, "failed to register DWC3 Core\n");

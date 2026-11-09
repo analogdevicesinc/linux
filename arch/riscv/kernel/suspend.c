@@ -43,6 +43,8 @@ void suspend_save_csrs(struct suspend_context *context)
 
 void suspend_restore_csrs(struct suspend_context *context)
 {
+	riscv_clear_hypervisor_csr();
+
 	csr_write(CSR_SCRATCH, 0);
 	if (riscv_has_extension_unlikely(RISCV_ISA_EXT_XLINUXENVCFG))
 		csr_write(CSR_ENVCFG, context->envcfg);
@@ -116,7 +118,7 @@ static int sbi_system_suspend(unsigned long sleep_type,
 	struct sbiret ret;
 
 	ret = sbi_ecall(SBI_EXT_SUSP, SBI_EXT_SUSP_SYSTEM_SUSPEND,
-			sleep_type, resume_addr, opaque, 0, 0, 0);
+			sleep_type, resume_addr, opaque);
 	if (ret.error)
 		return sbi_err_map_linux_errno(ret.error);
 
@@ -154,7 +156,7 @@ static int sbi_suspend_finisher(unsigned long suspend_type,
 	struct sbiret ret;
 
 	ret = sbi_ecall(SBI_EXT_HSM, SBI_EXT_HSM_HART_SUSPEND,
-			suspend_type, resume_addr, opaque, 0, 0, 0);
+			suspend_type, resume_addr, opaque);
 
 	return (ret.error) ? sbi_err_map_linux_errno(ret.error) : 0;
 }

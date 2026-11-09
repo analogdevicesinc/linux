@@ -25,6 +25,7 @@
  */
 #define SDCA_PROPERTY_LENGTH 64
 
+#if IS_ENABLED(CONFIG_ACPI)
 static int patch_sdca_function_type(u32 interface_revision, u32 *function_type)
 {
 	/*
@@ -78,6 +79,8 @@ static const char *get_sdca_function_name(u32 function_type)
 		return SDCA_FUNCTION_TYPE_SPEAKER_MIC_NAME;
 	case SDCA_FUNCTION_TYPE_RJ:
 		return SDCA_FUNCTION_TYPE_RJ_NAME;
+	case SDCA_FUNCTION_TYPE_SIMPLE_JACK:
+		return SDCA_FUNCTION_TYPE_SIMPLE_NAME;
 	case SDCA_FUNCTION_TYPE_COMPANION_AMP:
 		return SDCA_FUNCTION_TYPE_COMPANION_AMP_NAME;
 	case SDCA_FUNCTION_TYPE_IMP_DEF:
@@ -199,6 +202,7 @@ void sdca_lookup_functions(struct sdw_slave *slave)
 	acpi_dev_for_each_child(adev, find_sdca_function, &slave->sdca_data);
 }
 EXPORT_SYMBOL_NS(sdca_lookup_functions, "SND_SOC_SDCA");
+#endif
 
 struct raw_init_write {
 	__le32 addr;
@@ -918,8 +922,8 @@ static int find_sdca_control_value(struct device *dev, struct sdca_entity *entit
 	return 0;
 }
 
-static int find_sdca_control_reset(const struct sdca_entity *entity,
-				   struct sdca_control *control)
+static void find_sdca_control_reset(const struct sdca_entity *entity,
+				    struct sdca_control *control)
 {
 	switch (SDCA_CTL_TYPE(entity->type, control->sel)) {
 	case SDCA_CTL_TYPE_S(FU, AGC):
@@ -946,8 +950,6 @@ static int find_sdca_control_reset(const struct sdca_entity *entity,
 	default:
 		break;
 	}
-
-	return 0;
 }
 
 static int find_sdca_entity_control(struct device *dev, struct sdca_entity *entity,
@@ -1028,9 +1030,7 @@ static int find_sdca_entity_control(struct device *dev, struct sdca_entity *enti
 
 	control->is_volatile = find_sdca_control_volatile(entity, control);
 
-	ret = find_sdca_control_reset(entity, control);
-	if (ret)
-		return ret;
+	find_sdca_control_reset(entity, control);
 
 	ret = find_sdca_control_range(dev, control_node, &control->range);
 	if (ret) {
@@ -1249,8 +1249,7 @@ static int find_sdca_entity_pde(struct device *dev,
 		return -EINVAL;
 	}
 
-	u32 *delay_list __free(kfree) = kcalloc(num_delays, sizeof(*delay_list),
-						GFP_KERNEL);
+	u32 *delay_list __free(kfree) = kzalloc_objs(*delay_list, num_delays);
 	if (!delay_list)
 		return -ENOMEM;
 
@@ -1313,8 +1312,8 @@ static int find_sdca_entity_ge(struct device *dev,
 		return -EINVAL;
 	}
 
-	u8 *affected_list __free(kfree) = kcalloc(num_affected, sizeof(*affected_list),
-						  GFP_KERNEL);
+	u8 *affected_list __free(kfree) = kzalloc_objs(*affected_list,
+						       num_affected);
 	if (!affected_list)
 		return -ENOMEM;
 
@@ -1552,8 +1551,8 @@ static int find_sdca_entities(struct device *dev, struct fwnode_handle *function
 	if (!entities)
 		return -ENOMEM;
 
-	u32 *entity_list __free(kfree) = kcalloc(num_entities, sizeof(*entity_list),
-						 GFP_KERNEL);
+	u32 *entity_list __free(kfree) = kzalloc_objs(*entity_list,
+						      num_entities);
 	if (!entity_list)
 		return -ENOMEM;
 
@@ -1715,8 +1714,8 @@ static int find_sdca_entity_connection_pde(struct device *dev,
 	if (!managed)
 		return -ENOMEM;
 
-	u32 *managed_list __free(kfree) = kcalloc(num_managed, sizeof(*managed_list),
-						  GFP_KERNEL);
+	u32 *managed_list __free(kfree) = kzalloc_objs(*managed_list,
+						       num_managed);
 	if (!managed_list)
 		return -ENOMEM;
 
@@ -1986,7 +1985,6 @@ static int find_sdca_cluster_channels(struct device *dev,
 		char channel_property[SDCA_PROPERTY_LENGTH];
 		struct fwnode_handle *channel_node;
 
-		/* DisCo uses upper-case for hex numbers */
 		snprintf(channel_property, sizeof(channel_property),
 			 "mipi-sdca-channel-%d-subproperties", i + 1);
 
@@ -2033,8 +2031,8 @@ static int find_sdca_clusters(struct device *dev,
 	if (!clusters)
 		return -ENOMEM;
 
-	u32 *cluster_list __free(kfree) = kcalloc(num_clusters, sizeof(*cluster_list),
-						  GFP_KERNEL);
+	u32 *cluster_list __free(kfree) = kzalloc_objs(*cluster_list,
+						       num_clusters);
 	if (!cluster_list)
 		return -ENOMEM;
 

@@ -1049,6 +1049,10 @@ static void init_amd_zen5(struct cpuinfo_x86 *c)
 		msr_clear_bit(MSR_AMD64_CPUID_FN_7, 18);
 		pr_emerg_once("RDSEED32 is broken. Disabling the corresponding CPUID bit.\n");
 	}
+
+	if (cpu_has(c, X86_FEATURE_INVLPGB) &&
+	    !cpu_has(c, X86_FEATURE_TLBSYNC_SFW_NO))
+		set_cpu_bug(c, X86_BUG_TLBI);
 }
 
 static void init_amd(struct cpuinfo_x86 *c)
@@ -1192,7 +1196,7 @@ static unsigned int amd_size_cache(struct cpuinfo_x86 *c, unsigned int size)
 
 static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
 {
-	u32 ebx, eax, ecx, edx;
+	u32 ebx, eax, ecx, edx, shift, tmp;
 	u16 mask = 0xfff;
 
 	if (c->x86 < 0xf)
@@ -1201,10 +1205,12 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
 	if (c->extended_cpuid_level < 0x80000006)
 		return;
 
+	shift = !!cpu_has(c, X86_FEATURE_L2_TLB_SIZE_X32) * 5;
+
 	cpuid(0x80000006, &eax, &ebx, &ecx, &edx);
 
-	tlb_lld_4k = (ebx >> 16) & mask;
-	tlb_lli_4k = ebx & mask;
+	tlb_lld_4k = ((ebx >> 16) & mask) << shift;
+	tlb_lli_4k = (ebx & mask) << shift;
 
 	/*
 	 * K8 doesn't have 2M/4M entries in the L2 TLB so read out the L1 TLB
@@ -1216,16 +1222,18 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
 	}
 
 	/* Handle DTLB 2M and 4M sizes, fall back to L1 if L2 is disabled */
-	if (!((eax >> 16) & mask))
+	tmp = ((eax >> 16) & mask) << shift;
+	if (!tmp)
 		tlb_lld_2m = (cpuid_eax(0x80000005) >> 16) & 0xff;
 	else
-		tlb_lld_2m = (eax >> 16) & mask;
+		tlb_lld_2m = tmp;
 
 	/* a 4M entry uses two 2M entries */
 	tlb_lld_4m = tlb_lld_2m >> 1;
 
 	/* Handle ITLB 2M and 4M sizes, fall back to L1 if L2 is disabled */
-	if (!(eax & mask)) {
+	tmp = (eax & mask) << shift;
+	if (!tmp) {
 		/* Erratum 658 */
 		if (c->x86 == 0x15 && c->x86_model <= 0x1f) {
 			tlb_lli_2m = 1024;
@@ -1233,8 +1241,9 @@ static void cpu_detect_tlb_amd(struct cpuinfo_x86 *c)
 			cpuid(0x80000005, &eax, &ebx, &ecx, &edx);
 			tlb_lli_2m = eax & 0xff;
 		}
-	} else
-		tlb_lli_2m = eax & mask;
+	} else {
+		tlb_lli_2m = tmp;
+	}
 
 	tlb_lli_4m = tlb_lli_2m >> 1;
 

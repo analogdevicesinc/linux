@@ -44,6 +44,8 @@ enum dmub_notification_type;
  *
  * This function should be called exactly once - during DM initialization.
  *
+ * @adev: AMDGPU device.
+ *
  * Returns:
  *	0 - success
  *	non-zero - error
@@ -54,6 +56,8 @@ int amdgpu_dm_irq_init(struct amdgpu_device *adev);
  * amdgpu_dm_irq_fini - deallocate internal structures of 'amdgpu_dm_irq'.
  *
  * This function should be called exactly once - during DM destruction.
+ *
+ * @adev: AMDGPU device.
  *
  */
 void amdgpu_dm_irq_fini(struct amdgpu_device *adev);
@@ -82,12 +86,41 @@ void *amdgpu_dm_irq_register_interrupt(struct amdgpu_device *adev,
  *	by amdgpu_dm_irq_register_interrupt().
  *
  * @adev: AMD DRM device.
+ * @irq_source: IRQ source to unregister.
  * @ih_index: irq handler index which was returned by
  *	amdgpu_dm_irq_register_interrupt
  */
 void amdgpu_dm_irq_unregister_interrupt(struct amdgpu_device *adev,
 					enum dc_irq_source irq_source,
 					void *ih_index);
+
+/**
+ * amdgpu_dm_irq_set - enable or disable a DC interrupt source.
+ *
+ * @adev: AMD DRM device
+ * @src: DC interrupt source to toggle
+ * @enable: true to enable the source, false to disable it
+ *
+ * DM-wide replacement for dc_interrupt_set(). As locking is DM's
+ * responsibility, this is a thin wrapper serializes the underlying
+ * read-modify-write against the other interrupt sources sharing HW control
+ * registers with @src, so DM must never call dc_interrupt_set() directly.
+ *
+ * Returns: true if the source was toggled.
+ */
+bool amdgpu_dm_irq_set(struct amdgpu_device *adev, enum dc_irq_source src,
+		       bool enable);
+
+/**
+ * amdgpu_dm_irq_ack - acknowledge a DC interrupt source.
+ *
+ * @adev: AMD DRM device
+ * @src: DC interrupt source to acknowledge
+ *
+ * DM-wide replacement for dc_interrupt_ack(), serialized the same way as
+ * amdgpu_dm_irq_set().
+ */
+void amdgpu_dm_irq_ack(struct amdgpu_device *adev, enum dc_irq_source src);
 
 void amdgpu_dm_set_irq_funcs(struct amdgpu_device *adev);
 
@@ -98,12 +131,16 @@ void amdgpu_dm_hpd_fini(struct amdgpu_device *adev);
 /**
  * amdgpu_dm_irq_suspend - disable ASIC interrupt during suspend.
  *
+ * @adev: AMDGPU device.
+ *
  */
 void amdgpu_dm_irq_suspend(struct amdgpu_device *adev);
 
 /**
  * amdgpu_dm_irq_resume_early - enable HPDRX ASIC interrupts during resume.
  * amdgpu_dm_irq_resume - enable ASIC interrupt during resume.
+ *
+ * @adev: AMDGPU device.
  *
  */
 void amdgpu_dm_irq_resume_early(struct amdgpu_device *adev);

@@ -356,16 +356,26 @@ static int bnxt_re_update_qp1_tos_dscp(struct bnxt_re_dev *rdev)
 	return bnxt_qplib_modify_qp(&rdev->qplib_res, &qp->qplib_qp);
 }
 
-static void bnxt_re_init_dcb_wq(struct bnxt_re_dev *rdev)
+static int bnxt_re_init_dcb_wq(struct bnxt_re_dev *rdev)
 {
 	rdev->dcb_wq = create_singlethread_workqueue("bnxt_re_dcb_wq");
+	if (!rdev->dcb_wq)
+		return -ENOMEM;
+
+	return 0;
 }
 
 static void bnxt_re_uninit_dcb_wq(struct bnxt_re_dev *rdev)
 {
-	if (!rdev->dcb_wq)
-		return;
-	destroy_workqueue(rdev->dcb_wq);
+	struct workqueue_struct *dcb_wq;
+
+	spin_lock_bh(&rdev->dcb_lock);
+	dcb_wq = rdev->dcb_wq;
+	rdev->dcb_wq = NULL;
+	spin_unlock_bh(&rdev->dcb_lock);
+
+	if (dcb_wq)
+		destroy_workqueue(dcb_wq);
 }
 
 static void bnxt_re_dcb_wq_task(struct work_struct *work)
@@ -420,14 +430,23 @@ static void bnxt_re_async_notifier(void *handle, struct hwrm_async_event_cmpl *c
 
 	switch (event_id) {
 	case ASYNC_EVENT_CMPL_EVENT_ID_DCB_CONFIG_CHANGE:
-		dcb_work = kzalloc_obj(*dcb_work, GFP_ATOMIC);
-		if (!dcb_work)
+		spin_lock(&rdev->dcb_lock);
+		if (!rdev->dcb_wq) {
+			spin_unlock(&rdev->dcb_lock);
 			break;
+		}
+
+		dcb_work = kzalloc_obj(*dcb_work, GFP_ATOMIC);
+		if (!dcb_work) {
+			spin_unlock(&rdev->dcb_lock);
+			break;
+		}
 
 		dcb_work->rdev = rdev;
 		memcpy(&dcb_work->cmpl, cmpl, sizeof(*cmpl));
 		INIT_WORK(&dcb_work->work, bnxt_re_dcb_wq_task);
 		queue_work(rdev->dcb_wq, &dcb_work->work);
+		spin_unlock(&rdev->dcb_lock);
 		break;
 	default:
 		break;
@@ -1444,6 +1463,7 @@ static struct bnxt_re_dev *bnxt_re_dev_add(struct auxiliary_device *adev,
 	INIT_LIST_HEAD(&rdev->qp_list);
 	mutex_init(&rdev->qp_lock);
 	mutex_init(&rdev->pacing.dbq_lock);
+	spin_lock_init(&rdev->dcb_lock);
 	atomic_set(&rdev->stats.res.qp_count, 0);
 	atomic_set(&rdev->stats.res.cq_count, 0);
 	atomic_set(&rdev->stats.res.srq_count, 0);
@@ -2339,7 +2359,9 @@ static int bnxt_re_dev_init(struct bnxt_re_dev *rdev, u8 op_type)
 	}
 	bnxt_re_debugfs_add_pdev(rdev);
 
-	bnxt_re_init_dcb_wq(rdev);
+	rc = bnxt_re_init_dcb_wq(rdev);
+	if (rc)
+		goto fail;
 	bnxt_re_net_register_async_event(rdev);
 
 	if (!rdev->is_virtfn)

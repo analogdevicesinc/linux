@@ -318,6 +318,11 @@ static int hwmon_attr_base(enum hwmon_sensor_types type)
 	return 1;
 }
 
+static bool is_hwmon_device(struct device *dev)
+{
+	return dev->class == &hwmon_class;
+}
+
 #if IS_REACHABLE(CONFIG_I2C)
 
 /*
@@ -338,7 +343,7 @@ static int hwmon_attr_base(enum hwmon_sensor_types type)
 
 static int hwmon_match_device(struct device *dev, const void *data)
 {
-	return dev->class == &hwmon_class;
+	return is_hwmon_device(dev);
 }
 
 static ssize_t pec_show(struct device *dev, const struct device_attribute *dummy,
@@ -371,18 +376,17 @@ static ssize_t pec_store(struct device *dev, const struct device_attribute *deva
 	 * handling is not required.
 	 */
 	hwdev = to_hwmon_device(hdev);
-	guard(mutex)(&hwdev->lock);
-	if (hwdev->chip->ops->write) {
-		err = hwdev->chip->ops->write(hdev, hwmon_chip, hwmon_chip_pec, 0, val);
-		if (err && err != -EOPNOTSUPP)
-			goto put;
+	scoped_guard(mutex, &hwdev->lock) {
+		if (hwdev->chip->ops->write) {
+			err = hwdev->chip->ops->write(hdev, hwmon_chip, hwmon_chip_pec, 0, val);
+			if (err && err != -EOPNOTSUPP)
+				goto put;
+		}
+		if (!val)
+			client->flags &= ~I2C_CLIENT_PEC;
+		else
+			client->flags |= I2C_CLIENT_PEC;
 	}
-
-	if (!val)
-		client->flags &= ~I2C_CLIENT_PEC;
-	else
-		client->flags |= I2C_CLIENT_PEC;
-
 	err = count;
 put:
 	put_device(hdev);
@@ -621,6 +625,8 @@ static const char * const hwmon_in_attr_templates[] = {
 	[hwmon_in_max] = "in%d_max",
 	[hwmon_in_lcrit] = "in%d_lcrit",
 	[hwmon_in_crit] = "in%d_crit",
+	[hwmon_in_lemergency] = "in%d_lemergency",
+	[hwmon_in_emergency] = "in%d_emergency",
 	[hwmon_in_average] = "in%d_average",
 	[hwmon_in_lowest] = "in%d_lowest",
 	[hwmon_in_highest] = "in%d_highest",
@@ -631,6 +637,8 @@ static const char * const hwmon_in_attr_templates[] = {
 	[hwmon_in_max_alarm] = "in%d_max_alarm",
 	[hwmon_in_lcrit_alarm] = "in%d_lcrit_alarm",
 	[hwmon_in_crit_alarm] = "in%d_crit_alarm",
+	[hwmon_in_lemergency_alarm] = "in%d_lemergency_alarm",
+	[hwmon_in_emergency_alarm] = "in%d_emergency_alarm",
 	[hwmon_in_rated_min] = "in%d_rated_min",
 	[hwmon_in_rated_max] = "in%d_rated_max",
 	[hwmon_in_beep] = "in%d_beep",
@@ -644,6 +652,7 @@ static const char * const hwmon_curr_attr_templates[] = {
 	[hwmon_curr_max] = "curr%d_max",
 	[hwmon_curr_lcrit] = "curr%d_lcrit",
 	[hwmon_curr_crit] = "curr%d_crit",
+	[hwmon_curr_emergency] = "curr%d_emergency",
 	[hwmon_curr_average] = "curr%d_average",
 	[hwmon_curr_lowest] = "curr%d_lowest",
 	[hwmon_curr_highest] = "curr%d_highest",
@@ -654,6 +663,7 @@ static const char * const hwmon_curr_attr_templates[] = {
 	[hwmon_curr_max_alarm] = "curr%d_max_alarm",
 	[hwmon_curr_lcrit_alarm] = "curr%d_lcrit_alarm",
 	[hwmon_curr_crit_alarm] = "curr%d_crit_alarm",
+	[hwmon_curr_emergency_alarm] = "curr%d_emergency_alarm",
 	[hwmon_curr_rated_min] = "curr%d_rated_min",
 	[hwmon_curr_rated_max] = "curr%d_rated_max",
 	[hwmon_curr_beep] = "curr%d_beep",
@@ -782,6 +792,9 @@ int hwmon_notify_event(struct device *dev, enum hwmon_sensor_types type,
 	const char *template;
 	int base;
 
+	if (WARN(!is_hwmon_device(dev), "%s is not a hardware monitoring device\n",
+		 dev_name(dev)))
+		return -EINVAL;
 	if (type >= ARRAY_SIZE(__templates))
 		return -EINVAL;
 	if (attr >= __templates_size[type])

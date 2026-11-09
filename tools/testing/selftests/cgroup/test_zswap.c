@@ -20,6 +20,7 @@ static int page_size;
 
 #define PATH_ZSWAP "/sys/module/zswap"
 #define PATH_ZSWAP_ENABLED "/sys/module/zswap/parameters/enabled"
+#define PATH_ZSWAP_SHRINKER_ENABLED "/sys/module/zswap/parameters/shrinker_enabled"
 #define PATH_ZSWAP_STORED_PAGES "/sys/kernel/debug/zswap/stored_pages"
 
 static int read_int(const char *path, size_t *value)
@@ -59,14 +60,14 @@ static int get_zswap_stored_pages(size_t *value)
 	return read_int(PATH_ZSWAP_STORED_PAGES, value);
 }
 
-static long get_cg_wb_count(const char *cg)
+static s64 get_cg_wb_count(const char *cg)
 {
-	return cg_read_key_long(cg, "memory.stat", "zswpwb");
+	return cg_read_key_s64(cg, "memory.stat", "zswpwb");
 }
 
-static long get_zswpout(const char *cgroup)
+static s64 get_zswpout(const char *cgroup)
 {
-	return cg_read_key_long(cgroup, "memory.stat", "zswpout ");
+	return cg_read_key_s64(cgroup, "memory.stat", "zswpout ");
 }
 
 static int allocate_and_read_bytes(const char *cgroup, void *arg)
@@ -125,9 +126,10 @@ fail:
  * Writeback is asynchronous; poll until at least one writeback has
  * been recorded for @cg, or until @timeout_ms has elapsed.
  */
-static long wait_for_writeback(const char *cg, int timeout_ms)
+static s64 wait_for_writeback(const char *cg, int timeout_ms)
 {
-	long elapsed, count;
+	long elapsed;
+	s64 count;
 	for (elapsed = 0; elapsed < timeout_ms; elapsed += 100) {
 		count = get_cg_wb_count(cg);
 
@@ -147,7 +149,7 @@ static long wait_for_writeback(const char *cg, int timeout_ms)
  */
 static int test_zswap_usage(const char *root)
 {
-	long zswpout_before, zswpout_after;
+	s64 zswpout_before, zswpout_after;
 	int ret = KSFT_FAIL;
 	char *test_group;
 
@@ -191,7 +193,7 @@ static int test_swapin_nozswap(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *test_group, mem_max_buf[32];
-	long swap_peak, zswpout, min_swap;
+	s64 swap_peak, zswpout, min_swap;
 	size_t allocation_size = page_size * 512;
 
 	min_swap = allocation_size / 4;
@@ -212,15 +214,15 @@ static int test_swapin_nozswap(const char *root)
 		goto out;
 
 	/* Verify that pages are swapped out, but no zswap happened */
-	swap_peak = cg_read_long(test_group, "memory.swap.peak");
+	swap_peak = cg_read_s64(test_group, "memory.swap.peak");
 	if (swap_peak < 0) {
 		ksft_print_msg("failed to get cgroup's swap_peak\n");
 		goto out;
 	}
 
 	if (swap_peak < min_swap) {
-		ksft_print_msg("at least %ldKB of memory should be swapped out\n",
-				min_swap / 1024);
+		ksft_print_msg("at least %" PRId64 "KB of memory should be swapped out\n",
+			       min_swap / 1024);
 		goto out;
 	}
 
@@ -248,7 +250,7 @@ static int test_zswapin(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *test_group;
-	long zswpin;
+	s64 zswpin;
 
 	test_group = cg_name(root, "zswapin_test");
 	if (!test_group)
@@ -264,7 +266,7 @@ static int test_zswapin(const char *root)
 	if (cg_run(test_group, allocate_and_read_bytes, (void *)MB(32)))
 		goto out;
 
-	zswpin = cg_read_key_long(test_group, "memory.stat", "zswpin ");
+	zswpin = cg_read_key_s64(test_group, "memory.stat", "zswpin ");
 	if (zswpin < 0) {
 		ksft_print_msg("failed to get zswpin\n");
 		goto out;
@@ -299,7 +301,7 @@ static int attempt_writeback(const char *cgroup, void *arg)
 {
 	size_t memsize = page_size * 1024;
 	char buf[page_size];
-	long zswap_usage;
+	s64 zswap_usage;
 	bool wb_enabled = *(bool *) arg;
 	int ret = -1;
 	char *mem;
@@ -325,7 +327,7 @@ static int attempt_writeback(const char *cgroup, void *arg)
 		goto out;
 	}
 
-	zswap_usage = cg_read_long(cgroup, "memory.zswap.current");
+	zswap_usage = cg_read_s64(cgroup, "memory.zswap.current");
 
 	/* zswpin */
 	for (int i = 0; i < memsize; i += page_size) {
@@ -345,7 +347,16 @@ static int attempt_writeback(const char *cgroup, void *arg)
 	 * it can't writeback to swap.
 	 */
 	ret = cg_write_numeric(cgroup, "memory.reclaim", memsize);
-	if (!wb_enabled)
+
+	/*
+	 * When writeback is enabled, memory.reclaim may still fail to reclaim
+	 * the requested amount of memory due to a slow swap device.
+	 * Ignore -EAGAIN here. The caller determines pass/fail based on the
+	 * zswap writeback counter.
+	 */
+	if (wb_enabled && ret == -EAGAIN)
+		ret = 0;
+	else if (!wb_enabled)
 		ret = (ret == -EAGAIN) ? 0 : -1;
 
 out:
@@ -355,11 +366,12 @@ out:
 
 static int test_zswap_writeback_one(const char *cgroup, bool wb)
 {
-	long zswpwb_before, zswpwb_after;
+	s64 zswpwb_before, zswpwb_after;
 
 	zswpwb_before = get_cg_wb_count(cgroup);
 	if (zswpwb_before != 0) {
-		ksft_print_msg("zswpwb_before = %ld instead of 0\n", zswpwb_before);
+		ksft_print_msg("zswpwb_before = %" PRId64 " instead of 0\n",
+			       zswpwb_before);
 		return -1;
 	}
 
@@ -375,8 +387,8 @@ static int test_zswap_writeback_one(const char *cgroup, bool wb)
 		return -1;
 
 	if (wb != !!zswpwb_after) {
-		ksft_print_msg("zswpwb_after is %ld while wb is %s\n",
-				zswpwb_after, wb ? "enabled" : "disabled");
+		ksft_print_msg("zswpwb_after is %" PRId64 " while wb is %s\n",
+			       zswpwb_after, wb ? "enabled" : "disabled");
 		return -1;
 	}
 
@@ -407,6 +419,8 @@ static int test_zswap_writeback(const char *root, bool wb)
 	 * set up child cgroup, whose memory.zswap.writeback is hardcoded to 1.
 	 * Thus, the parent's setting shall be what's in effect. */
 	if (cg_write(test_group, "memory.zswap.max", "max"))
+		goto out;
+	if (cg_read_strcmp_wait(test_group, "cgroup.events", "populated 0\n"))
 		goto out;
 	if (cg_write(test_group, "cgroup.subtree_control", "+memory"))
 		goto out;
@@ -444,6 +458,16 @@ static int test_zswap_writeback_disabled(const char *root)
 	return test_zswap_writeback(root, false);
 }
 
+static bool zswap_shrinker_enabled(void)
+{
+	char value[2];
+
+	if (read_text(PATH_ZSWAP_SHRINKER_ENABLED, value, sizeof(value)) <= 0)
+		return 0;
+
+	return value[0] == 'Y';
+}
+
 /*
  * When trying to store a memcg page in zswap, if the memcg hits its memory
  * limit in zswap, writeback should affect only the zswapped pages of that
@@ -453,6 +477,7 @@ static int test_no_invasive_cgroup_shrink(const char *root)
 {
 	int ret = KSFT_FAIL;
 	unsigned int off;
+	s64 zswpwb_before, zswpwb_after, zswpwb_target;
 	size_t allocation_size = page_size * 1024;
 	unsigned int nr_pages = allocation_size / page_size;
 	char zswap_max_buf[32], mem_max_buf[32];
@@ -485,7 +510,15 @@ static int test_no_invasive_cgroup_shrink(const char *root)
 		memset(&zw_allocation[off], 0, page_size);
 		memset(&zw_allocation[off], 'a', page_size/4);
 	}
-	if (cg_read_key_long(zw_group, "memory.stat", "zswapped") < 1)
+	if (cg_read_key_s64(zw_group, "memory.stat", "zswapped") < 1)
+		goto out;
+
+	/* If the shrinker is enabled, try to let the writebacks finish first */
+	if (zswap_shrinker_enabled())
+		sleep(5);
+
+	zswpwb_before = get_cg_wb_count(zw_group);
+	if (zswpwb_before < 0)
 		goto out;
 
 	/* Push wb_group memory into zswap with hard-to-compress data to trigger wb */
@@ -500,9 +533,13 @@ static int test_no_invasive_cgroup_shrink(const char *root)
 		getrandom(&wb_allocation[off], page_size/4, 0);
 	}
 
-	/* Verify that only zswapped memory from gwb_group has been written back */
-	if (wait_for_writeback(wb_group, 5000) > 0 && get_cg_wb_count(zw_group) == 0)
+	/* Verify that only zswapped memory from wb_group has been written back */
+	zswpwb_target = wait_for_writeback(wb_group, 5000);
+	zswpwb_after = get_cg_wb_count(zw_group);
+
+	if (zswpwb_target > 0 && zswpwb_before == zswpwb_after)
 		ret = KSFT_PASS;
+
 out:
 	cg_enter_current(root);
 	if (zw_group) {
@@ -628,11 +665,13 @@ static int test_no_kmem_bypass(const char *root)
 			break;
 		/* If memory was pushed to zswap, verify it belongs to memcg */
 		if (stored_pages > stored_pages_threshold) {
-			int zswapped = cg_read_key_long(test_group, "memory.stat", "zswapped ");
-			int delta = stored_pages * page_size - zswapped;
-			int result_ok = delta < stored_pages * page_size / 4;
+			s64 zswapped = cg_read_key_s64(test_group,
+						       "memory.stat",
+						       "zswapped ");
+			s64 delta = (s64)stored_pages * page_size - zswapped;
+			s64 max_delta = (s64)stored_pages * page_size / 4;
 
-			ret = result_ok ? KSFT_PASS : KSFT_FAIL;
+			ret = (delta < max_delta) ? KSFT_PASS : KSFT_FAIL;
 			break;
 		}
 	}
@@ -701,9 +740,9 @@ static int allocate_random_and_wait(const char *cgroup, void *arg)
 	return 0;
 }
 
-static long get_zswap_incomp(const char *cgroup)
+static s64 get_zswap_incomp(const char *cgroup)
 {
-	return cg_read_key_long(cgroup, "memory.stat", "zswap_incomp ");
+	return cg_read_key_s64(cgroup, "memory.stat", "zswap_incomp ");
 }
 
 /*
@@ -719,7 +758,7 @@ static int test_zswap_incompressible(const char *root)
 	int ret = KSFT_FAIL;
 	struct incomp_child_args *values;
 	char *test_group;
-	long zswap_incomp;
+	s64 zswap_incomp;
 	pid_t child_pid;
 	int child_status;
 	char buf;
@@ -755,12 +794,16 @@ static int test_zswap_incompressible(const char *root)
 
 	zswap_incomp = get_zswap_incomp(test_group);
 	if (zswap_incomp <= 0) {
-		long zswpout = get_zswpout(test_group);
-		long zswapped = cg_read_key_long(test_group, "memory.stat", "zswapped ");
-		long zswap_b = cg_read_key_long(test_group, "memory.stat", "zswap ");
+		s64 zswpout = get_zswpout(test_group);
+		s64 zswapped =
+			cg_read_key_s64(test_group, "memory.stat", "zswapped ");
+		s64 zswap_b =
+			cg_read_key_s64(test_group, "memory.stat", "zswap ");
 
-		ksft_print_msg("zswap_incomp not increased: %ld\n", zswap_incomp);
-		ksft_print_msg("debug: zswpout=%ld zswapped=%ld zswap_b=%ld\n",
+		ksft_print_msg("zswap_incomp not increased: %" PRId64 "\n",
+			       zswap_incomp);
+		ksft_print_msg("debug: zswpout=%" PRId64 " zswapped=%" PRId64
+			       " zswap_b=%" PRId64 "\n",
 			       zswpout, zswapped, zswap_b);
 		ksft_print_msg("debug: madvise ret=%d errno=%d\n",
 			       values->madvise_ret, values->madvise_errno);

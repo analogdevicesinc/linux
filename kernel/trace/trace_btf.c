@@ -2,6 +2,7 @@
 #include <linux/btf.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/kallsyms.h>
 
 #include "trace_btf.h"
 
@@ -14,6 +15,9 @@ const struct btf_type *btf_find_func_proto(const char *func_name, struct btf **b
 {
 	const struct btf_type *t;
 	s32 id;
+
+	if (unlikely(in_atomic() || irqs_disabled()))
+		return NULL;
 
 	id = bpf_find_btf_id(func_name, BTF_KIND_FUNC, btf_p);
 	if (id < 0)
@@ -59,49 +63,66 @@ struct btf_anon_stack {
 	u32 offset;
 };
 
-/*
- * Find a member of data structure/union by name and return it.
- * Return NULL if not found, or -EINVAL if parameter is invalid.
- * If the member is an member of anonymous union/structure, the offset
- * of that anonymous union/structure is stored into @anon_offset. Caller
- * can calculate the correct offset from the root data structure by
- * adding anon_offset to the member's offset.
+/**
+ * btf_find_struct_member() - Find a member of data structure/union by name
+ * @btf: Pointer to BTF object.
+ * @type: Pointer to the struct/union BTF type to search within.
+ * @member_name: Name of the member to find.
+ * @anon_offset: Pointer to store bit offset of enclosing anonymous union/struct.
+ * @container_type: Pointer to store the actual containing struct/union type.
+ *
+ * Find a member of data structure/union by name, traversing into anonymous
+ * unions and structures if necessary.
+ *
+ * If the member is inside an anonymous union/structure, the bit offset
+ * of that anonymous union/structure from @type is stored into @anon_offset.
+ * If @container_type is non-NULL, the actual struct/union BTF type that
+ * directly contains the found member is stored into @container_type.
+ *
+ * Return:
+ * * Pointer to &struct btf_member on success.
+ * * %NULL if the member was not found.
+ * * %ERR_PTR(-EINVAL) if @type is not a struct/union.
+ * * %ERR_PTR(-ENOMEM) if memory allocation failed.
  */
 const struct btf_member *btf_find_struct_member(struct btf *btf,
 						const struct btf_type *type,
 						const char *member_name,
-						u32 *anon_offset)
+						u32 *anon_offset,
+						const struct btf_type **container_type)
 {
 	struct btf_anon_stack *anon_stack;
 	const struct btf_member *member;
+	const struct btf_type *mtype;
 	u32 tid, cur_offset = 0;
 	const char *name;
 	int i, top = 0;
+
+	if (!btf_type_is_struct(type))
+		return ERR_PTR(-EINVAL);
 
 	anon_stack = kzalloc_objs(*anon_stack, BTF_ANON_STACK_MAX);
 	if (!anon_stack)
 		return ERR_PTR(-ENOMEM);
 
 retry:
-	if (!btf_type_is_struct(type)) {
-		member = ERR_PTR(-EINVAL);
-		goto out;
-	}
-
 	for_each_member(i, type, member) {
 		if (!member->name_off) {
 			/* Anonymous union/struct: push it for later use */
-			if (btf_type_skip_modifiers(btf, member->type, &tid) &&
+			mtype = btf_type_skip_modifiers(btf, member->type, &tid);
+			if (mtype && btf_type_is_struct(mtype) &&
 			    top < BTF_ANON_STACK_MAX) {
 				anon_stack[top].tid = tid;
-				anon_stack[top++].offset =
-					cur_offset + member->offset;
+				anon_stack[top++].offset = cur_offset +
+					__btf_member_bit_offset(type, member);
 			}
 		} else {
 			name = btf_name_by_offset(btf, member->name_off);
 			if (name && !strcmp(member_name, name)) {
 				if (anon_offset)
 					*anon_offset = cur_offset;
+				if (container_type)
+					*container_type = type;
 				goto out;
 			}
 		}
@@ -120,3 +141,85 @@ out:
 	return member;
 }
 
+void btf_trim_retval(unsigned long func, unsigned long *retval, bool *print_retval,
+			int *fmt, bool hex)
+{
+	const struct btf_type *t;
+	char name[KSYM_NAME_LEN];
+	struct btf *btf;
+	u32 v, msb;
+	bool signed_type;
+	int kind;
+
+	if (lookup_symbol_name(func, name))
+		return;
+
+	t = btf_find_func_proto(name, &btf);
+	if (IS_ERR_OR_NULL(t))
+		return;
+
+	t = btf_type_skip_modifiers(btf, t->type, NULL);
+	kind = t ? BTF_INFO_KIND(t->info) : BTF_KIND_UNKN;
+	switch (kind) {
+	case BTF_KIND_UNKN:
+		*print_retval = false;
+		break;
+	case BTF_KIND_STRUCT:
+	case BTF_KIND_UNION:
+	case BTF_KIND_ENUM:
+	case BTF_KIND_ENUM64:
+		if (kind == BTF_KIND_STRUCT || kind == BTF_KIND_UNION) {
+			*fmt = RETVAL_FMT_HEX;
+			signed_type = false;
+		} else {
+			*fmt = RETVAL_FMT_DEC;
+			signed_type = btf_type_kflag(t);
+			if (!signed_type)
+				*fmt |= RETVAL_FMT_UNSIGNED;
+		}
+
+		if (t->size > sizeof(unsigned long)) {
+			*fmt |= RETVAL_FMT_TRUNC;
+			msb = BITS_PER_LONG - 1;
+		} else {
+			msb = min_t(u32, BITS_PER_BYTE * t->size - 1,
+				    BITS_PER_LONG - 1);
+			*retval &= GENMASK(msb, 0);
+		}
+		if (signed_type && t->size && !hex)
+			*retval = sign_extend64(*retval, msb);
+		break;
+	case BTF_KIND_INT:
+		v = *(u32 *)(t + 1);
+		signed_type = false;
+		if (BTF_INT_ENCODING(v) == BTF_INT_BOOL) {
+			*fmt = RETVAL_FMT_BOOL;
+			msb = 0;
+		} else {
+			signed_type = BTF_INT_ENCODING(v) & BTF_INT_SIGNED;
+			if (signed_type)
+				*fmt = RETVAL_FMT_DEC;
+			else
+				*fmt = RETVAL_FMT_HEX;
+
+			if (t->size > sizeof(unsigned long)) {
+				*fmt |= RETVAL_FMT_TRUNC;
+				msb = BITS_PER_LONG - 1;
+			} else {
+				msb = min_t(u32, BTF_INT_BITS(v) - 1,
+					    BITS_PER_LONG - 1);
+			}
+		}
+		*retval &= GENMASK(msb, 0);
+		if (signed_type && !hex)
+			*retval = sign_extend64(*retval, msb);
+		break;
+	default:
+		*fmt = RETVAL_FMT_HEX;
+		break;
+	}
+
+	if (*print_retval)
+		*fmt |= RETVAL_FMT_BTF;
+	btf_put(btf);
+}

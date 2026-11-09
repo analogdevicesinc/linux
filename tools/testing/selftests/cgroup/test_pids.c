@@ -114,9 +114,9 @@ static int test_pids_events(const char *root)
 	if (kill(pid, SIGINT))
 		goto cleanup;
 
-	if (cg_read_key_long(cg_child, "pids.events", "max ") != 0)
+	if (cg_read_key_s64(cg_child, "pids.events", "max ") != 0)
 		goto cleanup;
-	if (cg_read_key_long(cg_parent, "pids.events", "max ") != 1)
+	if (cg_read_key_s64(cg_parent, "pids.events", "max ") != 1)
 		goto cleanup;
 
 
@@ -179,7 +179,7 @@ static int test_pids_events_notify(const char *root)
 	if (cg_run_nowait(cg_pids, run_success, NULL) != -1 || errno != EAGAIN)
 		goto cleanup;
 
-	if (cg_read_key_long(cg_pids, "pids.events", "max ") != 1)
+	if (cg_read_key_s64(cg_pids, "pids.events", "max ") != 1)
 		goto cleanup;
 
 	pfd.fd = inotify_fd;

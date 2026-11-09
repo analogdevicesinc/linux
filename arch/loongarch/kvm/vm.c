@@ -50,7 +50,9 @@ static void kvm_vm_init_features(struct kvm *kvm)
 
 	/* Enable all PV features by default */
 	kvm->arch.pv_features |= BIT(KVM_FEATURE_IPI);
+	kvm->arch.pv_features |= BIT(KVM_FEATURE_CRASH);
 	kvm->arch.kvm_features |= BIT(KVM_LOONGARCH_VM_FEAT_PV_IPI);
+	kvm->arch.kvm_features |= BIT(KVM_LOONGARCH_VM_FEAT_CRASH);
 	if (kvm_pvtime_supported()) {
 		kvm->arch.pv_features |= BIT(KVM_FEATURE_PREEMPT);
 		kvm->arch.pv_features |= BIT(KVM_FEATURE_STEAL_TIME);
@@ -76,6 +78,7 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 		return -ENOMEM;
 	}
 	spin_lock_init(&kvm->arch.phyid_map_lock);
+	spin_lock_init(&kvm->arch.pv_setting_lock);
 
 	kvm_init_vmcs(kvm);
 	kvm_vm_init_features(kvm);

@@ -152,6 +152,7 @@ int usb_serial_generic_prepare_write_buffer(struct usb_serial_port *port,
 int usb_serial_generic_write_start(struct usb_serial_port *port,
 							gfp_t mem_flags)
 {
+	struct usb_serial_driver *type = port->serial->type;
 	struct urb *urb;
 	int count, result;
 	unsigned long flags;
@@ -161,7 +162,8 @@ int usb_serial_generic_write_start(struct usb_serial_port *port,
 		return 0;
 retry:
 	spin_lock_irqsave(&port->lock, flags);
-	if (!port->write_urbs_free || !kfifo_len(&port->write_fifo)) {
+	if (!port->write_urbs_free || !kfifo_len(&port->write_fifo) ||
+	    (type->write_ready && !type->write_ready(port))) {
 		clear_bit_unlock(USB_SERIAL_WRITE_BUSY, &port->flags);
 		spin_unlock_irqrestore(&port->lock, flags);
 		return 0;
@@ -171,8 +173,7 @@ retry:
 	spin_unlock_irqrestore(&port->lock, flags);
 
 	urb = port->write_urbs[i];
-	count = port->serial->type->prepare_write_buffer(port,
-						urb->transfer_buffer,
+	count = type->prepare_write_buffer(port, urb->transfer_buffer,
 						port->bulk_out_size);
 	urb->transfer_buffer_length = count;
 	usb_serial_debug_data(&port->dev, __func__, count, urb->transfer_buffer);
@@ -188,6 +189,10 @@ retry:
 		set_bit(i, &port->write_urbs_free);
 		spin_lock_irqsave(&port->lock, flags);
 		port->tx_bytes -= count;
+
+		if (type->write_rollback)
+			type->write_rollback(port, count);
+
 		spin_unlock_irqrestore(&port->lock, flags);
 
 		clear_bit_unlock(USB_SERIAL_WRITE_BUSY, &port->flags);
@@ -266,6 +271,7 @@ EXPORT_SYMBOL_GPL(usb_serial_generic_chars_in_buffer);
 void usb_serial_generic_wait_until_sent(struct tty_struct *tty, long timeout)
 {
 	struct usb_serial_port *port = tty->driver_data;
+	struct tty_port *tport = &port->port;
 	unsigned int bps;
 	unsigned long period;
 	unsigned long expire;
@@ -285,7 +291,14 @@ void usb_serial_generic_wait_until_sent(struct tty_struct *tty, long timeout)
 					__func__, jiffies_to_msecs(timeout),
 					jiffies_to_msecs(period));
 	expire = jiffies + timeout;
-	while (!port->serial->type->tx_empty(port)) {
+	for (;;) {
+		mutex_lock(&tport->mutex);
+		if (tty_io_error(tty) || port->serial->type->tx_empty(port)) {
+			mutex_unlock(&tport->mutex);
+			break;
+		}
+		mutex_unlock(&tport->mutex);
+
 		schedule_timeout_interruptible(period);
 		if (signal_pending(current))
 			break;

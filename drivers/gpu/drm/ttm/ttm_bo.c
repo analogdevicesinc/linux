@@ -506,7 +506,6 @@ struct ttm_bo_alloc_state {
  *
  * @bo: The buffer to allocate the backing store of
  * @place: The place to attempt allocation in
- * @ctx: ttm_operation_ctx associated with this allocation
  * @force_space: If we should evict buffers to force space
  * @res: On allocation success, the resulting struct ttm_resource.
  * @alloc_state: Object holding allocation state such as charged cgroups.
@@ -1434,7 +1433,7 @@ ttm_bo_swapout_cb(struct ttm_lru_walk *walk, struct ttm_buffer_object *bo)
 
 	if (ttm_tt_is_populated(tt)) {
 		ret = ttm_tt_swapout(bdev, tt, swapout_walk->gfp_flags);
-		if (!ret) {
+		if (ret > 0) {
 			spin_lock(&bdev->lru_lock);
 			ttm_resource_del_bulk_move_unevictable(bo->resource, bo);
 			ttm_resource_move_to_lru_tail(bo->resource);
@@ -1450,7 +1449,7 @@ out:
 	return ret;
 }
 
-const struct ttm_lru_walk_ops ttm_swap_ops = {
+static const struct ttm_lru_walk_ops ttm_swap_ops = {
 	.process_bo = ttm_bo_swapout_cb,
 };
 

@@ -378,7 +378,21 @@ struct octeon_hcd {
 	struct cvmx_usb_transaction *active_split;
 	struct cvmx_usb_tx_fifo periodic;
 	struct cvmx_usb_tx_fifo nonperiodic;
+	struct hrtimer sof_timer;
 };
+
+static int cvmx_usb_poll(struct octeon_hcd *usb);
+
+static enum hrtimer_restart octeon_usb_sof_timer(struct hrtimer *t)
+{
+	struct octeon_hcd *usb = container_of(t, struct octeon_hcd, sof_timer);
+	unsigned long flags;
+
+	spin_lock_irqsave(&usb->lock, flags);
+	cvmx_usb_poll(usb);
+	spin_unlock_irqrestore(&usb->lock, flags);
+	return HRTIMER_NORESTART;
+}
 
 /*
  * This macro logically sets a single field in a CSR. It does the sequence
@@ -578,7 +592,7 @@ static int cvmx_wait_tx_rx(struct octeon_hcd *usb, int fflsh_type)
 	int result;
 	u64 address = CVMX_USBCX_GRSTCTL(usb->index);
 	u64 done = cvmx_get_cycle() + 100 *
-		   (u64)octeon_get_clock_rate / 1000000;
+		   (u64)octeon_get_clock_rate() / 1000000;
 	union cvmx_usbcx_grstctl c;
 
 	while (1) {
@@ -694,6 +708,7 @@ static int cvmx_usb_initialize(struct device *dev,
 	int channel;
 	int divisor;
 	int retries = 0;
+	int status;
 	union cvmx_usbcx_hcfg usbcx_hcfg;
 	union cvmx_usbnx_clk_ctl usbn_clk_ctl;
 	union cvmx_usbcx_gintsts usbc_gintsts;
@@ -853,6 +868,15 @@ retry:
 	 *    USBC_GAHBCFG[PTXFEMPLVL]
 	 *    Global interrupt mask, USBC_GAHBCFG[GLBLINTRMSK] = 1
 	 */
+	usbcx_gahbcfg.u32 = cvmx_usb_read_csr32(usb,
+						CVMX_USBCX_GHWCFG3(usb->index));
+	if (usbcx_gahbcfg.u32 == 0xffffffff || usbcx_gahbcfg.u32 == 0) {
+		dev_err(dev, "USB core is not responding (GHWCFG3=0x%08x)\n",
+			usbcx_gahbcfg.u32);
+		status = -ENODEV;
+		goto err_shutdown;
+	}
+
 	usbcx_gahbcfg.u32 = 0;
 	usbcx_gahbcfg.s.dmaen = !(usb->init_flags &
 				  CVMX_USB_INITIALIZE_FLAGS_NO_DMA);
@@ -939,14 +963,27 @@ retry:
 	dev_dbg(dev, "gintsts after reset: 0x%x\n", (int)usbc_gintsts.u32);
 	if (!usbc_gintsts.s.disconnint && !usbc_gintsts.s.prtint)
 		return 0;
-	if (retries++ >= 5)
-		return -EAGAIN;
+	if (retries++ >= 5) {
+		status = -EAGAIN;
+		goto err_shutdown;
+	}
 	dev_info(dev, "controller reset failed (gintsts=0x%x) - retrying\n",
 		 (int)usbc_gintsts.u32);
 	msleep(50);
 	cvmx_usb_shutdown(usb);
 	msleep(50);
 	goto retry;
+
+err_shutdown:
+	/*
+	 * Steps 2b-2e above selected the reference clock, enabled
+	 * USBN_CLK_CTL and took the PHY out of reset, and the caller only
+	 * frees the HCD, so hand the block back before giving up. The pipe
+	 * lists cvmx_usb_shutdown() checks are initialised by the caller
+	 * before it gets here, so it cannot refuse with -EBUSY.
+	 */
+	cvmx_usb_shutdown(usb);
+	return status;
 }
 
 /**
@@ -1900,6 +1937,8 @@ static void cvmx_usb_schedule(struct octeon_hcd *usb, int is_sof)
 	int channel;
 	struct cvmx_usb_pipe *pipe;
 	int need_sof;
+	u64 min_due;
+	bool due_now;
 	enum cvmx_usb_transfer ttype;
 
 	if (usb->init_flags & CVMX_USB_INITIALIZE_FLAGS_NO_DMA) {
@@ -1940,14 +1979,49 @@ done:
 	 * future that might need to be scheduled
 	 */
 	need_sof = 0;
+	min_due = ~0ull;
+	due_now = false;
 	for (ttype = CVMX_USB_TRANSFER_CONTROL;
 	     ttype <= CVMX_USB_TRANSFER_INTERRUPT; ttype++) {
 		list_for_each_entry(pipe, &usb->active_pipes[ttype], node) {
-			if (pipe->next_tx_frame > usb->frame_number) {
-				need_sof = 1;
-				break;
-			}
+			/*
+			 * Do not sleep past a pipe that is only retried from a
+			 * SOF: a periodic one that is due but was not started
+			 * (no idle channel, closed split window, another pipe's
+			 * split active), or any pipe waiting for the frame its
+			 * split complete may go out in. Other control and bulk
+			 * pipes are left out: their next_tx_frame is not updated
+			 * on completion, so they always look due.
+			 */
+			if (pipe->split_sc_frame != -1 ||
+			    (pipe->next_tx_frame <= usb->frame_number &&
+			     (ttype == CVMX_USB_TRANSFER_ISOCHRONOUS ||
+			      ttype == CVMX_USB_TRANSFER_INTERRUPT)))
+				due_now = true;
+			if (pipe->next_tx_frame > usb->frame_number &&
+			    pipe->next_tx_frame < min_due)
+				min_due = pipe->next_tx_frame;
 		}
+	}
+	if (due_now) {
+		need_sof = 1;
+	} else if (min_due != ~0ull) {
+		u64 delta = min_due - usb->frame_number;
+
+		/*
+		 * frame_number is resynced from HFNUM on every poll, so a
+		 * deadline that is many frames away does not need an
+		 * interrupt on every SOF to count them down - sleep on the
+		 * timer instead and keep SOF interrupts for deadlines within
+		 * a few frames. Stay well below the 16383-frame wrap of
+		 * HFNUM. One (micro)frame is 125us in high-speed mode.
+		 */
+		if (delta <= 4 || delta > 8000)
+			need_sof = 1;
+		else
+			hrtimer_start(&usb->sof_timer,
+				      ns_to_ktime((delta - 2) * 125000),
+				      HRTIMER_MODE_REL);
 	}
 	USB_SET_FIELD32(CVMX_USBCX_GINTMSK(usb->index),
 			cvmx_usbcx_gintmsk, sofmsk, need_sof);
@@ -3638,6 +3712,8 @@ static int octeon_usb_probe(struct platform_device *pdev)
 	usb = (struct octeon_hcd *)hcd->hcd_priv;
 
 	spin_lock_init(&usb->lock);
+	hrtimer_setup(&usb->sof_timer, octeon_usb_sof_timer, CLOCK_MONOTONIC,
+		      HRTIMER_MODE_REL);
 
 	usb->init_flags = initialize_flags;
 
@@ -3688,6 +3764,7 @@ static void octeon_usb_remove(struct platform_device *pdev)
 	unsigned long flags;
 
 	usb_remove_hcd(hcd);
+	hrtimer_cancel(&usb->sof_timer);
 	spin_lock_irqsave(&usb->lock, flags);
 	status = cvmx_usb_shutdown(usb);
 	spin_unlock_irqrestore(&usb->lock, flags);

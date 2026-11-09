@@ -2386,7 +2386,7 @@ static int ti_sci_set_irq(const struct ti_sci_handle *handle, u32 valid_params,
 	if (ret || !(info->fw_caps & MSG_FLAG_CAPS_LPM_IRQ_CONTEXT_LOST))
 		goto end;
 
-	irq = kzalloc_obj(*irq, GFP_KERNEL);
+	irq = kzalloc_obj(*irq);
 	if (!irq) {
 		ti_sci_manage_irq(handle, valid_params, src_id, src_index,
 				  dst_id, dst_host_irq, ia_id, vint,
@@ -4050,7 +4050,7 @@ static const struct ti_sci_desc ti_sci_pmmc_k2g_desc = {
 	.default_host_id = 2,
 	/* Conservative duration */
 	.max_rx_timeout_ms = 1000,
-	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle upto 128 messages! */
+	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle up to 128 messages! */
 	.max_msgs = 20,
 	.max_msg_size = 64,
 };
@@ -4060,7 +4060,7 @@ static const struct ti_sci_desc ti_sci_pmmc_am654_desc = {
 	.default_host_id = 12,
 	/* Conservative duration */
 	.max_rx_timeout_ms = 10000,
-	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle upto 128 messages! */
+	/* Limited by MBOX_TX_QUEUE_LEN. K2G can handle up to 128 messages! */
 	.max_msgs = 20,
 	.max_msg_size = 60,
 };
@@ -4132,7 +4132,7 @@ static int ti_sci_probe(struct platform_device *pdev)
 
 	/* Pre-initialize the buffer pointer to pre-allocated buffers */
 	for (i = 0, xfer = minfo->xfer_block; i < desc->max_msgs; i++, xfer++) {
-		xfer->xfer_buf = devm_kcalloc(dev, 1, desc->max_msg_size,
+		xfer->xfer_buf = devm_kzalloc(dev, desc->max_msg_size,
 					      GFP_KERNEL);
 		if (!xfer->xfer_buf)
 			return -ENOMEM;

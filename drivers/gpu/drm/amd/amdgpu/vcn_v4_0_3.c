@@ -25,6 +25,7 @@
 #include <drm/drm_drv.h>
 
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_vcn.h"
 #include "amdgpu_pm.h"
 #include "soc15.h"
@@ -1689,7 +1690,8 @@ static int vcn_v4_0_3_reset_jpeg_pre_helper(struct amdgpu_device *adev, int inst
 		/* if Jobs are still pending after timeout,
 		 * We'll handle them in the bottom helper
 		 */
-		amdgpu_fence_wait_polling(ring, wait_seq, adev->video_timeout);
+		amdgpu_fence_wait_polling(ring, wait_seq,
+					  jiffies_to_usecs(adev->video_timeout));
        }
 
 	return 0;
@@ -1838,26 +1840,6 @@ static void vcn_v4_0_3_set_unified_ring_funcs(struct amdgpu_device *adev)
 		adev->vcn.inst[i].aid_id =
 			vcn_inst / adev->vcn.num_inst_per_aid;
 	}
-}
-
-/**
- * vcn_v4_0_3_is_idle - check VCN block is idle
- *
- * @ip_block: Pointer to the amdgpu_ip_block structure
- *
- * Check whether VCN block is idle
- */
-static bool vcn_v4_0_3_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	int i, ret = 1;
-
-	for (i = 0; i < adev->vcn.num_vcn_inst; ++i) {
-		ret &= (RREG32_SOC15(VCN, GET_INST(VCN, i), regUVD_STATUS) ==
-			UVD_STATUS__IDLE);
-	}
-
-	return ret;
 }
 
 /**
@@ -2049,7 +2031,6 @@ static const struct amd_ip_funcs vcn_v4_0_3_ip_funcs = {
 	.hw_fini = vcn_v4_0_3_hw_fini,
 	.suspend = vcn_v4_0_3_suspend,
 	.resume = vcn_v4_0_3_resume,
-	.is_idle = vcn_v4_0_3_is_idle,
 	.wait_for_idle = vcn_v4_0_3_wait_for_idle,
 	.set_clockgating_state = vcn_v4_0_3_set_clockgating_state,
 	.set_powergating_state = vcn_set_powergating_state,

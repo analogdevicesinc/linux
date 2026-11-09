@@ -657,6 +657,9 @@ static ssize_t ieee80211_if_fmt_tsf(
 	struct ieee80211_local *local = sdata->local;
 	u64 tsf;
 
+	if (!ieee80211_sdata_running((struct ieee80211_sub_if_data *)sdata))
+		return -ENETDOWN;
+
 	tsf = drv_get_tsf(local, (struct ieee80211_sub_if_data *)sdata);
 
 	return scnprintf(buf, buflen, "0x%016llx\n", (unsigned long long) tsf);
@@ -669,6 +672,9 @@ static ssize_t ieee80211_if_parse_tsf(
 	unsigned long long tsf;
 	int ret;
 	int tsf_is_delta = 0;
+
+	if (!ieee80211_sdata_running(sdata))
+		return -ENETDOWN;
 
 	if (strncmp(buf, "reset", 5) == 0) {
 		if (local->ops->reset_tsf) {
@@ -728,6 +734,9 @@ static ssize_t ieee80211_if_parse_active_links(struct ieee80211_sub_if_data *sda
 
 	if (kstrtou16(buf, 0, &active_links) || !active_links)
 		return -EINVAL;
+
+	if (!ieee80211_sdata_running(sdata))
+		return -ENETDOWN;
 
 	return ieee80211_set_active_links(&sdata->vif, active_links) ?: buflen;
 }
@@ -1024,7 +1033,13 @@ void ieee80211_debugfs_remove_netdev(struct ieee80211_sub_if_data *sdata)
 
 void ieee80211_debugfs_rename_netdev(struct ieee80211_sub_if_data *sdata)
 {
-	debugfs_change_name(sdata->vif.debugfs_dir, "netdev:%s", sdata->name);
+	struct dentry *dir;
+
+	wiphy_lock(sdata->local->hw.wiphy);
+	dir = sdata->vif.debugfs_dir;
+	if (dir)
+		debugfs_change_name(dir, "netdev:%s", sdata->name);
+	wiphy_unlock(sdata->local->hw.wiphy);
 }
 
 void ieee80211_debugfs_recreate_netdev(struct ieee80211_sub_if_data *sdata,

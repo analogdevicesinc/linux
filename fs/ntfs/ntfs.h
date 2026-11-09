@@ -19,6 +19,7 @@
 #include <linux/nls.h>
 #include <linux/smp.h>
 #include <linux/pagemap.h>
+#include <linux/blk_types.h>
 #include <linux/uidgid.h>
 
 #include "volume.h"
@@ -71,8 +72,6 @@
 #define NTFS_CLU_TO_POFS(vol, clu) (((u64)(clu) << (vol)->cluster_size_bits) & \
 				    ~PAGE_MASK)
 
-#define NTFS_B_TO_SECTOR(vol, b) ((b) >> ((vol)->sb)->s_blocksize_bits)
-
 enum {
 	NTFS_BLOCK_SIZE		= 512,
 	NTFS_BLOCK_SIZE_BITS	= 9,
@@ -80,6 +79,8 @@ enum {
 	NTFS_MAX_NAME_LEN	= 255,
 	NTFS_MAX_LABEL_LEN	= 128,
 };
+
+#define NTFS_MAX_ATTR_LIST_SIZE	(256 * 1024)
 
 enum {
 	CASE_SENSITIVE = 0,
@@ -154,11 +155,10 @@ static inline u64 ntfs_cluster_to_poff(const struct ntfs_volume *vol,
 	return (clu << vol->cluster_size_bits) & ~PAGE_MASK;
 }
 
-/* Convert byte offset to sector (block) number. */
-static inline sector_t ntfs_bytes_to_sector(const struct ntfs_volume *vol,
-		u64 bytes)
+/* Convert a byte offset on the volume to a bio sector number. */
+static inline sector_t ntfs_bytes_to_bio_sector(u64 bytes)
 {
-	return bytes >> vol->sb->s_blocksize_bits;
+	return bytes >> SECTOR_SHIFT;
 }
 
 /* Global variables. */
@@ -184,6 +184,10 @@ extern const struct inode_operations ntfs_dir_inode_ops;
 
 extern const struct  file_operations ntfs_empty_file_ops;
 extern const struct inode_operations ntfs_empty_inode_ops;
+
+int ntfs_fileattr_get(struct dentry *dentry, struct file_kattr *fa);
+int ntfs_fileattr_set(const struct mnt_idmap *idmap, struct dentry *dentry,
+		      struct file_kattr *fa);
 
 extern const struct export_operations ntfs_export_ops;
 
@@ -221,7 +225,6 @@ struct option_t {
 };
 extern const struct option_t on_errors_arr[];
 int ntfs_set_volume_flags(struct ntfs_volume *vol, __le16 flags);
-int ntfs_clear_volume_flags(struct ntfs_volume *vol, __le16 flags);
 int ntfs_write_volume_label(struct ntfs_volume *vol, char *label);
 
 /* From fs/ntfs/mst.c */
@@ -236,14 +239,14 @@ bool ntfs_are_names_equal(const __le16 *s1, size_t s1_len,
 		const __le16 *upcase, const u32 upcase_size);
 int ntfs_collate_names(const __le16 *name1, const u32 name1_len,
 		const __le16 *name2, const u32 name2_len,
-		const int err_val, const u32 ic,
+		const bool check_invalid, const u32 ic,
 		const __le16 *upcase, const u32 upcase_len);
 int ntfs_ucsncmp(const __le16 *s1, const __le16 *s2, size_t n);
 int ntfs_ucsncasecmp(const __le16 *s1, const __le16 *s2, size_t n,
 		const __le16 *upcase, const u32 upcase_size);
 int ntfs_file_compare_values(const struct file_name_attr *file_name_attr1,
 		const struct file_name_attr *file_name_attr2,
-		const int err_val, const u32 ic,
+		const bool check_invalid, const u32 ic,
 		const __le16 *upcase, const u32 upcase_len);
 int ntfs_nlstoucs(const struct ntfs_volume *vol, const char *ins,
 		const int ins_len, __le16 **outs, int max_name_len);

@@ -318,22 +318,23 @@ static int zloop_update_seq_zone(struct zloop_device *zlo, unsigned int zone_no)
 
 	ret = vfs_getattr(&zone->file->f_path, &stat, STATX_SIZE, 0);
 	if (ret < 0) {
-		pr_err("Failed to get zone %u file stat (err=%d)\n",
-		       zone_no, ret);
+		pr_err("%pg: Failed to get zone %u file stat (err=%d)\n",
+		       zlo->disk->part0, zone_no, ret);
 		set_bit(ZLOOP_ZONE_SEQ_ERROR, &zone->flags);
 		return ret;
 	}
 
 	file_sectors = stat.size >> SECTOR_SHIFT;
 	if (file_sectors > zlo->zone_capacity) {
-		pr_err("Zone %u file too large (%llu sectors > %llu)\n",
-		       zone_no, file_sectors, zlo->zone_capacity);
+		pr_err("%pg: Zone %u file too large (%llu sectors > %llu)\n",
+		       zlo->disk->part0, zone_no, file_sectors,
+		       zlo->zone_capacity);
 		return -EINVAL;
 	}
 
 	if (!IS_ALIGNED(stat.size, zlo->block_size)) {
-		pr_err("Zone %u file size (%llu) not aligned to block size %u\n",
-		       zone_no, stat.size, zlo->block_size);
+		pr_err("%pg: Zone %u file size (%llu) not aligned to block size %u\n",
+		       zlo->disk->part0, zone_no, stat.size, zlo->block_size);
 		return -EINVAL;
 	}
 
@@ -603,8 +604,15 @@ static int zloop_seq_write_prep(struct zloop_cmd *cmd)
 		}
 	} else {
 		if (cmd->sector != zone->wp) {
-			pr_err("Zone %u: unaligned write: sect %llu, wp %llu\n",
-			       zone_no, cmd->sector, zone->wp);
+			if (zone->wp == ULLONG_MAX)
+				pr_err("%pg: Zone %u: write to %s zone: sect %llu\n",
+				       zlo->disk->part0, zone_no,
+				       blk_zone_cond_str(zone->cond),
+				       cmd->sector);
+			else
+				pr_err("%pg: Zone %u: unaligned write: sect %llu, wp %llu\n",
+				       zlo->disk->part0, zone_no, cmd->sector,
+				       zone->wp);
 			ret = -EIO;
 			goto out_unlock;
 		}
@@ -800,6 +808,27 @@ static void zloop_cmd_workfn(struct work_struct *work)
 	current->flags = orig_flags;
 }
 
+static void zloop_fill_zero_rq(struct request *rq, unsigned int zero_from)
+{
+	struct req_iterator iter;
+	struct bio_vec bv;
+	unsigned int pos = 0;
+	unsigned int end, off;
+
+	rq_for_each_segment(bv, rq, iter) {
+		end = pos + bv.bv_len;
+		if (end > zero_from) {
+			if (pos < zero_from)
+				off = zero_from - pos;
+			else
+				off = 0;
+			memzero_page(bv.bv_page, bv.bv_offset + off,
+				     bv.bv_len - off);
+		}
+		pos = end;
+	}
+}
+
 static void zloop_complete_rq(struct request *rq)
 {
 	struct zloop_cmd *cmd = blk_mq_rq_to_pdu(rq);
@@ -811,28 +840,26 @@ static void zloop_complete_rq(struct request *rq)
 	switch (req_op(rq)) {
 	case REQ_OP_READ:
 		if (cmd->ret < 0)
-			pr_err("Zone %u: failed read sector %llu, %llu sectors\n",
-			       zone_no, cmd->sector, cmd->nr_sectors);
+			pr_err("%pg: Zone %u: failed read sector %llu, %llu sectors\n",
+			       zlo->disk->part0, zone_no, cmd->sector,
+			       cmd->nr_sectors);
 
-		if (cmd->ret >= 0 && cmd->ret != blk_rq_bytes(rq)) {
-			/* short read */
-			struct bio *bio;
-
-			__rq_for_each_bio(bio, rq)
-				zero_fill_bio(bio);
-		}
+		/* Short read. Zero out the unread tail beyond cmd->ret. */
+		if (cmd->ret >= 0 && cmd->ret != blk_rq_bytes(rq))
+			zloop_fill_zero_rq(rq, cmd->ret);
 		break;
 	case REQ_OP_WRITE:
 	case REQ_OP_ZONE_APPEND:
 		if (cmd->ret < 0)
-			pr_err("Zone %u: failed %swrite sector %llu, %llu sectors\n",
-			       zone_no,
+			pr_err("%pg: Zone %u: failed %swrite sector %llu, %llu sectors\n",
+			       zlo->disk->part0, zone_no,
 			       req_op(rq) == REQ_OP_WRITE ? "" : "append ",
 			       cmd->sector, cmd->nr_sectors);
 
 		if (cmd->ret >= 0 && cmd->ret != blk_rq_bytes(rq)) {
-			pr_err("Zone %u: partial write %ld/%u B\n",
-			       zone_no, cmd->ret, blk_rq_bytes(rq));
+			pr_err("%pg: Zone %u: partial write %ld/%u B\n",
+			       zlo->disk->part0, zone_no, cmd->ret,
+			       blk_rq_bytes(rq));
 			cmd->ret = -EIO;
 		}
 
@@ -1042,12 +1069,14 @@ static int zloop_get_block_size(struct zloop_device *zlo,
 	 * Use the dio alignment of the file system if provided.  The incoming
 	 * request's bio_vec is forwarded to the backing file unchanged, so its
 	 * required memory alignment becomes the device's dma_alignment when
-	 * used for direct-io.
+	 * used for direct-io.  The file system reports zeroed alignments if the
+	 * file can't be used for direct-io at all, so fall back to the block
+	 * device limits in that case.
 	 */
 	if (!vfs_getattr(&zone->file->f_path, &st, STATX_DIOALIGN, 0) &&
-	    (st.result_mask & STATX_DIOALIGN)) {
+	    (st.result_mask & STATX_DIOALIGN) && st.dio_mem_align) {
 		zlo->block_size = st.dio_offset_align;
-		zlo->dio_mem_align = st.dio_mem_align - 1;
+		zlo->dio_mem_align = min(st.dio_mem_align - 1, PAGE_SIZE - 1);
 	} else if (sb_bdev) {
 		zlo->block_size = bdev_physical_block_size(sb_bdev);
 		zlo->dio_mem_align = bdev_dma_alignment(sb_bdev);
@@ -1078,8 +1107,6 @@ static int zloop_init_zone(struct zloop_device *zlo, struct zloop_options *opts,
 {
 	struct zloop_zone *zone = &zlo->zones[zone_no];
 	int oflags = O_RDWR;
-	struct kstat stat;
-	sector_t file_sectors;
 	int ret;
 
 	mutex_init(&zone->lock);
@@ -1093,38 +1120,49 @@ static int zloop_init_zone(struct zloop_device *zlo, struct zloop_options *opts,
 	if (!opts->buffered_io)
 		oflags |= O_DIRECT;
 
+	zone->file = zloop_filp_open_fmt(oflags, 0600, "%s/%u/%s-%06u",
+				zlo->base_dir, zlo->id,
+				zone_no < zlo->nr_conv_zones ? "cnv" : "seq",
+				zone_no);
+	if (IS_ERR(zone->file)) {
+		pr_err("Failed to open zone %u file %s/%u/%s-%06u (err=%ld)",
+		       zone_no, zlo->base_dir, zlo->id,
+		       zone_no < zlo->nr_conv_zones ? "cnv" : "seq",
+		       zone_no, PTR_ERR(zone->file));
+		return PTR_ERR(zone->file);
+	}
+
+	if (!zone->file->f_op->read_iter || !zone->file->f_op->write_iter) {
+		ret = -EINVAL;
+		goto out_fput;
+	}
+
+	if (zlo->block_size) {
+		ret = zloop_get_block_size(zlo, zone);
+		if (ret)
+			goto out_fput;
+	}
+
 	if (zone_no < zlo->nr_conv_zones) {
+		sector_t file_sectors;
+		struct kstat stat;
+
 		/* Conventional zone file. */
 		set_bit(ZLOOP_ZONE_CONV, &zone->flags);
 		zone->cond = BLK_ZONE_COND_NOT_WP;
 		zone->wp = U64_MAX;
 
-		zone->file = zloop_filp_open_fmt(oflags, 0600, "%s/%u/cnv-%06u",
-					zlo->base_dir, zlo->id, zone_no);
-		if (IS_ERR(zone->file)) {
-			pr_err("Failed to open zone %u file %s/%u/cnv-%06u (err=%ld)",
-			       zone_no, zlo->base_dir, zlo->id, zone_no,
-			       PTR_ERR(zone->file));
-			return PTR_ERR(zone->file);
-		}
-
-		if (!zlo->block_size) {
-			ret = zloop_get_block_size(zlo, zone);
-			if (ret)
-				return ret;
-		}
-
 		ret = vfs_getattr(&zone->file->f_path, &stat, STATX_SIZE, 0);
 		if (ret < 0) {
 			pr_err("Failed to get zone %u file stat\n", zone_no);
-			return ret;
+			goto out_fput;
 		}
 		file_sectors = stat.size >> SECTOR_SHIFT;
 
 		if (restore && file_sectors != zlo->zone_size) {
 			pr_err("Invalid conventional zone %u file size (%llu sectors != %llu)\n",
 			       zone_no, file_sectors, zlo->zone_capacity);
-			return ret;
+			goto out_fput;
 		}
 
 		ret = vfs_truncate(&zone->file->f_path,
@@ -1132,34 +1170,21 @@ static int zloop_init_zone(struct zloop_device *zlo, struct zloop_options *opts,
 		if (ret < 0) {
 			pr_err("Failed to truncate zone %u file (err=%d)\n",
 			       zone_no, ret);
-			return ret;
+			goto out_fput;
 		}
-
-		return 0;
-	}
-
-	/* Sequential zone file. */
-	zone->file = zloop_filp_open_fmt(oflags, 0600, "%s/%u/seq-%06u",
-					 zlo->base_dir, zlo->id, zone_no);
-	if (IS_ERR(zone->file)) {
-		pr_err("Failed to open zone %u file %s/%u/seq-%06u (err=%ld)",
-		       zone_no, zlo->base_dir, zlo->id, zone_no,
-		       PTR_ERR(zone->file));
-		return PTR_ERR(zone->file);
-	}
-
-	if (!zlo->block_size) {
-		ret = zloop_get_block_size(zlo, zone);
+	} else {
+		/* Sequential zone file. */
+		mutex_lock(&zone->lock);
+		ret = zloop_update_seq_zone(zlo, zone_no);
+		mutex_unlock(&zone->lock);
 		if (ret)
-			return ret;
+			goto out_fput;
 	}
 
-	zloop_get_block_size(zlo, zone);
+	return 0;
 
-	mutex_lock(&zone->lock);
-	ret = zloop_update_seq_zone(zlo, zone_no);
-	mutex_unlock(&zone->lock);
-
+out_fput:
+	fput(zone->file);
 	return ret;
 }
 
