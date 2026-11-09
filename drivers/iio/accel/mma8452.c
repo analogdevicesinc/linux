@@ -115,6 +115,7 @@
  * @orientation:		mounting matrix, flipped axis etc.
  * @chip_info:			chip specific data
  * @regs:			reference to voltage regulators
+ * @trig:			data ready trigger, if an interrupt is available
  * @buffer:			triggered buffer
  * @sleep_val:			time in ms to sleep while waiting for drdy
  * @ctrl_reg1:			CTRL_REG1 register shadow value
@@ -127,6 +128,7 @@ struct mma8452_data {
 	struct iio_mount_matrix orientation;
 	const struct mma_chip_info *chip_info;
 	struct regulator_bulk_data regs[2];
+	struct iio_trigger *trig;
 
 	/* Ensure correct alignment of time stamp when present */
 	struct {
@@ -1526,6 +1528,7 @@ static int mma8452_trigger_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	data->trig = trig;
 	indio_dev->trig = iio_trigger_get(trig);
 
 	return 0;
@@ -1533,8 +1536,10 @@ static int mma8452_trigger_setup(struct iio_dev *indio_dev)
 
 static void mma8452_trigger_cleanup(struct iio_dev *indio_dev)
 {
-	if (indio_dev->trig)
-		iio_trigger_unregister(indio_dev->trig);
+	struct mma8452_data *data = iio_priv(indio_dev);
+
+	if (data->trig)
+		iio_trigger_unregister(data->trig);
 }
 
 static int mma8452_reset(struct i2c_client *client)
