@@ -397,6 +397,7 @@ static int param_from_user_memref(struct tee_context *ctx,
 		}
 
 		if (shm->flags & TEE_SHM_DMA_BUF) {
+			struct tee_shm *parent_shm;
 			struct tee_shm_dmabuf_ref *ref;
 
 			ref = container_of(shm, struct tee_shm_dmabuf_ref, shm);
@@ -409,10 +410,11 @@ static int param_from_user_memref(struct tee_context *ctx,
 				 * list instead of the shm we got with
 				 * tee_shm_get_from_id() above.
 				 */
-				refcount_inc(&ref->parent_shm->refcount);
-				tee_shm_put(shm);
-				shm = ref->parent_shm;
+				parent_shm = ref->parent_shm;
 				offs = ref->offset;
+				refcount_inc(&parent_shm->refcount);
+				tee_shm_put(shm);
+				shm = parent_shm;
 			}
 		}
 	} else if (ctx->cap_memref_null) {

@@ -442,7 +442,8 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		goto err_free_shm;
 	}
 
-	shm->pages = kzalloc_objs(*shm->pages, num_pages);
+	shm->pages = kzalloc_objs(*shm->pages, num_pages,
+				  GFP_KERNEL | __GFP_NOWARN);
 	if (!shm->pages) {
 		ret = ERR_PTR(-ENOMEM);
 		goto err_free_shm;
@@ -458,7 +459,7 @@ register_shm_helper(struct tee_context *ctx, struct iov_iter *iter, u32 flags,
 		 * If we only got a few pages, update to release the
 		 * correct amount below.
 		 */
-		shm->num_pages = len / PAGE_SIZE;
+		shm->num_pages = DIV_ROUND_UP(len + off, PAGE_SIZE);
 		ret = ERR_PTR(-ENOMEM);
 		goto err_put_shm_pages;
 	}

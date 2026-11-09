@@ -506,6 +506,10 @@ static int qcomtee_cb_params_to_args(struct qcomtee_arg *u,
 {
 	int i;
 
+	/* Supplicant can not send fewer parameters than requested. */
+	if (num_params < qcomtee_args_len(u))
+		return -EINVAL;
+
 	qcomtee_arg_for_each(i, u) {
 		switch (u[i].type) {
 		case QCOMTEE_ARG_TYPE_IB:
