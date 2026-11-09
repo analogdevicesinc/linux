@@ -1025,28 +1025,22 @@ static int nct6687dr_fan_cfg_finish(struct nct6683_data *data)
 }
 
 /*
- * Select manual or automatic mode for a fan channel and, if cmd is not
- * negative, set its duty cycle for manual mode.
+ * Change fan configuration registers in a configuration phase. fn() is
+ * called once per attempt, with the phase open.
  */
-static int nct6683_fan_ctrl_update(struct nct6683_data *data, int ch,
-				   bool manual, int cmd)
+static int
+nct6687dr_fan_cfg_transaction(struct nct6683_data *data,
+			      void (*fn)(struct nct6683_data *data, void *ctx),
+			      void *ctx)
 {
-	u16 mode_reg = nct6683_mode_reg(ch);
-	u16 cmd_reg = nct6683_cmd_reg(ch);
-	u8 mask = BIT(ch % 8);
 	int attempt, err;
-	u8 mode;
 
 	for (attempt = 0; attempt < 3; attempt++) {
 		err = nct6687dr_fan_cfg_start(data);
 		if (err)
 			return err;
 
-		mode = nct6683_read(data, mode_reg);
-		if (cmd >= 0)
-			nct6683_write(data, cmd_reg, cmd);
-		nct6683_write(data, mode_reg,
-			      manual ? mode | mask : mode & ~mask);
+		fn(data, ctx);
 
 		/* Retry if the configuration phase was lost or rejected */
 		err = nct6687dr_fan_cfg_finish(data);
@@ -1055,6 +1049,42 @@ static int nct6683_fan_ctrl_update(struct nct6683_data *data, int ch,
 	}
 
 	return -EIO;
+}
+
+struct nct6683_fan_ctrl {
+	int ch;
+	bool manual;
+	int cmd;
+};
+
+static void nct6683_fan_ctrl_write(struct nct6683_data *data, void *ctx)
+{
+	const struct nct6683_fan_ctrl *fc = ctx;
+	u16 mode_reg = nct6683_mode_reg(fc->ch);
+	u8 mask = BIT(fc->ch % 8);
+	u8 mode;
+
+	mode = nct6683_read(data, mode_reg);
+	if (fc->cmd >= 0)
+		nct6683_write(data, nct6683_cmd_reg(fc->ch), fc->cmd);
+	nct6683_write(data, mode_reg,
+		      fc->manual ? mode | mask : mode & ~mask);
+}
+
+/*
+ * Select manual or automatic mode for a fan channel and, if cmd is not
+ * negative, set its duty cycle for manual mode.
+ */
+static int nct6683_fan_ctrl_update(struct nct6683_data *data, int ch,
+				   bool manual, int cmd)
+{
+	struct nct6683_fan_ctrl fc = {
+		.ch = ch,
+		.manual = manual,
+		.cmd = cmd,
+	};
+
+	return nct6687dr_fan_cfg_transaction(data, nct6683_fan_ctrl_write, &fc);
 }
 
 static int nct6683_set_pwm(struct nct6683_data *data, int ch, u8 val)
