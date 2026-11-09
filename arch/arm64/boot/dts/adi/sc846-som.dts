@@ -17,6 +17,23 @@
 		stdout-path = &uart0;
 	};
 
+	reg_3v3: regulator-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	reg_vdd_ext: regulator-vdd-ext {
+		compatible = "regulator-fixed";
+		regulator-name = "VDD_EXT";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		vin-supply = <&reg_3v3>;
+	};
+
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -60,6 +77,8 @@
 };
 
 &mmc0 {
+	vmmc-supply = <&reg_3v3>;
+	vqmmc-supply = <&reg_vdd_ext>;
 	non-removable;
 	no-sd;
 	no-sdio;
