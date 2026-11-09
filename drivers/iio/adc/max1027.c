@@ -481,7 +481,7 @@ static irqreturn_t max1027_handler(int irq, void *private)
 	if (!iio_buffer_enabled(indio_dev))
 		complete(&st->complete);
 	else
-		iio_trigger_poll(indio_dev->trig);
+		iio_trigger_poll(st->trig);
 
 	return IRQ_HANDLED;
 }
