@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * ADI ADGM3121/ADGM3144 MEMS RF Switch GPIO Driver
+ * ADI ADGM3121/ADGM3144/ADGM3053 MEMS RF Switch GPIO Driver
  *
  * Copyright 2025 Analog Devices Inc.
  * Author: Antoniu Miclaus <antoniu.miclaus@analog.com>
@@ -452,6 +452,10 @@ static int adgm3121_platform_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct adgm3121_chip_info adgm3053_chip_info = {
+	.power_up_time_ms = 5,
+};
+
 static const struct adgm3121_chip_info adgm3121_chip_info = {
 	.power_up_time_ms = 5,
 };
@@ -462,6 +466,7 @@ static const struct adgm3121_chip_info adgm3144_chip_info = {
 
 /* SPI driver */
 static const struct of_device_id adgm3121_spi_of_match[] = {
+	{ .compatible = "adi,adgm3053", .data = &adgm3053_chip_info },
 	{ .compatible = "adi,adgm3121", .data = &adgm3121_chip_info },
 	{ .compatible = "adi,adgm3144", .data = &adgm3144_chip_info },
 	{ }
@@ -469,6 +474,7 @@ static const struct of_device_id adgm3121_spi_of_match[] = {
 MODULE_DEVICE_TABLE(of, adgm3121_spi_of_match);
 
 static const struct spi_device_id adgm3121_spi_id[] = {
+	{ "adgm3053", (kernel_ulong_t)&adgm3053_chip_info },
 	{ "adgm3121", (kernel_ulong_t)&adgm3121_chip_info },
 	{ "adgm3144", (kernel_ulong_t)&adgm3144_chip_info },
 	{ }
@@ -486,6 +492,7 @@ static struct spi_driver adgm3121_spi_driver = {
 
 /* Platform driver */
 static const struct of_device_id adgm3121_platform_of_match[] = {
+	{ .compatible = "adi,adgm3053", .data = &adgm3053_chip_info },
 	{ .compatible = "adi,adgm3121", .data = &adgm3121_chip_info },
 	{ .compatible = "adi,adgm3144", .data = &adgm3144_chip_info },
 	{ }
@@ -532,5 +539,5 @@ static void __exit adgm3121_exit(void)
 module_exit(adgm3121_exit);
 
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
-MODULE_DESCRIPTION("ADI ADGM3121/ADGM3144 MEMS RF Switch GPIO Driver");
+MODULE_DESCRIPTION("ADI ADGM3121/ADGM3144/ADGM3053 MEMS RF Switch GPIO Driver");
 MODULE_LICENSE("GPL");

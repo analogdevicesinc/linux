@@ -1792,7 +1792,7 @@ config GPIO_ADI_DAQ1
 	  found on the Analog Devices AD-FMCDAQ1-EBZ card.
 
 config GPIO_ADGM3121
-	tristate "Analog Devices ADGM3121/ADGM3144 MEMS RF Switch"
+	tristate "Analog Devices ADGM3121/ADGM3144/ADGM3053 MEMS RF Switch"
 	depends on SPI || GPIOLIB
 	help
 	  Say yes here to enable support for the Analog Devices ADGM3121 DPDT
@@ -1805,7 +1805,12 @@ config GPIO_ADGM3121
 	  The ADGM3144 is a Single-Pole Four-Throw (SP4T) switch with RF1-4
 	  ports connected to RFC.
 
-	  Both devices expose 4 GPIOs for switch control.
+	  The ADGM3053 is a 4-channel crossover switch operating from DC to
+	  14 GHz, with S1-S4 connected to D1-D4 through the port switch paths
+	  or to each other through the internal crossover path. It supports
+	  the same SPI and parallel GPIO control modes.
+
+	  All devices expose 4 GPIOs for switch control.
 
 config GPIO_MAX3191X
 	tristate "Maxim MAX3191x industrial serializer"
