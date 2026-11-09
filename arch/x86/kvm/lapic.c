@@ -297,8 +297,8 @@ static int kvm_recalculate_phys_map(struct kvm_apic_map *new,
 	 * Apply KVM's hotplug hack if userspace has enable 32-bit APIC IDs.
 	 * Allow sending events to vCPUs by their x2APIC ID even if the target
 	 * vCPU is in legacy xAPIC mode, and silently ignore aliased xAPIC IDs
-	 * (the x2APIC ID is truncated to 8 bits, causing IDs > 0xff to wrap
-	 * and collide).
+	 * but make sure the non-truncated xAPIC ID always "wins" (the x2APIC
+	 * ID is truncated to 8 bits, causing IDs > 0xff to wrap and collide).
 	 *
 	 * Honor the architectural (and KVM's non-optimized) behavior if
 	 * userspace has not enabled 32-bit x2APIC IDs.  Each APIC is supposed
@@ -312,7 +312,8 @@ static int kvm_recalculate_phys_map(struct kvm_apic_map *new,
 		if (apic_x2apic_mode(apic) || x2apic_id > 0xff)
 			new->phys_map[x2apic_id] = apic;
 
-		if (!apic_x2apic_mode(apic) && !new->phys_map[xapic_id])
+		if (!apic_x2apic_mode(apic) &&
+		    (!new->phys_map[xapic_id] || vcpu->vcpu_id == xapic_id))
 			new->phys_map[xapic_id] = apic;
 	} else {
 		/*
