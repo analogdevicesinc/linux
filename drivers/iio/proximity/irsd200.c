@@ -122,6 +122,7 @@ struct irsd200_data {
 	struct regmap *regmap;
 	struct regmap_field *regfields[IRS_REGF_MAX];
 	struct device *dev;
+	struct iio_trigger *trig;
 };
 
 static int irsd200_setup(struct irsd200_data *data)
@@ -698,7 +699,7 @@ static irqreturn_t irsd200_irq_thread(int irq, void *dev_id)
 	}
 
 	if (status & BIT(IRS_INTR_DATA) && iio_buffer_enabled(indio_dev)) {
-		iio_trigger_poll_nested(indio_dev->trig);
+		iio_trigger_poll_nested(data->trig);
 		clear |= BIT(IRS_INTR_DATA);
 	}
 
@@ -917,6 +918,7 @@ static int irsd200_probe(struct i2c_client *client)
 	if (!trigger)
 		return -ENOMEM;
 
+	data->trig = trigger;
 	trigger->ops = &irsd200_trigger_ops;
 	iio_trigger_set_drvdata(trigger, data);
 
