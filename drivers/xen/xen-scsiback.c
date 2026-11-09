@@ -603,11 +603,13 @@ static int scsiback_gnttab_data_map(struct vscsiif_request *ring_req,
 
 static void scsiback_disconnect(struct vscsibk_info *info)
 {
+	/* Stop admitting requests before draining the in-flight ones. */
+	unbind_from_irqhandler(info->irq, info);
+	info->irq = 0;
+
 	wait_event(info->waiting_to_free,
 		atomic_read(&info->nr_unreplied_reqs) == 0);
 
-	unbind_from_irqhandler(info->irq, info);
-	info->irq = 0;
 	xenbus_unmap_ring_vfree(info->dev, info->ring.sring);
 }
 
