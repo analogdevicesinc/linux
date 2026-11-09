@@ -201,6 +201,9 @@ static u64 pvscsi_map_context(const struct pvscsi_adapter *adapter,
 static struct pvscsi_ctx *
 pvscsi_get_context(const struct pvscsi_adapter *adapter, u64 context)
 {
+	if (unlikely(context == 0 || context > adapter->req_depth))
+		return NULL;
+
 	return &adapter->cmd_map[context - 1];
 }
 
@@ -548,8 +551,15 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 	struct completion *abort_cmp;
 	u32 btstat = e->hostStatus;
 	u32 sdstat = e->scsiStatus;
+	u64 data_len = e->dataLen;
+	u32 data_trans = 0;
 
 	ctx = pvscsi_get_context(adapter, e->context);
+	if (ctx == NULL || ctx->cmd == NULL) {
+		dev_err_ratelimited(&adapter->dev->dev,
+				    "Can not find mapping for context %llu", e->context);
+		return;
+	}
 	cmd = ctx->cmd;
 	abort_cmp = ctx->abort_cmp;
 	pvscsi_unmap_buffers(adapter, ctx);
@@ -590,15 +600,16 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 			 * returns zero dataLen with non zero data - do not set
 			 * residual count in that case.
 			 */
-			if (e->dataLen && (e->dataLen < scsi_bufflen(cmd)))
-				scsi_set_resid(cmd, scsi_bufflen(cmd) - e->dataLen);
+			if (data_len && (data_len < scsi_bufflen(cmd)))
+				scsi_set_resid(cmd, scsi_bufflen(cmd) - data_len);
 			cmd->result = (DID_OK << 16);
 			break;
 
 		case BTSTAT_DATARUN:
 		case BTSTAT_DATA_UNDERRUN:
 			/* Report residual data in underruns */
-			scsi_set_resid(cmd, scsi_bufflen(cmd) - e->dataLen);
+			data_trans = min_t(u64, data_len, scsi_bufflen(cmd));
+			scsi_set_resid(cmd, scsi_bufflen(cmd) - data_trans);
 			cmd->result = (DID_ERROR << 16);
 			break;
 
@@ -650,12 +661,18 @@ static void pvscsi_complete_request(struct pvscsi_adapter *adapter,
 }
 
 /*
- * barrier usage : Since the PVSCSI device is emulated, there could be cases
- * where we may want to serialize some accesses between the driver and the
- * emulation layer. We use compiler barriers instead of the more expensive
- * memory barriers because PVSCSI is only supported on X86 which has strong
- * memory access ordering.
+ * The completion consumer index must be incremented only after the completion
+ * entry is read. The read memory barrier combined with READ/WRITE_ONCE
+ * ensures that all reads from the entry happen before the increment.
  */
+static void pvscsi_increment_cons_idx(u32 *cons_idx)
+{
+	u32 new_cons_idx;
+	dma_rmb();
+	new_cons_idx = READ_ONCE(*cons_idx) + 1;
+	WRITE_ONCE(*cons_idx, new_cons_idx);
+}
+
 static void pvscsi_process_completion_ring(struct pvscsi_adapter *adapter)
 {
 	struct PVSCSIRingsState *s = adapter->rings_state;
@@ -666,21 +683,14 @@ static void pvscsi_process_completion_ring(struct pvscsi_adapter *adapter)
 		struct PVSCSIRingCmpDesc *e = ring + (s->cmpConsIdx &
 						      MASK(cmp_entries));
 		/*
-		 * This barrier() ensures that *e is not dereferenced while
+		 * This barrier ensures that *e is not dereferenced while
 		 * the device emulation still writes data into the slot.
 		 * Since the device emulation advances s->cmpProdIdx only after
 		 * updating the slot we want to check it first.
 		 */
-		barrier();
+		dma_rmb();
 		pvscsi_complete_request(adapter, e);
-		/*
-		 * This barrier() ensures that compiler doesn't reorder write
-		 * to s->cmpConsIdx before the read of (*e) inside
-		 * pvscsi_complete_request. Otherwise, device emulation may
-		 * overwrite *e before we had a chance to read it.
-		 */
-		barrier();
-		s->cmpConsIdx++;
+		pvscsi_increment_cons_idx(&s->cmpConsIdx);
 	}
 }
 
@@ -764,7 +774,11 @@ static int pvscsi_queue_ring(struct pvscsi_adapter *adapter,
 
 	e->context = pvscsi_map_context(adapter, ctx);
 
-	barrier();
+	/*
+	 * Ensure writes to the request entry are done before
+	 * transferring ownership.
+	 */
+	dma_wmb();
 
 	s->reqProdIdx++;
 
@@ -1105,10 +1119,9 @@ static void pvscsi_process_msg_ring(const struct pvscsi_adapter *adapter)
 		struct PVSCSIRingMsgDesc *e = ring + (s->msgConsIdx &
 						      MASK(msg_entries));
 
-		barrier();
+		dma_rmb();
 		pvscsi_process_msg(adapter, e);
-		barrier();
-		s->msgConsIdx++;
+		pvscsi_increment_cons_idx(&s->msgConsIdx);
 	}
 }
 

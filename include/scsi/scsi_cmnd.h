@@ -98,6 +98,13 @@ struct scsi_cmnd {
 	enum scsi_cmnd_submitter submitter;
 
 	unsigned short cmd_len;
+	/*
+	 * Additional sense code of the most recent UNIT ATTENTION and the
+	 * number of consecutive UNIT ATTENTIONs with that additional sense
+	 * code. Only used by the SCSI core.
+	 */
+	u8 ua_asc;
+	u8 ua_count;
 	enum dma_data_direction sc_data_direction;
 
 	unsigned char cmnd[32]; /* SCSI CDB */
