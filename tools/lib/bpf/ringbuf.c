@@ -30,6 +30,7 @@ struct ring {
 	unsigned long *producer_pos;
 	unsigned long mask;
 	int map_fd;
+	bool overwrite;
 };
 
 struct ring_buffer {
@@ -118,6 +119,7 @@ int ring_buffer__add(struct ring_buffer *rb, int map_fd,
 	r->sample_cb = sample_cb;
 	r->ctx = ctx;
 	r->mask = info.max_entries - 1;
+	r->overwrite = info.map_flags & BPF_F_RB_OVERWRITE;
 
 	/* Map writable consumer page */
 	tmp = mmap(NULL, rb->page_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
@@ -233,6 +235,8 @@ static inline int roundup_len(__u32 len)
 
 static int ringbuf_validate(const struct ring *r)
 {
+	if (unlikely(r->overwrite))
+		return -EOPNOTSUPP;
 	if (unlikely(!r->sample_cb))
 		return -EINVAL;
 	return 0;

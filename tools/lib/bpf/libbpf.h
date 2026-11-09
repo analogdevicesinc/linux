@@ -1541,6 +1541,7 @@ struct ring_buffer;
 struct ring;
 struct user_ring_buffer;
 
+/* Callback-based consumption is unsupported for BPF_F_RB_OVERWRITE maps. */
 typedef int (*ring_buffer_sample_fn)(void *ctx, void *data, size_t size);
 
 struct ring_buffer_opts {
