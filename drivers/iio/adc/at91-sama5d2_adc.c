@@ -1711,7 +1711,7 @@ static irqreturn_t at91_adc_interrupt(int irq, void *private)
 		   (status & AT91_SAMA5D2_IER_DRDY)) {
 		/* triggered buffer without DMA */
 		disable_irq_nosync(irq);
-		iio_trigger_poll(indio->trig);
+		iio_trigger_poll(st->trig);
 	} else if (iio_buffer_enabled(indio) && st->dma_st.dma_chan) {
 		/* triggered buffer with DMA - should not happen */
 		disable_irq_nosync(irq);
