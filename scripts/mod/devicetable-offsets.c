@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 #define COMPILE_OFFSETS
-#include <linux/cpufeature.h>
 #include <linux/kbuild.h>
 
 #include <linux/device-id/acpi.h>
@@ -12,6 +11,7 @@
 #include <linux/device-id/ccw.h>
 #include <linux/device-id/cdx.h>
 #include <linux/device-id/coreboot.h>
+#include <linux/device-id/cpu_feature.h>
 #include <linux/device-id/css.h>
 #include <linux/device-id/dfl.h>
 #include <linux/device-id/dmi.h>

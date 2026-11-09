@@ -121,7 +121,6 @@ typedef struct {
 /* Big exception to the "don't include kernel headers into userspace, which
  * even potentially has different endianness and word sizes, since
  * we handle those differences explicitly below */
-#include "../../include/linux/cpufeature.h"
 #include "../../include/linux/device-id/acpi.h"
 #include "../../include/linux/device-id/amba.h"
 #include "../../include/linux/device-id/ap.h"
@@ -131,6 +130,7 @@ typedef struct {
 #include "../../include/linux/device-id/ccw.h"
 #include "../../include/linux/device-id/cdx.h"
 #include "../../include/linux/device-id/coreboot.h"
+#include "../../include/linux/device-id/cpu_feature.h"
 #include "../../include/linux/device-id/css.h"
 #include "../../include/linux/device-id/dfl.h"
 #include "../../include/linux/device-id/dmi.h"

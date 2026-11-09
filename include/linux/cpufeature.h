@@ -6,23 +6,7 @@
 #ifndef __LINUX_CPUFEATURE_H
 #define __LINUX_CPUFEATURE_H
 
-/*
- * This file is included by scripts/mod/file2alias.c which is compiled
- * using the host compiler which might not have <linux/types.h> but the
- * __u{8,16,32} types are defined there locally.
- */
-#ifdef __KERNEL__
-#include <linux/types.h>
-#endif
-
-/*
- * Generic table type for matching CPU features.
- * @feature:	the bit number of the feature (0 - 65535)
- */
-
-struct cpu_feature {
-	__u16	feature;
-};
+#include <linux/device-id/cpu_feature.h>
 
 #ifdef CONFIG_GENERIC_CPU_AUTOPROBE
 
