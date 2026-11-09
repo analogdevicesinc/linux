@@ -58,6 +58,7 @@ struct isl29125_data {
 	.modified = 1, \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW), \
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
+	.info_mask_shared_by_all_available = BIT(IIO_CHAN_INFO_SCALE), \
 	.channel2 = IIO_MOD_LIGHT_##_color, \
 	.scan_index = _si, \
 	.scan_type = { \
@@ -198,21 +199,31 @@ done:
 	return IRQ_HANDLED;
 }
 
-static IIO_CONST_ATTR(scale_available, "0.005722 0.152590");
-
-static struct attribute *isl29125_attributes[] = {
-	&iio_const_attr_scale_available.dev_attr.attr,
-	NULL
+static const int isl29125_scale_avail[] = {
+	0, ISL29125_SENSING_RANGE_0,
+	0, ISL29125_SENSING_RANGE_1,
 };
 
-static const struct attribute_group isl29125_attribute_group = {
-	.attrs = isl29125_attributes,
-};
+static int isl29125_read_avail(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       const int **vals, int *type, int *length,
+			       long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		*vals = isl29125_scale_avail;
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		*length = ARRAY_SIZE(isl29125_scale_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
 
 static const struct iio_info isl29125_info = {
 	.read_raw = isl29125_read_raw,
 	.write_raw = isl29125_write_raw,
-	.attrs = &isl29125_attribute_group,
+	.read_avail = isl29125_read_avail,
 };
 
 static int isl29125_buffer_postenable(struct iio_dev *indio_dev)
