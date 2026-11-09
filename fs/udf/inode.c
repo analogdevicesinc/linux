@@ -687,9 +687,14 @@ static int udf_extend_file(struct inode *inode, loff_t newsize)
 	if (err < 0)
 		goto out;
 	within_last_ext = (err == 1);
-	/* We don't expect extents past EOF... */
-	WARN_ON_ONCE(within_last_ext &&
-		     elen > ((loff_t)offset + 1) << inode->i_blkbits);
+	if (within_last_ext &&
+	    elen > ((loff_t)offset + 1) << inode->i_blkbits) {
+		udf_err(sb, "(ino %llu) extent past EOF: length %u, expected at most %lld\n",
+			inode->i_ino, elen,
+			((loff_t)offset + 1) << inode->i_blkbits);
+		err = -EFSCORRUPTED;
+		goto out;
+	}
 
 	if ((!epos.bh && epos.offset == udf_file_entry_alloc_offset(inode)) ||
 	    (epos.bh && epos.offset == sizeof(struct allocExtDesc))) {
