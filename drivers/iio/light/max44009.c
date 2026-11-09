@@ -66,15 +66,16 @@ static const u32 max44009_int_time_ns_array[] = {
 	6250000,  /* Manual mode only */
 };
 
-static const char max44009_int_time_str[] =
-	"0.8 "
-	"0.4 "
-	"0.2 "
-	"0.1 "
-	"0.05 "
-	"0.025 "
-	"0.0125 "
-	"0.00625";
+static const int max44009_int_time_avail[] = {
+	0, 800000,
+	0, 400000,
+	0, 200000,
+	0, 100000,
+	0, 50000,
+	0, 25000,
+	0, 12500,
+	0, 6250,
+};
 
 struct max44009_data {
 	struct i2c_client *client;
@@ -101,6 +102,7 @@ static const struct iio_chan_spec max44009_channels[] = {
 		.type = IIO_LIGHT,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED) |
 				      BIT(IIO_CHAN_INFO_INT_TIME),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_INT_TIME),
 		.event_spec = max44009_event_spec,
 		.num_event_specs = ARRAY_SIZE(max44009_event_spec),
 	},
@@ -284,17 +286,21 @@ static int max44009_read_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static IIO_CONST_ATTR(illuminance_integration_time_available,
-		      max44009_int_time_str);
-
-static struct attribute *max44009_attributes[] = {
-	&iio_const_attr_illuminance_integration_time_available.dev_attr.attr,
-	NULL,
-};
-
-static const struct attribute_group max44009_attribute_group = {
-	.attrs = max44009_attributes,
-};
+static int max44009_read_avail(struct iio_dev *indio_dev,
+			       struct iio_chan_spec const *chan,
+			       const int **vals, int *type, int *length,
+			       long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_INT_TIME:
+		*vals = max44009_int_time_avail;
+		*type = IIO_VAL_INT_PLUS_MICRO;
+		*length = ARRAY_SIZE(max44009_int_time_avail);
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
 
 static int max44009_threshold_byte_from_fraction(int integral, int fractional)
 {
@@ -464,7 +470,7 @@ static const struct iio_info max44009_info = {
 	.read_event_config = max44009_read_event_config,
 	.write_event_value = max44009_write_event_value,
 	.write_event_config = max44009_write_event_config,
-	.attrs = &max44009_attribute_group,
+	.read_avail = max44009_read_avail,
 };
 
 static irqreturn_t max44009_threaded_irq_handler(int irq, void *p)
