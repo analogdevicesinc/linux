@@ -2143,6 +2143,22 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	nr_frags = skb_shinfo(skb)->nr_frags;
 
+	/* The check below would always refuse this frame */
+	if (unlikely(nr_frags + 1 >= ring->size)) {
+		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (skb && skb_linearize(skb)) {
+			dev_kfree_skb_any(skb);
+			skb = NULL;
+		}
+		if (!skb) {
+			spin_lock(&ring->lock);
+			BCMGENET_STATS64_INC((&ring->stats64), dropped);
+			ret = NETDEV_TX_OK;
+			goto out;
+		}
+		nr_frags = 0;
+	}
+
 	spin_lock(&ring->lock);
 	if (ring->free_bds <= (nr_frags + 1)) {
 		if (!netif_tx_queue_stopped(txq))
