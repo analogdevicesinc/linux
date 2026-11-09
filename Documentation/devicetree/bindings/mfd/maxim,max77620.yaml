@@ -165,6 +165,13 @@ properties:
   regulators:
     $ref: /schemas/regulator/maxim,max77620-regulator.yaml
 
+patternProperties:
+  "^(.+-hog(-[0-9]+)?)$":
+    type: object
+
+    required:
+      - gpio-hog
+
 allOf:
   - if:
       properties:
