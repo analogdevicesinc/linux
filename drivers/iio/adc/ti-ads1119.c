@@ -497,7 +497,7 @@ static irqreturn_t ads1119_irq_handler(int irq, void *dev_id)
 	struct ads1119_state *st = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev))
-		iio_trigger_poll(indio_dev->trig);
+		iio_trigger_poll(st->trig);
 	else
 		complete(&st->completion);
 
