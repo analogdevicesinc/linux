@@ -17,7 +17,10 @@ use kernel::{
         RBTree,
         RBTreeNode, //
     },
-    sizes::SZ_4K, //
+    sizes::{
+        SizeConstants,
+        SZ_4K, //
+    }, //
 };
 
 use super::{
@@ -84,7 +87,7 @@ impl<M: MmuConfig> PtMapInner<M> {
             mm.buddy().alloc_blocks(
                 GpuBuddyAllocMode::Simple,
                 SZ_4K.into_safe_cast(),
-                Alignment::new::<SZ_4K>(),
+                Alignment::SZ_4K,
                 GpuBuddyAllocFlags::default(),
             ),
             GFP_KERNEL,
