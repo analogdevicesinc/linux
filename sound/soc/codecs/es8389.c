@@ -812,6 +812,23 @@ static int es8389_pcm_hw_free(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static void es8389_standby(struct snd_soc_component *component)
+{
+	struct es8389_private *es8389 = snd_soc_component_get_drvdata(component);
+
+	regmap_update_bits(es8389->regmap, ES8389_ADC_HPF1, 0x0f, 0x04);
+	regmap_update_bits(es8389->regmap, ES8389_ADC_HPF2, 0x0f, 0x04);
+	regmap_write(es8389->regmap, ES8389_CSM_JUMP, 0xD4);
+	usleep_range(70000, 72000);
+	regmap_write(es8389->regmap, ES8389_ANA_CTL1, 0x59);
+	regmap_write(es8389->regmap, ES8389_ADC_EN, 0x00);
+	regmap_write(es8389->regmap, ES8389_CLK_OFF1, 0x00);
+	regmap_write(es8389->regmap, ES8389_RESET, 0x3E);
+	regmap_update_bits(es8389->regmap, ES8389_DAC_INV, 0x80, 0x80);
+	usleep_range(8000, 8500);
+	regmap_update_bits(es8389->regmap, ES8389_DAC_INV, 0x80, 0x00);
+}
+
 static int es8389_set_bias_level(struct snd_soc_component *component,
 			enum snd_soc_bias_level level)
 {
@@ -834,18 +851,7 @@ static int es8389_set_bias_level(struct snd_soc_component *component,
 	case SND_SOC_BIAS_PREPARE:
 		break;
 	case SND_SOC_BIAS_STANDBY:
-		regmap_update_bits(es8389->regmap, ES8389_ADC_HPF1, 0x0f, 0x04);
-		regmap_update_bits(es8389->regmap, ES8389_ADC_HPF2, 0x0f, 0x04);
-		regmap_write(es8389->regmap, ES8389_CSM_JUMP, 0xD4);
-		usleep_range(70000, 72000);
-		regmap_write(es8389->regmap, ES8389_ANA_CTL1, 0x59);
-		regmap_write(es8389->regmap, ES8389_ADC_EN, 0x00);
-		regmap_write(es8389->regmap, ES8389_CLK_OFF1, 0x00);
-		regmap_write(es8389->regmap, ES8389_RESET, 0x3E);
-		regmap_update_bits(es8389->regmap, ES8389_DAC_INV, 0x80, 0x80);
-		usleep_range(8000, 8500);
-		regmap_update_bits(es8389->regmap, ES8389_DAC_INV, 0x80, 0x00);
-
+		es8389_standby(component);
 		clk_disable_unprepare(es8389->mclk);
 		break;
 	case SND_SOC_BIAS_OFF:
@@ -904,6 +910,13 @@ static int es8389_mute(struct snd_soc_dai *dai, int mute, int direction)
 #define es8389_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 		SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S24_3LE | SNDRV_PCM_FMTBIT_S32_LE)
 
+static const u64 es8389_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B;
+
 static const struct snd_soc_dai_ops es8389_ops = {
 	.hw_params = es8389_pcm_hw_params,
 	.hw_free = es8389_pcm_hw_free,
@@ -911,6 +924,8 @@ static const struct snd_soc_dai_ops es8389_ops = {
 	.set_sysclk = es8389_set_dai_sysclk,
 	.set_tdm_slot = es8389_set_tdm_slot,
 	.mute_stream = es8389_mute,
+	.auto_selectable_formats = &es8389_selectable_formats,
+	.num_auto_selectable_formats = 1,
 };
 
 static struct snd_soc_dai_driver es8389_dai = {
@@ -1015,7 +1030,7 @@ static int es8389_suspend(struct snd_soc_component *component)
 {
 	struct es8389_private *es8389 = snd_soc_component_get_drvdata(component);
 
-	es8389_set_bias_level(component, SND_SOC_BIAS_STANDBY);
+	es8389_standby(component);
 	regcache_cache_only(es8389->regmap, true);
 	regcache_mark_dirty(es8389->regmap);
 
@@ -1026,25 +1041,33 @@ static int es8389_resume(struct snd_soc_component *component)
 {
 	struct es8389_private *es8389 = snd_soc_component_get_drvdata(component);
 	unsigned int regv;
+	int ret;
 
 	regcache_cache_only(es8389->regmap, false);
 	regcache_cache_bypass(es8389->regmap, true);
-	regmap_read(es8389->regmap, ES8389_RESET, &regv);
+	ret = regmap_read(es8389->regmap, ES8389_RESET, &regv);
+	if (ret)
+		goto disable_bypass;
 
-	if (regv == 0xff)
+	if (regv == 0xff) {
 		es8389_init(component);
-	else
-		es8389_set_bias_level(component, SND_SOC_BIAS_ON);
+	} else {
+		ret = es8389_set_bias_level(component, SND_SOC_BIAS_ON);
+		if (ret)
+			goto disable_bypass;
+	}
 
+disable_bypass:
 	regcache_cache_bypass(es8389->regmap, false);
-	regcache_sync(es8389->regmap);
+	if (ret)
+		return ret;
 
-	return 0;
+	return regcache_sync(es8389->regmap);
 }
 
 static int es8389_probe(struct snd_soc_component *component)
 {
-	int ret, i;
+	int ret;
 	struct es8389_private *es8389 = snd_soc_component_get_drvdata(component);
 
 	ret = device_property_read_u8(component->dev, "everest,mclk-src", &es8389->mclk_src);
@@ -1052,22 +1075,6 @@ static int es8389_probe(struct snd_soc_component *component)
 		dev_dbg(component->dev, "mclk-src return %d", ret);
 		es8389->mclk_src = ES8389_MCLK_SOURCE;
 	}
-
-	for (i = 0; i < ARRAY_SIZE(es8389_core_supplies); i++)
-		es8389->core_supply[i].supply = es8389_core_supplies[i];
-	ret = devm_regulator_bulk_get(component->dev, ARRAY_SIZE(es8389_core_supplies), es8389->core_supply);
-	if (ret) {
-		dev_err(component->dev, "Failed to request core supplies %d\n", ret);
-		return ret;
-	}
-
-	es8389->mclk = devm_clk_get_optional(component->dev, "mclk");
-	if (IS_ERR(es8389->mclk))
-		return dev_err_probe(component->dev, PTR_ERR(es8389->mclk),
-			"ES8389 is unable to get mclk\n");
-
-	if (!es8389->mclk)
-		dev_err(component->dev, "%s, assuming static mclk\n", __func__);
 
 	ret = clk_prepare_enable(es8389->mclk);
 	if (ret) {
@@ -1084,7 +1091,7 @@ static int es8389_probe(struct snd_soc_component *component)
 
 	es8389->hpf_freq = ES8389_HPF_DEFAULT;
 	es8389_init(component);
-	es8389_set_bias_level(component, SND_SOC_BIAS_STANDBY);
+	es8389_standby(component);
 
 	return 0;
 }
@@ -1156,7 +1163,7 @@ static void es8389_i2c_shutdown(struct i2c_client *i2c)
 static int es8389_i2c_probe(struct i2c_client *i2c_client)
 {
 	struct es8389_private *es8389;
-	int ret;
+	int ret, i;
 
 	es8389 = devm_kzalloc(&i2c_client->dev, sizeof(*es8389), GFP_KERNEL);
 	if (es8389 == NULL)
@@ -1167,6 +1174,22 @@ static int es8389_i2c_probe(struct i2c_client *i2c_client)
 	if (IS_ERR(es8389->regmap))
 		return dev_err_probe(&i2c_client->dev, PTR_ERR(es8389->regmap),
 			"regmap_init() failed\n");
+
+	for (i = 0; i < ARRAY_SIZE(es8389_core_supplies); i++)
+		es8389->core_supply[i].supply = es8389_core_supplies[i];
+	ret = devm_regulator_bulk_get(&i2c_client->dev, ARRAY_SIZE(es8389_core_supplies),
+				      es8389->core_supply);
+	if (ret)
+		return dev_err_probe(&i2c_client->dev, ret,
+				     "Failed to request core supplies\n");
+
+	es8389->mclk = devm_clk_get_optional(&i2c_client->dev, "mclk");
+	if (IS_ERR(es8389->mclk))
+		return dev_err_probe(&i2c_client->dev, PTR_ERR(es8389->mclk),
+				     "ES8389 is unable to get mclk\n");
+
+	if (!es8389->mclk)
+		dev_err(&i2c_client->dev, "%s, assuming static mclk\n", __func__);
 
 	ret =  devm_snd_soc_register_component(&i2c_client->dev,
 			&soc_codec_dev_es8389,

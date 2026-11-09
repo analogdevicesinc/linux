@@ -1973,12 +1973,23 @@ megasas_set_nvme_device_properties(struct scsi_device *sdev,
 {
 	struct megasas_instance *instance;
 	u32 mr_nvme_pg_size;
+	u64 max_prp_io;
 
 	instance = (struct megasas_instance *)sdev->host->hostdata;
 	mr_nvme_pg_size = max_t(u32, instance->nvme_page_size,
 				MR_DEFAULT_NVME_PAGE_SIZE);
 
-	lim->max_hw_sectors = max_io_size / 512;
+	/*
+	 * megasas_make_prp_nvme() builds the PRP list in cmd->sg_frame without
+	 * bounding it against that buffer, and spends one entry per page of
+	 * it on the chain pointer. Cap the transfer at what the buffer holds,
+	 * less one page for lists that start off a page boundary.
+	 */
+	max_prp_io = (u64)((instance->max_chain_frame_sz / sizeof(u64)) -
+			   (instance->max_chain_frame_sz / mr_nvme_pg_size) - 1) *
+		     mr_nvme_pg_size;
+
+	lim->max_hw_sectors = min_t(u64, max_io_size, max_prp_io) >> SECTOR_SHIFT;
 	lim->virt_boundary_mask = mr_nvme_pg_size - 1;
 }
 
@@ -2263,11 +2274,11 @@ megasas_check_and_restore_queue_depth(struct megasas_instance *instance)
 	    && atomic_read(&instance->fw_outstanding) <
 	    instance->throttlequeuedepth + 1) {
 
-		spin_lock_irqsave(instance->host->host_lock, flags);
+		spin_lock_irqsave(&instance->host->host_lock, flags);
 		instance->flag &= ~MEGASAS_FW_BUSY;
 
 		instance->host->can_queue = instance->cur_can_queue;
-		spin_unlock_irqrestore(instance->host->host_lock, flags);
+		spin_unlock_irqrestore(&instance->host->host_lock, flags);
 	}
 }
 
@@ -2944,13 +2955,13 @@ static enum scsi_timeout_action megasas_reset_timer(struct scsi_cmnd *scmd)
 	instance = (struct megasas_instance *)scmd->device->host->hostdata;
 	if (!(instance->flag & MEGASAS_FW_BUSY)) {
 		/* FW is busy, throttle IO */
-		spin_lock_irqsave(instance->host->host_lock, flags);
+		spin_lock_irqsave(&instance->host->host_lock, flags);
 
 		instance->host->can_queue = instance->throttlequeuedepth;
 		instance->last_time = jiffies;
 		instance->flag |= MEGASAS_FW_BUSY;
 
-		spin_unlock_irqrestore(instance->host->host_lock, flags);
+		spin_unlock_irqrestore(&instance->host->host_lock, flags);
 	}
 	return SCSI_EH_RESET_TIMER;
 }
@@ -3716,7 +3727,7 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 		if ((opcode == MR_DCMD_LD_MAP_GET_INFO)
 			&& (cmd->frame->dcmd.mbox.b[1] == 1)) {
 			fusion->fast_path_io = 0;
-			spin_lock_irqsave(instance->host->host_lock, flags);
+			spin_lock_irqsave(&instance->host->host_lock, flags);
 			status = cmd->frame->hdr.cmd_status;
 			instance->map_update_cmd = NULL;
 			if (status != MFI_STAT_OK) {
@@ -3726,7 +3737,7 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 				else {
 					megasas_return_cmd(instance, cmd);
 					spin_unlock_irqrestore(
-						instance->host->host_lock,
+						&instance->host->host_lock,
 						flags);
 					break;
 				}
@@ -3751,7 +3762,7 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 				megasas_set_ld_removed_by_fw(instance);
 
 			megasas_sync_map_info(instance);
-			spin_unlock_irqrestore(instance->host->host_lock,
+			spin_unlock_irqrestore(&instance->host->host_lock,
 					       flags);
 
 			break;
@@ -3767,7 +3778,7 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 		if ((opcode == MR_DCMD_SYSTEM_PD_MAP_GET_INFO) &&
 			(cmd->frame->dcmd.mbox.b[0] == 1)) {
 
-			spin_lock_irqsave(instance->host->host_lock, flags);
+			spin_lock_irqsave(&instance->host->host_lock, flags);
 			status = cmd->frame->hdr.cmd_status;
 			instance->jbod_seq_cmd = NULL;
 			megasas_return_cmd(instance, cmd);
@@ -3780,7 +3791,7 @@ megasas_complete_cmd(struct megasas_instance *instance, struct megasas_cmd *cmd,
 			} else
 				instance->use_seqnum_jbod_fp = false;
 
-			spin_unlock_irqrestore(instance->host->host_lock, flags);
+			spin_unlock_irqrestore(&instance->host->host_lock, flags);
 			break;
 		}
 
@@ -7875,7 +7886,9 @@ megasas_resume(struct device *dev)
 			goto fail_init_mfi;
 	}
 
-	if (megasas_get_ctrl_info(instance) != DCMD_SUCCESS)
+	scoped_guard(mutex, &instance->reset_mutex)
+		rval = megasas_get_ctrl_info(instance);
+	if (rval != DCMD_SUCCESS)
 		goto fail_init_mfi;
 
 	tasklet_init(&instance->isr_tasklet, instance->instancet->tasklet,

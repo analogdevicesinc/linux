@@ -256,10 +256,9 @@ amdgpu_devcoredump_print_ibs(struct drm_printer *p,
 			goto unlock;
 
 		for (int i = 0; i < coredump->num_ibs; i++) {
-			u64 pfn = (coredump->ibs[i].gpu_addr &
-				   AMDGPU_GMC_HOLE_MASK) / AMDGPU_GPU_PAGE_SIZE;
+			u64 addr = coredump->ibs[i].gpu_addr & AMDGPU_GMC_HOLE_MASK;
 
-			mapping = amdgpu_vm_bo_lookup_mapping(vm, pfn);
+			mapping = amdgpu_vm_bo_lookup_mapping(vm, addr);
 			if (!mapping)
 				continue;
 
@@ -280,8 +279,7 @@ amdgpu_devcoredump_print_ibs(struct drm_printer *p,
 			continue;
 
 		va_start = coredump->ibs[i].gpu_addr & AMDGPU_GMC_HOLE_MASK;
-		mapping = amdgpu_vm_bo_lookup_mapping(vm,
-						      va_start / AMDGPU_GPU_PAGE_SIZE);
+		mapping = amdgpu_vm_bo_lookup_mapping(vm, va_start);
 		if (!mapping)
 			goto output_ib_content;
 
@@ -299,10 +297,10 @@ amdgpu_devcoredump_print_ibs(struct drm_printer *p,
 			amdgpu_res_first(abo->tbo.resource, offset,
 					 coredump->ibs[i].ib_size_dw * 4, &cursor);
 			while (cursor.remaining) {
-				amdgpu_device_mm_access(adev, cursor.start / 4,
-							&ib_content[off], cursor.size / 4,
+				amdgpu_device_mm_access(adev, cursor.start,
+							&ib_content[off], cursor.size,
 							false);
-				off += cursor.size;
+				off += cursor.size / 4;
 				amdgpu_res_next(&cursor, cursor.size);
 			}
 			emit_content = true;
@@ -603,9 +601,8 @@ void amdgpu_coredump(struct amdgpu_device *adev, bool skip_vram_check,
 		ring_count++;
 	}
 	if (ring_count)
-		coredump->rings = kvcalloc(ring_count,
-					   sizeof(struct amdgpu_coredump_ring),
-					   GFP_NOWAIT);
+		coredump->rings = kvzalloc_objs(struct amdgpu_coredump_ring,
+						ring_count, GFP_NOWAIT);
 	if (coredump->rings) {
 		for (i = 0, idx = 0; i < adev->num_rings && idx < ring_count; i++) {
 			struct amdgpu_coredump_ring *cdump_ring;

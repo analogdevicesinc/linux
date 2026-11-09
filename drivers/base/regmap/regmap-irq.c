@@ -398,14 +398,14 @@ static int read_irq_data(struct regmap_irq_chip_data *data)
 
 		/* Read sub registers with active IRQs */
 		for (i = 0; i < chip->num_main_regs; i++) {
-			unsigned int b;
+			unsigned int b, index;
 			const unsigned long mreg = data->main_status_buf[i];
 
 			for_each_set_bit(b, &mreg, map->format.val_bytes * 8) {
-				if (i * map->format.val_bytes * 8 + b >
-				    max_main_bits)
+				index = i * map->format.val_bytes * 8 + b;
+				if (index >= max_main_bits)
 					break;
-				ret = read_sub_irq_data(data, b);
+				ret = read_sub_irq_data(data, index);
 
 				if (ret != 0) {
 					dev_err(map->dev, "Failed to read IRQ status %d\n", ret);
@@ -963,7 +963,7 @@ int regmap_add_irq_chip_fwnode(struct fwnode_handle *fwnode,
 	return 0;
 
 err_domain:
-	/* Should really dispose of the domain but... */
+	irq_domain_remove(d->domain);
 err_mutex:
 	mutex_destroy(&d->lock);
 	lockdep_unregister_key(&d->lock_key);

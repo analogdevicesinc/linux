@@ -775,9 +775,9 @@ static int ad7173_load_config(struct ad7173_state *st,
 
 	return ad_sd_write_reg(&st->sd, AD7173_REG_FILTER(free_cfg_slot), 2,
 			       FIELD_PREP(AD7173_FILTER_SINC3_MAP, 0) |
-			       FIELD_PREP(AD7173_FILTER_ENHFILT_MASK,
-					  post_filter_enable) |
 			       FIELD_PREP(AD7173_FILTER_ENHFILTEN,
+					  post_filter_enable) |
+			       FIELD_PREP(AD7173_FILTER_ENHFILT_MASK,
 					  post_filter_select) |
 			       FIELD_PREP(AD7173_FILTER_ORDER, 0) |
 			       FIELD_PREP(AD7173_FILTER_ODR_MASK,
@@ -1801,8 +1801,7 @@ static int ad7173_fw_parse_channel_config(struct iio_dev *indio_dev)
 	indio_dev->num_channels = num_channels;
 	st->num_channels = num_channels;
 
-	chan_arr = devm_kcalloc(dev, sizeof(*indio_dev->channels),
-				st->num_channels, GFP_KERNEL);
+	chan_arr = devm_kcalloc(dev, sizeof(*chan_arr), st->num_channels, GFP_KERNEL);
 	if (!chan_arr)
 		return -ENOMEM;
 

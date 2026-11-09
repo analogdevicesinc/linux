@@ -540,6 +540,13 @@ static int unix_gid_parse(struct cache_detail *cd,
 	if (ugp) {
 		struct cache_head *ch;
 		ug.h.flags = 0;
+		/*
+		 * mountd sends at least the user's primary group on
+		 * success, so an empty list can only mean the lookup
+		 * failed. Keep the credential's own groups instead.
+		 */
+		if (gids == 0)
+			set_bit(CACHE_NEGATIVE, &ug.h.flags);
 		ug.h.expiry_time = expiry;
 		ch = sunrpc_cache_update(cd,
 					 &ug.h, &ugp->h,
@@ -625,7 +632,7 @@ int sunrpc_nl_unix_gid_get_reqs_dumpit(struct sk_buff *skb,
 	if (!cnt)
 		return 0;
 
-	items = kcalloc(cnt, sizeof(*items), GFP_KERNEL);
+	items = kzalloc_objs(*items, cnt);
 	seqnos = kcalloc(cnt, sizeof(*seqnos), GFP_KERNEL);
 	if (!items || !seqnos) {
 		ret = -ENOMEM;
@@ -730,6 +737,8 @@ static int sunrpc_nl_parse_one_unix_gid(struct cache_detail *cd,
 			   boot.tv_sec;
 
 	if (tb[SUNRPC_A_UNIX_GID_NEGATIVE]) {
+		/* failed lookup: keep the credential's own groups */
+		set_bit(CACHE_NEGATIVE, &ug.h.flags);
 		ug.gi = groups_alloc(0);
 		if (!ug.gi)
 			return -ENOMEM;
@@ -1326,7 +1335,7 @@ int sunrpc_nl_ip_map_get_reqs_dumpit(struct sk_buff *skb,
 	if (!cnt)
 		return 0;
 
-	items = kcalloc(cnt, sizeof(*items), GFP_KERNEL);
+	items = kzalloc_objs(*items, cnt);
 	seqnos = kcalloc(cnt, sizeof(*seqnos), GFP_KERNEL);
 	if (!items || !seqnos) {
 		ret = -ENOMEM;

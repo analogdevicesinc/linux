@@ -405,7 +405,7 @@ unsigned int ntfs_reparse_tag_dt_types(struct ntfs_volume *vol, unsigned long mr
 
 	vi = ntfs_iget(vol->sb, mref);
 	if (IS_ERR(vi))
-		return PTR_ERR(vi);
+		return DT_UNKNOWN;
 
 	reparse_attr = (struct reparse_point *)ntfs_attr_readall(NTFS_I(vi),
 			AT_REPARSE_POINT, NULL, 0, &attr_size);
@@ -676,7 +676,7 @@ static int update_reparse_data(struct ntfs_inode *ni, struct ntfs_index_context 
 
 	rp_inode = ntfs_attr_iget(VFS_I(ni), AT_REPARSE_POINT, AT_UNNAMED, 0);
 	if (IS_ERR(rp_inode))
-		return -EINVAL;
+		return PTR_ERR(rp_inode);
 	rp_ni = NTFS_I(rp_inode);
 
 	/* remove the existing reparse data */
@@ -694,8 +694,9 @@ static int update_reparse_data(struct ntfs_inode *ni, struct ntfs_index_context 
 		goto put_rp_inode;
 	}
 
-	if (set_reparse_index(ni, xr, ((const struct reparse_point *)value)->reparse_tag) &&
-	    oldsize > 0) {
+	err = set_reparse_index(ni, xr,
+				((const struct reparse_point *)value)->reparse_tag);
+	if (err && oldsize > 0) {
 		/*
 		 * If cannot index, try to remove the reparse
 		 * data and log the error. There will be an

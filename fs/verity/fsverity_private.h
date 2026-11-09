@@ -11,6 +11,7 @@
 #define pr_fmt(fmt) "fs-verity: " fmt
 
 #include <linux/fsverity.h>
+#include <linux/rcupdate.h>
 #include <linux/rhashtable.h>
 
 /*
@@ -76,7 +77,19 @@ struct merkle_tree_params {
 struct fsverity_info {
 	struct rhash_head rhash_head;
 	struct merkle_tree_params tree_params;
-	u8 root_hash[FS_VERITY_MAX_DIGEST_SIZE];
+	union {
+		u8 root_hash[FS_VERITY_MAX_DIGEST_SIZE];
+
+		/*
+		 * Used for final freeing of the struct, in which case root_hash
+		 * is no longer needed.  Specifically, the only fields needed
+		 * besides the rcu_head are those needed by fsverity_free_info()
+		 * itself, and those that can be accessed by fsverity_get_info()
+		 * (rhash_head and inode) during the RCU-protected rhashtable
+		 * chain search trying to find another inode's fsverity_info.
+		 */
+		struct rcu_head rcu_head;
+	};
 	u8 file_digest[FS_VERITY_MAX_DIGEST_SIZE];
 	struct inode *inode;
 	unsigned long *hash_block_verified;
@@ -147,6 +160,8 @@ void __init fsverity_init_info_cache(void);
 extern int fsverity_require_signatures;
 int fsverity_verify_signature(const struct fsverity_info *vi,
 			      const u8 *signature, size_t sig_size);
+void fsverity_report_valid_sig(const struct inode *inode, const u8 *signature,
+			       size_t sig_size);
 
 void __init fsverity_init_signature(void);
 #else /* !CONFIG_FS_VERITY_BUILTIN_SIGNATURES */
@@ -155,6 +170,12 @@ fsverity_verify_signature(const struct fsverity_info *vi,
 			  const u8 *signature, size_t sig_size)
 {
 	return 0;
+}
+
+static inline void fsverity_report_valid_sig(const struct inode *inode,
+					     const u8 *signature,
+					     size_t sig_size)
+{
 }
 
 static inline void fsverity_init_signature(void)

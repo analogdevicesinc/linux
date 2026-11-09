@@ -808,7 +808,7 @@ static int snd_dummy_capsrc_put(struct snd_kcontrol *kcontrol, struct snd_ctl_el
 	left = ucontrol->value.integer.value[0] & 1;
 	right = ucontrol->value.integer.value[1] & 1;
 	guard(spinlock_irq)(&dummy->mixer_lock);
-	change = dummy->capture_source[addr][0] != left &&
+	change = dummy->capture_source[addr][0] != left ||
 	         dummy->capture_source[addr][1] != right;
 	dummy->capture_source[addr][0] = left;
 	dummy->capture_source[addr][1] = right;
@@ -1063,11 +1063,13 @@ static int snd_dummy_probe(struct platform_device *devptr)
 			break;
 		}
 	}
+
+	if (pcm_substreams[dev] < 1)
+		pcm_substreams[dev] = 1;
+	if (pcm_substreams[dev] > MAX_PCM_SUBSTREAMS)
+		pcm_substreams[dev] = MAX_PCM_SUBSTREAMS;
+
 	for (idx = 0; idx < MAX_PCM_DEVICES && idx < pcm_devs[dev]; idx++) {
-		if (pcm_substreams[dev] < 1)
-			pcm_substreams[dev] = 1;
-		if (pcm_substreams[dev] > MAX_PCM_SUBSTREAMS)
-			pcm_substreams[dev] = MAX_PCM_SUBSTREAMS;
 		err = snd_card_dummy_pcm(dummy, idx, pcm_substreams[dev]);
 		if (err < 0)
 			return err;

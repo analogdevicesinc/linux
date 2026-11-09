@@ -23,6 +23,7 @@
 #include <linux/soundwire/sdw_registers.h>
 #include <linux/slab.h>
 #include <sound/soc-dapm.h>
+#include <sound/sdw.h>
 #include <sound/tlv.h>
 #include "rt712-sdca.h"
 
@@ -72,13 +73,188 @@ static int rt712_sdca_index_update_bits(struct rt712_sdca_priv *rt712,
 	return rt712_sdca_index_write(rt712, nid, reg, tmp);
 }
 
+static void rt712_sdca_clk_patch(struct rt712_sdca_priv *rt712)
+{
+	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, 0x65, 0x0000);
+	regmap_write(rt712->regmap, RT712_SDW_ROOT_CLK, 0x03);
+	usleep_range(1000, 1100);
+	regmap_write(rt712->regmap, RT712_SDW_ROOT_CLK, 0x02);
+	usleep_range(1000, 1100);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF2, 0x0080, 0x0000);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF2, 0x001f, 0x0017);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF3, 0x0010, 0x0000);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF1, 0x0081, 0x0001);
+	regmap_write(rt712->regmap, RT712_SDW_ROOT_CLK, 0x03);
+	usleep_range(1000, 1100);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF1, 0x0081, 0x0081);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF2, 0x0080, 0x0080);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF2, 0x001f, 0x0000);
+	regmap_update_bits(rt712->regmap, RT712_PLL2_CONF3, 0x0010, 0x0010);
+	usleep_range(1000, 1100);
+	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, 0x65, 0x0081);
+}
+
+static void rt712_sdca_clk_patch2(struct rt712_sdca_priv *rt712)
+{
+	rt712_sdca_index_update_bits(rt712, RT712_VENDOR_REG, 0x49, 0x0800,
+		0x0000);
+	rt712_sdca_index_update_bits(rt712, RT712_VENDOR_REG, 0x49, 0xf000,
+		0x0000);
+	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, 0x65, 0x0000);
+	rt712_sdca_index_update_bits(rt712, RT712_VENDOR_ANALOG_CTL, 0x0c, 0xc000,
+		0xc000);
+	rt712_sdca_index_update_bits(rt712, RT712_VENDOR_ANALOG_CTL, 0x00, 0xc000,
+		0xc000);
+	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, 0x65, 0x0081);
+	regmap_write(rt712->regmap, RT712_SDW_ROOT_CLK, 0x02);
+	usleep_range(1000, 1100);
+	regmap_write(rt712->regmap, RT712_SDW_ROOT_CLK, 0x03);
+	usleep_range(1000, 1100);
+	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, 0x65, 0x0000);
+}
+
+static int rt712_sdca_gpio_request(struct gpio_chip *chip, unsigned int offset)
+{
+	struct rt712_sdca_priv *rt712 = gpiochip_get_data(chip);
+	struct device *dev = &rt712->slave->dev;
+	unsigned int gpio_pin = offset + 3;
+	int ret;
+
+	dev_dbg(&rt712->slave->dev, "%s: gpio_pin=%d\n", __func__, gpio_pin);
+
+	mutex_lock(&rt712->gc_lock);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0 && ret != -EACCES)
+		goto io_error;
+
+	/*
+	 * Only support GPIO3 and GPIO4 for now
+	 */
+	switch (gpio_pin) {
+	case 3:
+		break;
+	case 4:
+		ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+			RT712_HDA_LEGACY_CONFIG_CTL0, 0x000c, 0x0004);
+		if (ret < 0)
+			goto io_error;
+		break;
+	default:
+		ret = -EINVAL;
+		goto io_error;
+	}
+
+	ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+		RT712_HDA_GPIO_EN_CTL, (1 << gpio_pin), (1 << gpio_pin));
+	if (ret < 0)
+		goto io_error;
+	ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+		RT712_HDA_GPIO_DIRECTION_CTL, (1 << gpio_pin), (1 << gpio_pin));
+
+io_error:
+	mutex_unlock(&rt712->gc_lock);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+	return ret;
+}
+
+static int rt712_sdca_gpio_set(struct gpio_chip *chip, unsigned int offset,
+			   int value)
+{
+	struct rt712_sdca_priv *rt712 = gpiochip_get_data(chip);
+	struct device *dev = &rt712->slave->dev;
+	unsigned int gpio_pin = offset + 3;
+	int ret;
+
+	dev_dbg(&rt712->slave->dev, "%s: gpio_pin=%d, value=%d\n", __func__, gpio_pin, value);
+
+	mutex_lock(&rt712->gc_lock);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0 && ret != -EACCES)
+		goto io_error;
+
+	ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+			RT712_HDA_GPIO_SET_CTL, (1 << gpio_pin), (!!value << gpio_pin));
+
+io_error:
+	mutex_unlock(&rt712->gc_lock);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+	return ret;
+}
+
+static int rt712_sdca_gpio_direction_out(struct gpio_chip *chip,
+				     unsigned offset, int value)
+{
+	struct rt712_sdca_priv *rt712 = gpiochip_get_data(chip);
+	struct device *dev = &rt712->slave->dev;
+	unsigned int gpio_pin = offset + 3;
+	int ret;
+
+	dev_dbg(&rt712->slave->dev, "%s: gpio_pin=%d, value=%d\n", __func__, gpio_pin, value);
+
+	mutex_lock(&rt712->gc_lock);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0 && ret != -EACCES)
+		goto io_error;
+
+	switch (gpio_pin) {
+	case 3:
+	case 4:
+		ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+			RT712_HDA_GPIO_DIRECTION_CTL, (1 << gpio_pin), (1 << gpio_pin));
+		if (ret < 0)
+			goto io_error;
+		ret = rt712_sdca_index_update_bits(rt712, RT712_VENDOR_HDA_CTL,
+			RT712_HDA_GPIO_SET_CTL, (1 << gpio_pin), (!!value << gpio_pin));
+		break;
+	default:
+		ret = -EINVAL;
+		goto io_error;
+	}
+
+io_error:
+	mutex_unlock(&rt712->gc_lock);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+	return ret;
+}
+
+static const struct gpio_chip rt712_sdca_template_chip = {
+	.label = "rt712-sdca",
+	.owner = THIS_MODULE,
+	.request = rt712_sdca_gpio_request,
+	.direction_output = rt712_sdca_gpio_direction_out,
+	.set = rt712_sdca_gpio_set,
+	.ngpio = 2,
+	.can_sleep = true,
+	.base = -1,
+};
+
+static void rt712_sdca_gpio_init(struct rt712_sdca_priv *rt712)
+{
+	int ret;
+
+	mutex_init(&rt712->gc_lock);
+	rt712->gpio_chip = rt712_sdca_template_chip;
+	rt712->gpio_chip.parent = &rt712->slave->dev;
+	rt712->gpio_chip.fwnode = dev_fwnode(&rt712->slave->dev);
+
+	ret = devm_gpiochip_add_data(&rt712->slave->dev, &rt712->gpio_chip, rt712);
+	if (ret != 0)
+		dev_err(&rt712->slave->dev, "Failed to add GPIOs: %d\n", ret);
+}
+
 static int rt712_sdca_calibration(struct rt712_sdca_priv *rt712)
 {
 	unsigned int val, loop_rc = 0, loop_dc = 0;
 	struct device *dev;
 	struct regmap *regmap = rt712->regmap;
+	unsigned int clk_base;
 	int chk_cnt = 100;
 	int ret = 0;
+
+	regmap_read(rt712->regmap, RT712_SDW_ROOT_CLK, &clk_base);
 
 	mutex_lock(&rt712->calibrate_mutex);
 	dev = regmap_get_device(regmap);
@@ -108,8 +284,35 @@ static int rt712_sdca_calibration(struct rt712_sdca_priv *rt712)
 		if (ret < 0)
 			goto _cali_fail_;
 	}
-	if (loop_dc == chk_cnt)
-		dev_err(dev, "%s, calibration time-out!\n", __func__);
+
+	if (loop_dc == chk_cnt) {
+		if (clk_base == RT712_CLK_FREQ_24_576MHZ) {
+			rt712_sdca_clk_patch(rt712);
+			rt712_sdca_clk_patch2(rt712);
+		}
+		rt712_sdca_index_write(rt712, RT712_VENDOR_REG, RT712_FSM_CTL, 0x4100);
+		rt712_sdca_index_write(rt712, RT712_VENDOR_CALI,
+			RT712_DAC_DC_CALI_CTL1, 0x7883);
+		rt712_sdca_index_write(rt712, RT712_VENDOR_CALI,
+			RT712_DAC_DC_CALI_CTL1, 0xf893);
+		rt712_sdca_index_read(rt712, RT712_VENDOR_CALI,
+			RT712_DAC_DC_CALI_CTL1, &val);
+
+		for (loop_dc = 0; loop_dc < chk_cnt &&
+			(val & RT712_DAC_DC_CALI_TRIGGER); loop_dc++) {
+			usleep_range(10000, 11000);
+			ret = rt712_sdca_index_read(rt712, RT712_VENDOR_CALI,
+					RT712_DAC_DC_CALI_CTL1, &val);
+
+			if (ret < 0)
+				goto _cali_fail_;
+		}
+
+		if (loop_dc == chk_cnt)
+			dev_err(dev, "%s, calibration time-out!\n", __func__);
+		else
+			dev_dbg(dev, "%s, calibration success!\n", __func__);
+	}
 
 	if (loop_dc == chk_cnt || loop_rc == chk_cnt)
 		ret = -ETIMEDOUT;
@@ -1449,11 +1652,10 @@ static int rt712_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_component *component = dai->component;
 	struct rt712_sdca_priv *rt712 = snd_soc_component_get_drvdata(component);
-	struct sdw_stream_config stream_config;
+	struct sdw_stream_config stream_config = {0};
 	struct sdw_port_config port_config;
-	enum sdw_data_direction direction;
 	struct sdw_stream_runtime *sdw_stream;
-	int retval, port, num_channels;
+	int retval, port;
 	unsigned int sampling_rate;
 
 	dev_dbg(dai->dev, "%s %s id %d", __func__, dai->name, dai->id);
@@ -1471,7 +1673,6 @@ static int rt712_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	/* SoundWire specific configuration */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		direction = SDW_DATA_DIR_RX;
 		if (dai->id == RT712_AIF1)
 			port = 1;
 		else if (dai->id == RT712_AIF2)
@@ -1479,7 +1680,6 @@ static int rt712_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 		else
 			return -EINVAL;
 	} else {
-		direction = SDW_DATA_DIR_TX;
 		if (dai->id == RT712_AIF1)
 			port = 4;
 		else if (dai->id == RT712_AIF3)
@@ -1488,13 +1688,8 @@ static int rt712_sdca_pcm_hw_params(struct snd_pcm_substream *substream,
 			return -EINVAL;
 	}
 
-	stream_config.frame_rate = params_rate(params);
-	stream_config.ch_count = params_channels(params);
-	stream_config.bps = snd_pcm_format_width(params_format(params));
-	stream_config.direction = direction;
-
-	num_channels = params_channels(params);
-	port_config.ch_mask = GENMASK(num_channels - 1, 0);
+	/* SoundWire specific configuration */
+	snd_sdw_params_to_config(substream, params, &stream_config, &port_config);
 	port_config.num = port;
 
 	retval = sdw_stream_add_slave(rt712->slave, &stream_config,
@@ -1661,6 +1856,10 @@ int rt712_sdca_init(struct device *dev, struct regmap *regmap,
 	INIT_DELAYED_WORK(&rt712->jack_detect_work, rt712_sdca_jack_detect_handler);
 	INIT_DELAYED_WORK(&rt712->jack_btn_check_work, rt712_sdca_btn_check_handler);
 
+	/* initialize GPIOs */
+	if (IS_ENABLED(CONFIG_GPIOLIB))
+		rt712_sdca_gpio_init(rt712);
+
 	/*
 	 * Mark hw_init to false
 	 * HW init will be performed when device reports present
@@ -1766,9 +1965,13 @@ static void rt712_sdca_va_io_init(struct rt712_sdca_priv *rt712)
 
 static void rt712_sdca_vb_io_init(struct rt712_sdca_priv *rt712)
 {
-	int ret = 0;
 	unsigned int jack_func_status, mic_func_status, amp_func_status;
 	struct device *dev = &rt712->slave->dev;
+	unsigned int clk_base;
+	int ret = 0;
+
+	regmap_read(rt712->regmap, RT712_SDW_ROOT_CLK, &clk_base);
+	dev_dbg(dev, "%s clk_base=%x", __func__, clk_base);
 
 	regmap_read(rt712->regmap,
 		SDW_SDCA_CTL(FUNC_NUM_JACK_CODEC, RT712_SDCA_ENT0, RT712_SDCA_CTL_FUNC_STATUS, 0), &jack_func_status);
@@ -1780,6 +1983,12 @@ static void rt712_sdca_vb_io_init(struct rt712_sdca_priv *rt712)
 		__func__, jack_func_status, mic_func_status, amp_func_status);
 
 	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, RT712_JD_CTL3, 0x7778);
+
+	if (clk_base == RT712_CLK_FREQ_24_576MHZ) {
+		rt712_sdca_clk_patch(rt712);
+		rt712_sdca_clk_patch2(rt712);
+	}
+
 	/* DMIC */
 	if ((mic_func_status & FUNCTION_NEEDS_INITIALIZATION) || (!rt712->first_hw_init)) {
 		rt712_sdca_index_write(rt712, RT712_VENDOR_HDA_CTL, RT712_DMIC2_FU_IT_FLOAT_CTL, 0x1526);
@@ -1879,7 +2088,8 @@ int rt712_sdca_io_init(struct device *dev, struct sdw_slave *slave)
 
 	pm_runtime_get_noresume(&slave->dev);
 
-	rt712_sdca_reset(rt712);
+	if (!rt712->first_hw_init)
+		rt712_sdca_reset(rt712);
 
 	rt712_sdca_index_read(rt712, RT712_VENDOR_REG, RT712_JD_PRODUCT_NUM, &val);
 	rt712->hw_id = (val & 0xf000) >> 12;
@@ -1908,7 +2118,7 @@ int rt712_sdca_io_init(struct device *dev, struct sdw_slave *slave)
 	 * if set_jack callback occurred early than io_init,
 	 * we set up the jack detection function now
 	 */
-	if (rt712->hs_jack)
+	if (rt712->hs_jack && (!rt712->first_hw_init))
 		rt712_sdca_jack_init(rt712);
 
 	rt712_sdca_index_write(rt712, RT712_VENDOR_REG, RT712_SW_CONFIG1, 0x0001);

@@ -31,7 +31,7 @@
  * Given a pointer to the MTD object in the mtd_concat structure,
  * we can retrieve the pointer to that structure with this macro.
  */
-#define CONCAT(x)  ((struct mtd_concat *)(x))
+#define CONCAT(x)  container_of_const(x, struct mtd_concat, mtd)
 
 /*
  * MTD methods which look up the relevant subdevice, translate the
@@ -639,7 +639,7 @@ struct mtd_info *mtd_concat_create(struct mtd_info *subdev[],	/* subdevices to c
 	printk(KERN_NOTICE "into device \"%s\"\n", name);
 
 	/* allocate the device structure */
-	concat = kzalloc_flex(*concat, subdev, num_devs, GFP_KERNEL);
+	concat = kzalloc_flex(*concat, subdev, num_devs);
 	if (!concat) {
 		printk
 		    ("memory allocation error while creating concatenated device \"%s\"\n",

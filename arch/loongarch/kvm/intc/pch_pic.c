@@ -68,17 +68,20 @@ void pch_pic_set_irq(struct loongarch_pch_pic *s, int irq, int level)
 }
 
 /* msi irq handler */
-int pch_msi_set_irq(struct kvm *kvm, struct kvm_kernel_irq_routing_entry *e, int level)
+int pch_msi_set_irq(struct kvm *kvm, struct kvm_kernel_irq_routing_entry *e)
 {
 	u64 msg_addr = (((u64)e->msi.address_hi) << 32) | e->msi.address_lo;
 
 	if (cpu_has_msgint && kvm->arch.dmsintc &&
 		msg_addr >= kvm->arch.dmsintc->msg_addr_base &&
 		msg_addr < (kvm->arch.dmsintc->msg_addr_base + kvm->arch.dmsintc->msg_addr_size)) {
-		return dmsintc_set_irq(kvm, msg_addr, e->msi.data, level);
+		return dmsintc_set_irq(kvm, msg_addr, e->msi.data);
 	}
 
-	eiointc_set_irq(kvm->arch.eiointc, e->msi.data, level);
+	if (e->msi.data >= EIOINTC_IRQS)
+		return -EINVAL;
+
+	eiointc_set_irq(kvm->arch.eiointc, e->msi.data, 1);
 
 	return 0;
 }
@@ -499,4 +502,9 @@ static struct kvm_device_ops kvm_pch_pic_dev_ops = {
 int kvm_loongarch_register_pch_pic_device(void)
 {
 	return kvm_register_device_ops(&kvm_pch_pic_dev_ops, KVM_DEV_TYPE_LOONGARCH_PCHPIC);
+}
+
+void kvm_loongarch_unregister_pch_pic_device(void)
+{
+	kvm_unregister_device_ops(KVM_DEV_TYPE_LOONGARCH_PCHPIC);
 }

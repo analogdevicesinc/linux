@@ -24,6 +24,7 @@ struct val_600b_t {
 struct elem {
 	long sum;
 	struct val_t __percpu_kptr *pc;
+	struct val_t __percpu_kptr *pc2;
 };
 
 struct {
@@ -32,6 +33,22 @@ struct {
 	__type(key, int);
 	__type(value, struct elem);
 } array SEC(".maps");
+
+struct kernel_percpu_elem {
+	struct task_struct __percpu_kptr *task;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, struct kernel_percpu_elem);
+} kernel_percpu_array SEC(".maps");
+
+struct task_struct *bpf_task_from_pid(s32 pid) __ksym;
+void bpf_task_release(struct task_struct *p) __ksym;
+void bpf_rcu_read_lock(void) __ksym;
+void bpf_rcu_read_unlock(void) __ksym;
 
 long ret;
 
@@ -110,6 +127,38 @@ int BPF_PROG(test_array_map_3)
 }
 
 SEC("?fentry.s/bpf_fentry_test1")
+__failure __msg("Possibly NULL pointer passed to trusted R1")
+int BPF_PROG(reject_nullable_percpu_xchg_alias)
+{
+	struct val_t __percpu_kptr *p1, *p2, *old;
+	struct val_t *v;
+	struct elem *e;
+	int index = 0;
+
+	e = bpf_map_lookup_elem(&array, &index);
+	if (!e)
+		return 0;
+
+	p1 = bpf_percpu_obj_new(struct val_t);
+	p2 = bpf_percpu_obj_new(struct val_t);
+
+	bpf_rcu_read_lock();
+	old = bpf_kptr_xchg(&e->pc, p1);
+	if (old)
+		bpf_percpu_obj_drop(old);
+	old = bpf_kptr_xchg(&e->pc2, p2);
+	if (old)
+		bpf_percpu_obj_drop(old);
+
+	if (p1) {
+		v = bpf_this_cpu_ptr(p2);
+		v->b = 1;
+	}
+	bpf_rcu_read_unlock();
+	return 0;
+}
+
+SEC("?fentry.s/bpf_fentry_test1")
 __failure __msg("R1 expected for bpf_percpu_obj_drop()")
 int BPF_PROG(test_array_map_4)
 {
@@ -134,6 +183,51 @@ int BPF_PROG(test_array_map_5)
 		return 0;
 
 	bpf_percpu_obj_drop(p);
+	return 0;
+}
+
+SEC("?syscall")
+__failure __msg("invalid kptr access, R2 type=trusted_ptr_ expected=ptr_task_struct")
+int reject_kernel_ptr_into_percpu_kptr(void *ctx)
+{
+	struct kernel_percpu_elem *e;
+	struct task_struct *p, *old;
+	int index = 0;
+
+	e = bpf_map_lookup_elem(&kernel_percpu_array, &index);
+	if (!e)
+		return 0;
+
+	p = bpf_task_from_pid(1);
+	if (!p)
+		return 0;
+
+	old = bpf_kptr_xchg(&e->task, p);
+	if (old)
+		bpf_task_release(old);
+	return 0;
+}
+
+SEC("?fentry.s/bpf_fentry_test1")
+__failure __msg("invalid kptr access, R2 type=ptr_ expected=ptr_val_t")
+int BPF_PROG(reject_plain_alloc_into_percpu_kptr)
+{
+	struct val_t __percpu_kptr *old;
+	struct val_t *p;
+	struct elem *e;
+	int index = 0;
+
+	e = bpf_map_lookup_elem(&array, &index);
+	if (!e)
+		return 0;
+
+	p = bpf_obj_new(struct val_t);
+	if (!p)
+		return 0;
+
+	old = bpf_kptr_xchg(&e->pc, p);
+	if (old)
+		bpf_percpu_obj_drop(old);
 	return 0;
 }
 

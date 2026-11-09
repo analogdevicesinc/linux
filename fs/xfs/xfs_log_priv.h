@@ -71,12 +71,14 @@ enum xlog_iclog_state {
 /*
  * In core log flags
  */
-#define XLOG_ICL_NEED_FLUSH	(1u << 0)	/* iclog needs REQ_PREFLUSH */
-#define XLOG_ICL_NEED_FUA	(1u << 1)	/* iclog needs REQ_FUA */
+#define XLOG_ICL_NEED_FLUSH	(1u << 0)	/* all devs need REQ_PREFLUSH */
+#define XLOG_ICL_NEED_FLUSH_LOG	(1u << 1)	/* logdev needs REQ_PREFLUSH */
+#define XLOG_ICL_NEED_FUA	(1u << 2)	/* iclog needs REQ_FUA */
 
 #define XLOG_ICL_STRINGS \
-	{ XLOG_ICL_NEED_FLUSH,	"XLOG_ICL_NEED_FLUSH" }, \
-	{ XLOG_ICL_NEED_FUA,	"XLOG_ICL_NEED_FUA" }
+	{ XLOG_ICL_NEED_FLUSH,		"XLOG_ICL_NEED_FLUSH" }, \
+	{ XLOG_ICL_NEED_FLUSH_LOG,	"XLOG_ICL_NEED_FLUSH_LOG" }, \
+	{ XLOG_ICL_NEED_FUA,		"XLOG_ICL_NEED_FUA" }
 
 
 /*
@@ -605,8 +607,8 @@ xlog_wait(
 	remove_wait_queue(wq, &wait);
 }
 
-int xlog_wait_on_iclog(struct xlog_in_core *iclog)
-		__releases(iclog->ic_log->l_icloglock);
+int xlog_wait_on_iclog(struct xlog *log, struct xlog_in_core *iclog)
+		__releases(log->l_icloglock);
 
 /* Calculate the distance between two LSNs in bytes */
 static inline uint64_t

@@ -305,9 +305,17 @@ struct usb_serial_driver {
 	void (*write_bulk_callback)(struct urb *urb);
 	/* Called by the generic read bulk callback */
 	void (*process_read_urb)(struct urb *urb);
+	/*
+	 * Called with port->lock held before preparing another write URB.
+	 * Drivers returning false must restart the generic write path when
+	 * writes may proceed again.
+	 */
+	bool (*write_ready)(struct usb_serial_port *port);
 	/* Called by the generic write implementation */
 	int (*prepare_write_buffer)(struct usb_serial_port *port,
 						void *dest, size_t size);
+	/* Called with port->lock held to roll back a failed write submission */
+	void (*write_rollback)(struct usb_serial_port *port, int count);
 };
 #define to_usb_serial_driver(d) \
 	container_of(d, struct usb_serial_driver, driver)
@@ -381,6 +389,7 @@ void usb_serial_handle_dcd_change(struct usb_serial_port *usb_port,
 
 int usb_serial_bus_register(struct usb_serial_driver *device);
 void usb_serial_bus_deregister(struct usb_serial_driver *device);
+void usb_serial_bus_remove_new_id(struct usb_serial_driver *driver);
 
 extern const struct bus_type usb_serial_bus_type;
 extern struct tty_driver *usb_serial_tty_driver;

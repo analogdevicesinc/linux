@@ -66,7 +66,7 @@ static int aesbs_setkey(struct crypto_skcipher *tfm, const u8 *in_key,
 	struct crypto_aes_ctx *rk;
 	int err;
 
-	rk = kmalloc(sizeof(*rk), GFP_KERNEL);
+	rk = kmalloc_obj(*rk);
 	if (!rk)
 		return -ENOMEM;
 
@@ -128,7 +128,7 @@ static int aesbs_cbc_ctr_setkey(struct crypto_skcipher *tfm, const u8 *in_key,
 	struct crypto_aes_ctx *rk;
 	int err;
 
-	rk = kmalloc(sizeof(*rk), GFP_KERNEL);
+	rk = kmalloc_obj(*rk);
 	if (!rk)
 		return -ENOMEM;
 
@@ -247,7 +247,7 @@ static int aesbs_xts_setkey(struct crypto_skcipher *tfm, const u8 *in_key,
 			    unsigned int key_len)
 {
 	struct aesbs_xts_ctx *ctx = crypto_skcipher_ctx(tfm);
-	struct crypto_aes_ctx rk;
+	struct crypto_aes_ctx rk __cleanup(aes_zeroize_ctx);
 	int err;
 
 	err = xts_verify_key(tfm, in_key, key_len);

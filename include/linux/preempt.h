@@ -168,10 +168,6 @@ static __always_inline unsigned char interrupt_context_level(void)
 #define in_softirq()		(softirq_count())
 #define in_interrupt()		(irq_count())
 
-#define hardirq_disable_count()	((preempt_count() & HARDIRQ_DISABLE_MASK) >> HARDIRQ_DISABLE_SHIFT)
-#define hardirq_disable_enter()	__preempt_count_add_return(HARDIRQ_DISABLE_OFFSET)
-#define hardirq_disable_exit()	__preempt_count_sub_return(HARDIRQ_DISABLE_OFFSET)
-
 /*
  * The preempt_count offset after preempt_disable();
  */
@@ -502,21 +498,11 @@ DEFINE_LOCK_GUARD_0(preempt_notrace, preempt_disable_notrace(), preempt_enable_n
 
 #ifdef CONFIG_PREEMPT_DYNAMIC
 
-extern bool preempt_model_none(void);
-extern bool preempt_model_voluntary(void);
 extern bool preempt_model_full(void);
 extern bool preempt_model_lazy(void);
 
 #else
 
-static inline bool preempt_model_none(void)
-{
-	return IS_ENABLED(CONFIG_PREEMPT_NONE);
-}
-static inline bool preempt_model_voluntary(void)
-{
-	return IS_ENABLED(CONFIG_PREEMPT_VOLUNTARY);
-}
 static inline bool preempt_model_full(void)
 {
 	return IS_ENABLED(CONFIG_PREEMPT);
@@ -528,6 +514,16 @@ static inline bool preempt_model_lazy(void)
 }
 
 #endif
+
+static inline bool preempt_model_none(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT_NONE);
+}
+
+static inline bool preempt_model_voluntary(void)
+{
+	return IS_ENABLED(CONFIG_PREEMPT_VOLUNTARY);
+}
 
 static inline bool preempt_model_rt(void)
 {

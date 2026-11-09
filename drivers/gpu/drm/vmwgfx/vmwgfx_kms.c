@@ -20,10 +20,18 @@
 #include <drm/drm_rect.h>
 #include <drm/drm_sysfs.h>
 #include <drm/drm_edid.h>
+#include <drm/drm_blend.h>
 
 void vmw_du_init(struct vmw_display_unit *du)
 {
 	vmw_vkms_crtc_init(&du->crtc);
+	drm_plane_create_blend_mode_property(&du->primary,
+					     BIT(DRM_MODE_BLEND_PIXEL_NONE) |
+					     BIT(DRM_MODE_BLEND_PREMULTI));
+	// Check that the cursor plane was actually initialized
+	if (du->crtc.cursor == &du->cursor.base)
+		drm_plane_create_blend_mode_property(&du->cursor.base,
+						     BIT(DRM_MODE_BLEND_PREMULTI));
 }
 
 void vmw_du_cleanup(struct vmw_display_unit *du)
@@ -206,32 +214,24 @@ vmw_du_crtc_duplicate_state(struct drm_crtc *crtc)
 
 
 /**
- * vmw_du_crtc_reset - creates a blank vmw crtc state
+ * vmw_du_crtc_create_state - creates a blank vmw crtc state
  * @crtc: DRM crtc
  *
- * Resets the atomic state for @crtc by freeing the state pointer (which
- * might be NULL, e.g. at driver load time) and allocating a new empty state
- * object.
+ * Allocates a new empty state object for @crtc.
  */
-void vmw_du_crtc_reset(struct drm_crtc *crtc)
+struct drm_crtc_state *vmw_du_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct vmw_crtc_state *vcs;
 
-
-	if (crtc->state) {
-		__drm_atomic_helper_crtc_destroy_state(crtc->state);
-
-		kfree(vmw_crtc_state_to_vcs(crtc->state));
-	}
-
 	vcs = kzalloc_obj(*vcs);
-
 	if (!vcs) {
 		DRM_ERROR("Cannot allocate vmw_crtc_state\n");
-		return;
+		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_atomic_helper_crtc_reset(crtc, &vcs->base);
+	__drm_atomic_helper_crtc_state_init(&vcs->base, crtc);
+
+	return &vcs->base;
 }
 
 
@@ -287,27 +287,24 @@ vmw_du_plane_duplicate_state(struct drm_plane *plane)
 
 
 /**
- * vmw_du_plane_reset - creates a blank vmw plane state
+ * vmw_du_plane_create_state - creates a blank vmw plane state
  * @plane: drm plane
  *
- * Resets the atomic state for @plane by freeing the state pointer (which might
- * be NULL, e.g. at driver load time) and allocating a new empty state object.
+ * Allocates a new empty state object.
  */
-void vmw_du_plane_reset(struct drm_plane *plane)
+struct drm_plane_state *vmw_du_plane_create_state(struct drm_plane *plane)
 {
 	struct vmw_plane_state *vps;
 
-	if (plane->state)
-		vmw_du_plane_destroy_state(plane, plane->state);
-
 	vps = kzalloc_obj(*vps);
-
 	if (!vps) {
 		DRM_ERROR("Cannot allocate vmw_plane_state\n");
-		return;
+		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_atomic_helper_plane_reset(plane, &vps->base);
+	__drm_atomic_helper_plane_state_init(&vps->base, plane);
+
+	return &vps->base;
 }
 
 
