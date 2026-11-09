@@ -1896,7 +1896,11 @@ static void adjust_bridge_window(struct pci_dev *bridge, struct resource *res,
 				break;
 		}
 
+		/* Without optional size, there is nothing to shrink. */
 		dev_res = res_to_dev_res(add_list, res);
+		if (!dev_res)
+			return;
+
 		add_size = size - new_size;
 		if (add_size < dev_res->add_size) {
 			dev_res->add_size -= add_size;
