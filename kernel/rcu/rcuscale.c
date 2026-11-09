@@ -297,6 +297,44 @@ static struct rcu_scale_ops srcud_ops = {
 	.name		= "srcud"
 };
 
+static struct srcu_struct srcua;
+
+static int srcu_scale_atomic_read_lock(void)
+{
+	return srcu_read_lock_atomic(srcu_ctlp);
+}
+
+static void srcu_scale_atomic_read_unlock(int idx)
+{
+	srcu_read_unlock_atomic(srcu_ctlp, idx);
+}
+
+static void srcu_scale_atomic_synchronize(void)
+{
+	synchronize_srcu_atomic(srcu_ctlp);
+}
+
+static void srcu_atomic_scale_init(void)
+{
+	srcu_ctlp = &srcua;
+	init_srcu_struct_atomic(srcu_ctlp);
+}
+
+static struct rcu_scale_ops srcua_ops = {
+	.ptype		= SRCU_FLAVOR,
+	.init		= srcu_atomic_scale_init,
+	.cleanup	= srcu_sync_scale_cleanup,
+	.readlock	= srcu_scale_atomic_read_lock,
+	.readunlock	= srcu_scale_atomic_read_unlock,
+	.get_gp_seq	= srcu_scale_completed,
+	.gp_diff	= rcu_seq_diff,
+	.exp_completed	= srcu_scale_completed,
+	.sync		= srcu_scale_atomic_synchronize,
+	.exp_sync	= srcu_scale_atomic_synchronize,
+	.stats		= srcu_scale_stats,
+	.name		= "srcua"
+};
+
 #ifdef CONFIG_TASKS_RCU
 
 /*
@@ -1100,7 +1138,8 @@ rcu_scale_init(void)
 	long i;
 	long j;
 	static struct rcu_scale_ops *scale_ops[] = {
-		&rcu_ops, &srcu_ops, &srcud_ops, TASKS_OPS TASKS_RUDE_OPS TASKS_TRACING_OPS
+		&rcu_ops, &srcu_ops, &srcua_ops, &srcud_ops,
+		TASKS_OPS TASKS_RUDE_OPS TASKS_TRACING_OPS
 	};
 
 	if (!torture_init_begin(scale_type, verbose))
