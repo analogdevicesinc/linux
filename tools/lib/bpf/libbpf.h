@@ -1628,18 +1628,17 @@ LIBBPF_API int ring__map_fd(const struct ring *r);
  *
  * @param r A ringbuffer object.
  * @return The number of records consumed (or INT_MAX, whichever is less), or
- * a negative number if any of the callbacks return an error.
+ * a negative error code on failure.
  */
 LIBBPF_API int ring__consume(struct ring *r);
 
 /**
- * @brief **ring__consume_n()** consumes up to a requested amount of items from
- * a ringbuffer without event polling.
+ * @brief **ring__consume_n()** consumes up to a requested number of records
+ * from a ringbuffer without event polling.
  *
  * @param r A ringbuffer object.
- * @param n Maximum amount of items to consume.
- * @return The number of items consumed, or a negative number if any of the
- * callbacks return an error.
+ * @param n Maximum number of records to consume.
+ * @return The number of records consumed, or a negative error code on failure.
  */
 LIBBPF_API int ring__consume_n(struct ring *r, size_t n);
 
