@@ -2077,7 +2077,7 @@ static void pci_bus_distribute_available_resources(struct pci_bus *bus,
 		pci_bus_distribute_available_resources(b, add_list, available);
 
 		for (i = 0; i < PCI_P2P_BRIDGE_RESOURCE_NUM; i++)
-			available[i].start += available[i].end + 1;
+			available[i].start = available[i].end + 1;
 	}
 }
 
