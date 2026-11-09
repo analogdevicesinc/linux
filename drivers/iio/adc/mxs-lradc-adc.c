@@ -393,7 +393,7 @@ static irqreturn_t mxs_lradc_adc_handle_irq(int irq, void *data)
 	if (iio_buffer_enabled(iio)) {
 		if (reg & lradc->buffer_vchans) {
 			spin_lock_irqsave(&adc->lock, flags);
-			iio_trigger_poll(iio->trig);
+			iio_trigger_poll(adc->trig);
 			spin_unlock_irqrestore(&adc->lock, flags);
 		}
 	} else if (reg & LRADC_CTRL1_LRADC_IRQ(0)) {
