@@ -18,7 +18,6 @@
 #include <linux/usb/usb_phy_generic.h>
 #include <linux/usb/usb_phy_generic.h>
 #include <linux/usb/of.h>
-#include <linux/soc/adi/spu.h>
 
 #include "adi.h"
 #include "musb_core.h"
@@ -181,20 +180,8 @@ static void adi_musb_reg_init(struct musb *musb)
 
 static int adi_musb_init(struct musb *musb)
 {
-	int spu_securep_id, ret = 0;
 	struct device *dev = musb->controller;
 	struct platform_device *parent = to_platform_device(dev->parent);
-	struct device_node *node = parent->dev.of_node;
-
-	/*initialize spu */
-
-	ret = of_property_read_u32(node, "spu_securep_id", (u32 *)&spu_securep_id);
-	if (ret) {
-		dev_err(&parent->dev, "failed to get spu id\n");
-		return -ENXIO;
-	}
-
-	adi_spu_set_securep(spu_securep_id, true);
 
 	musb->xceiv = devm_usb_get_phy_by_phandle(dev->parent, "phys", 0);
 	if (IS_ERR_OR_NULL(musb->xceiv)) {
