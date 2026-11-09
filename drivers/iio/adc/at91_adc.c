@@ -229,6 +229,7 @@ struct at91_adc_state {
 	u8			sample_hold_time;
 	bool			sleep_mode;
 	struct iio_trigger	**trig;
+	struct iio_trigger	*cur_trig;	/* last enabled of trig[] */
 	bool			use_external;
 	u32			vref_mv;
 	u32			res;		/* resolution used for conversions */
@@ -294,7 +295,7 @@ static void handle_adc_eoc_trigger(int irq, struct iio_dev *idev)
 
 	if (iio_buffer_enabled(idev)) {
 		disable_irq_nosync(irq);
-		iio_trigger_poll(idev->trig);
+		iio_trigger_poll(st->cur_trig);
 	} else {
 		st->last_value = at91_adc_readl(st, AT91_ADC_CHAN(st, st->chnb));
 		/* Needed to ACK the DRDY interruption */
@@ -562,7 +563,7 @@ static int at91_adc_configure_trigger(struct iio_trigger *trig, bool state)
 
 	value = at91_adc_get_trigger_value_by_name(idev,
 						   st->caps->triggers,
-						   idev->trig->name);
+						   trig->name);
 	if (value < 0)
 		return value;
 
@@ -581,6 +582,7 @@ static int at91_adc_configure_trigger(struct iio_trigger *trig, bool state)
 					AT91_ADC_CH(chan->channel));
 		}
 
+		st->cur_trig = trig;
 		at91_adc_writel(st, AT91_ADC_IER, reg->drdy_mask);
 
 	} else {
