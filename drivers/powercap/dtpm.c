@@ -296,7 +296,7 @@ static int get_max_power_uw(struct powercap_zone *pcz, int id, u64 *max_power)
 	return 0;
 }
 
-static struct powercap_zone_constraint_ops constraint_ops = {
+static const struct powercap_zone_constraint_ops constraint_ops = {
 	.set_power_limit_uw = set_power_limit_uw,
 	.get_power_limit_uw = get_power_limit_uw,
 	.set_time_window_us = set_time_window_us,
@@ -305,7 +305,7 @@ static struct powercap_zone_constraint_ops constraint_ops = {
 	.get_name = get_constraint_name,
 };
 
-static struct powercap_zone_ops zone_ops = {
+static const struct powercap_zone_ops zone_ops = {
 	.get_max_power_range_uw = get_max_power_range_uw,
 	.get_power_uw = get_power_uw,
 	.release = dtpm_release_zone,
@@ -470,7 +470,7 @@ static struct dtpm *dtpm_setup_dt(const struct dtpm_node *hierarchy,
 
 typedef struct dtpm * (*dtpm_node_callback_t)(const struct dtpm_node *, struct dtpm *);
 
-static dtpm_node_callback_t dtpm_node_callback[] = {
+static const dtpm_node_callback_t dtpm_node_callback[] = {
 	[DTPM_NODE_VIRTUAL] = dtpm_setup_virtual,
 	[DTPM_NODE_DT] = dtpm_setup_dt,
 };
