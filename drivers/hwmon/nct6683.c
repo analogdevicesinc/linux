@@ -365,6 +365,10 @@ struct nct6683_data {
 	/* Remember extra register values over suspend/resume */
 	u8 hwm_cfg;
 #endif
+
+	/* Manual fan control set through sysfs, restored on resume */
+	u16 pwm_manual;			/* channels set to manual mode */
+	u8 pwm_cmd[NCT6683_NUM_REG_FAN];	/* their duty cycle */
 };
 
 struct nct6683_sio_data {
@@ -1052,8 +1056,11 @@ static int nct6683_set_pwm(struct nct6683_data *data, int ch, u8 val)
 		err = nct6683_fan_ctrl_update(data, ch, true, val);
 	else
 		err = -EBUSY;
-	if (!err)
+	if (!err) {
 		data->pwm[ch] = val;
+		data->pwm_manual |= BIT(ch);
+		data->pwm_cmd[ch] = val;
+	}
 	mutex_unlock(&data->update_lock);
 
 	return err;
@@ -1130,10 +1137,17 @@ store_pwm_enable(struct device *dev, struct device_attribute *attr,
 	manual = val == 1;
 
 	mutex_lock(&data->update_lock);
-	if (nct6683_pwm_manual(data, index) != manual) {
-		/* Keep the current duty cycle when switching to manual mode */
-		cmd = manual ? nct6683_read(data, nct6683_pwm_reg(index)) : -1;
+	/* Keep the current duty cycle when switching to manual mode */
+	cmd = manual ? nct6683_read(data, nct6683_pwm_reg(index)) : -1;
+	if (nct6683_pwm_manual(data, index) != manual)
 		err = nct6683_fan_ctrl_update(data, index, manual, cmd);
+	if (!err) {
+		if (manual) {
+			data->pwm_manual |= BIT(index);
+			data->pwm_cmd[index] = cmd;
+		} else {
+			data->pwm_manual &= ~BIT(index);
+		}
 	}
 	mutex_unlock(&data->update_lock);
 
@@ -1549,10 +1563,27 @@ static int nct6683_suspend(struct device *dev)
 static int nct6683_resume(struct device *dev)
 {
 	struct nct6683_data *data = dev_get_drvdata(dev);
+	unsigned long manual;
+	int ch, err;
 
 	mutex_lock(&data->update_lock);
 
 	nct6683_write(data, NCT6683_HWM_CFG, data->hwm_cfg);
+
+	/* The BIOS may switch the fans back to automatic mode */
+	manual = data->pwm_manual;
+	for_each_set_bit(ch, &manual, NCT6683_NUM_REG_FAN) {
+		if (nct6683_pwm_manual(data, ch))
+			continue;
+		err = nct6683_fan_ctrl_update(data, ch, true, data->pwm_cmd[ch]);
+		if (err) {
+			dev_warn(dev, "Failed to restore manual mode of pwm%d: %d\n",
+				 ch + 1, err);
+			/* The EC does not respond, skip the remaining channels */
+			if (err == -ETIMEDOUT)
+				break;
+		}
+	}
 
 	/* Force re-reading all values */
 	data->valid = false;
