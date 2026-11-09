@@ -226,7 +226,8 @@ int iterate_extent_inodes(struct btrfs_backref_walk_ctx *ctx,
 			  iterate_extent_inodes_t *iterate, void *user_ctx);
 
 int iterate_inodes_from_logical(u64 logical, struct btrfs_fs_info *fs_info,
-				void *ctx, bool ignore_offset);
+				void *ctx, bool ignore_offset,
+				bool search_commit_root);
 
 int paths_from_inode(u64 inum, struct inode_fs_paths *ipath);
 

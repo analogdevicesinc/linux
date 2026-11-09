@@ -1129,6 +1129,15 @@ static struct btrfs_root *btrfs_lookup_fs_root(struct btrfs_fs_info *fs_info,
 {
 	struct btrfs_root *root;
 
+#if BITS_PER_LONG == 32
+	/*
+	 * Roots with ids above ULONG_MAX are never inserted into the radix
+	 * tree, and a truncated index may hit an unrelated root.
+	 */
+	if (root_id > ULONG_MAX)
+		return NULL;
+#endif
+
 	spin_lock(&fs_info->fs_roots_radix_lock);
 	root = radix_tree_lookup(&fs_info->fs_roots_radix,
 				 (unsigned long)root_id);
@@ -1169,6 +1178,8 @@ static struct btrfs_root *btrfs_get_global_root(struct btrfs_fs_info *fs_info,
 		return btrfs_grab_root(fs_info->stripe_root);
 	case BTRFS_REMAP_TREE_OBJECTID:
 		return btrfs_grab_root(fs_info->remap_root);
+	case BTRFS_DATA_RELOC_TREE_OBJECTID:
+		return btrfs_grab_root(fs_info->data_reloc_root);
 	default:
 		return NULL;
 	}
@@ -1178,6 +1189,10 @@ int btrfs_insert_fs_root(struct btrfs_fs_info *fs_info,
 			 struct btrfs_root *root)
 {
 	int ret;
+
+	ret = btrfs_check_subvolid(fs_info, btrfs_root_id(root));
+	if (ret)
+		return ret;
 
 	ret = radix_tree_preload(GFP_NOFS);
 	if (ret)
@@ -1304,8 +1319,15 @@ static struct btrfs_root *btrfs_get_root_ref(struct btrfs_fs_info *fs_info,
 	 *
 	 * This is namely for free-space-tree and quota tree, which can change
 	 * at runtime and should only be grabbed from fs_info.
+	 *
+	 * The data reloc tree is also such a tree.  It is loaded at mount time
+	 * by read_data_reloc_root() and never inserted into the radix tree, as
+	 * radix tree keys are of type `unsigned long`, which is 32 bits wide
+	 * on 32-bit platforms.
+	 * Casting the objectid to `unsigned long` can therefore result in a
+	 * conflict with a subvolume.
 	 */
-	if (!btrfs_is_fstree(objectid) && objectid != BTRFS_DATA_RELOC_TREE_OBJECTID)
+	if (!btrfs_is_fstree(objectid))
 		return ERR_PTR(-ENOENT);
 again:
 	root = btrfs_lookup_fs_root(fs_info, objectid);
@@ -1407,6 +1429,39 @@ struct btrfs_root *btrfs_get_new_fs_root(struct btrfs_fs_info *fs_info,
 					 u64 objectid, dev_t *anon_dev)
 {
 	return btrfs_get_root_ref(fs_info, objectid, anon_dev, true);
+}
+
+/* Read and initialize the data reloc tree. */
+static struct btrfs_root *read_data_reloc_root(struct btrfs_fs_info *fs_info)
+{
+	struct btrfs_key key = {
+		.objectid = BTRFS_DATA_RELOC_TREE_OBJECTID,
+		.type = BTRFS_ROOT_ITEM_KEY,
+		.offset = (u64)-1,
+	};
+	struct btrfs_root *root;
+	int ret;
+
+	root = btrfs_read_tree_root(fs_info->tree_root, &key);
+	if (IS_ERR(root))
+		return root;
+
+	if (btrfs_root_refs(&root->root_item) == 0) {
+		ret = -ENOENT;
+		goto fail;
+	}
+
+	/*
+	 * This tree can share blocks with some other fs tree during
+	 * relocation and we need a proper setup by btrfs_init_fs_root().
+	 */
+	ret = btrfs_init_fs_root(root, 0);
+	if (ret)
+		goto fail;
+	return root;
+fail:
+	btrfs_put_root(root);
+	return ERR_PTR(ret);
 }
 
 /*
@@ -2275,12 +2330,7 @@ static int btrfs_read_roots(struct btrfs_fs_info *fs_info)
 				   PTR_ERR(root));
 		}
 	} else {
-		/*
-		 * This tree can share blocks with some other fs tree during
-		 * relocation and we need a proper setup by btrfs_get_fs_root().
-		 */
-		root = btrfs_get_fs_root(tree_root->fs_info,
-					 BTRFS_DATA_RELOC_TREE_OBJECTID, true);
+		root = read_data_reloc_root(fs_info);
 		if (IS_ERR(root)) {
 			if (!btrfs_test_opt(fs_info, IGNOREBADROOTS)) {
 				location.objectid = BTRFS_DATA_RELOC_TREE_OBJECTID;
@@ -2427,39 +2477,38 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 {
 	const u32 nodesize = btrfs_super_nodesize(sb);
 	const u32 sectorsize = btrfs_super_sectorsize(sb);
-	int ret = 0;
 	const bool ignore_flags = btrfs_test_opt(fs_info, IGNORESUPERFLAGS);
+	int ret;
 
 	if (unlikely(btrfs_super_magic(sb) != BTRFS_MAGIC)) {
 		btrfs_err(fs_info, "no valid FS found");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(btrfs_super_flags(sb) & ~BTRFS_SUPER_FLAG_SUPP)) {
 		if (!ignore_flags) {
 			btrfs_err(fs_info,
 			"unrecognized or unsupported super flag 0x%llx",
 				  btrfs_super_flags(sb) & ~BTRFS_SUPER_FLAG_SUPP);
-			ret = -EINVAL;
-		} else {
-			btrfs_info(fs_info,
-			"unrecognized or unsupported super flags: 0x%llx, ignored",
-				   btrfs_super_flags(sb) & ~BTRFS_SUPER_FLAG_SUPP);
+			return -EINVAL;
 		}
+		btrfs_info(fs_info,
+		"unrecognized or unsupported super flags: 0x%llx, ignored",
+			   btrfs_super_flags(sb) & ~BTRFS_SUPER_FLAG_SUPP);
 	}
 	if (unlikely(btrfs_super_root_level(sb) >= BTRFS_MAX_LEVEL)) {
 		btrfs_err(fs_info, "tree_root level too big: %d >= %d",
 				btrfs_super_root_level(sb), BTRFS_MAX_LEVEL);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(btrfs_super_chunk_root_level(sb) >= BTRFS_MAX_LEVEL)) {
 		btrfs_err(fs_info, "chunk_root level too big: %d >= %d",
 				btrfs_super_chunk_root_level(sb), BTRFS_MAX_LEVEL);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(btrfs_super_log_root_level(sb) >= BTRFS_MAX_LEVEL)) {
 		btrfs_err(fs_info, "log_root level too big: %d >= %d",
 				btrfs_super_log_root_level(sb), BTRFS_MAX_LEVEL);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	/*
@@ -2469,42 +2518,42 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 	if (unlikely(!is_power_of_2(sectorsize) || sectorsize < BTRFS_MIN_BLOCKSIZE ||
 		     sectorsize > BTRFS_MAX_METADATA_BLOCKSIZE)) {
 		btrfs_err(fs_info, "invalid sectorsize %u", sectorsize);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(!btrfs_supported_blocksize(sectorsize))) {
 		btrfs_err(fs_info,
 			"sectorsize %u not yet supported for page size %lu",
 			sectorsize, PAGE_SIZE);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(!is_power_of_2(nodesize) || nodesize < sectorsize ||
 		     nodesize > BTRFS_MAX_METADATA_BLOCKSIZE)) {
 		btrfs_err(fs_info, "invalid nodesize %u", nodesize);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(nodesize != le32_to_cpu(sb->__unused_leafsize))) {
 		btrfs_err(fs_info, "invalid leafsize %u, should be %u",
 			  le32_to_cpu(sb->__unused_leafsize), nodesize);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	/* Root alignment check */
 	if (unlikely(!IS_ALIGNED(btrfs_super_root(sb), sectorsize))) {
 		btrfs_err(fs_info, "tree_root block unaligned: %llu",
 			  btrfs_super_root(sb));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(!IS_ALIGNED(btrfs_super_chunk_root(sb), sectorsize))) {
 		btrfs_err(fs_info, "chunk_root block unaligned: %llu",
 			   btrfs_super_chunk_root(sb));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(!IS_ALIGNED(btrfs_super_log_root(sb), sectorsize))) {
 		btrfs_err(fs_info, "log_root block unaligned: %llu",
 			  btrfs_super_log_root(sb));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(!fs_info->fs_devices->temp_fsid &&
@@ -2512,7 +2561,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 		btrfs_err(fs_info,
 		"superblock fsid doesn't match fsid of fs_devices: %pU != %pU",
 			  sb->fsid, fs_info->fs_devices->fsid);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(memcmp(fs_info->fs_devices->metadata_uuid, btrfs_sb_fsid_ptr(sb),
@@ -2520,7 +2569,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 		btrfs_err(fs_info,
 "superblock metadata_uuid doesn't match metadata uuid of fs_devices: %pU != %pU",
 			  btrfs_sb_fsid_ptr(sb), fs_info->fs_devices->metadata_uuid);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(memcmp(fs_info->fs_devices->metadata_uuid, sb->dev_item.fsid,
@@ -2528,7 +2577,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 		btrfs_err(fs_info,
 			"dev_item UUID does not match metadata fsid: %pU != %pU",
 			fs_info->fs_devices->metadata_uuid, sb->dev_item.fsid);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	/*
@@ -2540,7 +2589,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 		      !btrfs_fs_incompat(fs_info, NO_HOLES)))) {
 		btrfs_err(fs_info,
 		"block-group-tree feature requires free-space-tree and no-holes");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (btrfs_fs_incompat(fs_info, REMAP_TREE)) {
@@ -2553,22 +2602,22 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 			     !btrfs_fs_compat_ro(fs_info, BLOCK_GROUP_TREE))) {
 			btrfs_err(fs_info,
 "remap-tree feature requires free-space-tree, no-holes, and block-group-tree");
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
 		if (unlikely(btrfs_fs_incompat(fs_info, MIXED_GROUPS))) {
 			btrfs_err(fs_info, "remap-tree not supported with mixed-bg");
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
 		if (unlikely(btrfs_fs_incompat(fs_info, ZONED))) {
 			btrfs_err(fs_info, "remap-tree not supported with zoned devices");
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
 		if (unlikely(sectorsize > PAGE_SIZE)) {
 			btrfs_err(fs_info, "remap-tree not supported when block size > page size");
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 	}
 
@@ -2579,32 +2628,31 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 	if (unlikely(btrfs_super_bytes_used(sb) < 6 * btrfs_super_nodesize(sb))) {
 		btrfs_err(fs_info, "bytes_used is too small %llu",
 			  btrfs_super_bytes_used(sb));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(!is_power_of_2(btrfs_super_stripesize(sb)))) {
 		btrfs_err(fs_info, "invalid stripesize %u",
 			  btrfs_super_stripesize(sb));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 	if (unlikely(btrfs_super_num_devices(sb) > (1UL << 31)))
 		btrfs_warn(fs_info, "suspicious number of devices: %llu",
 			   btrfs_super_num_devices(sb));
 	if (unlikely(btrfs_super_num_devices(sb) == 0)) {
 		btrfs_err(fs_info, "number of devices is 0");
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
 	if (unlikely(mirror_num >= 0 &&
 		     btrfs_super_bytenr(sb) != btrfs_sb_offset(mirror_num))) {
 		btrfs_err(fs_info, "super offset mismatch %llu != %llu",
 			  btrfs_super_bytenr(sb), btrfs_sb_offset(mirror_num));
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
-	if (unlikely(ret))
-		return ret;
-
 	ret = validate_sys_chunk_array(fs_info, sb);
+	if (unlikely(ret < 0))
+		return ret;
 
 	/*
 	 * The generation is a global counter, we'll trust it more than the others
@@ -2622,7 +2670,7 @@ int btrfs_validate_super(const struct btrfs_fs_info *fs_info,
 			btrfs_super_generation(sb),
 			btrfs_super_cache_generation(sb));
 
-	return ret;
+	return 0;
 }
 
 /*
@@ -3815,8 +3863,6 @@ fail_block_groups:
 	btrfs_put_block_group_cache(fs_info);
 
 fail_tree_roots:
-	if (fs_info->data_reloc_root)
-		btrfs_drop_and_free_fs_root(fs_info, fs_info->data_reloc_root);
 	free_root_pointers(fs_info, true);
 	invalidate_and_check_btree_folios(fs_info);
 
@@ -4311,10 +4357,6 @@ static void warn_about_uncommitted_trans(struct btrfs_fs_info *fs_info)
 	"transaction %llu (with %llu dirty metadata bytes) is not committed",
 			   trans->transid, dirty_bytes);
 		btrfs_cleanup_one_transaction(trans);
-
-		if (trans == fs_info->running_transaction)
-			fs_info->running_transaction = NULL;
-		list_del_init(&trans->list);
 
 		btrfs_put_transaction(trans);
 	}
@@ -4937,7 +4979,13 @@ void btrfs_cleanup_one_transaction(struct btrfs_transaction *cur_trans)
 				     EXTENT_DIRTY);
 	btrfs_destroy_pinned_extent(fs_info, &cur_trans->pinned_extents);
 
-	cur_trans->state =TRANS_STATE_COMPLETED;
+	spin_lock(&fs_info->trans_lock);
+	if (cur_trans == fs_info->running_transaction)
+		fs_info->running_transaction = NULL;
+	list_del_init(&cur_trans->list);
+	spin_unlock(&fs_info->trans_lock);
+
+	cur_trans->state = TRANS_STATE_COMPLETED;
 	wake_up(&cur_trans->commit_wait);
 }
 
@@ -4972,12 +5020,6 @@ static int btrfs_cleanup_transaction(struct btrfs_fs_info *fs_info)
 			spin_unlock(&fs_info->trans_lock);
 		}
 		btrfs_cleanup_one_transaction(t);
-
-		spin_lock(&fs_info->trans_lock);
-		if (t == fs_info->running_transaction)
-			fs_info->running_transaction = NULL;
-		list_del_init(&t->list);
-		spin_unlock(&fs_info->trans_lock);
 
 		btrfs_put_transaction(t);
 		spin_lock(&fs_info->trans_lock);

@@ -1010,6 +1010,9 @@ struct compressed_bio *btrfs_compress_bio(struct btrfs_inode *inode,
 	struct compressed_bio *cb;
 	int ret;
 
+	ASSERT(IS_ALIGNED(start, fs_info->sectorsize));
+	ASSERT(IS_ALIGNED(len, fs_info->sectorsize));
+
 	cb = alloc_compressed_bio(inode, start, REQ_OP_WRITE | write_flags,
 				  end_bbio_compressed_write);
 	cb->start = start;

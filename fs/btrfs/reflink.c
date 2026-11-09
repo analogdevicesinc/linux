@@ -556,10 +556,9 @@ process_slot:
 			clone_info.file_offset = new_key.offset;
 			clone_info.extent_buf = buf;
 			clone_info.is_new_extent = false;
-			clone_info.update_times = !no_time_update;
 			ret = btrfs_replace_file_extents(inode, path,
 					drop_start, new_key.offset + datal - 1,
-					&clone_info, &trans);
+					&clone_info, !no_time_update, &trans);
 			if (ret)
 				goto out;
 		} else {
@@ -656,7 +655,8 @@ process_slot:
 			btrfs_set_inode_full_sync(inode);
 
 		ret = btrfs_replace_file_extents(inode, path,
-				last_dest_end, destoff + len - 1, NULL, &trans);
+				last_dest_end, destoff + len - 1, NULL,
+				!no_time_update, &trans);
 		if (ret)
 			goto out;
 
@@ -801,7 +801,8 @@ static noinline int btrfs_clone_files(struct file *file, struct file *file_src,
 	 */
 	end = round_up(destoff + len, bs) - 1;
 	btrfs_lock_extent(&inode->io_tree, destoff, end, &cached_state);
-	ret = btrfs_clone(src, inode, off, olen, len, destoff, false);
+	ret = btrfs_clone(src, inode, off, olen, len, destoff,
+			  !btrfs_should_update_cmtime(file));
 	btrfs_unlock_extent(&inode->io_tree, destoff, end, &cached_state);
 	if (ret < 0)
 		return ret;

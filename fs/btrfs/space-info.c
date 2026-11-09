@@ -379,8 +379,7 @@ int btrfs_init_space_info(struct btrfs_fs_info *fs_info)
 	return ret;
 }
 
-void btrfs_add_bg_to_space_info(struct btrfs_fs_info *info,
-				struct btrfs_block_group *block_group)
+void btrfs_add_bg_to_space_info(struct btrfs_block_group *block_group)
 {
 	struct btrfs_space_info *space_info = block_group->space_info;
 	int factor, index;
@@ -403,8 +402,6 @@ void btrfs_add_bg_to_space_info(struct btrfs_fs_info *info,
 		space_info->full = false;
 	btrfs_try_granting_tickets(space_info);
 	spin_unlock(&space_info->lock);
-
-	block_group->space_info = space_info;
 
 	index = btrfs_bg_flags_to_raid_index(block_group->flags);
 	down_write(&space_info->groups_sem);
