@@ -107,7 +107,7 @@ static irqreturn_t vl53l0x_threaded_irq(int irq, void *priv)
 	struct vl53l0x_data *data = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev))
-		iio_trigger_poll_nested(indio_dev->trig);
+		iio_trigger_poll_nested(data->trig);
 	else
 		complete(&data->completion);
 
