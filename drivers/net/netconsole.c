@@ -49,6 +49,7 @@
 #include <linux/rtnetlink.h>
 #include <linux/workqueue.h>
 #include <linux/delay.h>
+#include <linux/ratelimit.h>
 
 MODULE_AUTHOR("Matt Mackall <mpm@selenic.com>");
 MODULE_DESCRIPTION("Console driver for network interfaces");
@@ -83,7 +84,8 @@ MODULE_PARM_DESC(netconsole, " netconsole=[src-port]@[src-ip]/[dev],[tgt-port]@<
 
 static bool oops_only;
 module_param(oops_only, bool, 0600);
-MODULE_PARM_DESC(oops_only, "Only log oops messages");
+MODULE_PARM_DESC(oops_only,
+		 "Only log oops messages, everything once the kernel died");
 
 #define NETCONSOLE_PARAM_TARGET_PREFIX "cmdline"
 
@@ -95,6 +97,17 @@ static int __init option_setup(char *opt)
 }
 __setup("netconsole=", option_setup);
 #endif	/* MODULE */
+
+/* The kernel is dying, or has died.
+ *
+ * oops_in_progress only spans the printing of the crash. netconsole is
+ * CON_NBCON_ATOMIC_UNSAFE, so the records reach the target later, from the
+ * printer thread, with the flag already cleared. TAINT_DIE outlives it.
+ */
+static bool netconsole_kernel_dying(void)
+{
+	return oops_in_progress || test_taint(TAINT_DIE);
+}
 
 /* Linked list of all configured targets */
 static LIST_HEAD(target_list);
@@ -184,6 +197,7 @@ struct netcons_userdata {
  * @sysdata:		Cached, formatted string of append
  * @sysdata_fields:	Sysdata features enabled.
  * @msgcounter:	Message sent counter.
+ * @ratelimit:	Token bucket used to rate limit messages
  * @stats:	Packet send stats for the target. Used for debugging.
  * @state:	State of the target.
  *		Visible from userspace (read-write).
@@ -227,6 +241,8 @@ struct netconsole_target {
 	u32			sysdata_fields;
 	/* protected by target_list_lock */
 	u32			msgcounter;
+	/* carries its own lock, writers hold dynamic_netconsole_mutex */
+	struct ratelimit_state	ratelimit;
 #endif
 	struct netconsole_target_stats stats;
 	enum target_state	state;
@@ -289,6 +305,26 @@ static void dynamic_netconsole_mutex_unlock(void)
 	mutex_unlock(&dynamic_netconsole_mutex);
 }
 
+static void netconsole_ratelimit_init(struct netconsole_target *nt)
+{
+	ratelimit_state_init(&nt->ratelimit, 0, DEFAULT_RATELIMIT_BURST);
+	/* The flag keeps ___ratelimit() from reporting the suppressed count
+	 * itself, which would printk() from inside the console being
+	 * serviced. Nothing calls ratelimit_state_exit(), so the count is
+	 * never reported on release either.
+	 */
+	ratelimit_set_flags(&nt->ratelimit, RATELIMIT_MSG_ON_RELEASE);
+}
+
+static bool netconsole_ratelimited(struct netconsole_target *nt)
+{
+	/* A limit meant for steady-state logging must not eat a crash dump. */
+	if (netconsole_kernel_dying())
+		return false;
+
+	return !__ratelimit(&nt->ratelimit);
+}
+
 #else	/* !CONFIG_NETCONSOLE_DYNAMIC */
 
 static int __init dynamic_netconsole_init(void)
@@ -323,6 +359,15 @@ static void dynamic_netconsole_mutex_lock(void)
 
 static void dynamic_netconsole_mutex_unlock(void)
 {
+}
+
+static void netconsole_ratelimit_init(struct netconsole_target *nt)
+{
+}
+
+static bool netconsole_ratelimited(struct netconsole_target *nt)
+{
+	return false;
 }
 
 #endif	/* CONFIG_NETCONSOLE_DYNAMIC */
@@ -700,6 +745,7 @@ static struct netconsole_target *alloc_and_init(void)
 	nt->remote_port = 6666;
 	eth_broadcast_addr(nt->remote_mac);
 	nt->state = STATE_DISABLED;
+	netconsole_ratelimit_init(nt);
 	INIT_WORK(&nt->resume_wq, process_resume_target);
 	/* Set up the skb pool primitives once; enabling only refills it. */
 	skb_queue_head_init(&nt->skb_pool);
@@ -949,6 +995,21 @@ static ssize_t transmit_errors_show(struct config_item *item, char *buf)
 	} while (u64_stats_fetch_retry(&nt->stats.syncp, start));
 
 	return sysfs_emit(buf, "%llu\n", xmit_drop_count + enomem_count);
+}
+
+static ssize_t ratelimit_interval_ms_show(struct config_item *item, char *buf)
+{
+	struct netconsole_target *nt = to_target(item);
+
+	return sysfs_emit(buf, "%u\n",
+			  jiffies_to_msecs(READ_ONCE(nt->ratelimit.interval)));
+}
+
+static ssize_t ratelimit_burst_show(struct config_item *item, char *buf)
+{
+	struct netconsole_target *nt = to_target(item);
+
+	return sysfs_emit(buf, "%d\n", READ_ONCE(nt->ratelimit.burst));
 }
 
 /* configfs helper to display if cpu_nr sysdata feature is enabled */
@@ -1339,6 +1400,60 @@ out_unlock:
 	return ret;
 }
 
+static ssize_t ratelimit_interval_ms_store(struct config_item *item,
+					   const char *buf, size_t count)
+{
+	struct netconsole_target *nt = to_target(item);
+	unsigned int interval;
+	unsigned long jifs;
+	ssize_t ret;
+
+	ret = kstrtouint(buf, 10, &interval);
+	if (ret)
+		return ret;
+
+	/* msecs_to_jiffies() saturates below INT_MAX on 32-bit, so the
+	 * jiffies value alone does not bound what userspace wrote.
+	 */
+	jifs = msecs_to_jiffies(interval);
+	if (interval > INT_MAX || jifs > INT_MAX)
+		return -ERANGE;
+
+	/* Restart the interval, so a target that is already flooding picks
+	 * the new limit up now rather than at the next refill.
+	 */
+	dynamic_netconsole_mutex_lock();
+	ratelimit_state_reset_interval(&nt->ratelimit, jifs);
+	dynamic_netconsole_mutex_unlock();
+
+	return count;
+}
+
+static ssize_t ratelimit_burst_store(struct config_item *item, const char *buf,
+				     size_t count)
+{
+	struct netconsole_target *nt = to_target(item);
+	unsigned int burst;
+	ssize_t ret;
+
+	ret = kstrtouint(buf, 10, &burst);
+	if (ret)
+		return ret;
+
+	if (burst > INT_MAX)
+		return -ERANGE;
+
+	/* Restart the interval as ratelimit_interval_ms_store() does, so the
+	 * new burst is spendable right away.
+	 */
+	dynamic_netconsole_mutex_lock();
+	WRITE_ONCE(nt->ratelimit.burst, burst);
+	ratelimit_state_reset_interval(&nt->ratelimit, nt->ratelimit.interval);
+	dynamic_netconsole_mutex_unlock();
+
+	return count;
+}
+
 struct userdatum {
 	struct config_item item;
 	char value[MAX_EXTRADATA_VALUE_LEN];
@@ -1703,6 +1818,8 @@ CONFIGFS_ATTR_RO(, local_mac);
 CONFIGFS_ATTR(, remote_mac);
 CONFIGFS_ATTR(, release);
 CONFIGFS_ATTR_RO(, transmit_errors);
+CONFIGFS_ATTR(, ratelimit_interval_ms);
+CONFIGFS_ATTR(, ratelimit_burst);
 
 static struct configfs_attribute *netconsole_target_attrs[] = {
 	&attr_enabled,
@@ -1716,6 +1833,8 @@ static struct configfs_attribute *netconsole_target_attrs[] = {
 	&attr_local_mac,
 	&attr_remote_mac,
 	&attr_transmit_errors,
+	&attr_ratelimit_interval_ms,
+	&attr_ratelimit_burst,
 	NULL,
 };
 
@@ -2506,12 +2625,15 @@ static void netconsole_write(struct nbcon_write_context *wctxt, bool extended)
 {
 	struct netconsole_target *nt;
 
-	if (oops_only && !oops_in_progress)
+	if (oops_only && !netconsole_kernel_dying())
 		return;
 
 	list_for_each_entry(nt, &target_list, list) {
 		if (nt->extended != extended || nt->state != STATE_ENABLED ||
 		    !netif_running(nt->np.dev))
+			continue;
+
+		if (netconsole_ratelimited(nt))
 			continue;
 
 		/* If nbcon_enter_unsafe() fails, just return given netconsole
