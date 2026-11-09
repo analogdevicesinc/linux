@@ -30,6 +30,7 @@ struct ring {
 	unsigned long *producer_pos;
 	unsigned long mask;
 	int map_fd;
+	bool overwrite;
 };
 
 struct ring_buffer {
@@ -118,6 +119,7 @@ int ring_buffer__add(struct ring_buffer *rb, int map_fd,
 	r->sample_cb = sample_cb;
 	r->ctx = ctx;
 	r->mask = info.max_entries - 1;
+	r->overwrite = info.map_flags & BPF_F_RB_OVERWRITE;
 
 	/* Map writable consumer page */
 	tmp = mmap(NULL, rb->page_size, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
@@ -231,6 +233,28 @@ static inline int roundup_len(__u32 len)
 	return (len + 7) / 8 * 8;
 }
 
+static int ringbuf_validate(const struct ring *r)
+{
+	if (unlikely(r->overwrite))
+		return -EOPNOTSUPP;
+	if (unlikely(!r->sample_cb))
+		return -EINVAL;
+	return 0;
+}
+
+static int ringbuf_validate_callbacks(const struct ring_buffer *rb)
+{
+	int i, err;
+
+	for (i = 0; i < rb->ring_cnt; i++) {
+		err = ringbuf_validate(rb->rings[i]);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
 static int64_t ringbuf_process_ring(struct ring *r, size_t n)
 {
 	int *len_ptr, len, err;
@@ -239,6 +263,12 @@ static int64_t ringbuf_process_ring(struct ring *r, size_t n)
 	unsigned long cons_pos, prod_pos;
 	bool got_new_data;
 	void *sample;
+
+	err = ringbuf_validate(r);
+	if (err)
+		return err;
+	if (n == 0)
+		return 0;
 
 	cons_pos = smp_load_acquire(r->consumer_pos);
 	do {
@@ -281,13 +311,16 @@ done:
  * records.
  *
  * Returns number of records consumed across all registered ring buffers (or
- * n, whichever is less), or negative number if any of the callbacks return
- * error.
+ * n, whichever is less), or a negative error code on failure.
  */
 int ring_buffer__consume_n(struct ring_buffer *rb, size_t n)
 {
 	int64_t err, res = 0;
 	int i;
+
+	err = ringbuf_validate_callbacks(rb);
+	if (err)
+		return libbpf_err(err);
 
 	for (i = 0; i < rb->ring_cnt; i++) {
 		struct ring *ring = rb->rings[i];
@@ -306,13 +339,16 @@ int ring_buffer__consume_n(struct ring_buffer *rb, size_t n)
 
 /* Consume available ring buffer(s) data without event polling.
  * Returns number of records consumed across all registered ring buffers (or
- * INT_MAX, whichever is less), or negative number if any of the callbacks
- * return error.
+ * INT_MAX, whichever is less), or a negative error code on failure.
  */
 int ring_buffer__consume(struct ring_buffer *rb)
 {
 	int64_t err, res = 0;
 	int i;
+
+	err = ringbuf_validate_callbacks(rb);
+	if (err)
+		return libbpf_err(err);
 
 	for (i = 0; i < rb->ring_cnt; i++) {
 		struct ring *ring = rb->rings[i];
@@ -331,12 +367,16 @@ int ring_buffer__consume(struct ring_buffer *rb)
 
 /* Poll for available data and consume records, if any are available.
  * Returns number of records consumed (or INT_MAX, whichever is less), or
- * negative number, if any of the registered callbacks returned error.
+ * a negative error code on failure.
  */
 int ring_buffer__poll(struct ring_buffer *rb, int timeout_ms)
 {
 	int i, cnt;
 	int64_t err, res = 0;
+
+	err = ringbuf_validate_callbacks(rb);
+	if (err)
+		return libbpf_err(err);
 
 	cnt = epoll_wait(rb->epoll_fd, rb->events, rb->ring_cnt, timeout_ms);
 	if (cnt < 0)
