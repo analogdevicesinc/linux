@@ -15,6 +15,7 @@
 #include <linux/err.h>
 #include <linux/delay.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/string.h>
 #include <linux/debugfs.h>
 #include <linux/uaccess.h>
@@ -2561,6 +2562,7 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 {
 	u32 offs = tx ? 0x40 : 0;
 	u32 vco_cal_cnt;
+	int status, ret;
 	dev_dbg(&phy->spi->dev, "%s : ref_clk_hz %lu : is_tx %d",
 		__func__, ref_clk_hz, tx);
 
@@ -2605,8 +2607,33 @@ static int ad9361_txrx_synth_cp_calib(struct ad9361_rf_phy *phy,
 	ad9361_spi_write(phy->spi, REG_RX_CP_CONFIG + offs,
 			 CP_OFFSET_OFF | CP_CAL_ENABLE);
 
-	return ad9361_check_cal_done(phy, REG_RX_CAL_STATUS + offs,
-				    CP_CAL_VALID, 1);
+	/*
+	 * DONE says the calibration finished; VALID says the result is
+	 * usable. Waiting only on VALID misreports a rejection as a timeout.
+	 */
+	ret = ad9361_check_cal_done(phy, REG_RX_CAL_STATUS + offs,
+				    CP_CAL_DONE, 1);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * VALID is not documented as being set in the same cycle as DONE, so
+	 * give it up to 10 ms rather than a single read.
+	 */
+	ret = read_poll_timeout(ad9361_spi_read, status,
+				status < 0 || (status & CP_CAL_VALID),
+				100, 10 * USEC_PER_MSEC, false,
+				phy->spi, REG_RX_CAL_STATUS + offs);
+	if (status < 0)
+		return status;
+	if (!ret)
+		return 0;
+
+	dev_err(&phy->spi->dev,
+		"%s: %s CP calibration completed but was rejected (status 0x%02X, cal word %d)\n",
+		__func__, tx ? "TX" : "RX", status, status & CP_CAL_WORD(~0));
+
+	return -EIO;
 }
 
 /* BASEBAND DC OFFSET CALIBRATION */
