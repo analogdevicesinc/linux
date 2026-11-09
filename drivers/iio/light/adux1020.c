@@ -331,7 +331,7 @@ static int adux1020_measure(struct adux1020_data *data,
 		if (ret < 0)
 			return ret;
 
-		status &= ADUX1020_FIFO_STATUS_MASK;
+		status = FIELD_GET(ADUX1020_FIFO_STATUS_MASK, status);
 		if (status >= adux1020_modes[mode].bytes)
 			break;
 		msleep(20);
