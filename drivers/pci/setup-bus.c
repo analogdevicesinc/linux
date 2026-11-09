@@ -1974,7 +1974,7 @@ static void pci_bus_distribute_available_resources(struct pci_bus *bus,
 	unsigned int normal_bridges = 0, hotplug_bridges = 0;
 	struct pci_dev *dev, *bridge = bus->self;
 	resource_size_t per_bridge[PCI_P2P_BRIDGE_RESOURCE_NUM];
-	resource_size_t align;
+	resource_size_t align, win_align;
 	int i;
 
 	for (i = 0; i < PCI_P2P_BRIDGE_RESOURCE_NUM; i++) {
@@ -1989,9 +1989,21 @@ static void pci_bus_distribute_available_resources(struct pci_bus *bus,
 		 * window.
 		 */
 		align = pci_resource_alignment(bridge, res);
-		if (!resource_assigned(res) && align)
+		if (!resource_assigned(res) && align) {
 			available[i].start = min(ALIGN(available[i].start, align),
 						 available[i].end + 1);
+
+			/*
+			 * Small BARs on the parent bus may result in a
+			 * size that is not a multiple of the window
+			 * granularity (usually 1M), which is impossible
+			 * for a bridge window.
+			 */
+			win_align = pci_min_window_alignment(bus, res->flags);
+			resource_set_size(&available[i],
+					  ALIGN_DOWN(resource_size(&available[i]),
+						     win_align));
+		}
 
 		/*
 		 * Now that we have adjusted for alignment, update the
