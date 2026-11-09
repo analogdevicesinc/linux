@@ -483,6 +483,7 @@ static int adi_ldr_load_rsc_table(struct rproc *rproc, const struct firmware *fw
 {
 	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
 	size_t size = sizeof(_rsc_table_template.rsc_table);
+	struct sharc_resource_table *sharc_rsc_table;
 
 	if (rproc_data->adi_rsc_table == NULL)
 		return -EINVAL;
@@ -492,15 +493,11 @@ static int adi_ldr_load_rsc_table(struct rproc *rproc, const struct firmware *fw
 	if (!rproc->cached_table)
 		return -ENOMEM;
 
-	if (rproc_data->core_id == 1) {
-		((struct sharc_resource_table *)rproc->cached_table)->rpmsg_vdev.notifyid = 1;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[0].notifyid = 1;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[1].notifyid = 1;
-	} else {
-		((struct sharc_resource_table *)rproc->cached_table)->rpmsg_vdev.notifyid = 2;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[0].notifyid = 2;
-		((struct sharc_resource_table *)rproc->cached_table)->vring[1].notifyid = 2;
-	}
+	sharc_rsc_table = container_of(rproc->cached_table, struct sharc_resource_table, table_hdr);
+
+	sharc_rsc_table->rpmsg_vdev.notifyid = rproc_data->core_id;
+	sharc_rsc_table->vring[0].notifyid = rproc_data->core_id;
+	sharc_rsc_table->vring[1].notifyid = rproc_data->core_id;
 
 	/* Initialize ADI resource table header*/
 	rproc_data->adi_rsc_table->adi_table_hdr = _rsc_table_template.adi_table_hdr;
