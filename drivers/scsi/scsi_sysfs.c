@@ -539,7 +539,19 @@ static int scsi_bus_match(struct device *dev, const struct device_driver *gendrv
 	sdp = to_scsi_device(dev);
 	if (sdp->no_uld_attach)
 		return 0;
-	return (sdp->inq_periph_qual == SCSI_INQ_PQ_CON)? 1: 0;
+	if (sdp->inq_periph_qual == SCSI_INQ_PQ_CON)
+		return 1;
+	/*
+	 * Peripheral qualifier 001b is also what a LU reports while it is in
+	 * the ALUA unavailable state on this target port (SPC-4 5.15.2.4.5).
+	 * scsi_add_lun() reads that state with REPORT TARGET PORT GROUPS
+	 * before the device is registered and records whether to match it.
+	 * A LUN that is not mapped reports 001b too, but fails REPORT TARGET
+	 * PORT GROUPS and so is not matched. The decision is not made from
+	 * access_state here, as that changes with the ALUA state while the
+	 * peripheral qualifier does not.
+	 */
+	return sdp->match_unavailable;
 }
 
 static int scsi_bus_uevent(const struct device *dev, struct kobj_uevent_env *env)

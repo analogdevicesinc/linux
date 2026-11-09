@@ -29,9 +29,6 @@
 #define TPGS_SUPPORT_TRANSITION		0x80
 #define TPGS_SUPPORT_ALL		0xdf
 
-#define RTPG_FMT_MASK			0x70
-#define RTPG_FMT_EXT_HDR		0x10
-
 #define TPGS_MODE_UNINITIALIZED		 -1
 #define TPGS_MODE_NONE			0x0
 #define TPGS_MODE_IMPLICIT		0x1
@@ -118,34 +115,6 @@ static void release_port_group(struct kref *kref)
 	list_del(&pg->node);
 	spin_unlock(&port_group_lock);
 	kfree_rcu(pg, rcu);
-}
-
-/*
- * submit_rtpg - Issue a REPORT TARGET GROUP STATES command
- * @sdev: sdev the command should be sent to
- */
-static int submit_rtpg(struct scsi_device *sdev, unsigned char *buff,
-		       int bufflen, struct scsi_sense_hdr *sshdr, int flags)
-{
-	u8 cdb[MAX_COMMAND_SIZE];
-	blk_opf_t opf = REQ_OP_DRV_IN | REQ_FAILFAST_DEV |
-				REQ_FAILFAST_TRANSPORT | REQ_FAILFAST_DRIVER;
-	const struct scsi_exec_args exec_args = {
-		.sshdr = sshdr,
-	};
-
-	/* Prepare the command. */
-	memset(cdb, 0x0, MAX_COMMAND_SIZE);
-	cdb[0] = MAINTENANCE_IN;
-	if (!(flags & ALUA_RTPG_EXT_HDR_UNSUPP))
-		cdb[1] = MI_REPORT_TARGET_PGS | MI_EXT_HDR_PARAM_FMT;
-	else
-		cdb[1] = MI_REPORT_TARGET_PGS;
-	put_unaligned_be32(bufflen, &cdb[6]);
-
-	return scsi_execute_cmd(sdev, cdb, opf, buff, bufflen,
-				ALUA_FAILOVER_TIMEOUT * HZ,
-				ALUA_FAILOVER_RETRIES, &exec_args);
 }
 
 /*
@@ -518,6 +487,9 @@ static int alua_tur(struct scsi_device *sdev)
 static int alua_rtpg(struct scsi_device *sdev, struct alua_port_group *pg)
 {
 	struct scsi_sense_hdr sense_hdr;
+	const struct scsi_exec_args exec_args = {
+		.sshdr = &sense_hdr,
+	};
 	struct alua_port_group *tmp_pg;
 	int len, k, off, bufflen = ALUA_RTPG_SIZE;
 	int group_id_old, state_old, pref_old, valid_states_old;
@@ -549,7 +521,17 @@ static int alua_rtpg(struct scsi_device *sdev, struct alua_port_group *pg)
 
  retry:
 	err = 0;
-	retval = submit_rtpg(sdev, buff, bufflen, &sense_hdr, pg->flags);
+	retval = scsi_report_tpgs(sdev, &buff, &bufflen,
+				  !(pg->flags & ALUA_RTPG_EXT_HDR_UNSUPP),
+				  ALUA_FAILOVER_TIMEOUT * HZ,
+				  ALUA_FAILOVER_RETRIES, &exec_args);
+	if (!buff) {
+		sdev_printk(KERN_WARNING, sdev,
+			    "%s: kmalloc buffer failed\n", __func__);
+		/* Temporary failure, bypass */
+		pg->expiry = 0;
+		return SCSI_DH_DEV_TEMP_BUSY;
+	}
 
 	if (retval) {
 		/*
@@ -581,7 +563,7 @@ static int alua_rtpg(struct scsi_device *sdev, struct alua_port_group *pg)
 		}
 
 		/*
-		 * submit_rtpg() has failed on existing arrays
+		 * scsi_report_tpgs() has failed on existing arrays
 		 * when requesting extended header info, and
 		 * the array doesn't support extended headers,
 		 * even though it shouldn't according to T10.
@@ -628,21 +610,6 @@ static int alua_rtpg(struct scsi_device *sdev, struct alua_port_group *pg)
 	}
 
 	len = get_unaligned_be32(&buff[0]) + 4;
-
-	if (len > bufflen) {
-		/* Resubmit with the correct length */
-		kfree(buff);
-		bufflen = len;
-		buff = kmalloc(bufflen, GFP_KERNEL);
-		if (!buff) {
-			sdev_printk(KERN_WARNING, sdev,
-				    "%s: kmalloc buffer failed\n",__func__);
-			/* Temporary failure, bypass */
-			pg->expiry = 0;
-			return SCSI_DH_DEV_TEMP_BUSY;
-		}
-		goto retry;
-	}
 
 	orig_transition_tmo = pg->transition_tmo;
 	if ((buff[4] & RTPG_FMT_MASK) == RTPG_FMT_EXT_HDR && buff[5] != 0)
