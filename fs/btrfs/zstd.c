@@ -200,7 +200,7 @@ int zstd_alloc_workspace_manager(struct btrfs_fs_info *fs_info)
 
 	ws = zstd_alloc_workspace(fs_info, ZSTD_BTRFS_MAX_LEVEL);
 	if (IS_ERR(ws)) {
-		btrfs_warn(NULL, "cannot preallocate zstd compression workspace");
+		btrfs_warn(fs_info, "cannot preallocate zstd compression workspace");
 	} else {
 		set_bit(ZSTD_BTRFS_MAX_LEVEL - 1, &zwsm->active_map);
 		list_add(ws, &zwsm->idle_ws[ZSTD_BTRFS_MAX_LEVEL - 1]);

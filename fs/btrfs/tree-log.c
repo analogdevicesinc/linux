@@ -30,6 +30,8 @@
 #include "print-tree.h"
 #include "tree-checker.h"
 #include "delayed-inode.h"
+#include "volumes.h"
+#include "raid-stripe-tree.h"
 
 #define MAX_CONFLICT_INODES 10
 
@@ -4741,6 +4743,24 @@ static int log_csums(struct btrfs_trans_handle *trans,
 	return ret;
 }
 
+static bool log_extent_needs_stripe_tree(struct btrfs_fs_info *fs_info,
+					 u64 disk_bytenr)
+{
+	struct btrfs_chunk_map *map __free(btrfs_free_chunk_map) = NULL;
+
+	if (!btrfs_fs_incompat(fs_info, RAID_STRIPE_TREE))
+		return false;
+
+	if (disk_bytenr == 0 || disk_bytenr >= EXTENT_MAP_LAST_BYTE)
+		return false;
+
+	map = btrfs_find_chunk_map(fs_info, disk_bytenr, 1);
+	if (!map)
+		return false;
+
+	return btrfs_need_stripe_tree_update(fs_info, map->type);
+}
+
 static noinline int copy_items(struct btrfs_trans_handle *trans,
 			       struct btrfs_inode *inode,
 			       struct btrfs_path *dst_path,
@@ -4846,6 +4866,14 @@ static noinline int copy_items(struct btrfs_trans_handle *trans,
 		    ins_keys[dst_index].offset < i_size &&
 		    inode->last_reflink_trans < trans->transid)
 			continue;
+
+		if (!is_old_extent &&
+		    btrfs_file_extent_type(src, extent) != BTRFS_FILE_EXTENT_INLINE) {
+			u64 bytenr = btrfs_file_extent_disk_bytenr(src, extent);
+
+			if (log_extent_needs_stripe_tree(trans->fs_info, bytenr))
+				return BTRFS_LOG_FORCE_COMMIT;
+		}
 
 		if (skip_csum)
 			goto add_to_batch;
@@ -5123,6 +5151,9 @@ static int log_one_extent(struct btrfs_trans_handle *trans,
 	u64 block_start = btrfs_extent_map_block_start(em);
 	u64 block_len;
 	int ret;
+
+	if (log_extent_needs_stripe_tree(inode->root->fs_info, em->disk_bytenr))
+		return BTRFS_LOG_FORCE_COMMIT;
 
 	btrfs_set_stack_file_extent_generation(&fi, trans->transid);
 	if (em->flags & EXTENT_FLAG_PREALLOC)

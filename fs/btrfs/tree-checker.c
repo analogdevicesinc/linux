@@ -1044,24 +1044,37 @@ int btrfs_check_chunk_valid(const struct btrfs_fs_info *fs_info,
 			  logical, length);
 		return -EUCLEAN;
 	}
-	if (unlikely(!is_power_of_2(stripe_len) || stripe_len != BTRFS_STRIPE_LEN)) {
+
+	/*
+	 * For now the "stripe_len != BTRFS_STRIPE_LEN" will cover all cases,
+	 * but the power_of_2 and stripe_len >= sectorsize and
+	 * stripe_len <= BTRFS_STRIPE_LEN are the requirements for future
+	 * stripe_len support.
+	 *
+	 * In the future, "stripe_len != BTRFS_STRIPE_LEN" will be removed.
+	 */
+	if (unlikely(stripe_len != BTRFS_STRIPE_LEN ||
+		     !is_power_of_2(stripe_len) || stripe_len < sectorsize ||
+		     stripe_len > BTRFS_STRIPE_LEN)) {
 		chunk_err(fs_info, leaf, chunk, logical,
 			  "invalid chunk stripe length: %llu",
 			  stripe_len);
 		return -EUCLEAN;
 	}
 	/*
-	 * We artificially limit the chunk size, so that the number of stripes
-	 * inside a chunk can be fit into a U32.  The current limit (256G) is
-	 * way too large for real world usage anyway, and it's also much larger
-	 * than our existing limit (10G).
+	 * We artificially limit the chunk size, the current limit is 10G.
 	 *
-	 * Thus it should be a good way to catch obvious bitflips.
+	 * But we don't want to follow that 10G limit too strict, as if we
+	 * relax the requirement one day, we will need a dedicated flag to
+	 * prevent rejecting such new chunks.
+	 *
+	 * Here use 256G as a sane threshold, which should be large enough
+	 * and also a good way to catch obvious bitflips.
 	 */
-	if (unlikely(length >= btrfs_stripe_nr_to_offset(U32_MAX))) {
+	if (unlikely(length > SZ_256G)) {
 		chunk_err(fs_info, leaf, chunk, logical,
 			  "chunk length too large: have %llu limit %llu",
-			  length, btrfs_stripe_nr_to_offset(U32_MAX));
+			  length, SZ_256G);
 		return -EUCLEAN;
 	}
 	if (unlikely(type & ~BTRFS_BLOCK_GROUP_VALID)) {
@@ -2074,6 +2087,36 @@ static int check_raid_stripe_extent(const struct extent_buffer *leaf,
 	return 0;
 }
 
+static int check_qgroup_status_item(const struct extent_buffer *leaf, int slot)
+{
+	const u32 item_size = btrfs_item_size(leaf, slot);
+	const u32 min_size = offsetof(struct btrfs_qgroup_status_item, enable_gen);
+	struct btrfs_qgroup_status_item *ptr;
+
+	if (unlikely(item_size < min_size)) {
+		generic_err(leaf, slot,
+		"invalid qgroup status item size, have %u expect at least %u",
+			    item_size, min_size);
+		return -EUCLEAN;
+	}
+	ptr = btrfs_item_ptr(leaf, slot, struct btrfs_qgroup_status_item);
+	if (!(btrfs_qgroup_status_flags(leaf, ptr) & BTRFS_QGROUP_STATUS_FLAG_SIMPLE_MODE))
+		return 0;
+
+	if (unlikely(!btrfs_fs_incompat(leaf->fs_info, SIMPLE_QUOTA))) {
+		generic_err(leaf, slot,
+	"qgroup status item has SIMPLE_MODE but SIMPLE_QUOTA incompat bit unset");
+		return -EUCLEAN;
+	}
+	if (unlikely(item_size < sizeof(*ptr))) {
+		generic_err(leaf, slot,
+	"invalid qgroup status item size for simple quota, have %u expect at least %zu",
+			    item_size, sizeof(*ptr));
+		return -EUCLEAN;
+	}
+	return 0;
+}
+
 static int check_remap_key(const struct extent_buffer *leaf,
 			   const struct btrfs_key *key, int slot)
 {
@@ -2465,6 +2508,9 @@ static enum btrfs_tree_block_status check_leaf_item(struct extent_buffer *leaf,
 		break;
 	case BTRFS_FREE_SPACE_BITMAP_KEY:
 		ret = check_free_space_bitmap(leaf, key, slot, prev_key);
+		break;
+	case BTRFS_QGROUP_STATUS_KEY:
+		ret = check_qgroup_status_item(leaf, slot);
 		break;
 	case BTRFS_IDENTITY_REMAP_KEY:
 	case BTRFS_REMAP_KEY:

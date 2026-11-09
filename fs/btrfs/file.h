@@ -30,6 +30,7 @@ int btrfs_replace_file_extents(struct btrfs_inode *inode,
 			   struct btrfs_path *path, const u64 start,
 			   const u64 end,
 			   struct btrfs_replace_extent_info *extent_info,
+			   bool update_times,
 			   struct btrfs_trans_handle **trans_out);
 int btrfs_mark_extent_written(struct btrfs_trans_handle *trans,
 			      struct btrfs_inode *inode, u64 start, u64 end);
@@ -42,6 +43,7 @@ int btrfs_fdatawrite_range(struct btrfs_inode *inode, loff_t start, loff_t end);
 int btrfs_check_nocow_lock(struct btrfs_inode *inode, loff_t pos,
 			   size_t *write_bytes, bool nowait);
 void btrfs_check_nocow_unlock(struct btrfs_inode *inode);
+bool btrfs_should_update_cmtime(const struct file *file);
 bool btrfs_find_delalloc_in_range(struct btrfs_inode *inode, u64 start, u64 end,
 				  struct extent_state **cached_state,
 				  u64 *delalloc_start_ret, u64 *delalloc_end_ret);
