@@ -104,7 +104,7 @@ unevaluatedProperties: false
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    pinctrl@1f00000 {
+    tlmm: pinctrl@1f00000 {
         compatible = "qcom,sm8250-pinctrl";
         reg = <0x0f100000 0x300000>,
               <0x0f500000 0x300000>,

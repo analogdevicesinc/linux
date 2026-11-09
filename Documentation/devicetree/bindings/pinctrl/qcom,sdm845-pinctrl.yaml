@@ -105,7 +105,7 @@ examples:
     #include <dt-bindings/gpio/gpio.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    pinctrl@3400000 {
+    tlmm: pinctrl@3400000 {
         compatible = "qcom,sdm845-pinctrl";
         reg = <0x03400000 0xc00000>;
         interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;

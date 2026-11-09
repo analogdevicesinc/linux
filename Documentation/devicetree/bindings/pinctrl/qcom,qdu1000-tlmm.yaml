@@ -101,7 +101,7 @@ examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
 
-    pinctrl@f000000 {
+    tlmm: pinctrl@f000000 {
         compatible = "qcom,qdu1000-tlmm";
         reg = <0xf000000 0x1000000>;
         interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>;

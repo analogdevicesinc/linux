@@ -102,7 +102,7 @@ unevaluatedProperties: false
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    pinctrl@f100000 {
+    tlmm: pinctrl@f100000 {
         compatible = "qcom,sm8450-tlmm";
         reg = <0x0f100000 0x300000>;
         gpio-controller;

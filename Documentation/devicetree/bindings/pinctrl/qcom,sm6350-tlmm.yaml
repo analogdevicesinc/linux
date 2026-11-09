@@ -107,7 +107,7 @@ unevaluatedProperties: false
 examples:
   - |
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    pinctrl@f100000 {
+    tlmm: pinctrl@f100000 {
         compatible = "qcom,sm6350-tlmm";
         reg = <0x0f100000 0x300000>;
         interrupts = <GIC_SPI 208 IRQ_TYPE_LEVEL_HIGH>,
