@@ -248,7 +248,7 @@ static irqreturn_t st_uvis25_buffer_handler_thread(int irq, void *p)
 				    iio_get_time_ns(iio_dev));
 
 out:
-	iio_trigger_notify_done(hw->trig);
+	iio_trigger_notify_done(iio_dev->trig);
 
 	return IRQ_HANDLED;
 }
