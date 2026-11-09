@@ -14,6 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/spi/spi.h>
 
 /* ADGM3121 Register Addresses */
@@ -35,7 +36,6 @@
 
 /* Default timeout values */
 #define ADGM3121_SWITCHING_TIME_US	200
-#define ADGM3121_POWER_UP_TIME_MS	45
 
 /* Number of GPIOs */
 #define ADGM3121_NUM_GPIOS		4
@@ -48,6 +48,14 @@
 enum adgm3121_mode {
 	ADGM3121_MODE_PARALLEL,
 	ADGM3121_MODE_SPI,
+};
+
+/**
+ * struct adgm3121_chip_info - Chip specific information
+ * @power_up_time_ms: Maximum power-up time in milliseconds
+ */
+struct adgm3121_chip_info {
+	unsigned int power_up_time_ms;
 };
 
 /**
@@ -296,9 +304,14 @@ static int adgm3121_reset_switches(struct adgm3121_gpio *adgm3121)
  */
 static int adgm3121_spi_probe(struct spi_device *spi)
 {
+	const struct adgm3121_chip_info *info;
 	struct device *dev = &spi->dev;
 	struct adgm3121_gpio *adgm3121;
 	int ret;
+
+	info = spi_get_device_match_data(spi);
+	if (!info)
+		return -ENODEV;
 
 	adgm3121 = devm_kzalloc(dev, sizeof(*adgm3121), GFP_KERNEL);
 	if (!adgm3121)
@@ -319,7 +332,7 @@ static int adgm3121_spi_probe(struct spi_device *spi)
 	}
 
 	/* Wait for power-up time */
-	msleep(ADGM3121_POWER_UP_TIME_MS);
+	msleep(info->power_up_time_ms);
 
 	/* Initialize GPIO chip */
 	adgm3121->chip.label = "adgm3121";
@@ -362,9 +375,14 @@ static int adgm3121_spi_probe(struct spi_device *spi)
  */
 static int adgm3121_platform_probe(struct platform_device *pdev)
 {
+	const struct adgm3121_chip_info *info;
 	struct device *dev = &pdev->dev;
 	struct adgm3121_gpio *adgm3121;
 	int i, ret;
+
+	info = device_get_match_data(dev);
+	if (!info)
+		return -ENODEV;
 
 	adgm3121 = devm_kzalloc(dev, sizeof(*adgm3121), GFP_KERNEL);
 	if (!adgm3121)
@@ -399,7 +417,7 @@ static int adgm3121_platform_probe(struct platform_device *pdev)
 	}
 
 	/* Wait for power-up time */
-	msleep(ADGM3121_POWER_UP_TIME_MS);
+	msleep(info->power_up_time_ms);
 
 	/* Initialize GPIO chip */
 	adgm3121->chip.label = "adgm3121";
@@ -434,17 +452,25 @@ static int adgm3121_platform_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct adgm3121_chip_info adgm3121_chip_info = {
+	.power_up_time_ms = 5,
+};
+
+static const struct adgm3121_chip_info adgm3144_chip_info = {
+	.power_up_time_ms = 45,
+};
+
 /* SPI driver */
 static const struct of_device_id adgm3121_spi_of_match[] = {
-	{ .compatible = "adi,adgm3121" },
-	{ .compatible = "adi,adgm3144" },
+	{ .compatible = "adi,adgm3121", .data = &adgm3121_chip_info },
+	{ .compatible = "adi,adgm3144", .data = &adgm3144_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adgm3121_spi_of_match);
 
 static const struct spi_device_id adgm3121_spi_id[] = {
-	{ "adgm3121", 0 },
-	{ "adgm3144", 0 },
+	{ "adgm3121", (kernel_ulong_t)&adgm3121_chip_info },
+	{ "adgm3144", (kernel_ulong_t)&adgm3144_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, adgm3121_spi_id);
@@ -460,8 +486,8 @@ static struct spi_driver adgm3121_spi_driver = {
 
 /* Platform driver */
 static const struct of_device_id adgm3121_platform_of_match[] = {
-	{ .compatible = "adi,adgm3121" },
-	{ .compatible = "adi,adgm3144" },
+	{ .compatible = "adi,adgm3121", .data = &adgm3121_chip_info },
+	{ .compatible = "adi,adgm3144", .data = &adgm3144_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, adgm3121_platform_of_match);
