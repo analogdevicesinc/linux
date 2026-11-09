@@ -45,60 +45,60 @@
 		#gpio-cells = <2>;
 		reg = <0x30>;
 
-		eth0-reset-hog {
+		eth-reset-hog {
 			gpio-hog;
 			gpios = <0 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "eth0-reset";
+			line-name = "eth-reset";
 		};
 
-		spdif1-en-hog {
+		spdif-en-hog {
 			gpio-hog;
 			gpios = <1 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "spdif1-en";
+			line-name = "spdif-en";
 		};
 
-		adau1966-reset-som-a-hog {
+		adau1966-reset-hog {
 			gpio-hog;
 			gpios = <2 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "adau1966-reset-som-a";
+			line-name = "adau1966-reset";
 		};
 
-		adau1979-a-reset-som-a-hog {
+		adau1979-a-reset-hog {
 			gpio-hog;
 			gpios = <3 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "adau1979-a-reset-som-a";
+			line-name = "adau1979-a-reset";
 		};
 
-		adau1979-b-reset-som-a-hog {
+		adau1979-b-reset-hog {
 			gpio-hog;
 			gpios = <4 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "adau1979-b-reset-som-a";
+			line-name = "adau1979-b-reset";
 		};
 
-		pushbutton-b-en-hog {
+		pushbutton-en-hog {
 			gpio-hog;
 			gpios = <5 GPIO_ACTIVE_LOW>;
 			output-high;
-			line-name = "pushbutton-b-en";
+			line-name = "pushbutton-en";
 		};
 
-		spdif1-opt-en-hog {
+		spdif-opt-en-hog {
 			gpio-hog;
 			gpios = <6 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "spdif1-opt-en";
+			line-name = "spdif-opt-en";
 		};
 
-		spdif1-coax-en-hog {
+		spdif-coax-en-hog {
 			gpio-hog;
 			gpios = <7 GPIO_ACTIVE_LOW>;
 			output-low;
-			line-name = "spdif1-coax-en";
+			line-name = "spdif-coax-en";
 		};
 
 		adc1-route-hog {
@@ -136,39 +136,39 @@
 			line-name = "qspi-route";
 		};
 
-		a2b1-io1-hog {
+		a2b-dai0-io1-hog {
 			gpio-hog;
 			gpios = <13 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b1-io1";
+			line-name = "a2b-dai0-io1";
 		};
 
-		a2b1-io2-hog {
+		a2b-dai0-io2-hog {
 			gpio-hog;
 			gpios = <14 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b1-io2";
+			line-name = "a2b-dai0-io2";
 		};
 
-		a2b1-io7-hog {
+		a2b-dai0-io7-hog {
 			gpio-hog;
 			gpios = <15 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b1-io7";
+			line-name = "a2b-dai0-io7";
 		};
 
-		a2b2-io1-hog {
+		a2b-dai1-io1-hog {
 			gpio-hog;
 			gpios = <16 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b2-io1";
+			line-name = "a2b-dai1-io1";
 		};
 
-		a2b2-io2-hog {
+		a2b-dai1-io2-hog {
 			gpio-hog;
 			gpios = <17 GPIO_ACTIVE_HIGH>;
 			output-low;
-			line-name = "a2b2-io2";
+			line-name = "a2b-dai1-io2";
 		};
 	};
 };
