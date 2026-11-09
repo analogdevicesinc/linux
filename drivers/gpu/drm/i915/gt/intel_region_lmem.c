@@ -104,7 +104,6 @@ static void i915_resize_lmem_bar(struct drm_i915_private *i915, resource_size_t 
 
 		_resize_bar(i915, GEN12_LMEM_BAR, rebar_size);
 
-		pci_assign_unassigned_bus_resources(pdev->bus);
 		pci_write_config_dword(pdev, PCI_COMMAND, pci_cmd);
 		intel_uncore_forcewake_put(&i915->uncore, FORCEWAKE_ALL);
 	}
