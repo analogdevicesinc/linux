@@ -234,6 +234,7 @@ CPU is stalling, it will print a message similar to the following::
 	INFO: rcu_sched detected stalls on CPUs/tasks:
 	2-...: (3 GPs behind) idle=06c/0/0 softirq=1453/1455 fqs=0
 	16-...: (0 ticks this GP) idle=81c/0/0 softirq=764/764 fqs=0
+	Tasks blocked on level-1 rcu_node (CPUs 0-8): P96/1:b..l.B CPU 5 swapper/5 (0) (idle!)
 	(detected by 32, t=2603 jiffies, g=7075, q=625)
 
 This message indicates that CPU 32 detected that CPUs 2 and 16 were both
@@ -278,6 +279,70 @@ detection passes that the grace-period kthread has made across this
 CPU since the last time that this CPU noted the beginning of a grace
 period.
 
+The "Tasks blocked" line lists the tasks blocked on each leaf ``rcu_node``
+structure.  The "(CPUs 0-8)" indicates that this particular leaf
+``rcu_node`` structure handles the nine CPUs numbered from 0 to 8,
+which indicates an odd but perfectly legal state of affairs ("0-15"
+is typical).  The "P96" indicates that the task with PID 96 is blocking
+the current grace period.
+
+Certain race conditions can prevent the remaining information on this
+line from appearing, most typically that task P96 is currently running on
+some other CPU.  The "/1" indicates that this task was preempted within
+its top-level RCU read-side critical section.  The ":b..l.B" indicates
+task state as follows, with "." indicating that the corresponding state
+is not in effect:
+
+b (blocked)
+   This task has been preempted (blocked) at least once during its
+   current RCU read-side critical section.
+
+q (needs quiescent state)
+   This task has been flagged as running on a CPU from which RCU needs
+   a quiescent state.
+
+e (expedited hint)
+   An expedited RCU grace period is interested in this task.
+
+l (on ->blkd_tasks list)
+   This task is currently on a list of blocked (preempted) tasks that
+   either are or might some day hold up an RCU grace period.  Note that
+   if the task has not yet been preempted, this task will not be on any
+   of these lists, which means that RCU will still be waiting on the
+   CPU the task is running on, not yet the task itself.
+
+R (Running)
+   This task is running (as opposed to just runnable, that is, preempted).
+   This is unusual, but could happen if the task was preempted and
+   started running again before this RCU CPU stall warning.
+
+B (Boosted)
+   This task is currently priority boosted.  There is a narrow window
+   during which the rtmutex has been created with this task as owner,
+   but the rcub task has not yet attempted to acquire that rtmutex.
+   During this narrow window, the task would be reported as being boosted,
+   but would not yet actually be boosted.
+
+The "CPU 5" indicates that the task is in CPU 5’s runqueue and that
+this CPU is online.  If the CPU were offline, this would instead read
+"CPU 5!".  The "swapper/5" is the running task’s ->comm string.
+If there was somehow no task running on CPU 5, this would instead read
+"???".  The "(0)" indicates that the running task’s PID is zero.
+Which is a problem.  If there was somehow no task running on CPU 5,
+this would instead read "(-1)".
+
+The "(idle!)" indicates that the task currently running on CPU 5 is its
+idle task, which is not supposed to happen, other than during small
+windows of time where one CPU wakes up a task that is to run on an
+idle CPU.  (The rescheduling IPI does after all take time to reach the
+idle CPU!)  If there was somehow no task running on CPU 5, this would
+instead read "(no task)".  Otherwise, nothing would be printed.
+
+If there was more than one task queued on this ``rcu_node`` structure,
+for example, suppose that task P192 was also blocking the current RCU
+grace period.  In that case, the line would contine with P192 followed
+optionally by the rest of the per-task information.
+
 The "detected by" line indicates which CPU detected the stall (in this
 case, CPU 32), how many jiffies have elapsed since the start of the grace
 period (in this case 2603), the grace-period sequence number (7075), and
@@ -307,7 +372,7 @@ The "23807" indicates that it has been more than 23 thousand jiffies
 since the grace-period kthread ran.  The "jiffies_till_next_fqs"
 indicates how frequently that kthread should run, giving the number
 of jiffies between force-quiescent-state scans, in this case three,
-which is way less than 23807.  Finally, the root rcu_node structure's
+which is way less than 23807.  Finally, the root ``rcu_node`` structure's
 ->qsmask field is printed, which will normally be zero.
 
 If the relevant grace-period kthread has been unable to run prior to
@@ -382,10 +447,10 @@ jiffies.  The number following the "s:" indicates that the expedited
 grace-period sequence counter is 73.  The fact that this last value is
 odd indicates that an expedited grace period is in flight.  The number
 following "root:" is a bitmask that indicates which children of the root
-rcu_node structure correspond to CPUs and/or tasks that are blocking the
+``rcu_node`` structure correspond to CPUs and/or tasks that are blocking the
 current expedited grace period.  If the tree had more than one level,
 additional hex numbers would be printed for the states of the other
-rcu_node structures in the tree.
+``rcu_node`` structures in the tree.
 
 As with normal grace periods, PREEMPT_RCU builds can be stalled by
 tasks as well as by CPUs, and that the tasks will be indicated by PID,
