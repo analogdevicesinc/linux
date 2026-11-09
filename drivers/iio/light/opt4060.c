@@ -310,7 +310,7 @@ static int opt4060_set_driver_state(struct iio_dev *indio_dev,
 	 * IRQ and sampling must go to or remain continuous.
 	 */
 	if (iio_buffer_enabled(indio_dev) &&
-	    iio_trigger_validate_own_device(indio_dev->trig, indio_dev))
+	    !iio_trigger_validate_own_device(indio_dev->trig, indio_dev))
 		return opt4060_set_state_common(chip, true, true);
 
 	/*
