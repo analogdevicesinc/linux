@@ -313,7 +313,24 @@ static int commit_decoder(struct cxl_decoder *cxld)
 static int cxl_region_decode_commit(struct cxl_region *cxlr)
 {
 	struct cxl_region_params *p = &cxlr->params;
+	bool hdm_db;
 	int i, rc = 0;
+
+	hdm_db = cxlr->type == CXL_DECODER_DEVMEM &&
+		 cxl_root_decoder_is_bi(cxlr->cxlrd);
+
+	/* a reset since attach may have invalidated cxlds->bi */
+	for (i = 0; i < p->nr_targets; i++) {
+		struct cxl_endpoint_decoder *cxled = p->targets[i];
+		struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
+
+		if (hdm_db && !READ_ONCE(cxlmd->cxlds->bi)) {
+			dev_err(&cxlr->dev, "%s:%s BI not enabled on device\n",
+				dev_name(&cxlmd->dev),
+				dev_name(&cxled->cxld.dev));
+			return -ENXIO;
+		}
+	}
 
 	for (i = 0; i < p->nr_targets; i++) {
 		struct cxl_endpoint_decoder *cxled = p->targets[i];
@@ -344,6 +361,22 @@ static int cxl_region_decode_commit(struct cxl_region *cxlr)
 			}
 
 			cxled->cxld.reset(&cxled->cxld);
+			goto err;
+		}
+
+		/*
+		 * A reset after the check above wipes BI Enable, but
+		 * cxlds->bi is only refreshed from .reset_done, which may
+		 * not have run. Ask the hardware.
+		 */
+		if (hdm_db && !cxl_bi_decoder_enabled(cxled_to_port(cxled))) {
+			dev_err(&cxlr->dev,
+				"%s:%s BI disabled by reset during commit\n",
+				dev_name(&cxlmd->dev),
+				dev_name(&cxled->cxld.dev));
+			WRITE_ONCE(cxlmd->cxlds->bi, false);
+			rc = -ENXIO;
+			i++; /* this target committed, so undo it too */
 			goto err;
 		}
 	}
@@ -1127,16 +1160,11 @@ static int cxl_rr_assign_decoder(struct cxl_port *port, struct cxl_region *cxlr,
 	}
 
 	/*
-	 * Endpoints should already match the region type, but backstop that
-	 * assumption with an assertion. Switch-decoders change mapping-type
-	 * based on what is mapped when they are assigned to a region.
+	 * Endpoint decoders inherit their type from cxlr->type; broken
+	 * pairings were already rejected by the coherency checks in
+	 * cxl_region_attach(). Switch-decoders change mapping-type based
+	 * on what is mapped when they are assigned to a region.
 	 */
-	dev_WARN_ONCE(&cxlr->dev,
-		      port == cxled_to_port(cxled) &&
-			      cxld->target_type != cxlr->type,
-		      "%s:%s mismatch decoder type %d -> %d\n",
-		      dev_name(&cxled_to_memdev(cxled)->dev),
-		      dev_name(&cxld->dev), cxld->target_type, cxlr->type);
 	cxld->target_type = cxlr->type;
 	cxl_rr->decoder = cxld;
 	return 0;
@@ -1864,6 +1892,7 @@ static int cxl_region_attach_position(struct cxl_region *cxlr,
 	struct cxl_root_decoder *cxlrd = cxlr->cxlrd;
 	struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
 	struct cxl_switch_decoder *cxlsd = &cxlrd->cxlsd;
+	enum cxl_decoder_type type = cxled->cxld.target_type;
 	struct cxl_decoder *cxld = &cxlsd->cxld;
 	int iw = cxld->interleave_ways;
 	struct cxl_port *iter;
@@ -1889,7 +1918,16 @@ err:
 	for (iter = cxled_to_port(cxled); !is_cxl_root(iter);
 	     iter = to_cxl_port(iter->dev.parent))
 		cxl_port_detach_region(iter, cxlr, cxled);
+	/* undo cxl_rr_assign_decoder() type inheritance */
+	cxled->cxld.target_type = type;
 	return rc;
+}
+
+static const char *cxl_coherency_name(enum cxl_decoder_type type, bool bi)
+{
+	if (type == CXL_DECODER_HOSTONLYMEM)
+		return "HDM-H";
+	return bi ? "HDM-DB" : "HDM-D";
 }
 
 static int cxl_region_attach_auto(struct cxl_region *cxlr,
@@ -2108,6 +2146,68 @@ static int cxl_region_sort_targets(struct cxl_region *cxlr)
 	return rc;
 }
 
+/*
+ * Verify the device and HDM are capable of the region's flavor. The
+ * endpoint decoder's target_type is then inherited from cxlr->type
+ * later in cxl_rr_assign_decoder().
+ */
+static int cxl_region_check_coherency(struct cxl_region *cxlr,
+				      struct cxl_endpoint_decoder *cxled)
+{
+	struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	bool root_bi = cxl_root_decoder_is_bi(cxlr->cxlrd);
+	struct cxl_hdm *cxlhdm;
+
+	if (cxlr->type == CXL_DECODER_DEVMEM && root_bi &&
+	    !READ_ONCE(cxlds->bi)) {
+		dev_dbg(&cxlr->dev, "%s:%s BI not enabled on device\n",
+			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
+		return -ENXIO;
+	}
+
+	if (cxled->state != CXL_DECODER_STATE_AUTO &&
+	    cxlr->type == CXL_DECODER_HOSTONLYMEM &&
+	    cxlds->type == CXL_DEVTYPE_DEVMEM) {
+		dev_dbg(&cxlr->dev, "%s:%s HDM-H requires a Type 3 device\n",
+			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
+		return -ENXIO;
+	}
+
+	cxlhdm = dev_get_drvdata(&cxled_to_port(cxled)->dev);
+	if (!cxlhdm)
+		return -ENXIO;
+	if (cxlr->type == CXL_DECODER_HOSTONLYMEM &&
+	    cxlhdm->supported_coherency == CXL_HDM_DECODER_COHERENCY_DEV) {
+		dev_dbg(&cxlr->dev, "%s:%s HDM is device-coherent only\n",
+			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
+		return -ENXIO;
+	}
+	if (cxlr->type == CXL_DECODER_DEVMEM &&
+	    cxlhdm->supported_coherency == CXL_HDM_DECODER_COHERENCY_HOST) {
+		dev_dbg(&cxlr->dev, "%s:%s HDM is host-only coherent\n",
+			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
+		return -ENXIO;
+	}
+
+	/* a committed decoder cannot inherit the region's flavor */
+	if (cxled->cxld.flags & CXL_DECODER_F_ENABLE) {
+		bool bi = cxled->cxld.flags & CXL_DECODER_F_BI;
+
+		if (cxled->cxld.target_type != cxlr->type || bi != root_bi) {
+			dev_dbg(&cxlr->dev,
+				"%s:%s coherency model mismatch: %s vs %s\n",
+				dev_name(&cxlmd->dev),
+				dev_name(&cxled->cxld.dev),
+				cxl_coherency_name(cxled->cxld.target_type, bi),
+				cxl_coherency_name(cxlr->type, root_bi));
+			return -ENXIO;
+		}
+	}
+
+	return 0;
+}
+
 static int cxl_region_attach(struct cxl_region *cxlr,
 			     struct cxl_endpoint_decoder *cxled, int pos)
 {
@@ -2166,12 +2266,9 @@ static int cxl_region_attach(struct cxl_region *cxlr,
 		return -ENXIO;
 	}
 
-	if (cxled->cxld.target_type != cxlr->type) {
-		dev_dbg(&cxlr->dev, "%s:%s type mismatch: %d vs %d\n",
-			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev),
-			cxled->cxld.target_type, cxlr->type);
-		return -ENXIO;
-	}
+	rc = cxl_region_check_coherency(cxlr, cxled);
+	if (rc)
+		return rc;
 
 	if (cxled_empty(cxled)) {
 		dev_dbg(&cxlr->dev, "%s:%s: missing DPA allocation.\n",
@@ -2386,6 +2483,12 @@ __cxl_decoder_detach(struct cxl_region *cxlr,
 		.start = 0,
 		.end = -1,
 	};
+	/*
+	 * Undo cxl_rr_assign_decoder() type inheritance, unless the
+	 * decoder is still committed and its type is what it decodes.
+	 */
+	if (!(cxled->cxld.flags & CXL_DECODER_F_ENABLE))
+		cxled->cxld.target_type = cxled_default_type(cxled);
 
 	get_device(&cxlr->dev);
 	return cxlr;
@@ -2835,8 +2938,10 @@ static struct cxl_region *devm_cxl_add_region(struct cxl_root_decoder *cxlrd,
 		return ERR_PTR(rc);
 	}
 
-	dev_dbg(port->uport_dev, "%s: created %s\n",
-		dev_name(&cxlrd->cxlsd.cxld.dev), dev_name(dev));
+	dev_dbg(port->uport_dev, "%s: created %s %s\n",
+		dev_name(&cxlrd->cxlsd.cxld.dev),
+		cxl_coherency_name(cxlr->type, cxl_root_decoder_is_bi(cxlrd)),
+		dev_name(dev));
 	return cxlr;
 err:
 	put_device(dev);
@@ -2894,6 +2999,7 @@ static ssize_t create_region_store(struct device *dev, const char *buf,
 				   size_t len, enum cxl_partition_mode mode)
 {
 	struct cxl_root_decoder *cxlrd = to_cxl_root_decoder(dev);
+	enum cxl_decoder_type target_type;
 	struct cxl_region *cxlr;
 	int rc, id;
 
@@ -2905,7 +3011,15 @@ static ssize_t create_region_store(struct device *dev, const char *buf,
 	if ((rc = ACQUIRE_ERR(mutex_intr, &regions_lock)))
 		return rc;
 
-	cxlr = __create_region(cxlrd, mode, id, CXL_DECODER_HOSTONLYMEM);
+	/*
+	 * The CFMWS dictates endpoint coherency: a BI-restricted Window
+	 * produces an HDM-DB region; otherwise HDM-H. HDM-D is not an
+	 * option here, type2 regions are created by their driver.
+	 */
+	target_type = cxl_root_decoder_is_bi(cxlrd) ?
+		CXL_DECODER_DEVMEM : CXL_DECODER_HOSTONLYMEM;
+
+	cxlr = __create_region(cxlrd, mode, id, target_type);
 	if (IS_ERR(cxlr))
 		return PTR_ERR(cxlr);
 
@@ -3851,11 +3965,29 @@ static struct cxl_region *construct_region(struct cxl_root_decoder *cxlrd,
 	struct cxl_endpoint_decoder *cxled = ctx->cxled;
 	struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
 	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	bool bi = cxled->cxld.flags & CXL_DECODER_F_BI;
 	int rc, part = READ_ONCE(cxled->part);
 	struct cxl_region *cxlr;
+	unsigned long need;
 
 	if (part < 0)
 		return ERR_PTR(-EBUSY);
+
+	/*
+	 * A committed decoder defines the region built from it, so no
+	 * attach check can find its coherency model wrong. Only the
+	 * window's restrictions can, if they do not permit its BI bit or
+	 * range type.
+	 */
+	need = cxled->cxld.target_type == CXL_DECODER_DEVMEM ?
+	       CXL_DECODER_F_DEVMEM : CXL_DECODER_F_HOSTONLY;
+	if (bi != cxl_root_decoder_is_bi(cxlrd) ||
+	    !(cxlrd->cxlsd.cxld.flags & need)) {
+		dev_err(&cxlrd->cxlsd.cxld.dev,
+			"%s:%s coherency model not permitted by the window\n",
+			dev_name(&cxlmd->dev), dev_name(&cxled->cxld.dev));
+		return ERR_PTR(-ENXIO);
+	}
 
 	do {
 		cxlr = __create_region(cxlrd, cxlds->part[part].mode,

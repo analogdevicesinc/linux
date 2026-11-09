@@ -432,6 +432,28 @@ Description:
 		current cached value.
 
 
+What:		/sys/bus/cxl/devices/decoderX.Y/cap_back_invalidate
+Date:		October, 2026
+KernelVersion:	v7.5
+Contact:	linux-cxl@vger.kernel.org
+Description:
+		(RO) When a CXL decoder is of devtype "cxl_decoder_root", '1'
+		indicates the fixed memory window carries the CFMWS
+		Back-Invalidate restriction, so HDM-DB memory may be mapped
+		behind it.
+
+
+What:		/sys/bus/cxl/devices/decoderX.Y/back_invalidate
+Date:		October, 2026
+KernelVersion:	v7.5
+Contact:	linux-cxl@vger.kernel.org
+Description:
+		(RO) Shows '1' if this endpoint decoder is currently configured
+		for HDM-DB (device-managed coherency with back-invalidate).
+		The HDM-DB state is inherited from the region the decoder is
+		attached to, which is in turn set from the chosen root
+		decoder's CFMWS BI restriction (see cap_back_invalidate).
+
 What:		/sys/bus/cxl/devices/decoderX.Y/delete_region
 Date:		May, 2022
 KernelVersion:	v6.0
