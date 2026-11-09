@@ -435,7 +435,7 @@ static irqreturn_t xelp_irq_handler(int irq, void *arg)
 
 	xelp_intr_enable(xe, false);
 
-	xe_display_irq_enable(xe, gu_misc_iir);
+	xe_display_gse_irq_handler(xe, gu_misc_iir);
 
 	return IRQ_HANDLED;
 }
@@ -533,7 +533,8 @@ static irqreturn_t dg1_irq_handler(int irq, void *arg)
 	}
 
 	dg1_intr_enable(xe, false);
-	xe_display_irq_enable(xe, gu_misc_iir);
+
+	xe_display_gse_irq_handler(xe, gu_misc_iir);
 
 	return IRQ_HANDLED;
 }
