@@ -573,9 +573,10 @@ static void scd30_disable_regulator(void *data)
 static irqreturn_t scd30_irq_handler(int irq, void *priv)
 {
 	struct iio_dev *indio_dev = priv;
+	struct scd30_state *state = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev)) {
-		iio_trigger_poll(indio_dev->trig);
+		iio_trigger_poll(state->trig);
 
 		return IRQ_HANDLED;
 	}
@@ -666,6 +667,7 @@ static int scd30_setup_trigger(struct iio_dev *indio_dev)
 	if (!trig)
 		return -ENOMEM;
 
+	state->trig = trig;
 	trig->ops = &scd30_trigger_ops;
 	iio_trigger_set_drvdata(trig, indio_dev);
 

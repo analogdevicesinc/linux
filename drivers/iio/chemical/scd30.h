@@ -9,6 +9,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
 
+struct iio_trigger;
 struct scd30_state;
 
 enum scd30_cmd {
@@ -57,6 +58,7 @@ struct scd30_state {
 	 */
 	void *priv;
 	int irq;
+	struct iio_trigger *trig;
 	/*
 	 * no way to retrieve current ambient pressure compensation value from
 	 * the sensor so keep one around
