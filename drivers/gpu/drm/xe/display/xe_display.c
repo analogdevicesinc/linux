@@ -203,7 +203,7 @@ void xe_display_irq_enable(struct xe_device *xe, u32 gu_misc_iir)
 		return;
 
 	if (gu_misc_iir & GU_MISC_GSE)
-		intel_opregion_asle_intr(display);
+		intel_display_gse_irq_handler(display);
 }
 
 void xe_display_irq_reset(struct xe_device *xe)
