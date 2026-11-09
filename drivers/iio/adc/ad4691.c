@@ -441,6 +441,7 @@ struct ad4691_state {
 	struct spi_device *spi;
 
 	struct pwm_device *conv_trigger;
+	struct iio_trigger *trig;
 	int irq;
 	int vref_uV;
 	u32 cnv_period_ns;
@@ -1563,7 +1564,7 @@ static irqreturn_t ad4691_irq(int irq, void *private)
 	 * the IRQ.
 	 */
 	disable_irq_nosync(st->irq);
-	iio_trigger_poll(indio_dev->trig);
+	iio_trigger_poll(st->trig);
 
 	return IRQ_HANDLED;
 }
@@ -1861,6 +1862,7 @@ static int ad4691_setup_triggered_buffer(struct iio_dev *indio_dev,
 	if (!trig)
 		return -ENOMEM;
 
+	st->trig = trig;
 	trig->ops = &ad4691_trigger_ops;
 	iio_trigger_set_drvdata(trig, st);
 
