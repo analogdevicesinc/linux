@@ -361,32 +361,25 @@ vmw_du_connector_duplicate_state(struct drm_connector *connector)
 
 
 /**
- * vmw_du_connector_reset - creates a blank vmw connector state
+ * vmw_du_connector_create_state - creates a blank vmw connector state
  * @connector: DRM connector
  *
- * Resets the atomic state for @connector by freeing the state pointer (which
- * might be NULL, e.g. at driver load time) and allocating a new empty state
- * object.
+ * Allocates a new empty state object for @connector.
  */
-void vmw_du_connector_reset(struct drm_connector *connector)
+struct drm_connector_state *
+vmw_du_connector_create_state(struct drm_connector *connector)
 {
 	struct vmw_connector_state *vcs;
 
-
-	if (connector->state) {
-		__drm_atomic_helper_connector_destroy_state(connector->state);
-
-		kfree(vmw_connector_state_to_vcs(connector->state));
-	}
-
 	vcs = kzalloc_obj(*vcs);
-
 	if (!vcs) {
 		DRM_ERROR("Cannot allocate vmw_connector_state\n");
-		return;
+		return ERR_PTR(-ENOMEM);
 	}
 
-	__drm_atomic_helper_connector_reset(connector, &vcs->base);
+	__drm_atomic_helper_connector_state_init(&vcs->base, connector);
+
+	return &vcs->base;
 }
 
 

@@ -607,6 +607,34 @@ pvr_cr_write64(struct pvr_device *pvr_dev, u32 reg, u64 val)
 }
 
 /**
+ * pvr_cr_write_fenced32() - Write to a 32-bit register in a PowerVR device and fence the write
+ * @pvr_dev: Target PowerVR device.
+ * @reg: Target register.
+ * @val: Value to write.
+ */
+static __always_inline void
+pvr_cr_write_fenced32(struct pvr_device *pvr_dev, u32 reg, u32 val)
+{
+	pvr_cr_write32(pvr_dev, reg, val);
+	/* Read back register to fence previous write in order to clear the SOCIF pipeline */
+	(void)pvr_cr_read32(pvr_dev, reg);
+}
+
+/**
+ * pvr_cr_write_fenced64() - Write to a 64-bit register in a PowerVR device and fence the write
+ * @pvr_dev: Target PowerVR device.
+ * @reg: Target register.
+ * @val: Value to write.
+ */
+static __always_inline void
+pvr_cr_write_fenced64(struct pvr_device *pvr_dev, u32 reg, u64 val)
+{
+	pvr_cr_write64(pvr_dev, reg, val);
+	/* Read back register to fence previous write in order to clear the SOCIF pipeline */
+	(void)pvr_cr_read64(pvr_dev, reg);
+}
+
+/**
  * pvr_cr_poll_reg32() - Wait for a 32-bit register to match a given value by
  *                       polling
  * @pvr_dev: Target PowerVR device.

@@ -387,7 +387,7 @@ static void dm_test_wb_atomic_check_invalid_format(struct kunit *test)
 static const struct drm_connector_funcs dm_wb_test_connector_funcs = {
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 };
 
 /**

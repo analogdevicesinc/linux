@@ -32,7 +32,7 @@ struct dm_backlight_connector_fixture {
 };
 
 static const struct drm_connector_funcs dm_backlight_test_connector_funcs = {
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };

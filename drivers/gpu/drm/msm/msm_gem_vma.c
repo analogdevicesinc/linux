@@ -818,11 +818,19 @@ msm_gem_vm_create(struct drm_device *drm, struct msm_mmu *mmu, const char *name,
 		  u64 va_start, u64 va_size, bool managed)
 {
 	/*
-	 * We mostly want to use DRM_GPUVM_RESV_PROTECTED, except that
-	 * makes drm_gpuvm_bo_evict() a no-op for extobjs (ie. we loose
-	 * tracking that an extobj is evicted) :facepalm:
+	 * Userspace managed (VM_BIND) VMs only ever touch the gpuvm's extobj
+	 * and evicted lists with the VM's resv held, so use
+	 * DRM_GPUVM_RESV_PROTECTED for those.  drm_gpuvm_bo_evict() cannot
+	 * put an extobj on the evicted list there, but it records the
+	 * eviction and drm_gpuvm_prepare_objects() moves it onto the list
+	 * before drm_gpuvm_validate() runs, so nothing is lost.
+	 *
+	 * Kernel managed VMs keep the internal spinlocks, since the legacy
+	 * submit path can drop the last vm_bo reference with only the
+	 * object's resv held (see msm_submit_retire()).  VM_BIND contexts
+	 * cannot reach that path, as they may not pass a submit_bo table.
 	 */
-	enum drm_gpuvm_flags flags = 0;
+	enum drm_gpuvm_flags flags = managed ? 0 : DRM_GPUVM_RESV_PROTECTED;
 	struct msm_gem_vm *vm;
 	struct drm_gem_object *dummy_gem;
 	int ret = 0;

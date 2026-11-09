@@ -10,7 +10,6 @@
 #include <drm/drm_gem.h>
 #include <drm/drm_gem_atomic_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
-#include <drm/drm_simple_kms_helper.h>
 
 #include "drm_internal.h"
 
@@ -367,94 +366,3 @@ void drm_gem_end_shadow_fb_access(struct drm_plane *plane, struct drm_plane_stat
 	drm_gem_fb_vunmap(fb, shadow_plane_state->map);
 }
 EXPORT_SYMBOL(drm_gem_end_shadow_fb_access);
-
-/**
- * drm_gem_simple_kms_begin_shadow_fb_access - prepares shadow framebuffers for CPU access
- * @pipe: the simple display pipe
- * @plane_state: the plane state of type struct drm_shadow_plane_state
- *
- * This function implements struct drm_simple_display_funcs.begin_fb_access.
- *
- * See drm_gem_begin_shadow_fb_access() for details and
- * drm_gem_simple_kms_cleanup_shadow_fb() for cleanup.
- *
- * Returns:
- * 0 on success, or a negative errno code otherwise.
- */
-int drm_gem_simple_kms_begin_shadow_fb_access(struct drm_simple_display_pipe *pipe,
-					      struct drm_plane_state *plane_state)
-{
-	return drm_gem_begin_shadow_fb_access(&pipe->plane, plane_state);
-}
-EXPORT_SYMBOL(drm_gem_simple_kms_begin_shadow_fb_access);
-
-/**
- * drm_gem_simple_kms_end_shadow_fb_access - releases shadow framebuffers from CPU access
- * @pipe: the simple display pipe
- * @plane_state: the plane state of type struct drm_shadow_plane_state
- *
- * This function implements struct drm_simple_display_funcs.end_fb_access.
- * It undoes all effects of drm_gem_simple_kms_begin_shadow_fb_access() in
- * reverse order.
- *
- * See drm_gem_simple_kms_begin_shadow_fb_access().
- */
-void drm_gem_simple_kms_end_shadow_fb_access(struct drm_simple_display_pipe *pipe,
-					     struct drm_plane_state *plane_state)
-{
-	drm_gem_end_shadow_fb_access(&pipe->plane, plane_state);
-}
-EXPORT_SYMBOL(drm_gem_simple_kms_end_shadow_fb_access);
-
-/**
- * drm_gem_simple_kms_create_shadow_plane_state - creates shadow-buffered plane state
- * @pipe: the simple display pipe
- *
- * This function implements struct drm_simple_display_pipe_funcs.create_plane_state
- * for shadow-buffered planes.
- *
- * Returns:
- * A pointer to a new plane state on success, or an ERR_PTR()-encoded
- * error code otherwise.
- */
-struct drm_plane_state *
-drm_gem_simple_kms_create_shadow_plane_state(struct drm_simple_display_pipe *pipe)
-{
-	return drm_gem_create_shadow_plane_state(&pipe->plane);
-}
-EXPORT_SYMBOL(drm_gem_simple_kms_create_shadow_plane_state);
-
-/**
- * drm_gem_simple_kms_duplicate_shadow_plane_state - duplicates shadow-buffered plane state
- * @pipe: the simple display pipe
- *
- * This function implements struct drm_simple_display_funcs.duplicate_plane_state
- * for shadow-buffered planes. It does not duplicate existing mappings of the shadow
- * buffers. Mappings are maintained during the atomic commit by the plane's prepare_fb
- * and cleanup_fb helpers.
- *
- * Returns:
- * A pointer to a new plane state on success, or NULL otherwise.
- */
-struct drm_plane_state *
-drm_gem_simple_kms_duplicate_shadow_plane_state(struct drm_simple_display_pipe *pipe)
-{
-	return drm_gem_duplicate_shadow_plane_state(&pipe->plane);
-}
-EXPORT_SYMBOL(drm_gem_simple_kms_duplicate_shadow_plane_state);
-
-/**
- * drm_gem_simple_kms_destroy_shadow_plane_state - resets shadow-buffered plane state
- * @pipe: the simple display pipe
- * @plane_state: the plane state of type struct drm_shadow_plane_state
- *
- * This function implements struct drm_simple_display_funcs.destroy_plane_state
- * for shadow-buffered planes. It expects that mappings of shadow buffers
- * have been released already.
- */
-void drm_gem_simple_kms_destroy_shadow_plane_state(struct drm_simple_display_pipe *pipe,
-						   struct drm_plane_state *plane_state)
-{
-	drm_gem_destroy_shadow_plane_state(&pipe->plane, plane_state);
-}
-EXPORT_SYMBOL(drm_gem_simple_kms_destroy_shadow_plane_state);

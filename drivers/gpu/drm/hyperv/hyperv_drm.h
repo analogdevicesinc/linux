@@ -6,6 +6,11 @@
 #ifndef _HYPERV_DRM_H_
 #define _HYPERV_DRM_H_
 
+#include <drm/drm_connector.h>
+#include <drm/drm_crtc.h>
+#include <drm/drm_encoder.h>
+#include <drm/drm_plane.h>
+
 #define VMBUS_MAX_PACKET_SIZE 0x4000
 
 struct hv_drm_device {

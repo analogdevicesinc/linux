@@ -1162,7 +1162,7 @@ static void dm_mst_test_connector_destroy(struct drm_connector *connector)
 }
 
 static const struct drm_connector_funcs dm_mst_test_connector_funcs = {
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.destroy = dm_mst_test_connector_destroy,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
@@ -3709,7 +3709,7 @@ static void dm_mst_test_pre_compute_configs_no_recompute(struct kunit *test)
 /* Tests for compute_mst_dsc_configs_for_link */
 
 static const struct drm_connector_funcs dm_mst_test_dsc_link_conn_funcs = {
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };

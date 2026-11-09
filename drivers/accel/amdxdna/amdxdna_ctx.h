@@ -6,6 +6,8 @@
 #ifndef _AMDXDNA_CTX_H_
 #define _AMDXDNA_CTX_H_
 
+#include <drm/amdxdna_accel.h>
+#include <drm/gpu_scheduler.h>
 #include <linux/bitfield.h>
 
 #include "amdxdna_gem.h"
@@ -44,6 +46,18 @@ struct amdxdna_cmd_start_npu {
 	u32 buffer_size;  /* size of buffer in bytes */
 	u32 prop_count;	  /* properties count */
 	u32 prop_args[];  /* properties and regular kernel arguments */
+};
+
+/*
+ * struct amdxdna_cmd_start_dpu - interpretation of data payload for
+ * ERT_START_DPU in amdxdna_cmd.
+ */
+struct amdxdna_cmd_start_dpu {
+	u64 dtrace_buffer;		/* dtrace buffer address 2 words */
+	u64 instruction_buffer;		/* buffer address 2 words */
+	u32 instruction_buffer_size;	/* size of buffer in bytes */
+	u16 uc_index;			/* microblaze controller index */
+	u16 chained;			/* number of following amdxdna_cmd_start_dpu elements */
 };
 
 /*
@@ -136,8 +150,16 @@ struct amdxdna_drv_cmd {
 };
 
 struct app_health_report;
+
 union amdxdna_job_priv {
 	struct app_health_report *aie2_health;
+	/* aie4 kernel submission: queue linkage + job state */
+	struct {
+		struct list_head	list;
+		u32			state;
+		u32			cmd_bo_cnt;
+		struct amdxdna_gem_obj	**cmd_bos;
+	} aie4;
 };
 
 struct amdxdna_sched_job {
@@ -159,7 +181,11 @@ struct amdxdna_sched_job {
 	struct drm_gem_object	*bos[] __counted_by(bo_cnt);
 };
 
-#define aie2_job_health priv.aie2_health
+#define aie2_job_health	priv.aie2_health
+#define aie4_job_list	priv.aie4.list
+#define aie4_job_state	priv.aie4.state
+#define aie4_cmd_bo_cnt	priv.aie4.cmd_bo_cnt
+#define aie4_cmd_bos	priv.aie4.cmd_bos
 
 static inline u32
 amdxdna_cmd_get_op(struct amdxdna_gem_obj *abo)

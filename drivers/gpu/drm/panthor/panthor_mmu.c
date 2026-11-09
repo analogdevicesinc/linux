@@ -3255,6 +3255,26 @@ int panthor_vm_unmap_range(struct panthor_vm *vm, u64 va, u64 size)
  * need to reserve a slot on all BOs mapped to a VM and update this slot with
  * the job fence after its submission.
  *
+ * When something is evicted the locks are taken in two passes; when nothing
+ * is, a single pass is used, as before. The early pass only takes the external
+ * objects which actually need validating, i.e. the evicted ones, and swaps
+ * them back in. Private objects are covered by the VM resv, which is held
+ * from the start, so they are validated here too. The late pass then takes
+ * the external objects the early pass left out, which were resident and so
+ * normally need no swapping in; it still validates, since one of them may
+ * have been evicted in the meantime.
+ *
+ * The point is that panthor_vm_bo_validate() swaps pages back in, which is
+ * slow, and an external object is one which can be shared with another
+ * process. Doing that while holding the resv of a resident shared BO would
+ * stall whoever else needs it, for no benefit, since a resident object is
+ * ready to use as it is.
+ *
+ * Both passes run in the same drm_exec transaction: nothing is unlocked in
+ * between and the late pass only ever adds locks. The passes take disjoint
+ * sets of objects, so reserving @slot_count in each still reserves it
+ * exactly once per object.
+ *
  * Return: 0 on success, a negative error code otherwise.
  */
 int panthor_vm_prepare_mapped_bos_resvs(struct drm_exec *exec, struct panthor_vm *vm,
@@ -3267,11 +3287,42 @@ int panthor_vm_prepare_mapped_bos_resvs(struct drm_exec *exec, struct panthor_vm
 	if (ret)
 		return ret;
 
-	ret = drm_gpuvm_prepare_objects(&vm->base, exec, slot_count);
+	/*
+	 * With nothing evicted there is no validation to keep the resident
+	 * objects unlocked for, so do not pay for the second walk.
+	 */
+	if (!drm_gpuvm_exec_pass_needs_split(&vm->base)) {
+		ret = drm_gpuvm_prepare_objects(&vm->base, exec, slot_count);
+		if (ret)
+			return ret;
+
+		return drm_gpuvm_validate(&vm->base, exec);
+	}
+
+	ret = drm_gpuvm_exec_pass_prepare_objects(&vm->base, exec,
+						  slot_count,
+						  DRM_GPUVM_EXEC_PASS_EARLY);
 	if (ret)
 		return ret;
 
-	return drm_gpuvm_validate(&vm->base, exec);
+	ret = drm_gpuvm_exec_pass_validate(&vm->base, exec,
+					   DRM_GPUVM_EXEC_PASS_EARLY);
+	if (ret)
+		return ret;
+
+	ret = drm_gpuvm_exec_pass_prepare_objects(&vm->base, exec,
+						  slot_count,
+						  DRM_GPUVM_EXEC_PASS_LATE);
+	if (ret)
+		return ret;
+
+	/*
+	 * Objects the early pass skipped were resident then, but another
+	 * process may have evicted one since. Now that everything is locked,
+	 * pick up whatever is left.
+	 */
+	return drm_gpuvm_exec_pass_validate(&vm->base, exec,
+					    DRM_GPUVM_EXEC_PASS_LATE);
 }
 
 unsigned long

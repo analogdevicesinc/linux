@@ -16,7 +16,6 @@
 #include <drm/drm_encoder.h>
 #include <drm/drm_of.h>
 #include <drm/drm_print.h>
-#include <drm/drm_simple_kms_helper.h>
 
 #include "vs_bridge.h"
 #include "vs_bridge_regs.h"

@@ -308,6 +308,18 @@ struct drm_gpuvm {
 		 * @extobj.lock: spinlock to protect the extobj list
 		 */
 		spinlock_t lock;
+
+		/**
+		 * @extobj.num_evicted: number of entries of the extobj list
+		 * which are evicted.
+		 *
+		 * Only maintained for a %DRM_GPUVM_RESV_PROTECTED &drm_gpuvm,
+		 * where an evicted external object cannot be put on the
+		 * evicted list, and only so that drm_gpuvm_exec_pass_needs_split()
+		 * does not have to walk the list to find out. Never used to
+		 * decide anything that has to be exact.
+		 */
+		atomic_t num_evicted;
 	} extobj;
 
 	/**
@@ -522,6 +534,76 @@ __drm_gpuva_next(struct drm_gpuva *va)
 	list_for_each_entry_safe(va__, next__, &(gpuvm__)->rb.list, rb.entry)
 
 /**
+ * enum drm_gpuvm_exec_pass - the pass of a &drm_gpuvm locking sequence
+ *
+ * Most drivers lock all the &drm_gem_objects a &drm_gpuvm has mappings of in
+ * a single &drm_exec transaction and use %DRM_GPUVM_EXEC_PASS_ALL, which is
+ * the default.
+ *
+ * A driver may instead ask for the locking to be split in two passes, by
+ * setting &drm_gpuvm_exec.two_pass, in order to bound the time it holds the
+ * dma-resv lock of objects it does not have to validate. Only the evicted
+ * objects need that, so only those are locked by the early pass, and
+ * everything else is locked by the late pass once the validation is already
+ * done.
+ *
+ * The passes only divide up the external objects. The &drm_gpuvm's own
+ * dma-resv is held for the whole transaction, so private objects, which share
+ * it, are available to the driver in the early pass and are validated there.
+ *
+ * Both passes run inside a single &drm_exec transaction: the early pass keeps
+ * everything it locked, and the late pass only ever adds to that. Nothing is
+ * unlocked in between, so work done in the early pass is still valid when the
+ * driver submits at the end of the late pass.
+ */
+enum drm_gpuvm_exec_pass {
+	/**
+	 * @DRM_GPUVM_EXEC_PASS_ALL: Prepare every external object. This is the
+	 * behaviour of a single pass locking sequence. Its value is zero so
+	 * that a zero initialised &drm_gpuvm_exec keeps that behaviour.
+	 */
+	DRM_GPUVM_EXEC_PASS_ALL = 0,
+
+	/**
+	 * @DRM_GPUVM_EXEC_PASS_EARLY: Validate everything the transaction
+	 * already holds, and opportunistically take on the external objects
+	 * which are worth taking on.
+	 *
+	 * The &drm_gpuvm's dma-resv is held from the start of the transaction,
+	 * so every private object is locked before this pass begins. The
+	 * driver validates all of the evicted ones here.
+	 *
+	 * External objects are not locked yet, and this pass only prepares the
+	 * ones which are evicted, that is the ones which are going to need
+	 * validating anyway, for the driver to validate as well. The resident
+	 * ones are deliberately left for later: they are still worked on
+	 * before the transaction ends, having a fence attached or their
+	 * mappings rebound, but none of that has to wait behind a migration,
+	 * so there is no reason to hold their dma-resv while one is going on.
+	 */
+	DRM_GPUVM_EXEC_PASS_EARLY,
+
+	/**
+	 * @DRM_GPUVM_EXEC_PASS_LATE: Lock everything else, and pick up
+	 * whatever raced with the early pass.
+	 *
+	 * This prepares exactly the external objects the early pass left out,
+	 * so that the transaction ends up holding the same set of locks a
+	 * %DRM_GPUVM_EXEC_PASS_ALL one would have. That set is the complement
+	 * of what the early pass actually did, which is not the same thing as
+	 * whatever happens to be resident by now: an object can be evicted
+	 * while the early pass is doing its slow work, and re-preparing an
+	 * object the transaction already holds would fail with -EALREADY.
+	 *
+	 * The driver validates again here. Usually there is nothing left to
+	 * do, but an object which was resident when the early pass skipped it
+	 * may have been evicted since, and this is the pass which holds its
+	 * dma-resv and can deal with it.
+	 */
+	DRM_GPUVM_EXEC_PASS_LATE,
+};
+
+/**
  * struct drm_gpuvm_exec - &drm_gpuvm abstraction of &drm_exec
  *
  * This structure should be created on the stack as &drm_exec should be.
@@ -543,6 +625,32 @@ struct drm_gpuvm_exec {
 	 * @vm: the &drm_gpuvm to lock its DMA reservations
 	 */
 	struct drm_gpuvm *vm;
+
+	/**
+	 * @two_pass: split the locking into an early and a late pass; see
+	 * &enum drm_gpuvm_exec_pass. Only supported for a
+	 * %DRM_GPUVM_RESV_PROTECTED &drm_gpuvm, since the two passes have to
+	 * agree on which external objects exist and only the GPUVM's common
+	 * dma-resv, held across both, gives that. Setting it on any other
+	 * &drm_gpuvm warns, and a single pass is used.
+	 *
+	 * This is a request, not a guarantee: the split is skipped when
+	 * drm_gpuvm_exec_pass_needs_split() says it would not help, in which
+	 * case the callback sees a single %DRM_GPUVM_EXEC_PASS_ALL.
+	 *
+	 * Only drm_gpuvm_exec_lock() acts on this. drm_gpuvm_exec_lock_array()
+	 * rejects it and drm_gpuvm_exec_lock_range() ignores it, neither
+	 * having a way to assign the objects it is given to a pass.
+	 */
+	bool two_pass;
+
+	/**
+	 * @pass: the pass currently being prepared. Set by drm_gpuvm_exec_lock()
+	 * before each call to @extra.fn, so that the callback can tell which
+	 * objects it may touch. Always %DRM_GPUVM_EXEC_PASS_ALL unless
+	 * @two_pass is set.
+	 */
+	enum drm_gpuvm_exec_pass pass;
 
 	/**
 	 * @num_fences: the number of fences to reserve for the &dma_resv of the
@@ -576,6 +684,11 @@ int drm_gpuvm_prepare_objects(struct drm_gpuvm *gpuvm,
 			      struct drm_exec *exec,
 			      unsigned int num_fences);
 
+int drm_gpuvm_exec_pass_prepare_objects(struct drm_gpuvm *gpuvm,
+					struct drm_exec *exec,
+					unsigned int num_fences,
+					enum drm_gpuvm_exec_pass pass);
+
 int drm_gpuvm_prepare_range(struct drm_gpuvm *gpuvm,
 			    struct drm_exec *exec,
 			    u64 addr, u64 range,
@@ -606,6 +719,13 @@ drm_gpuvm_exec_unlock(struct drm_gpuvm_exec *vm_exec)
 }
 
 int drm_gpuvm_validate(struct drm_gpuvm *gpuvm, struct drm_exec *exec);
+int drm_gpuvm_exec_pass_validate(struct drm_gpuvm *gpuvm,
+				 struct drm_exec *exec,
+				 enum drm_gpuvm_exec_pass pass);
+bool drm_gpuvm_exec_pass_needs_split(struct drm_gpuvm *gpuvm);
+
+bool drm_gpuvm_exec_pass_has_evicted(struct drm_gpuvm *gpuvm,
+				     enum drm_gpuvm_exec_pass pass);
 void drm_gpuvm_resv_add_fence(struct drm_gpuvm *gpuvm,
 			      struct drm_exec *exec,
 			      struct dma_fence *fence,
@@ -642,7 +762,8 @@ drm_gpuvm_exec_resv_add_fence(struct drm_gpuvm_exec *vm_exec,
 static inline int
 drm_gpuvm_exec_validate(struct drm_gpuvm_exec *vm_exec)
 {
-	return drm_gpuvm_validate(vm_exec->vm, &vm_exec->exec);
+	return drm_gpuvm_exec_pass_validate(vm_exec->vm, &vm_exec->exec,
+					    vm_exec->pass);
 }
 
 /**
@@ -676,9 +797,23 @@ struct drm_gpuvm_bo {
 
 	/**
 	 * @evicted: Indicates whether the &drm_gem_object is evicted; field
-	 * protected by the &drm_gem_object's dma-resv lock.
+	 * protected by the &drm_gem_object's dma-resv lock. Only written
+	 * through drm_gpuvm_bo_evict(), with WRITE_ONCE(), since
+	 * %DRM_GPUVM_EXEC_PASS_EARLY reads it without that lock held.
 	 */
 	bool evicted;
+
+	/**
+	 * @lock_skipped: Indicates that the current &drm_exec transaction does
+	 * not hold this &drm_gpuvm_bo's dma-resv, because
+	 * %DRM_GPUVM_EXEC_PASS_EARLY skipped it as not needing validation.
+	 * Unlike @evicted this is stable for the duration of a locking
+	 * sequence, which is what makes it safe for
+	 * drm_gpuvm_exec_pass_validate() to key off, and what tells
+	 * %DRM_GPUVM_EXEC_PASS_LATE which objects are still missing. Field
+	 * protected the same way as the &drm_gpuvm's extobj list.
+	 */
+	bool lock_skipped;
 
 	/**
 	 * @kref: The reference count for this &drm_gpuvm_bo.

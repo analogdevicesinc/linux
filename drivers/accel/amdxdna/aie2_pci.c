@@ -115,7 +115,8 @@ static int aie2_get_mgmt_chann_info(struct amdxdna_dev_hdl *ndev)
 	ndev->aie.mgmt_prot_minor = info_regs.prot_minor;
 
 	ret = aie_check_protocol(&ndev->aie, ndev->aie.mgmt_prot_major,
-				 ndev->aie.mgmt_prot_minor);
+				 ndev->aie.mgmt_prot_minor,
+				 ndev->aie.xdna->dev_info->fw_feature_tbl);
 
 done:
 	aie_dump_mgmt_chann_debug(&ndev->aie);
@@ -206,15 +207,16 @@ static int aie2_mgmt_fw_init(struct amdxdna_dev_hdl *ndev)
 
 static int aie2_mgmt_fw_query(struct amdxdna_dev_hdl *ndev)
 {
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
 	int ret;
 
-	ret = aie2_query_firmware_version(ndev, &ndev->aie.xdna->fw_ver);
+	ret = aie2_query_firmware_version(ndev, &xdna->fw_ver);
 	if (ret) {
 		XDNA_ERR(ndev->aie.xdna, "query firmware version failed");
 		return ret;
 	}
 
-	ret = aie2_query_aie_version(ndev, &ndev->version);
+	ret = aie2_query_aie_version(ndev, &ndev->aie.version);
 	if (ret) {
 		XDNA_ERR(ndev->aie.xdna, "Query AIE version failed");
 		return ret;
@@ -294,7 +296,7 @@ static struct xrs_action_ops aie2_xrs_actions = {
 
 static void aie2_smu_fini(struct amdxdna_dev_hdl *ndev)
 {
-	ndev->priv->hw_ops->set_dpm(ndev, 0);
+	ndev->priv->hw_ops->set_dpm(&ndev->aie, 0);
 	aie_smu_fini(ndev->aie.smu_hdl);
 }
 
@@ -684,44 +686,6 @@ static int aie2_get_aie_status(struct amdxdna_client *client,
 	return 0;
 }
 
-static int aie2_get_aie_version(struct amdxdna_client *client,
-				struct amdxdna_drm_get_info *args)
-{
-	struct amdxdna_drm_query_aie_version version;
-	struct amdxdna_dev *xdna = client->xdna;
-	struct amdxdna_dev_hdl *ndev;
-	u32 buf_sz;
-
-	ndev = xdna->dev_handle;
-	version.major = ndev->version.major;
-	version.minor = ndev->version.minor;
-
-	buf_sz = min(args->buffer_size, sizeof(version));
-	if (copy_to_user(u64_to_user_ptr(args->buffer), &version, buf_sz))
-		return -EFAULT;
-
-	return 0;
-}
-
-static int aie2_get_firmware_version(struct amdxdna_client *client,
-				     struct amdxdna_drm_get_info *args)
-{
-	struct amdxdna_drm_query_firmware_version version;
-	struct amdxdna_dev *xdna = client->xdna;
-	u32 buf_sz;
-
-	version.major = xdna->fw_ver.major;
-	version.minor = xdna->fw_ver.minor;
-	version.patch = xdna->fw_ver.sub;
-	version.build = xdna->fw_ver.build;
-
-	buf_sz = min(args->buffer_size, sizeof(version));
-	if (copy_to_user(u64_to_user_ptr(args->buffer), &version, buf_sz))
-		return -EFAULT;
-
-	return 0;
-}
-
 static int aie2_get_power_mode(struct amdxdna_client *client,
 			       struct amdxdna_drm_get_info *args)
 {
@@ -754,12 +718,12 @@ static int aie2_get_clock_metadata(struct amdxdna_client *client,
 	if (!clock)
 		return -ENOMEM;
 
-	aie2_update_counters(ndev);
+	aie_update_counters(ndev);
 	snprintf(clock->mp_npu_clock.name, sizeof(clock->mp_npu_clock.name),
 		 "MP-NPU Clock");
-	clock->mp_npu_clock.freq_mhz = ndev->npuclk_freq;
+	clock->mp_npu_clock.freq_mhz = ndev->aie.npuclk_freq;
 	snprintf(clock->h_clock.name, sizeof(clock->h_clock.name), "H Clock");
-	clock->h_clock.freq_mhz = ndev->hclk_freq;
+	clock->h_clock.freq_mhz = ndev->aie.hclk_freq;
 
 	buf_sz = min(args->buffer_size, sizeof(*clock));
 	if (copy_to_user(u64_to_user_ptr(args->buffer), clock, buf_sz))
@@ -915,11 +879,11 @@ static int aie2_query_resource_info(struct amdxdna_client *client,
 	ndev = xdna->dev_handle;
 	priv = ndev->priv;
 
-	aie2_update_counters(ndev);
+	aie_update_counters(ndev);
 	res_info.npu_clk_max = priv->dpm_clk_tbl[ndev->max_dpm_level].hclk;
-	res_info.npu_tops_max = ndev->max_tops;
+	res_info.npu_tops_max = ndev->aie.max_tops;
 	res_info.npu_task_max = priv->hwctx_limit;
-	res_info.npu_tops_curr = ndev->curr_tops;
+	res_info.npu_tops_curr = ndev->aie.curr_tops;
 	res_info.npu_task_curr = ndev->hwctx_num;
 
 	buf_sz = min(args->buffer_size, sizeof(res_info));
@@ -1036,7 +1000,7 @@ static int aie2_get_info(struct amdxdna_client *client, struct amdxdna_drm_get_i
 		ret = amdxdna_get_metadata(&ndev->aie, client, args);
 		break;
 	case DRM_AMDXDNA_QUERY_AIE_VERSION:
-		ret = aie2_get_aie_version(client, args);
+		ret = amdxdna_get_aie_version(client, args, &ndev->aie.version);
 		break;
 	case DRM_AMDXDNA_QUERY_CLOCK_METADATA:
 		ret = aie2_get_clock_metadata(client, args);
@@ -1048,7 +1012,7 @@ static int aie2_get_info(struct amdxdna_client *client, struct amdxdna_drm_get_i
 		ret = aie2_get_hwctx_status(client, args);
 		break;
 	case DRM_AMDXDNA_QUERY_FIRMWARE_VERSION:
-		ret = aie2_get_firmware_version(client, args);
+		ret = amdxdna_get_firmware_version(client, args, &xdna->fw_ver);
 		break;
 	case DRM_AMDXDNA_GET_POWER_MODE:
 		ret = aie2_get_power_mode(client, args);
@@ -1257,6 +1221,8 @@ const struct amdxdna_dev_ops aie2_ops = {
 	.fini = aie2_fini,
 	.resume = aie2_hw_resume,
 	.suspend = aie2_hw_suspend,
+	.runtime_resume = aie2_hw_resume,
+	.runtime_suspend = aie2_hw_suspend,
 	.get_aie_info = aie2_get_info,
 	.set_aie_state = aie2_set_state,
 	.hwctx_init = aie2_hwctx_init,
@@ -1264,7 +1230,6 @@ const struct amdxdna_dev_ops aie2_ops = {
 	.hwctx_config = aie2_hwctx_config,
 	.hwctx_sync_debug_bo = aie2_hwctx_sync_debug_bo,
 	.cmd_submit = aie2_cmd_submit,
-	.hmm_invalidate = aie2_hmm_invalidate,
 	.get_array = aie2_get_array,
 	.get_dev_revision = aie2_get_dev_rev,
 	.hwctx_heap_expand = aie2_hwctx_heap_expand,

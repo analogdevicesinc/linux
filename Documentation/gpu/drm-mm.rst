@@ -510,6 +510,12 @@ Locking
 .. kernel-doc:: drivers/gpu/drm/drm_gpuvm.c
    :doc: Locking
 
+GPUVM EXEC two-pass locking
+---------------------------
+
+.. kernel-doc:: drivers/gpu/drm/drm_gpuvm.c
+   :doc: GPUVM EXEC two-pass locking
+
 Examples
 --------
 

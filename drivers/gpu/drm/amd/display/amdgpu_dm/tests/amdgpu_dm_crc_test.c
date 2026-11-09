@@ -175,7 +175,7 @@ static struct amdgpu_crtc *dm_test_alloc_crc_crtc(struct kunit *test,
 }
 
 static const struct drm_connector_funcs dm_test_crc_connector_funcs = {
-	.reset = drm_atomic_helper_connector_reset,
+	.atomic_create_state = drm_atomic_helper_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.fill_modes = drm_helper_probe_single_connector_modes,
@@ -654,8 +654,9 @@ static void dm_test_crtc_set_crc_source_dprx_no_connector(struct kunit *test)
 						 DRM_MODE_CONNECTOR_WRITEBACK), 0);
 	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
 			dm_test_crc_connector_cleanup, wb_conn), 0);
-	drm_atomic_helper_connector_reset(wb_conn);
-	KUNIT_ASSERT_NOT_NULL(test, wb_conn->state);
+
+	wb_conn->state = drm_atomic_helper_connector_create_state(wb_conn);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, wb_conn->state);
 	wb_conn->state->crtc = &acrtc->base;
 	/*
 	 * __drm_atomic_helper_connector_destroy_state() drops a connector

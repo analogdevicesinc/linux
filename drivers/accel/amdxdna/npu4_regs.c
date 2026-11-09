@@ -104,42 +104,44 @@ const struct amdxdna_fw_feature_tbl npu4_fw_feature_table[] = {
 	{ 0 }
 };
 
-static int npu4_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
+static int npu4_set_dpm(struct aie_device *aie, u32 dpm_level)
 {
+	struct amdxdna_dev_hdl *ndev = aie->xdna->dev_handle;
 	int ret;
 
-	ret = aie_smu_set_dpm(ndev->aie.smu_hdl, dpm_level);
+	ret = aie_smu_set_dpm(aie->smu_hdl, dpm_level);
 	if (ret)
 		return ret;
 
-	ndev->npuclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].npuclk;
-	ndev->hclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].hclk;
-	ndev->max_tops = NPU4_DPM_TOPS(ndev, ndev->priv->dpm_clk_tbl[ndev->max_dpm_level].hclk);
-	ndev->curr_tops = NPU4_DPM_TOPS(ndev, ndev->hclk_freq);
+	aie->npuclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].npuclk;
+	aie->hclk_freq = ndev->priv->dpm_clk_tbl[dpm_level].hclk;
+	aie->max_tops = NPU4_DPM_TOPS(ndev, ndev->priv->dpm_clk_tbl[ndev->max_dpm_level].hclk);
+	aie->curr_tops = NPU4_DPM_TOPS(ndev, aie->hclk_freq);
 
-	XDNA_DBG(ndev->aie.xdna, "MP-NPU clock %d, H clock %d\n",
-		 ndev->npuclk_freq, ndev->hclk_freq);
+	XDNA_DBG(aie->xdna, "MP-NPU clock %d, H clock %d\n",
+		 aie->npuclk_freq, aie->hclk_freq);
 
 	return 0;
 }
 
-static int npu4_update_counters(struct amdxdna_dev_hdl *ndev)
+static int npu4_update_counters(struct aie_device *aie)
 {
+	struct amdxdna_dev_hdl *ndev = aie->xdna->dev_handle;
 	struct amd_pmf_npu_metrics npu_metrics;
 	int ret;
 
-	ret = AIE2_GET_PMF_NPU_METRICS(&npu_metrics);
+	ret = AIE_GET_PMF_NPU_METRICS(&npu_metrics);
 	if (ret)
 		return ret;
 
-	ndev->npuclk_freq = npu_metrics.mpnpuclk_freq;
-	ndev->hclk_freq = npu_metrics.npuclk_freq;
-	ndev->curr_tops = NPU4_DPM_TOPS(ndev, ndev->hclk_freq);
+	aie->npuclk_freq = npu_metrics.mpnpuclk_freq;
+	aie->hclk_freq = npu_metrics.npuclk_freq;
+	aie->curr_tops = NPU4_DPM_TOPS(ndev, aie->hclk_freq);
 
 	return 0;
 }
 
-const struct aie2_hw_ops npu4_hw_ops = {
+const struct aie_hw_ops npu4_hw_ops = {
 	.set_dpm = npu4_set_dpm,
 	.update_counters = npu4_update_counters,
 };

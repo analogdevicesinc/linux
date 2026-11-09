@@ -1111,79 +1111,6 @@ put_cmd:
 	return ret;
 }
 
-static int aie2_populate_range(struct amdxdna_gem_obj *abo)
-{
-	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
-	struct amdxdna_umap *mapp;
-	unsigned long timeout;
-	struct mm_struct *mm;
-	bool found;
-	int ret;
-
-	timeout = msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
-again:
-	found = false;
-	down_write(&xdna->notifier_lock);
-	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
-		/*
-		 * Skip entries that have already been unmapped.
-		 *
-		 * If userspace unmaps the address and later submits I/O using
-		 * it, the IOMMU will reject the access and report a fault.
-		 * Ignore such entries here.
-		 */
-		if (mapp->unmapped)
-			continue;
-
-		if (mapp->invalid && kref_get_unless_zero(&mapp->refcnt)) {
-			found = true;
-			break;
-		}
-	}
-
-	if (!found) {
-		/*
-		 * This also covers the case where all mappings have been
-		 * removed. There are no invalid mappings left to process.
-		 * Any subsequent I/O using the unmapped address will be
-		 * rejected by the IOMMU.
-		 */
-		abo->mem.map_invalid = false;
-		up_write(&xdna->notifier_lock);
-		return 0;
-	}
-
-	up_write(&xdna->notifier_lock);
-
-	mm = mapp->notifier.mm;
-	if (!mmget_not_zero(mm)) {
-		amdxdna_umap_put(mapp);
-		return -EFAULT;
-	}
-
-	ret = hmm_range_fault_unlocked_timeout(&mapp->range, timeout);
-	if (ret)
-		goto put_mm;
-
-	down_write(&xdna->notifier_lock);
-	if (mmu_interval_read_retry(&mapp->notifier, mapp->range.notifier_seq)) {
-		up_write(&xdna->notifier_lock);
-		amdxdna_umap_put(mapp);
-		mmput(mm);
-		goto again;
-	}
-	mapp->invalid = false;
-	up_write(&xdna->notifier_lock);
-	amdxdna_umap_put(mapp);
-	mmput(mm);
-	goto again;
-
-put_mm:
-	amdxdna_umap_put(mapp);
-	mmput(mm);
-	return ret == -EBUSY ? -ETIME : ret;
-}
-
 int aie2_cmd_submit(struct amdxdna_hwctx *hwctx, struct amdxdna_sched_job *job, u64 *seq)
 {
 	struct amdxdna_dev *xdna = hwctx->client->xdna;
@@ -1243,7 +1170,7 @@ retry:
 				goto cleanup_job;
 			}
 
-			ret = aie2_populate_range(abo);
+			ret = amdxdna_populate_range(abo);
 			if (ret)
 				goto cleanup_job;
 			goto retry;
@@ -1281,21 +1208,6 @@ up_sem:
 	up(&hwctx->priv->job_sem);
 	job->job_done = true;
 	return ret;
-}
-
-void aie2_hmm_invalidate(struct amdxdna_gem_obj *abo,
-			 unsigned long cur_seq)
-{
-	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
-	struct drm_gem_object *gobj = to_gobj(abo);
-	long ret;
-
-	ret = dma_resv_wait_timeout(gobj->resv, DMA_RESV_USAGE_BOOKKEEP,
-				    true, MAX_SCHEDULE_TIMEOUT);
-	if (!ret)
-		XDNA_ERR(xdna, "Failed to wait for bo, ret %ld", ret);
-	else if (ret == -ERESTARTSYS)
-		XDNA_DBG(xdna, "Wait for bo interrupted by signal");
 }
 
 int aie2_hwctx_heap_expand(struct amdxdna_hwctx *hwctx,

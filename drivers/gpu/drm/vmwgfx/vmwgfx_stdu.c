@@ -908,7 +908,7 @@ static const struct drm_connector_funcs vmw_stdu_connector_funcs = {
 	.detect = vmw_du_connector_detect,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = vmw_stdu_connector_destroy,
-	.reset = vmw_du_connector_reset,
+	.atomic_create_state = vmw_du_connector_create_state,
 	.atomic_duplicate_state = vmw_du_connector_duplicate_state,
 	.atomic_destroy_state = vmw_du_connector_destroy_state,
 };

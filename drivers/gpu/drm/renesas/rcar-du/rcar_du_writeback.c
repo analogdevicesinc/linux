@@ -115,24 +115,22 @@ static void rcar_du_wb_conn_destroy_state(struct drm_connector *connector,
 	kfree(to_rcar_wb_conn_state(state));
 }
 
-static void rcar_du_wb_conn_reset(struct drm_connector *connector)
+static struct drm_connector_state *
+rcar_du_wb_conn_create_state(struct drm_connector *connector)
 {
 	struct rcar_du_wb_conn_state *state;
 
-	if (connector->state) {
-		rcar_du_wb_conn_destroy_state(connector, connector->state);
-		connector->state = NULL;
-	}
-
 	state = kzalloc_obj(*state);
 	if (state == NULL)
-		return;
+		return ERR_PTR(-ENOMEM);
 
-	__drm_atomic_helper_connector_reset(connector, &state->state);
+	__drm_atomic_helper_connector_state_init(&state->state, connector);
+
+	return &state->state;
 }
 
 static const struct drm_connector_funcs rcar_du_wb_conn_funcs = {
-	.reset = rcar_du_wb_conn_reset,
+	.atomic_create_state = rcar_du_wb_conn_create_state,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,
 	.atomic_duplicate_state = rcar_du_wb_conn_duplicate_state,

@@ -62,7 +62,7 @@ struct sg_table;
  *
  *    This value is checked at runtime against
  *    &pvr_device_features.virtual_address_space_bits by
- *    pvr_vm_create_context(), which will return an error if the feature value
+ *    pvr_device_info_validate(), which will return an error if the feature value
  *    does not match this constant.
  *
  *    .. admonition:: Future work

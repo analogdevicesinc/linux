@@ -29,23 +29,6 @@ refactorings already and are an expert in the specific area
 Subsystem-wide refactorings
 ===========================
 
-Replace struct drm_simple_display_pipe with regular atomic helpers
-------------------------------------------------------------------
-
-The data type struct drm_simple_display_pipe and its helpers were supposed
-to simplify driver development. Instead they only added an intermediate layer
-between atomic modesetting and the DRM driver.
-
-There are still drivers that use drm_simple_display_pipe. The task here is to
-convert them to use regular atomic helpers. Search for a driver that calls
-drm_simple_display_pipe_init() and inline all helpers from drm_simple_kms_helper.c
-into the driver, such that no simple-KMS interfaces are required. Please also
-rename all inlined functions according to driver conventions.
-
-Contact: Thomas Zimmermann, respective driver maintainer
-
-Level: Easy
-
 Remove custom dumb_map_offset implementations
 ---------------------------------------------
 

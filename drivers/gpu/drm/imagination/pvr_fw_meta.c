@@ -48,9 +48,8 @@ pvr_meta_cr_read32(struct pvr_device *pvr_dev, u32 reg_addr, u32 *reg_value_out)
 		return err;
 
 	/* Issue a Read. */
-	pvr_cr_write32(pvr_dev, ROGUE_CR_META_SP_MSLVCTRL0,
-		       reg_addr | ROGUE_CR_META_SP_MSLVCTRL0_RD_EN);
-	(void)pvr_cr_read32(pvr_dev, ROGUE_CR_META_SP_MSLVCTRL0); /* Fence write. */
+	pvr_cr_write_fenced32(pvr_dev, ROGUE_CR_META_SP_MSLVCTRL0,
+			      reg_addr | ROGUE_CR_META_SP_MSLVCTRL0_RD_EN);
 
 	/* Wait for Slave Port to be Ready. */
 	err = pvr_cr_poll_reg32(pvr_dev, ROGUE_CR_META_SP_MSLVCTRL1,
