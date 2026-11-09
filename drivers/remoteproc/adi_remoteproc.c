@@ -33,14 +33,10 @@
 #include <linux/dma-mapping.h>
 
 #include <linux/soc/adi/icc.h>
-#include <linux/soc/adi/spu.h>
 #include "remoteproc_internal.h"
 
 /* location of bootrom that loops idle */
 #define SHARC_IDLE_ADDR			(0x00090004)
-
-#define SPU_MDMA0_SRC_ID		88
-#define SPU_MDMA0_DST_ID		89
 
 #define CORE_INIT_TIMEOUT_MS (2000)
 #define CORE_INIT_TIMEOUT msecs_to_jiffies(CORE_INIT_TIMEOUT_MS)
@@ -315,18 +311,6 @@ static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
 	return -EINVAL;
 }
 
-static void enable_spu(void)
-{
-	adi_spu_set_securep(SPU_MDMA0_SRC_ID, true);
-	adi_spu_set_securep(SPU_MDMA0_DST_ID, true);
-}
-
-static void disable_spu(void)
-{
-	adi_spu_set_securep(SPU_MDMA0_SRC_ID, false);
-	adi_spu_set_securep(SPU_MDMA0_DST_ID, false);
-}
-
 static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 						const struct firmware *fw)
 {
@@ -344,9 +328,7 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 
 	memcpy((char *)rproc_data->mem_virt, fw->data, fw->size);
 
-	enable_spu();
 	ldr_load(rproc_data);
-	disable_spu();
 
 	return 0;
 }
