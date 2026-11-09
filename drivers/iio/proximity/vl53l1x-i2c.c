@@ -99,6 +99,7 @@ struct vl53l1x_data {
 	struct regmap *regmap;
 	struct completion completion;
 	struct reset_control *xshut_reset;
+	struct iio_trigger *trig;
 	enum vl53l1x_distance_mode distance_mode;
 	u8 gpio_polarity;
 	int irq;
@@ -587,7 +588,7 @@ static irqreturn_t vl53l1x_irq_handler(int irq, void *priv)
 	struct vl53l1x_data *data = iio_priv(indio_dev);
 
 	if (iio_buffer_enabled(indio_dev))
-		iio_trigger_poll(indio_dev->trig);
+		iio_trigger_poll(data->trig);
 	else
 		complete(&data->completion);
 
@@ -707,6 +708,7 @@ static int vl53l1x_probe(struct i2c_client *client)
 		if (!trig)
 			return -ENOMEM;
 
+		data->trig = trig;
 		trig->ops = &vl53l1x_trigger_ops;
 		iio_trigger_set_drvdata(trig, indio_dev);
 		ret = devm_iio_trigger_register(dev, trig);
