@@ -14,15 +14,14 @@
 #include <drm/drm_drv.h>
 #include <drm/drm_print.h>
 #include <linux/atomic.h>
+#include <linux/bitfield.h>
 #include <linux/bitops.h>
+#include <linux/bits.h>
 #include <linux/dma-mapping.h>
 #include <linux/kmemleak.h>
 #include <linux/minmax.h>
 #include <linux/property.h>
 #include <linux/sizes.h>
-
-#define PVR_SHIFT_FROM_SIZE(size_) (__builtin_ctzll(size_))
-#define PVR_MASK_FROM_SIZE(size_) (~((size_) - U64_C(1)))
 
 /*
  * The value of the device page size (%PVR_DEVICE_PAGE_SIZE) is currently
@@ -32,35 +31,31 @@
  */
 #if (PVR_DEVICE_PAGE_SIZE == SZ_4K)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_4KB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_4KB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_4KB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_4KB_RANGE_MASK
 #elif (PVR_DEVICE_PAGE_SIZE == SZ_16K)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_16KB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_16KB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_16KB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_16KB_RANGE_MASK
 #elif (PVR_DEVICE_PAGE_SIZE == SZ_64K)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_64KB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_64KB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_64KB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_64KB_RANGE_MASK
 #elif (PVR_DEVICE_PAGE_SIZE == SZ_256K)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_256KB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_256KB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_256KB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_256KB_RANGE_MASK
 #elif (PVR_DEVICE_PAGE_SIZE == SZ_1M)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_1MB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_1MB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_1MB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_1MB_RANGE_MASK
 #elif (PVR_DEVICE_PAGE_SIZE == SZ_2M)
 # define ROGUE_MMUCTRL_PAGE_SIZE_X ROGUE_MMUCTRL_PAGE_SIZE_2MB
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT ROGUE_MMUCTRL_PAGE_2MB_RANGE_SHIFT
-# define ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK ROGUE_MMUCTRL_PAGE_2MB_RANGE_CLRMSK
+# define ROGUE_MMUCTRL_PAGE_X_RANGE_MASK ROGUE_MMUCTRL_PAGE_2MB_RANGE_MASK
 #else
 # error Unsupported device page size PVR_DEVICE_PAGE_SIZE
 #endif
 
+#define ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT __bf_shf(ROGUE_MMUCTRL_PAGE_X_RANGE_MASK)
+
 #define ROGUE_MMUCTRL_ENTRIES_PT_VALUE_X   \
 	(ROGUE_MMUCTRL_ENTRIES_PT_VALUE >> \
-	 (PVR_DEVICE_PAGE_SHIFT - PVR_SHIFT_FROM_SIZE(SZ_4K)))
+	 (PVR_DEVICE_PAGE_SHIFT - __builtin_ctzll(SZ_4K)))
 
 enum pvr_mmu_sync_level {
 	PVR_MMU_SYNC_LEVEL_NONE = -1,
@@ -379,19 +374,6 @@ pvr_mmu_backing_page_sync(struct pvr_mmu_backing_page *page, u32 flags)
  * DOC: Raw page tables
  */
 
-#define PVR_PAGE_TABLE_TYPEOF_ENTRY(level_) \
-	typeof_member(struct pvr_page_table_l##level_##_entry_raw, val)
-
-#define PVR_PAGE_TABLE_FIELD_GET(level_, name_, field_, entry_)           \
-	(((entry_).val &                                           \
-	  ~ROGUE_MMUCTRL_##name_##_DATA_##field_##_CLRMSK) >> \
-	 ROGUE_MMUCTRL_##name_##_DATA_##field_##_SHIFT)
-
-#define PVR_PAGE_TABLE_FIELD_PREP(level_, name_, field_, val_)            \
-	((((PVR_PAGE_TABLE_TYPEOF_ENTRY(level_))(val_))            \
-	  << ROGUE_MMUCTRL_##name_##_DATA_##field_##_SHIFT) & \
-	 ~ROGUE_MMUCTRL_##name_##_DATA_##field_##_CLRMSK)
-
 /**
  * struct pvr_page_table_l2_entry_raw - A single entry in a level 2 page table.
  * @val: The raw value of this entry.
@@ -432,7 +414,7 @@ static_assert(sizeof(struct pvr_page_table_l2_entry_raw) * 8 ==
 static bool
 pvr_page_table_l2_entry_raw_is_valid(struct pvr_page_table_l2_entry_raw entry)
 {
-	return PVR_PAGE_TABLE_FIELD_GET(2, PC, VALID, entry);
+	return FIELD_GET(ROGUE_MMUCTRL_PC_DATA_VALID, entry.val);
 }
 
 /**
@@ -443,18 +425,18 @@ pvr_page_table_l2_entry_raw_is_valid(struct pvr_page_table_l2_entry_raw entry)
  *                        associated with @entry.
  *
  * When calling this function, @child_table_dma_addr must be a valid DMA
- * address and a multiple of %ROGUE_MMUCTRL_PC_DATA_PD_BASE_ALIGNSIZE.
+ * address and a multiple of 1 << %ROGUE_MMUCTRL_PC_DATA_PD_BASE_ALIGN (4 KiB).
  */
 static void
 pvr_page_table_l2_entry_raw_set(struct pvr_page_table_l2_entry_raw *entry,
 				dma_addr_t child_table_dma_addr)
 {
-	child_table_dma_addr >>= ROGUE_MMUCTRL_PC_DATA_PD_BASE_ALIGNSHIFT;
+	child_table_dma_addr >>= ROGUE_MMUCTRL_PC_DATA_PD_BASE_ALIGN;
 
 	WRITE_ONCE(entry->val,
-		   PVR_PAGE_TABLE_FIELD_PREP(2, PC, VALID, true) |
-		   PVR_PAGE_TABLE_FIELD_PREP(2, PC, ENTRY_PENDING, false) |
-		   PVR_PAGE_TABLE_FIELD_PREP(2, PC, PD_BASE, child_table_dma_addr));
+		   FIELD_PREP(ROGUE_MMUCTRL_PC_DATA_VALID, true) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PC_DATA_ENTRY_PENDING, false) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PC_DATA_PD_BASE_MASK, child_table_dma_addr));
 }
 
 static void
@@ -555,7 +537,7 @@ static_assert(sizeof(struct pvr_page_table_l1_entry_raw) * 8 ==
 static bool
 pvr_page_table_l1_entry_raw_is_valid(struct pvr_page_table_l1_entry_raw entry)
 {
-	return PVR_PAGE_TABLE_FIELD_GET(1, PD, VALID, entry);
+	return FIELD_GET(ROGUE_MMUCTRL_PD_DATA_VALID, entry.val);
 }
 
 /**
@@ -573,9 +555,9 @@ pvr_page_table_l1_entry_raw_set(struct pvr_page_table_l1_entry_raw *entry,
 				dma_addr_t child_table_dma_addr)
 {
 	WRITE_ONCE(entry->val,
-		   PVR_PAGE_TABLE_FIELD_PREP(1, PD, VALID, true) |
-		   PVR_PAGE_TABLE_FIELD_PREP(1, PD, ENTRY_PENDING, false) |
-		   PVR_PAGE_TABLE_FIELD_PREP(1, PD, PAGE_SIZE, ROGUE_MMUCTRL_PAGE_SIZE_X) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PD_DATA_VALID, true) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PD_DATA_ENTRY_PENDING, false) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PD_DATA_PAGE_SIZE_MASK, ROGUE_MMUCTRL_PAGE_SIZE_X) |
 		   /*
 		    * The use of a 4K-specific macro here is correct. It is
 		    * a future optimization to allocate sub-host-page-sized
@@ -583,7 +565,7 @@ pvr_page_table_l1_entry_raw_set(struct pvr_page_table_l1_entry_raw *entry,
 		    * page table address is aligned to the size of the
 		    * largest (a 4KB) table currently holds.
 		    */
-		   (child_table_dma_addr & ~ROGUE_MMUCTRL_PT_BASE_4KB_RANGE_CLRMSK));
+		   (child_table_dma_addr & ROGUE_MMUCTRL_PT_BASE_4KB_RANGE_MASK));
 }
 
 static void
@@ -715,7 +697,7 @@ static_assert(sizeof(struct pvr_page_flags_raw) ==
 static bool
 pvr_page_table_l0_entry_raw_is_valid(struct pvr_page_table_l0_entry_raw entry)
 {
-	return PVR_PAGE_TABLE_FIELD_GET(0, PT, VALID, entry);
+	return FIELD_GET(ROGUE_MMUCTRL_PT_DATA_VALID, entry.val);
 }
 
 /**
@@ -737,10 +719,11 @@ pvr_page_table_l0_entry_raw_set(struct pvr_page_table_l0_entry_raw *entry,
 				dma_addr_t dma_addr,
 				struct pvr_page_flags_raw flags)
 {
-	WRITE_ONCE(entry->val, PVR_PAGE_TABLE_FIELD_PREP(0, PT, VALID, true) |
-			       PVR_PAGE_TABLE_FIELD_PREP(0, PT, ENTRY_PENDING, false) |
-			       (dma_addr & ~ROGUE_MMUCTRL_PAGE_X_RANGE_CLRMSK) |
-			       flags.val.val);
+	WRITE_ONCE(entry->val,
+		   FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_VALID, true) |
+		   FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_ENTRY_PENDING, false) |
+		   (dma_addr & ROGUE_MMUCTRL_PAGE_X_RANGE_MASK) |
+		   flags.val.val);
 }
 
 static void
@@ -773,10 +756,10 @@ pvr_page_flags_raw_create(bool read_only, bool cache_coherent, bool slc_bypass,
 	struct pvr_page_flags_raw flags;
 
 	flags.val.val =
-		PVR_PAGE_TABLE_FIELD_PREP(0, PT, READ_ONLY, read_only) |
-		PVR_PAGE_TABLE_FIELD_PREP(0, PT, CC, cache_coherent) |
-		PVR_PAGE_TABLE_FIELD_PREP(0, PT, SLC_BYPASS_CTRL, slc_bypass) |
-		PVR_PAGE_TABLE_FIELD_PREP(0, PT, PM_META_PROTECT, pm_fw_protect);
+		FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_READ_ONLY, read_only) |
+		FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_CC, cache_coherent) |
+		FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_SLC_BYPASS_CTRL, slc_bypass) |
+		FIELD_PREP(ROGUE_MMUCTRL_PT_DATA_PM_META_PROTECT, pm_fw_protect);
 
 	return flags;
 }
@@ -1672,8 +1655,7 @@ pvr_page_table_l0_remove(struct pvr_mmu_op_context *op_ctx)
 static u16
 pvr_page_table_l2_idx(u64 device_addr)
 {
-	return (device_addr & ~ROGUE_MMUCTRL_VADDR_PC_INDEX_CLRMSK) >>
-	       ROGUE_MMUCTRL_VADDR_PC_INDEX_SHIFT;
+	return FIELD_GET(ROGUE_MMUCTRL_VADDR_PC_INDEX_MASK, device_addr);
 }
 
 /**
@@ -1691,8 +1673,7 @@ pvr_page_table_l2_idx(u64 device_addr)
 static u16
 pvr_page_table_l1_idx(u64 device_addr)
 {
-	return (device_addr & ~ROGUE_MMUCTRL_VADDR_PD_INDEX_CLRMSK) >>
-	       ROGUE_MMUCTRL_VADDR_PD_INDEX_SHIFT;
+	return FIELD_GET(ROGUE_MMUCTRL_VADDR_PD_INDEX_MASK, device_addr);
 }
 
 /**
@@ -1710,8 +1691,8 @@ pvr_page_table_l1_idx(u64 device_addr)
 static u16
 pvr_page_table_l0_idx(u64 device_addr)
 {
-	return (device_addr & ~ROGUE_MMUCTRL_VADDR_PT_INDEX_CLRMSK) >>
-	       ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT;
+	return (device_addr & ROGUE_MMUCTRL_VADDR_PT_INDEX_MASK)
+		>> ROGUE_MMUCTRL_PAGE_X_RANGE_SHIFT;
 }
 
 /**
