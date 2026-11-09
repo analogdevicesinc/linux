@@ -60,25 +60,40 @@ fan reported by fanN_input.
 pwmN_enable selects the fan control mode:
 
   * 1: manual mode, the duty cycle is set with pwmN
-  * 2: automatic mode, using the fan curve configured in the BIOS
+  * 2: automatic mode, using the current fan curve
 
 pwmN can only be written in manual mode. Switching to manual mode keeps the
 current duty cycle.
 
-For each fan with a pwmN_enable attribute, the fan curve configured in the
-BIOS setup is reported with the following read-only attributes, if the
-curve sets a duty cycle:
+For each fan with a pwmN_enable attribute, the fan curve is reported with
+the following attributes, if the curve sets a duty cycle:
 
   * pwmN_auto_point[1-7]_temp: temperature of the curve point, in
     millidegrees Celsius
   * pwmN_auto_point[1-7]_pwm: duty cycle of the curve point (0-255)
   * pwmN_auto_channels_temp: temperature channels used by the curve, as a
-    bitmap (1 is temp1, 2 is temp2, 4 is temp3 etc.)
+    bitmap (1 is temp1, 2 is temp2, 4 is temp3 etc.), read-only
 
-A fan with Smart Fan disabled in the BIOS setup has a flat curve, with its
-fixed duty cycle at all points. The curve is read from the EC on each
-access. Reading pwmN_auto_channels_temp returns -ENODATA if the curve uses
-a temperature source which the driver does not report.
+The fan curve is initially the one configured in the BIOS setup. A fan with
+Smart Fan disabled in the BIOS setup has a flat curve, with its fixed duty
+cycle at all points. The curve is read from the EC on each access. Reading
+pwmN_auto_channels_temp returns -ENODATA if the curve uses a temperature
+source which the driver does not report.
+
+The curve points are writable if, when the driver is loaded, the
+temperatures and the duty cycles of the curve do not decrease and the
+temperatures are at most 127 degrees Celsius; otherwise they are
+read-only. They can be written in manual and in automatic mode. In manual
+mode, a new curve is used after switching to automatic mode. Writing a
+point returns -EIO if the curve no longer meets these conditions or if the
+EC does not take the new curve. Temperatures are clamped to 0-127 degrees
+Celsius and duty cycles to 0-255, and both to the values of the adjacent
+points, so the points have to be written from point 7 to point 1 to raise
+a curve and from point 1 to point 7 to lower it.
+
+The BIOS may restore its own settings when resuming from suspend, so the
+driver restores the curves written through it. They are kept when the
+driver is unloaded.
 
 Tested Boards and Firmware Versions
 -----------------------------------
