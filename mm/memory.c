@@ -7650,27 +7650,30 @@ static inline int process_huge_page(
 }
 
 static void clear_contig_highpages(struct page *page, unsigned long addr,
-				   unsigned int nr_pages)
+		unsigned int nr_pages)
 {
-	unsigned int i, count;
+	unsigned int i;
+
+	might_sleep();
+
 	/*
 	 * When clearing we want to operate on the largest extent possible to
 	 * allow for architecture specific extent based optimizations.
 	 *
-	 * However, since clear_user_highpages() (and primitives clear_user_pages(),
-	 * clear_pages()), do not call cond_resched(), limit the unit size when
-	 * running under non-preemptible scheduling models.
+	 * clear_user_highpages() (and primitives clear_user_pages(),
+	 * clear_pages()) do not call cond_resched(). That is fine on
+	 * preemptible kernels, where the scheduler can preempt the clearing
+	 * at any point, so clear the whole range at once. Otherwise, clear
+	 * one page at a time and reschedule in between.
 	 */
-	const unsigned int unit = preempt_model_preemptible() ?
-				   nr_pages : PROCESS_PAGES_NON_PREEMPT_BATCH;
+	if (IS_ENABLED(CONFIG_PREEMPTION)) {
+		clear_user_highpages(page, addr, nr_pages);
+		return;
+	}
 
-	might_sleep();
-
-	for (i = 0; i < nr_pages; i += count) {
+	for (i = 0; i < nr_pages; i++) {
 		cond_resched();
-
-		count = min(unit, nr_pages - i);
-		clear_user_highpages(page + i, addr + i * PAGE_SIZE, count);
+		clear_user_highpage(page + i, addr + i * PAGE_SIZE);
 	}
 }
 
