@@ -94,6 +94,7 @@ struct jit_ctx {
 	bool fp_used;
 	bool priv_sp_used;
 	bool write;
+	unsigned long *tb;
 };
 
 struct bpf_plt {
@@ -125,24 +126,47 @@ static inline void emit_u32_data(const u32 data, struct jit_ctx *ctx)
 	ctx->idx++;
 }
 
+/*
+ * A 32-bit immediate, sign extended for the 64-bit variant: one movz, movn or
+ * orr where one encodes it, else a movz or movn and a movk.
+ */
 static inline void emit_a64_mov_i(const int is64, const int reg,
 				  const s32 val, struct jit_ctx *ctx)
 {
 	u16 hi = val >> 16;
 	u16 lo = val & 0xffff;
+	u32 insn;
+
+	if (hi == 0xffff) {
+		emit(A64_MOVN(is64, reg, (u16)~lo, 0), ctx);
+		return;
+	}
+	if (!hi) {
+		emit(A64_MOVZ(is64, reg, lo, 0), ctx);
+		return;
+	}
+	/* The 64-bit variant has the upper half set or clear with the sign */
+	if (!lo && (!is64 || !(hi & 0x8000))) {
+		emit(A64_MOVZ(is64, reg, hi, 16), ctx);
+		return;
+	}
+	if (lo == 0xffff && (!is64 || (hi & 0x8000))) {
+		emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
+		return;
+	}
+
+	insn = A64_ORR_I(is64, reg, A64_ZR, val);
+	if (insn != AARCH64_BREAK_FAULT) {
+		emit(insn, ctx);
+		return;
+	}
 
 	if (hi & 0x8000) {
-		if (hi == 0xffff) {
-			emit(A64_MOVN(is64, reg, (u16)~lo, 0), ctx);
-		} else {
-			emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
-			if (lo != 0xffff)
-				emit(A64_MOVK(is64, reg, lo, 0), ctx);
-		}
+		emit(A64_MOVN(is64, reg, (u16)~hi, 16), ctx);
+		emit(A64_MOVK(is64, reg, lo, 0), ctx);
 	} else {
 		emit(A64_MOVZ(is64, reg, lo, 0), ctx);
-		if (hi)
-			emit(A64_MOVK(is64, reg, hi, 16), ctx);
+		emit(A64_MOVK(is64, reg, hi, 16), ctx);
 	}
 }
 
@@ -170,10 +194,42 @@ static inline void emit_a64_mov_i64(const int reg, const u64 val,
 {
 	u64 nrm_tmp = val, rev_tmp = ~val;
 	bool inverse;
-	int shift;
+	u32 insn;
+	int shift, blocks;
 
 	if (!(nrm_tmp >> 32))
 		return emit_a64_mov_i(0, reg, (u32)val, ctx);
+	if ((s64)(s32)val == (s64)val)
+		return emit_a64_mov_i(1, reg, (s32)val, ctx);
+
+	/* A bitmask immediate in a single orr */
+	insn = A64_ORR_I(1, reg, A64_ZR, val);
+	if (insn != AARCH64_BREAK_FAULT)
+		return emit(insn, ctx);
+
+	/*
+	 * A 16-bit chunk occurring more than once whose replication is a
+	 * bitmask immediate comes from one orr, with a movk for each of
+	 * the other chunks, when that beats the moves of the chunks.
+	 */
+	blocks = min(i64_i16_blocks(nrm_tmp, true), i64_i16_blocks(nrm_tmp, false));
+	for (shift = 0; shift < 64; shift += 16) {
+		u16 chunk = val >> shift;
+		int i, n = 0;
+
+		for (i = 0; i < 64; i += 16)
+			n += (u16)(val >> i) == chunk;
+		if (n < 2 || 1 + 4 - n >= blocks)
+			continue;
+		insn = A64_ORR_I(1, reg, A64_ZR, chunk * 0x0001000100010001ULL);
+		if (insn == AARCH64_BREAK_FAULT)
+			continue;
+		emit(insn, ctx);
+		for (i = 0; i < 64; i += 16)
+			if ((u16)(val >> i) != chunk)
+				emit(A64_MOVK(1, reg, (u16)(val >> i), i), ctx);
+		return;
+	}
 
 	inverse = i64_i16_blocks(nrm_tmp, true) < i64_i16_blocks(nrm_tmp, false);
 	shift = max(round_down((inverse ? (fls64(rev_tmp) - 1) :
@@ -268,6 +324,12 @@ static inline int bpf2a64_offset(int bpf_insn, int off,
 	/* BPF JMP offset is relative to the next instruction */
 	bpf_insn++;
 	/*
+	 * A branch back counts from itself, as the offsets from the next
+	 * instruction on are not yet those of this pass.
+	 */
+	if (off < 0)
+		return ctx->offset[bpf_insn + off] - ctx->idx;
+	/*
 	 * Whereas arm64 branch instructions encode the offset
 	 * from the branch itself, so we must subtract 1 from the
 	 * instruction offset.
@@ -357,6 +419,358 @@ static bool is_lsi_offset(int offset, int scale)
 		return false;
 
 	return true;
+}
+
+/* The unscaled forms take a signed 9-bit byte offset instead */
+static bool is_lsu_offset(int offset)
+{
+	return offset >= -SZ_256 && offset < SZ_256;
+}
+
+/* The A64 size of a BPF load or store, and the scale of its offset */
+static enum aarch64_insn_size_type a64_ldst_size(const u8 code, int *scale)
+{
+	switch (BPF_SIZE(code)) {
+	case BPF_B:
+		*scale = 0;
+		return AARCH64_INSN_SIZE_8;
+	case BPF_H:
+		*scale = 1;
+		return AARCH64_INSN_SIZE_16;
+	case BPF_W:
+		*scale = 2;
+		return AARCH64_INSN_SIZE_32;
+	default:
+		*scale = 3;
+		return AARCH64_INSN_SIZE_64;
+	}
+}
+
+/* The forms of a load or store: scaled unsigned immediate, unscaled, register offset */
+enum a64_ldst_form { A64_LDST_IMM, A64_LDST_UNSCALED, A64_LDST_REG };
+
+/* The A64 type of a BPF load or store in the given form */
+static enum aarch64_insn_ldst_type a64_ldst_type(const u8 code, enum a64_ldst_form form)
+{
+	static const enum aarch64_insn_ldst_type types[][3] = {
+		[A64_LDST_IMM] = {
+			AARCH64_INSN_LDST_LOAD_IMM_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_IMM_OFFSET,
+			AARCH64_INSN_LDST_STORE_IMM_OFFSET,
+		},
+		[A64_LDST_UNSCALED] = {
+			AARCH64_INSN_LDST_LOAD_UNSCALED_IMM_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_UNSCALED_IMM_OFFSET,
+			AARCH64_INSN_LDST_STORE_UNSCALED_IMM_OFFSET,
+		},
+		[A64_LDST_REG] = {
+			AARCH64_INSN_LDST_LOAD_REG_OFFSET,
+			AARCH64_INSN_LDST_SIGNED_LOAD_REG_OFFSET,
+			AARCH64_INSN_LDST_STORE_REG_OFFSET,
+		},
+	};
+
+	if (BPF_CLASS(code) != BPF_LDX)
+		return types[form][2];
+	if (BPF_MODE(code) == BPF_MEMSX || BPF_MODE(code) == BPF_PROBE_MEMSX ||
+	    BPF_MODE(code) == BPF_PROBE_MEM32SX)
+		return types[form][1];
+	return types[form][0];
+}
+
+/*
+ * Load or store of a BPF access size at rn + off, from the (private) stack
+ * pointer with the frame size added for the frame pointer, which the register
+ * offset form keeps.
+ */
+static void emit_ldst(const u8 code, const u8 rt, const u8 rn, const s32 off,
+		      const u8 tmp, struct jit_ctx *ctx)
+{
+	enum aarch64_insn_size_type size;
+	enum aarch64_insn_ldst_type type;
+	s32 off_adj = off;
+	u8 rn_adj = rn;
+	int scale;
+
+	size = a64_ldst_size(code, &scale);
+	if (rn == bpf2a64[BPF_REG_FP]) {
+		if (ctx->priv_sp_used) {
+			rn_adj = bpf2a64[PRIVATE_SP];
+			off_adj += ctx->stack_size;
+		} else {
+			rn_adj = A64_SP;
+			off_adj += ctx->stack_size + ctx->stack_arg_size;
+		}
+	}
+
+	if (is_lsi_offset(off_adj, scale)) {
+		type = a64_ldst_type(code, A64_LDST_IMM);
+		emit(aarch64_insn_gen_load_store_imm(rt, rn_adj, off_adj, size, type), ctx);
+	} else if (is_lsu_offset(off_adj)) {
+		type = a64_ldst_type(code, A64_LDST_UNSCALED);
+		emit(aarch64_insn_gen_load_store_unscaled(rt, rn_adj, off_adj, size, type), ctx);
+	} else {
+		type = a64_ldst_type(code, A64_LDST_REG);
+		emit_a64_mov_i(1, tmp, off, ctx);
+		emit(aarch64_insn_gen_load_store_reg(rt, rn, tmp, AARCH64_INSN_EXTEND_UXTX,
+						     0, size, type), ctx);
+	}
+}
+
+/*
+ * Load or store at the arena base, plus off added into tmp_addr, plus reg zero
+ * extended from 32 bits in the access, which keeps it in the arena and its
+ * guard whatever the upper bits of reg hold.
+ */
+static void emit_arena_ldst(const u8 code, const u8 rt, const u8 reg, const s32 off,
+			    const u8 tmp_addr, const u8 tmp, struct jit_ctx *ctx)
+{
+	u8 base = bpf2a64[ARENA_VM_START];
+	int scale;
+
+	if (off) {
+		emit_a64_add_i(1, tmp_addr, base, tmp, off, ctx);
+		base = tmp_addr;
+	}
+	emit(aarch64_insn_gen_load_store_reg(rt, base, reg, AARCH64_INSN_EXTEND_UXTW,
+					     0, a64_ldst_size(code, &scale),
+					     a64_ldst_type(code, A64_LDST_REG)), ctx);
+}
+
+/*
+ * Compare against C - 1 or C + 1 with the adjusted condition when C does not
+ * encode, for the masks and powers of two plus one that LLVM's x >= C to
+ * x > C - 1 and x <= C to x < C + 1 bring here.
+ */
+static bool adjust_cmp_imm(u8 *op, s32 *imm)
+{
+	s64 c = *imm;
+	u8 new_op;
+
+	switch (*op) {
+	case BPF_JLT:
+	case BPF_JGE:
+		if (!c)
+			return false;
+		fallthrough;
+	case BPF_JSLT:
+	case BPF_JSGE:
+		c--;
+		break;
+	case BPF_JGT:
+	case BPF_JLE:
+		if (c == -1)
+			return false;
+		fallthrough;
+	case BPF_JSGT:
+	case BPF_JSLE:
+		c++;
+		break;
+	default:
+		return false;
+	}
+	/* Past a signed limit the neighbor does not fit the 32-bit immediate */
+	if (c != (s32)c || (!is_addsub_imm(c) && !is_addsub_imm(-(u32)c)))
+		return false;
+
+	switch (*op) {
+	case BPF_JLT:
+		new_op = BPF_JLE;
+		break;
+	case BPF_JGE:
+		new_op = BPF_JGT;
+		break;
+	case BPF_JSLT:
+		new_op = BPF_JSLE;
+		break;
+	case BPF_JSGE:
+		new_op = BPF_JSGT;
+		break;
+	case BPF_JGT:
+		new_op = BPF_JGE;
+		break;
+	case BPF_JLE:
+		new_op = BPF_JLT;
+		break;
+	case BPF_JSGT:
+		new_op = BPF_JSGE;
+		break;
+	default:
+		new_op = BPF_JSLT;
+		break;
+	}
+	*op = new_op;
+	*imm = c;
+	return true;
+}
+
+/*
+ * The bit that a sign test, an unsigned 32-bit compare at the sign bit or a
+ * single bit test checks, with *nonzero set if it branches on a set bit, or -1.
+ */
+static int tb_bit(u8 op, bool is64, s32 imm, bool *nonzero)
+{
+	const int sign = is64 ? 63 : 31;
+	u64 mask;
+
+	switch (op) {
+	case BPF_JSLT:
+	case BPF_JSGE:
+		/* x < 0, x >= 0 */
+		if (imm)
+			return -1;
+		*nonzero = op == BPF_JSLT;
+		return sign;
+	case BPF_JSGT:
+	case BPF_JSLE:
+		/* x > -1, x <= -1 */
+		if (imm != -1)
+			return -1;
+		*nonzero = op == BPF_JSLE;
+		return sign;
+	case BPF_JGT:
+	case BPF_JLE:
+		/* x > 0x7fffffff, x <= 0x7fffffff in 32 bits */
+		if (is64 || imm != 0x7fffffff)
+			return -1;
+		*nonzero = op == BPF_JGT;
+		return 31;
+	case BPF_JGE:
+	case BPF_JLT:
+		/* x >= 0x80000000, x < 0x80000000 in 32 bits */
+		if (is64 || imm != INT_MIN)
+			return -1;
+		*nonzero = op == BPF_JGE;
+		return 31;
+	case BPF_JSET:
+		mask = is64 ? (u64)(s64)imm : (u32)imm;
+		if (!is_power_of_2(mask))
+			return -1;
+		*nonzero = true;
+		return ilog2(mask);
+	default:
+		return -1;
+	}
+}
+
+/*
+ * Pass 1 takes the compare and branch for every test and the indirect form for
+ * every call, no later layout is longer, so a test within reach of the test bit
+ * and branch there is within reach in every image.
+ */
+static void find_tb(struct jit_ctx *ctx)
+{
+	const struct bpf_prog *prog = ctx->prog;
+	bool nonzero;
+	int i, d;
+
+	for (i = 0; i < prog->len; i++) {
+		const struct bpf_insn *insn = &prog->insnsi[i];
+		const u8 class = BPF_CLASS(insn->code);
+
+		if ((class != BPF_JMP && class != BPF_JMP32) ||
+		    BPF_SRC(insn->code) != BPF_K)
+			continue;
+		if (tb_bit(BPF_OP(insn->code), class == BPF_JMP, insn->imm, &nonzero) < 0)
+			continue;
+		d = ctx->offset[i + 1 + insn->off] - (ctx->offset[i + 1] - 1);
+		if (d >= -SZ_8K && d < SZ_8K)
+			__set_bit(i, ctx->tb);
+	}
+}
+
+static bool emit_tb(bool nonzero, u8 reg, int bit, int i, s16 off, struct jit_ctx *ctx)
+{
+	int jmp_offset;
+
+	if (!test_bit(i, ctx->tb))
+		return false;
+	jmp_offset = bpf2a64_offset(i, off, ctx);
+	if (nonzero)
+		emit(A64_TBNZ(reg, bit, jmp_offset), ctx);
+	else
+		emit(A64_TBZ(reg, bit, jmp_offset), ctx);
+	return true;
+}
+
+/*
+ * dst *= 2^n, 2^n + 1 or 2^n - 1, negated or, but for -(2^n + 1), times 2^m,
+ * in at most two shifts, adds or subs of two cycles, never slower than the
+ * mul. The low 32 bits of the product are those of the signed or unsigned imm.
+ */
+static bool emit_mul_const(bool is64, u8 dst, u8 tmp, s32 imm, struct jit_ctx *ctx)
+{
+	u64 c = imm < 0 ? -(u64)(s64)imm : imm;
+	int tz, n;
+
+	switch (imm) {
+	case 0:
+		emit_a64_mov_i(is64, dst, 0, ctx);
+		return true;
+	case 1:
+		/* The 32-bit variant still zero extends */
+		if (!is64)
+			emit(A64_MOV(0, dst, dst), ctx);
+		return true;
+	case -1:
+		emit(A64_NEG(is64, dst, dst), ctx);
+		return true;
+	}
+	/* The odd part of the magnitude and the power of two taken off it */
+	tz = __ffs(c);
+	c >>= tz;
+	if (c == 1) {
+		if (imm > 0)
+			emit(A64_LSL(is64, dst, dst, tz), ctx);
+		else
+			emit(A64_SUB_LSL(is64, dst, A64_ZR, dst, tz), ctx);
+		return true;
+	}
+	if (imm > 0) {
+		if (is_power_of_2(c - 1)) {
+			n = ilog2(c - 1);
+			/* The add of two cycles and the shift, three */
+			if (n > 4 && tz)
+				return false;
+			emit(A64_ADD_LSL(is64, dst, dst, dst, n), ctx);
+			if (tz)
+				emit(A64_LSL(is64, dst, dst, tz), ctx);
+			return true;
+		}
+		if (is_power_of_2(c + 1)) {
+			n = ilog2(c + 1);
+			/* The shift and the sub of two cycles, three */
+			if (tz > 4)
+				return false;
+			emit(A64_LSL(is64, tmp, dst, n + tz), ctx);
+			emit(A64_SUB_LSL(is64, dst, tmp, dst, tz), ctx);
+			return true;
+		}
+	} else {
+		if (is_power_of_2(c + 1)) {
+			n = ilog2(c + 1);
+			if (!tz) {
+				emit(A64_SUB_LSL(is64, dst, dst, dst, n), ctx);
+				return true;
+			}
+			/* The shift and the sub of two cycles, three */
+			if (n + tz > 4)
+				return false;
+			emit(A64_LSL(is64, tmp, dst, tz), ctx);
+			emit(A64_SUB_LSL(is64, dst, tmp, dst, n + tz), ctx);
+			return true;
+		}
+		if (!tz && is_power_of_2(c - 1)) {
+			n = ilog2(c - 1);
+			/* The add of two cycles and the neg, three */
+			if (n > 4)
+				return false;
+			emit(A64_ADD_LSL(is64, dst, dst, dst, n), ctx);
+			emit(A64_NEG(is64, dst, dst), ctx);
+			return true;
+		}
+	}
+	return false;
 }
 
 /* generated main prog prologue:
@@ -665,13 +1079,20 @@ static int emit_bpf_tail_call(struct jit_ctx *ctx)
 	__le32 *branch2 = NULL;
 	__le32 *branch3 = NULL;
 
-	/* if (index >= array->map.max_entries)
+	/* The struct offsets fit the immediate forms, the count fits cmp */
+	BUILD_BUG_ON(offsetof(struct bpf_array, map.max_entries) % 4 ||
+		     offsetof(struct bpf_array, map.max_entries) > 0xfff * 4);
+	BUILD_BUG_ON(offsetof(struct bpf_array, ptrs) > 0xfff);
+	BUILD_BUG_ON(offsetof(struct bpf_prog, bpf_func) % 8 ||
+		     offsetof(struct bpf_prog, bpf_func) > 0xfff * 8);
+	BUILD_BUG_ON(MAX_TAIL_CALL_CNT > 0xfff);
+
+	/*
+	 * if ((u32)index >= array->map.max_entries)
 	 *     goto out;
 	 */
 	off = offsetof(struct bpf_array, map.max_entries);
-	emit_a64_mov_i64(tmp, off, ctx);
-	emit(A64_LDR32(tmp, r2, tmp), ctx);
-	emit(A64_MOV(0, r3, r3), ctx);
+	emit(A64_LDR32I(tmp, r2, off), ctx);
 	emit(A64_CMP(0, r3, tmp), ctx);
 	branch1 = ctx->image + ctx->idx;
 	emit(A64_NOP, ctx);
@@ -680,9 +1101,8 @@ static int emit_bpf_tail_call(struct jit_ctx *ctx)
 	 * if ((*tail_call_cnt_ptr) >= MAX_TAIL_CALL_CNT)
 	 *     goto out;
 	 */
-	emit_a64_mov_i64(tmp, MAX_TAIL_CALL_CNT, ctx);
 	emit(A64_LDR64I(tcc, ptr, 0), ctx);
-	emit(A64_CMP(1, tcc, tmp), ctx);
+	emit(A64_CMP_I(1, tcc, MAX_TAIL_CALL_CNT), ctx);
 	branch2 = ctx->image + ctx->idx;
 	emit(A64_NOP, ctx);
 
@@ -694,10 +1114,8 @@ static int emit_bpf_tail_call(struct jit_ctx *ctx)
 	 *     goto out;
 	 */
 	off = offsetof(struct bpf_array, ptrs);
-	emit_a64_mov_i64(tmp, off, ctx);
-	emit(A64_ADD(1, tmp, r2, tmp), ctx);
-	emit(A64_LSL(1, prg, r3, 3), ctx);
-	emit(A64_LDR64(prg, tmp, prg), ctx);
+	emit(A64_ADD_I(1, tmp, r2, off), ctx);
+	emit(A64_LDR64_UXTW3(prg, tmp, r3), ctx);
 	branch3 = ctx->image + ctx->idx;
 	emit(A64_NOP, ctx);
 
@@ -715,8 +1133,7 @@ static int emit_bpf_tail_call(struct jit_ctx *ctx)
 
 	/* goto *(prog->bpf_func + prologue_offset); */
 	off = offsetof(struct bpf_prog, bpf_func);
-	emit_a64_mov_i64(tmp, off, ctx);
-	emit(A64_LDR64(tmp, prg, tmp), ctx);
+	emit(A64_LDR64I(tmp, prg, off), ctx);
 	emit(A64_ADD_I(1, tmp, tmp, sizeof(u32) * PROLOGUE_OFFSET), ctx);
 	emit(A64_BR(tmp), ctx);
 
@@ -744,6 +1161,7 @@ static int emit_atomic_ld_st(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const u8 dst = bpf2a64[insn->dst_reg];
 	const u8 src = bpf2a64[insn->src_reg];
 	const u8 tmp = bpf2a64[TMP_REG_1];
+	const u8 tmp2 = bpf2a64[TMP_REG_2];
 	u8 reg;
 
 	switch (imm) {
@@ -758,12 +1176,21 @@ static int emit_atomic_ld_st(const struct bpf_insn *insn, struct jit_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if (off) {
-		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
-		reg = tmp;
-	}
+	/*
+	 * The arena base with the offset first and the arena offset zero
+	 * extended onto it, see emit_arena_ldst()
+	 */
 	if (arena) {
-		emit(A64_ADD(1, tmp, reg, arena_vm_base), ctx);
+		u8 base = arena_vm_base;
+
+		if (off) {
+			emit_a64_add_i(1, tmp, base, tmp, off, ctx);
+			base = tmp;
+		}
+		emit(A64_ADD_UXTW(tmp2, base, reg), ctx);
+		reg = tmp2;
+	} else if (off) {
+		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
 		reg = tmp;
 	}
 
@@ -817,17 +1244,27 @@ static int emit_lse_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const u8 src = bpf2a64[insn->src_reg];
 	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 tmp2 = bpf2a64[TMP_REG_2];
+	const u8 tmp3 = bpf2a64[TMP_REG_3];
 	const bool isdw = BPF_SIZE(code) == BPF_DW;
 	const bool arena = BPF_MODE(code) == BPF_PROBE_ATOMIC;
 	const s16 off = insn->off;
 	u8 reg = dst;
 
-	if (off) {
-		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
-		reg = tmp;
-	}
+	/*
+	 * The arena base with the offset first and the arena offset zero
+	 * extended onto it, see emit_arena_ldst()
+	 */
 	if (arena) {
-		emit(A64_ADD(1, tmp, reg, arena_vm_base), ctx);
+		u8 base = arena_vm_base;
+
+		if (off) {
+			emit_a64_add_i(1, tmp, base, tmp, off, ctx);
+			base = tmp;
+		}
+		emit(A64_ADD_UXTW(tmp3, base, reg), ctx);
+		reg = tmp3;
+	} else if (off) {
+		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
 		reg = tmp;
 	}
 
@@ -888,6 +1325,7 @@ static int emit_ll_sc_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 	const s32 imm = insn->imm;
 	const s16 off = insn->off;
 	const bool isdw = BPF_SIZE(code) == BPF_DW;
+	const int load_reg = bpf_atomic_load_reg(insn);
 	u8 reg = dst;
 	s32 jmp_offset;
 
@@ -899,6 +1337,11 @@ static int emit_ll_sc_atomic(const struct bpf_insn *insn, struct jit_ctx *ctx)
 
 	if (off) {
 		emit_a64_add_i(1, tmp, reg, tmp, off, ctx);
+		reg = tmp;
+	}
+	/* The load of the old value must not clobber the address */
+	if (load_reg >= 0 && bpf2a64[load_reg] == reg) {
+		emit(A64_MOV(1, tmp, reg), ctx);
 		reg = tmp;
 	}
 
@@ -1044,7 +1487,7 @@ static void __maybe_unused build_bhb_mitigation(struct jit_ctx *ctx)
 		emit(A64_SUBS_I(true, r1, r1, 1), ctx);
 		emit(A64_B_(A64_COND_NE, -2), ctx);
 		emit(aarch64_insn_gen_dsb(AARCH64_INSN_MB_ISH), ctx);
-		emit(aarch64_insn_get_isb_value(), ctx);
+		emit(A64_ISB, ctx);
 	}
 
 	if (is_spectre_bhb_fw_mitigated()) {
@@ -1456,22 +1899,20 @@ static int build_insn(const struct bpf_verifier_env *env, const struct bpf_insn 
 	const u8 tmp = bpf2a64[TMP_REG_1];
 	const u8 tmp2 = bpf2a64[TMP_REG_2];
 	const u8 tmp3 = bpf2a64[TMP_REG_3];
-	const u8 fp = bpf2a64[BPF_REG_FP];
-	const u8 arena_vm_base = bpf2a64[ARENA_VM_START];
-	const u8 priv_sp = bpf2a64[PRIVATE_SP];
 	const s16 off = insn->off;
 	const s32 imm = insn->imm;
 	const int i = insn - ctx->prog->insnsi;
 	const bool is64 = BPF_CLASS(code) == BPF_ALU64 ||
 			  BPF_CLASS(code) == BPF_JMP;
+	u8 jmp_op = BPF_OP(code);
+	s32 cmp_imm = imm;
 	u8 jmp_cond;
 	s32 jmp_offset;
 	u32 a64_insn;
-	u8 src_adj;
-	u8 dst_adj;
 	int off_adj;
+	bool nonzero;
+	int bit;
 	int ret;
-	bool sign_extend;
 
 	if (bpf_insn_is_indirect_target(env, ctx->prog, i))
 		emit_bti(A64_BTI_J, ctx);
@@ -1642,6 +2083,12 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_AND | BPF_K:
 	case BPF_ALU64 | BPF_AND | BPF_K:
+		/* All ones only zero extends the 32-bit variant */
+		if (imm == -1) {
+			if (!is64)
+				emit(A64_MOV(0, dst, dst), ctx);
+			break;
+		}
 		a64_insn = A64_AND_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1652,6 +2099,11 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_OR | BPF_K:
 	case BPF_ALU64 | BPF_OR | BPF_K:
+		/* The or with all ones is the move of -1 */
+		if (imm == -1) {
+			emit(A64_MOVN(is64, dst, 0, 0), ctx);
+			break;
+		}
 		a64_insn = A64_ORR_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1662,6 +2114,11 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_XOR | BPF_K:
 	case BPF_ALU64 | BPF_XOR | BPF_K:
+		/* The xor with all ones is the not */
+		if (imm == -1) {
+			emit(A64_MVN(is64, dst, dst), ctx);
+			break;
+		}
 		a64_insn = A64_EOR_I(is64, dst, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1672,8 +2129,10 @@ emit_bswap_uxt:
 		break;
 	case BPF_ALU | BPF_MUL | BPF_K:
 	case BPF_ALU64 | BPF_MUL | BPF_K:
-		emit_a64_mov_i(is64, tmp, imm, ctx);
-		emit_a64_mul(is64, dst, tmp, off, ctx);
+		if (off || !emit_mul_const(is64, dst, tmp, imm, ctx)) {
+			emit_a64_mov_i(is64, tmp, imm, ctx);
+			emit_a64_mul(is64, dst, tmp, off, ctx);
+		}
 		break;
 	case BPF_ALU | BPF_DIV | BPF_K:
 	case BPF_ALU64 | BPF_DIV | BPF_K:
@@ -1744,7 +2203,7 @@ emit_bswap_uxt:
 emit_cond_jmp:
 		jmp_offset = bpf2a64_offset(i, off, ctx);
 		check_imm19(jmp_offset);
-		switch (BPF_OP(code)) {
+		switch (jmp_op) {
 		case BPF_JEQ:
 			jmp_cond = A64_COND_EQ;
 			break;
@@ -1806,17 +2265,37 @@ emit_cond_jmp:
 	case BPF_JMP32 | BPF_JSLT | BPF_K:
 	case BPF_JMP32 | BPF_JSGE | BPF_K:
 	case BPF_JMP32 | BPF_JSLE | BPF_K:
-		if (is_addsub_imm(imm)) {
-			emit(A64_CMP_I(is64, dst, imm), ctx);
-		} else if (is_addsub_imm(-(u32)imm)) {
-			emit(A64_CMN_I(is64, dst, -imm), ctx);
+		/* A test of the sign within reach is a test bit and branch */
+		bit = tb_bit(jmp_op, is64, imm, &nonzero);
+		if (bit >= 0 && emit_tb(nonzero, dst, bit, i, off, ctx))
+			break;
+		/* A compare against zero for equality is a compare and branch */
+		if (!imm && (jmp_op == BPF_JEQ || jmp_op == BPF_JNE)) {
+			jmp_offset = bpf2a64_offset(i, off, ctx);
+			check_imm19(jmp_offset);
+			if (jmp_op == BPF_JEQ)
+				emit(A64_CBZ(is64, dst, jmp_offset), ctx);
+			else
+				emit(A64_CBNZ(is64, dst, jmp_offset), ctx);
+			break;
+		}
+		if (!is_addsub_imm(imm) && !is_addsub_imm(-(u32)imm))
+			adjust_cmp_imm(&jmp_op, &cmp_imm);
+		if (is_addsub_imm(cmp_imm)) {
+			emit(A64_CMP_I(is64, dst, cmp_imm), ctx);
+		} else if (is_addsub_imm(-(u32)cmp_imm)) {
+			emit(A64_CMN_I(is64, dst, -cmp_imm), ctx);
 		} else {
-			emit_a64_mov_i(is64, tmp, imm, ctx);
+			emit_a64_mov_i(is64, tmp, cmp_imm, ctx);
 			emit(A64_CMP(is64, dst, tmp), ctx);
 		}
 		goto emit_cond_jmp;
 	case BPF_JMP | BPF_JSET | BPF_K:
 	case BPF_JMP32 | BPF_JSET | BPF_K:
+		/* A test of a single bit within reach is a test bit and branch */
+		bit = tb_bit(jmp_op, is64, imm, &nonzero);
+		if (bit >= 0 && emit_tb(nonzero, dst, bit, i, off, ctx))
+			break;
 		a64_insn = A64_TST_I(is64, dst, imm);
 		if (a64_insn != AARCH64_BREAK_FAULT) {
 			emit(a64_insn, ctx);
@@ -1959,20 +2438,7 @@ emit_cond_jmp:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_B:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_H:
 	case BPF_LDX | BPF_PROBE_MEM32SX | BPF_W:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32 ||
-		    BPF_MODE(insn->code) == BPF_PROBE_MEM32SX) {
-			emit(A64_ADD(1, tmp2, src, arena_vm_base), ctx);
-			src = tmp2;
-		}
-		if (src == fp) {
-			src_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			src_adj = src;
-			off_adj = off;
-		}
+		off_adj = off;
 		if (BPF_MODE(insn->code) == BPF_PROBE_MEM ||
 		    BPF_MODE(insn->code) == BPF_PROBE_MEMSX) {
 			/*
@@ -1983,69 +2449,19 @@ emit_cond_jmp:
 			 */
 			if (off) {
 				emit_a64_add_i(1, tmp2, src, tmp, off, ctx);
-				src_adj = tmp2;
+				src = tmp2;
 				off_adj = 0;
 			}
-			emit(A64_TST_I(1, src_adj, BIT(55)), ctx);
+			emit(A64_TST_I(1, src, BIT(55)), ctx);
 			emit(A64_B_(A64_COND_NE, 3), ctx);
 			emit(A64_MOVZ(1, dst, 0, 0), ctx);
 			emit(A64_B(2), ctx);
 		}
-		sign_extend = (BPF_MODE(insn->code) == BPF_MEMSX ||
-				BPF_MODE(insn->code) == BPF_PROBE_MEMSX ||
-				 BPF_MODE(insn->code) == BPF_PROBE_MEM32SX);
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				if (sign_extend)
-					emit(A64_LDRSWI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDR32I(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSW(dst, src, tmp), ctx);
-				else
-					emit(A64_LDR32(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				if (sign_extend)
-					emit(A64_LDRSHI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDRHI(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSH(dst, src, tmp), ctx);
-				else
-					emit(A64_LDRH(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				if (sign_extend)
-					emit(A64_LDRSBI(dst, src_adj, off_adj), ctx);
-				else
-					emit(A64_LDRBI(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				if (sign_extend)
-					emit(A64_LDRSB(dst, src, tmp), ctx);
-				else
-					emit(A64_LDRB(dst, src, tmp), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_LDR64I(dst, src_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_LDR64(dst, src, tmp), ctx);
-			}
-			break;
-		}
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32 ||
+		    BPF_MODE(insn->code) == BPF_PROBE_MEM32SX)
+			emit_arena_ldst(code, dst, src, off, tmp2, tmp, ctx);
+		else
+			emit_ldst(code, dst, src, off_adj, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, dst);
 		if (ret)
@@ -2076,55 +2492,13 @@ emit_cond_jmp:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_H:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_W:
 	case BPF_ST | BPF_PROBE_MEM32 | BPF_DW:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32) {
-			emit(A64_ADD(1, tmp3, dst, arena_vm_base), ctx);
-			dst = tmp3;
-		}
-		if (dst == fp) {
-			dst_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			dst_adj = dst;
-			off_adj = off;
-		}
-		/* Load imm to a register then store it */
-		emit_a64_mov_i(1, tmp, imm, ctx);
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				emit(A64_STR32I(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STR32(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				emit(A64_STRHI(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STRH(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				emit(A64_STRBI(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STRB(tmp, dst, tmp2), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_STR64I(tmp, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp2, off, ctx);
-				emit(A64_STR64(tmp, dst, tmp2), ctx);
-			}
-			break;
-		}
+		/* A zero comes from the zero register, any other imm through a register */
+		if (imm)
+			emit_a64_mov_i(1, tmp, imm, ctx);
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32)
+			emit_arena_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp3, tmp2, ctx);
+		else
+			emit_ldst(code, imm ? tmp : A64_ZR, dst, off, tmp2, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
@@ -2145,53 +2519,10 @@ emit_cond_jmp:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_H:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_W:
 	case BPF_STX | BPF_PROBE_MEM32 | BPF_DW:
-		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32) {
-			emit(A64_ADD(1, tmp2, dst, arena_vm_base), ctx);
-			dst = tmp2;
-		}
-		if (dst == fp) {
-			dst_adj = ctx->priv_sp_used ? priv_sp : A64_SP;
-			off_adj = off + ctx->stack_size;
-			if (!ctx->priv_sp_used)
-				off_adj += ctx->stack_arg_size;
-		} else {
-			dst_adj = dst;
-			off_adj = off;
-		}
-		switch (BPF_SIZE(code)) {
-		case BPF_W:
-			if (is_lsi_offset(off_adj, 2)) {
-				emit(A64_STR32I(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STR32(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_H:
-			if (is_lsi_offset(off_adj, 1)) {
-				emit(A64_STRHI(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STRH(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_B:
-			if (is_lsi_offset(off_adj, 0)) {
-				emit(A64_STRBI(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STRB(src, dst, tmp), ctx);
-			}
-			break;
-		case BPF_DW:
-			if (is_lsi_offset(off_adj, 3)) {
-				emit(A64_STR64I(src, dst_adj, off_adj), ctx);
-			} else {
-				emit_a64_mov_i(1, tmp, off, ctx);
-				emit(A64_STR64(src, dst, tmp), ctx);
-			}
-			break;
-		}
+		if (BPF_MODE(insn->code) == BPF_PROBE_MEM32)
+			emit_arena_ldst(code, src, dst, off, tmp2, tmp, ctx);
+		else
+			emit_ldst(code, src, dst, off, tmp, ctx);
 
 		ret = add_exception_handler(insn, ctx, DONT_CLEAR);
 		if (ret)
@@ -2400,6 +2731,9 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 	ctx.offset = kvzalloc_objs(int, prog->len + 1);
 	if (ctx.offset == NULL)
 		goto out_off;
+	ctx.tb = kvzalloc_objs(unsigned long, BITS_TO_LONGS(prog->len));
+	if (ctx.tb == NULL)
+		goto out_off;
 
 	if (bpf_prog_uses_arena_insns(prog)) {
 		ctx.user_vm_start = bpf_arena_get_user_vm_start(prog->aux->arena);
@@ -2427,6 +2761,7 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_verifier_env *env, struct bpf_pr
 
 	if (build_body(env, &ctx, extra_pass))
 		goto out_off;
+	find_tb(&ctx);
 
 	ctx.epilogue_offset = ctx.idx;
 	build_epilogue(&ctx, was_classic, false);
@@ -2547,6 +2882,7 @@ out_off:
 			prog->aux->priv_stack_ptr = NULL;
 		}
 		kvfree(ctx.offset);
+		kvfree(ctx.tb);
 out_priv_stack:
 		kfree(jit_data);
 		prog->aux->jit_data = NULL;
@@ -2564,6 +2900,9 @@ out_free_hdr:
 		bpf_arch_text_copy(&ro_header->size, &header->size,
 				   sizeof(header->size));
 		bpf_jit_binary_pack_free(ro_header, header);
+		/* The private stack goes with the image, see out_off */
+		ro_header = NULL;
+		header = NULL;
 	}
 	goto out_off;
 }
@@ -3616,6 +3955,8 @@ void bpf_jit_free(struct bpf_prog *prog)
 		 */
 		if (jit_data) {
 			bpf_jit_binary_pack_finalize(jit_data->ro_header, jit_data->header);
+			kvfree(jit_data->ctx.offset);
+			kvfree(jit_data->ctx.tb);
 			kfree(jit_data);
 		}
 		prog->bpf_func = (void *)prog->bpf_func - cfi_get_offset();

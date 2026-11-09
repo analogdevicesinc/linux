@@ -2402,6 +2402,191 @@ static int may_goto_off(struct bpf_verifier_env *env, const struct bpf_insn *ins
 	return off;
 }
 
+#ifdef CONFIG_64BIT
+struct bpf_div_magic {
+	u64 m;		/* multiplier, sign extended for signed division */
+	int s;		/* shift of the high half of the product */
+	bool add;	/* multiplier has 65 bits, use the add sequence */
+};
+
+/*
+ * m and s with n / d == mulhu(n, m) >> s for 2 <= d < 2^64 and n below
+ * 2^(64 - lz), or (((n - t) >> 1) + t) >> (s - 1) with t = mulhu(n, m) when m
+ * needs 65 bits. Hacker's Delight, 2nd ed., figure 10-2.
+ */
+static void bpf_magic_udiv(u64 d, int lz, struct bpf_div_magic *mag)
+{
+	u64 mask = ~0ULL >> (lz & 63);
+	u64 nc, delta, q1, r1, q2, r2;
+	int p;
+
+	mag->add = false;
+	/* Largest value with nc mod d == d - 1 */
+	nc = mask - (mask % d + 1) % d;
+	p = 63;
+	q1 = (1ULL << 63) / nc;			/* 2^p / nc */
+	r1 = (1ULL << 63) - q1 * nc;		/* 2^p mod nc */
+	q2 = (~0ULL >> 1) / d;			/* (2^p - 1) / d */
+	r2 = (~0ULL >> 1) - q2 * d;		/* (2^p - 1) mod d */
+	do {
+		p++;
+		if (r1 >= nc - r1) {
+			q1 = 2 * q1 + 1;
+			r1 = 2 * r1 - nc;
+		} else {
+			q1 = 2 * q1;
+			r1 = 2 * r1;
+		}
+		if (r2 + 1 >= d - r2) {
+			if (q2 >= (~0ULL >> 1))
+				mag->add = true;
+			q2 = 2 * q2 + 1;
+			r2 = 2 * r2 + 1 - d;
+		} else {
+			if (q2 >= (1ULL << 63))
+				mag->add = true;
+			q2 = 2 * q2;
+			r2 = 2 * r2 + 1;
+		}
+		delta = d - 1 - r2;
+	} while (p < 128 && (q1 < delta || (q1 == delta && r1 == 0)));
+
+	mag->m = q2 + 1;
+	mag->s = p - 64;
+}
+
+/*
+ * m and s with n / d == q + (q >> 63), q = (mulhs(n, m) +- n) s>> s, for
+ * 2 <= |d| < 2^63, adding n for d > 0 and m < 0, subtracting it for d < 0 and
+ * m > 0. Hacker's Delight, 2nd ed., figure 10-1.
+ */
+static void bpf_magic_sdiv(s64 d, struct bpf_div_magic *mag)
+{
+	u64 ad = d < 0 ? -(u64)d : (u64)d;
+	u64 t, anc, delta, q1, r1, q2, r2;
+	int p;
+
+	t = (1ULL << 63) + (d < 0);
+	anc = t - 1 - t % ad;			/* |nc| */
+	p = 63;
+	q1 = (1ULL << 63) / anc;		/* 2^p / |nc| */
+	r1 = (1ULL << 63) - q1 * anc;		/* 2^p mod |nc| */
+	q2 = (1ULL << 63) / ad;			/* 2^p / |d| */
+	r2 = (1ULL << 63) - q2 * ad;		/* 2^p mod |d| */
+	do {
+		p++;
+		q1 = 2 * q1;
+		r1 = 2 * r1;
+		if (r1 >= anc) {
+			q1++;
+			r1 -= anc;
+		}
+		q2 = 2 * q2;
+		r2 = 2 * r2;
+		if (r2 >= ad) {
+			q2++;
+			r2 -= ad;
+		}
+		delta = ad - r2;
+	} while (q1 < delta || (q1 == delta && r1 == 0));
+
+	mag->m = q2 + 1;
+	if (d < 0)
+		mag->m = -mag->m;
+	mag->s = p - 64;
+	mag->add = false;
+}
+
+/*
+ * 64-bit dst /= imm and dst %= imm as a uhmul or shmul by the magic number
+ * with AX as scratch, into buf. Returns the count, or 0 to keep the division,
+ * as for smod and for umod by a divisor that needs the add sequence.
+ */
+static int div_by_const(const struct bpf_insn *insn, struct bpf_insn *buf)
+{
+	bool is_mod = BPF_OP(insn->code) == BPF_MOD;
+	bool is_signed = insn->off == 1;
+	u8 dst = insn->dst_reg, ax = BPF_REG_AX;
+	struct bpf_insn *p = buf;
+	struct bpf_div_magic mag;
+	s32 d = insn->imm;
+	int pre = 0;
+
+	if (is_signed) {
+		/* |d| >= 2, d == -1 is gone already */
+		if (is_mod || (d >= -1 && d <= 1))
+			return 0;
+		bpf_magic_sdiv(d, &mag);
+	} else {
+		/* d >= 2, a negative imm is a divisor above 2^63 */
+		if (d < 2)
+			return 0;
+		bpf_magic_udiv(d, 0, &mag);
+		if (mag.add && is_mod)
+			return 0;
+		/*
+		 * Shift the dividend by the trailing zeros of an even divisor
+		 * first, the magic number of the odd part then fits without
+		 * the add sequence.
+		 */
+		if (mag.add && !(d & 1)) {
+			pre = __ffs(d) & 31;
+			bpf_magic_udiv(d >> pre, pre, &mag);
+			if (mag.add)
+				return 0;
+		}
+	}
+	/* The add sequence shifts by s - 1. Never hit for d >= 2. */
+	if (mag.s > 64 - !mag.add || (mag.add && !mag.s))
+		return 0;
+
+	if (pre)
+		*p++ = BPF_ALU64_IMM(BPF_RSH, dst, pre);
+	/* ax = m ll */
+	*p++ = BPF_RAW_INSN(BPF_LD | BPF_DW | BPF_IMM, ax, 0, 0, (u32)mag.m);
+	*p++ = BPF_RAW_INSN(0, 0, 0, 0, mag.m >> 32);
+	if (is_signed) {
+		/* ax = (shmul(dst, m) +- dst) s>> s; dst = ax + (ax >> 63) */
+		*p++ = BPF_ALU64_REG_OFF(BPF_MUL, ax, dst, BPF_SHMUL);
+		if (d > 0 && (s64)mag.m < 0)
+			*p++ = BPF_ALU64_REG(BPF_ADD, ax, dst);
+		else if (d < 0 && (s64)mag.m > 0)
+			*p++ = BPF_ALU64_REG(BPF_SUB, ax, dst);
+		if (mag.s)
+			*p++ = BPF_ALU64_IMM(BPF_ARSH, ax, mag.s);
+		*p++ = BPF_MOV64_REG(dst, ax);
+		*p++ = BPF_ALU64_IMM(BPF_RSH, dst, 63);
+		*p++ = BPF_ALU64_REG(BPF_ADD, dst, ax);
+	} else if (is_mod) {
+		/* dst -= (uhmul(dst, m) >> s) * d */
+		*p++ = BPF_ALU64_REG_OFF(BPF_MUL, ax, dst, BPF_UHMUL);
+		if (mag.s)
+			*p++ = BPF_ALU64_IMM(BPF_RSH, ax, mag.s);
+		*p++ = BPF_ALU64_IMM(BPF_MUL, ax, d);
+		*p++ = BPF_ALU64_REG(BPF_SUB, dst, ax);
+	} else if (mag.add) {
+		/* ax = uhmul(dst, m); dst = (((dst - ax) >> 1) + ax) >> (s - 1) */
+		*p++ = BPF_ALU64_REG_OFF(BPF_MUL, ax, dst, BPF_UHMUL);
+		*p++ = BPF_ALU64_REG(BPF_SUB, dst, ax);
+		*p++ = BPF_ALU64_IMM(BPF_RSH, dst, 1);
+		*p++ = BPF_ALU64_REG(BPF_ADD, dst, ax);
+		if (mag.s > 1)
+			*p++ = BPF_ALU64_IMM(BPF_RSH, dst, mag.s - 1);
+	} else {
+		/* dst = uhmul(dst, m) >> s */
+		*p++ = BPF_ALU64_REG_OFF(BPF_MUL, dst, ax, BPF_UHMUL);
+		if (mag.s)
+			*p++ = BPF_ALU64_IMM(BPF_RSH, dst, mag.s);
+	}
+	return p - buf;
+}
+#else
+static int div_by_const(const struct bpf_insn *insn, struct bpf_insn *buf)
+{
+	return 0;
+}
+#endif
+
 /* Do various post-verification rewrites in a single program pass.
  * These rewrites simplify JIT and interpreter implementations.
  */
@@ -2479,6 +2664,20 @@ int bpf_do_misc_fixups(struct bpf_verifier_env *env)
 			if (IS_ERR(insn))
 				return PTR_ERR(insn);
 			goto next_insn;
+		}
+
+		/* Divide by a constant via uhmul or shmul, LLVM does the 32-bit ones */
+		if ((insn->code == (BPF_ALU64 | BPF_MOD | BPF_K) ||
+		     insn->code == (BPF_ALU64 | BPF_DIV | BPF_K)) &&
+		    prog->jit_requested && !prog->blinding_requested &&
+		    !bpf_prog_is_offloaded(prog->aux) && bpf_jit_supports_hmul()) {
+			cnt = div_by_const(insn, insn_buf);
+			if (cnt) {
+				insn = bpf_patch_list_add(env, i, insn_buf, cnt);
+				if (IS_ERR(insn))
+					return PTR_ERR(insn);
+				goto next_insn;
+			}
 		}
 
 		/* Make divide-by-zero and divide-by-minus-one exceptions impossible. */

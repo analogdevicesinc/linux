@@ -19,12 +19,25 @@
 #define A64_VARIANT(sf) \
 	((sf) ? AARCH64_INSN_VARIANT_64BIT : AARCH64_INSN_VARIANT_32BIT)
 
+/* Branch offsets in bytes, widened first so a far count cannot wrap */
+#define A64_BR_OFF(imm) ((long)(imm) * AARCH64_INSN_SIZE)
+
 /* Compare & branch (immediate) */
 #define A64_COMP_BRANCH(sf, Rt, offset, type) \
 	aarch64_insn_gen_comp_branch_imm(0, offset, Rt, A64_VARIANT(sf), \
 		AARCH64_INSN_BRANCH_COMP_##type)
-#define A64_CBZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, (imm19) << 2, ZERO)
-#define A64_CBNZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, (imm19) << 2, NONZERO)
+#define A64_CBZ(sf, Rt, imm19) A64_COMP_BRANCH(sf, Rt, A64_BR_OFF(imm19), ZERO)
+#define A64_CBNZ(sf, Rt, imm19) \
+	A64_COMP_BRANCH(sf, Rt, A64_BR_OFF(imm19), NONZERO)
+
+/* Test bit & branch (immediate) */
+#define A64_TEST_BRANCH(Rt, bit, offset, type) \
+	aarch64_insn_gen_test_branch_imm(0, offset, Rt, bit, \
+		AARCH64_INSN_BRANCH_TEST_##type)
+#define A64_TBZ(Rt, bit, imm14) \
+	A64_TEST_BRANCH(Rt, bit, A64_BR_OFF(imm14), ZERO)
+#define A64_TBNZ(Rt, bit, imm14) \
+	A64_TEST_BRANCH(Rt, bit, A64_BR_OFF(imm14), NONZERO)
 
 /* Conditional branch (immediate) */
 #define A64_COND_BRANCH(cond, offset) \
@@ -39,56 +52,39 @@
 #define A64_COND_GT	AARCH64_INSN_COND_GT /* signed > */
 #define A64_COND_LE	AARCH64_INSN_COND_LE /* signed <= */
 #define A64_COND_LT	AARCH64_INSN_COND_LT /* signed < */
-#define A64_B_(cond, imm19) A64_COND_BRANCH(cond, (imm19) << 2)
+#define A64_B_(cond, imm19) A64_COND_BRANCH(cond, A64_BR_OFF(imm19))
 
 /* Unconditional branch (immediate) */
 #define A64_BRANCH(offset, type) aarch64_insn_gen_branch_imm(0, offset, \
 	AARCH64_INSN_BRANCH_##type)
-#define A64_B(imm26)  A64_BRANCH((imm26) << 2, NOLINK)
-#define A64_BL(imm26) A64_BRANCH((imm26) << 2, LINK)
+#define A64_B(imm26)  A64_BRANCH(A64_BR_OFF(imm26), NOLINK)
 
 /* Unconditional branch (register) */
 #define A64_BR(Rn)  aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_NOLINK)
 #define A64_BLR(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_LINK)
 #define A64_RET(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_RETURN)
 
-/* Load/store register (register offset) */
-#define A64_LS_REG(Rt, Rn, Rm, size, type) \
-	aarch64_insn_gen_load_store_reg(Rt, Rn, Rm, \
-		AARCH64_INSN_SIZE_##size, \
+/* Load/store register (register offset), at Rn + (EXT(Rm) << shift) */
+#define A64_LS_REG_EXT(Rt, Rn, Rm, ext, shift, size, type) \
+	aarch64_insn_gen_load_store_reg(Rt, Rn, Rm, AARCH64_INSN_EXTEND_##ext, \
+		shift, AARCH64_INSN_SIZE_##size, \
 		AARCH64_INSN_LDST_##type##_REG_OFFSET)
-#define A64_STRB(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 8, STORE)
-#define A64_LDRB(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 8, LOAD)
-#define A64_LDRSB(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 8, SIGNED_LOAD)
-#define A64_STRH(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 16, STORE)
-#define A64_LDRH(Wt, Xn, Xm)  A64_LS_REG(Wt, Xn, Xm, 16, LOAD)
-#define A64_LDRSH(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 16, SIGNED_LOAD)
-#define A64_STR32(Wt, Xn, Xm) A64_LS_REG(Wt, Xn, Xm, 32, STORE)
+#define A64_LS_REG(Rt, Rn, Rm, size, type) \
+	A64_LS_REG_EXT(Rt, Rn, Rm, UXTX, 0, size, type)
 #define A64_LDR32(Wt, Xn, Xm) A64_LS_REG(Wt, Xn, Xm, 32, LOAD)
-#define A64_LDRSW(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 32, SIGNED_LOAD)
-#define A64_STR64(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 64, STORE)
-#define A64_LDR64(Xt, Xn, Xm) A64_LS_REG(Xt, Xn, Xm, 64, LOAD)
+/* Xt = *(Xn + ((u32)Wm << 3)) */
+#define A64_LDR64_UXTW3(Xt, Xn, Wm) A64_LS_REG_EXT(Xt, Xn, Wm, UXTW, 3, 64, LOAD)
 
 /* Load/store register (immediate offset) */
 #define A64_LS_IMM(Rt, Rn, imm, size, type) \
 	aarch64_insn_gen_load_store_imm(Rt, Rn, imm, \
 		AARCH64_INSN_SIZE_##size, \
 		AARCH64_INSN_LDST_##type##_IMM_OFFSET)
-#define A64_STRBI(Wt, Xn, imm)  A64_LS_IMM(Wt, Xn, imm, 8, STORE)
-#define A64_LDRBI(Wt, Xn, imm)  A64_LS_IMM(Wt, Xn, imm, 8, LOAD)
-#define A64_LDRSBI(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 8, SIGNED_LOAD)
-#define A64_STRHI(Wt, Xn, imm)  A64_LS_IMM(Wt, Xn, imm, 16, STORE)
-#define A64_LDRHI(Wt, Xn, imm)  A64_LS_IMM(Wt, Xn, imm, 16, LOAD)
-#define A64_LDRSHI(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 16, SIGNED_LOAD)
-#define A64_STR32I(Wt, Xn, imm) A64_LS_IMM(Wt, Xn, imm, 32, STORE)
 #define A64_LDR32I(Wt, Xn, imm) A64_LS_IMM(Wt, Xn, imm, 32, LOAD)
-#define A64_LDRSWI(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 32, SIGNED_LOAD)
 #define A64_STR64I(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 64, STORE)
 #define A64_LDR64I(Xt, Xn, imm) A64_LS_IMM(Xt, Xn, imm, 64, LOAD)
 
 /* LDR (literal) */
-#define A64_LDR32LIT(Wt, offset) \
-	aarch64_insn_gen_load_literal(0, offset, Wt, false)
 #define A64_LDR64LIT(Xt, offset) \
 	aarch64_insn_gen_load_literal(0, offset, Xt, true)
 
@@ -231,11 +227,19 @@
 #define A64_MOVK(sf, Rd, imm16, shift) A64_MOVEW(sf, Rd, imm16, shift, KEEP)
 
 /* Add/subtract (shifted register) */
-#define A64_ADDSUB_SREG(sf, Rd, Rn, Rm, type) \
-	aarch64_insn_gen_add_sub_shifted_reg(Rd, Rn, Rm, 0, \
+#define A64_ADDSUB_SHIFT(sf, Rd, Rn, Rm, shift, type) \
+	aarch64_insn_gen_add_sub_shifted_reg(Rd, Rn, Rm, shift, \
 		A64_VARIANT(sf), AARCH64_INSN_ADSB_##type)
+#define A64_ADDSUB_SREG(sf, Rd, Rn, Rm, type) \
+	A64_ADDSUB_SHIFT(sf, Rd, Rn, Rm, 0, type)
 /* Rd = Rn OP Rm */
 #define A64_ADD(sf, Rd, Rn, Rm)  A64_ADDSUB_SREG(sf, Rd, Rn, Rm, ADD)
+/* Rd = Rn + (Rm << shift) */
+#define A64_ADD_LSL(sf, Rd, Rn, Rm, shift) \
+	A64_ADDSUB_SHIFT(sf, Rd, Rn, Rm, shift, ADD)
+/* Rd = Rn - (Rm << shift) */
+#define A64_SUB_LSL(sf, Rd, Rn, Rm, shift) \
+	A64_ADDSUB_SHIFT(sf, Rd, Rn, Rm, shift, SUB)
 #define A64_SUB(sf, Rd, Rn, Rm)  A64_ADDSUB_SREG(sf, Rd, Rn, Rm, SUB)
 #define A64_SUBS(sf, Rd, Rn, Rm) A64_ADDSUB_SREG(sf, Rd, Rn, Rm, SUB_SETFLAGS)
 /* Rd = -Rm */
@@ -324,7 +328,6 @@
 #define A64_AUTIASP A64_HINT(AARCH64_INSN_HINT_AUTIASP)
 
 /* BTI */
-#define A64_BTI_C  A64_HINT(AARCH64_INSN_HINT_BTIC)
 #define A64_BTI_J  A64_HINT(AARCH64_INSN_HINT_BTIJ)
 #define A64_BTI_JC A64_HINT(AARCH64_INSN_HINT_BTIJC)
 #define A64_NOP    A64_HINT(AARCH64_INSN_HINT_NOP)
@@ -347,6 +350,6 @@
 /* Barriers */
 #define A64_SB aarch64_insn_get_sb_value()
 #define A64_DSB_NSH (aarch64_insn_get_dsb_base_value() | 0x7 << 8)
-#define A64_ISB aarch64_insn_get_isb_value()
+#define A64_ISB (aarch64_insn_get_isb_value() | 0xf << 8)
 
 #endif /* _BPF_JIT_H */
