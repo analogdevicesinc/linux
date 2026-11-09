@@ -95,13 +95,20 @@ struct adi_sharc_resource_table {
 #define VRING_DEFAULT_SIZE 0x800
 
 /*
+ * Porting note: Since commit v7.4-rc1~52^2~5 = ca96ea25e51a ("rpmsg:
+ * virtio_rpmsg_bus: Get buffer size from config space") this definition is in
+ * linux/rpmsg/virtio_rpmsg.h.
+ */
+#define VIRTIO_RPMSG_F_NS 0
+
+/*
  * In regular case the table comes from a firmware file, since ldr format doesn't have
  * resource_table section we initialize the table here, and let remoteproc_core.c
  * copy the initialized cached_table to reserved memory (adi,rsc-table) shared with remote core.
  * The table must be initialized before core start so the remote core
  * can't initialize the reserved memory either.
  */
-static struct adi_sharc_resource_table _rsc_table_template = {
+static const struct adi_sharc_resource_table _rsc_table_template = {
 	.adi_table_hdr = {
 		.tag = ADI_RESOURCE_TABLE_TAG,
 		.version = 1,
@@ -110,27 +117,44 @@ static struct adi_sharc_resource_table _rsc_table_template = {
 	.rsc_table = {
 		.table_hdr = {
 			/* resource table header */
-			1,					/* version */
-			NUM_TABLE_ENTRIES,	/* number of table entries */
-			{0, 0,},			/* reserved fields */
+			.ver = 1,				/* version */
+			.num = ARRAY_SIZE(_rsc_table_template.rsc_table.offset),
+			/* .offset is provided by .offset just below */
 		},
-		.offset = {offsetof(struct sharc_resource_table, rpmsg_vdev_hdr),
+		.offset = {
+			[0] = offsetof(struct sharc_resource_table, rpmsg_vdev_hdr),
 		},
 		/* virtio device entry */
-		.rpmsg_vdev_hdr = {RSC_VDEV,},	/* virtio dev type */
+		.rpmsg_vdev_hdr = {	/* virtio dev type */
+			.type = RSC_VDEV,
+			/* .data is provided by .rpmsg_vdev directly below */
+		},
 		.rpmsg_vdev = {
-			VIRTIO_ID_RPMSG,	/* it's rpmsg virtio */
-			1,					/* kick sharc0 */
-			/* 1<<0 is VIRTIO_RPMSG_F_NS bit defined in virtio_rpmsg_bus.c */
-			1<<0, 0, 0, 0,		/* dfeatures, gfeatures, config len, status */
-			2,					/* num_of_vrings */
-			{0, 0,},			/* reserved */
+			.id = VIRTIO_ID_RPMSG,	/* it's rpmsg virtio */
+			.notifyid = 1,					/* kick sharc0 */
+			.dfeatures = 1 << VIRTIO_RPMSG_F_NS,
+			.gfeatures = 0,
+			.config_len = 0,
+			.status = 0,
+			.num_of_vrings = ARRAY_SIZE(_rsc_table_template.rsc_table.vring),
+			.reserved = {0, 0,},
+			/* .vring[] is provided by .vring just below */
 		},
 		.vring = {
-			 /* da allocated by remoteproc driver */
-			{FW_RSC_ADDR_ANY, VRING_ALIGN, VRING_DEFAULT_SIZE, 1, 0},
-			 /* da allocated by remoteproc driver */
-			{FW_RSC_ADDR_ANY, VRING_ALIGN, VRING_DEFAULT_SIZE, 1, 0},
+			[0] = {
+				.da = FW_RSC_ADDR_ANY,
+				.align = VRING_ALIGN,
+				.num = VRING_DEFAULT_SIZE,
+				.notifyid = 1,
+				.pa = 0
+			},
+			[1] = {
+				.da = FW_RSC_ADDR_ANY,
+				.align = VRING_ALIGN,
+				.num = VRING_DEFAULT_SIZE,
+				.notifyid = 1,
+				.pa = 0
+			},
 		},
 	},
 };
