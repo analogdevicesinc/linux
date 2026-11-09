@@ -703,12 +703,9 @@ static void vf_irq_postinstall(struct xe_device *xe)
 
 static void xe_gu_misc_irq_postinstall(struct xe_device *xe)
 {
-	/*
-	 * ASLE backlight operations are reported via GUnit GSE interrupts
-	 * on the root tile.
-	 */
 	unmask_and_enable(xe_device_get_root_tile(xe),
-			  GU_MISC_IRQ_OFFSET, GU_MISC_GSE);
+			  GU_MISC_IRQ_OFFSET,
+			  xe_display_gse_irq_bit(xe));
 }
 
 static void xe_irq_postinstall(struct xe_device *xe)
