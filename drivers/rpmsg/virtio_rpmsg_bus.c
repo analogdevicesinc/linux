@@ -91,6 +91,7 @@ struct rpmsg_hdr {
 	u8 data[];
 } __packed;
 
+#define MAX_RPMSG_BUF_SIZE	(sizeof(struct rpmsg_hdr) + U16_MAX)
 
 /**
  * struct virtio_rpmsg_channel - rpmsg channel descriptor
@@ -676,7 +677,7 @@ static int rpmsg_recv_single(struct virtproc_info *vrp, struct device *dev,
 	 * the reported payload length.
 	 */
 	if (len > vrp->rx_buf_size ||
-	    msg_len > (len - sizeof(struct rpmsg_hdr))) {
+	    sizeof(struct rpmsg_hdr) + msg_len > len) {
 		dev_warn(dev, "inbound msg too big: (%d, %d)\n", len, msg_len);
 		return -EINVAL;
 	}
@@ -851,9 +852,14 @@ static int rpmsg_virtio_get_buf_size(struct virtproc_info *vrp)
 		virtio_cread(vdev, struct virtio_rpmsg_config,
 			     rxbuf_size, &vrp->tx_buf_size);
 
-		/* The buffers must hold at least the rpmsg header */
+		/*
+		 * The buffers must hold at least the rpmsg header, and at most
+		 * the header and the largest payload its 16-bit len describes.
+		 */
 		if (vrp->rx_buf_size < sizeof(struct rpmsg_hdr) ||
-		    vrp->tx_buf_size < sizeof(struct rpmsg_hdr)) {
+		    vrp->tx_buf_size < sizeof(struct rpmsg_hdr) ||
+		    vrp->rx_buf_size > MAX_RPMSG_BUF_SIZE ||
+		    vrp->tx_buf_size > MAX_RPMSG_BUF_SIZE) {
 			dev_err(&vdev->dev,
 				"bad vdev config: rx buf sz = %u, tx buf sz = %u\n",
 				vrp->rx_buf_size, vrp->tx_buf_size);
