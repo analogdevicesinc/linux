@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/embedded-controller/asus,zenbook-a16-ux3607oa-ec.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ASUS Zenbook A16 (UX3607OA)-class Embedded Controller
+
+maintainers:
+  - Konrad Dybcio <konradybcio@kernel.org>
+
+description:
+  The Qualcomm Snapdragon X2 series-based ASUS Zenbook A16 (and similar
+  machines) come with a custom EC firmware, loosely based on the
+  Qualcomm reference ("Hamoa CRD EC") implementation, with a lot of
+  customization.
+
+properties:
+  compatible:
+    enum:
+      - asus,zenbook-a14-ux3407na-ec
+      - asus,zenbook-a16-ux3607oa-ec
+
+  reg:
+    const: 0x76
+
+  interrupts:
+    maxItems: 1
+
+  "#thermal-sensor-cells":
+    const: 1
+
+  wakeup-source: true
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - '#thermal-sensor-cells'
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        embedded-controller@76 {
+            compatible = "asus,zenbook-a16-ux3607oa-ec";
+            reg = <0x76>;
+
+            interrupts-extended = <&tlmm 66 IRQ_TYPE_EDGE_FALLING>;
+
+            pinctrl-0 = <&ec_int_n_default>;
+            pinctrl-names = "default";
+
+            #thermal-sensor-cells = <1>;
+
+            wakeup-source;
+        };
+    };
+...

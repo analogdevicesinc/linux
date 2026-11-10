@@ -330,7 +330,7 @@ static int gpucc_msm8998_probe(struct platform_device *pdev)
 	/* force periph logic on to avoid perf counter corruption */
 	regmap_write_bits(regmap, gfx3d_clk.clkr.enable_reg, BIT(13), BIT(13));
 	/* tweak droop detector (GPUCC_GPU_DD_WRAP_CTRL) to reduce leakage */
-	regmap_write_bits(regmap, gfx3d_clk.clkr.enable_reg, BIT(0), BIT(0));
+	regmap_write_bits(regmap, 0x430, BIT(0), BIT(0));
 
 	return qcom_cc_really_probe(&pdev->dev, &gpucc_msm8998_desc, regmap);
 }

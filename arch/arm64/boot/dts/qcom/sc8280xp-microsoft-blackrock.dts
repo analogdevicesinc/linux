@@ -957,7 +957,7 @@
 };
 
 &uart2 {
-	pinctrl-0 = <&uart2_default>;
+	pinctrl-0 = <&qup_uart2_default>;
 	pinctrl-names = "default";
 
 	status = "okay";
@@ -1231,34 +1231,6 @@
 			function = "gpio";
 			drive-strength = <2>;
 			bias-pull-up;
-		};
-	};
-
-	uart2_default: uart2-default-state {
-		cts-pins {
-			pins = "gpio121";
-			function = "qup2";
-			bias-bus-hold;
-		};
-
-		rts-pins {
-			pins = "gpio122";
-			function = "qup2";
-			drive-strength = <2>;
-			bias-disable;
-		};
-
-		rx-pins {
-			pins = "gpio124";
-			function = "qup2";
-			bias-pull-up;
-		};
-
-		tx-pins {
-			pins = "gpio123";
-			function = "qup2";
-			drive-strength = <2>;
-			bias-disable;
 		};
 	};
 

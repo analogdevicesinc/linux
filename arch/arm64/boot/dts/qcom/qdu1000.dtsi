@@ -1031,6 +1031,7 @@
 				       <&usb_1_qmpphy>;
 				phy-names = "usb2-phy",
 					    "usb3-phy";
+				dma-coherent;
 
 				ports {
 					#address-cells = <1>;

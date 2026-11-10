@@ -66,6 +66,10 @@
 	remote-endpoint = <&panel0_in>;
 };
 
+&prim_mi2s_dai_link {
+	status = "disabled";
+};
+
 &spi4 {
 	#address-cells = <1>;
 	#size-cells = <0>;

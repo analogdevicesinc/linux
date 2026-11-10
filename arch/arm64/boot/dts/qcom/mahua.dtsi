@@ -3,8 +3,11 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
-/* Mahua is heavily based on Glymur, with some meaningful differences */
-#include "glymur.dtsi"
+/*
+ * Mahua is heavily based on Glymur, with some meaningful differences.
+ * CoB is the only power grid flavor that Mahua ships with
+ */
+#include "glymur-cob.dtsi"
 
 /delete-node/ &bwmon_cluster2;
 /delete-node/ &cluster2_pd;
@@ -52,6 +55,14 @@
 /delete-node/ &thermal_video_1;
 /delete-node/ &tsens6;
 /delete-node/ &tsens7;
+
+/* PMICs tied to Glymur's cluster2 are absent on Mahua. */
+/delete-node/ &pmcx0102_d_e0;
+/delete-node/ &pmcx0102_d0_thermal;
+/delete-node/ &pmh0104_i_e0;
+/delete-node/ &pmh0104_i0_thermal;
+/delete-node/ &pmh0104_j_e0;
+/delete-node/ &pmh0104_j0_thermal;
 
 &aggre1_noc {
 	compatible = "qcom,mahua-aggre1-noc", "qcom,glymur-aggre1-noc";
@@ -125,6 +136,14 @@
 		 <0>,				/* USB4 PHY 1 Max pipe */
 		 <0>,				/* USB4 PHY 2 pcie */
 		 <0>;				/* USB4 PHY 2 Max */
+};
+
+&gmu {
+	compatible = "qcom,adreno-gmu-x285.0", "qcom,adreno-gmu";
+};
+
+&gpu {
+	compatible = "qcom,adreno-44060000", "qcom,adreno";
 };
 
 &hsc_noc {
@@ -386,6 +405,19 @@
 
 &tcsr {
 	compatible = "qcom,mahua-tcsr", "syscon";
+
+	/delete-property/ vdda-qrefrx4-0p9-supply;
+	/delete-property/ vdda-qrefrx5-0p9-supply;
+	/delete-property/ vdda-qreftx0-0p9-supply;
+	/delete-property/ vdda-qreftx0-1p2-supply;
+	/delete-property/ vdda-refgen4-0p9-supply;
+	/delete-property/ vdda-refgen4-1p2-supply;
+
+	vdda-qrefrpt3-0p9-supply = <&vreg_l1f1>;
+	vdda-qrefrpt5-0p9-supply = <&vreg_l2h0>;
+	vdda-qrefrx3-0p9-supply = <&vreg_l2h0>;
+	vdda-refgen3-0p9-supply = <&vreg_l1f1>;
+	vdda-refgen3-1p2-supply = <&vreg_l4f1>;
 };
 
 &tlmm {
@@ -399,4 +431,3 @@
 &tsens5 {
 	#qcom,sensors = <15>;
 };
-

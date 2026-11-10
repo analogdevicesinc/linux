@@ -4,14 +4,7 @@
  */
 /dts-v1/;
 
-#include "glymur.dtsi"
-
-#include "pmcx0102.dtsi"
-#include "pmh0101.dtsi"
-#include "pmh0110-glymur.dtsi"
-#include "pmh0104-glymur.dtsi"
-#include "pmk8850.dtsi"
-#include "smb2370.dtsi"
+#include "glymur-cob.dtsi"
 
 #include <dt-bindings/input/gpio-keys.h>
 #include <dt-bindings/input/input.h>
@@ -263,15 +256,6 @@
 		regulator-boot-on;
 	};
 
-	reserved-memory {
-		linux,cma {
-			compatible = "shared-dma-pool";
-			size = <0x0 0x10000000>;
-			reusable;
-			linux,cma-default;
-		};
-	};
-
 	sound {
 		compatible = "qcom,glymur-sndcard";
 		model = "GLYMUR-ASUS-Zenbook-A14-UX3407NA";
@@ -355,157 +339,12 @@
 	};
 };
 
-&apps_rsc {
-	regulators-0 {
-		compatible = "qcom,pmh0101-rpmh-regulators";
-		qcom,pmic-id = "B_E0";
-
-		vreg_l1b0: ldo1 {
-			regulator-name = "vreg_l1b0";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l7b0: ldo7 {
-			regulator-name = "vreg_l7b0";
-			regulator-min-microvolt = <3072000>;
-			regulator-max-microvolt = <3072000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l8b0: ldo8 {
-			regulator-name = "vreg_l8b0";
-			regulator-min-microvolt = <3304000>;
-			regulator-max-microvolt = <3304000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l15b0: ldo15 {
-			regulator-name = "vreg_l15b0";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-			/* Provides reference voltage for many undescribed components */
-			regulator-always-on;
-		};
-
-		vreg_l18b0: ldo18 {
-			regulator-name = "vreg_l18b0";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-
-			/*
-			 * This is also reference voltage for &pcie3b wake and
-			 * reset signals.
-			 */
-			regulator-always-on;
-		};
-	};
-
-	regulators-1 {
-		compatible = "qcom,pmcx0102-rpmh-regulators";
-		qcom,pmic-id = "C_E1";
-
-		vreg_l1c1: ldo1 {
-			regulator-name = "vreg_l1c1";
-			regulator-min-microvolt = <912000>;
-			regulator-max-microvolt = <912000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l2c1: ldo2 {
-			regulator-name = "vreg_l2c1";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l3c1: ldo3 {
-			regulator-name = "vreg_l3c1";
-			regulator-min-microvolt = <936000>;
-			regulator-max-microvolt = <936000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l4c1: ldo4 {
-			regulator-name = "vreg_l4c1";
-			regulator-min-microvolt = <912000>;
-			regulator-max-microvolt = <912000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-	};
-
-	regulators-2 {
-		compatible = "qcom,pmh0110-rpmh-regulators";
-		qcom,pmic-id = "F_E0";
-
-		vreg_l2f0: ldo2 {
-			regulator-name = "vreg_l2f0";
-			regulator-min-microvolt = <936000>;
-			regulator-max-microvolt = <936000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l3f0: ldo3 {
-			regulator-name = "vreg_l3f0";
-			regulator-min-microvolt = <912000>;
-			regulator-max-microvolt = <912000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-	};
-
-	regulators-3 {
-		compatible = "qcom,pmh0110-rpmh-regulators";
-		qcom,pmic-id = "F_E1";
-
-		vreg_l1f1: ldo1 {
-			regulator-name = "vreg_l1f1";
-			regulator-min-microvolt = <904000>;
-			regulator-max-microvolt = <904000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l2f1: ldo2 {
-			regulator-name = "vreg_l2f1";
-			regulator-min-microvolt = <880000>;
-			regulator-max-microvolt = <880000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l4f1: ldo4 {
-			regulator-name = "vreg_l4f1";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-	};
-
-	regulators-4 {
-		compatible = "qcom,pmh0110-rpmh-regulators";
-		qcom,pmic-id = "H_E0";
-
-		vreg_l1h0: ldo1 {
-			regulator-name = "vreg_l1h0";
-			regulator-min-microvolt = <936000>;
-			regulator-max-microvolt = <936000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l2h0: ldo2 {
-			regulator-name = "vreg_l2h0";
-			regulator-min-microvolt = <880000>;
-			regulator-max-microvolt = <880000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
-
-		vreg_l4h0: ldo4 {
-			regulator-name = "vreg_l4h0";
-			regulator-min-microvolt = <1200000>;
-			regulator-max-microvolt = <1200000>;
-			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
-		};
+&rpmh_vregs_b_e0 {
+	vreg_l8b0: ldo8 {
+		regulator-name = "vreg_l8b0";
+		regulator-min-microvolt = <3304000>;
+		regulator-max-microvolt = <3304000>;
+		regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
 	};
 };
 
@@ -625,8 +464,6 @@
 };
 
 &lpass_vamacro {
-	vdd-micb-supply = <&vreg_l1b0>;
-
 	pinctrl-0 = <&dmic01_default>;
 	pinctrl-names = "default";
 
@@ -695,19 +532,10 @@
 };
 
 &mdss_dp3_phy {
-	vdda-phy-supply = <&vreg_l2f1>;
-	vdda-pll-supply = <&vreg_l4f1>;
-
 	status = "okay";
 };
 
 &pcie3_phy {
-	vdda-phy-supply = <&vreg_l3c1>;
-	vdda-pll-supply = <&vreg_l2c1>;
-
-	vdda-refgen0p9-supply = <&vreg_l1c1>;
-	vdda-refgen1p2-supply = <&vreg_l4f1>;
-
 	status = "okay";
 };
 
@@ -733,19 +561,18 @@
 };
 
 &pcie4_phy {
-	vdda-phy-supply = <&vreg_l1c1>;
-	vdda-pll-supply = <&vreg_l4f1>;
-
 	status = "okay";
 };
 
 &pcie4_port0 {
 	reset-gpios = <&tlmm 146 GPIO_ACTIVE_LOW>;
 	wake-gpios = <&tlmm 148 GPIO_ACTIVE_LOW>;
-};
 
-&pcie4_port0_ep {
-	remote-endpoint = <&m2_e_pcie_ep>;
+	port {
+		pcie4_port0_ep: endpoint {
+			remote-endpoint = <&m2_e_pcie_ep>;
+		};
+	};
 };
 
 &pmh0101_gpios {
@@ -791,16 +618,6 @@
 	status = "okay";
 };
 
-&smb2370_j_e2_eusb2_repeater {
-	vdd18-supply = <&vreg_l15b0>;
-	vdd3-supply = <&vreg_l7b0>;
-};
-
-&smb2370_k_e2_eusb2_repeater {
-	vdd18-supply = <&vreg_l15b0>;
-	vdd3-supply = <&vreg_l7b0>;
-};
-
 &swr0 {
 	status = "okay";
 
@@ -827,26 +644,6 @@
 		vdd-io-supply = <&vreg_l18b0>;
 		qcom,port-mapping = <4 5 6 7 13 15>;
 	};
-};
-
-&tcsr {
-	vdda-qrefrpt0-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrpt1-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrpt2-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrpt3-0p9-supply = <&vreg_l2h0>;
-	vdda-qrefrpt4-0p9-supply = <&vreg_l2h0>;
-	vdda-qrefrx0-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrx1-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrx2-0p9-supply = <&vreg_l2f1>;
-	vdda-qrefrx4-0p9-supply = <&vreg_l2h0>;
-	vdda-qrefrx5-0p9-supply = <&vreg_l3f0>;
-	vdda-qreftx0-0p9-supply = <&vreg_l3f0>;
-	vdda-qreftx0-1p2-supply = <&vreg_l4h0>;
-	vdda-qreftx1-0p9-supply = <&vreg_l1f1>;
-	vdda-refgen3-0p9-supply = <&vreg_l2f0>;
-	vdda-refgen3-1p2-supply = <&vreg_l4h0>;
-	vdda-refgen4-0p9-supply = <&vreg_l1f1>;
-	vdda-refgen4-1p2-supply = <&vreg_l4f1>;
 };
 
 &tlmm {
@@ -1025,19 +822,12 @@
 };
 
 &usb_0_hsphy {
-	vdd-supply = <&vreg_l3f0>;
-	vdda12-supply = <&vreg_l4h0>;
-
 	phys = <&smb2370_j_e2_eusb2_repeater>;
 
 	status = "okay";
 };
 
 &usb_0_qmpphy {
-	vdda-phy-supply = <&vreg_l3f0>;
-	vdda-pll-supply = <&vreg_l4h0>;
-	refgen-supply = <&vreg_l2f0>;
-
 	status = "okay";
 };
 
@@ -1054,19 +844,12 @@
 };
 
 &usb_1_hsphy {
-	vdd-supply = <&vreg_l3f0>;
-	vdda12-supply = <&vreg_l4h0>;
-
 	phys = <&smb2370_k_e2_eusb2_repeater>;
 
 	status = "okay";
 };
 
 &usb_1_qmpphy {
-	vdda-phy-supply = <&vreg_l1h0>;
-	vdda-pll-supply = <&vreg_l4h0>;
-	refgen-supply = <&vreg_l2f0>;
-
 	status = "okay";
 };
 
@@ -1075,10 +858,6 @@
 };
 
 &usb_2_qmpphy {
-	vdda-phy-supply = <&vreg_l4c1>;
-	vdda-pll-supply = <&vreg_l4f1>;
-	refgen-supply = <&vreg_l4f1>;
-
 	/delete-property/ mode-switch;
 	/delete-property/ orientation-switch;
 
@@ -1106,35 +885,21 @@
 };
 
 &usb_mp_hsphy0 {
-	vdd-supply = <&vreg_l2h0>;
-	vdda12-supply = <&vreg_l4h0>;
-
 	phys = <&ptn3222_0>;
 
 	status = "okay";
 };
 
 &usb_mp_hsphy1 {
-	vdd-supply = <&vreg_l2h0>;
-	vdda12-supply = <&vreg_l4h0>;
-
 	phys = <&ptn3222_1>;
 
 	status = "okay";
 };
 
 &usb_mp_qmpphy0 {
-	vdda-phy-supply = <&vreg_l2h0>;
-	vdda-pll-supply = <&vreg_l4h0>;
-	refgen-supply = <&vreg_l4f1>;
-
 	status = "okay";
 };
 
 &usb_mp_qmpphy1 {
-	vdda-phy-supply = <&vreg_l2h0>;
-	vdda-pll-supply = <&vreg_l4h0>;
-	refgen-supply = <&vreg_l4f1>;
-
 	status = "okay";
 };

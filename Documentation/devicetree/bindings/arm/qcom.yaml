@@ -56,7 +56,16 @@ properties:
           - const: qcom,apq8084
 
       - items:
+          - const: qcom,eliza-cqs-evk-emmc
           - const: qcom,eliza-cqs-evk
+          - const: qcom,eliza-cqs-som-emmc
+          - const: qcom,eliza-cqs-som
+          - const: qcom,eliza
+
+      - items:
+          - const: qcom,eliza-cqs-evk-ufs
+          - const: qcom,eliza-cqs-evk
+          - const: qcom,eliza-cqs-som-ufs
           - const: qcom,eliza-cqs-som
           - const: qcom,eliza
 
@@ -81,6 +90,7 @@ properties:
 
       - items:
           - enum:
+              - nothing,froggerpro
               - qcom,eliza-mtp
           - const: qcom,eliza
 
@@ -89,9 +99,11 @@ properties:
               - asus,zenbook-a14-ux3407na
               - asus,zenbook-a16-ux3607oa
               - hp,elitebook-x-g2q
+              - hp,omnibook-ultra-kg0xxx
               - lenovo,yoga-slim7x-gen11
               - qcom,glymur-crd
               - qcom,glymur-qcb
+              - qcom,glymur-sip-crd
           - const: qcom,glymur
 
       - items:
@@ -113,6 +125,7 @@ properties:
           - enum:
               - qcom,ipq5018-rdp432-c2
               - tplink,archer-ax55-v1
+              - ubnt,u6-enterprise
           - const: qcom,ipq5018
 
       - items:
@@ -173,6 +186,14 @@ properties:
               - qcom,hawi-mtp
           - const: qcom,hawi
 
+      - description: Xiaomi 17 Ultra
+        items:
+          - enum:
+              - xiaomi,nezha-cn
+              - xiaomi,nezha-eea
+          - const: xiaomi,nezha
+          - const: qcom,kaanapali
+
       - items:
           - enum:
               - qcom,kaanapali-mtp
@@ -191,7 +212,9 @@ properties:
 
       - items:
           - enum:
+              - microsoft,surface-laptop-8-13p8
               - qcom,mahua-crd
+              - qcom,mahua-qcb
           - const: qcom,mahua
 
       - items:
@@ -200,6 +223,11 @@ properties:
               - lenovo,thinkpad-t14s-gen7-oled
           - const: lenovo,thinkpad-t14s-gen7
           - const: qcom,mahua
+
+      - items:
+          - enum:
+              - qcom,maili-mtp
+          - const: qcom,maili
 
       - description: Sierra Wireless MangOH Green with WP8548 Module
         items:
@@ -434,6 +462,7 @@ properties:
           - enum:
               - qcom,iq10-rrd
               - qcom,sa8797p-ride
+              - qcom,sa8797p-ride-embedded
           - const: qcom,nord
 
       - description: Qualcomm Technologies, Inc. Robotics RB1
@@ -492,6 +521,11 @@ properties:
 
       - items:
           - enum:
+              - qcom,sa8255p-ride
+          - const: qcom,sa8255p
+
+      - items:
+          - enum:
               - qcom,sa8295p-adp
               - qcom,sa8540p-ride
           - const: qcom,sa8540p
@@ -507,6 +541,7 @@ properties:
               - qcom,lemans-evk
               - qcom,qcs9100-ride
               - qcom,qcs9100-ride-r3
+              - vicharak,axon-pro
           - const: qcom,qcs9100
           - const: qcom,sa8775p
 
@@ -924,6 +959,11 @@ properties:
 
       - items:
           - enum:
+              - samsung,galaxy-book2-go
+          - const: qcom,sc7280
+
+      - items:
+          - enum:
               - lenovo,flex-5g
               - microsoft,surface-prox
               - qcom,sc8180x-primus
@@ -1003,6 +1043,7 @@ properties:
               - lg,judyp
               - oneplus,enchilada
               - oneplus,fajita
+              - qcom,sdm845-hdk
               - qcom,sdm845-mtp
               - shift,axolotl
               - samsung,starqltechn
@@ -1173,6 +1214,7 @@ properties:
               - qcom,sm8550-hdk
               - qcom,sm8550-mtp
               - qcom,sm8550-qrd
+              - samsung,gts9wifi
               - samsung,q5q
               - sony,pdx234
           - const: qcom,sm8550
@@ -1240,6 +1282,7 @@ properties:
 
       - items:
           - enum:
+              - acer,swift-go-sfa14-11
               - medion,sprchrgd14s1
               - tuxedo,elite14gen1
           - const: qcom,x1e78100

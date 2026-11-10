@@ -15,8 +15,11 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - qcom,msm8996-apcc
+    oneOf:
+      - const: qcom,msm8996-apcc
+      - items:
+          - const: qcom,msm8996pro-apcc
+          - const: qcom,msm8996-apcc
 
   reg:
     maxItems: 1

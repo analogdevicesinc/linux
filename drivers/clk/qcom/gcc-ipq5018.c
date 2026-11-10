@@ -1197,7 +1197,6 @@ static struct clk_rcg2 ubi0_axi_clk_src = {
 		.parent_data = gcc_xo_gpll0_gpll2,
 		.num_parents = ARRAY_SIZE(gcc_xo_gpll0_gpll2),
 		.ops = &clk_rcg2_ops,
-		.flags = CLK_SET_RATE_PARENT,
 	},
 };
 
@@ -2854,7 +2853,6 @@ static struct clk_branch gcc_ubi0_cfg_clk = {
 				&pcnoc_clk_src.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2908,7 +2906,6 @@ static struct clk_branch gcc_ubi0_nc_axi_clk = {
 				&system_noc_clk_src.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -2926,7 +2923,6 @@ static struct clk_branch gcc_ubi0_utcm_clk = {
 				&system_noc_clk_src.hw,
 			},
 			.num_parents = 1,
-			.flags = CLK_SET_RATE_PARENT,
 			.ops = &clk_branch2_ops,
 		},
 	},

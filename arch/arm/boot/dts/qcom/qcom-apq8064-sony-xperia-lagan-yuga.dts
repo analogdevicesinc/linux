@@ -395,7 +395,6 @@
 		};
 	};
 
-
 	sdcc3_cd_pin_a: sdcc3-cd-pin-active-state {
 		pins = "gpio26";
 		function = "gpio";

@@ -53,6 +53,7 @@
 			gpios = <&pm8921_gpio 4 GPIO_ACTIVE_HIGH>;
 			linux,code = <KEY_VOLUMEUP>;
 		};
+
 		key-volume-down {
 			label = "Volume Down";
 			gpios = <&pm8921_gpio 38 GPIO_ACTIVE_HIGH>;
@@ -78,7 +79,7 @@
 };
 
 &dsi0 {
-	vdda-supply = <&pm8921_l2>;/*VDD_MIPI1 to 4*/
+	vdda-supply = <&pm8921_l2>; /* VDD_MIPI1 to 4 */
 	vdd-supply = <&pm8921_l8>;
 	vddio-supply = <&pm8921_lvs7>;
 	avdd-supply = <&pm8921_l11>;
@@ -113,7 +114,7 @@
 };
 
 &dsi0_phy {
-	vddio-supply = <&pm8921_lvs7>;/*VDD_PLL2_1 to 7*/
+	vddio-supply = <&pm8921_lvs7>; /* VDD_PLL2_1 to 7 */
 	status = "okay";
 };
 
@@ -136,7 +137,6 @@
 		compatible = "ti,bq27541";
 		reg = <0x55>;
 	};
-
 };
 
 &gsbi3 {
@@ -330,6 +330,7 @@
 		pm8921_lvs6: lvs6 {
 			bias-pull-down;
 		};
+
 		/*
 		 * mipi_dsi.1-dsi1_vddio
 		 * pil_riva-pll_vdd

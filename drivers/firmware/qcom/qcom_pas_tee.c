@@ -230,11 +230,14 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 		},
 		[1] = {
 			.attr = TEE_IOCTL_PARAM_ATTR_TYPE_MEMREF_INOUT,
-			.u.memref.size = input_rt_size,
 		}
 	};
 	void *rt_buf = NULL;
 	int ret;
+
+	if (!input_rt)
+		input_rt_size = 0;
+	param[1].u.memref.size = input_rt_size;
 
 	ret = tee_client_invoke_func(data->ctx, &inv_arg, param);
 	if (ret < 0 || inv_arg.ret != 0) {
@@ -244,9 +247,9 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 	}
 
 	if (param[1].u.memref.size >= input_rt_size) {
+		size_t rt_shm_size = param[1].u.memref.size;
 		struct tee_shm *rt_shm __free(shm_free) =
-			tee_shm_alloc_kernel_buf(data->ctx,
-						 param[1].u.memref.size);
+			tee_shm_alloc_kernel_buf(data->ctx, rt_shm_size);
 		void *rt_shm_va;
 
 		if (IS_ERR_OR_NULL(rt_shm)) {
@@ -270,11 +273,19 @@ static void *qcom_pas_tee_get_rsc_table(struct device *dev,
 			return ret ? ERR_PTR(ret) : ERR_PTR(-EINVAL);
 		}
 
+		if (param[1].u.memref.size > rt_shm_size) {
+			dev_err(dev, "PAS get RT returned too big size: %zu > %zu\n",
+				param[1].u.memref.size, rt_shm_size);
+			return ERR_PTR(-EINVAL);
+		}
+
 		if (param[1].u.memref.size) {
 			*output_rt_size = param[1].u.memref.size;
 			rt_buf = kmemdup(rt_shm_va, *output_rt_size, GFP_KERNEL);
 			if (!rt_buf)
 				return ERR_PTR(-ENOMEM);
+		} else {
+			*output_rt_size = 0;
 		}
 	} else {
 		*output_rt_size = 0;

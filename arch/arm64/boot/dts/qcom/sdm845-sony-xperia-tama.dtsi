@@ -5,6 +5,7 @@
 
 #include <dt-bindings/arm/qcom,ids.h>
 #include <dt-bindings/input/input.h>
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include "sdm845.dtsi"
@@ -499,6 +500,11 @@
 	regulator-pull-down;
 };
 
+&ipa {
+	firmware-name = "qcom/sdm845/Sony/tama/ipa_fws.mbn";
+	status = "okay";
+};
+
 &lab {
 	regulator-min-microvolt = <5500000>;
 	regulator-max-microvolt = <5700000>;
@@ -547,6 +553,16 @@
 
 &mdss_dsi0_phy {
 	vdds-supply = <&vreg_l1a_0p9>;
+	status = "okay";
+};
+
+/*
+ * Modem requires ta-service for initialization:
+ * https://github.com/andersson/ta-service
+ */
+&mss_pil {
+	firmware-name = "qcom/sdm845/Sony/tama/mba.mbn",
+			"qcom/sdm845/Sony/tama/modem.mbn";
 	status = "okay";
 };
 
@@ -618,6 +634,19 @@
 	};
 };
 
+&pmi8998_flash {
+	status = "okay";
+
+	led-0 {
+		function = LED_FUNCTION_FLASH;
+		color = <LED_COLOR_ID_WHITE>;
+		led-sources = <1>, <2>;
+		led-max-microamp = <100000>;
+		flash-max-microamp = <625000>;
+		flash-max-timeout-us = <1280000>;
+	};
+};
+
 &pmi8998_gpios {
 	cam_io_en: cam-io-en-state {
 		pins = "gpio12";
@@ -626,6 +655,35 @@
 		power-source = <0>;
 		drive-push-pull;
 		output-low;
+	};
+};
+
+&pmi8998_lpg {
+	qcom,power-source = <1>;
+
+	status = "okay";
+
+	multi-led {
+		color = <LED_COLOR_ID_RGB>;
+		function = LED_FUNCTION_STATUS;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		led@3 {
+			reg = <3>;
+			color = <LED_COLOR_ID_BLUE>;
+		};
+
+		led@4 {
+			reg = <4>;
+			color = <LED_COLOR_ID_GREEN>;
+		};
+
+		led@5 {
+			reg = <5>;
+			color = <LED_COLOR_ID_RED>;
+		};
 	};
 };
 
@@ -658,6 +716,11 @@
 	bus-width = <4>;
 	no-sdio;
 	no-mmc;
+};
+
+&slpi_pas {
+	firmware-name = "qcom/sdm845/Sony/tama/slpi.mbn";
+	status = "okay";
 };
 
 &tlmm {
@@ -776,9 +839,21 @@
 	status = "okay";
 };
 
-/* BIG WARNING! DO NOT TOUCH UFS, YOUR DEVICE WILL DIE! */
-&ufs_mem_hc { status = "disabled"; };
-&ufs_mem_phy { status = "disabled"; };
+&ufs_mem_hc {
+	status = "okay";
+
+	reset-gpios = <&tlmm 150 GPIO_ACTIVE_LOW>;
+
+	vcc-supply = <&vreg_l20a_2p7>;
+	vcc-max-microamp = <600000>;
+};
+
+&ufs_mem_phy {
+	status = "okay";
+
+	vdda-phy-supply = <&vreg_l1a_0p9>;
+	vdda-pll-supply = <&vreg_l26a_1p2>;
+};
 
 &usb_1 {
 	status = "okay";

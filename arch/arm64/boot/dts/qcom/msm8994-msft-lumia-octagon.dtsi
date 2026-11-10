@@ -377,19 +377,6 @@
 &blsp2_i2c1 {
 	status = "okay";
 
-	sideinteraction: touch@2c {
-		compatible = "adi,ad7147_captouch";
-		reg = <0x2c>;
-
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&grip_default>;
-		pinctrl-1 = <&grip_sleep>;
-
-		interrupts = <&tlmm 96 IRQ_TYPE_EDGE_FALLING>;
-
-		vcc-supply = <&vreg_l18a_2p85>;
-	};
-
 	/*
 	 * The QPDS-T900/QPDS-T930 is a customized part built for Nokia
 	 * by Avago. It is very similar to the Avago APDS-9930 with some

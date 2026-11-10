@@ -92,7 +92,7 @@
 		idle-states {
 			cpu_spc: cpu-spc {
 				compatible = "qcom,idle-state-spc",
-						"arm,idle-state";
+					     "arm,idle-state";
 				entry-latency-us = <150>;
 				exit-latency-us = <200>;
 				min-residency-us = <2000>;
@@ -867,7 +867,7 @@
 					tpiu_in: endpoint {
 						remote-endpoint = <&replicator_out1>;
 					};
-				 };
+				};
 			};
 		};
 
@@ -960,6 +960,7 @@
 						remote-endpoint = <&etr_in>;
 					};
 				};
+
 				port@1 {
 					reg = <1>;
 					replicator_out1: endpoint {
@@ -1083,18 +1084,21 @@
 						remote-endpoint = <&etm0_out>;
 					};
 				};
+
 				port@1 {
 					reg = <1>;
 					kpss_in1: endpoint {
 						remote-endpoint = <&etm1_out>;
 					};
 				};
+
 				port@2 {
 					reg = <2>;
 					kpss_in2: endpoint {
 						remote-endpoint = <&etm2_out>;
 					};
 				};
+
 				port@3 {
 					reg = <3>;
 					kpss_in3: endpoint {
@@ -1785,6 +1789,7 @@
 				drive-strength = <2>;
 				bias-pull-up;
 			};
+
 			/* 6 interfaces per QUP, BLSP2 indexes are numbered (n)+6 */
 
 			/* BLSP2_I2C1 info is missing */
@@ -1872,14 +1877,17 @@
 					pins = "gpio45";
 					function = "blsp_spi8";
 				};
+
 				miso-pins {
 					pins = "gpio46";
 					function = "blsp_spi8";
 				};
+
 				cs-pins {
 					pins = "gpio47";
 					function = "blsp_spi8";
 				};
+
 				clk-pins {
 					pins = "gpio48";
 					function = "blsp_spi8";
@@ -2228,10 +2236,10 @@
 			reg = <0xfe200000 0x100>;
 
 			interrupts-extended = <&intc GIC_SPI 162 IRQ_TYPE_EDGE_RISING>,
-					       <&adsp_smp2p_in 0 IRQ_TYPE_EDGE_RISING>,
-					       <&adsp_smp2p_in 1 IRQ_TYPE_EDGE_RISING>,
-					       <&adsp_smp2p_in 2 IRQ_TYPE_EDGE_RISING>,
-					       <&adsp_smp2p_in 3 IRQ_TYPE_EDGE_RISING>;
+					      <&adsp_smp2p_in 0 IRQ_TYPE_EDGE_RISING>,
+					      <&adsp_smp2p_in 1 IRQ_TYPE_EDGE_RISING>,
+					      <&adsp_smp2p_in 2 IRQ_TYPE_EDGE_RISING>,
+					      <&adsp_smp2p_in 3 IRQ_TYPE_EDGE_RISING>;
 			interrupt-names = "wdog", "fatal", "ready", "handover", "stop-ack";
 
 			clocks = <&xo_board>;
@@ -2280,6 +2288,7 @@
 					hysteresis = <2000>;
 					type = "passive";
 				};
+
 				cpu_crit0: trip1 {
 					temperature = <110000>;
 					hysteresis = <2000>;
@@ -2300,6 +2309,7 @@
 					hysteresis = <2000>;
 					type = "passive";
 				};
+
 				cpu_crit1: trip1 {
 					temperature = <110000>;
 					hysteresis = <2000>;
@@ -2320,6 +2330,7 @@
 					hysteresis = <2000>;
 					type = "passive";
 				};
+
 				cpu_crit2: trip1 {
 					temperature = <110000>;
 					hysteresis = <2000>;
@@ -2340,6 +2351,7 @@
 					hysteresis = <2000>;
 					type = "passive";
 				};
+
 				cpu_crit3: trip1 {
 					temperature = <110000>;
 					hysteresis = <2000>;

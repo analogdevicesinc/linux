@@ -32,7 +32,7 @@
 
 			serial_1_pins: serial1-state {
 				pins = "gpio8", "gpio9",
-					"gpio10", "gpio11";
+				       "gpio10", "gpio11";
 				function = "blsp_uart1";
 				bias-disable;
 			};
@@ -43,6 +43,7 @@
 					pins = "gpio13", "gpio14", "gpio15";
 					bias-disable;
 				};
+
 				spi0-cs-pins {
 					function = "gpio";
 					pins = "gpio12";
@@ -59,10 +60,10 @@
 
 			nand_pins: nand-state {
 				pins = "gpio53", "gpio55", "gpio56",
-					"gpio57", "gpio58", "gpio59",
-					"gpio60", "gpio62", "gpio63",
-					"gpio64", "gpio65", "gpio66",
-					"gpio67", "gpio68", "gpio69";
+				       "gpio57", "gpio58", "gpio59",
+				       "gpio60", "gpio62", "gpio63",
+				       "gpio64", "gpio65", "gpio66",
+				       "gpio67", "gpio68", "gpio69";
 				function = "qpic";
 			};
 		};

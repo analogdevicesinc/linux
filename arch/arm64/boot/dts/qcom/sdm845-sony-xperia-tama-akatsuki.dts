@@ -26,6 +26,13 @@
 		enable-active-high;
 		regulator-boot-on;
 	};
+
+	battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <3325000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4245000>;
+	};
 };
 
 &ibb {
