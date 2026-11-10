@@ -1008,8 +1008,7 @@ void cxl_switch_parse_cdat(struct cxl_dport *dport);
 
 int cxl_endpoint_get_perf_coordinates(struct cxl_port *port,
 				      struct access_coordinate *coord);
-void cxl_region_perf_data_calculate(struct cxl_region *cxlr,
-				    struct cxl_endpoint_decoder *cxled);
+void cxl_region_perf_data_update(struct cxl_region *cxlr);
 void cxl_region_shared_upstream_bandwidth_update(struct cxl_region *cxlr);
 
 void cxl_memdev_update_perf(struct cxl_memdev *cxlmd);
