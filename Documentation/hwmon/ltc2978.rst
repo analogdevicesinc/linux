@@ -450,9 +450,9 @@ power[N]_input		Measured output power.
 
 curr1_label		"iin".
 
-			LT7170, LT7171, LTC3880, LTC3883, LTC3884, LTC3886,
-			LTC3887, LTC3889, LTM4644, LTM4675, LTM4676, LTM4677,
-			LTM4678, LTM4680, and LTM4700 only.
+			LTC3880, LTC3883, LTC3884, LTC3886, LTC3887, LTC3889,
+			LTM4644, LTM4675, LTM4676, LTM4677, LTM4678, LTM4680,
+			and LTM4700 only.
 
 curr1_input		Measured input current.
 
