@@ -177,8 +177,7 @@ extern struct kmem_cache *kernfs_node_cache, *kernfs_iattrs_cache;
  */
 extern const struct xattr_handler * const kernfs_xattr_handlers[];
 struct inode *kernfs_get_inode_locked(struct inode *inode,
-				      struct kernfs_node *kn,
-				      bool lookup);
+				      struct kernfs_node *kn);
 void kernfs_evict_inode(struct inode *inode);
 int kernfs_iop_permission(const struct mnt_idmap *idmap,
 			  struct inode *inode, int mask);

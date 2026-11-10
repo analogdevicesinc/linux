@@ -241,14 +241,13 @@ struct kernfs_node {
  * syscalls.  These optional callbacks are invoked on the matching syscalls
  * and can perform any kernfs operations which don't necessarily have to be
  * the exact operation requested.  An active reference is held for each
- * kernfs_node parameter.  @mkdir returns the kernfs_node of the new
- * directory with a reference held, or an ERR_PTR() on failure.
+ * kernfs_node parameter.
  */
 struct kernfs_syscall_ops {
 	int (*show_options)(struct seq_file *sf, struct kernfs_root *root);
 
-	struct kernfs_node *(*mkdir)(struct kernfs_node *parent,
-				     const char *name, umode_t mode);
+	int (*mkdir)(struct kernfs_node *parent, const char *name,
+		     umode_t mode);
 	int (*rmdir)(struct kernfs_node *kn);
 	int (*rename)(struct kernfs_node *kn, struct kernfs_node *new_parent,
 		      const char *new_name);

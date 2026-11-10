@@ -6149,20 +6149,18 @@ fail:
 	return ret;
 }
 
-struct kernfs_node *cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
-				 umode_t mode)
+int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name, umode_t mode)
 {
 	struct cgroup *parent, *cgrp;
-	struct kernfs_node *kn;
 	int ret;
 
 	/* do not accept '\n' to prevent making /proc/<pid>/cgroup unparsable */
 	if (strchr(name, '\n'))
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 
 	parent = cgroup_kn_lock_live(parent_kn, false);
 	if (IS_ERR(parent))
-		return ERR_CAST(parent);
+		return PTR_ERR(parent);
 
 	if (!cgroup_check_hierarchy_limits(parent)) {
 		ret = -EAGAIN;
@@ -6194,16 +6192,14 @@ struct kernfs_node *cgroup_mkdir(struct kernfs_node *parent_kn, const char *name
 	/* let's create and online css's */
 	kernfs_activate(cgrp->kn);
 
-	kn = cgrp->kn;
-	kernfs_get(kn);
-	cgroup_kn_unlock(parent_kn);
-	return kn;
+	ret = 0;
+	goto out_unlock;
 
 out_destroy:
 	cgroup_destroy_locked(cgrp);
 out_unlock:
 	cgroup_kn_unlock(parent_kn);
-	return ERR_PTR(ret);
+	return ret;
 }
 
 /*

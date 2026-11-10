@@ -4040,16 +4040,15 @@ static void mkdir_rdt_prepare_clean(struct rdtgroup *rgrp)
  * and monitor group(ctrl_mon). This is a resource group
  * to monitor a subset of tasks and cpus in its parent ctrl_mon group.
  */
-static struct kernfs_node *rdtgroup_mkdir_mon(struct kernfs_node *parent_kn,
-					      const char *name, umode_t mode)
+static int rdtgroup_mkdir_mon(struct kernfs_node *parent_kn,
+			      const char *name, umode_t mode)
 {
 	struct rdtgroup *rdtgrp, *prgrp;
-	struct kernfs_node *kn;
 	int ret;
 
 	ret = mkdir_rdt_prepare(parent_kn, name, mode, RDTMON_GROUP, &rdtgrp);
 	if (ret)
-		return ERR_PTR(ret);
+		return ret;
 
 	prgrp = rdtgrp->mon.parent;
 	rdtgrp->closid = prgrp->closid;
@@ -4068,22 +4067,17 @@ static struct kernfs_node *rdtgroup_mkdir_mon(struct kernfs_node *parent_kn,
 	 */
 	list_add_tail(&rdtgrp->mon.crdtgrp_list, &prgrp->mon.crdtgrp_list);
 
-	kn = rdtgrp->kn;
-	kernfs_get(kn);
-	rdtgroup_kn_unlock(parent_kn);
-	return kn;
-
 out_unlock:
 	rdtgroup_kn_unlock(parent_kn);
-	return ERR_PTR(ret);
+	return ret;
 }
 
 /*
  * These are rdtgroups created under the root directory. Can be used
  * to allocate and monitor resources.
  */
-static struct kernfs_node *rdtgroup_mkdir_ctrl_mon(struct kernfs_node *parent_kn,
-						   const char *name, umode_t mode)
+static int rdtgroup_mkdir_ctrl_mon(struct kernfs_node *parent_kn,
+				   const char *name, umode_t mode)
 {
 	struct rdtgroup *rdtgrp;
 	struct kernfs_node *kn;
@@ -4092,7 +4086,7 @@ static struct kernfs_node *rdtgroup_mkdir_ctrl_mon(struct kernfs_node *parent_kn
 
 	ret = mkdir_rdt_prepare(parent_kn, name, mode, RDTCTRL_GROUP, &rdtgrp);
 	if (ret)
-		return ERR_PTR(ret);
+		return ret;
 
 	kn = rdtgrp->kn;
 	ret = closid_alloc();
@@ -4131,9 +4125,7 @@ static struct kernfs_node *rdtgroup_mkdir_ctrl_mon(struct kernfs_node *parent_kn
 			rdtgrp->mba_mbps_event = mba_mbps_default_event;
 	}
 
-	kernfs_get(kn);
-	rdtgroup_kn_unlock(parent_kn);
-	return kn;
+	goto out_unlock;
 
 out_del_list:
 	list_del(&rdtgrp->rdtgroup_list);
@@ -4143,16 +4135,17 @@ out_closid_free:
 	closid_free(closid);
 out_common_fail:
 	mkdir_rdt_prepare_clean(rdtgrp);
+out_unlock:
 	rdtgroup_kn_unlock(parent_kn);
-	return ERR_PTR(ret);
+	return ret;
 }
 
-static struct kernfs_node *rdtgroup_mkdir(struct kernfs_node *parent_kn,
-					  const char *name, umode_t mode)
+static int rdtgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
+			  umode_t mode)
 {
 	/* Do not accept '\n' to avoid unparsable situation. */
 	if (strchr(name, '\n'))
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 
 	/*
 	 * If the parent directory is the root directory and RDT
@@ -4166,7 +4159,7 @@ static struct kernfs_node *rdtgroup_mkdir(struct kernfs_node *parent_kn,
 	if (resctrl_arch_mon_capable())
 		return rdtgroup_mkdir_mon(parent_kn, name, mode);
 
-	return ERR_PTR(-EPERM);
+	return -EPERM;
 }
 
 static int rdtgroup_rmdir_mon(struct rdtgroup *rdtgrp, cpumask_var_t tmpmask)

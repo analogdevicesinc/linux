@@ -260,56 +260,40 @@ static int kernfs_inode_test(struct inode *inode, void *data)
 	return inode->i_ino == *(u64 *)data;
 }
 
-static int kernfs_inode_set(struct inode *inode, void *data)
-{
-	inode->i_ino = *(u64 *)data;
-	return 0;
-}
-
 /**
- * kernfs_get_inode_locked - get the inode of @kn under kernfs_rwsem
+ * kernfs_get_inode_locked - attach a preallocated inode to @kn
  * @inode: inode allocated with new_inode() on the target superblock
  * @kn: kernfs_node to get the inode for
- * @lookup: should we do a ilookup before attempting to insert the inode
  *
- * Attaches @inode to @kn. Caller should pass an @inode allocated with
- * new_inode(), and hold the kernfs_rwsem semaphore for reading on the @kn
- * root. Because the kernfs_rwsem is held and it is checked that @kn is still
- * active, __kernfs_remove() always finds @inode to clear its i_nlink. If
- * lookup is true, a quick ilookup is attempted first.
+ * The caller holds kernfs_rwsem for reading, so @kn cannot be removed
+ * while the inode is inserted and __kernfs_remove() always finds it to
+ * clear its i_nlink.  @inode is consumed.
  *
- * Returns the inode that was found or inserted for @kn, or NULL if @kn is
- * inactive. @inode is consumed.
+ * Returns the inode now attached to @kn, which is @inode unless one was
+ * already hashed for it (e.g. by a file handle decode), or NULL if @kn
+ * is no longer active.
  */
-struct inode *kernfs_get_inode_locked(struct inode *inode, struct kernfs_node *kn,
-				      bool lookup)
+struct inode *kernfs_get_inode_locked(struct inode *inode,
+				      struct kernfs_node *kn)
 {
 	u64 ino = kernfs_ino(kn);
-	struct inode *old = NULL, *new = inode;
+	struct inode *res = NULL;
 
 	lockdep_assert_held_read(&kernfs_root(kn)->kernfs_rwsem);
-
-	if (lookup) {
-		old = ilookup(inode->i_sb, ino);
-		if (old)
-			goto out_iput;
-	}
 
 	if (!kernfs_active(kn))
 		goto out_iput;
 
-	inode = inode_insert5(new, ino, kernfs_inode_test, kernfs_inode_set,
-			      &ino);
-	if (inode != new) {
-		old = inode;
+	inode->i_ino = ino;
+	res = inode_insert5(inode, ino, kernfs_inode_test, NULL, &ino);
+	if (res != inode)
 		goto out_iput;
-	}
 
 	kernfs_init_inode(kn, inode);
 	return inode;
 out_iput:
-	iput(new);
-	return old;
+	iput(inode);
+	return res;
 }
 
 /*

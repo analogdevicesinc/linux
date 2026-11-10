@@ -256,8 +256,7 @@ void cgroup_procs_write_finish(struct task_struct *task,
 
 int cgroup_lock_and_drain_offline(struct cgroup *cgrp);
 
-struct kernfs_node *cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
-				 umode_t mode);
+int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name, umode_t mode);
 int cgroup_rmdir(struct kernfs_node *kn);
 int cgroup_show_path(struct seq_file *sf, struct kernfs_node *kf_node,
 		     struct kernfs_root *kf_root);
