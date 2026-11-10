@@ -10,10 +10,9 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-
-#include <linux/platform_data/gsc_hwmon.h>
 
 #define GSC_HWMON_MAX_TEMP_CH	16
 #define GSC_HWMON_MAX_IN_CH	16
@@ -22,10 +21,35 @@
 #define GSC_HWMON_RESOLUTION	12
 #define GSC_HWMON_VREF		2500
 
+enum gsc_hwmon_mode {
+	mode_temperature,
+	mode_voltage_24bit,
+	mode_voltage_raw,
+	mode_voltage_16bit,
+	mode_fan,
+	mode_max,
+};
+
+/**
+ * struct gsc_hwmon_channel - configuration parameters
+ * @reg:  I2C register offset
+ * @mode: channel mode
+ * @name: channel name
+ * @mvoffset: voltage offset
+ * @vdiv: voltage divider array (2 resistor values in milli-ohms)
+ */
+struct gsc_hwmon_channel {
+	unsigned int reg;
+	unsigned int mode;
+	const char *name;
+	unsigned int mvoffset;
+	unsigned int vdiv[2];
+};
+
 struct gsc_hwmon_data {
 	struct gsc_dev *gsc;
-	struct gsc_hwmon_platform_data *pdata;
 	struct regmap *regmap;
+	u32 fan_base;
 	const struct gsc_hwmon_channel *temp_ch[GSC_HWMON_MAX_TEMP_CH];
 	const struct gsc_hwmon_channel *in_ch[GSC_HWMON_MAX_IN_CH];
 	const struct gsc_hwmon_channel *fan_ch[GSC_HWMON_MAX_FAN_CH];
@@ -37,6 +61,8 @@ struct gsc_hwmon_data {
 	struct hwmon_channel_info fan_info;
 	const struct hwmon_channel_info *info[4];
 	struct hwmon_chip_info chip;
+	int nchannels;
+	struct gsc_hwmon_channel channels[] __counted_by(nchannels);
 };
 
 static const struct regmap_bus gsc_hwmon_regmap_bus = {
@@ -55,7 +81,7 @@ static ssize_t pwm_auto_point_temp_show(struct device *dev,
 {
 	struct gsc_hwmon_data *hwmon = dev_get_drvdata(dev);
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
-	u8 reg = hwmon->pdata->fan_base + (2 * attr->index);
+	u8 reg = hwmon->fan_base + (2 * attr->index);
 	u8 regs[2];
 	int ret;
 
@@ -73,7 +99,7 @@ static ssize_t pwm_auto_point_temp_store(struct device *dev,
 {
 	struct gsc_hwmon_data *hwmon = dev_get_drvdata(dev);
 	struct sensor_device_attribute *attr = to_sensor_dev_attr(devattr);
-	u8 reg = hwmon->pdata->fan_base + (2 * attr->index);
+	u8 reg = hwmon->fan_base + (2 * attr->index);
 	u8 regs[2];
 	long temp;
 	int err;
@@ -236,10 +262,9 @@ static const struct hwmon_ops gsc_hwmon_ops = {
 	.read_string = gsc_hwmon_read_string,
 };
 
-static struct gsc_hwmon_platform_data *
-gsc_hwmon_get_devtree_pdata(struct device *dev)
+static struct gsc_hwmon_data *gsc_hwmon_get_devtree_data(struct device *dev)
 {
-	struct gsc_hwmon_platform_data *pdata;
+	struct gsc_hwmon_data *hwmon;
 	struct gsc_hwmon_channel *ch;
 	struct device_node *fan;
 	int nchannels;
@@ -248,15 +273,15 @@ gsc_hwmon_get_devtree_pdata(struct device *dev)
 	if (nchannels == 0)
 		return ERR_PTR(-ENODEV);
 
-	pdata = devm_kzalloc_flex(dev, *pdata, channels, nchannels);
-	if (!pdata)
+	hwmon = devm_kzalloc_flex(dev, *hwmon, channels, nchannels);
+	if (!hwmon)
 		return ERR_PTR(-ENOMEM);
-	pdata->nchannels = nchannels;
+	hwmon->nchannels = nchannels;
 
 	/* fan controller base address */
 	of_node_get(dev->parent->of_node);
 	fan = of_find_compatible_node(dev->parent->of_node, NULL, "gw,gsc-fan");
-	if (fan && of_property_read_u32(fan, "reg", &pdata->fan_base)) {
+	if (fan && of_property_read_u32(fan, "reg", &hwmon->fan_base)) {
 		of_node_put(fan);
 		dev_err(dev, "fan node without base\n");
 		return ERR_PTR(-EINVAL);
@@ -264,7 +289,7 @@ gsc_hwmon_get_devtree_pdata(struct device *dev)
 
 	of_node_put(fan);
 
-	ch = pdata->channels;
+	ch = hwmon->channels;
 	/* allocate structures for channels and count instances of each type */
 	device_for_each_child_node_scoped(dev, child) {
 		if (fwnode_property_read_string(child, "label", &ch->name)) {
@@ -294,7 +319,7 @@ gsc_hwmon_get_devtree_pdata(struct device *dev)
 		ch++;
 	}
 
-	return pdata;
+	return hwmon;
 }
 
 static int gsc_hwmon_probe(struct platform_device *pdev)
@@ -302,22 +327,15 @@ static int gsc_hwmon_probe(struct platform_device *pdev)
 	struct gsc_dev *gsc = dev_get_drvdata(pdev->dev.parent);
 	struct device *dev = &pdev->dev;
 	struct device *hwmon_dev;
-	struct gsc_hwmon_platform_data *pdata = dev_get_platdata(dev);
 	struct gsc_hwmon_data *hwmon;
 	const struct attribute_group **groups;
 	int i, i_in, i_temp, i_fan;
 
-	if (!pdata) {
-		pdata = gsc_hwmon_get_devtree_pdata(dev);
-		if (IS_ERR(pdata))
-			return PTR_ERR(pdata);
-	}
+	hwmon = gsc_hwmon_get_devtree_data(dev);
+	if (IS_ERR(hwmon))
+		return PTR_ERR(hwmon);
 
-	hwmon = devm_kzalloc_obj(dev, *hwmon);
-	if (!hwmon)
-		return -ENOMEM;
 	hwmon->gsc = gsc;
-	hwmon->pdata = pdata;
 
 	hwmon->regmap = devm_regmap_init(dev, &gsc_hwmon_regmap_bus,
 					 gsc->i2c_hwmon,
@@ -325,8 +343,8 @@ static int gsc_hwmon_probe(struct platform_device *pdev)
 	if (IS_ERR(hwmon->regmap))
 		return PTR_ERR(hwmon->regmap);
 
-	for (i = 0, i_in = 0, i_temp = 0, i_fan = 0; i < hwmon->pdata->nchannels; i++) {
-		const struct gsc_hwmon_channel *ch = &pdata->channels[i];
+	for (i = 0, i_in = 0, i_temp = 0, i_fan = 0; i < hwmon->nchannels; i++) {
+		const struct gsc_hwmon_channel *ch = &hwmon->channels[i];
 
 		switch (ch->mode) {
 		case mode_temperature:
@@ -380,7 +398,7 @@ static int gsc_hwmon_probe(struct platform_device *pdev)
 	hwmon->fan_info.type = hwmon_fan;
 	hwmon->fan_info.config = hwmon->fan_config;
 
-	groups = pdata->fan_base ? gsc_hwmon_groups : NULL;
+	groups = hwmon->fan_base ? gsc_hwmon_groups : NULL;
 	hwmon_dev = devm_hwmon_device_register_with_info(dev,
 							 KBUILD_MODNAME, hwmon,
 							 &hwmon->chip, groups);
