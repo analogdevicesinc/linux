@@ -227,17 +227,12 @@ int svm_set_efer(struct kvm_vcpu *vcpu, u64 efer)
 	if ((old_efer & EFER_SVME) != (efer & EFER_SVME)) {
 		if (!(efer & EFER_SVME)) {
 			/*
-			 * Architecturally, clearing EFER.SVME while a guest is
-			 * running yields undefined behavior, i.e. KVM can do
-			 * literally anything.  Force the vCPU back into L1 as
-			 * that is the safest option for KVM, but synthesize a
-			 * triple fault (for L1!) so that KVM at least doesn't
-			 * run random L2 code in the context of L1.  Do so if
-			 * and only if the vCPU is actively running, e.g. to
-			 * avoid positives if userspace is stuffing state.
+			 * KVM is supposed to synthesize #GP if L2 attempts to
+			 * clear SVME.
 			 */
-			if (is_guest_mode(vcpu) && vcpu->wants_to_run)
-				kvm_make_request(KVM_REQ_TRIPLE_FAULT, vcpu);
+			if (KVM_BUG_ON(is_guest_mode(vcpu) &&
+				       vcpu->wants_to_run, vcpu->kvm))
+				return -EIO;
 
 			svm_leave_nested(vcpu);
 			/* #GP intercept is still needed for vmware backdoor */
@@ -1602,7 +1597,7 @@ static void svm_set_vintr(struct vcpu_svm *svm)
 	/*
 	 * The following fields are ignored when AVIC is enabled
 	 */
-	WARN_ON(kvm_vcpu_apicv_activated(&svm->vcpu));
+	WARN_ON_ONCE(kvm_vcpu_apicv_activated(&svm->vcpu));
 
 	svm_set_intercept(svm, INTERCEPT_VINTR);
 
@@ -1637,8 +1632,8 @@ static void svm_clear_vintr(struct vcpu_svm *svm)
 	if (is_guest_mode(&svm->vcpu)) {
 		svm->vmcb01.ptr->control.int_ctl &= ~V_IRQ_INJECTION_BITS_MASK;
 
-		WARN_ON((svm->vmcb->control.int_ctl & V_TPR_MASK) !=
-			(svm->nested.ctl.int_ctl & V_TPR_MASK));
+		WARN_ON_ONCE((svm->vmcb->control.int_ctl & V_TPR_MASK) !=
+			     (svm->nested.ctl.int_ctl & V_TPR_MASK));
 
 		svm->vmcb->control.int_ctl |= svm->nested.ctl.int_ctl &
 			V_IRQ_INJECTION_BITS_MASK;
@@ -2683,7 +2678,7 @@ static int cr_interception(struct kvm_vcpu *vcpu)
 			err = kvm_set_cr8(vcpu, val);
 			break;
 		default:
-			WARN(1, "unhandled write to CR%d", cr);
+			WARN_ONCE(1, "unhandled write to CR%d", cr);
 			kvm_queue_exception(vcpu, UD_VECTOR);
 			return 1;
 		}
@@ -2705,7 +2700,7 @@ static int cr_interception(struct kvm_vcpu *vcpu)
 			val = kvm_get_cr8(vcpu);
 			break;
 		default:
-			WARN(1, "unhandled read from CR%d", cr);
+			WARN_ONCE(1, "unhandled read from CR%d", cr);
 			kvm_queue_exception(vcpu, UD_VECTOR);
 			return 1;
 		}
@@ -2742,7 +2737,7 @@ static int cr_trap(struct kvm_vcpu *vcpu)
 		ret = kvm_set_cr8(vcpu, new_value);
 		break;
 	default:
-		WARN(1, "unhandled CR%d write trap", cr);
+		WARN_ONCE(1, "unhandled CR%d write trap", cr);
 		kvm_queue_exception(vcpu, UD_VECTOR);
 		return 1;
 	}

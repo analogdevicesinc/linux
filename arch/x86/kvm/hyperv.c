@@ -1977,7 +1977,7 @@ static void hv_tlb_flush_enqueue(struct kvm_vcpu *vcpu, u64 *entries, int count,
 	 * space, just put 'flush all' entry there.
 	 */
 	if (count && entries && count < kfifo_avail(&tlb_flush_fifo->entries)) {
-		WARN_ON(kfifo_in(&tlb_flush_fifo->entries, entries, count) != count);
+		WARN_ON_ONCE(kfifo_in(&tlb_flush_fifo->entries, entries, count) != count);
 		goto out_unlock;
 	}
 

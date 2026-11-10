@@ -142,6 +142,7 @@ TEST_GEN_PROGS_x86 += x86/vmx_msrs_test
 TEST_GEN_PROGS_x86 += x86/vmx_invalid_nested_guest_state
 TEST_GEN_PROGS_x86 += x86/vmx_nested_la57_state_test
 TEST_GEN_PROGS_x86 += x86/apic_bus_clock_test
+TEST_GEN_PROGS_x86 += x86/apic_id_routing_test
 TEST_GEN_PROGS_x86 += x86/xapic_ipi_test
 TEST_GEN_PROGS_x86 += x86/xapic_state_test
 TEST_GEN_PROGS_x86 += x86/xapic_tpr_test

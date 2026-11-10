@@ -409,7 +409,7 @@ static void kvm_pit_load_count(struct kvm_pit *pit, int channel, u32 val,
 
 	if (hpet_legacy_start) {
 		/* save existing mode for later reenablement */
-		WARN_ON(channel != 0);
+		WARN_ON_ONCE(channel != 0);
 		saved_mode = pit->pit_state.channels[0].mode;
 		pit->pit_state.channels[0].mode = 0xff; /* disable timer */
 		pit_load_count(pit, channel, val);
@@ -522,8 +522,14 @@ static int pit_ioport_read(struct kvm_vcpu *vcpu,
 		return -EOPNOTSUPP;
 
 	addr &= KVM_PIT_CHANNEL_MASK;
-	if (addr == 3)
+	if (addr == 3) {
+		/*
+		 * Control words are write-only, arbitrarily return all ones,
+		 * e.g. to match bus abort semantics.
+		 */
+		memset(data, 0xff, len);
 		return 0;
+	}
 
 	s = &pit_state->channels[addr];
 
@@ -651,8 +657,12 @@ static void pit_mask_notifier(struct kvm_irq_mask_notifier *kimn, bool mask)
 
 int kvm_vm_ioctl_get_pit(struct kvm *kvm, struct kvm_pit_state *ps)
 {
-	struct kvm_kpit_state *kps = &kvm->arch.vpit->pit_state;
+	struct kvm_kpit_state *kps;
 
+	if (!kvm->arch.vpit)
+		return -ENXIO;
+
+	kps = &kvm->arch.vpit->pit_state;
 	BUILD_BUG_ON(sizeof(*ps) != sizeof(kps->channels));
 
 	mutex_lock(&kps->lock);
@@ -666,6 +676,9 @@ int kvm_vm_ioctl_set_pit(struct kvm *kvm, struct kvm_pit_state *ps)
 	int i;
 	struct kvm_pit *pit = kvm->arch.vpit;
 
+	if (!pit)
+		return -ENXIO;
+
 	mutex_lock(&pit->pit_state.lock);
 	memcpy(&pit->pit_state.channels, ps, sizeof(*ps));
 	for (i = 0; i < 3; i++)
@@ -676,6 +689,9 @@ int kvm_vm_ioctl_set_pit(struct kvm *kvm, struct kvm_pit_state *ps)
 
 int kvm_vm_ioctl_get_pit2(struct kvm *kvm, struct kvm_pit_state2 *ps)
 {
+	if (!kvm->arch.vpit)
+		return -ENXIO;
+
 	mutex_lock(&kvm->arch.vpit->pit_state.lock);
 	memcpy(ps->channels, &kvm->arch.vpit->pit_state.channels,
 		sizeof(ps->channels));
@@ -691,6 +707,9 @@ int kvm_vm_ioctl_set_pit2(struct kvm *kvm, struct kvm_pit_state2 *ps)
 	int i;
 	u32 prev_legacy, cur_legacy;
 	struct kvm_pit *pit = kvm->arch.vpit;
+
+	if (!pit)
+		return -ENXIO;
 
 	mutex_lock(&pit->pit_state.lock);
 	prev_legacy = pit->pit_state.flags & KVM_PIT_FLAGS_HPET_LEGACY;
@@ -710,6 +729,9 @@ int kvm_vm_ioctl_set_pit2(struct kvm *kvm, struct kvm_pit_state2 *ps)
 int kvm_vm_ioctl_reinject(struct kvm *kvm, struct kvm_reinject_control *control)
 {
 	struct kvm_pit *pit = kvm->arch.vpit;
+
+	if (!pit)
+		return -ENXIO;
 
 	/* pit->pit_state.lock was overloaded to prevent userspace from getting
 	 * an inconsistent state after running multiple KVM_REINJECT_CONTROL
@@ -790,6 +812,7 @@ struct kvm_pit *kvm_create_pit(struct kvm *kvm, u32 flags)
 
 fail_register_speaker:
 	kvm_io_bus_unregister_dev(kvm, KVM_PIO_BUS, &pit->dev);
+	hrtimer_cancel(&pit->pit_state.timer);
 fail_register_pit:
 	mutex_unlock(&kvm->slots_lock);
 	kvm_pit_set_reinject(pit, false);

@@ -3007,7 +3007,7 @@ void sev_vm_destroy(struct kvm *kvm)
 	if (!sev_guest(kvm))
 		return;
 
-	WARN_ON(!list_empty(&sev->mirror_vms));
+	WARN_ON_ONCE(!list_empty(&sev->mirror_vms));
 
 	/*
 	 * If this is a mirror VM, remove it from the owner's list of a mirrors

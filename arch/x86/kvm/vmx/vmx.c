@@ -3089,7 +3089,7 @@ void free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	loaded_vmcs->vmcs = NULL;
 	if (loaded_vmcs->msr_bitmap)
 		free_page((unsigned long)loaded_vmcs->msr_bitmap);
-	WARN_ON(loaded_vmcs->shadow_vmcs != NULL);
+	WARN_ON_ONCE(loaded_vmcs->shadow_vmcs != NULL);
 }
 
 int alloc_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
@@ -4468,7 +4468,7 @@ void vmx_set_constant_host_state(struct vcpu_vmx *vmx)
 	unsigned long cr0, cr3, cr4;
 
 	cr0 = read_cr0();
-	WARN_ON(cr0 & X86_CR0_TS);
+	WARN_ON_ONCE(cr0 & X86_CR0_TS);
 	vmcs_writel(HOST_CR0, cr0);  /* 22.2.3 */
 
 	/*
@@ -5537,7 +5537,7 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 			 * STI and MOVSS blocking.
 			 */
 			if (is_icebp(intr_info))
-				WARN_ON(!skip_emulated_instruction(vcpu));
+				WARN_ON_ONCE(!skip_emulated_instruction(vcpu));
 
 			kvm_queue_exception_p(vcpu, DB_VECTOR, dr6);
 			return 1;
@@ -5962,7 +5962,7 @@ static int handle_task_switch(struct kvm_vcpu *vcpu)
 	if (!idt_v || (type != INTR_TYPE_HARD_EXCEPTION &&
 		       type != INTR_TYPE_EXT_INTR &&
 		       type != INTR_TYPE_NMI_INTR))
-		WARN_ON(!skip_emulated_instruction(vcpu));
+		WARN_ON_ONCE(!skip_emulated_instruction(vcpu));
 
 	/*
 	 * TODO: What about debug traps on tss switch?
@@ -7079,8 +7079,10 @@ int vmx_sync_pir_to_irr(struct kvm_vcpu *vcpu)
 
 void vmx_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
 {
-	if (!kvm_vcpu_apicv_active(vcpu))
+	if (!lapic_in_kernel(vcpu) || !enable_apicv)
 		return;
+
+	guard(vmx_vmcs01)(vcpu);
 
 	vmcs_write64(EOI_EXIT_BITMAP0, eoi_exit_bitmap[0]);
 	vmcs_write64(EOI_EXIT_BITMAP1, eoi_exit_bitmap[1]);

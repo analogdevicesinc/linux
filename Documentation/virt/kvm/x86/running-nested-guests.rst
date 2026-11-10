@@ -186,21 +186,11 @@ Live migration with nested KVM
 
 Migrating an L1 guest, with a  *live* nested guest in it, to another
 bare metal host, works as of Linux kernel 5.3 and QEMU 4.2.0 for
-Intel x86 systems, and even on older versions for s390x.
-
-On AMD systems, once an L1 guest has started an L2 guest, the L1 guest
-should no longer be migrated or saved (refer to QEMU documentation on
-"savevm"/"loadvm") until the L2 guest shuts down.  Attempting to migrate
-or save-and-load an L1 guest while an L2 guest is running will result in
-undefined behavior.  You might see a ``kernel BUG!`` entry in ``dmesg``, a
-kernel 'oops', or an outright kernel panic.  Such a migrated or loaded L1
-guest can no longer be considered stable or secure, and must be restarted.
-Migrating an L1 guest merely configured to support nesting, while not
-actually running L2 guests, is expected to function normally even on AMD
-systems but may fail once guests are started.
+Intel x86 systems, and even on older versions for s390x.  On AMD x86
+systems, it works with Linux kernel 7.2 and QEMU 11.1.0, or later.
 
 Migrating an L2 guest is always expected to succeed, so all the following
-scenarios should work even on AMD systems:
+scenarios should work:
 
 - Migrating a nested guest (L2) to another L1 guest on the *same* bare
   metal host.

@@ -523,7 +523,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
 
 static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 {
-	WARN_ON(mmu_is_nested(vcpu));
+	WARN_ON_ONCE(mmu_is_nested(vcpu));
 
 	vcpu->arch.mmu = &vcpu->arch.guest_mmu;
 	nested_ept_new_eptp(vcpu);
@@ -531,11 +531,6 @@ static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 	vcpu->arch.ngpa_walk.get_pdptr       = kvm_pdptr_read;
 
 	vcpu->arch.ngpa_walk.inject_page_fault = nested_ept_inject_page_fault;
-}
-
-static void nested_ept_uninit_mmu_context(struct kvm_vcpu *vcpu)
-{
-	vcpu->arch.mmu = &vcpu->arch.root_mmu;
 }
 
 static bool nested_vmx_is_page_fault_vmexit(struct vmcs12 *vmcs12,
@@ -1323,7 +1318,7 @@ static void nested_vmx_transition_tlb_flush(struct kvm_vcpu *vcpu,
 	}
 
 	/* L2 should never have a VPID if VPID is disabled. */
-	WARN_ON(!enable_vpid);
+	WARN_ON_ONCE(!enable_vpid);
 
 	/*
 	 * VPID is enabled and in use by vmcs12.  If vpid12 is changing, then
@@ -1706,7 +1701,7 @@ static void copy_shadow_to_vmcs12(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	preempt_disable();
@@ -1741,7 +1736,7 @@ static void copy_vmcs12_to_shadow(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i, q;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	vmcs_load(shadow_vmcs);
@@ -3778,10 +3773,8 @@ vmentry_fail_vmexit_guest_mode:
 vmentry_fail_vmexit:
 	vmx_switch_vmcs(vcpu, &vmx->vmcs01);
 
-	if (!from_vmentry) {
-		nested_ept_uninit_mmu_context(vcpu);
+	if (!from_vmentry)
 		return NVMX_VMENTRY_VMEXIT;
-	}
 
 	nested_put_vmcs12_pages(vcpu);
 
@@ -4841,8 +4834,6 @@ static void load_vmcs12_host_state(struct kvm_vcpu *vcpu,
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs12->host_cr4);
 
-	nested_ept_uninit_mmu_context(vcpu);
-
 	/*
 	 * Only PDPTE load can fail as the value of cr3 was checked on entry and
 	 * couldn't have changed.
@@ -4988,7 +4979,7 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 		if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
 			kvm_set_dr(vcpu, 7, DR7_FIXED_1);
 		else
-			WARN_ON(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
+			WARN_ON_ONCE(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
 	}
 
 	/* Reload DEBUGCTL to ensure vmcs01 has a fresh FREEZE_IN_SMM value. */
@@ -5006,7 +4997,6 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs_readl(CR4_READ_SHADOW));
 
-	nested_ept_uninit_mmu_context(vcpu);
 	vcpu->arch.cr3 = vmx->nested.pre_vmenter_cr3;
 	kvm_register_mark_available(vcpu, VCPU_REG_CR3);
 
@@ -5419,7 +5409,7 @@ static struct vmcs *alloc_shadow_vmcs(struct kvm_vcpu *vcpu)
 	 * doesn't support virtualization of VMCS shadowing, so vmcs01 should
 	 * always be the loaded VMCS.
 	 */
-	if (WARN_ON(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
+	if (WARN_ON_ONCE(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
 		return loaded_vmcs->shadow_vmcs;
 
 	loaded_vmcs->shadow_vmcs = alloc_vmcs(true);
