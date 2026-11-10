@@ -60,6 +60,10 @@ enum ionic_cmd_opcode {
 	/* CMB command */
 	IONIC_CMD_DISCOVER_CMB			= 80,
 
+	/* Hardware monitoring commands */
+	IONIC_CMD_HWMON_GETATTR			= 110,
+	IONIC_CMD_HWMON_GETCAPS			= 111,
+
 	/* QoS commands */
 	IONIC_CMD_QOS_CLASS_IDENTIFY		= 240,
 	IONIC_CMD_QOS_CLASS_INIT		= 241,
@@ -274,11 +278,13 @@ union ionic_drv_identity {
  * enum ionic_dev_capability - Device capabilities
  * @IONIC_DEV_CAP_VF_CTRL:     Device supports VF ctrl operations
  * @IONIC_DEV_CAP_DISC_CMB:    Device supports CMB discovery operations
+ * @IONIC_DEV_CAP_HWMON:       Device supports hardware monitoring
  * @IONIC_DEV_CAP_EXTRA_STATS: Device supports extra stats schema
  */
 enum ionic_dev_capability {
 	IONIC_DEV_CAP_VF_CTRL        = BIT(0),
 	IONIC_DEV_CAP_DISC_CMB       = BIT(1),
+	IONIC_DEV_CAP_HWMON          = BIT(3),
 	IONIC_DEV_CAP_EXTRA_STATS    = BIT(4),
 };
 
@@ -2527,6 +2533,100 @@ struct ionic_qos_clear_stats_cmd {
 typedef struct ionic_admin_comp ionic_qos_reset_comp;
 
 /**
+ * struct ionic_hwmon_getattr_cmd - Hardware monitoring get attribute command
+ * @opcode:      Command opcode (IONIC_CMD_HWMON_GETATTR)
+ * @rsvd:        reserved byte(s)
+ * @lif_index:   LIF index
+ * @sensor_type: Sensor type from enum ionic_hwmon_sensor_type
+ * @channel:     Channel index within the sensor type
+ * @attr:        Attribute ID from sensor-specific attribute enum
+ * @rsvd2:       reserved byte(s)
+ *
+ * A *_ATTR_LABEL attribute ID must never be sent in this command.  The label is
+ * already reported in ionic_hwmon_chan_caps.label; the attr_caps LABEL bit only
+ * signals that a label is present.
+ */
+struct ionic_hwmon_getattr_cmd {
+	u8      opcode;
+	u8      rsvd;
+	__le16  lif_index;
+	u8      sensor_type;
+	u8      channel;
+	u8      attr;
+	u8      rsvd2[57];
+};
+
+/**
+ * struct ionic_hwmon_getattr_comp - Hardware monitor get attribute completion
+ * @status:     Status of the command (enum ionic_status_code)
+ * @rsvd:       reserved byte(s)
+ * @comp_index: Index in the descriptor ring for which this is the completion
+ * @attr_value: Attribute value
+ * @rsvd2:      reserved byte(s)
+ * @color:      Color bit
+ *
+ * attr_value depends on the (sensor_type, attr) pair being read:
+ *
+ *   temperature INPUT, CRIT   millidegrees Celsius, signed 32-bit
+ *   temperature CRIT_ALARM    0 or 1
+ *   voltage INPUT             millivolts
+ *   power INPUT, MAX          milliwatts
+ */
+struct ionic_hwmon_getattr_comp {
+	u8      status;
+	u8      rsvd;
+	__le16  comp_index;
+	__le32  attr_value;
+	u8      rsvd2[7];
+	u8      color;
+};
+
+/**
+ * struct ionic_hwmon_getcaps_cmd - Hardware monitoring get capabilities command
+ * @opcode:         Command opcode (IONIC_CMD_HWMON_GETCAPS)
+ * @ver:            Highest capability buffer layout version supported by
+ *                  the driver
+ * @lif_index:      LIF index
+ * @resp_buf_len:   Length of response buffer
+ * @resp_dma_addr:  DMA address for response data
+ * @rsvd2:          reserved byte(s)
+ *
+ * The device writes the capability buffer in the highest layout version it
+ * supports that does not exceed @ver, and reports that version in the
+ * completion.  IONIC_HWMON_CAPS_VERSION_0 is the layout documented in
+ * include/linux/ionic/ionic_hwmon.h.
+ */
+struct ionic_hwmon_getcaps_cmd {
+	u8      opcode;
+	u8      ver;
+	__le16  lif_index;
+	__le32  resp_buf_len;
+	__le64  resp_dma_addr;
+	u8      rsvd2[48];
+};
+
+/**
+ * struct ionic_hwmon_getcaps_comp - Hardware monitoring get caps completion
+ * @status:     Status of the command (enum ionic_status_code)
+ * @rsvd:       reserved byte(s)
+ * @comp_index: Index in the descriptor ring for which this is the completion
+ * @ver:        Layout version of the capability buffer written by the device
+ * @rsvd2:      reserved byte(s)
+ * @color:      Color bit
+ *
+ * Devices that predate @ver leave it zero, which is
+ * IONIC_HWMON_CAPS_VERSION_0.
+ */
+struct ionic_hwmon_getcaps_comp {
+	u8      status;
+	u8      rsvd;
+	__le16  comp_index;
+	u8      ver;
+	u8      rsvd2[10];
+	u8      color;
+};
+
+/**
  * struct ionic_fw_download_cmd - Firmware download command
  * @opcode:	opcode
  * @rsvd:	reserved byte(s)
@@ -3306,6 +3406,8 @@ union ionic_adminq_cmd {
 	struct ionic_rx_filter_del_cmd rx_filter_del;
 	struct ionic_rdma_reset_cmd rdma_reset;
 	struct ionic_rdma_queue_cmd rdma_queue;
+	struct ionic_hwmon_getattr_cmd hwmon_getattr;
+	struct ionic_hwmon_getcaps_cmd hwmon_getcaps;
 	struct ionic_fw_download_cmd fw_download;
 	struct ionic_fw_control_cmd fw_control;
 };
@@ -3319,6 +3421,8 @@ union ionic_adminq_comp {
 	struct ionic_lif_getattr_comp lif_getattr;
 	struct ionic_admin_comp lif_setphc;
 	struct ionic_rx_filter_add_comp rx_filter_add;
+	struct ionic_hwmon_getattr_comp hwmon_getattr;
+	struct ionic_hwmon_getcaps_comp hwmon_getcaps;
 	struct ionic_fw_control_comp fw_control;
 };
 
