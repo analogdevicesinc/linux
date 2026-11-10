@@ -29,11 +29,7 @@ properties:
     maxItems: 4
 
   interrupt-names:
-    items:
-      - const: msi
-      - const: dma
-      - const: sft_ce
-      - const: app
+    maxItems: 4
 
   clocks:
     maxItems: 2
@@ -98,6 +94,13 @@ allOf:
             - const: app
             - const: phy
             - const: config
+
+        interrupt-names:
+          items:
+            - const: msi
+            - const: dma
+            - const: sft_ce
+            - const: app
   - if:
       properties:
         compatible:
@@ -116,6 +119,13 @@ allOf:
             - const: dma
             - const: app
             - const: config
+
+        interrupt-names:
+          items:
+            - const: msi
+            - const: dma
+            - const: app
+            - const: aer
 
 unevaluatedProperties: false
 

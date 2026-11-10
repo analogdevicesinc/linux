@@ -455,7 +455,6 @@ static struct rcar_gen4_pcie *rcar_gen4_pcie_alloc(struct platform_device *pdev)
 static int rcar_gen4_pcie_host_msi_addr(struct dw_pcie_rp *pp, u32 *msi_addr)
 {
 	struct dw_pcie *dw = to_dw_pcie_from_pp(pp);
-	struct device_node *msi_node = NULL;
 	struct device *dev = dw->dev;
 	struct resource res;
 	u64 addr;
@@ -465,6 +464,7 @@ static int rcar_gen4_pcie_host_msi_addr(struct dw_pcie_rp *pp, u32 *msi_addr)
 	 * Either the "msi-parent" or the "msi-map" phandle needs to exist
 	 * to obtain the MSI node.
 	 */
+	struct device_node *msi_node __free(device_node) = NULL;
 	of_msi_xlate(dev, &msi_node, 0);
 	if (!msi_node)
 		return -ENODEV;
