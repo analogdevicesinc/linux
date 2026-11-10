@@ -72,17 +72,14 @@ static void __test_sev_dbg(struct kvm_vm *vm, int nr_bytes)
 	}
 }
 
-static void test_sev_dbg(u32 type, u64 policy)
+static void test_sev_dbg(struct vm_shape shape, u64 policy)
 {
 	int sizes[] = { 1, 8, 15, 16, 17, 32, 33 };
 	struct kvm_vcpu *vcpu;
 	struct kvm_vm *vm;
 	int i;
 
-	if (!(kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(type)))
-		return;
-
-	vm = vm_sev_create_with_one_vcpu(type, NULL, &vcpu);
+	vm = vm_create_shape_with_one_vcpu(shape, &vcpu, NULL);
 
 	data = addr_gva2hva(vm, vm_alloc(vm, BUFFER_SIZE, KVM_UTIL_MIN_VADDR));
 	memset(data, 0xaa, BUFFER_SIZE);
@@ -114,7 +111,9 @@ int main(int argc, char *argv[])
 	TEST_REQUIRE(kvm_cpu_has(X86_FEATURE_SEV));
 
 	/* Note, KVM doesn't support {de,en}crypt commands for SNP. */
-	test_sev_dbg(KVM_X86_SEV_VM, 0);
-	test_sev_dbg(KVM_X86_SEV_ES_VM, SEV_POLICY_ES);
+	if (kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_VM))
+		test_sev_dbg(VM_SHAPE_SEV, 0);
+	if (kvm_check_cap(KVM_CAP_VM_TYPES) & BIT(KVM_X86_SEV_ES_VM))
+		test_sev_dbg(VM_SHAPE_SEV_ES, SEV_POLICY_ES);
 	return 0;
 }
