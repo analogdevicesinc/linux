@@ -1333,7 +1333,7 @@ static void vc4_hdmi_encoder_pre_crtc_configure(struct drm_encoder *encoder,
 	 * users are able to use pixel clocks closer to HSM's, namely for
 	 * 1920x1200@60Hz. So it was decided to have leave a 1% margin between
 	 * both clocks. Which, for RPi0-3 implies a maximum pixel clock of
-	 * 162MHz.
+	 * 165MHz.
 	 *
 	 * Additionally, the AXI clock needs to be at least 25% of
 	 * pixel clock, but HSM ends up being the limiting factor.
@@ -3203,7 +3203,7 @@ static const struct vc4_hdmi_variant bcm2835_variant = {
 	.encoder_type		= VC4_ENCODER_TYPE_HDMI0,
 	.debugfs_name		= "hdmi_regs",
 	.card_name		= "vc4-hdmi",
-	.max_pixel_clock	= 162000000,
+	.max_pixel_clock	= HDMI_1_0_TMDS_CHAR_RATE_MAX_HZ,
 	.registers		= vc4_hdmi_fields,
 	.num_registers		= ARRAY_SIZE(vc4_hdmi_fields),
 
