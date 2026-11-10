@@ -39,7 +39,6 @@
 #include <linux/kernel.h>
 #include <linux/clk.h>
 #include <linux/of.h>
-#include <linux/platform_data/g762.h>
 
 #define DRVNAME "g762"
 
@@ -568,7 +567,6 @@ static int do_set_fan_startv(struct device *dev, unsigned long val)
  * those to the chip.
  */
 
-#ifdef CONFIG_OF
 static const struct of_device_id g762_dt_match[] = {
 	{ .compatible = "gmt,g761" },
 	{ .compatible = "gmt,g762" },
@@ -693,46 +691,6 @@ static int g762_of_prop_import(struct i2c_client *client)
 
 	return g762_of_prop_import_one(client, "fan_startv",
 				       do_set_fan_startv);
-}
-
-#else
-static int g762_of_prop_import(struct i2c_client *client)
-{
-	return 0;
-}
-
-static int g762_of_clock_enable(struct i2c_client *client)
-{
-	return 0;
-}
-#endif
-
-/*
- * Helper to import hardware characteristics from .dts file and push
- * those to the chip.
- */
-
-static int g762_pdata_prop_import(struct i2c_client *client)
-{
-	struct g762_platform_data *pdata = dev_get_platdata(&client->dev);
-	int ret;
-
-	if (!pdata)
-		return 0;
-
-	ret = do_set_fan_gear_mode(&client->dev, pdata->fan_gear_mode);
-	if (ret)
-		return ret;
-
-	ret = do_set_pwm_polarity(&client->dev, pdata->pwm_polarity);
-	if (ret)
-		return ret;
-
-	ret = do_set_fan_startv(&client->dev, pdata->fan_startv);
-	if (ret)
-		return ret;
-
-	return do_set_clk_freq(&client->dev, pdata->clk_freq);
 }
 
 /*
@@ -1085,7 +1043,7 @@ static int g762_probe(struct i2c_client *client)
 	data->client = client;
 	mutex_init(&data->update_lock);
 
-	/* Get configuration via DT ... */
+	/* Get configuration via DT */
 	ret = g762_of_clock_enable(client);
 	if (ret)
 		return ret;
@@ -1098,10 +1056,6 @@ static int g762_probe(struct i2c_client *client)
 	ret = g762_of_prop_import(client);
 	if (ret)
 		return ret;
-	/* ... or platform_data */
-	ret = g762_pdata_prop_import(client);
-	if (ret)
-		return ret;
 
 	hwmon_dev = devm_hwmon_device_register_with_groups(dev, client->name,
 							    data, g762_groups);
@@ -1111,7 +1065,7 @@ static int g762_probe(struct i2c_client *client)
 static struct i2c_driver g762_driver = {
 	.driver = {
 		.name = DRVNAME,
-		.of_match_table = of_match_ptr(g762_dt_match),
+		.of_match_table = g762_dt_match,
 	},
 	.probe = g762_probe,
 	.id_table = g762_id,
