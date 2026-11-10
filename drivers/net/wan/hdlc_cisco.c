@@ -274,7 +274,6 @@ static void cisco_start(struct net_device *dev)
 	spin_unlock_irqrestore(&st->lock, flags);
 
 	st->dev = dev;
-	timer_setup(&st->timer, cisco_timer, 0);
 	st->timer.expires = jiffies + HZ; /* First poll after 1 s */
 	add_timer(&st->timer);
 }
@@ -293,9 +292,17 @@ static void cisco_stop(struct net_device *dev)
 	spin_unlock_irqrestore(&st->lock, flags);
 }
 
+static void cisco_detach(struct net_device *dev)
+{
+	struct cisco_state *st = state(dev_to_hdlc(dev));
+
+	timer_shutdown_sync(&st->timer);
+}
+
 static struct hdlc_proto proto = {
 	.start		= cisco_start,
 	.stop		= cisco_stop,
+	.detach		= cisco_detach,
 	.type_trans	= cisco_type_trans,
 	.ioctl		= cisco_ioctl,
 	.netif_rx	= cisco_rx,
@@ -353,6 +360,7 @@ static int cisco_ioctl(struct net_device *dev, struct if_settings *ifs)
 
 		memcpy(&state(hdlc)->settings, &new_settings, size);
 		spin_lock_init(&state(hdlc)->lock);
+		timer_setup(&state(hdlc)->timer, cisco_timer, 0);
 		dev->header_ops = &cisco_header_ops;
 		dev->hard_header_len = sizeof(struct hdlc_header);
 		dev->type = ARPHRD_CISCO;
