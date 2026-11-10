@@ -49,9 +49,10 @@
  * - 1.21 - Debugger support to subscribe to LDS out-of-address exceptions
  * - 1.22 - Add queue creation with metadata ring base address
  * - 1.23 - Add profiler control ioctl to enable/disable profiler on a process
+ * - 1.24 - Enable SVM no-access attributes
  */
 #define KFD_IOCTL_MAJOR_VERSION 1
-#define KFD_IOCTL_MINOR_VERSION 23
+#define KFD_IOCTL_MINOR_VERSION 24
 
 struct kfd_ioctl_get_version_args {
 	__u32 major_version;	/* from KFD */

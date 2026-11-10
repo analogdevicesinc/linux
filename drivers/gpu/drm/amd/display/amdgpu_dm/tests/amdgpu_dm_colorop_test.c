@@ -232,7 +232,7 @@ static void dm_test_initialize_default_pipeline_caps(struct kunit *test,
 	drm = &adev->ddev;
 
 	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
 	adev->dm.dc = dc;
 	adev->dm.dc->caps.color.dpp.hw_3d_lut = dpp_hw_3d_lut;
 	adev->dm.dc->caps.color.mpc.preblend = mpc_preblend;

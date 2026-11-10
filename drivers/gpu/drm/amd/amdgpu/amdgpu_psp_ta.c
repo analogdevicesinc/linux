@@ -23,6 +23,7 @@
 
 #include "amdgpu.h"
 #include "amdgpu_psp_ta.h"
+#include "amdgpu_ras_mgr.h"
 
 #if defined(CONFIG_DEBUG_FS)
 
@@ -329,6 +330,22 @@ static ssize_t ta_if_invoke_debugfs_write(struct file *fp, const char *buf, size
 	shared_buf = memdup_user(&buf[copy_pos], shared_buf_len);
 	if (IS_ERR(shared_buf))
 		return PTR_ERR(shared_buf);
+
+	if (ta_type == TA_TYPE_RAS && amdgpu_uniras_enabled(adev)) {
+		struct amdgpu_ras_mgr *ras_mgr = amdgpu_ras_mgr_get_context(adev);
+
+		if (!ras_mgr || !ras_mgr->ras_core) {
+			ret = -EINVAL;
+			goto free_shared_buf;
+		}
+
+		ret = ras_psp_invoke_ras_ta(ras_mgr->ras_core, ta_id, cmd_id,
+					   shared_buf, shared_buf_len);
+		if (!ret && copy_to_user((char *)&buf[copy_pos], shared_buf, shared_buf_len))
+			ret = -EFAULT;
+
+		goto free_shared_buf;
+	}
 
 	set_ta_context_funcs(psp, ta_type, &context);
 

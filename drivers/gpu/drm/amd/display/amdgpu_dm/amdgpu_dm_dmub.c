@@ -319,6 +319,11 @@ int dm_dmub_hw_init(struct amdgpu_device *adev)
 		return -ENOMEM;
 	}
 
+	/* Cursor offload has to be enabled; prime it on every DMUB init,
+	 * including post-suspend and GPU-reset.
+	 */
+	dc_dmub_srv_cursor_offload_init(adev->dm.dc);
+
 	drm_info(adev_to_drm(adev), "DMUB hardware initialized: version=0x%08X\n",
 		 adev->dm.dmcub_fw_version);
 

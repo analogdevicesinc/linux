@@ -39,6 +39,8 @@ void dcn35_dsc_pg_control(struct dce_hwseq *hws, unsigned int dsc_inst, bool pow
 
 void dcn35_dpp_root_clock_control(struct dce_hwseq *hws, unsigned int dpp_inst, bool clock_on);
 
+bool dcn35_is_dpp_root_clock_control_supported(bool root_clock_optimization_dpp, bool clock_on);
+
 void dcn35_dpstream_root_clock_control(struct dce_hwseq *hws, unsigned int dp_hpo_inst, bool clock_on);
 
 void dcn35_hdmistream_root_clock_control(struct dce_hwseq *hws, bool clock_on);

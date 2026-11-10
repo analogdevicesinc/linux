@@ -1460,7 +1460,7 @@ static int sienna_cichlid_force_clk_levels(struct smu_context *smu,
 	}
 
 forec_level_out:
-	return 0;
+	return ret;
 }
 
 static int sienna_cichlid_populate_umd_state_clk(struct smu_context *smu)

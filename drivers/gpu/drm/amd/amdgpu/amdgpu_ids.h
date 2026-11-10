@@ -56,6 +56,22 @@
 	     __vmid_mask; __vmid_mask = 0)				\
 		for_each_set_bit((vmid), &__vmid_mask, AMDGPU_NUM_VMID)
 
+/**
+ * for_each_uq_gfx_vmid - iterate over every VMID set in vmid_uq_mask_gfxhub
+ * @vmid:	loop cursor (int / unsigned int)
+ * @adev:	struct amdgpu_device *
+ *
+ * Equivalent to walking adev->vm_manager.vmid_uq_mask_gfxhub with
+ * for_each_set_bit().
+ *
+ * Relies on AMDGPU_NUM_VMID (16) fitting in a single unsigned long.
+ */
+#define for_each_uq_gfx_vmid(vmid, adev)					\
+	for (unsigned long __uq_vmid_mask =				\
+		(adev)->vm_manager.vmid_uq_mask_gfxhub;		\
+	     __uq_vmid_mask; __uq_vmid_mask = 0)			\
+		for_each_set_bit((vmid), &__uq_vmid_mask, AMDGPU_NUM_VMID)
+
 struct amdgpu_device;
 struct amdgpu_fpriv;
 struct amdgpu_vm;
@@ -98,6 +114,9 @@ int amdgpu_pasid_alloc(unsigned int bits, struct amdgpu_fpriv *fpriv);
 void amdgpu_pasid_lock(unsigned long *flags);
 void amdgpu_pasid_unlock(unsigned long flags);
 struct amdgpu_fpriv *amdgpu_pasid_get_fpriv_locked(u32 pasid);
+int amdgpu_pasid_drain_irq(struct amdgpu_device *adev, u32 pasid,
+			   u32 *ih_fence, unsigned long timeout);
+void amdgpu_pasid_drain_irq_done(u32 pasid);
 void amdgpu_pasid_free(u32 pasid);
 void amdgpu_pasid_free_delayed(struct dma_resv *resv,
 			       u32 pasid);
@@ -106,9 +125,9 @@ void amdgpu_pasid_mgr_cleanup(void);
 bool amdgpu_vmid_had_gpu_reset(struct amdgpu_device *adev,
 			       struct amdgpu_vmid *id);
 bool amdgpu_vmid_uses_reserved(struct amdgpu_vm *vm, unsigned int vmhub);
-int amdgpu_vmid_alloc_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+int amdgpu_vmid_alloc_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub);
-void amdgpu_vmid_free_reserved(struct amdgpu_device *adev, struct amdgpu_vm *vm,
+void amdgpu_vmid_free_spm(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 			       unsigned vmhub);
 int amdgpu_vmid_grab(struct amdgpu_vm *vm, struct amdgpu_ring *ring,
 		     struct amdgpu_job *job, struct dma_fence **fence);
@@ -119,6 +138,7 @@ void amdgpu_vmid_reset_all(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_init(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_fini(struct amdgpu_device *adev);
 void amdgpu_vmid_mgr_set_vmid_mask(struct amdgpu_device *adev,
-				   unsigned long vmid_mask, bool for_mmhub);
+				   unsigned long vmid_kq_mask_gfxhub,
+				   unsigned long vmid_kq_mask_mmhub);
 
 #endif

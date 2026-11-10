@@ -44,9 +44,9 @@ static void setup_test_connector(struct kunit *test,
 	fixture->adev = kunit_kzalloc(test, sizeof(*fixture->adev), GFP_KERNEL);
 	fixture->aconnector = kunit_kzalloc(test, sizeof(*fixture->aconnector), GFP_KERNEL);
 	fixture->link = kunit_kzalloc(test, sizeof(*fixture->link), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->aconnector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->link);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->adev);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->link);
 
 	fixture->aconnector->bl_idx = bl_idx;
 	fixture->aconnector->dc_link = fixture->link;
@@ -111,7 +111,7 @@ static void dm_test_backlight_set_level_connector_off(struct kunit *test)
 
 	setup_test_dm_ddev(test, dm);
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 	INIT_LIST_HEAD(&aconnector->base.head);
 	aconnector->bl_idx = 1;
 	aconnector->base.encoder = NULL;
@@ -169,7 +169,7 @@ static void dm_test_backlight_set_level_aux_programs_power_module(struct kunit *
 
 	/* Non-matching connector exercises the bl_idx skip (continue). */
 	other = kunit_kzalloc(test, sizeof(*other), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, other);
+	KUNIT_ASSERT_NOT_NULL(test, other);
 	INIT_LIST_HEAD(&other->base.head);
 	other->bl_idx = 0;
 	list_add_tail(&other->base.head, &dm->ddev->mode_config.connector_list);
@@ -245,16 +245,16 @@ static void dm_test_backlight_set_level_reallows_idle(struct kunit *test)
 
 	/* dm_kunit_alloc_dm() leaves dc->ctx NULL; the idle path dereferences it. */
 	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
 	dm->dc->ctx = ctx;
 
 	logger = kunit_kzalloc(test, sizeof(*logger), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, logger);
+	KUNIT_ASSERT_NOT_NULL(test, logger);
 	logger->dev = &adev->ddev;
 	dm->dc->ctx->logger = logger;
 
 	dmub_srv = kunit_kzalloc(test, sizeof(*dmub_srv), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dmub_srv);
+	KUNIT_ASSERT_NOT_NULL(test, dmub_srv);
 	dmub_srv->idle_allowed = true;
 	dm->dc->ctx->dmub_srv = dmub_srv;
 	dm->dc->caps.ips_support = true;
@@ -286,7 +286,7 @@ static void dm_test_backlight_update_status_no_stream(struct kunit *test)
 
 	setup_test_dm_ddev(test, dm);
 	bd = kunit_kzalloc(test, sizeof(*bd), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, bd);
+	KUNIT_ASSERT_NOT_NULL(test, bd);
 	dev_set_drvdata(&bd->dev, dm);
 	bd->props.brightness = 3456;
 	dm->num_of_edps = 2;
@@ -305,9 +305,9 @@ static void setup_test_link_service(struct kunit *test, struct dc_link *link)
 	dc = kunit_kzalloc(test, sizeof(*dc), GFP_KERNEL);
 	ctx = kunit_kzalloc(test, sizeof(*ctx), GFP_KERNEL);
 	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dc);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link_srv);
+	KUNIT_ASSERT_NOT_NULL(test, dc);
+	KUNIT_ASSERT_NOT_NULL(test, ctx);
+	KUNIT_ASSERT_NOT_NULL(test, link_srv);
 
 	dc->ctx = ctx;
 	dc->link_srv = link_srv;
@@ -440,7 +440,7 @@ static void dm_test_backlight_get_brightness_uses_device_index(struct kunit *tes
 	setup_test_link_service(test, link);
 	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_error;
 	bd = kunit_kzalloc(test, sizeof(*bd), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, bd);
+	KUNIT_ASSERT_NOT_NULL(test, bd);
 	dev_set_drvdata(&bd->dev, dm);
 	dm->num_of_edps = 2;
 	dm->backlight_dev[1] = bd;
@@ -487,7 +487,7 @@ static void dm_test_register_backlight_device_success(struct kunit *test)
 	setup_test_link_service(test, link);
 	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_error;
 	primary = kunit_kzalloc(test, sizeof(*primary), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, primary);
+	KUNIT_ASSERT_NOT_NULL(test, primary);
 	adev->ddev.primary = primary;
 	adev->dm.backlight_link[0] = link;
 
@@ -531,9 +531,9 @@ static struct drm_connector *setup_panel_power_savings_connector(struct kunit *t
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
 	state = kunit_kzalloc(test, sizeof(*state), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, state);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, device);
+	KUNIT_ASSERT_NOT_NULL(test, state);
 
 	connector->dev = &adev->ddev;
 	connector->state = &state->base;
@@ -646,9 +646,9 @@ static void dm_test_panel_power_savings_store_rejects_invalid_text(struct kunit 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	drm = kunit_kzalloc(test, sizeof(*drm), GFP_KERNEL);
 	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, drm);
+	KUNIT_ASSERT_NOT_NULL(test, device);
 
 	connector->dev = drm;
 	dev_set_drvdata(device, connector);
@@ -669,9 +669,9 @@ static void dm_test_panel_power_savings_store_rejects_out_of_range(struct kunit 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
 	drm = kunit_kzalloc(test, sizeof(*drm), GFP_KERNEL);
 	device = kunit_kzalloc(test, sizeof(*device), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, drm);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, device);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, drm);
+	KUNIT_ASSERT_NOT_NULL(test, device);
 
 	connector->dev = drm;
 	dev_set_drvdata(device, connector);
@@ -1518,7 +1518,7 @@ static void dm_test_update_connector_ext_caps_negative_bl_idx(struct kunit *test
 	struct amdgpu_dm_connector *aconnector;
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	aconnector->bl_idx = -1;
 

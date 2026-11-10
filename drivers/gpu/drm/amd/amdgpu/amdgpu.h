@@ -426,6 +426,9 @@ struct amdgpu_fpriv {
 
 	/** GPU partition selection */
 	uint32_t		xcp_id;
+
+	/** Signaled when a KFD interrupt drain fence for this PASID is seen */
+	struct completion	irq_drain_done;
 };
 
 int amdgpu_file_to_fpriv(struct file *filp, struct amdgpu_fpriv **fpriv);

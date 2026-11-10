@@ -716,9 +716,6 @@ static int amdgpu_dm_init(struct amdgpu_device *adev)
 
 	dc_hardware_init(adev->dm.dc);
 
-	/* Enable cursor offload if the ASIC supports it. */
-	dc_dmub_srv_cursor_offload_init(adev->dm.dc);
-
 	/* GOP/vBIOS may leave an OPTC enabled for a display present at power-on
 	 * but no longer driven (e.g. an external DP unplugged at boot). Such a
 	 * dangling pipe keeps DCN out of idle and blocks s0i3. Power it down
@@ -1775,7 +1772,7 @@ STATIC_IFN_KUNIT void dm_gpureset_commit_state(struct dc_state *dc_state,
 		struct dc_scaling_info scaling_infos[MAX_SURFACES];
 		struct dc_flip_addrs flip_addrs[MAX_SURFACES];
 		struct dc_stream_update stream_update;
-	} *bundle __free(kfree);
+	} *bundle __free(kfree) = NULL;
 	int k, m;
 
 	bundle = kzalloc_obj(*bundle);
@@ -2610,13 +2607,6 @@ static int amdgpu_dm_initialize_drm_device(struct amdgpu_device *adev)
 
 				if (psr_feature_enabled) {
 					amdgpu_dm_set_psr_caps(link, aconnector);
-					drm_info(adev_to_drm(adev), "%s: PSR support %d, DC PSR ver %d, sink PSR ver %d DPCD caps 0x%x su_y_granularity %d\n",
-						 aconnector->base.name,
-						 link->psr_settings.psr_feature_enabled,
-						 link->psr_settings.psr_version,
-						 link->dpcd_caps.psr_info.psr_version,
-						 link->dpcd_caps.psr_info.psr_dpcd_caps.raw,
-						 link->dpcd_caps.psr_info.psr2_su_y_granularity_cap);
 				}
 			}
 		}
@@ -4456,12 +4446,12 @@ STATIC_IFN_KUNIT void dm_clear_writeback(struct amdgpu_display_manager *dm,
 EXPORT_IF_KUNIT(dm_clear_writeback);
 
 /**
- * amdgpu_dm_mod_power_update_streams - update mod_power stream state on modeset
+ * amdgpu_dm_mod_power_update_streams - update mod_power stream state
  * @state: the drm atomic state
  * @dm: the display manager to update mod_power on
  *
- * Notify mod_power of stream changes on modeset events, and disable PSR/Replay
- * in preparation for hardware programming. See also
+ * Disable PSR/Replay before hardware programming for active streams, and
+ * update mod_power stream state when a modeset changes the stream. See also
  * amdgpu_dm_mod_power_setup_streams() for post-modeset mod_power setup.
  */
 STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commit *state,
@@ -4477,15 +4467,15 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commi
 		dm_old_crtc_state = to_dm_crtc_state(old_crtc_state);
 		dm_new_crtc_state = to_dm_crtc_state(new_crtc_state);
 
-		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
-			continue;
-
 		/*
-		 * Update mod_power on modeset event in preparation for hw
-		 * programming. Always use the old stream, since it would have
-		 * been previously added to mod_power. If old stream is null (on
-		 * crtc enable, for example), mod_power will no-op, which is the
-		 * desried behavior.
+		 * Notify mod_power that hardware programming is about to occur.
+		 * This must be done before the modeset check because a non-modeset
+		 * commit can still update an active framebuffer or plane while
+		 * PSR/Replay is enabled.
+		 *
+		 * Always use the old stream since it is the stream currently
+		 * registered with mod_power. If old stream is NULL, the event
+		 * helpers will no-op.
 		 */
 		if (old_crtc_state->active) {
 			scoped_guard(mutex, &dm->dc_lock) {
@@ -4494,10 +4484,14 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_update_streams(struct drm_atomic_commi
 					psr_event_hw_programming, true);
 				amdgpu_dm_replay_set_event(dm, dm_old_crtc_state->stream, true,
 					replay_event_hw_programming, true);
-				amdgpu_dm_replay_set_event(dm, dm_old_crtc_state->stream, false,
-					replay_event_general_ui, false);
 			}
 		}
+
+		if (!drm_atomic_crtc_needs_modeset(new_crtc_state))
+			continue;
+
+		if (dm_old_crtc_state->stream == dm_new_crtc_state->stream)
+			continue;
 
 		if (new_crtc_state->active) {
 			aconnector = (struct amdgpu_dm_connector *)
@@ -4545,11 +4539,35 @@ STATIC_IFN_KUNIT void amdgpu_dm_mod_power_setup_streams(struct drm_atomic_commit
 			continue;
 
 		if (new_crtc_state->active) {
+			struct amdgpu_dm_connector *aconnector =
+				(struct amdgpu_dm_connector *)
+				dm_new_crtc_state->stream->dm_stream_context;
+			struct dc_link *link = dm_new_crtc_state->stream->link;
+
 			amdgpu_dm_link_setup_replay(dm_new_crtc_state->stream,
 					&acrtc->dm_irq_params.vrr_params);
 			mod_power_notify_mode_change(dm->power_module,
 						dm_new_crtc_state->stream,
 						false);
+
+			if (link->replay_settings.config.replay_cap_support) {
+				drm_info(state->dev,
+					"%s: Replay enabled %d, Allow active %d, Config ver %d\n",
+					aconnector->base.name,
+					link->replay_settings.replay_feature_enabled,
+					link->replay_settings.replay_allow_active,
+					link->replay_settings.config.replay_version);
+			}
+			if (link->psr_settings.psr_version != DC_PSR_VERSION_UNSUPPORTED) {
+				drm_info(state->dev,
+					"%s: PSR support %d, DC PSR ver %d, Sink PSR ver %d, DPCD caps 0x%x, su_y_granularity %d\n",
+					aconnector->base.name,
+					link->psr_settings.psr_feature_enabled,
+					link->psr_settings.psr_version,
+					link->dpcd_caps.psr_info.psr_version,
+					link->dpcd_caps.psr_info.psr_dpcd_caps.raw,
+					link->dpcd_caps.psr_info.psr2_su_y_granularity_cap);
+			}
 
 			/*
 			 * Block PSR / Replay on the new stream until display settles post-modeset.
@@ -5254,10 +5272,8 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 		 * To fix this, DC should permit updating only stream properties.
 		 */
 		dummy_updates = kzalloc(sizeof(struct dc_surface_update) * MAX_SURFACES, GFP_KERNEL);
-		if (!dummy_updates) {
-			drm_err(adev_to_drm(adev), "Failed to allocate memory for dummy_updates.\n");
+		if (!dummy_updates)
 			continue;
-		}
 		for (j = 0; j < status->plane_count; j++)
 			dummy_updates[j].surface = status->plane_states[j];
 
@@ -5320,38 +5336,38 @@ static void amdgpu_dm_atomic_commit_tail(struct drm_atomic_commit *state)
 		amdgpu_dm_handle_vrr_transition(dm, dm_old_crtc_state, dm_new_crtc_state);
 
 #ifdef CONFIG_DEBUG_FS
-		if (new_crtc_state->active &&
-		    (!old_crtc_state->active ||
-		     drm_atomic_crtc_needs_modeset(new_crtc_state))) {
-			/**
-			 * Frontend may have changed so reapply the CRC capture
-			 * settings for the stream.
-			 */
-			if (amdgpu_dm_is_valid_crc_source(cur_crc_src)) {
+		if (!new_crtc_state->active ||
+		    (old_crtc_state->active && !drm_atomic_crtc_needs_modeset(new_crtc_state)))
+			continue;
+
+		/**
+		 * Frontend may have changed so reapply the CRC capture
+		 * settings for the stream.
+		 */
+		if (!amdgpu_dm_is_valid_crc_source(cur_crc_src))
+			continue;
+
 #if defined(CONFIG_DRM_AMD_SECURE_DISPLAY)
-				if (amdgpu_dm_crc_window_is_activated(crtc)) {
-					uint8_t cnt;
+		if (amdgpu_dm_crc_window_is_activated(crtc)) {
+			uint8_t cnt;
 
-					spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
-					for (cnt = 0; cnt < MAX_CRC_WINDOW_NUM; cnt++) {
-						if (acrtc->dm_irq_params.window_param[cnt].enable) {
-							acrtc->dm_irq_params.window_param[cnt].update_win = true;
+			spin_lock_irqsave(&adev_to_drm(adev)->event_lock, flags);
+			for (cnt = 0; cnt < MAX_CRC_WINDOW_NUM; cnt++) {
+				if (acrtc->dm_irq_params.window_param[cnt].enable) {
+					acrtc->dm_irq_params.window_param[cnt].update_win = true;
 
-							/**
-							 * It takes 2 frames for HW to stably generate CRC when
-							 * resuming from suspend, so we set skip_frame_cnt 2.
-							 */
-							acrtc->dm_irq_params.window_param[cnt].skip_frame_cnt = 2;
-						}
-					}
-					spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
+					/**
+					 * It takes 2 frames for HW to stably generate CRC when
+					 * resuming from suspend, so we set skip_frame_cnt 2.
+					 */
+					acrtc->dm_irq_params.window_param[cnt].skip_frame_cnt = 2;
 				}
-#endif
-				if (amdgpu_dm_crtc_configure_crc_source(
-					crtc, dm_new_crtc_state, cur_crc_src))
-					drm_dbg_atomic(dev, "Failed to configure crc source");
 			}
+			spin_unlock_irqrestore(&adev_to_drm(adev)->event_lock, flags);
 		}
+#endif
+		if (amdgpu_dm_crtc_configure_crc_source(crtc, dm_new_crtc_state, cur_crc_src))
+			drm_dbg_atomic(dev, "Failed to configure crc source");
 #endif
 	}
 

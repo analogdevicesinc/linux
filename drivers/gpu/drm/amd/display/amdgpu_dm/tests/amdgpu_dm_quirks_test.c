@@ -27,7 +27,7 @@ static void dm_test_quirks_aux_hpd_discon_reset(struct kunit *test)
 	struct amdgpu_display_manager *dm;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	dm->aux_hpd_discon_quirk = true;
 
@@ -54,7 +54,7 @@ static void dm_test_quirks_edp0_on_dp1_reset(struct kunit *test)
 	struct amdgpu_display_manager *dm;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	dm->edp0_on_dp1_quirk = true;
 
@@ -76,7 +76,7 @@ static void dm_test_quirks_no_dmi_match_both_false(struct kunit *test)
 	struct amdgpu_display_manager *dm;
 
 	dm = kunit_kzalloc(test, sizeof(*dm), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, dm);
+	KUNIT_ASSERT_NOT_NULL(test, dm);
 
 	retrieve_dmi_info(dm);
 

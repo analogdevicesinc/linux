@@ -163,6 +163,7 @@ static const struct hwseq_private_funcs dcn35_private_funcs = {
 	//.plane_atomic_disable = dcn20_plane_atomic_disable,/*todo*/
 	//.hubp_pg_control = dcn35_hubp_pg_control,
 	.dpp_root_clock_control = dcn35_dpp_root_clock_control,
+	.is_dpp_root_clock_control_supported = dcn35_is_dpp_root_clock_control_supported,
 	.dpstream_root_clock_control = dcn35_dpstream_root_clock_control,
 	.hdmistream_root_clock_control = dcn35_hdmistream_root_clock_control,
 	.physymclk_root_clock_control = dcn35_physymclk_root_clock_control,

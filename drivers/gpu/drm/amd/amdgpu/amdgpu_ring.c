@@ -213,11 +213,9 @@ int amdgpu_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
 		     unsigned int irq_type, unsigned int hw_prio,
 		     atomic_t *sched_score)
 {
-	int r;
 	int sched_hw_submission = amdgpu_sched_hw_submission;
-	u32 *num_sched;
-	u32 hw_ip;
 	unsigned int max_ibs_dw;
+	int r;
 
 	/* Set the hw submission limit higher for KIQ because
 	 * it's used for a number of gfx/compute tasks by both
@@ -359,10 +357,10 @@ int amdgpu_ring_init(struct amdgpu_device *adev, struct amdgpu_ring *ring,
 	ring->vmid_wait = dma_fence_get_stub();
 
 	if (!ring->no_scheduler && ring->funcs->type < AMDGPU_HW_IP_NUM) {
-		hw_ip = ring->funcs->type;
-		num_sched = &adev->gpu_sched[hw_ip][hw_prio].num_scheds;
-		adev->gpu_sched[hw_ip][hw_prio].sched[(*num_sched)++] =
-			&ring->sched;
+		struct amdgpu_sched *gpu_sched =
+			&adev->gpu_sched[ring->funcs->type][hw_prio];
+
+		gpu_sched->sched[gpu_sched->num_scheds++] = &ring->sched;
 	}
 
 	return 0;
