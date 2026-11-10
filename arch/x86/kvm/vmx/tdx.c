@@ -2,6 +2,7 @@
 #include <linux/cleanup.h>
 #include <linux/cpu.h>
 #include <asm/cpufeature.h>
+#include <asm/cpuid/api.h>
 #include <asm/fpu/xcr.h>
 #include <linux/misc_cgroup.h>
 #include <linux/mmu_context.h>
@@ -150,8 +151,12 @@ static void tdx_clear_unsupported_cpuid(struct kvm_cpuid_entry2 *entry)
 		clear_waitpkg(entry);
 }
 
-static bool tdx_unsupported_cpuid(const struct kvm_cpuid_entry2 *entry)
+static bool tdx_is_unsupported_cpuid_entry(const struct kvm_cpuid_entry2 *entry)
 {
+	if (cpuid_function_is_indexed(entry->function) !=
+	    !!(entry->flags & KVM_CPUID_FLAG_SIGNIFCANT_INDEX))
+		return true;
+
 	return has_tsx(entry) || has_waitpkg(entry);
 }
 
@@ -163,12 +168,23 @@ static void td_init_cpuid_entry2(struct kvm_cpuid_entry2 *entry, unsigned char i
 
 	entry->function = (u32)td_conf->cpuid_config_leaves[idx];
 	entry->index = td_conf->cpuid_config_leaves[idx] >> 32;
+	entry->flags = 0;
 	entry->eax = (u32)td_conf->cpuid_config_values[idx][0];
 	entry->ebx = td_conf->cpuid_config_values[idx][0] >> 32;
 	entry->ecx = (u32)td_conf->cpuid_config_values[idx][1];
 	entry->edx = td_conf->cpuid_config_values[idx][1] >> 32;
 
-	if (entry->index == KVM_TDX_CPUID_NO_SUBLEAF)
+	WARN_ON_ONCE(cpuid_function_is_indexed(entry->function) !=
+		     (entry->index != KVM_TDX_CPUID_NO_SUBLEAF));
+
+	/*
+	 * Explicitly zero the index when it's not significant, even though it
+	 * _should_ be meaningless.  Userspace relies on the index being zero
+	 * (the ABI was inherited from KVM_GET_SUPPORTED_CPUID).
+	 */
+	if (cpuid_function_is_indexed(entry->function))
+		entry->flags |= KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
+	else
 		entry->index = 0;
 
 	/*
@@ -255,6 +271,31 @@ static __always_inline void tdvmcall_set_return_val(struct kvm_vcpu *vcpu,
 						    unsigned long val)
 {
 	to_tdx(vcpu)->vp_enter_args.r11 = val;
+}
+
+static int tdx_hkid_alloc(struct kvm_tdx *kvm_tdx)
+{
+	int ret;
+
+	kvm_tdx->misc_cg = get_current_misc_cg();
+	ret = misc_cg_try_charge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+	if (ret)
+		goto put_misc_cg;
+
+	ret = tdx_guest_keyid_alloc();
+	if (ret < 0)
+		goto uncharge_misc_cg;
+
+	kvm_tdx->hkid = ret;
+	return 0;
+
+uncharge_misc_cg:
+	misc_cg_uncharge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+put_misc_cg:
+	put_misc_cg(kvm_tdx->misc_cg);
+	kvm_tdx->misc_cg = NULL;
+
+	return ret;
 }
 
 static inline void tdx_hkid_free(struct kvm_tdx *kvm_tdx)
@@ -1981,10 +2022,10 @@ static int tdx_handle_ept_violation(struct kvm_vcpu *vcpu)
 
 	if (vt_is_tdx_private_gpa(vcpu->kvm, gpa)) {
 		if (tdx_is_sept_violation_unexpected_pending(vcpu)) {
-			pr_warn("Guest access before accepting 0x%llx on vCPU %d\n",
-				gpa, vcpu->vcpu_id);
-			kvm_vm_dead(vcpu->kvm);
-			return -EIO;
+			pr_warn_ratelimited("Guest access before accepting 0x%llx on vCPU %d\n",
+					    gpa, vcpu->vcpu_id);
+			kvm_prepare_shutdown_exit(vcpu);
+			return 0;
 		}
 		/*
 		 * Always treat SEPT violations as write faults.  Ignore the
@@ -2136,8 +2177,7 @@ int tdx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t fastpath)
 
 	switch (exit_reason.basic) {
 	case EXIT_REASON_TRIPLE_FAULT:
-		vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
-		vcpu->mmio_needed = 0;
+		kvm_prepare_shutdown_exit(vcpu);
 		return 0;
 	case EXIT_REASON_EXCEPTION_NMI:
 		return tdx_handle_exception_nmi(vcpu);
@@ -2425,7 +2465,7 @@ static int setup_tdparams_cpuids(struct kvm_cpuid2 *cpuid,
 		if (!entry)
 			continue;
 
-		if (tdx_unsupported_cpuid(entry))
+		if (tdx_is_unsupported_cpuid_entry(entry))
 			return -EINVAL;
 
 		copy_cnt++;
@@ -2511,14 +2551,9 @@ static int __tdx_td_init(struct kvm *kvm, struct td_params *td_params,
 	u64 err, rcx;
 
 	*seamcall_err = 0;
-	ret = tdx_guest_keyid_alloc();
-	if (ret < 0)
-		return ret;
-	kvm_tdx->hkid = ret;
-	kvm_tdx->misc_cg = get_current_misc_cg();
-	ret = misc_cg_try_charge(MISC_CG_RES_TDX, kvm_tdx->misc_cg, 1);
+	ret = tdx_hkid_alloc(kvm_tdx);
 	if (ret)
-		goto free_hkid;
+		return ret;
 
 	ret = -ENOMEM;
 

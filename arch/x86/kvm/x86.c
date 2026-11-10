@@ -8178,8 +8178,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 				kvm_nested_call(triple_fault)(vcpu);
 
 			if (kvm_check_request(KVM_REQ_TRIPLE_FAULT, vcpu)) {
-				vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
-				vcpu->mmio_needed = 0;
+				kvm_prepare_shutdown_exit(vcpu);
 				r = 0;
 				goto out;
 			}

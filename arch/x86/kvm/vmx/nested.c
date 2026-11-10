@@ -351,6 +351,7 @@ static void free_nested(struct kvm_vcpu *vcpu)
 	vmx->nested.smm.vmxon = false;
 	vmx->nested.smm.guest_mode = false;
 	vmx->nested.vmxon_ptr = INVALID_GPA;
+	vmx->nested.need_sync_vmcs02_to_vmcs12_rare = false;
 	free_vpid(vmx->nested.vpid02);
 	vmx->nested.posted_intr_nv = -1;
 	vmx->nested.current_vmptr = INVALID_GPA;
@@ -622,7 +623,6 @@ static int nested_vmx_check_tpr_shadow_controls(struct kvm_vcpu *vcpu,
 	 * if userspace hasn't yet configured memslots during state restore.
 	 */
 	if (warn_on_missed_cc && vcpu->wants_to_run &&
-	    nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW) &&
 	    !nested_cpu_has_vid(vmcs12) &&
 	    !nested_cpu_has2(vmcs12, SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
 	    !kvm_read_guest(vcpu->kvm, vtpr_gpa, &vtpr, sizeof(vtpr)) &&
@@ -1511,33 +1511,6 @@ static int vmx_restore_vmx_ept_vpid_cap(struct vcpu_vmx *vmx, u64 data)
 	return 0;
 }
 
-static u64 *vmx_get_fixed0_msr(struct nested_vmx_msrs *msrs, u32 msr_index)
-{
-	switch (msr_index) {
-	case MSR_IA32_VMX_CR0_FIXED0:
-		return &msrs->cr0_fixed0;
-	case MSR_IA32_VMX_CR4_FIXED0:
-		return &msrs->cr4_fixed0;
-	default:
-		BUG();
-	}
-}
-
-static int vmx_restore_fixed0_msr(struct vcpu_vmx *vmx, u32 msr_index, u64 data)
-{
-	const u64 *msr = vmx_get_fixed0_msr(&vmcs_config.nested, msr_index);
-
-	/*
-	 * 1 bits (which indicates bits which "must-be-1" during VMX operation)
-	 * must be 1 in the restored value.
-	 */
-	if (!is_bitwise_subset(data, *msr, -1ULL))
-		return -EINVAL;
-
-	*vmx_get_fixed0_msr(&vmx->nested.msrs, msr_index) = data;
-	return 0;
-}
-
 /*
  * Called when userspace is restoring VMX MSRs.
  *
@@ -1580,8 +1553,9 @@ int vmx_set_vmx_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 	case MSR_IA32_VMX_MISC:
 		return vmx_restore_vmx_misc(vmx, data);
 	case MSR_IA32_VMX_CR0_FIXED0:
+		return data && data != vmcs_config.nested.cr0_fixed0;
 	case MSR_IA32_VMX_CR4_FIXED0:
-		return vmx_restore_fixed0_msr(vmx, msr_index, data);
+		return data && data != vmcs_config.nested.cr4_fixed0;
 	case MSR_IA32_VMX_CR0_FIXED1:
 	case MSR_IA32_VMX_CR4_FIXED1:
 		/*
@@ -5464,9 +5438,11 @@ static int enter_vmx_operation(struct kvm_vcpu *vcpu)
 
 out_shadow_vmcs:
 	kfree(vmx->nested.cached_shadow_vmcs12);
+	vmx->nested.cached_shadow_vmcs12 = NULL;
 
 out_cached_shadow_vmcs12:
 	kfree(vmx->nested.cached_vmcs12);
+	vmx->nested.cached_vmcs12 = NULL;
 
 out_cached_vmcs12:
 	free_loaded_vmcs(&vmx->nested.vmcs02);
@@ -6876,7 +6852,7 @@ static int vmx_get_nested_state(struct kvm_vcpu *vcpu,
 	if (copy_to_user(user_vmx_nested_state->vmcs12, vmcs12, VMCS12_SIZE))
 		return -EFAULT;
 
-	if (nested_cpu_has_shadow_vmcs(vmcs12) &&
+	if (is_guest_mode(vcpu) && nested_cpu_has_shadow_vmcs(vmcs12) &&
 	    vmcs12->vmcs_link_pointer != INVALID_GPA) {
 		if (copy_to_user(user_vmx_nested_state->shadow_vmcs12,
 				 get_shadow_vmcs12(vcpu), VMCS12_SIZE))
