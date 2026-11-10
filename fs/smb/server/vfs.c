@@ -1914,7 +1914,10 @@ int ksmbd_vfs_fill_dentry_attrs(struct ksmbd_work *work,
 	if (rc)
 		return rc;
 
-	time = ksmbd_UnixTimeToNT(ksmbd_kstat->kstat->ctime);
+	if (ksmbd_kstat->kstat->result_mask & STATX_BTIME)
+		time = ksmbd_UnixTimeToNT(ksmbd_kstat->kstat->btime);
+	else
+		time = ksmbd_UnixTimeToNT(ksmbd_kstat->kstat->ctime);
 	ksmbd_kstat->create_time = time;
 
 	/*
