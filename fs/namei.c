@@ -4188,11 +4188,14 @@ static inline umode_t vfs_prepare_mode(const struct mnt_idmap *idmap,
 }
 
 static inline
-int vfs_create_no_perm(const struct mnt_idmap *idmap, struct dentry *dentry,
-		       umode_t mode, struct delegated_inode *di)
+int vfs_create_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
+		       struct dentry *dentry, umode_t mode,
+		       struct delegated_inode *di)
 {
-	struct inode *dir = d_inode(dentry->d_parent);
 	int error;
+
+	if (!dir->i_op->create)
+		return -EACCES;
 
 	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
 	if (error)
@@ -4203,6 +4206,36 @@ int vfs_create_no_perm(const struct mnt_idmap *idmap, struct dentry *dentry,
 		fsnotify_create(dir, dentry);
 
 	return error;
+}
+
+static inline
+struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
+				 struct dentry *dentry, umode_t mode,
+				 struct delegated_inode *di)
+{
+	unsigned int max_links = dir->i_sb->s_max_links;
+	struct dentry *de;
+	int error;
+
+	if (!dir->i_op->mkdir)
+		return ERR_PTR(-EPERM);
+
+	if (max_links && dir->i_nlink >= max_links)
+		return ERR_PTR(-EMLINK);
+
+	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
+	if (error)
+		return ERR_PTR(error);
+
+	de = dir->i_op->mkdir(idmap, dir, dentry, mode);
+	if (IS_ERR(de))
+		return de;
+	if (de) {
+		dput(dentry);
+		dentry = de;
+	}
+	fsnotify_mkdir(dir, dentry);
+	return dentry;
 }
 
 /**
@@ -4230,15 +4263,12 @@ int vfs_create(const struct mnt_idmap *idmap, struct dentry *dentry, umode_t mod
 	if (error)
 		return error;
 
-	if (!dir->i_op->create)
-		return -EOPNOTSUPP;
-
 	mode = vfs_prepare_mode(idmap, dir, mode, S_IALLUGO, S_IFREG);
 	error = security_inode_create(idmap, dir, dentry, mode);
 	if (error)
 		return error;
 
-	return vfs_create_no_perm(idmap, dentry, mode, di);
+	return vfs_create_no_perm(idmap, dir, dentry, mode, di);
 }
 EXPORT_SYMBOL(vfs_create);
 
@@ -4489,9 +4519,6 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 	return dentry;
 }
 
-static inline
-struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *, struct inode *, struct dentry *,
-				 umode_t, struct delegated_inode *);
 /*
  * Look up and maybe create and open the last component.
  *
@@ -4630,12 +4657,6 @@ retry:
 		goto out_dput;
 	}
 
-	if ((create_dir && !dir_inode->i_op->mkdir)
-		|| (!create_dir && !dir_inode->i_op->create)) {
-		error = -EOPNOTSUPP;
-		goto out_dput;
-	}
-
 	if (create_dir) {
 		struct dentry *res = vfs_mkdir_no_perm(idmap, dir_inode, dentry, mode,
 						       &delegated_inode);
@@ -4650,7 +4671,8 @@ retry:
 				error = -EIO;
 		}
 	} else {
-		error = vfs_create_no_perm(idmap, dentry, mode, &delegated_inode);
+		error = vfs_create_no_perm(idmap, dir_inode, dentry, mode,
+					   &delegated_inode);
 	}
 	if (error)
 		goto out_dput;
@@ -5444,33 +5466,6 @@ SYSCALL_DEFINE3(mknod, const char __user *, filename, umode_t, mode, unsigned, d
 	return filename_mknodat(AT_FDCWD, name, mode, dev);
 }
 
-static inline
-struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
-				 struct dentry *dentry, umode_t mode,
-				 struct delegated_inode *di)
-{
-	unsigned max_links = dir->i_sb->s_max_links;
-	struct dentry *de;
-	int error;
-
-	if (max_links && dir->i_nlink >= max_links)
-		return ERR_PTR(-EMLINK);
-
-	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
-	if (error)
-		return ERR_PTR(error);
-
-	de = dir->i_op->mkdir(idmap, dir, dentry, mode);
-	if (IS_ERR(de))
-		return de;
-	if (de) {
-		dput(dentry);
-		dentry = de;
-	}
-	fsnotify_mkdir(dir, dentry);
-	return dentry;
-}
-
 /**
  * vfs_mkdir - create directory returning correct dentry if possible
  * @idmap:		idmap of the mount the inode was found from
@@ -5502,10 +5497,6 @@ struct dentry *vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 
 	error = may_create_dentry(idmap, dir, dentry);
 	if (error)
-		goto err;
-
-	error = -EOPNOTSUPP;
-	if (!dir->i_op->mkdir)
 		goto err;
 
 	mode = vfs_prepare_mode(idmap, dir, mode, S_IRWXUGO | S_ISVTX, S_IFDIR);
