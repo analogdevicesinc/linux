@@ -1000,7 +1000,7 @@ void clock_was_set(unsigned int bases)
 				cpumask_set_cpu(cpu, mask);
 		}
 		scoped_guard(preempt)
-			smp_call_function_many(mask, retrigger_next_event, NULL, 1);
+			on_each_cpu_mask(mask, retrigger_next_event, NULL, 1);
 	}
 	free_cpumask_var(mask);
 
@@ -2293,6 +2293,7 @@ void hrtimer_run_queues(void)
 	struct hrtimer_cpu_base *cpu_base = this_cpu_ptr(&hrtimer_bases);
 	unsigned long flags;
 	ktime_t now;
+	unsigned int seq;
 
 	if (hrtimer_hres_active(cpu_base))
 		return;
@@ -2310,7 +2311,10 @@ void hrtimer_run_queues(void)
 	}
 
 	raw_spin_lock_irqsave(&cpu_base->lock, flags);
+	seq = cpu_base->clock_was_set_seq;
 	now = hrtimer_update_base(cpu_base);
+	if (seq != cpu_base->clock_was_set_seq)
+		hrtimer_update_next_event(cpu_base);
 
 	if (!ktime_before(now, cpu_base->softirq_expires_next)) {
 		cpu_base->softirq_expires_next = KTIME_MAX;

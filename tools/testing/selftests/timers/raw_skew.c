@@ -19,7 +19,9 @@
  *   GNU General Public License for more details.
  */
 
+#include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -89,7 +91,7 @@ void get_monotonic_and_raw(struct timespec *mon, struct timespec *raw)
 
 int main(int argc, char **argv)
 {
-	struct timespec mon, raw, start, end;
+	struct timespec mon = {}, raw, start, end;
 	long long delta1, delta2, interval, eppm, ppm;
 	long tick_nom;
 	struct timex tx1, tx2;
@@ -102,7 +104,8 @@ int main(int argc, char **argv)
 	}
 
 	tx1.modes = 0;
-	adjtimex(&tx1);
+	if (adjtimex(&tx1) < 0)
+		ksft_exit_skip("adjtimex failed: %s\n", strerror(errno));
 	get_monotonic_and_raw(&mon, &raw);
 	start = mon;
 	delta1 = diff_timespec(mon, raw);
@@ -117,7 +120,12 @@ int main(int argc, char **argv)
 	get_monotonic_and_raw(&mon, &raw);
 	end = mon;
 	tx2.modes = 0;
-	adjtimex(&tx2);
+	if (adjtimex(&tx2) < 0) {
+		int saved_errno = errno;
+
+		printf("\n");
+		ksft_exit_skip("adjtimex failed: %s\n", strerror(saved_errno));
+	}
 	delta2 = diff_timespec(mon, raw);
 
 	interval = diff_timespec(start, end);

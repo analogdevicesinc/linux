@@ -63,7 +63,8 @@ void checklist(const struct timespec *list, int size)
 			for (j = 0; j < size; j++) {
 				if (j == i)
 					printf("---------------\n");
-				printf("%lu:%lu\n", list[j].tv_sec, list[j].tv_nsec);
+				printf("%lld:%ld\n", (long long)list[j].tv_sec,
+				       (long)list[j].tv_nsec);
 				if (j == i+1)
 					printf("---------------\n");
 			}
@@ -162,7 +163,8 @@ int main(int argc, char **argv)
 	start = time(0);
 	strftime(buf, 255, "%a, %d %b %Y %T %z", localtime(&start));
 	printf("%s\n", buf);
-	printf("Testing consistency with %i threads for %ld seconds: ", thread_count, runtime);
+	printf("Testing consistency with %i threads for %lld seconds: ",
+	       thread_count, (long long)runtime);
 	fflush(stdout);
 
 	/* spawn */

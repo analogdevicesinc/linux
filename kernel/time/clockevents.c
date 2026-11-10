@@ -756,7 +756,8 @@ static ssize_t unbind_device_store(struct device *dev,
 	mutex_lock(&clockevents_mutex);
 	raw_spin_lock_irq(&clockevents_lock);
 	list_for_each_entry(iter, &clockevent_devices, list) {
-		if (!strcmp(iter->name, name)) {
+		if (!strcmp(iter->name, name) &&
+		    cpumask_test_cpu(dev->id, iter->cpumask)) {
 			ret = __clockevents_try_unbind(iter, dev->id);
 			ce = iter;
 			break;

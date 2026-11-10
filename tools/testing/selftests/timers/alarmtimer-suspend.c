@@ -60,8 +60,8 @@ void sigalarm(int signo)
 	delta_ns = timespec_sub(start_time, ts);
 	delta_ns -= NSEC_PER_SEC * SUSPEND_SECS * alarmcount;
 
-	printf("ALARM(%i): %ld:%ld latency: %lld ns ", alarmcount, ts.tv_sec,
-							ts.tv_nsec, delta_ns);
+	printf("ALARM(%i): %lld:%ld latency: %lld ns ", alarmcount,
+	       (long long)ts.tv_sec, (long)ts.tv_nsec, delta_ns);
 
 	if (delta_ns > UNREASONABLE_LAT) {
 		printf("[FAIL]\n");
@@ -103,8 +103,9 @@ int main(void)
 		}
 
 		clock_gettime(alarm_clock_id, &start_time);
-		printf("Start time (%s): %ld:%ld\n", clock_name(alarm_clock_id),
-				start_time.tv_sec, start_time.tv_nsec);
+		printf("Start time (%s): %lld:%ld\n", clock_name(alarm_clock_id),
+				(long long)start_time.tv_sec,
+				(long)start_time.tv_nsec);
 		printf("Setting alarm for every %i seconds\n", SUSPEND_SECS);
 		its1.it_value = start_time;
 		its1.it_value.tv_sec += SUSPEND_SECS;

@@ -36,7 +36,7 @@ static struct timespec64 itimer_get_remtime(struct hrtimer *timer)
 	 * then we return 0 - which is correct.
 	 */
 	if (hrtimer_active(timer)) {
-		if (rem <= 0)
+		if (rem < NSEC_PER_USEC)
 			rem = NSEC_PER_USEC;
 	} else
 		rem = 0;

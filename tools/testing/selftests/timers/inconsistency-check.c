@@ -86,8 +86,9 @@ int consistency_test(int clock_type, unsigned long seconds)
 			for (i = 0; i < CALLS_PER_LOOP; i++) {
 				if (i == inconsistent)
 					ksft_print_msg("--------------------\n");
-				ksft_print_msg("%lu:%lu\n", list[i].tv_sec,
-							list[i].tv_nsec);
+				ksft_print_msg("%lld:%ld\n",
+					       (long long)list[i].tv_sec,
+					       (long)list[i].tv_nsec);
 				if (i == inconsistent + 1)
 					ksft_print_msg("--------------------\n");
 			}
