@@ -1129,7 +1129,8 @@ void msi_remove_device_irq_domain(struct device *dev, unsigned int domid)
 	if (irq_domain_is_msi_device(domain))
 		fwnode = domain->fwnode;
 	irq_domain_remove(domain);
-	irq_domain_free_fwnode(fwnode);
+	if (!(info->flags & MSI_FLAG_USE_DEV_FWNODE))
+		irq_domain_free_fwnode(fwnode);
 	kfree(container_of(info, struct msi_domain_template, info));
 }
 

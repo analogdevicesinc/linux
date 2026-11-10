@@ -68,7 +68,7 @@ static bool try_one_irq(struct irq_desc *desc, bool force)
 	/* Mark it poll in progress */
 	desc->istate |= IRQS_POLL_INPROGRESS;
 	do {
-		if (handle_irq_event(desc) == IRQ_HANDLED)
+		if (handle_irq_event(desc) & IRQ_HANDLED)
 			ret = true;
 		/* Make sure that there is still a valid action */
 		action = desc->action;
