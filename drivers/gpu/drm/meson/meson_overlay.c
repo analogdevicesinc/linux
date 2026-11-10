@@ -802,7 +802,7 @@ static const struct drm_plane_funcs meson_overlay_funcs = {
 	.update_plane		= drm_atomic_helper_update_plane,
 	.disable_plane		= drm_atomic_helper_disable_plane,
 	.destroy		= drm_plane_cleanup,
-	.reset			= drm_atomic_helper_plane_reset,
+	.atomic_create_state = drm_atomic_helper_plane_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
 	.atomic_destroy_state	= drm_atomic_helper_plane_destroy_state,
 	.format_mod_supported   = meson_overlay_format_mod_supported,
@@ -839,8 +839,7 @@ int meson_overlay_create(struct meson_drm *priv)
 
 	DRM_DEBUG_DRIVER("\n");
 
-	meson_overlay = devm_kzalloc(priv->drm->dev, sizeof(*meson_overlay),
-				   GFP_KERNEL);
+	meson_overlay = devm_kzalloc_obj(priv->drm->dev, *meson_overlay);
 	if (!meson_overlay)
 		return -ENOMEM;
 

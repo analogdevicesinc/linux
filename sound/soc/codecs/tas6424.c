@@ -378,11 +378,20 @@ static const struct snd_soc_component_driver soc_codec_dev_tas6424 = {
 	.endianness		= 1,
 };
 
+static const u64 tas6424_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF;
+
 static const struct snd_soc_dai_ops tas6424_speaker_dai_ops = {
 	.hw_params	= tas6424_hw_params,
 	.set_fmt	= tas6424_set_dai_fmt,
 	.set_tdm_slot	= tas6424_set_dai_tdm_slot,
 	.mute_stream	= tas6424_mute,
+	.auto_selectable_formats	= &tas6424_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
@@ -689,7 +698,7 @@ static int tas6424_i2c_probe(struct i2c_client *client)
 	int ret;
 	int i;
 
-	tas6424 = devm_kzalloc(dev, sizeof(*tas6424), GFP_KERNEL);
+	tas6424 = devm_kzalloc_obj(dev, *tas6424);
 	if (!tas6424)
 		return -ENOMEM;
 	dev_set_drvdata(dev, tas6424);

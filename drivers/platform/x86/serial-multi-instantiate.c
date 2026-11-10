@@ -125,7 +125,7 @@ static int smi_spi_probe(struct platform_device *pdev, struct smi *smi,
 
 	count = ret;
 
-	smi->spi_devs = devm_kcalloc(dev, count, sizeof(*smi->spi_devs), GFP_KERNEL);
+	smi->spi_devs = devm_kzalloc_objs(dev, *smi->spi_devs, count);
 	if (!smi->spi_devs)
 		return -ENOMEM;
 
@@ -208,7 +208,7 @@ static int smi_i2c_probe(struct platform_device *pdev, struct smi *smi,
 
 	count = ret;
 
-	smi->i2c_devs = devm_kcalloc(dev, count, sizeof(*smi->i2c_devs), GFP_KERNEL);
+	smi->i2c_devs = devm_kzalloc_objs(dev, *smi->i2c_devs, count);
 	if (!smi->i2c_devs)
 		return -ENOMEM;
 
@@ -259,7 +259,7 @@ static int smi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	smi = devm_kzalloc(dev, sizeof(*smi), GFP_KERNEL);
+	smi = devm_kzalloc_obj(dev, *smi);
 	if (!smi)
 		return -ENOMEM;
 
@@ -426,6 +426,7 @@ static const struct acpi_device_id smi_acpi_ids[] = {
 	/* Non-conforming _HID for Cirrus Logic already released */
 	{ "CLSA0100", (unsigned long)&cs35l41_hda },
 	{ "CLSA0101", (unsigned long)&cs35l41_hda },
+	{ "CLSA0102", (unsigned long)&cs35l41_hda },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, smi_acpi_ids);

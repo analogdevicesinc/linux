@@ -1027,6 +1027,7 @@ out:
 }
 
 static int isl7998x_set_fmt(struct v4l2_subdev *sd,
+			    const struct v4l2_subdev_client_info *ci,
 			    struct v4l2_subdev_state *sd_state,
 			    struct v4l2_subdev_format *format)
 {
@@ -1460,14 +1461,13 @@ static int isl7998x_probe(struct i2c_client *client)
 	int nr_inputs;
 	int ret;
 
-	ret = i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA);
-	if (!ret) {
+	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_WORD_DATA)) {
 		dev_warn(&adapter->dev,
 			 "I2C-Adapter doesn't support I2C_FUNC_SMBUS_WORD\n");
 		return -EIO;
 	}
 
-	isl7998x = devm_kzalloc(dev, sizeof(*isl7998x), GFP_KERNEL);
+	isl7998x = devm_kzalloc_obj(dev, *isl7998x);
 	if (!isl7998x)
 		return -ENOMEM;
 

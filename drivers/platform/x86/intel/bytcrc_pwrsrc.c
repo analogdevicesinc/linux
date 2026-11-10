@@ -181,7 +181,7 @@ static int crc_pwrsrc_probe(struct platform_device *pdev)
 	struct crc_pwrsrc_data *data;
 	int irq, ret;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, *data);
 	if (!data)
 		return -ENOMEM;
 
@@ -221,7 +221,7 @@ static int crc_pwrsrc_probe(struct platform_device *pdev)
 						crc_pwrsrc_irq_handler,
 						IRQF_ONESHOT, KBUILD_MODNAME, data);
 		if (ret)
-			return dev_err_probe(dev, ret, "requesting IRQ\n");
+			return ret;
 	}
 
 	data->debug_dentry = debugfs_create_dir(KBUILD_MODNAME, NULL);

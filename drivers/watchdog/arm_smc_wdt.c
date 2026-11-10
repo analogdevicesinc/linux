@@ -13,6 +13,7 @@
 #include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/types.h>
 #include <linux/watchdog.h>
 #include <uapi/linux/psci.h>
@@ -117,7 +118,7 @@ static int smcwd_probe(struct platform_device *pdev)
 	struct arm_smccc_res res;
 	u32 smc_func_id;
 
-	wdd = devm_kzalloc(&pdev->dev, sizeof(*wdd), GFP_KERNEL);
+	wdd = devm_kzalloc_obj(&pdev->dev, *wdd);
 	if (!wdd)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, wdd);
@@ -191,7 +192,7 @@ MODULE_PARM_DESC(timeout, "Watchdog heartbeat in seconds");
 
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-			__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+			__stringify(WATCHDOG_NOWAYOUT) ")");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Julius Werner <jwerner@chromium.org>");

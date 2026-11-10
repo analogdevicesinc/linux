@@ -1556,8 +1556,8 @@ static const struct attribute *si5341_attributes[] = {
 
 static int si5341_probe(struct i2c_client *client)
 {
+	struct clk_init_data init = {};
 	struct clk_si5341 *data;
-	struct clk_init_data init;
 	struct clk *input;
 	const char *root_clock_name;
 	const char *synth_clock_names[SI5341_NUM_SYNTH] = { NULL };
@@ -1567,7 +1567,7 @@ static int si5341_probe(struct i2c_client *client)
 	bool initialization_required;
 	u32 status;
 
-	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(&client->dev, *data);
 	if (!data)
 		return -ENOMEM;
 

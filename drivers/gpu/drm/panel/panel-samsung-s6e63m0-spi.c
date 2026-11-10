@@ -48,7 +48,7 @@ static int s6e63m0_spi_probe(struct spi_device *spi)
 	struct mipi_dbi *dbi;
 	int ret;
 
-	dbi = devm_kzalloc(dev, sizeof(*dbi), GFP_KERNEL);
+	dbi = devm_kzalloc_obj(dev, *dbi);
 	if (!dbi)
 		return -ENOMEM;
 
@@ -62,11 +62,6 @@ static int s6e63m0_spi_probe(struct spi_device *spi)
 			     s6e63m0_spi_dcs_write, false);
 }
 
-static void s6e63m0_spi_remove(struct spi_device *spi)
-{
-	s6e63m0_remove(&spi->dev);
-}
-
 static const struct of_device_id s6e63m0_spi_of_match[] = {
 	{ .compatible = "samsung,s6e63m0" },
 	{ /* sentinel */ }
@@ -75,7 +70,6 @@ MODULE_DEVICE_TABLE(of, s6e63m0_spi_of_match);
 
 static struct spi_driver s6e63m0_spi_driver = {
 	.probe			= s6e63m0_spi_probe,
-	.remove			= s6e63m0_spi_remove,
 	.driver			= {
 		.name		= "panel-samsung-s6e63m0",
 		.of_match_table = s6e63m0_spi_of_match,

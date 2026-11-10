@@ -799,6 +799,7 @@ static int __davinci_mcasp_set_clkdiv(struct davinci_mcasp *mcasp, int div_id,
 		break;
 
 	default:
+		pm_runtime_put(mcasp->dev);
 		return -EINVAL;
 	}
 
@@ -1818,7 +1819,7 @@ static int davinci_mcasp_startup(struct snd_pcm_substream *substream,
 	    !mcasp->async_mode)
 		max_channels = mcasp->channels;
 	/*
-	 * But we can always allow channels upto the amount of
+	 * But we can always allow channels up to the amount of
 	 * the available tdm_slots.
 	 */
 	if (max_channels < tdm_slots)
@@ -1993,6 +1994,18 @@ static int davinci_mcasp_dai_probe(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static const u64 davinci_mcasp_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_AC97	|
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF;
+
 static const struct snd_soc_dai_ops davinci_mcasp_dai_ops = {
 	.probe		= davinci_mcasp_dai_probe,
 	.startup	= davinci_mcasp_startup,
@@ -2004,6 +2017,8 @@ static const struct snd_soc_dai_ops davinci_mcasp_dai_ops = {
 	.set_clkdiv	= davinci_mcasp_set_clkdiv,
 	.set_sysclk	= davinci_mcasp_set_sysclk,
 	.set_tdm_slot	= davinci_mcasp_set_tdm_slot,
+	.auto_selectable_formats	= &davinci_mcasp_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 #define DAVINCI_MCASP_RATES	SNDRV_PCM_RATE_8000_192000
@@ -2437,9 +2452,8 @@ out:
 
 	mcasp->num_serializer = pdata->num_serializer;
 #ifdef CONFIG_PM
-	mcasp->context.xrsr_regs = devm_kcalloc(&pdev->dev,
-						mcasp->num_serializer, sizeof(u32),
-						GFP_KERNEL);
+	mcasp->context.xrsr_regs = devm_kzalloc_objs(&pdev->dev, u32,
+						     mcasp->num_serializer);
 	if (!mcasp->context.xrsr_regs)
 		return -ENOMEM;
 #endif
@@ -2695,8 +2709,7 @@ static int davinci_mcasp_register_component(struct davinci_mcasp *mcasp,
 						       &davinci_mcasp_component,
 						       &davinci_mcasp_dai[mcasp->op_mode], 1);
 
-	dais = devm_kcalloc(&pdev->dev, mcasp->num_dais, sizeof(*dais),
-			    GFP_KERNEL);
+	dais = devm_kzalloc_objs(&pdev->dev, *dais, mcasp->num_dais);
 	if (!dais)
 		return -ENOMEM;
 
@@ -2745,8 +2758,7 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	mcasp = devm_kzalloc(&pdev->dev, sizeof(struct davinci_mcasp),
-			   GFP_KERNEL);
+	mcasp = devm_kzalloc_obj(&pdev->dev, struct davinci_mcasp);
 	if (!mcasp)
 		return	-ENOMEM;
 
@@ -2887,16 +2899,12 @@ static int davinci_mcasp_probe(struct platform_device *pdev)
 	 * bytes.
 	 */
 	mcasp->chconstr[SNDRV_PCM_STREAM_PLAYBACK].list =
-		devm_kcalloc(mcasp->dev,
-			     32 + mcasp->num_serializer - 1,
-			     sizeof(unsigned int),
-			     GFP_KERNEL);
+		devm_kzalloc_objs(mcasp->dev, unsigned int,
+				  32 + mcasp->num_serializer - 1);
 
 	mcasp->chconstr[SNDRV_PCM_STREAM_CAPTURE].list =
-		devm_kcalloc(mcasp->dev,
-			     32 + mcasp->num_serializer - 1,
-			     sizeof(unsigned int),
-			     GFP_KERNEL);
+		devm_kzalloc_objs(mcasp->dev, unsigned int,
+				  32 + mcasp->num_serializer - 1);
 
 	if (!mcasp->chconstr[SNDRV_PCM_STREAM_PLAYBACK].list ||
 	    !mcasp->chconstr[SNDRV_PCM_STREAM_CAPTURE].list) {

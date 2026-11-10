@@ -74,7 +74,7 @@ static const struct drm_crtc_funcs meson_crtc_funcs = {
 	.atomic_duplicate_state = drm_atomic_helper_crtc_duplicate_state,
 	.destroy		= drm_crtc_cleanup,
 	.page_flip		= drm_atomic_helper_page_flip,
-	.reset			= drm_atomic_helper_crtc_reset,
+	.atomic_create_state = drm_atomic_helper_crtc_create_state,
 	.set_config             = drm_atomic_helper_set_config,
 	.enable_vblank		= meson_crtc_enable_vblank,
 	.disable_vblank		= meson_crtc_disable_vblank,
@@ -677,8 +677,7 @@ int meson_crtc_create(struct meson_drm *priv)
 	struct drm_crtc *crtc;
 	int ret;
 
-	meson_crtc = devm_kzalloc(priv->drm->dev, sizeof(*meson_crtc),
-				  GFP_KERNEL);
+	meson_crtc = devm_kzalloc_obj(priv->drm->dev, *meson_crtc);
 	if (!meson_crtc)
 		return -ENOMEM;
 

@@ -597,6 +597,7 @@ static int mipid02_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int mipid02_set_fmt(struct v4l2_subdev *sd,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *fmt)
 {
@@ -807,7 +808,7 @@ static int mipid02_probe(struct i2c_client *client)
 	u32 clk_freq;
 	int ret;
 
-	bridge = devm_kzalloc(dev, sizeof(*bridge), GFP_KERNEL);
+	bridge = devm_kzalloc_obj(dev, *bridge);
 	if (!bridge)
 		return -ENOMEM;
 

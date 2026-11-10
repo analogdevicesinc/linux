@@ -122,6 +122,14 @@ static const struct dmi_system_id awcc_dmi_table[] __initconst = {
 		.driver_data = &g_series_quirks,
 	},
 	{
+		.ident = "Alienware Area-51 AAT2250",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Alienware Area-51 AAT2250"),
+		},
+		.driver_data = &generic_quirks,
+	},
+	{
 		.ident = "Alienware Area-51m",
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Alienware"),
@@ -1128,7 +1136,7 @@ static int awcc_hwmon_fans_init(struct wmi_device *wdev)
 	u8 id;
 
 	for (i = 0; i < priv->fan_count; i++) {
-		fan_data = devm_kzalloc(&wdev->dev, sizeof(*fan_data), GFP_KERNEL);
+		fan_data = devm_kzalloc_obj(&wdev->dev, *fan_data);
 		if (!fan_data)
 			return -ENOMEM;
 
@@ -1182,8 +1190,8 @@ static int awcc_hwmon_init(struct wmi_device *wdev)
 	struct awcc_priv *priv = dev_get_drvdata(&wdev->dev);
 	int ret;
 
-	priv->fan_data = devm_kcalloc(&wdev->dev, priv->fan_count,
-				      sizeof(*priv->fan_data), GFP_KERNEL);
+	priv->fan_data = devm_kzalloc_objs(&wdev->dev, *priv->fan_data,
+					   priv->fan_count);
 	if (!priv->fan_data)
 		return -ENOMEM;
 
@@ -1526,7 +1534,7 @@ static int alienware_awcc_setup(struct wmi_device *wdev)
 	struct awcc_priv *priv;
 	int ret;
 
-	priv = devm_kzalloc(&wdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&wdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

@@ -64,12 +64,12 @@ static const struct clk_ops vexpress_osc_ops = {
 
 static int vexpress_osc_probe(struct platform_device *pdev)
 {
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct vexpress_osc *osc;
 	u32 range[2];
 	int ret;
 
-	osc = devm_kzalloc(&pdev->dev, sizeof(*osc), GFP_KERNEL);
+	osc = devm_kzalloc_obj(&pdev->dev, *osc);
 	if (!osc)
 		return -ENOMEM;
 

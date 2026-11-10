@@ -591,12 +591,21 @@ static int ak4458_startup(struct snd_pcm_substream *substream,
 					  &ak4458_rate_constraints);
 }
 
+static const u64 ak4458_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_PDM;
+
 static const struct snd_soc_dai_ops ak4458_dai_ops = {
 	.startup        = ak4458_startup,
 	.hw_params	= ak4458_hw_params,
 	.set_fmt	= ak4458_set_dai_fmt,
 	.mute_stream	= ak4458_set_dai_mute,
 	.set_tdm_slot	= ak4458_set_tdm_slot,
+	.auto_selectable_formats	= &ak4458_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
@@ -738,7 +747,7 @@ static int ak4458_i2c_probe(struct i2c_client *i2c)
 	struct ak4458_priv *ak4458;
 	int ret, i;
 
-	ak4458 = devm_kzalloc(&i2c->dev, sizeof(*ak4458), GFP_KERNEL);
+	ak4458 = devm_kzalloc_obj(&i2c->dev, *ak4458);
 	if (!ak4458)
 		return -ENOMEM;
 

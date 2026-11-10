@@ -634,11 +634,10 @@ static struct page *rb_alloc_aux_page(int node, int order)
 		/*
 		 * Communicate the allocation size to the driver:
 		 * if we managed to secure a high-order allocation,
-		 * set its first page's private to this order;
-		 * !PagePrivate(page) means it's just a normal page.
+		 * set its first page's private to this order, otherwise page's
+		 * private remains zero.
 		 */
 		split_page(page, order);
-		SetPagePrivate(page);
 		set_page_private(page, order);
 	}
 
@@ -649,7 +648,7 @@ static void rb_free_aux_page(struct perf_buffer *rb, int idx)
 {
 	struct page *page = virt_to_page(rb->aux_pages[idx]);
 
-	ClearPagePrivate(page);
+	set_page_private(page, 0);
 	__free_page(page);
 }
 
@@ -685,15 +684,7 @@ int rb_alloc_aux(struct perf_buffer *rb, struct perf_event *event,
 {
 	bool overwrite = !(flags & RING_BUFFER_WRITABLE);
 	int node = (event->cpu == -1) ? -1 : cpu_to_node(event->cpu);
-	bool use_contiguous_pages = event->pmu->capabilities & (
-		PERF_PMU_CAP_AUX_NO_SG | PERF_PMU_CAP_AUX_PREFER_LARGE);
-	/*
-	 * Initialize max_order to 0 for page allocation. This allocates single
-	 * pages to minimize memory fragmentation. This is overridden if the
-	 * PMU needs or prefers contiguous pages (use_contiguous_pages = true).
-	 */
-	int max_order = 0;
-	int ret = -ENOMEM;
+	int ret = -ENOMEM, max_order;
 
 	if (!has_aux(event))
 		return -EOPNOTSUPP;
@@ -703,8 +694,8 @@ int rb_alloc_aux(struct perf_buffer *rb, struct perf_event *event,
 
 	if (!overwrite) {
 		/*
-		 * Watermark defaults to half the buffer, to aid PMU drivers
-		 * in double buffering.
+		 * Watermark defaults to half the buffer, and so does the
+		 * max_order, to aid PMU drivers in double buffering.
 		 */
 		if (!watermark)
 			watermark = min_t(unsigned long,
@@ -712,19 +703,16 @@ int rb_alloc_aux(struct perf_buffer *rb, struct perf_event *event,
 					  (unsigned long)nr_pages << (PAGE_SHIFT - 1));
 
 		/*
-		 * If using contiguous pages, use aux_watermark as the basis
-		 * for chunking to help PMU drivers honor the watermark.
+		 * Use aux_watermark as the basis for chunking to
+		 * help PMU drivers honor the watermark.
 		 */
-		if (use_contiguous_pages)
-			max_order = get_order(watermark);
+		max_order = get_order(watermark);
 	} else {
 		/*
-		 * If using contiguous pages, we need to start with the
-		 * max_order that fits in nr_pages, not the other way around,
-		 * hence ilog2() and not get_order.
+		 * We need to start with the max_order that fits in nr_pages,
+		 * not the other way around, hence ilog2() and not get_order.
 		 */
-		if (use_contiguous_pages)
-			max_order = ilog2(nr_pages);
+		max_order = ilog2(nr_pages);
 		watermark = 0;
 	}
 

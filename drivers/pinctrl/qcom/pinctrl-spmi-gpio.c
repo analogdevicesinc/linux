@@ -1113,7 +1113,7 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 
 	npins = (uintptr_t) device_get_match_data(&pdev->dev);
 
-	state = devm_kzalloc(dev, sizeof(*state), GFP_KERNEL);
+	state = devm_kzalloc_obj(dev, *state);
 	if (!state)
 		return -ENOMEM;
 
@@ -1125,15 +1125,15 @@ static int pmic_gpio_probe(struct platform_device *pdev)
 	state->usid = parent_spmi_dev->usid;
 	state->pid_base = reg >> 8;
 
-	pindesc = devm_kcalloc(dev, npins, sizeof(*pindesc), GFP_KERNEL);
+	pindesc = devm_kzalloc_objs(dev, *pindesc, npins);
 	if (!pindesc)
 		return -ENOMEM;
 
-	pads = devm_kcalloc(dev, npins, sizeof(*pads), GFP_KERNEL);
+	pads = devm_kzalloc_objs(dev, *pads, npins);
 	if (!pads)
 		return -ENOMEM;
 
-	pctrldesc = devm_kzalloc(dev, sizeof(*pctrldesc), GFP_KERNEL);
+	pctrldesc = devm_kzalloc_obj(dev, *pctrldesc);
 	if (!pctrldesc)
 		return -ENOMEM;
 
@@ -1280,6 +1280,7 @@ static const struct of_device_id pmic_gpio_of_match[] = {
 	{ .compatible = "qcom,pm8994-gpio", .data = (void *) 22 },
 	{ .compatible = "qcom,pm8998-gpio", .data = (void *) 26 },
 	{ .compatible = "qcom,pma8084-gpio", .data = (void *) 22 },
+	{ .compatible = "qcom,pmau0102-gpio", .data = (void *) 12 },
 	{ .compatible = "qcom,pmc8380-gpio", .data = (void *) 10 },
 	{ .compatible = "qcom,pmcx0102-gpio", .data = (void *)14 },
 	{ .compatible = "qcom,pmd8028-gpio", .data = (void *) 4 },

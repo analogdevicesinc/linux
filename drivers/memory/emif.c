@@ -836,8 +836,7 @@ static void of_get_custom_configs(struct device_node *np_emif,
 	poll_intvl = of_get_property(np_emif, "temp-alert-poll-interval", &len);
 
 	if (lpmode || poll_intvl)
-		cust_cfgs = devm_kzalloc(emif->dev, sizeof(*cust_cfgs),
-			GFP_KERNEL);
+		cust_cfgs = devm_kzalloc_obj(emif->dev, *cust_cfgs);
 
 	if (!cust_cfgs)
 		return;
@@ -915,13 +914,14 @@ static struct emif_data *of_get_memory_device_details(
 	np_ddr = of_parse_phandle(np_emif, "device-handle", 0);
 	if (!np_ddr)
 		goto error;
-	emif	= devm_kzalloc(dev, sizeof(struct emif_data), GFP_KERNEL);
-	pd	= devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
-	dev_info = devm_kzalloc(dev, sizeof(*dev_info), GFP_KERNEL);
+	emif	= devm_kzalloc_obj(dev, struct emif_data);
+	pd = devm_kzalloc_obj(dev, *pd);
+	dev_info = devm_kzalloc_obj(dev, *dev_info);
 
 	if (!emif || !pd || !dev_info) {
 		dev_err(dev, "%s: Out of memory!!\n",
 			__func__);
+		of_node_put(np_ddr);
 		goto error;
 	}
 
@@ -946,6 +946,7 @@ static struct emif_data *of_get_memory_device_details(
 			pd->device_info->io_width, pd->phy_type, pd->ip_rev,
 			emif->dev)) {
 		dev_err(dev, "%s: invalid device data!!\n", __func__);
+		of_node_put(np_ddr);
 		goto error;
 	}
 	/*
@@ -997,9 +998,9 @@ static struct emif_data *get_device_details(
 		goto error;
 	}
 
-	emif	= devm_kzalloc(dev, sizeof(*emif), GFP_KERNEL);
-	temp	= devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
-	dev_info = devm_kzalloc(dev, sizeof(*dev_info), GFP_KERNEL);
+	emif = devm_kzalloc_obj(dev, *emif);
+	temp	= devm_kzalloc_obj(dev, *pd);
+	dev_info = devm_kzalloc_obj(dev, *dev_info);
 
 	if (!emif || !temp || !dev_info)
 		goto error;
@@ -1038,7 +1039,7 @@ static struct emif_data *get_device_details(
 	 */
 	cust_cfgs = pd->custom_configs;
 	if (cust_cfgs && is_custom_config_valid(cust_cfgs, dev)) {
-		temp = devm_kzalloc(dev, sizeof(*cust_cfgs), GFP_KERNEL);
+		temp = devm_kzalloc_obj(dev, *cust_cfgs);
 		if (temp)
 			memcpy(temp, cust_cfgs, sizeof(*cust_cfgs));
 		pd->custom_configs = temp;
@@ -1062,7 +1063,7 @@ static struct emif_data *get_device_details(
 	}
 
 	if (pd->min_tck) {
-		temp = devm_kzalloc(dev, sizeof(*pd->min_tck), GFP_KERNEL);
+		temp = devm_kzalloc_obj(dev, struct lpddr2_min_tck);
 		if (temp) {
 			memcpy(temp, pd->min_tck, sizeof(*pd->min_tck));
 			pd->min_tck = temp;
@@ -1140,6 +1141,7 @@ static void emif_remove(struct platform_device *pdev)
 	struct emif_data *emif = platform_get_drvdata(pdev);
 
 	emif_debugfs_exit(emif);
+	of_node_put(emif->np_ddr);
 }
 
 static void emif_shutdown(struct platform_device *pdev)

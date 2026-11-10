@@ -135,7 +135,7 @@ static ssize_t ali_drw_pmu_event_show(struct device *dev,
 
 #define ALI_DRW_PMU_ATTR(_name, _func, _config)                            \
 		(&((struct dev_ext_attribute[]) {                               \
-				{ __ATTR(_name, 0444, _func, NULL), (void *)_config }   \
+				{ __DEVICE_ATTR(_name, 0444, _func, NULL), (void *)_config }   \
 		})[0].attr.attr)
 
 #define ALI_DRW_PMU_FORMAT_ATTR(_name, _config)            \
@@ -665,7 +665,7 @@ static int ali_drw_pmu_probe(struct platform_device *pdev)
 	char *name;
 	int ret;
 
-	drw_pmu = devm_kzalloc(&pdev->dev, sizeof(*drw_pmu), GFP_KERNEL);
+	drw_pmu = devm_kzalloc_obj(&pdev->dev, *drw_pmu);
 	if (!drw_pmu)
 		return -ENOMEM;
 

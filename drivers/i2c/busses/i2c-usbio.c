@@ -24,12 +24,12 @@ struct usbio_i2c {
 };
 
 static const struct acpi_device_id usbio_i2c_acpi_hids[] = {
-	{ "INTC1008" }, /* MTL */
-	{ "INTC10B3" }, /* ARL */
-	{ "INTC10B6" }, /* LNL */
-	{ "INTC10D2" }, /* MTL-CVF */
-	{ "INTC10E3" }, /* PTL */
-	{ "INTC1118" }, /* NVL */
+	{ .id = "INTC1008" }, /* MTL */
+	{ .id = "INTC10B3" }, /* ARL */
+	{ .id = "INTC10B6" }, /* LNL */
+	{ .id = "INTC10D2" }, /* MTL-CVF */
+	{ .id = "INTC10E3" }, /* PTL */
+	{ .id = "INTC1118" }, /* NVL */
 	{ }
 };
 
@@ -237,7 +237,7 @@ static int usbio_i2c_probe(struct auxiliary_device *adev,
 	if (!i2c_desc)
 		return -EINVAL;
 
-	i2c = devm_kzalloc(dev, sizeof(*i2c), GFP_KERNEL);
+	i2c = devm_kzalloc_obj(dev, *i2c);
 	if (!i2c)
 		return -ENOMEM;
 

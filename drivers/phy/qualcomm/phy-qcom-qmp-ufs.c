@@ -1211,30 +1211,6 @@ struct qmp_ufs {
 	u32 submode;
 };
 
-static inline void qphy_setbits(void __iomem *base, u32 offset, u32 val)
-{
-	u32 reg;
-
-	reg = readl(base + offset);
-	reg |= val;
-	writel(reg, base + offset);
-
-	/* ensure that above write is through */
-	readl(base + offset);
-}
-
-static inline void qphy_clrbits(void __iomem *base, u32 offset, u32 val)
-{
-	u32 reg;
-
-	reg = readl(base + offset);
-	reg &= ~val;
-	writel(reg, base + offset);
-
-	/* ensure that above write is through */
-	readl(base + offset);
-}
-
 /* Regulator bulk data with load values for specific configurations */
 static const struct regulator_bulk_data milos_ufsphy_vreg_l[] = {
 	{ .supply = "vdda-phy", .init_load_uA = 140120 },
@@ -2216,9 +2192,8 @@ static int qmp_ufs_register_clocks(struct qmp_ufs *qmp, struct device_node *np)
 	char name[64];
 	int ret;
 
-	clk_data = devm_kzalloc(qmp->dev,
-				struct_size(clk_data, hws, UFS_SYMBOL_CLOCKS),
-				GFP_KERNEL);
+	clk_data = devm_kzalloc_flex(qmp->dev, *clk_data, hws,
+				     UFS_SYMBOL_CLOCKS);
 	if (!clk_data)
 		return -ENOMEM;
 
@@ -2338,7 +2313,7 @@ static int qmp_ufs_probe(struct platform_device *pdev)
 	struct qmp_ufs *qmp;
 	int ret;
 
-	qmp = devm_kzalloc(dev, sizeof(*qmp), GFP_KERNEL);
+	qmp = devm_kzalloc_obj(dev, *qmp);
 	if (!qmp)
 		return -ENOMEM;
 

@@ -61,7 +61,7 @@ static irqreturn_t qcom_cpucp_mbox_irq_fn(int irq, void *data)
 	status = readq(cpucp->rx_base + APSS_CPUCP_RX_MBOX_STAT);
 
 	for_each_set_bit(i, (unsigned long *)&status, cpucp->mbox.num_chans) {
-		u32 val = readl(cpucp->rx_base + APSS_CPUCP_RX_MBOX_CMD(i) + APSS_CPUCP_MBOX_CMD_OFF);
+		u64 val = readq(cpucp->rx_base + APSS_CPUCP_RX_MBOX_CMD(i));
 		struct mbox_chan *chan = &cpucp->chans[i];
 		struct mbox_client *cl;
 		unsigned long flags;
@@ -148,11 +148,11 @@ static int qcom_cpucp_mbox_probe(struct platform_device *pdev)
 	if (!data)
 		return dev_err_probe(dev, -EINVAL, "No match data found\n");
 
-	cpucp = devm_kzalloc(dev, sizeof(*cpucp), GFP_KERNEL);
+	cpucp = devm_kzalloc_obj(dev, *cpucp);
 	if (!cpucp)
 		return -ENOMEM;
 
-	cpucp->chans = devm_kcalloc(dev, data->num_chans, sizeof(*cpucp->chans), GFP_KERNEL);
+	cpucp->chans = devm_kzalloc_objs(dev, *cpucp->chans, data->num_chans);
 	if (!cpucp->chans)
 		return -ENOMEM;
 

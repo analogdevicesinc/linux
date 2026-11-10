@@ -54,7 +54,7 @@ void k3_rproc_mbox_callback(struct mbox_client *client, void *data)
 	struct k3_rproc *kproc = container_of(client, struct k3_rproc, client);
 	struct device *dev = kproc->rproc->dev.parent;
 	struct rproc *rproc = kproc->rproc;
-	u32 msg = (u32)(uintptr_t)(data);
+	mbox_msg_t msg = omap_mbox_from_message(data);
 
 	dev_dbg(dev, "mbox msg: 0x%x\n", msg);
 
@@ -94,15 +94,9 @@ void k3_rproc_kick(struct rproc *rproc, int vqid)
 {
 	struct k3_rproc *kproc = rproc->priv;
 	struct device *dev = kproc->dev;
-	u32 msg = (u32)vqid;
 	int ret;
 
-	/*
-	 * Send the index of the triggered virtqueue in the mailbox payload.
-	 * NOTE: msg is cast to uintptr_t to prevent compiler warnings when
-	 * void* is 64bit. It is safely cast back to u32 in the mailbox driver.
-	 */
-	ret = mbox_send_message(kproc->mbox, (void *)(uintptr_t)msg);
+	ret = mbox_send_message(kproc->mbox, omap_mbox_to_message(vqid));
 	if (ret < 0)
 		dev_err(dev, "failed to send mailbox message, status = %d\n",
 			ret);
@@ -415,8 +409,7 @@ int k3_rproc_of_get_memories(struct platform_device *pdev,
 	int i;
 
 	num_mems = data->num_mems;
-	kproc->mem = devm_kcalloc(kproc->dev, num_mems,
-				  sizeof(*kproc->mem), GFP_KERNEL);
+	kproc->mem = devm_kzalloc_objs(kproc->dev, *kproc->mem, num_mems);
 	if (!kproc->mem)
 		return -ENOMEM;
 
@@ -496,7 +489,7 @@ int k3_reserved_mem_init(struct k3_rproc *kproc)
 		return ret;
 
 	num_rmems--;
-	kproc->rmem = devm_kcalloc(dev, num_rmems, sizeof(*kproc->rmem), GFP_KERNEL);
+	kproc->rmem = devm_kzalloc_objs(dev, *kproc->rmem, num_rmems);
 	if (!kproc->rmem)
 		return -ENOMEM;
 

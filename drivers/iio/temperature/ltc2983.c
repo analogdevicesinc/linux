@@ -5,23 +5,34 @@
  *
  * Copyright 2019 Analog Devices Inc.
  */
+
+#include <linux/array_size.h>
 #include <linux/bitfield.h>
+#include <linux/bitops.h>
 #include <linux/completion.h>
+#include <linux/container_of.h>
+#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/errno.h>
-#include <linux/kernel.h>
-#include <linux/iio/iio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/list.h>
+#include <linux/math64.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
+#include <linux/pm_runtime.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/slab.h>
 #include <linux/spi/spi.h>
+#include <linux/string.h>
+#include <linux/types.h>
+#include <linux/unaligned.h>
 
 #include <asm/byteorder.h>
-#include <linux/unaligned.h>
+
+#include <linux/iio/iio.h>
 
 /* register map */
 #define LTC2983_STATUS_REG			0x0000
@@ -493,7 +504,7 @@ __ltc2983_custom_sensor_new(struct ltc2983_data *st, const struct fwnode_handle 
 		return dev_err_ptr_probe(dev, -EINVAL,
 					 "Number of entries either 0 or not even\n");
 
-	new_custom = devm_kzalloc(dev, sizeof(*new_custom), GFP_KERNEL);
+	new_custom = devm_kzalloc_obj(dev, *new_custom);
 	if (!new_custom)
 		return ERR_PTR(-ENOMEM);
 
@@ -768,7 +779,7 @@ ltc2983_thermocouple_new(const struct fwnode_handle *child, struct ltc2983_data 
 	u32 oc_current;
 	int ret;
 
-	thermo = devm_kzalloc(dev, sizeof(*thermo), GFP_KERNEL);
+	thermo = devm_kzalloc_obj(dev, *thermo);
 	if (!thermo)
 		return ERR_PTR(-ENOMEM);
 
@@ -857,7 +868,7 @@ ltc2983_rtd_new(const struct fwnode_handle *child, struct ltc2983_data *st,
 	struct device *dev = &st->spi->dev;
 	u32 excitation_current = 0, n_wires = 2;
 
-	rtd = devm_kzalloc(dev, sizeof(*rtd), GFP_KERNEL);
+	rtd = devm_kzalloc_obj(dev, *rtd);
 	if (!rtd)
 		return ERR_PTR(-ENOMEM);
 
@@ -1020,7 +1031,7 @@ ltc2983_thermistor_new(const struct fwnode_handle *child, struct ltc2983_data *s
 	u32 excitation_current = 0;
 	int ret = 0;
 
-	thermistor = devm_kzalloc(dev, sizeof(*thermistor), GFP_KERNEL);
+	thermistor = devm_kzalloc_obj(dev, *thermistor);
 	if (!thermistor)
 		return ERR_PTR(-ENOMEM);
 
@@ -1156,7 +1167,7 @@ ltc2983_copper_trace_new(const struct fwnode_handle *child, struct ltc2983_data 
 					 "Invalid channel %d for copper trace\n",
 					 sensor->chan);
 
-	ct = devm_kzalloc(dev, sizeof(*ct), GFP_KERNEL);
+	ct = devm_kzalloc_obj(dev, *ct);
 	if (!ct)
 		return ERR_PTR(-ENOMEM);
 
@@ -1255,7 +1266,7 @@ ltc2983_leak_detector_new(const struct fwnode_handle *child, struct ltc2983_data
 					 "Invalid channel %d for leak detector\n",
 					 sensor->chan);
 
-	ld = devm_kzalloc(dev, sizeof(*ld), GFP_KERNEL);
+	ld = devm_kzalloc_obj(dev, *ld);
 	if (!ld)
 		return ERR_PTR(-ENOMEM);
 
@@ -1341,7 +1352,7 @@ ltc2983_diode_new(const struct fwnode_handle *child, const struct ltc2983_data *
 	u32 temp = 0, excitation_current = 0;
 	int ret;
 
-	diode = devm_kzalloc(dev, sizeof(*diode), GFP_KERNEL);
+	diode = devm_kzalloc_obj(dev, *diode);
 	if (!diode)
 		return ERR_PTR(-ENOMEM);
 
@@ -1414,7 +1425,7 @@ static struct ltc2983_sensor *ltc2983_r_sense_new(struct fwnode_handle *child,
 	int ret;
 	u32 temp;
 
-	rsense = devm_kzalloc(dev, sizeof(*rsense), GFP_KERNEL);
+	rsense = devm_kzalloc_obj(dev, *rsense);
 	if (!rsense)
 		return ERR_PTR(-ENOMEM);
 
@@ -1449,7 +1460,7 @@ static struct ltc2983_sensor *ltc2983_adc_new(struct fwnode_handle *child,
 	struct device *dev = &st->spi->dev;
 	struct ltc2983_adc *adc;
 
-	adc = devm_kzalloc(dev, sizeof(*adc), GFP_KERNEL);
+	adc = devm_kzalloc_obj(dev, *adc);
 	if (!adc)
 		return ERR_PTR(-ENOMEM);
 
@@ -1475,7 +1486,7 @@ static struct ltc2983_sensor *ltc2983_temp_new(struct fwnode_handle *child,
 	struct device *dev = &st->spi->dev;
 	struct ltc2983_temp *temp;
 
-	temp = devm_kzalloc(dev, sizeof(*temp), GFP_KERNEL);
+	temp = devm_kzalloc_obj(dev, *temp);
 	if (!temp)
 		return ERR_PTR(-ENOMEM);
 
@@ -1666,8 +1677,7 @@ static int ltc2983_parse_fw(struct ltc2983_data *st)
 		return dev_err_probe(dev, -EINVAL,
 				     "At least one channel must be given!\n");
 
-	st->sensors = devm_kcalloc(dev, st->num_channels, sizeof(*st->sensors),
-				   GFP_KERNEL);
+	st->sensors = devm_kzalloc_objs(dev, *st->sensors, st->num_channels);
 	if (!st->sensors)
 		return -ENOMEM;
 

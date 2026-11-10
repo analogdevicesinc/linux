@@ -2931,8 +2931,10 @@ static int cgx_print_dmac_flt(struct seq_file *s, int lmac_id)
 	struct rvu_cgx_lmac_dbgfs_ctx *dctx = s->private;
 	struct rvu *rvu = dctx->rvu;
 	struct pci_dev *pdev = NULL;
+	struct mac_ops *mac_ops;
 	void *cgxd = dctx->cgxd;
 	char *bcast, *mcast;
+	u64 drop_cnt;
 	u16 index, domain;
 	u8 dmac[ETH_ALEN];
 	u64 cfg, mac;
@@ -2969,6 +2971,12 @@ static int cgx_print_dmac_flt(struct seq_file *s, int lmac_id)
 			u64_to_ether_addr(mac, dmac);
 			seq_printf(s, "%7d     %pM\n", index, dmac);
 		}
+	}
+
+	mac_ops = get_mac_ops(cgxd);
+	if (mac_ops && mac_ops->get_dmacflt_dropped_pktcnt) {
+		drop_cnt = rvu_cgx_get_dmacflt_dropped_pktcnt(cgxd, lmac_id);
+		seq_printf(s, "\nDMAC filter drop count: %llu\n", drop_cnt);
 	}
 
 	pci_dev_put(pdev);
@@ -3098,7 +3106,7 @@ static void rvu_dbg_cgx_init(struct rvu *rvu)
 		rvu->rvu_dbg.cgx = debugfs_create_dir(dname,
 						      rvu->rvu_dbg.cgx_root);
 
-		ctx = devm_kzalloc(rvu->dev, sizeof(*ctx), GFP_KERNEL);
+		ctx = devm_kzalloc_obj(rvu->dev, *ctx);
 		if (!ctx)
 			continue;
 

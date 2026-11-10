@@ -805,6 +805,7 @@ ov5695_find_best_fit(struct v4l2_subdev_format *fmt)
 }
 
 static int ov5695_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -1257,7 +1258,7 @@ static int ov5695_probe(struct i2c_client *client)
 	struct v4l2_subdev *sd;
 	int ret;
 
-	ov5695 = devm_kzalloc(dev, sizeof(*ov5695), GFP_KERNEL);
+	ov5695 = devm_kzalloc_obj(dev, *ov5695);
 	if (!ov5695)
 		return -ENOMEM;
 

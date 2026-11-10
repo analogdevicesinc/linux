@@ -730,8 +730,8 @@ static int mipi_csis_clk_get(struct mipi_csis_device *csis)
 	unsigned int i;
 	int ret;
 
-	csis->clks = devm_kcalloc(csis->dev, csis->info->num_clocks,
-				  sizeof(*csis->clks), GFP_KERNEL);
+	csis->clks = devm_kzalloc_objs(csis->dev, *csis->clks,
+				       csis->info->num_clocks);
 
 	if (!csis->clks)
 		return -ENOMEM;
@@ -1104,6 +1104,7 @@ static int mipi_csis_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int mipi_csis_set_fmt(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *sdformat)
 {
@@ -1225,7 +1226,7 @@ static int mipi_csis_init_state(struct v4l2_subdev *sd,
 		V4L2_MAP_QUANTIZATION_DEFAULT(false, fmt.format.colorspace,
 					      fmt.format.ycbcr_enc);
 
-	return mipi_csis_set_fmt(sd, state, &fmt);
+	return mipi_csis_set_fmt(sd, NULL, state, &fmt);
 }
 
 static int mipi_csis_log_status(struct v4l2_subdev *sd)
@@ -1506,7 +1507,7 @@ static int mipi_csis_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 
-	csis = devm_kzalloc(dev, sizeof(*csis), GFP_KERNEL);
+	csis = devm_kzalloc_obj(dev, *csis);
 	if (!csis)
 		return -ENOMEM;
 

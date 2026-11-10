@@ -175,7 +175,7 @@ static int bq27xxx_battery_i2c_probe(struct i2c_client *client)
 	if (!name)
 		return -ENOMEM;
 
-	di = devm_kzalloc(&client->dev, sizeof(*di), GFP_KERNEL);
+	di = devm_kzalloc_obj(&client->dev, *di);
 	if (!di)
 		return -ENOMEM;
 
@@ -253,7 +253,9 @@ static const struct i2c_device_id bq27xxx_i2c_id_table[] = {
 	{ .name = "bq27441", .driver_data = BQ27441 },
 	{ .name = "bq27621", .driver_data = BQ27621 },
 	{ .name = "bq27z561", .driver_data = BQ27Z561 },
+	{ .name = "bq27z746", .driver_data = BQ27Z746 },
 	{ .name = "bq28z610", .driver_data = BQ28Z610 },
+	{ .name = "bq28z620", .driver_data = BQ28Z620 },
 	{ .name = "bq34z100", .driver_data = BQ34Z100 },
 	{ .name = "bq78z100", .driver_data = BQ78Z100 },
 	{ }
@@ -290,7 +292,9 @@ static const struct of_device_id bq27xxx_battery_i2c_of_match_table[] = {
 	{ .compatible = "ti,bq27441" },
 	{ .compatible = "ti,bq27621" },
 	{ .compatible = "ti,bq27z561" },
+	{ .compatible = "ti,bq27z746" },
 	{ .compatible = "ti,bq28z610" },
+	{ .compatible = "ti,bq28z620" },
 	{ .compatible = "ti,bq34z100" },
 	{ .compatible = "ti,bq78z100" },
 	{},

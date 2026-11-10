@@ -338,6 +338,20 @@ static int wm8904_configure_clocking(struct snd_soc_component *component)
 		dev_dbg(component->dev, "Using %dHz FLL clock\n",
 			wm8904->fll_fout);
 
+		/* The SYSCLK may already be on; if source changes to FLL, ensure
+		 * FLL is enabled before selecting it as SYSCLK source.
+		 */
+		if (clock2 & WM8904_CLK_SYS_ENA) {
+			snd_soc_component_update_bits(component,
+						      WM8904_FLL_CONTROL_1,
+						      WM8904_FLL_OSC_ENA,
+						      WM8904_FLL_OSC_ENA);
+			snd_soc_component_update_bits(component,
+						      WM8904_FLL_CONTROL_1,
+						      WM8904_FLL_ENA,
+						      WM8904_FLL_ENA);
+		}
+
 		clock2 |= WM8904_SYSCLK_SRC;
 		rate = wm8904->fll_fout;
 		break;
@@ -2026,6 +2040,22 @@ static int wm8904_set_bias_level(struct snd_soc_component *component,
 #define WM8904_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
+static const u64 wm8904_selectable_formats[] = {
+	/* 1st priority */
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF,
+	/* 2nd priority */
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF,
+};
+
 static const struct snd_soc_dai_ops wm8904_dai_ops = {
 	.set_sysclk = wm8904_set_sysclk,
 	.set_fmt = wm8904_set_fmt,
@@ -2034,6 +2064,8 @@ static const struct snd_soc_dai_ops wm8904_dai_ops = {
 	.hw_params = wm8904_hw_params,
 	.mute_stream = wm8904_mute,
 	.no_capture_mute = 1,
+	.auto_selectable_formats = wm8904_selectable_formats,
+	.num_auto_selectable_formats = ARRAY_SIZE(wm8904_selectable_formats),
 };
 
 static struct snd_soc_dai_driver wm8904_dai = {
@@ -2185,9 +2217,8 @@ static void wm8904_handle_pdata(struct snd_soc_component *component)
 				     wm8904_get_drc_enum, wm8904_put_drc_enum);
 
 		/* We need an array of texts for the enum API */
-		wm8904->drc_texts = kmalloc_array(pdata->num_drc_cfgs,
-						  sizeof(char *),
-						  GFP_KERNEL);
+		wm8904->drc_texts = kmalloc_objs(*wm8904->drc_texts,
+						 pdata->num_drc_cfgs);
 		if (!wm8904->drc_texts)
 			return;
 
@@ -2430,7 +2461,7 @@ static int wm8904_set_pdata_from_of(struct i2c_client *i2c,
 	struct wm8904_pdata *pdata;
 	int ret, i;
 
-	pdata = devm_kzalloc(&i2c->dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(&i2c->dev, *pdata);
 	if (!pdata)
 		return -ENOMEM;
 
@@ -2470,8 +2501,7 @@ static int wm8904_i2c_probe(struct i2c_client *i2c)
 	unsigned int val;
 	int ret, i;
 
-	wm8904 = devm_kzalloc(&i2c->dev, sizeof(struct wm8904_priv),
-			      GFP_KERNEL);
+	wm8904 = devm_kzalloc_obj(&i2c->dev, struct wm8904_priv);
 	if (wm8904 == NULL)
 		return -ENOMEM;
 

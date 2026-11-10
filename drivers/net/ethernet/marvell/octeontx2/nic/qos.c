@@ -331,6 +331,8 @@ static void otx2_qos_sw_node_delete(struct otx2_nic *pfvf,
 		otx2_qos_update_tx_netdev_queues(pfvf);
 	}
 
+	synchronize_net();
+
 	list_del(&node->list);
 	kfree(node);
 }
@@ -839,9 +841,7 @@ static int otx2_qos_assign_base_idx_tl(struct otx2_nic *pfvf,
 
 	/* allocate child index array */
 	child_cnt = node->child_dwrr_cnt + node->max_static_prio + 1;
-	child_idx_bmap = kcalloc(BITS_TO_LONGS(child_cnt),
-				 sizeof(unsigned long),
-				 GFP_KERNEL);
+	child_idx_bmap = kzalloc_objs(unsigned long, BITS_TO_LONGS(child_cnt));
 	if (!child_idx_bmap)
 		return -ENOMEM;
 

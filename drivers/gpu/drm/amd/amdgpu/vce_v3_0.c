@@ -482,12 +482,16 @@ static int vce_v3_0_hw_init(struct amdgpu_ip_block *ip_block)
 	for (i = 0; i < adev->vce.num_rings; i++) {
 		r = amdgpu_ring_test_helper(&adev->vce.ring[i]);
 		if (r)
-			return r;
+			goto error;
 	}
 
 	drm_info(adev_to_drm(adev), "VCE initialized successfully.\n");
 
 	return 0;
+
+error:
+	cancel_delayed_work_sync(&adev->vce.idle_work);
+	return r;
 }
 
 static int vce_v3_0_hw_fini(struct amdgpu_ip_block *ip_block)
@@ -857,7 +861,6 @@ static const struct amd_ip_funcs vce_v3_0_ip_funcs = {
 	.hw_fini = vce_v3_0_hw_fini,
 	.suspend = vce_v3_0_suspend,
 	.resume = vce_v3_0_resume,
-	.is_idle = vce_v3_0_is_idle,
 	.wait_for_idle = vce_v3_0_wait_for_idle,
 	.soft_reset = vce_v3_0_soft_reset,
 	.set_clockgating_state = vce_v3_0_set_clockgating_state,

@@ -396,6 +396,25 @@ int snd_hdac_bus_get_response(struct hdac_bus *bus, unsigned int addr,
 }
 EXPORT_SYMBOL_GPL(snd_hdac_bus_get_response);
 
+/**
+ * snd_hdac_bus_reset_response_counter - reset the pending response count
+ * @bus: HD-audio core bus
+ * @addr: codec address
+ *
+ * Drop the number of commands that are still waiting for a response from
+ * the given codec address.  This is called when a verb is known to be dead,
+ * e.g. after a response timeout, so that a lost response won't leave the
+ * counter non-zero forever and block all later verbs to the same codec.
+ */
+void snd_hdac_bus_reset_response_counter(struct hdac_bus *bus, unsigned int addr)
+{
+	if (addr >= HDA_MAX_CODECS)
+		return;
+
+	guard(spinlock_irq)(&bus->reg_lock);
+	bus->rirb.cmds[addr] = 0;
+}
+
 #define HDAC_MAX_CAPS 10
 /**
  * snd_hdac_bus_parse_capabilities - parse capability structure
@@ -423,6 +442,13 @@ int snd_hdac_bus_parse_capabilities(struct hdac_bus *bus)
 
 		if (cur_cap == -1) {
 			dev_dbg(bus->dev, "Invalid capability reg read\n");
+			break;
+		}
+
+		/* An all-zero header means no capability is present here */
+		if (!cur_cap) {
+			dev_dbg(bus->dev, "Empty capability header at offset 0x%x\n",
+				offset);
 			break;
 		}
 
@@ -456,7 +482,8 @@ int snd_hdac_bus_parse_capabilities(struct hdac_bus *bus)
 			break;
 
 		default:
-			dev_err(bus->dev, "Unknown capability %d\n", cur_cap);
+			dev_err(bus->dev, "Unknown capability ID 0x%x\n",
+				(cur_cap & AZX_CAP_HDR_ID_MASK) >> AZX_CAP_HDR_ID_OFF);
 			cur_cap = 0;
 			break;
 		}
@@ -745,10 +772,13 @@ int snd_hdac_bus_alloc_stream_pages(struct hdac_bus *bus)
 
 error_posbuf:
 	snd_dma_free_pages(&bus->posbuf);
+	bus->posbuf.area = NULL;
 error_bdl:
 	list_for_each_entry(s, &bus->stream_list, list) {
-		if (s->bdl.area)
+		if (s->bdl.area) {
 			snd_dma_free_pages(&s->bdl);
+			s->bdl.area = NULL;
+		}
 	}
 	return -ENOMEM;
 }
@@ -781,9 +811,6 @@ EXPORT_SYMBOL_GPL(snd_hdac_bus_free_stream_pages);
  */
 void snd_hdac_bus_link_power(struct hdac_device *codec, bool enable)
 {
-	if (enable)
-		set_bit(codec->addr, &codec->bus->codec_powered);
-	else
-		clear_bit(codec->addr, &codec->bus->codec_powered);
+	assign_bit(codec->addr, &codec->bus->codec_powered, enable);
 }
 EXPORT_SYMBOL_GPL(snd_hdac_bus_link_power);

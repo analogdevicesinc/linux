@@ -1768,7 +1768,8 @@ static u32 *dw_dp_bridge_atomic_get_output_bus_fmts(struct drm_bridge *bridge,
 
 	*num_output_fmts = 0;
 
-	output_fmts = kcalloc(ARRAY_SIZE(dw_dp_output_formats), sizeof(*output_fmts), GFP_KERNEL);
+	output_fmts = kzalloc_objs(*output_fmts,
+				   ARRAY_SIZE(dw_dp_output_formats));
 	if (!output_fmts)
 		return NULL;
 
@@ -2079,10 +2080,8 @@ struct dw_dp *dw_dp_bind(struct device *dev, struct drm_encoder *encoder,
 
 	ret = devm_request_threaded_irq(dev, dp->irq, NULL, dw_dp_irq,
 					IRQF_ONESHOT, dev_name(dev), dp);
-	if (ret) {
-		dev_err_probe(dev, ret, "failed to request irq\n");
+	if (ret)
 		goto unregister_aux;
-	}
 
 	return dp;
 

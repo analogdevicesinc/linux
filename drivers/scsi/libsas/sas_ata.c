@@ -153,7 +153,7 @@ qc_already_gone:
 }
 
 static unsigned int sas_ata_qc_issue(struct ata_queued_cmd *qc)
-	__must_hold(ap->lock)
+	__must_hold(qc->ap->lock)
 {
 	struct sas_task *task;
 	struct scatterlist *sg;
@@ -372,6 +372,7 @@ static int local_ata_check_ready(struct ata_link *link)
 	}
 }
 
+__printf(3, 4)
 static int sas_ata_printk(const char *level, const struct domain_device *ddev,
 			  const char *fmt, ...)
 {

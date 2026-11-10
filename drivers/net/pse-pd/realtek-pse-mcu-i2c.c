@@ -115,7 +115,7 @@ static int rtpse_mcu_i2c_probe(struct i2c_client *client)
 				"SMBus MCU protocol requires SMBus I2C-block support\n");
 	}
 
-	pse = devm_kzalloc(dev, sizeof(*pse), GFP_KERNEL);
+	pse = devm_kzalloc_obj(dev, *pse);
 	if (!pse)
 		return -ENOMEM;
 
@@ -128,6 +128,7 @@ static int rtpse_mcu_i2c_probe(struct i2c_client *client)
 
 static const struct of_device_id rtpse_mcu_i2c_of_match[] = {
 	{ .compatible = "realtek,pse-mcu-gen1-smbus", .data = &rtpse_mcu_gen1_data },
+	{ .compatible = "realtek,pse-mcu-gen1-i2c", .data = &rtpse_mcu_gen1_i2c_data },
 	{ .compatible = "realtek,pse-mcu-gen2-smbus", .data = &rtpse_mcu_gen2_data },
 	{ .compatible = "realtek,pse-mcu-gen2-i2c", .data = &rtpse_mcu_gen2_i2c_data },
 	{ /* sentinel */ }

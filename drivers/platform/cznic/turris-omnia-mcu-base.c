@@ -361,7 +361,7 @@ static int omnia_mcu_probe(struct i2c_client *client)
 	if (!client->irq)
 		return dev_err_probe(dev, -EINVAL, "IRQ resource not found\n");
 
-	mcu = devm_kzalloc(dev, sizeof(*mcu), GFP_KERNEL);
+	mcu = devm_kzalloc_obj(dev, *mcu);
 	if (!mcu)
 		return -ENOMEM;
 
@@ -403,6 +403,7 @@ static const struct of_device_id of_omnia_mcu_match[] = {
 	{ .compatible = "cznic,turris-omnia-mcu" },
 	{}
 };
+MODULE_DEVICE_TABLE(of, of_omnia_mcu_match);
 
 static struct i2c_driver omnia_mcu_driver = {
 	.probe		= omnia_mcu_probe,

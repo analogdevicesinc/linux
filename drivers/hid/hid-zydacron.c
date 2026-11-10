@@ -114,6 +114,9 @@ static int zc_raw_event(struct hid_device *hdev, struct hid_report *report,
 	unsigned key;
 	unsigned short index;
 
+	if (size < 2)
+		return 0;
+
 	if (report->id == data[0] && (hdev->claimed & HID_CLAIMED_INPUT)) {
 
 		/* break keys */
@@ -166,7 +169,7 @@ static int zc_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	int ret;
 	struct zc_device *zc;
 
-	zc = devm_kzalloc(&hdev->dev, sizeof(*zc), GFP_KERNEL);
+	zc = devm_kzalloc_obj(&hdev->dev, *zc);
 	if (zc == NULL) {
 		hid_err(hdev, "can't alloc descriptor\n");
 		return -ENOMEM;

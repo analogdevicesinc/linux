@@ -610,8 +610,9 @@ tag_power_down:
 	if (!ret) {
 		regcache_cache_only(fs210x->regmap, false);
 		regcache_mark_dirty(fs210x->regmap);
-		regcache_sync(fs210x->regmap);
-		fs210x->is_inited = true;
+		ret = regcache_sync(fs210x->regmap);
+		if (!ret)
+			fs210x->is_inited = true;
 	}
 
 	return ret;
@@ -1488,7 +1489,7 @@ static int fs210x_i2c_probe(struct i2c_client *client)
 	struct fs210x_priv *fs210x;
 	int ret;
 
-	fs210x = devm_kzalloc(&client->dev, sizeof(*fs210x), GFP_KERNEL);
+	fs210x = devm_kzalloc_obj(&client->dev, *fs210x);
 	if (!fs210x)
 		return -ENOMEM;
 

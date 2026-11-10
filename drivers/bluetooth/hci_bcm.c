@@ -1240,7 +1240,7 @@ static int bcm_probe(struct platform_device *pdev)
 	struct bcm_device *dev;
 	int ret;
 
-	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	dev = devm_kzalloc_obj(&pdev->dev, *dev);
 	if (!dev)
 		return -ENOMEM;
 
@@ -1509,7 +1509,7 @@ static int bcm_serdev_probe(struct serdev_device *serdev)
 	const struct bcm_device_data *data;
 	int err;
 
-	bcmdev = devm_kzalloc(&serdev->dev, sizeof(*bcmdev), GFP_KERNEL);
+	bcmdev = devm_kzalloc_obj(&serdev->dev, *bcmdev);
 	if (!bcmdev)
 		return -ENOMEM;
 
@@ -1593,6 +1593,7 @@ static const struct of_device_id bcm_bluetooth_of_match[] = {
 	{ .compatible = "brcm,bcm4349-bt", .data = &bcm43438_device_data },
 	{ .compatible = "brcm,bcm43540-bt", .data = &bcm4354_device_data },
 	{ .compatible = "brcm,bcm4335a0" },
+	{ .compatible = "brcm,bcm4384-bt" },
 	{ .compatible = "cypress,cyw4373a0-bt", .data = &cyw4373a0_device_data },
 	{ .compatible = "infineon,cyw55572-bt", .data = &cyw55572_device_data },
 	{ },

@@ -252,6 +252,7 @@ enum {
 	SOC_LED_CTRL_BLINK	= (1 << 0),	/* Active LED blink */
 	SOC_LED_CTRL_ACT_PRESENCE = (1 << 2),	/* Multiplex dev presence */
 						/*  with dev activity LED */
+	SOC_LED_CTRL_ENABLE	= (1 << 3),	/* Enable SATA LED control */
 
 	/* Shadow block registers */
 	SHD_BLK			= 0x100,
@@ -1674,7 +1675,7 @@ static int mv_port_start(struct ata_port *ap)
 	unsigned long flags;
 	int tag;
 
-	pp = devm_kzalloc(dev, sizeof(*pp), GFP_KERNEL);
+	pp = devm_kzalloc_obj(dev, *pp);
 	if (!pp)
 		return -ENOMEM;
 	ap->private_data = pp;
@@ -3382,12 +3383,15 @@ static void mv6_phy_errata(struct mv_host_priv *hpriv, void __iomem *mmio,
 	writel(m2, port_mmio + PHY_MODE2);
 }
 
-/* TODO: use the generic LED interface to configure the SATA Presence */
-/* & Acitivy LEDs on the board */
+/*
+ * Enable the SoC SATA LED controller and device presence
+ * indication on the board's SATA LEDs.
+ */
 static void mv_soc_enable_leds(struct mv_host_priv *hpriv,
 				      void __iomem *mmio)
 {
-	return;
+	writel(SOC_LED_CTRL_ENABLE | SOC_LED_CTRL_ACT_PRESENCE,
+	       mv_hc_base(mmio, 0) + SOC_LED_CTRL);
 }
 
 static void mv_soc_read_preamp(struct mv_host_priv *hpriv, int idx,
@@ -4063,18 +4067,14 @@ static int mv_platform_probe(struct platform_device *pdev)
 		return irq;
 
 	host = ata_host_alloc_pinfo(&pdev->dev, ppi, n_ports);
-	hpriv = devm_kzalloc(&pdev->dev, sizeof(*hpriv), GFP_KERNEL);
+	hpriv = devm_kzalloc_obj(&pdev->dev, *hpriv);
 
 	if (!host || !hpriv)
 		return -ENOMEM;
-	hpriv->port_clks = devm_kcalloc(&pdev->dev,
-					n_ports, sizeof(struct clk *),
-					GFP_KERNEL);
+	hpriv->port_clks = devm_kzalloc_objs(&pdev->dev, struct clk *, n_ports);
 	if (!hpriv->port_clks)
 		return -ENOMEM;
-	hpriv->port_phys = devm_kcalloc(&pdev->dev,
-					n_ports, sizeof(struct phy *),
-					GFP_KERNEL);
+	hpriv->port_phys = devm_kzalloc_objs(&pdev->dev, struct phy *, n_ports);
 	if (!hpriv->port_phys)
 		return -ENOMEM;
 	host->private_data = hpriv;
@@ -4357,7 +4357,7 @@ static int mv_pci_init_one(struct pci_dev *pdev,
 	n_ports = mv_get_hc_count(ppi[0]->flags) * MV_PORTS_PER_HC;
 
 	host = ata_host_alloc_pinfo(&pdev->dev, ppi, n_ports);
-	hpriv = devm_kzalloc(&pdev->dev, sizeof(*hpriv), GFP_KERNEL);
+	hpriv = devm_kzalloc_obj(&pdev->dev, *hpriv);
 	if (!host || !hpriv)
 		return -ENOMEM;
 	host->private_data = hpriv;

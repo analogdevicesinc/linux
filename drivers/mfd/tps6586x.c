@@ -418,7 +418,7 @@ static struct tps6586x_platform_data *tps6586x_parse_dt(struct i2c_client *clien
 	struct device_node *np = client->dev.of_node;
 	struct tps6586x_platform_data *pdata;
 
-	pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(&client->dev, *pdata);
 	if (!pdata)
 		return NULL;
 
@@ -539,7 +539,7 @@ static int tps6586x_i2c_probe(struct i2c_client *client)
 		return -EIO;
 	}
 
-	tps6586x = devm_kzalloc(&client->dev, sizeof(*tps6586x), GFP_KERNEL);
+	tps6586x = devm_kzalloc_obj(&client->dev, *tps6586x);
 	if (!tps6586x)
 		return -ENOMEM;
 
@@ -618,7 +618,7 @@ static void tps6586x_i2c_remove(struct i2c_client *client)
 		free_irq(client->irq, tps6586x);
 }
 
-static int __maybe_unused tps6586x_i2c_suspend(struct device *dev)
+static int tps6586x_i2c_suspend(struct device *dev)
 {
 	struct tps6586x *tps6586x = dev_get_drvdata(dev);
 
@@ -628,7 +628,7 @@ static int __maybe_unused tps6586x_i2c_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused tps6586x_i2c_resume(struct device *dev)
+static int tps6586x_i2c_resume(struct device *dev)
 {
 	struct tps6586x *tps6586x = dev_get_drvdata(dev);
 
@@ -638,7 +638,7 @@ static int __maybe_unused tps6586x_i2c_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(tps6586x_pm_ops, tps6586x_i2c_suspend,
+static DEFINE_SIMPLE_DEV_PM_OPS(tps6586x_pm_ops, tps6586x_i2c_suspend,
 			 tps6586x_i2c_resume);
 
 static const struct i2c_device_id tps6586x_id_table[] = {
@@ -651,7 +651,7 @@ static struct i2c_driver tps6586x_driver = {
 	.driver	= {
 		.name	= "tps6586x",
 		.of_match_table = of_match_ptr(tps6586x_of_match),
-		.pm	= &tps6586x_pm_ops,
+		.pm	= pm_sleep_ptr(&tps6586x_pm_ops),
 	},
 	.probe		= tps6586x_i2c_probe,
 	.remove		= tps6586x_i2c_remove,

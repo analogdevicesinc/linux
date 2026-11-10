@@ -14,6 +14,7 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/libata.h>
 #include "ahci.h"
 
@@ -273,7 +274,7 @@ static int ahci_qoriq_probe(struct platform_device *pdev)
 	if (!(of_id || acpi_id))
 		return -ENODEV;
 
-	qoriq_priv = devm_kzalloc(dev, sizeof(*qoriq_priv), GFP_KERNEL);
+	qoriq_priv = devm_kzalloc_obj(dev, *qoriq_priv);
 	if (!qoriq_priv)
 		return -ENOMEM;
 

@@ -621,7 +621,7 @@ static struct page *no_page_table(struct vm_area_struct *vma,
 	 * But we can only make this optimization where a hole would surely
 	 * be zero-filled if handle_mm_fault() actually did handle it.
 	 */
-	if (is_vm_hugetlb_page(vma)) {
+	if (vma_is_hugetlb(vma)) {
 		struct hstate *h = hstate_vma(vma);
 
 		if (!hugetlbfs_pagecache_present(h, vma, address))
@@ -657,9 +657,6 @@ static struct page *follow_huge_pud(struct vm_area_struct *vma,
 	int ret;
 
 	assert_spin_locked(pud_lockptr(mm, pudp));
-
-	if (!pud_present(pud))
-		return NULL;
 
 	if ((flags & FOLL_WRITE) &&
 	    !can_follow_write_pud(pud, pfn_to_page(pfn), vma, flags))
@@ -896,14 +893,16 @@ no_page:
 }
 
 static struct page *follow_pmd_mask(struct vm_area_struct *vma,
-				    unsigned long address, pud_t *pudp,
-				    unsigned int flags,
-				    unsigned long *page_mask)
+		unsigned long address, pud_t *pudp, pud_t pud,
+		unsigned int flags, unsigned long *page_mask)
 {
 	pmd_t *pmd, pmdval;
 	spinlock_t *ptl;
 	struct page *page;
 	struct mm_struct *mm = vma->vm_mm;
+
+	if (unlikely(pud_bad(pud)))
+		return no_page_table(vma, flags, address);
 
 	pmd = pmd_offset(pudp, address);
 	pmdval = pmdp_get_lockless(pmd);
@@ -953,18 +952,23 @@ static struct page *follow_pud_mask(struct vm_area_struct *vma,
 	pud = pudp_get(pudp);
 	if (!pud_present(pud))
 		return no_page_table(vma, flags, address);
-	if (pud_leaf(pud)) {
-		ptl = pud_lock(mm, pudp);
-		page = follow_huge_pud(vma, address, pudp, flags, page_mask);
+	if (!pud_leaf(pud))
+		return follow_pmd_mask(vma, address, pudp, pud, flags, page_mask);
+
+	ptl = pud_lock(mm, pudp);
+	pud = *pudp;
+	if (unlikely(!pud_present(pud))) {
 		spin_unlock(ptl);
-		if (page)
-			return page;
 		return no_page_table(vma, flags, address);
 	}
-	if (unlikely(pud_bad(pud)))
-		return no_page_table(vma, flags, address);
+	if (unlikely(!pud_leaf(pud))) {
+		spin_unlock(ptl);
+		return follow_pmd_mask(vma, address, pudp, pud, flags, page_mask);
+	}
 
-	return follow_pmd_mask(vma, address, pudp, flags, page_mask);
+	page = follow_huge_pud(vma, address, pudp, flags, page_mask);
+	spin_unlock(ptl);
+	return page;
 }
 
 static struct page *follow_p4d_mask(struct vm_area_struct *vma,
@@ -1213,7 +1217,7 @@ static int check_vma_flags(struct vm_area_struct *vma, unsigned long gup_flags)
 	if ((gup_flags & FOLL_LONGTERM) && vma_is_fsdax(vma))
 		return -EOPNOTSUPP;
 
-	if ((gup_flags & FOLL_SPLIT_PMD) && is_vm_hugetlb_page(vma))
+	if ((gup_flags & FOLL_SPLIT_PMD) && vma_is_hugetlb(vma))
 		return -EOPNOTSUPP;
 
 	if (vma_is_secretmem(vma))
@@ -1836,6 +1840,10 @@ long populate_vma_page_range(struct vm_area_struct *vma,
 	if (!vma_is_accessible(vma))
 		return -EFAULT;
 
+	/* Unreadable VMAs also cannot be faulted in. */
+	if (!vma_test(vma, VMA_MAYREAD_BIT))
+		return -EFAULT;
+
 	gup_flags = FOLL_TOUCH;
 	/*
 	 * We want to touch writable mappings with a write fault in order
@@ -1983,6 +1991,7 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 	struct vm_area_struct *vma;
 	bool must_unlock = false;
 	vm_flags_t vm_flags;
+	int ret, err = -EFAULT;
 	long i;
 
 	if (!nr_pages)
@@ -1998,6 +2007,10 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 		must_unlock = true;
 		*locked = 1;
 	}
+
+	/* See the MMU variant: support the traditional behavior. */
+	if (pages && !(foll_flags & FOLL_PIN))
+		foll_flags |= FOLL_GET;
 
 	/* calculate required read or write permissions.
 	 * If FOLL_FORCE is set, we only require the "MAY" flags.
@@ -2019,8 +2032,14 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 
 		if (pages) {
 			pages[i] = virt_to_page((void *)start);
-			if (pages[i])
-				get_page(pages[i]);
+			if (!pages[i])
+				break;
+			ret = try_grab_folio(page_folio(pages[i]), 1, foll_flags);
+			if (unlikely(ret)) {
+				pages[i] = NULL;
+				err = ret;
+				break;
+			}
 		}
 
 		start = (start + PAGE_SIZE) & PAGE_MASK;
@@ -2031,7 +2050,7 @@ static long __get_user_pages_locked(struct mm_struct *mm, unsigned long start,
 		*locked = 0;
 	}
 
-	return i ? : -EFAULT;
+	return i ? : err;
 }
 #endif /* !CONFIG_MMU */
 
@@ -2700,8 +2719,9 @@ EXPORT_SYMBOL(get_user_pages_unlocked);
  * Before activating this code, please be aware that the following assumptions
  * are currently made:
  *
- *  *) Either MMU_GATHER_RCU_TABLE_FREE is enabled, and tlb_remove_table() is used to
- *  free pages containing page tables or TLB flushing requires IPI broadcast.
+ *  *) tlb_remove_table() is used to free pages containing page tables, with
+ *  the free deferred until an RCU grace period has elapsed (see
+ *  mm/mmu_gather.c).
  *
  *  *) ptes can be read atomically by the architecture.
  *
@@ -2826,11 +2846,11 @@ static bool gup_fast_folio_allowed(struct folio *folio, unsigned int flags)
  * also check pmd here to make sure pmd doesn't change (corresponds to
  * pmdp_collapse_flush() in the THP collapse code path).
  */
-static int gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
-	int ret = 0;
+	unsigned long nr_pages = 0;
 	pte_t *ptep, *ptem;
 
 	ptem = ptep = pte_offset_map(&pmd, addr);
@@ -2892,15 +2912,13 @@ static int gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp, unsigned long addr,
 			goto pte_unmap;
 		}
 		folio_set_referenced(folio);
-		pages[*nr] = page;
-		(*nr)++;
+		pages[nr_pages] = page;
+		nr_pages++;
 	} while (ptep++, addr += PAGE_SIZE, addr != end);
-
-	ret = 1;
 
 pte_unmap:
 	pte_unmap(ptem);
-	return ret;
+	return nr_pages;
 }
 #else
 
@@ -2913,21 +2931,25 @@ pte_unmap:
  * get_user_pages_fast_only implementation that can pin pages. Thus it's still
  * useful to have gup_fast_pmd_leaf even if we can't operate on ptes.
  */
-static int gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pte_range(pmd_t pmd, pmd_t *pmdp,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
 	return 0;
 }
 #endif /* CONFIG_ARCH_HAS_PTE_SPECIAL */
 
-static int gup_fast_pmd_leaf(pmd_t orig, pmd_t *pmdp, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pmd_leaf(pmd_t orig, pmd_t *pmdp,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
 	struct page *page;
 	struct folio *folio;
-	int refs;
+	unsigned long nr_pages, i;
+
+	/* See gup_fast_pte_range() */
+	if (pmd_protnone(orig))
+		return 0;
 
 	if (!pmd_access_permitted(orig, flags & FOLL_WRITE))
 		return 0;
@@ -2935,42 +2957,40 @@ static int gup_fast_pmd_leaf(pmd_t orig, pmd_t *pmdp, unsigned long addr,
 	if (pmd_special(orig))
 		return 0;
 
-	refs = (end - addr) >> PAGE_SHIFT;
+	nr_pages = (end - addr) >> PAGE_SHIFT;
 	page = pmd_page(orig) + ((addr & ~PMD_MASK) >> PAGE_SHIFT);
 
-	folio = try_grab_folio_fast(page, refs, flags);
+	folio = try_grab_folio_fast(page, nr_pages, flags);
 	if (!folio)
 		return 0;
 
 	if (unlikely(pmd_val(orig) != pmd_val(pmdp_get_lockless(pmdp)))) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 
 	if (!gup_fast_folio_allowed(folio, flags)) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 	if (!pmd_write(orig) && gup_must_unshare(NULL, flags, &folio->page)) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 
-	pages += *nr;
-	*nr += refs;
-	for (; refs; refs--)
+	for (i = 0; i < nr_pages; i++)
 		*(pages++) = page++;
 	folio_set_referenced(folio);
-	return 1;
+	return nr_pages;
 }
 
-static int gup_fast_pud_leaf(pud_t orig, pud_t *pudp, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pud_leaf(pud_t orig, pud_t *pudp,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
 	struct page *page;
 	struct folio *folio;
-	int refs;
+	unsigned long nr_pages, i;
 
 	if (!pud_access_permitted(orig, flags & FOLL_WRITE))
 		return 0;
@@ -2978,41 +2998,39 @@ static int gup_fast_pud_leaf(pud_t orig, pud_t *pudp, unsigned long addr,
 	if (pud_special(orig))
 		return 0;
 
-	refs = (end - addr) >> PAGE_SHIFT;
+	nr_pages = (end - addr) >> PAGE_SHIFT;
 	page = pud_page(orig) + ((addr & ~PUD_MASK) >> PAGE_SHIFT);
 
-	folio = try_grab_folio_fast(page, refs, flags);
+	folio = try_grab_folio_fast(page, nr_pages, flags);
 	if (!folio)
 		return 0;
 
 	if (unlikely(pud_val(orig) != pud_val(pudp_get(pudp)))) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 
 	if (!gup_fast_folio_allowed(folio, flags)) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 
 	if (!pud_write(orig) && gup_must_unshare(NULL, flags, &folio->page)) {
-		gup_put_folio(folio, refs, flags);
+		gup_put_folio(folio, nr_pages, flags);
 		return 0;
 	}
 
-	pages += *nr;
-	*nr += refs;
-	for (; refs; refs--)
+	for (i = 0; i < nr_pages; i++)
 		*(pages++) = page++;
 	folio_set_referenced(folio);
-	return 1;
+	return nr_pages;
 }
 
-static int gup_fast_pmd_range(pud_t *pudp, pud_t pud, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pmd_range(pud_t *pudp, pud_t pud,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
-	unsigned long next;
+	unsigned long next, nr_pages = 0, chunk_nr_pages;
 	pmd_t *pmdp;
 
 	pmdp = pmd_offset_lockless(pudp, pud, addr);
@@ -3021,30 +3039,30 @@ static int gup_fast_pmd_range(pud_t *pudp, pud_t pud, unsigned long addr,
 
 		next = pmd_addr_end(addr, end);
 		if (!pmd_present(pmd))
-			return 0;
+			break;
 
 		if (unlikely(pmd_leaf(pmd))) {
-			/* See gup_fast_pte_range() */
-			if (pmd_protnone(pmd))
-				return 0;
+			chunk_nr_pages = gup_fast_pmd_leaf(pmd, pmdp, addr,
+							   next, flags,
+							   &pages[nr_pages]);
 
-			if (!gup_fast_pmd_leaf(pmd, pmdp, addr, next, flags,
-				pages, nr))
-				return 0;
-
-		} else if (!gup_fast_pte_range(pmd, pmdp, addr, next, flags,
-					       pages, nr))
-			return 0;
+		} else
+			chunk_nr_pages = gup_fast_pte_range(pmd, pmdp, addr,
+							    next, flags,
+							    &pages[nr_pages]);
+		nr_pages += chunk_nr_pages;
+		if (chunk_nr_pages != (next - addr) >> PAGE_SHIFT)
+			break;
 	} while (pmdp++, addr = next, addr != end);
 
-	return 1;
+	return nr_pages;
 }
 
-static int gup_fast_pud_range(p4d_t *p4dp, p4d_t p4d, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_pud_range(p4d_t *p4dp, p4d_t p4d,
+		unsigned long addr, unsigned long end,
+		unsigned int flags, struct page **pages)
 {
-	unsigned long next;
+	unsigned long next, nr_pages = 0, chunk_nr_pages;
 	pud_t *pudp;
 
 	pudp = pud_offset_lockless(p4dp, p4d, addr);
@@ -3053,24 +3071,27 @@ static int gup_fast_pud_range(p4d_t *p4dp, p4d_t p4d, unsigned long addr,
 
 		next = pud_addr_end(addr, end);
 		if (unlikely(!pud_present(pud)))
-			return 0;
-		if (unlikely(pud_leaf(pud))) {
-			if (!gup_fast_pud_leaf(pud, pudp, addr, next, flags,
-					       pages, nr))
-				return 0;
-		} else if (!gup_fast_pmd_range(pudp, pud, addr, next, flags,
-					       pages, nr))
-			return 0;
+			break;
+		if (unlikely(pud_leaf(pud)))
+			chunk_nr_pages = gup_fast_pud_leaf(pud, pudp, addr,
+							   next, flags,
+							   &pages[nr_pages]);
+		else
+			chunk_nr_pages = gup_fast_pmd_range(pudp, pud, addr,
+							    next, flags,
+							    &pages[nr_pages]);
+		nr_pages += chunk_nr_pages;
+		if (chunk_nr_pages != (next - addr) >> PAGE_SHIFT)
+			break;
 	} while (pudp++, addr = next, addr != end);
 
-	return 1;
+	return nr_pages;
 }
 
-static int gup_fast_p4d_range(pgd_t *pgdp, pgd_t pgd, unsigned long addr,
-		unsigned long end, unsigned int flags, struct page **pages,
-		int *nr)
+static unsigned long gup_fast_p4d_range(pgd_t *pgdp, pgd_t pgd, unsigned long addr,
+		unsigned long end, unsigned int flags, struct page **pages)
 {
-	unsigned long next;
+	unsigned long next, nr_pages = 0, chunk_nr_pages;
 	p4d_t *p4dp;
 
 	p4dp = p4d_offset_lockless(pgdp, pgd, addr);
@@ -3079,20 +3100,23 @@ static int gup_fast_p4d_range(pgd_t *pgdp, pgd_t pgd, unsigned long addr,
 
 		next = p4d_addr_end(addr, end);
 		if (!p4d_present(p4d))
-			return 0;
+			break;
 		BUILD_BUG_ON(p4d_leaf(p4d));
-		if (!gup_fast_pud_range(p4dp, p4d, addr, next, flags,
-					pages, nr))
-			return 0;
+		chunk_nr_pages = gup_fast_pud_range(p4dp, p4d, addr, next,
+						    flags, &pages[nr_pages]);
+		nr_pages += chunk_nr_pages;
+		if (chunk_nr_pages != (next - addr) >> PAGE_SHIFT)
+			break;
 	} while (p4dp++, addr = next, addr != end);
 
-	return 1;
+	return nr_pages;
 }
 
-static void gup_fast_pgd_range(unsigned long addr, unsigned long end,
-		unsigned int flags, struct page **pages, int *nr)
+static unsigned long gup_fast_pgd_range(unsigned long addr,
+		unsigned long end, unsigned int flags,
+		struct page **pages)
 {
-	unsigned long next;
+	unsigned long next, nr_pages = 0, chunk_nr_pages;
 	pgd_t *pgdp;
 
 	pgdp = pgd_offset(current->mm, addr);
@@ -3101,17 +3125,23 @@ static void gup_fast_pgd_range(unsigned long addr, unsigned long end,
 
 		next = pgd_addr_end(addr, end);
 		if (pgd_none(pgd))
-			return;
+			break;
 		BUILD_BUG_ON(pgd_leaf(pgd));
-		if (!gup_fast_p4d_range(pgdp, pgd, addr, next, flags,
-					pages, nr))
-			return;
+		chunk_nr_pages = gup_fast_p4d_range(pgdp, pgd, addr, next,
+						    flags, &pages[nr_pages]);
+		nr_pages += chunk_nr_pages;
+		if (chunk_nr_pages != (next - addr) >> PAGE_SHIFT)
+			break;
 	} while (pgdp++, addr = next, addr != end);
+
+	return nr_pages;
 }
 #else
-static inline void gup_fast_pgd_range(unsigned long addr, unsigned long end,
-		unsigned int flags, struct page **pages, int *nr)
+static inline unsigned long gup_fast_pgd_range(unsigned long addr,
+		unsigned long end, unsigned int flags,
+		struct page **pages)
 {
+	return 0;
 }
 #endif /* CONFIG_HAVE_GUP_FAST */
 
@@ -3129,8 +3159,7 @@ static bool gup_fast_permitted(unsigned long start, unsigned long end)
 static unsigned long gup_fast(unsigned long start, unsigned long end,
 		unsigned int gup_flags, struct page **pages)
 {
-	unsigned long flags;
-	int nr_pinned = 0;
+	unsigned long flags, nr_pinned;
 	unsigned seq;
 
 	if (!IS_ENABLED(CONFIG_HAVE_GUP_FAST) ||
@@ -3154,7 +3183,7 @@ static unsigned long gup_fast(unsigned long start, unsigned long end,
 	 * that come from callers of tlb_remove_table_sync_one().
 	 */
 	local_irq_save(flags);
-	gup_fast_pgd_range(start, end, gup_flags, pages, &nr_pinned);
+	nr_pinned = gup_fast_pgd_range(start, end, gup_flags, pages);
 	local_irq_restore(flags);
 
 	/*
@@ -3186,6 +3215,9 @@ static int gup_fast_fallback(unsigned long start, unsigned long nr_pages,
 				       FOLL_PCI_P2PDMA | FOLL_HONOR_NUMA_FAULT)))
 		return -EINVAL;
 
+	if (unlikely(!nr_pages))
+		return 0;
+
 	if (gup_flags & FOLL_PIN)
 		mm_set_has_pinned_flag(current->mm);
 
@@ -3193,8 +3225,8 @@ static int gup_fast_fallback(unsigned long start, unsigned long nr_pages,
 		might_lock_read(&current->mm->mmap_lock);
 
 	start = untagged_addr(start) & PAGE_MASK;
-	len = nr_pages << PAGE_SHIFT;
-	if (check_add_overflow(start, len, &end))
+	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &len) ||
+	    check_add_overflow(start, len, &end))
 		return -EOVERFLOW;
 	if (end > TASK_SIZE_MAX)
 		return -EFAULT;
@@ -3439,7 +3471,7 @@ long memfd_pin_folios(struct file *memfd, loff_t start, loff_t end,
 {
 	unsigned int flags, nr_folios, nr_found;
 	unsigned int i, pgshift = PAGE_SHIFT;
-	pgoff_t start_idx, end_idx;
+	pgoff_t start_idx, end_idx, retry_idx;
 	struct folio *folio = NULL;
 	struct folio_batch fbatch;
 	struct hstate *h;
@@ -3480,6 +3512,7 @@ long memfd_pin_folios(struct file *memfd, loff_t start, loff_t end,
 			 * reason, we try to allocate them and add them to the
 			 * page cache.
 			 */
+			retry_idx = start_idx;
 			nr_found = filemap_get_folios_contig(memfd->f_mapping,
 							     &start_idx,
 							     end_idx,
@@ -3492,11 +3525,37 @@ long memfd_pin_folios(struct file *memfd, loff_t start, loff_t end,
 			for (i = 0; i < nr_found; i++) {
 				folio = fbatch.folios[i];
 
+				/*
+				 * The folio might have been removed from the
+				 * page cache (e.g., truncated or collapsed)
+				 * after the lookup. Recheck under the folio
+				 * lock.
+				 */
+				folio_lock(folio);
+				if (unlikely(folio->mapping != memfd->f_mapping)) {
+					folio_unlock(folio);
+					start_idx = retry_idx;
+					break;
+				}
+
 				if (try_grab_folio(folio, 1, FOLL_PIN)) {
+					folio_unlock(folio);
 					folio_batch_release(&fbatch);
 					ret = -EINVAL;
 					goto err;
 				}
+
+				/*
+				 * fallocate() can leave folios in the
+				 * page cache that were never cleared.
+				 */
+				if (!folio_test_uptodate(folio)) {
+					folio_zero_range(folio, 0, folio_size(folio));
+					flush_dcache_folio(folio);
+					folio_mark_uptodate(folio);
+				}
+				retry_idx = folio_next_index(folio);
+				folio_unlock(folio);
 
 				if (nr_folios == 0)
 					*offset = offset_in_folio(folio, start);

@@ -414,8 +414,7 @@ static int rmi_f12_probe(struct rmi_function *fn)
 		return -ENODEV;
 	}
 
-	f12 = devm_kzalloc(&fn->dev, struct_size(f12, irq_mask, irq_mask_size * 2),
-			   GFP_KERNEL);
+	f12 = devm_kzalloc_flex(&fn->dev, *f12, irq_mask, irq_mask_size * 2);
 	if (!f12)
 		return -ENOMEM;
 
@@ -544,20 +543,20 @@ static int rmi_f12_probe(struct rmi_function *fn)
 				       f12->data1_offset + f12->data1->reg_size);
 
 	/* allocate the in-kernel tracking buffers */
-	sensor->tracking_pos = devm_kcalloc(&fn->dev, sensor->nbr_fingers,
-					    sizeof(*sensor->tracking_pos),
-					    GFP_KERNEL);
+	sensor->tracking_pos = devm_kzalloc_objs(&fn->dev,
+						 *sensor->tracking_pos,
+						 sensor->nbr_fingers);
 	if (!sensor->tracking_pos)
 		return -ENOMEM;
 
-	sensor->tracking_slots = devm_kcalloc(&fn->dev, sensor->nbr_fingers,
-					      sizeof(*sensor->tracking_slots),
-					      GFP_KERNEL);
+	sensor->tracking_slots = devm_kzalloc_objs(&fn->dev,
+						   *sensor->tracking_slots,
+						   sensor->nbr_fingers);
 	if (!sensor->tracking_slots)
 		return -ENOMEM;
 
-	sensor->objs = devm_kcalloc(&fn->dev, sensor->nbr_fingers,
-				    sizeof(*sensor->objs), GFP_KERNEL);
+	sensor->objs = devm_kzalloc_objs(&fn->dev, *sensor->objs,
+					 sensor->nbr_fingers);
 	if (!sensor->objs)
 		return -ENOMEM;
 

@@ -474,30 +474,6 @@ struct qmp_usbc {
 	enum typec_orientation orientation;
 };
 
-static inline void qphy_setbits(void __iomem *base, u32 offset, u32 val)
-{
-	u32 reg;
-
-	reg = readl(base + offset);
-	reg |= val;
-	writel(reg, base + offset);
-
-	/* ensure that above write is through */
-	readl(base + offset);
-}
-
-static inline void qphy_clrbits(void __iomem *base, u32 offset, u32 val)
-{
-	u32 reg;
-
-	reg = readl(base + offset);
-	reg &= ~val;
-	writel(reg, base + offset);
-
-	/* ensure that above write is through */
-	readl(base + offset);
-}
-
 /* list of clocks required by phy */
 static const char * const qmp_usbc_phy_clk_l[] = {
 	"aux", "cfg_ahb", "ref", "com_aux",
@@ -1463,8 +1439,7 @@ static int qmp_usbc_reset_init(struct qmp_usbc *qmp,
 	int i;
 	int ret;
 
-	qmp->resets = devm_kcalloc(dev, num_resets,
-				   sizeof(*qmp->resets), GFP_KERNEL);
+	qmp->resets = devm_kzalloc_objs(dev, *qmp->resets, num_resets);
 	if (!qmp->resets)
 		return -ENOMEM;
 
@@ -1486,7 +1461,7 @@ static int qmp_usbc_clk_init(struct qmp_usbc *qmp)
 	int num = ARRAY_SIZE(qmp_usbc_phy_clk_l);
 	int i;
 
-	qmp->clks = devm_kcalloc(dev, num, sizeof(*qmp->clks), GFP_KERNEL);
+	qmp->clks = devm_kzalloc_objs(dev, *qmp->clks, num);
 	if (!qmp->clks)
 		return -ENOMEM;
 
@@ -1964,7 +1939,7 @@ static int qmp_usbc_probe(struct platform_device *pdev)
 	struct qmp_usbc *qmp;
 	int ret;
 
-	qmp = devm_kzalloc(dev, sizeof(*qmp), GFP_KERNEL);
+	qmp = devm_kzalloc_obj(dev, *qmp);
 	if (!qmp)
 		return -ENOMEM;
 

@@ -208,10 +208,7 @@ static void pca963x_track_power_state(struct pca963x_led *led, unsigned int led_
 {
 	unsigned long *leds_on = &led->chip->leds_on;
 
-	if (brightness)
-		set_bit(led_num, leds_on);
-	else
-		clear_bit(led_num, leds_on);
+	assign_bit(led_num, leds_on, brightness);
 }
 
 static int pca963x_sync_power_state(struct pca963x_led *led, unsigned long cached_leds)
@@ -533,7 +530,7 @@ static int pca963x_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	chip = devm_kzalloc(dev, struct_size(chip, leds, count), GFP_KERNEL);
+	chip = devm_kzalloc_flex(dev, *chip, leds, count);
 	if (!chip)
 		return -ENOMEM;
 

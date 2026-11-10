@@ -19,6 +19,7 @@
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 /* Register definitions */
@@ -491,7 +492,7 @@ static int atcwdt_probe(struct platform_device *pdev)
 	struct atcwdt_drv *drv_data;
 	int ret;
 
-	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
+	drv_data = devm_kzalloc_obj(dev, *drv_data);
 	if (!drv_data)
 		return -ENOMEM;
 
@@ -570,11 +571,11 @@ module_platform_driver(atcwdt_driver);
 
 module_param(timeout, uint, 0);
 MODULE_PARM_DESC(timeout, "Watchdog timeout in seconds (default="
-		 __MODULE_STRING(ATCWDT_TIMEOUT) ")");
+		 __stringify(ATCWDT_TIMEOUT) ")");
 
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("CL Wang <cl634@andestech.com>");

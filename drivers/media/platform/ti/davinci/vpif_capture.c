@@ -1502,14 +1502,12 @@ vpif_capture_get_pdata(struct platform_device *pdev,
 	if (!IS_ENABLED(CONFIG_OF) || !pdev->dev.of_node)
 		return pdev->dev.platform_data;
 
-	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(&pdev->dev, *pdata);
 	if (!pdata)
 		return NULL;
 	pdata->subdev_info =
-		devm_kcalloc(&pdev->dev,
-			     VPIF_CAPTURE_NUM_CHANNELS,
-			     sizeof(*pdata->subdev_info),
-			     GFP_KERNEL);
+		devm_kzalloc_objs(&pdev->dev, *pdata->subdev_info,
+				  VPIF_CAPTURE_NUM_CHANNELS);
 
 	if (!pdata->subdev_info)
 		return NULL;
@@ -1529,10 +1527,8 @@ vpif_capture_get_pdata(struct platform_device *pdev,
 
 		sdinfo = &pdata->subdev_info[i];
 		chan = &pdata->chan_config[i];
-		chan->inputs = devm_kcalloc(&pdev->dev,
-					    VPIF_CAPTURE_NUM_CHANNELS,
-					    sizeof(*chan->inputs),
-					    GFP_KERNEL);
+		chan->inputs = devm_kzalloc_objs(&pdev->dev, *chan->inputs,
+						 VPIF_CAPTURE_NUM_CHANNELS);
 		if (!chan->inputs)
 			goto err_cleanup;
 
@@ -1602,7 +1598,7 @@ err_cleanup:
 static int vpif_probe(struct platform_device *pdev)
 {
 	struct vpif_subdev_info *subdevdata;
-	struct i2c_adapter *i2c_adap;
+	struct i2c_adapter *i2c_adap = NULL;
 	int subdev_count;
 	int res_idx = 0;
 	int i, err;
@@ -1692,9 +1688,12 @@ static int vpif_probe(struct platform_device *pdev)
 		}
 	}
 
+	i2c_put_adapter(i2c_adap);
+
 	return 0;
 
 probe_subdev_out:
+	i2c_put_adapter(i2c_adap);
 	v4l2_async_nf_cleanup(&vpif_obj.notifier);
 	/* free sub devices memory */
 	kfree(vpif_obj.sd);

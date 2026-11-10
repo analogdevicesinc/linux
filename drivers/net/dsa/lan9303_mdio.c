@@ -101,8 +101,7 @@ static int lan9303_mdio_probe(struct mdio_device *mdiodev)
 	struct lan9303_mdio *sw_dev;
 	int ret;
 
-	sw_dev = devm_kzalloc(&mdiodev->dev, sizeof(struct lan9303_mdio),
-			      GFP_KERNEL);
+	sw_dev = devm_kzalloc_obj(&mdiodev->dev, struct lan9303_mdio);
 	if (!sw_dev)
 		return -ENOMEM;
 
@@ -157,7 +156,7 @@ static void lan9303_mdio_shutdown(struct mdio_device *mdiodev)
 static const struct of_device_id lan9303_mdio_of_match[] = {
 	{ .compatible = "smsc,lan9303-mdio" },
 	{ .compatible = "microchip,lan9354-mdio" },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, lan9303_mdio_of_match);
 

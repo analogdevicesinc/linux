@@ -326,13 +326,16 @@ static struct dma_chan *fsl_edma3_xlate(struct of_phandle_args *dma_spec,
 		if ((dma_spec->args[2] & FSL_EDMA_ODD_CH) && !(i & 0x1))
 			continue;
 
+		chan = dma_get_slave_channel(chan);
+		if (!chan)
+			return NULL;
+
 		fsl_chan->srcid = dma_spec->args[0];
 		fsl_chan->priority = dma_spec->args[1];
 		fsl_chan->is_rxchan = dma_spec->args[2] & FSL_EDMA_RX;
 		fsl_chan->is_remote = dma_spec->args[2] & FSL_EDMA_REMOTE;
 		fsl_chan->is_multi_fifo = dma_spec->args[2] & FSL_EDMA_MULTI_FIFO;
 
-		chan = dma_get_slave_channel(chan);
 		chan->device->privatecnt++;
 		return chan;
 	}
@@ -716,8 +719,7 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, ret,
 				     "Can't get dma-channels.\n");
 
-	fsl_edma = devm_kzalloc(&pdev->dev, struct_size(fsl_edma, chans, chans),
-				GFP_KERNEL);
+	fsl_edma = devm_kzalloc_flex(&pdev->dev, *fsl_edma, chans, chans);
 	if (!fsl_edma)
 		return -ENOMEM;
 
@@ -843,6 +845,8 @@ static int fsl_edma_probe(struct platform_device *pdev)
 	fsl_edma->dma_dev.device_free_chan_resources
 		= fsl_edma_free_chan_resources;
 	fsl_edma->dma_dev.device_tx_status = fsl_edma_tx_status;
+	fsl_edma->dma_dev.device_prep_peripheral_dma_vec
+		= fsl_edma_prep_peripheral_dma_vec;
 	fsl_edma->dma_dev.device_prep_slave_sg = fsl_edma_prep_slave_sg;
 	fsl_edma->dma_dev.device_prep_dma_cyclic = fsl_edma_prep_dma_cyclic;
 	fsl_edma->dma_dev.device_prep_dma_memcpy = fsl_edma_prep_memcpy;

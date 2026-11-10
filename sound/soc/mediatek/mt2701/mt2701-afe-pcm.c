@@ -1599,14 +1599,13 @@ static int mt2701_afe_pcm_dev_probe(struct platform_device *pdev)
 	struct device *dev;
 	int i, irq_id, ret;
 
-	afe = devm_kzalloc(&pdev->dev, sizeof(*afe), GFP_KERNEL);
+	afe = devm_kzalloc_obj(&pdev->dev, *afe);
 	if (!afe)
 		return -ENOMEM;
 
 	soc = of_device_get_match_data(&pdev->dev);
-	afe_priv = devm_kzalloc(&pdev->dev,
-			struct_size(afe_priv, i2s_path, soc->i2s_num),
-			GFP_KERNEL);
+	afe_priv = devm_kzalloc_flex(&pdev->dev, *afe_priv, i2s_path,
+				     soc->i2s_num);
 	if (!afe_priv)
 		return -ENOMEM;
 
@@ -1622,10 +1621,8 @@ static int mt2701_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	ret = devm_request_irq(dev, irq_id, mt2701_asys_isr,
 			       IRQF_TRIGGER_NONE, "asys-isr", (void *)afe);
-	if (ret) {
-		dev_err(dev, "could not request_irq for asys-isr\n");
+	if (ret)
 		return ret;
-	}
 
 	afe->regmap = syscon_node_to_regmap(dev->parent->of_node);
 	if (IS_ERR(afe->regmap)) {
@@ -1637,8 +1634,7 @@ static int mt2701_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	/* memif initialize */
 	afe->memif_size = MT2701_MEMIF_NUM;
-	afe->memif = devm_kcalloc(dev, afe->memif_size, sizeof(*afe->memif),
-				  GFP_KERNEL);
+	afe->memif = devm_kzalloc_objs(dev, *afe->memif, afe->memif_size);
 	if (!afe->memif)
 		return -ENOMEM;
 
@@ -1649,8 +1645,7 @@ static int mt2701_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	/* irq initialize */
 	afe->irqs_size = MT2701_IRQ_ASYS_END;
-	afe->irqs = devm_kcalloc(dev, afe->irqs_size, sizeof(*afe->irqs),
-				 GFP_KERNEL);
+	afe->irqs = devm_kzalloc_objs(dev, *afe->irqs, afe->irqs_size);
 	if (!afe->irqs)
 		return -ENOMEM;
 

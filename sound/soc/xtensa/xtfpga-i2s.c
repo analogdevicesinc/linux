@@ -485,10 +485,16 @@ static const struct snd_soc_component_driver xtfpga_i2s_component = {
 	.legacy_dai_naming	= 1,
 };
 
+static const u64 xtfpga_i2s_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF;
+
 static const struct snd_soc_dai_ops xtfpga_i2s_dai_ops = {
-	.startup	= xtfpga_i2s_startup,
-	.hw_params      = xtfpga_i2s_hw_params,
-	.set_fmt	= xtfpga_i2s_set_fmt,
+	.startup			= xtfpga_i2s_startup,
+	.hw_params			= xtfpga_i2s_hw_params,
+	.set_fmt			= xtfpga_i2s_set_fmt,
+	.auto_selectable_formats	= &xtfpga_i2s_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver xtfpga_i2s_dai[] = {
@@ -532,7 +538,7 @@ static int xtfpga_i2s_probe(struct platform_device *pdev)
 	struct xtfpga_i2s *i2s;
 	int err, irq;
 
-	i2s = devm_kzalloc(&pdev->dev, sizeof(*i2s), GFP_KERNEL);
+	i2s = devm_kzalloc_obj(&pdev->dev, *i2s);
 	if (!i2s)
 		return -ENOMEM;
 

@@ -1013,6 +1013,7 @@ static int et8ek8_get_pad_format(struct v4l2_subdev *subdev,
 }
 
 static int et8ek8_set_pad_format(struct v4l2_subdev *subdev,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -1406,7 +1407,7 @@ static int et8ek8_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	int ret;
 
-	sensor = devm_kzalloc(&client->dev, sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kzalloc_obj(&client->dev, *sensor);
 	if (!sensor)
 		return -ENOMEM;
 

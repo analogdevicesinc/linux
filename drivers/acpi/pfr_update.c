@@ -422,7 +422,7 @@ free_acpi_buffer:
 
 static long pfru_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct pfru_update_cap_info cap_hdr;
+	struct pfru_update_cap_info cap_hdr = {};
 	struct pfru_device *pfru_dev = to_pfru_dev(file);
 	void __user *p = (void __user *)arg;
 	u32 rev;
@@ -554,7 +554,7 @@ static int acpi_pfru_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	pfru_dev = devm_kzalloc(&pdev->dev, sizeof(*pfru_dev), GFP_KERNEL);
+	pfru_dev = devm_kzalloc_obj(&pdev->dev, *pfru_dev);
 	if (!pfru_dev)
 		return -ENOMEM;
 

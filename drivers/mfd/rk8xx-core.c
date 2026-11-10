@@ -773,7 +773,7 @@ int rk8xx_probe(struct device *dev, int variant, unsigned int irq, struct regmap
 	int ret;
 	int i;
 
-	rk808 = devm_kzalloc(dev, sizeof(*rk808), GFP_KERNEL);
+	rk808 = devm_kzalloc_obj(dev, *rk808);
 	if (!rk808)
 		return -ENOMEM;
 	rk808->dev = dev;
@@ -875,7 +875,7 @@ int rk8xx_probe(struct device *dev, int variant, unsigned int irq, struct regmap
 	if (device_property_read_bool(dev, "system-power-controller") ||
 	    device_property_read_bool(dev, "rockchip,system-power-controller")) {
 		ret = devm_register_sys_off_handler(dev,
-				    SYS_OFF_MODE_POWER_OFF_PREPARE, SYS_OFF_PRIO_HIGH,
+				    SYS_OFF_MODE_POWER_OFF, SYS_OFF_PRIO_HIGH,
 				    &rk808_power_off, rk808);
 		if (ret)
 			return dev_err_probe(dev, ret,

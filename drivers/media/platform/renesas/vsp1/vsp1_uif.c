@@ -54,6 +54,7 @@ static const unsigned int uif_codes[] = {
 };
 
 static int uif_get_selection(struct v4l2_subdev *subdev,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_selection *sel)
 {
@@ -92,6 +93,7 @@ static int uif_get_selection(struct v4l2_subdev *subdev,
 }
 
 static int uif_set_selection(struct v4l2_subdev *subdev,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_selection *sel)
 {
@@ -201,7 +203,7 @@ struct vsp1_uif *vsp1_uif_create(struct vsp1_device *vsp1, unsigned int index)
 	char name[6];
 	int ret;
 
-	uif = devm_kzalloc(vsp1->dev, sizeof(*uif), GFP_KERNEL);
+	uif = devm_kzalloc_obj(vsp1->dev, *uif);
 	if (!uif)
 		return ERR_PTR(-ENOMEM);
 

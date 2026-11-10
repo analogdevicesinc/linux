@@ -99,8 +99,10 @@ static int imx_dsp_setup_channels(struct imx_dsp_ipc *dsp_ipc)
 		else
 			chan_name = kasprintf(GFP_KERNEL, "rxdb%d", i - 2);
 
-		if (!chan_name)
-			return -ENOMEM;
+		if (!chan_name) {
+			ret = -ENOMEM;
+			goto out;
+		}
 
 		dsp_chan = &dsp_ipc->chans[i];
 		dsp_chan->name = chan_name;
@@ -144,7 +146,7 @@ static int imx_dsp_probe(struct platform_device *pdev)
 
 	device_set_of_node_from_dev(&pdev->dev, pdev->dev.parent);
 
-	dsp_ipc = devm_kzalloc(dev, sizeof(*dsp_ipc), GFP_KERNEL);
+	dsp_ipc = devm_kzalloc_obj(dev, *dsp_ipc);
 	if (!dsp_ipc)
 		return -ENOMEM;
 

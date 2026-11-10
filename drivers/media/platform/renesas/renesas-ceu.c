@@ -841,12 +841,13 @@ static int __ceu_try_fmt(struct ceu_device *ceudev, struct v4l2_format *v4l2_fmt
 	 * time.
 	 */
 	sd_format.format.code = mbus_code;
-	ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt, &pad_state, &sd_format);
+	ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt, NULL, &pad_state,
+			       &sd_format);
 	if (ret) {
 		if (ret == -EINVAL) {
 			/* fallback */
 			sd_format.format.code = mbus_code_old;
-			ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt,
+			ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt, NULL,
 					       &pad_state, &sd_format);
 		}
 
@@ -900,7 +901,7 @@ static int ceu_set_fmt(struct ceu_device *ceudev, struct v4l2_format *v4l2_fmt)
 
 	format.format.code = mbus_code;
 	v4l2_fill_mbus_format_mplane(&format.format, &v4l2_fmt->fmt.pix_mp);
-	ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt, NULL, &format);
+	ret = v4l2_subdev_call(v4l2_sd, pad, set_fmt, NULL, NULL, &format);
 	if (ret)
 		return ret;
 
@@ -1462,8 +1463,7 @@ static const struct v4l2_async_notifier_operations ceu_notify_ops = {
 static int ceu_init_async_subdevs(struct ceu_device *ceudev, unsigned int n_sd)
 {
 	/* Reserve memory for 'n_sd' ceu_subdev descriptors. */
-	ceudev->subdevs = devm_kcalloc(ceudev->dev, n_sd,
-				       sizeof(*ceudev->subdevs), GFP_KERNEL);
+	ceudev->subdevs = devm_kzalloc_objs(ceudev->dev, *ceudev->subdevs, n_sd);
 	if (!ceudev->subdevs)
 		return -ENOMEM;
 

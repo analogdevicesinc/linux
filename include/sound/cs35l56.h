@@ -209,6 +209,9 @@ struct snd_ctl_elem_value;
 
 #define CS35L56_GPIO_FN_GPIO				0x00000001
 
+/* DSP1_FW_VER */
+#define CS35L56_FW_MAIN_VERSION_MASK			GENMASK(19, 0)
+
 /* Mixer input sources */
 #define CS35L56_INPUT_SRC_NONE				0x00
 #define CS35L56_INPUT_SRC_ASP1RX1			0x08
@@ -383,9 +386,9 @@ static inline bool cs35l56_is_otp_register(unsigned int reg)
 static inline int cs35l56_init_config_for_spi(struct cs35l56_base *cs35l56,
 					      struct spi_device *spi)
 {
-	cs35l56->spi_payload_buf = devm_kzalloc(&spi->dev,
-						sizeof(*cs35l56->spi_payload_buf),
-						GFP_KERNEL | GFP_DMA);
+	cs35l56->spi_payload_buf = devm_kzalloc_obj(&spi->dev,
+						    *cs35l56->spi_payload_buf,
+						    GFP_KERNEL | GFP_DMA);
 	if (!cs35l56->spi_payload_buf)
 		return -ENOMEM;
 
@@ -446,6 +449,7 @@ int cs35l56_cal_set_status_get(struct cs35l56_base *cs35l56_base,
 int cs35l56_read_prot_status(struct cs35l56_base *cs35l56_base,
 			     bool *fw_missing, unsigned int *fw_version);
 void cs35l56_warn_if_firmware_missing(struct cs35l56_base *cs35l56_base);
+bool cs35l56_needs_wait_for_firmware_timer_expiry(struct cs35l56_base *cs35l56_base);
 void cs35l56_log_tuning(struct cs35l56_base *cs35l56_base, struct cs_dsp *cs_dsp);
 int cs35l56_hw_init(struct cs35l56_base *cs35l56_base);
 int cs35l56_get_speaker_id(struct cs35l56_base *cs35l56_base);

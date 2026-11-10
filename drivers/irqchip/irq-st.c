@@ -140,7 +140,7 @@ static int st_irq_syscfg_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node;
 	struct st_irq_syscfg *ddata;
 
-	ddata = devm_kzalloc(&pdev->dev, sizeof(*ddata), GFP_KERNEL);
+	ddata = devm_kzalloc_obj(&pdev->dev, *ddata);
 	if (!ddata)
 		return -ENOMEM;
 
@@ -157,7 +157,7 @@ static int st_irq_syscfg_probe(struct platform_device *pdev)
 	return st_irq_syscfg_enable(pdev);
 }
 
-static int __maybe_unused st_irq_syscfg_resume(struct device *dev)
+static int st_irq_syscfg_resume(struct device *dev)
 {
 	struct st_irq_syscfg *ddata = dev_get_drvdata(dev);
 
@@ -165,12 +165,12 @@ static int __maybe_unused st_irq_syscfg_resume(struct device *dev)
 				  ST_A9_IRQ_MASK, ddata->config);
 }
 
-static SIMPLE_DEV_PM_OPS(st_irq_syscfg_pm_ops, NULL, st_irq_syscfg_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(st_irq_syscfg_pm_ops, NULL, st_irq_syscfg_resume);
 
 static struct platform_driver st_irq_syscfg_driver = {
 	.driver = {
 		.name = "st_irq_syscfg",
-		.pm = &st_irq_syscfg_pm_ops,
+		.pm = pm_sleep_ptr(&st_irq_syscfg_pm_ops),
 		.of_match_table = st_irq_syscfg_match,
 	},
 	.probe = st_irq_syscfg_probe,

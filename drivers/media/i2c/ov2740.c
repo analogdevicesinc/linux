@@ -1023,6 +1023,7 @@ out_unlock:
 }
 
 static int ov2740_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_format *fmt)
 {
@@ -1267,7 +1268,7 @@ static int ov2740_register_nvmem(struct i2c_client *client,
 		.size = CUSTOMER_USE_OTP_SIZE,
 	};
 
-	nvm = devm_kzalloc(dev, sizeof(*nvm), GFP_KERNEL);
+	nvm = devm_kzalloc_obj(dev, *nvm);
 	if (!nvm)
 		return -ENOMEM;
 
@@ -1333,7 +1334,7 @@ static int ov2740_probe(struct i2c_client *client)
 	unsigned int i;
 	int ret;
 
-	ov2740 = devm_kzalloc(&client->dev, sizeof(*ov2740), GFP_KERNEL);
+	ov2740 = devm_kzalloc_obj(&client->dev, *ov2740);
 	if (!ov2740)
 		return -ENOMEM;
 

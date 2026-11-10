@@ -1237,7 +1237,7 @@ static int omap_mcbsp_dai_set_dai_sysclk(struct snd_soc_dai *cpu_dai,
 		break;
 	case OMAP_MCBSP_SYSCLK_CLKR_EXT:
 		regs->pcr0	|= SCLKME;
-		/* Disable ouput on CLKR pin in master mode */
+		/* Disable output on CLKR pin in master mode */
 		regs->pcr0	&= ~CLKRM;
 		break;
 	default:
@@ -1269,6 +1269,16 @@ static int omap_mcbsp_remove(struct snd_soc_dai *dai)
 	return 0;
 }
 
+static const u64 mcbsp_mcbsp_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops mcbsp_dai_ops = {
 	.probe		= omap_mcbsp_probe,
 	.remove		= omap_mcbsp_remove,
@@ -1281,6 +1291,8 @@ static const struct snd_soc_dai_ops mcbsp_dai_ops = {
 	.set_fmt	= omap_mcbsp_dai_set_dai_fmt,
 	.set_clkdiv	= omap_mcbsp_dai_set_clkdiv,
 	.set_sysclk	= omap_mcbsp_dai_set_dai_sysclk,
+	.auto_selectable_formats	= &mcbsp_mcbsp_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver omap_mcbsp_dai = {
@@ -1377,7 +1389,7 @@ static int asoc_mcbsp_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "missing platform data.\n");
 		return -EINVAL;
 	}
-	mcbsp = devm_kzalloc(&pdev->dev, sizeof(struct omap_mcbsp), GFP_KERNEL);
+	mcbsp = devm_kzalloc_obj(&pdev->dev, struct omap_mcbsp);
 	if (!mcbsp)
 		return -ENOMEM;
 

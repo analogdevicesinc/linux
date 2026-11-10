@@ -174,7 +174,7 @@ static int slimpro_mbox_probe(struct platform_device *pdev)
 	int rc;
 	int i;
 
-	ctx = devm_kzalloc(&pdev->dev, sizeof(struct slimpro_mbox), GFP_KERNEL);
+	ctx = devm_kzalloc_obj(&pdev->dev, struct slimpro_mbox);
 	if (!ctx)
 		return -ENOMEM;
 
@@ -228,8 +228,8 @@ MODULE_DEVICE_TABLE(of, slimpro_of_match);
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id slimpro_acpi_ids[] = {
-	{"APMC0D01", 0},
-	{}
+	{ .id = "APMC0D01" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, slimpro_acpi_ids);
 #endif

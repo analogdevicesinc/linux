@@ -1249,7 +1249,7 @@ int i2c_hid_core_probe(struct i2c_client *client, struct i2chid_ops *ops,
 		return client->irq;
 	}
 
-	ihid = devm_kzalloc(&client->dev, sizeof(*ihid), GFP_KERNEL);
+	ihid = devm_kzalloc_obj(&client->dev, *ihid);
 	if (!ihid)
 		return -ENOMEM;
 
@@ -1357,7 +1357,16 @@ void i2c_hid_core_shutdown(struct i2c_client *client)
 {
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 
-	i2c_hid_set_power(ihid, I2C_HID_PWR_SLEEP);
+	/*
+	 * Like in i2c_hid_core_remove(): if we're a follower, the act of
+	 * unfollowing will cause us to be powered down. Otherwise we need to
+	 * manually do it.
+	 */
+	if (ihid->is_panel_follower)
+		drm_panel_remove_follower(&ihid->panel_follower);
+	else
+		i2c_hid_set_power(ihid, I2C_HID_PWR_SLEEP);
+
 	free_irq(client->irq, ihid);
 
 	i2c_hid_core_shutdown_tail(ihid);

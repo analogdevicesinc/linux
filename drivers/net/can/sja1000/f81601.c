@@ -40,7 +40,7 @@ struct f81601_pci_card {
 
 static const struct pci_device_id f81601_pci_tbl[] = {
 	{ PCI_DEVICE(0x1c29, 0x1703) },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 
 MODULE_DEVICE_TABLE(pci, f81601_pci_tbl);
@@ -108,7 +108,7 @@ static int f81601_pci_probe(struct pci_dev *pdev,
 	dev_info(&pdev->dev, "Detected card at slot #%i\n",
 		 PCI_SLOT(pdev->devfn));
 
-	card = devm_kzalloc(&pdev->dev, sizeof(*card), GFP_KERNEL);
+	card = devm_kzalloc_obj(&pdev->dev, *card);
 	if (!card)
 		return -ENOMEM;
 

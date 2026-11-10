@@ -974,30 +974,6 @@ static int cs35l41_system_suspend(struct device *dev)
 	return ret;
 }
 
-static int cs35l41_wait_boot_done(struct cs35l41_hda *cs35l41)
-{
-	unsigned int int_status;
-	int ret;
-
-	ret = regmap_read_poll_timeout(cs35l41->regmap, CS35L41_IRQ1_STATUS4, int_status,
-				       int_status & CS35L41_OTP_BOOT_DONE, 1000, 100000);
-	if (ret) {
-		dev_err(cs35l41->dev, "Failed waiting for OTP_BOOT_DONE\n");
-		return ret;
-	}
-
-	ret = regmap_read(cs35l41->regmap, CS35L41_IRQ1_STATUS3, &int_status);
-	if (ret || (int_status & CS35L41_OTP_BOOT_ERR)) {
-		dev_err(cs35l41->dev, "OTP Boot status %x error\n",
-			int_status & CS35L41_OTP_BOOT_ERR);
-		if (!ret)
-			ret = -EIO;
-		return ret;
-	}
-
-	return 0;
-}
-
 static int cs35l41_system_resume(struct device *dev)
 {
 	struct cs35l41_hda *cs35l41 = dev_get_drvdata(dev);
@@ -1020,10 +996,7 @@ static int cs35l41_system_resume(struct device *dev)
 
 	regcache_cache_only(cs35l41->regmap, false);
 
-	regmap_write(cs35l41->regmap, CS35L41_SFT_RESET, CS35L41_SOFTWARE_RESET);
-	usleep_range(2000, 2100);
-
-	ret = cs35l41_wait_boot_done(cs35l41);
+	ret = cs35l41_reset_and_boot(cs35l41->dev, cs35l41->regmap);
 	if (ret)
 		return ret;
 
@@ -1907,7 +1880,6 @@ err:
 	hw_cfg->valid = false;
 	hw_cfg->gpio1.valid = false;
 	hw_cfg->gpio2.valid = false;
-	acpi_dev_put(cs35l41->dacpi);
 
 	return ret;
 }
@@ -1926,12 +1898,9 @@ static int cs35l41_hda_read_acpi(struct cs35l41_hda *cs35l41, const char *hid, i
 	}
 
 	cs35l41->dacpi = adev;
-	struct device *physdev __free(put_device) =
-		get_device(acpi_get_first_physical_node(adev));
-	if (!physdev) {
-		acpi_dev_put(adev);
+	struct device *physdev __free(put_device) = acpi_bus_get_primary_device(adev);
+	if (!physdev)
 		return -ENODEV;
-	}
 
 	sub = acpi_get_subsystem_id(ACPI_HANDLE(physdev));
 	if (IS_ERR(sub))
@@ -1975,7 +1944,7 @@ int cs35l41_hda_probe(struct device *dev, const char *device_name, int id, int i
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	cs35l41 = devm_kzalloc(dev, sizeof(*cs35l41), GFP_KERNEL);
+	cs35l41 = devm_kzalloc_obj(dev, *cs35l41);
 	if (!cs35l41)
 		return -ENOMEM;
 
@@ -1986,8 +1955,10 @@ int cs35l41_hda_probe(struct device *dev, const char *device_name, int id, int i
 	dev_set_drvdata(dev, cs35l41);
 
 	ret = cs35l41_hda_read_acpi(cs35l41, device_name, id);
-	if (ret)
-		return dev_err_probe(cs35l41->dev, ret, "Platform not supported\n");
+	if (ret) {
+		dev_err_probe(cs35l41->dev, ret, "Platform not supported\n");
+		goto err_acpi;
+	}
 
 	if (IS_ERR(cs35l41->reset_gpio)) {
 		ret = PTR_ERR(cs35l41->reset_gpio);
@@ -2006,10 +1977,8 @@ int cs35l41_hda_probe(struct device *dev, const char *device_name, int id, int i
 	}
 
 	usleep_range(2000, 2100);
-	regmap_write(cs35l41->regmap, CS35L41_SFT_RESET, CS35L41_SOFTWARE_RESET);
-	usleep_range(2000, 2100);
 
-	ret = cs35l41_wait_boot_done(cs35l41);
+	ret = cs35l41_reset_and_boot(cs35l41->dev, cs35l41->regmap);
 	if (ret)
 		goto err;
 
@@ -2074,6 +2043,7 @@ err_pm:
 err:
 	if (cs35l41_safe_reset(cs35l41->regmap, cs35l41->hw_cfg.bst_type))
 		gpiod_set_value_cansleep(cs35l41->reset_gpio, 0);
+err_acpi:
 	gpiod_put(cs35l41->reset_gpio);
 	gpiod_put(cs35l41->cs_gpio);
 	acpi_dev_put(cs35l41->dacpi);

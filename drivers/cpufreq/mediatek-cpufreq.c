@@ -603,6 +603,7 @@ static int mtk_cpufreq_init(struct cpufreq_policy *policy)
 	policy->freq_table = freq_table;
 	policy->driver_data = info;
 	policy->clk = info->cpu_clk;
+	policy->suspend_freq = dev_pm_opp_get_suspend_opp_freq(info->cpu_dev) / 1000;
 
 	return 0;
 }
@@ -624,6 +625,7 @@ static struct cpufreq_driver mtk_cpufreq_driver = {
 	.init = mtk_cpufreq_init,
 	.exit = mtk_cpufreq_exit,
 	.register_em = cpufreq_register_em_with_opp,
+	.suspend = cpufreq_generic_suspend,
 	.name = "mtk-cpufreq",
 };
 
@@ -643,7 +645,7 @@ static int mtk_cpufreq_probe(struct platform_device *pdev)
 		if (info)
 			continue;
 
-		info = devm_kzalloc(&pdev->dev, sizeof(*info), GFP_KERNEL);
+		info = devm_kzalloc_obj(&pdev->dev, *info);
 		if (!info) {
 			ret = dev_err_probe(&pdev->dev, -ENOMEM,
 					    "Failed to allocate dvfs_info\n");

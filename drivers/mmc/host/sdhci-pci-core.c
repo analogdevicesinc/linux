@@ -959,7 +959,7 @@ static int glk_emmc_add_host(struct sdhci_pci_slot *slot)
 	if (ret)
 		return ret;
 
-	cq_host = devm_kzalloc(dev, sizeof(*cq_host), GFP_KERNEL);
+	cq_host = devm_kzalloc_obj(dev, *cq_host);
 	if (!cq_host) {
 		ret = -ENOMEM;
 		goto cleanup;
@@ -2170,13 +2170,11 @@ static struct sdhci_pci_slot *sdhci_pci_probe_slot(
 
 	host->irq = pdev->irq;
 
-	ret = pcim_iomap_regions(pdev, BIT(bar), mmc_hostname(host->mmc));
-	if (ret) {
+	host->ioaddr = pcim_iomap_region(pdev, bar, mmc_hostname(host->mmc));
+	if (IS_ERR(host->ioaddr)) {
 		dev_err(&pdev->dev, "cannot request region\n");
-		return ERR_PTR(ret);
+		return ERR_CAST(host->ioaddr);
 	}
-
-	host->ioaddr = pcim_iomap_table(pdev)[bar];
 
 	if (chip->fixes && chip->fixes->probe_slot) {
 		ret = chip->fixes->probe_slot(slot);
@@ -2329,7 +2327,7 @@ static int sdhci_pci_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
-	chip = devm_kzalloc(&pdev->dev, sizeof(*chip), GFP_KERNEL);
+	chip = devm_kzalloc_obj(&pdev->dev, *chip);
 	if (!chip)
 		return -ENOMEM;
 

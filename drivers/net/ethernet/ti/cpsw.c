@@ -1301,10 +1301,8 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
 	}
 	data->active_slave = prop;
 
-	data->slave_data = devm_kcalloc(&pdev->dev,
-					data->slaves,
-					sizeof(struct cpsw_slave_data),
-					GFP_KERNEL);
+	data->slave_data = devm_kzalloc_objs(&pdev->dev, struct cpsw_slave_data,
+					     data->slaves);
 	if (!data->slave_data)
 		return -ENOMEM;
 
@@ -1524,12 +1522,29 @@ static int cpsw_probe_dual_emac(struct cpsw_priv *priv)
 	return ret;
 }
 
+static void cpsw_unregister_ports(struct cpsw_common *cpsw)
+{
+	struct net_device *ndev;
+	struct cpsw_priv *priv;
+	int i;
+
+	for (i = 0; i < cpsw->data.slaves; i++) {
+		ndev = cpsw->slaves[i].ndev;
+		if (!ndev || ndev->reg_state != NETREG_REGISTERED)
+			continue;
+
+		priv = netdev_priv(ndev);
+		unregister_netdev(ndev);
+		disable_work_sync(&priv->rx_mode_work);
+	}
+}
+
 static const struct of_device_id cpsw_of_mtable[] = {
 	{ .compatible = "ti,cpsw"},
 	{ .compatible = "ti,am335x-cpsw"},
 	{ .compatible = "ti,am4372-cpsw"},
 	{ .compatible = "ti,dra7-cpsw"},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, cpsw_of_mtable);
 
@@ -1553,7 +1568,7 @@ static int cpsw_probe(struct platform_device *pdev)
 	int ret = 0, ch;
 	int irq;
 
-	cpsw = devm_kzalloc(dev, sizeof(struct cpsw_common), GFP_KERNEL);
+	cpsw = devm_kzalloc_obj(dev, struct cpsw_common);
 	if (!cpsw)
 		return -ENOMEM;
 
@@ -1625,9 +1640,7 @@ static int cpsw_probe(struct platform_device *pdev)
 		cpsw->quirk_irq = true;
 
 	data = &cpsw->data;
-	cpsw->slaves = devm_kcalloc(dev,
-				    data->slaves, sizeof(struct cpsw_slave),
-				    GFP_KERNEL);
+	cpsw->slaves = devm_kzalloc_objs(dev, struct cpsw_slave, data->slaves);
 	if (!cpsw->slaves) {
 		ret = -ENOMEM;
 		goto clean_dt_ret;
@@ -1764,7 +1777,7 @@ skip_cpts:
 	return 0;
 
 clean_unregister_netdev_ret:
-	unregister_netdev(ndev);
+	cpsw_unregister_ports(cpsw);
 clean_cpts:
 	cpts_release(cpsw->cpts);
 	cpdma_ctlr_destroy(cpsw->dma);
@@ -1779,9 +1792,7 @@ clean_runtime_disable_ret:
 static void cpsw_remove(struct platform_device *pdev)
 {
 	struct cpsw_common *cpsw = platform_get_drvdata(pdev);
-	struct net_device *ndev;
-	struct cpsw_priv *priv;
-	int i, ret;
+	int ret;
 
 	ret = pm_runtime_resume_and_get(&pdev->dev);
 	if (ret < 0) {
@@ -1793,15 +1804,7 @@ static void cpsw_remove(struct platform_device *pdev)
 		return;
 	}
 
-	for (i = 0; i < cpsw->data.slaves; i++) {
-		ndev = cpsw->slaves[i].ndev;
-		if (!ndev)
-			continue;
-
-		priv = netdev_priv(ndev);
-		unregister_netdev(ndev);
-		disable_work_sync(&priv->rx_mode_work);
-	}
+	cpsw_unregister_ports(cpsw);
 
 	cpts_release(cpsw->cpts);
 	cpdma_ctlr_destroy(cpsw->dma);

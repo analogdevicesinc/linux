@@ -151,7 +151,7 @@ static struct clk_hw *clk_register_gpio(struct device *dev, u8 num_parents,
 		{ .index = 1 },
 	};
 
-	clk_gpio = devm_kzalloc(dev, sizeof(*clk_gpio),	GFP_KERNEL);
+	clk_gpio = devm_kzalloc_obj(dev, *clk_gpio);
 	if (!clk_gpio)
 		return ERR_PTR(-ENOMEM);
 
@@ -214,7 +214,7 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 	gpiod = devm_gpiod_get(dev, gpio_name, GPIOD_OUT_LOW);
 	if (IS_ERR(gpiod))
 		return dev_err_probe(dev, PTR_ERR(gpiod),
-				     "Can't get '%s' named GPIO property\n", gpio_name);
+				     "Can't get '%s' GPIO\n", gpio_name);
 
 	if (is_mux)
 		hw = clk_hw_register_gpio_mux(dev, gpiod);
@@ -362,7 +362,7 @@ static int clk_gated_fixed_probe(struct platform_device *pdev)
 	u32 rate;
 	int ret;
 
-	clk = devm_kzalloc(dev, sizeof(*clk), GFP_KERNEL);
+	clk = devm_kzalloc_obj(dev, *clk);
 	if (!clk)
 		return -ENOMEM;
 

@@ -1445,7 +1445,7 @@ static void lm85_init_client(struct i2c_client *client)
 static int lm85_is_fake(struct i2c_client *client)
 {
 	/*
-	 * Differenciate between real LM96000 and Winbond WPCD377I. The latter
+	 * Differentiate between real LM96000 and Winbond WPCD377I. The latter
 	 * emulate the former except that it has no hardware monitoring function
 	 * so the readings are always 0.
 	 */
@@ -1551,7 +1551,7 @@ static int lm85_probe(struct i2c_client *client)
 	struct lm85_data *data;
 	int idx = 0;
 
-	data = devm_kzalloc(dev, sizeof(struct lm85_data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, struct lm85_data);
 	if (!data)
 		return -ENOMEM;
 

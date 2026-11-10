@@ -23,7 +23,7 @@ const struct regmap_config aw88399_remap_config = {
 	.reg_format_endian = REGMAP_ENDIAN_LITTLE,
 	.val_format_endian = REGMAP_ENDIAN_BIG,
 };
-EXPORT_SYMBOL_GPL(aw88399_remap_config);
+EXPORT_SYMBOL_NS_GPL(aw88399_remap_config, "SND_SOC_AW88399_LIB");
 
 static void aw_dev_pwd(struct aw_device *aw_dev, bool pwd)
 {
@@ -165,11 +165,10 @@ int aw_dev_check_syspll(struct aw_device *aw_dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aw_dev_check_syspll);
+EXPORT_SYMBOL_NS_GPL(aw_dev_check_syspll, "SND_SOC_AW88399_LIB");
 
-static int aw_dev_check_sysst(struct aw88399 *aw88399)
+static int aw_dev_check_sysst(struct aw_device *aw_dev)
 {
-	struct aw_device *aw_dev = aw88399->aw_pa;
 	unsigned int check_val;
 	unsigned int reg_val;
 	int ret, i;
@@ -184,11 +183,16 @@ static int aw_dev_check_sysst(struct aw88399 *aw88399)
 		check_val = AW88399_BIT_SYSST_SWS_CHECK;
 
 	/*
-	 * On some hardware the BSTS (boost-finished) status bit does not
-	 * reliably assert even when audio output is working normally.
-	 * Allow per-instance bypass when flagged by the side-codec driver.
+	 * When an external power supply (EPS) is used to feed the amplifier
+	 * (EN_HVBAT bit in BSTCTRL10 set), the boost converter is bypassed,
+	 * and BSTS (boost finished) will never assert. Skip the BSTS check in
+	 * this case, matching the vendor driver's behavior.
 	 */
-	if (aw88399->bsts_unreliable)
+	ret = regmap_read(aw_dev->regmap, AW88399_BSTCTRL10_REG, &reg_val);
+	if (ret)
+		return ret;
+
+	if (reg_val & (~AW88399_EPS_EN_MASK))
 		check_val &= ~AW88399_BSTS_FINISHED_VALUE;
 
 	for (i = 0; i < AW88399_DEV_SYSST_CHECK_MAX; i++) {
@@ -237,7 +241,7 @@ void aw_dev_dsp_enable(struct aw_device *aw_dev, bool is_enable)
 	if (ret)
 		dev_dbg(aw_dev->dev, "%s failed\n", __func__);
 }
-EXPORT_SYMBOL_GPL(aw_dev_dsp_enable);
+EXPORT_SYMBOL_NS_GPL(aw_dev_dsp_enable, "SND_SOC_AW88399_LIB");
 
 static int aw88399_dev_get_icalk(struct aw88399 *aw88399, int16_t *icalk)
 {
@@ -414,7 +418,7 @@ int aw_dev_update_cali_re(struct aw_cali_desc *cali_desc)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(aw_dev_update_cali_re);
+EXPORT_SYMBOL_NS_GPL(aw_dev_update_cali_re, "SND_SOC_AW88399_LIB");
 
 static int aw_dev_fw_crc_check(struct aw_device *aw_dev)
 {
@@ -568,7 +572,7 @@ int aw_dev_get_dsp_status(struct aw_device *aw_dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aw_dev_get_dsp_status);
+EXPORT_SYMBOL_NS_GPL(aw_dev_get_dsp_status, "SND_SOC_AW88399_LIB");
 
 static int aw_dev_dsp_check(struct aw_device *aw_dev)
 {
@@ -621,7 +625,7 @@ int aw_dev_set_volume(struct aw_device *aw_dev, unsigned int value)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(aw_dev_set_volume);
+EXPORT_SYMBOL_NS_GPL(aw_dev_set_volume, "SND_SOC_AW88399_LIB");
 
 static void aw_dev_fade_in(struct aw_device *aw_dev)
 {
@@ -678,7 +682,7 @@ void aw88399_dev_mute(struct aw_device *aw_dev, bool is_mute)
 		aw_dev_fade_in(aw_dev);
 	}
 }
-EXPORT_SYMBOL_GPL(aw88399_dev_mute);
+EXPORT_SYMBOL_NS_GPL(aw88399_dev_mute, "SND_SOC_AW88399_LIB");
 
 static void aw88399_dev_set_dither(struct aw88399 *aw88399, bool dither)
 {
@@ -719,7 +723,7 @@ static int aw88399_dev_start(struct aw88399 *aw88399)
 	usleep_range(AW88399_1000_US, AW88399_1000_US + 50);
 
 	/* check i2s status */
-	ret = aw_dev_check_sysst(aw88399);
+	ret = aw_dev_check_sysst(aw_dev);
 	if (ret) {
 		dev_err(aw_dev->dev, "sysst check failed");
 		goto sysst_check_fail;
@@ -1034,7 +1038,7 @@ int aw88399_dev_get_prof_name(struct aw_device *aw_dev, int index, char **prof_n
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aw88399_dev_get_prof_name);
+EXPORT_SYMBOL_NS_GPL(aw88399_dev_get_prof_name, "SND_SOC_AW88399_LIB");
 
 static int aw88399_dev_get_prof_data(struct aw_device *aw_dev, int index,
 			struct aw_prof_desc **prof_desc)
@@ -1159,7 +1163,7 @@ void aw88399_startup_work(struct work_struct *work)
 	aw88399_start_pa(aw88399);
 	mutex_unlock(&aw88399->lock);
 }
-EXPORT_SYMBOL_GPL(aw88399_startup_work);
+EXPORT_SYMBOL_NS_GPL(aw88399_startup_work, "SND_SOC_AW88399_LIB");
 
 void aw88399_start(struct aw88399 *aw88399, bool sync_start)
 {
@@ -1187,7 +1191,7 @@ void aw88399_start(struct aw88399 *aw88399, bool sync_start)
 			&aw88399->start_work,
 			AW88399_START_WORK_DELAY_MS);
 }
-EXPORT_SYMBOL_GPL(aw88399_start);
+EXPORT_SYMBOL_NS_GPL(aw88399_start, "SND_SOC_AW88399_LIB");
 
 static int aw_dev_check_sysint(struct aw_device *aw_dev)
 {
@@ -1240,7 +1244,7 @@ int aw88399_stop(struct aw_device *aw_dev)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aw88399_stop);
+EXPORT_SYMBOL_NS_GPL(aw88399_stop, "SND_SOC_AW88399_LIB");
 
 static int aw88399_dev_init(struct aw88399 *aw88399, struct aw_container *aw_cfg)
 {
@@ -1280,24 +1284,24 @@ static int aw88399_dev_init(struct aw88399 *aw88399, struct aw_container *aw_cfg
 	return 0;
 }
 
-int aw88399_request_firmware_file(struct aw88399 *aw88399)
+int aw88399_request_firmware_file(struct aw88399 *aw88399, const char *fw_name)
 {
 	const struct firmware *cont __free(firmware) = NULL;
 	int ret;
 
 	aw88399->aw_pa->fw_status = AW88399_DEV_FW_FAILED;
 
-	ret = request_firmware(&cont, AW88399_ACF_FILE, aw88399->aw_pa->dev);
+	ret = request_firmware(&cont, fw_name, aw88399->aw_pa->dev);
 	if (ret) {
-		dev_err(aw88399->aw_pa->dev, "request [%s] failed!", AW88399_ACF_FILE);
+		dev_err(aw88399->aw_pa->dev, "request [%s] failed!\n", fw_name);
 		return ret;
 	}
 
 	dev_dbg(aw88399->aw_pa->dev, "loaded %s - size: %zu\n",
-			AW88399_ACF_FILE, cont ? cont->size : 0);
+			fw_name, cont ? cont->size : 0);
 
-	aw88399->aw_cfg = devm_kzalloc(aw88399->aw_pa->dev,
-			struct_size(aw88399->aw_cfg, data, cont->size), GFP_KERNEL);
+	aw88399->aw_cfg = devm_kzalloc_flex(aw88399->aw_pa->dev,
+					    *aw88399->aw_cfg, data, cont->size);
 	if (!aw88399->aw_cfg)
 		return -ENOMEM;
 
@@ -1306,7 +1310,7 @@ int aw88399_request_firmware_file(struct aw88399 *aw88399)
 
 	ret = aw88395_dev_load_acf_check(aw88399->aw_pa, aw88399->aw_cfg);
 	if (ret) {
-		dev_err(aw88399->aw_pa->dev, "load [%s] failed!", AW88399_ACF_FILE);
+		dev_err(aw88399->aw_pa->dev, "load [%s] failed!\n", fw_name);
 		return ret;
 	}
 
@@ -1319,7 +1323,7 @@ int aw88399_request_firmware_file(struct aw88399 *aw88399)
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(aw88399_request_firmware_file);
+EXPORT_SYMBOL_NS_GPL(aw88399_request_firmware_file, "SND_SOC_AW88399_LIB");
 
 void aw88399_hw_reset(struct aw88399 *aw88399)
 {
@@ -1332,7 +1336,7 @@ void aw88399_hw_reset(struct aw88399 *aw88399)
 		usleep_range(AW88399_1000_US, AW88399_1000_US + 10);
 	}
 }
-EXPORT_SYMBOL_GPL(aw88399_hw_reset);
+EXPORT_SYMBOL_NS_GPL(aw88399_hw_reset, "SND_SOC_AW88399_LIB");
 
 static void aw88399_parse_channel_dt(struct aw_device *aw_dev)
 {
@@ -1372,7 +1376,7 @@ int aw88399_init(struct aw88399 *aw88399, struct i2c_client *i2c, struct regmap 
 	}
 	dev_dbg(&i2c->dev, "chip id = %x\n", chip_id);
 
-	aw_dev = devm_kzalloc(&i2c->dev, sizeof(*aw_dev), GFP_KERNEL);
+	aw_dev = devm_kzalloc_obj(&i2c->dev, *aw_dev);
 	if (!aw_dev)
 		return -ENOMEM;
 	aw88399->aw_pa = aw_dev;
@@ -1397,13 +1401,13 @@ int aw88399_init(struct aw88399 *aw88399, struct i2c_client *i2c, struct regmap 
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(aw88399_init);
+EXPORT_SYMBOL_NS_GPL(aw88399_init, "SND_SOC_AW88399_LIB");
 
 void aw88399_dev_set_channel(struct aw88399 *aw88399, int channel)
 {
 	aw88399->aw_pa->channel = channel;
 }
-EXPORT_SYMBOL_GPL(aw88399_dev_set_channel);
+EXPORT_SYMBOL_NS_GPL(aw88399_dev_set_channel, "SND_SOC_AW88399_LIB");
 
 MODULE_DESCRIPTION("AW88399 common device library");
 MODULE_LICENSE("GPL");

@@ -1624,7 +1624,7 @@ static int applespi_probe(struct spi_device *spi)
 	}
 
 	/* allocate driver data */
-	applespi = devm_kzalloc(&spi->dev, sizeof(*applespi), GFP_KERNEL);
+	applespi = devm_kzalloc_obj(&spi->dev, *applespi);
 	if (!applespi)
 		return -ENOMEM;
 

@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/pm.h>
+#include <linux/stringify.h>
 #ifdef CONFIG_RTC_DRV_DS1374_WDT
 #include <linux/fs.h>
 #include <linux/ioctl.h>
@@ -381,7 +382,7 @@ MODULE_PARM_DESC(wdt_margin, "Watchdog timeout in seconds (default 32s)");
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default ="
-		__MODULE_STRING(WATCHDOG_NOWAYOUT)")");
+		__stringify(WATCHDOG_NOWAYOUT)")");
 
 static const struct watchdog_info ds1374_wdt_info = {
 	.identity       = "DS1374 Watchdog",
@@ -472,7 +473,7 @@ static int ds1374_probe(struct i2c_client *client)
 	struct ds1374 *ds1374;
 	int ret;
 
-	ds1374 = devm_kzalloc(&client->dev, sizeof(struct ds1374), GFP_KERNEL);
+	ds1374 = devm_kzalloc_obj(&client->dev, struct ds1374);
 	if (!ds1374)
 		return -ENOMEM;
 

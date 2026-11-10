@@ -19,7 +19,7 @@
 
 #include "ux500_msp_i2s.h"
 
- /* Protocol desciptors */
+ /* Protocol descriptors */
 static const struct msp_protdesc prot_descs[] = {
 	{ /* I2S */
 		MSP_SINGLE_PHASE,
@@ -738,7 +738,7 @@ int ux500_msp_i2s_init_msp(struct platform_device *pdev,
 	struct resource *res;
 	struct ux500_msp *msp;
 
-	*msp_p = devm_kzalloc(&pdev->dev, sizeof(struct ux500_msp), GFP_KERNEL);
+	*msp_p = devm_kzalloc_obj(&pdev->dev, struct ux500_msp);
 	msp = *msp_p;
 	if (!msp)
 		return -ENOMEM;

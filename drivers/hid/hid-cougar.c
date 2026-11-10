@@ -198,7 +198,7 @@ static int cougar_probe(struct hid_device *hdev,
 	unsigned int connect_mask;
 	int error;
 
-	cougar = devm_kzalloc(&hdev->dev, sizeof(*cougar), GFP_KERNEL);
+	cougar = devm_kzalloc_obj(&hdev->dev, *cougar);
 	if (!cougar)
 		return -ENOMEM;
 	hid_set_drvdata(hdev, cougar);
@@ -268,6 +268,9 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
 		return 0;
 
 	if (!shared->enabled || !shared->input)
+		return -EPERM;
+
+	if (size <= COUGAR_FIELD_ACTION)
 		return -EPERM;
 
 	code = data[COUGAR_FIELD_CODE];

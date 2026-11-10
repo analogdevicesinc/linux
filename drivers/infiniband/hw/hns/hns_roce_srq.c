@@ -180,7 +180,7 @@ static int alloc_srq_idx(struct hns_roce_dev *hr_dev, struct hns_roce_srq *srq,
 
 	ret = hns_roce_mtr_create(hr_dev, &idx_que->mtr, &buf_attr,
 				  hr_dev->caps.idx_ba_pg_sz + PAGE_SHIFT,
-				  udata, addr);
+				  udata, addr, false);
 	if (ret) {
 		ibdev_err(ibdev,
 			  "failed to alloc SRQ idx mtr, ret = %d.\n", ret);
@@ -235,7 +235,7 @@ static int alloc_srq_wqe_buf(struct hns_roce_dev *hr_dev,
 
 	ret = hns_roce_mtr_create(hr_dev, &srq->buf_mtr, &buf_attr,
 				  hr_dev->caps.srqwqe_ba_pg_sz + PAGE_SHIFT,
-				  udata, addr);
+				  udata, addr, false);
 	if (ret)
 		ibdev_err(ibdev,
 			  "failed to alloc SRQ buf mtr, ret = %d.\n", ret);
@@ -251,7 +251,7 @@ static void free_srq_wqe_buf(struct hns_roce_dev *hr_dev,
 
 static int alloc_srq_wrid(struct hns_roce_srq *srq)
 {
-	srq->wrid = kvmalloc_array(srq->wqe_cnt, sizeof(u64), GFP_KERNEL);
+	srq->wrid = kvmalloc_objs(u64, srq->wqe_cnt);
 	if (!srq->wrid)
 		return -ENOMEM;
 

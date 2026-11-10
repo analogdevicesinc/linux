@@ -347,7 +347,7 @@ static const struct drm_crtc_helper_funcs gud_crtc_helper_funcs = {
 };
 
 static const struct drm_crtc_funcs gud_crtc_funcs = {
-	.reset = drm_atomic_helper_crtc_reset,
+	.atomic_create_state = drm_atomic_helper_crtc_create_state,
 	.destroy = drm_crtc_cleanup,
 	.set_config = drm_atomic_helper_set_config,
 	.page_flip = drm_atomic_helper_page_flip,
@@ -512,7 +512,7 @@ static int gud_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	/* Format init */
 	formats_dev = devm_kmalloc(dev, GUD_FORMATS_MAX_NUM, GFP_KERNEL);
 	/* Add room for emulated XRGB8888 */
-	formats = devm_kmalloc_array(dev, GUD_FORMATS_MAX_NUM + 1, sizeof(*formats), GFP_KERNEL);
+	formats = devm_kmalloc_objs(dev, *formats, GUD_FORMATS_MAX_NUM + 1);
 	if (!formats_dev || !formats)
 		return -ENOMEM;
 

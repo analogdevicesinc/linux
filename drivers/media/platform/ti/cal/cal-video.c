@@ -123,6 +123,21 @@ static int __subdev_get_format(struct cal_ctx *ctx,
 	return 0;
 }
 
+static int cal_call_active_state_set_fmt(struct v4l2_subdev *source,
+					 struct v4l2_subdev_format *fmt)
+{
+	struct v4l2_subdev_state *source_state;
+	int ret;
+
+	source_state = v4l2_subdev_lock_and_get_active_state(source);
+
+	ret = v4l2_subdev_call(source, pad, set_fmt, NULL, source_state, fmt);
+	if (source_state)
+		v4l2_subdev_unlock_state(source_state);
+
+	return ret;
+}
+
 static int __subdev_set_format(struct cal_ctx *ctx,
 			       struct v4l2_mbus_framefmt *fmt)
 {
@@ -136,7 +151,7 @@ static int __subdev_set_format(struct cal_ctx *ctx,
 
 	*mbus_fmt = *fmt;
 
-	ret = v4l2_subdev_call_state_active(sd, pad, set_fmt, &sd_fmt);
+	ret = cal_call_active_state_set_fmt(sd, &sd_fmt);
 	if (ret)
 		return ret;
 
@@ -281,7 +296,7 @@ static int cal_legacy_s_fmt_vid_cap(struct file *file, void *priv,
 	ctx->v_fmt.fmt.pix.field = sd_fmt.format.field;
 	cal_calc_format_size(ctx, fmtinfo, &ctx->v_fmt);
 
-	v4l2_subdev_call_state_active(sd, pad, set_fmt, &sd_fmt);
+	cal_call_active_state_set_fmt(sd, &sd_fmt);
 
 	ctx->fmtinfo = fmtinfo;
 	*f = ctx->v_fmt;
@@ -847,8 +862,8 @@ static int cal_ctx_v4l2_init_formats(struct cal_ctx *ctx)
 	int ret = 0;
 
 	/* Enumerate sub device formats and enable all matching local formats */
-	ctx->active_fmt = devm_kcalloc(ctx->cal->dev, cal_num_formats,
-				       sizeof(*ctx->active_fmt), GFP_KERNEL);
+	ctx->active_fmt = devm_kzalloc_objs(ctx->cal->dev, *ctx->active_fmt,
+					    cal_num_formats);
 	if (!ctx->active_fmt)
 		return -ENOMEM;
 

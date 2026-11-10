@@ -368,7 +368,7 @@ static struct quickspi_device *quickspi_dev_init(struct pci_dev *pdev, void __io
 	struct quickspi_device *qsdev;
 	int ret;
 
-	qsdev = devm_kzalloc(dev, sizeof(struct quickspi_device), GFP_KERNEL);
+	qsdev = devm_kzalloc_obj(dev, struct quickspi_device);
 	if (!qsdev)
 		return ERR_PTR(-ENOMEM);
 
@@ -556,6 +556,8 @@ static int quickspi_alloc_report_buf(struct quickspi_device *qsdev)
 					HIDSPI_INPUT_BODY_SIZE(max_input_len), GFP_KERNEL);
 	if (!qsdev->input_buf)
 		return -ENOMEM;
+
+	qsdev->input_len = max_input_len;
 
 	max_report_len = max(le16_to_cpu(qsdev->dev_desc.max_output_len),
 			     le16_to_cpu(qsdev->dev_desc.max_input_len));

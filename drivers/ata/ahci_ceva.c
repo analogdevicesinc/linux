@@ -12,6 +12,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/reset.h>
 #include "ahci.h"
 
@@ -267,7 +268,7 @@ static int ceva_ahci_probe(struct platform_device *pdev)
 	enum dev_dma_attr attr;
 	int rc;
 
-	cevapriv = devm_kzalloc(dev, sizeof(*cevapriv), GFP_KERNEL);
+	cevapriv = devm_kzalloc_obj(dev, *cevapriv);
 	if (!cevapriv)
 		return -ENOMEM;
 

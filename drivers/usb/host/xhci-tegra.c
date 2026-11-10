@@ -251,6 +251,7 @@ struct tegra_xusb_soc {
 	bool otg_set_port_power;
 
 	bool has_bar2;
+	bool enable_firmware_messages;
 };
 
 struct tegra_xusb_context {
@@ -936,13 +937,13 @@ static int tegra_xusb_init_context(struct tegra_xusb *tegra)
 {
 	const struct tegra_xusb_context_soc *soc = tegra->soc->context;
 
-	tegra->context.ipfs = devm_kcalloc(tegra->dev, soc->ipfs.num_offsets,
-					   sizeof(u32), GFP_KERNEL);
+	tegra->context.ipfs = devm_kzalloc_objs(tegra->dev, u32,
+						soc->ipfs.num_offsets);
 	if (!tegra->context.ipfs)
 		return -ENOMEM;
 
-	tegra->context.fpci = devm_kcalloc(tegra->dev, soc->fpci.num_offsets,
-					   sizeof(u32), GFP_KERNEL);
+	tegra->context.fpci = devm_kzalloc_objs(tegra->dev, u32,
+						soc->fpci.num_offsets);
 	if (!tegra->context.fpci)
 		return -ENOMEM;
 
@@ -1261,6 +1262,9 @@ static int __tegra_xusb_enable_firmware_messages(struct tegra_xusb *tegra)
 	struct tegra_xusb_mbox_msg msg;
 	int err;
 
+	if (!tegra->soc->enable_firmware_messages)
+		return 0;
+
 	/* Enable firmware messages from controller. */
 	msg.cmd = MBOX_CMD_MSG_ENABLED;
 	msg.data = 0;
@@ -1505,8 +1509,8 @@ static int tegra_xusb_init_usb_phy(struct tegra_xusb *tegra)
 {
 	unsigned int i;
 
-	tegra->usbphy = devm_kcalloc(tegra->dev, tegra->num_usb_phys,
-				   sizeof(*tegra->usbphy), GFP_KERNEL);
+	tegra->usbphy = devm_kzalloc_objs(tegra->dev, *tegra->usbphy,
+					  tegra->num_usb_phys);
 	if (!tegra->usbphy)
 		return -ENOMEM;
 
@@ -1556,9 +1560,8 @@ static int tegra_xusb_setup_wakeup(struct platform_device *pdev, struct tegra_xu
 	if (tegra->soc->max_num_wakes == 0)
 		return 0;
 
-	tegra->wake_irqs = devm_kcalloc(tegra->dev,
-					tegra->soc->max_num_wakes,
-					sizeof(*tegra->wake_irqs), GFP_KERNEL);
+	tegra->wake_irqs = devm_kzalloc_objs(tegra->dev, *tegra->wake_irqs,
+					     tegra->soc->max_num_wakes);
 	if (!tegra->wake_irqs)
 		return -ENOMEM;
 
@@ -1602,7 +1605,7 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 
 	BUILD_BUG_ON(sizeof(struct tegra_xusb_fw_header) != 256);
 
-	tegra = devm_kzalloc(&pdev->dev, sizeof(*tegra), GFP_KERNEL);
+	tegra = devm_kzalloc_obj(&pdev->dev, *tegra);
 	if (!tegra)
 		return -ENOMEM;
 
@@ -1758,8 +1761,8 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 			goto put_powerdomains;
 	}
 
-	tegra->supplies = devm_kcalloc(&pdev->dev, tegra->soc->num_supplies,
-				       sizeof(*tegra->supplies), GFP_KERNEL);
+	tegra->supplies = devm_kzalloc_objs(&pdev->dev, *tegra->supplies,
+					    tegra->soc->num_supplies);
 	if (!tegra->supplies) {
 		err = -ENOMEM;
 		goto put_powerdomains;
@@ -1782,8 +1785,8 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 		tegra->num_phys += tegra->soc->phy_types[i].num;
 	}
 
-	tegra->phys = devm_kcalloc(&pdev->dev, tegra->num_phys,
-				   sizeof(*tegra->phys), GFP_KERNEL);
+	tegra->phys = devm_kzalloc_objs(&pdev->dev, *tegra->phys,
+					tegra->num_phys);
 	if (!tegra->phys) {
 		err = -ENOMEM;
 		goto put_powerdomains;
@@ -1909,20 +1912,16 @@ static int tegra_xusb_probe(struct platform_device *pdev)
 					tegra_xusb_mbox_irq,
 					tegra_xusb_mbox_thread, 0,
 					dev_name(&pdev->dev), tegra);
-	if (err < 0) {
-		dev_err(&pdev->dev, "failed to request IRQ: %d\n", err);
+	if (err < 0)
 		goto remove_usb3;
-	}
 
 	if (tegra->padctl_irq) {
 		err = devm_request_threaded_irq(&pdev->dev, tegra->padctl_irq,
 						NULL, tegra_xusb_padctl_irq,
 						IRQF_ONESHOT, dev_name(&pdev->dev),
 						tegra);
-		if (err < 0) {
-			dev_err(&pdev->dev, "failed to request padctl IRQ: %d\n", err);
+		if (err < 0)
 			goto remove_usb3;
-		}
 	}
 
 	err = tegra_xusb_enable_firmware_messages(tegra);
@@ -2581,6 +2580,7 @@ static const struct tegra_xusb_soc tegra124_soc = {
 		.owner = 0xf0,
 		.smi_intr = XUSB_CFG_ARU_SMI_INTR,
 	},
+	.enable_firmware_messages = true,
 };
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_124_SOC) || IS_ENABLED(CONFIG_ARCH_TEGRA_132_SOC)
 MODULE_FIRMWARE("nvidia/tegra124/xusb.bin");
@@ -2622,6 +2622,7 @@ static const struct tegra_xusb_soc tegra210_soc = {
 		.owner = 0xf0,
 		.smi_intr = XUSB_CFG_ARU_SMI_INTR,
 	},
+	.enable_firmware_messages = true,
 };
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_210_SOC)
 MODULE_FIRMWARE("nvidia/tegra210/xusb.bin");
@@ -2671,6 +2672,7 @@ static const struct tegra_xusb_soc tegra186_soc = {
 		.smi_intr = XUSB_CFG_ARU_SMI_INTR,
 	},
 	.lpm_support = true,
+	.enable_firmware_messages = true,
 };
 
 static const char * const tegra194_supply_names[] = {
@@ -2705,6 +2707,7 @@ static const struct tegra_xusb_soc tegra194_soc = {
 		.smi_intr = XUSB_CFG_ARU_SMI_INTR,
 	},
 	.lpm_support = true,
+	.enable_firmware_messages = true,
 };
 #if IS_ENABLED(CONFIG_ARCH_TEGRA_194_SOC)
 MODULE_FIRMWARE("nvidia/tegra194/xusb.bin");
@@ -2742,6 +2745,34 @@ static const struct tegra_xusb_soc tegra234_soc = {
 	},
 	.lpm_support = true,
 	.has_bar2 = true,
+	.enable_firmware_messages = true,
+};
+
+static const struct tegra_xusb_soc tegra264_soc = {
+	.supply_names = tegra194_supply_names,
+	.num_supplies = ARRAY_SIZE(tegra194_supply_names),
+	.phy_types = tegra194_phy_types,
+	.num_types = ARRAY_SIZE(tegra194_phy_types),
+	.max_num_wakes = 8,
+	.context = &tegra186_xusb_context,
+	.ports = {
+		.usb3 = { .offset = 0, .count = 4, },
+		.usb2 = { .offset = 4, .count = 4, },
+	},
+	.scale_ss_clock = false,
+	.has_ipfs = false,
+	.otg_reset_sspi = false,
+	.ops = &tegra234_ops,
+	.mbox = {
+		.cmd = XUSB_BAR2_ARU_MBOX_CMD,
+		.data_in = XUSB_BAR2_ARU_MBOX_DATA_IN,
+		.data_out = XUSB_BAR2_ARU_MBOX_DATA_OUT,
+		.owner = XUSB_BAR2_ARU_MBOX_OWNER,
+		.smi_intr = XUSB_BAR2_ARU_SMI_INTR,
+	},
+	.lpm_support = true,
+	.has_bar2 = true,
+	.enable_firmware_messages = false,
 };
 
 static const struct of_device_id tegra_xusb_of_match[] = {
@@ -2750,6 +2781,7 @@ static const struct of_device_id tegra_xusb_of_match[] = {
 	{ .compatible = "nvidia,tegra186-xusb", .data = &tegra186_soc },
 	{ .compatible = "nvidia,tegra194-xusb", .data = &tegra194_soc },
 	{ .compatible = "nvidia,tegra234-xusb", .data = &tegra234_soc },
+	{ .compatible = "nvidia,tegra264-xusb", .data = &tegra264_soc },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, tegra_xusb_of_match);

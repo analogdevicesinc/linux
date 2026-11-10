@@ -183,7 +183,21 @@ static void fsl_mqs_shutdown(struct snd_pcm_substream *substream,
 			   mqs_priv->soc->en_mask, 0);
 }
 
+static const struct snd_soc_dapm_widget fsl_mqs_dapm_widgets[] = {
+	SND_SOC_DAPM_OUTPUT("MQS_L"),
+	SND_SOC_DAPM_OUTPUT("MQS_R"),
+};
+
+static const struct snd_soc_dapm_route fsl_mqs_dapm_routes[] = {
+	{ "MQS_L", NULL, "Playback" },
+	{ "MQS_R", NULL, "Playback" },
+};
+
 static const struct snd_soc_component_driver soc_codec_fsl_mqs = {
+	.dapm_widgets = fsl_mqs_dapm_widgets,
+	.num_dapm_widgets = ARRAY_SIZE(fsl_mqs_dapm_widgets),
+	.dapm_routes = fsl_mqs_dapm_routes,
+	.num_dapm_routes = ARRAY_SIZE(fsl_mqs_dapm_routes),
 	.idle_bias_on = 1,
 };
 
@@ -229,7 +243,7 @@ static int fsl_mqs_probe(struct platform_device *pdev)
 	void __iomem *regs;
 	int ret;
 
-	mqs_priv = devm_kzalloc(&pdev->dev, sizeof(*mqs_priv), GFP_KERNEL);
+	mqs_priv = devm_kzalloc_obj(&pdev->dev, *mqs_priv);
 	if (!mqs_priv)
 		return -ENOMEM;
 

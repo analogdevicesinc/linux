@@ -239,12 +239,32 @@ void ftrace_likely_update(struct ftrace_likely_data *f, int val,
 # define TYPEOF_UNQUAL(exp) __typeof__(exp)
 #endif
 
+/*
+ * TYPEOF_NO_ADDRESS_SPACE() - typeof() without the address space qualifiers
+ *
+ * No operator strips only the address space qualifiers: typeof() keeps every
+ * qualifier and TYPEOF_UNQUAL() drops every qualifier, const and volatile
+ * included.
+ *
+ * Approximate one by dropping the qualifiers for sparse only, as it is the
+ * only one that knows about address spaces. The compiler keeps seeing the fully
+ * qualified type, so a missing const or volatile will still throw a warning.
+ */
+#ifdef __CHECKER__
+# define TYPEOF_NO_ADDRESS_SPACE(exp) TYPEOF_UNQUAL(exp)
+#else
+# define TYPEOF_NO_ADDRESS_SPACE(exp) __typeof__(exp)
+#endif
+
 #endif /* __KERNEL__ */
 
-#if defined(CONFIG_CFI) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO)
+#if defined(CONFIG_CFI) && !defined(__DISABLE_EXPORTS) && !defined(BUILD_VDSO) && \
+	!defined(MODULE)
 /*
  * Force a reference to the external symbol so the compiler generates
- * __kcfi_typid.
+ * __kcfi_typid. Only vmlinux needs it, as that is where the assembly
+ * using the typeid lives; in a module it would only add a reference to
+ * the symbol, which fails modpost if the symbol is GPL-only.
  */
 #define KCFI_REFERENCE(sym) __ADDRESSABLE(sym)
 #else
@@ -274,6 +294,11 @@ static inline void *offset_to_ptr(const int *off)
 
 #define __ADDRESSABLE(sym) \
 	___ADDRESSABLE(sym, __section(".discard.addressable"))
+
+/* Enforce static storage duration. */
+#define ASSERT_STATIC_STORAGE(name) \
+	static typeof(name) * const __always_unused \
+		name##_storage_check = &(name)
 
 /*
  * This returns a constant expression while determining if an argument is

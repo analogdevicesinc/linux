@@ -1241,12 +1241,9 @@ static void ab8500_chargalg_algorithm(struct ab8500_chargalg *di)
 
 	charger_status = ab8500_chargalg_check_charger_connection(di);
 
-	if (is_ab8500(di->parent)) {
-		ret = ab8500_chargalg_check_charger_enable(di);
-		if (ret < 0)
-			dev_err(di->dev, "Checking charger is enabled error"
-					": Returned Value %d\n", ret);
-	}
+	ret = ab8500_chargalg_check_charger_enable(di);
+	if (ret < 0)
+		dev_err(di->dev, "Checking charger enable failed: %d\n", ret);
 
 	/*
 	 * First check if we have a charger connected.
@@ -1775,7 +1772,7 @@ static int ab8500_chargalg_probe(struct platform_device *pdev)
 	struct power_supply_config psy_cfg = {};
 	struct ab8500_chargalg *di;
 
-	di = devm_kzalloc(dev, sizeof(*di), GFP_KERNEL);
+	di = devm_kzalloc_obj(dev, *di);
 	if (!di)
 		return -ENOMEM;
 

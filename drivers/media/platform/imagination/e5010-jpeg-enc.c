@@ -175,12 +175,12 @@ static void calculate_qp_tables(struct e5010_context *ctx)
 		long long delta = v4l2_jpeg_ref_table_chroma_qt[i] * contrast + luminosity;
 		int val = (int)(v4l2_jpeg_ref_table_chroma_qt[i] + delta);
 
-		clamp(val, 1, 255);
+		val = clamp(val, 1, 255);
 		ctx->chroma_qp[i] = quality == -50 ? 1 : val;
 
 		delta = v4l2_jpeg_ref_table_luma_qt[i] * contrast + luminosity;
 		val = (int)(v4l2_jpeg_ref_table_luma_qt[i] + delta);
-		clamp(val, 1, 255);
+		val = clamp(val, 1, 255);
 		ctx->luma_qp[i] = quality == -50 ? 1 : val;
 	}
 
@@ -1024,7 +1024,7 @@ static int e5010_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "32-bit consistent DMA enable failed\n");
 
-	e5010 = devm_kzalloc(dev, sizeof(*e5010), GFP_KERNEL);
+	e5010 = devm_kzalloc_obj(dev, *e5010);
 	if (!e5010)
 		return -ENOMEM;
 

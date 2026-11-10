@@ -913,6 +913,7 @@ static int imx258_get_pad_format(struct v4l2_subdev *sd,
 }
 
 static int imx258_set_pad_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -988,6 +989,7 @@ __imx258_get_pad_crop(struct imx258 *imx258,
 }
 
 static int imx258_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1369,7 +1371,7 @@ static int imx258_probe(struct i2c_client *client)
 	int ret;
 	u32 val = 0;
 
-	imx258 = devm_kzalloc(&client->dev, sizeof(*imx258), GFP_KERNEL);
+	imx258 = devm_kzalloc_obj(&client->dev, *imx258);
 	if (!imx258)
 		return -ENOMEM;
 

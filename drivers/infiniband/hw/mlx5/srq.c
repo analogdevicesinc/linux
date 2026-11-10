@@ -136,14 +136,14 @@ static int create_srq_kernel(struct mlx5_ib_dev *dev, struct mlx5_ib_srq *srq,
 	}
 
 	mlx5_ib_dbg(dev, "srq->buf.page_shift = %d\n", srq->buf.page_shift);
-	in->pas = kvcalloc(srq->buf.npages, sizeof(*in->pas), GFP_KERNEL);
+	in->pas = kvzalloc_objs(*in->pas, srq->buf.npages);
 	if (!in->pas) {
 		err = -ENOMEM;
 		goto err_buf;
 	}
 	mlx5_fill_page_frag_array(&srq->buf, in->pas);
 
-	srq->wrid = kvmalloc_array(srq->msrq.max, sizeof(u64), GFP_KERNEL);
+	srq->wrid = kvmalloc_objs(u64, srq->msrq.max);
 	if (!srq->wrid) {
 		err = -ENOMEM;
 		goto err_in;
@@ -284,6 +284,7 @@ int mlx5_ib_create_srq(struct ib_srq *ib_srq,
 
 	in.pd = to_mpd(ib_srq->pd)->pdn;
 	in.db_record = srq->db.dma;
+	srq->msrq.event = mlx5_ib_srq_event;
 	err = mlx5_cmd_create_srq(dev, &srq->msrq, &in);
 	kvfree(in.pas);
 	if (err) {
@@ -292,8 +293,6 @@ int mlx5_ib_create_srq(struct ib_srq *ib_srq,
 	}
 
 	mlx5_ib_dbg(dev, "create SRQ with srqn 0x%x\n", srq->msrq.srqn);
-
-	srq->msrq.event = mlx5_ib_srq_event;
 	srq->ibsrq.ext.xrc.srq_num = srq->msrq.srqn;
 
 	if (udata) {

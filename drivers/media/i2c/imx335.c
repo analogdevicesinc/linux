@@ -844,6 +844,7 @@ static void imx335_fill_pad_format(struct imx335 *imx335,
 }
 
 static int imx335_set_pad_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -901,10 +902,11 @@ static int imx335_init_state(struct v4l2_subdev *sd,
 				 ~(imx335->link_freq_bitmap),
 				 __ffs(imx335->link_freq_bitmap));
 
-	return imx335_set_pad_format(sd, sd_state, &fmt);
+	return imx335_set_pad_format(sd, NULL, sd_state, &fmt);
 }
 
 static int imx335_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1360,7 +1362,7 @@ static int imx335_probe(struct i2c_client *client)
 	struct imx335 *imx335;
 	int ret;
 
-	imx335 = devm_kzalloc(&client->dev, sizeof(*imx335), GFP_KERNEL);
+	imx335 = devm_kzalloc_obj(&client->dev, *imx335);
 	if (!imx335)
 		return -ENOMEM;
 

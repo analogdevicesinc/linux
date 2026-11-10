@@ -730,6 +730,7 @@ static void gc05a2_update_pad_format(struct gc05a2 *gc08a3,
 }
 
 static int gc05a2_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *fmt)
 {
@@ -761,6 +762,7 @@ static int gc05a2_set_format(struct v4l2_subdev *sd,
 }
 
 static int gc05a2_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -795,7 +797,7 @@ static int gc05a2_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	gc05a2_set_format(sd, state, &fmt);
+	gc05a2_set_format(sd, NULL, state, &fmt);
 
 	return 0;
 }
@@ -1219,7 +1221,7 @@ static int gc05a2_probe(struct i2c_client *client)
 	struct gc05a2 *gc05a2;
 	int ret;
 
-	gc05a2 = devm_kzalloc(dev, sizeof(*gc05a2), GFP_KERNEL);
+	gc05a2 = devm_kzalloc_obj(dev, *gc05a2);
 	if (!gc05a2)
 		return -ENOMEM;
 

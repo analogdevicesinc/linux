@@ -11,6 +11,7 @@
 #include <linux/watchdog.h>
 #include <linux/platform_device.h>
 #include <linux/i2c.h>
+#include <linux/stringify.h>
 
 #define DEVNAME "menf21bmc_wdt"
 
@@ -28,7 +29,7 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 
 struct menf21bmc_wdt {
 	struct watchdog_device wdt;
@@ -118,7 +119,7 @@ static int menf21bmc_wdt_probe(struct platform_device *pdev)
 	struct menf21bmc_wdt *drv_data;
 	struct i2c_client *i2c_client = to_i2c_client(dev->parent);
 
-	drv_data = devm_kzalloc(dev, sizeof(struct menf21bmc_wdt), GFP_KERNEL);
+	drv_data = devm_kzalloc_obj(dev, struct menf21bmc_wdt);
 	if (!drv_data)
 		return -ENOMEM;
 

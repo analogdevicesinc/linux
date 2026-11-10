@@ -322,6 +322,8 @@ static void qcom_get_related_cpus(int index, struct cpumask *m)
 
 		if (index == args.args[0])
 			cpumask_set_cpu(cpu, m);
+
+		of_node_put(args.np);
 	}
 }
 
@@ -554,6 +556,7 @@ static int qcom_cpufreq_hw_cpu_init(struct cpufreq_policy *policy)
 		return ret;
 
 	index = args.args[0];
+	of_node_put(args.np);
 	data = &qcom_cpufreq.data[index];
 
 	/* HW should be in enabled state to proceed */
@@ -693,7 +696,7 @@ static int qcom_cpufreq_hw_driver_probe(struct platform_device *pdev)
 	if (!qcom_cpufreq.soc_data)
 		return -ENODEV;
 
-	clk_data = devm_kzalloc(dev, struct_size(clk_data, hws, num_domains), GFP_KERNEL);
+	clk_data = devm_kzalloc_flex(dev, *clk_data, hws, num_domains);
 	if (!clk_data)
 		return -ENOMEM;
 

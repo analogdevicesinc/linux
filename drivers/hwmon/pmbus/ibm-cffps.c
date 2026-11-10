@@ -166,7 +166,7 @@ static ssize_t ibm_cffps_debugfs_read(struct file *file, char __user *buf,
 				if (rc < 0)
 					goto unlock;
 
-				snprintf(&data[i * 2], 3, "%02X", rc);
+				snprintf(&data[i * 2], 3, "%02X", (u8)rc);
 			}
 
 			rc = i * 2;
@@ -177,7 +177,7 @@ static ssize_t ibm_cffps_debugfs_read(struct file *file, char __user *buf,
 				if (rc < 0)
 					goto unlock;
 
-				snprintf(&data[i * 4], 5, "%04X", rc);
+				snprintf(&data[i * 4], 5, "%04X", (u16)rc);
 			}
 
 			rc = i * 4;
@@ -536,7 +536,7 @@ static int ibm_cffps_probe(struct i2c_client *client)
 	 * Don't fail the probe if there isn't enough memory for leds and
 	 * debugfs.
 	 */
-	psu = devm_kzalloc(&client->dev, sizeof(*psu), GFP_KERNEL);
+	psu = devm_kzalloc_obj(&client->dev, *psu);
 	if (!psu)
 		return 0;
 

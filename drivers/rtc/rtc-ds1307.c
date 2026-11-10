@@ -579,27 +579,26 @@ static irqreturn_t rx8130_irq(int irq, void *dev_id)
 	u8 ctl[3];
 	int ret;
 
-	rtc_lock(ds1307->rtc);
+	guard(rtc_ops)(ds1307->rtc);
 
 	/* Read control registers. */
 	ret = regmap_bulk_read(ds1307->regmap, RX8130_REG_EXTENSION, ctl,
 			       sizeof(ctl));
 	if (ret < 0)
-		goto out;
+		return IRQ_HANDLED;
+
 	if (!(ctl[1] & RX8130_REG_FLAG_AF))
-		goto out;
+		return IRQ_HANDLED;
+
 	ctl[1] &= ~RX8130_REG_FLAG_AF;
 	ctl[2] &= ~RX8130_REG_CONTROL0_AIE;
 
 	ret = regmap_bulk_write(ds1307->regmap, RX8130_REG_EXTENSION, ctl,
 				sizeof(ctl));
 	if (ret < 0)
-		goto out;
+		return IRQ_HANDLED;
 
 	rtc_update_irq(ds1307->rtc, 1, RTC_AF | RTC_IRQF);
-
-out:
-	rtc_unlock(ds1307->rtc);
 
 	return IRQ_HANDLED;
 }
@@ -1381,7 +1380,7 @@ static ssize_t ds3231_hwmon_show_temp(struct device *dev,
 	if (ret)
 		return ret;
 
-	return sprintf(buf, "%d\n", temp);
+	return sysfs_emit(buf, "%d\n", temp);
 }
 static SENSOR_DEVICE_ATTR(temp1_input, 0444, ds3231_hwmon_show_temp,
 			  NULL, 0);
@@ -1623,13 +1622,13 @@ static int ds3231_clks_register(struct ds1307 *ds1307)
 	struct clk_onecell_data	*onecell;
 	int i;
 
-	onecell = devm_kzalloc(ds1307->dev, sizeof(*onecell), GFP_KERNEL);
+	onecell = devm_kzalloc_obj(ds1307->dev, *onecell);
 	if (!onecell)
 		return -ENOMEM;
 
 	onecell->clk_num = ARRAY_SIZE(ds3231_clks_init);
-	onecell->clks = devm_kcalloc(ds1307->dev, onecell->clk_num,
-				     sizeof(onecell->clks[0]), GFP_KERNEL);
+	onecell->clks = devm_kzalloc_objs(ds1307->dev, onecell->clks[0],
+					  onecell->clk_num);
 	if (!onecell->clks)
 		return -ENOMEM;
 
@@ -1844,7 +1843,7 @@ static void ds1307_wdt_register(struct ds1307 *ds1307)
 	if (ds1307->type != ds_1388)
 		return;
 
-	wdt = devm_kzalloc(ds1307->dev, sizeof(*wdt), GFP_KERNEL);
+	wdt = devm_kzalloc_obj(ds1307->dev, *wdt);
 	if (!wdt)
 		return;
 
@@ -1887,11 +1886,10 @@ static int ds1307_probe(struct i2c_client *client)
 	struct ds1307_platform_data *pdata = dev_get_platdata(&client->dev);
 	u8			trickle_charger_setup = 0;
 
-	ds1307 = devm_kzalloc(&client->dev, sizeof(struct ds1307), GFP_KERNEL);
+	ds1307 = devm_kzalloc_obj(&client->dev, struct ds1307);
 	if (!ds1307)
 		return -ENOMEM;
 
-	dev_set_drvdata(&client->dev, ds1307);
 	ds1307->dev = &client->dev;
 	ds1307->name = client->name;
 

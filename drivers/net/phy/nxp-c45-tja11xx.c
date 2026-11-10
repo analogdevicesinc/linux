@@ -1735,7 +1735,7 @@ static int nxp_c45_probe(struct phy_device *phydev)
 	bool ptp_ability;
 	int ret = 0;
 
-	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&phydev->mdio.dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -2180,7 +2180,7 @@ module_phy_driver(nxp_c45_driver);
 static const struct mdio_device_id __maybe_unused nxp_c45_tbl[] = {
 	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA_1103) },
 	{ PHY_ID_MATCH_MODEL(PHY_ID_TJA_1120) },
-	{ /*sentinel*/ },
+	{ /*sentinel*/ }
 };
 
 MODULE_DEVICE_TABLE(mdio, nxp_c45_tbl);

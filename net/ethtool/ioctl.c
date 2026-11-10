@@ -35,6 +35,7 @@
 #include <net/netdev_queues.h>
 
 #include "common.h"
+#include "../core/dev.h"
 
 /* State held across locks and calls for commands which have devlink fallback */
 struct ethtool_devlink_compat {
@@ -814,7 +815,7 @@ static noinline_for_stack int ethtool_get_sset_info(struct net_device *dev,
 	memset(&info, 0, sizeof(info));
 	info.cmd = ETHTOOL_GSSET_INFO;
 
-	info_buf = kcalloc(n_bits, sizeof(u32), GFP_USER);
+	info_buf = kzalloc_objs(u32, n_bits, GFP_USER);
 	if (!info_buf)
 		return -ENOMEM;
 
@@ -1301,15 +1302,6 @@ static int ethtool_copy_validate_indir(u32 *indir, void __user *useraddr,
 	return 0;
 }
 
-u8 netdev_rss_key[NETDEV_RSS_KEY_LEN] __read_mostly;
-
-void netdev_rss_key_fill(void *buffer, size_t len)
-{
-	BUG_ON(len > sizeof(netdev_rss_key));
-	net_get_random_once(netdev_rss_key, sizeof(netdev_rss_key));
-	memcpy(buffer, netdev_rss_key, len);
-}
-EXPORT_SYMBOL(netdev_rss_key_fill);
 
 static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *dev,
 						     void __user *useraddr)
@@ -1341,7 +1333,7 @@ static noinline_for_stack int ethtool_get_rxfh_indir(struct net_device *dev,
 	if (user_size < rxfh.indir_size)
 		return user_size == 0 ? 0 : -EINVAL;
 
-	rxfh.indir = kcalloc(rxfh.indir_size, sizeof(rxfh.indir[0]), GFP_USER);
+	rxfh.indir = kzalloc_objs(rxfh.indir[0], rxfh.indir_size, GFP_USER);
 	if (!rxfh.indir)
 		return -ENOMEM;
 
@@ -1386,8 +1378,8 @@ static noinline_for_stack int ethtool_set_rxfh_indir(struct net_device *dev,
 	if (user_size != 0 && user_size != rxfh_dev.indir_size)
 		return -EINVAL;
 
-	rxfh_dev.indir = kcalloc(rxfh_dev.indir_size,
-				 sizeof(rxfh_dev.indir[0]), GFP_USER);
+	rxfh_dev.indir = kzalloc_objs(rxfh_dev.indir[0], rxfh_dev.indir_size,
+				      GFP_USER);
 	if (!rxfh_dev.indir)
 		return -ENOMEM;
 
@@ -2239,10 +2231,29 @@ static int ethtool_set_ringparam(struct net_device *dev, void __user *useraddr)
 	    ringparam.tx_pending > max.tx_max_pending)
 		return -EINVAL;
 
+	ret = netdev_reconfig_start(dev);
+	if (ret)
+		return ret;
+
+	ethtool_ringparam_set_cfg(dev->cfg_pending, &ringparam);
+
+	ret = netdev_queue_config_revalidate(dev, NULL);
+	if (ret)
+		goto out_free_cfg;
+
 	ret = dev->ethtool_ops->set_ringparam(dev, &ringparam,
 					      &kernel_ringparam, NULL);
-	if (!ret)
-		ethtool_notify(dev, ETHTOOL_MSG_RINGS_NTF);
+	if (ret)
+		goto out_free_cfg;
+
+	/* Capture ring depth adjustments reported by the driver. */
+	ethtool_ringparam_set_cfg(dev->cfg_pending, &ringparam);
+	swap(dev->cfg, dev->cfg_pending);
+	ethtool_notify(dev, ETHTOOL_MSG_RINGS_NTF);
+
+out_free_cfg:
+	__netdev_free_config(dev->cfg_pending);
+	dev->cfg_pending = dev->cfg;
 	return ret;
 }
 
@@ -2366,7 +2377,7 @@ static int ethtool_self_test(struct net_device *dev, char __user *useraddr)
 		return -EFAULT;
 
 	test.len = test_len;
-	data = kcalloc(test_len, sizeof(u64), GFP_USER);
+	data = kzalloc_objs(u64, test_len, GFP_USER);
 	if (!data)
 		return -ENOMEM;
 

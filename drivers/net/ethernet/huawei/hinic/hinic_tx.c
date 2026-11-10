@@ -563,14 +563,8 @@ netdev_tx_t hinic_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
 	txq = &nic_dev->txqs[q_id];
 	qp = container_of(txq->sq, struct hinic_qp, sq);
 
-	if (skb->len < MIN_SKB_LEN) {
-		if (skb_pad(skb, MIN_SKB_LEN - skb->len)) {
-			netdev_err(netdev, "Failed to pad skb\n");
-			goto update_error_stats;
-		}
-
-		skb->len = MIN_SKB_LEN;
-	}
+	if (skb_put_padto(skb, MIN_SKB_LEN))
+		goto update_error_stats;
 
 	nr_sges = skb_shinfo(skb)->nr_frags + 1;
 	if (nr_sges > 17) {
@@ -870,13 +864,12 @@ int hinic_init_txq(struct hinic_txq *txq, struct hinic_sq *sq,
 
 	txq->max_sges = HINIC_MAX_SQ_BUFDESCS;
 
-	txq->sges = devm_kcalloc(&netdev->dev, txq->max_sges,
-				 sizeof(*txq->sges), GFP_KERNEL);
+	txq->sges = devm_kzalloc_objs(&netdev->dev, *txq->sges, txq->max_sges);
 	if (!txq->sges)
 		return -ENOMEM;
 
-	txq->free_sges = devm_kcalloc(&netdev->dev, txq->max_sges,
-				      sizeof(*txq->free_sges), GFP_KERNEL);
+	txq->free_sges = devm_kzalloc_objs(&netdev->dev, *txq->free_sges,
+					   txq->max_sges);
 	if (!txq->free_sges) {
 		err = -ENOMEM;
 		goto err_alloc_free_sges;

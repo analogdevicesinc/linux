@@ -1340,6 +1340,17 @@ static int wm8960_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
 	SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
+static const u64 wm8960_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops wm8960_dai_ops = {
 	.hw_params = wm8960_hw_params,
 	.hw_free = wm8960_hw_free,
@@ -1349,6 +1360,8 @@ static const struct snd_soc_dai_ops wm8960_dai_ops = {
 	.set_pll = wm8960_set_dai_pll,
 	.set_sysclk = wm8960_set_dai_sysclk,
 	.no_capture_mute = 1,
+	.auto_selectable_formats = &wm8960_selectable_formats,
+	.num_auto_selectable_formats = 1,
 };
 
 static struct snd_soc_dai_driver wm8960_dai = {
@@ -1433,8 +1446,7 @@ static int wm8960_i2c_probe(struct i2c_client *i2c)
 	int ret;
 	u8 val;
 
-	wm8960 = devm_kzalloc(&i2c->dev, sizeof(struct wm8960_priv),
-			      GFP_KERNEL);
+	wm8960 = devm_kzalloc_obj(&i2c->dev, struct wm8960_priv);
 	if (wm8960 == NULL)
 		return -ENOMEM;
 

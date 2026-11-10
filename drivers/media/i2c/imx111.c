@@ -1122,6 +1122,7 @@ static int imx111_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int imx111_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *format)
 {
@@ -1471,7 +1472,7 @@ static int imx111_probe(struct i2c_client *client)
 	struct imx111 *sensor;
 	int ret;
 
-	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kzalloc_obj(dev, *sensor);
 	if (!sensor)
 		return -ENOMEM;
 

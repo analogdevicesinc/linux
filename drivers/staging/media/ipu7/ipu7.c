@@ -39,6 +39,10 @@
 #define IPU_PCI_BAR		0
 #define IPU_PCI_PBBAR		4
 
+static int force_probe = !IS_BUILTIN(CONFIG_VIDEO_INTEL_IPU6_IPU7);
+module_param(force_probe, int, 0644);
+MODULE_PARM_DESC(force_probe, "Probe ipu7 and ipu7.5 with this driver instead of ipu6");
+
 static const unsigned int ipu7_csi_offsets[] = {
 	IPU_CSI_PORT_A_ADDR_OFFSET,
 	IPU_CSI_PORT_B_ADDR_OFFSET,
@@ -2414,10 +2418,13 @@ static int ipu7_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	u32 is_es;
 	int ret;
 
+	if (!force_probe)
+		return -ENODEV;
+
 	if (!fwnode || fwnode_property_read_u32(fwnode, "is_es", &is_es))
 		is_es = 0;
 
-	isp = devm_kzalloc(dev, sizeof(*isp), GFP_KERNEL);
+	isp = devm_kzalloc_obj(dev, *isp);
 	if (!isp)
 		return -ENOMEM;
 

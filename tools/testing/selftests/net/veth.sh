@@ -41,13 +41,16 @@ create_ns() {
 		ip -n $ns link set dev lo up
 	done
 
-	ip link add name veth$SRC type veth peer name veth$DST
+	ip link add name "veth$SRC" "$@" type veth \
+		peer name "veth$DST" "$@" || return 1
 
 	for ns in $SRC $DST; do
 		ip link set dev veth$ns netns $BASE$ns up
 		ip -n $BASE$ns addr add dev veth$ns $BM_NET_V4$ns/24
 		ip -n $BASE$ns addr add dev veth$ns $BM_NET_V6$ns/64 nodad
 	done
+
+	return 0
 }
 
 __chk_flag() {
@@ -129,6 +132,78 @@ chk_channels() {
 		echo " fail rx:$rx:$cur_rx tx:$tx:$cur_tx combined:n/a:$cur_combined"
 	fi
 }
+
+chk_carrier() (
+	target=$1
+	state=$2
+	expected=$3
+	carrier=0
+
+	# IFF_LOWER_UP is reported only for running interfaces.
+	[ "$state" = up ] || return 0
+
+	if ! link=$(ip -n "$BASE$target" -o link show dev "veth$target"); then
+		echo " fail - cannot read veth$target link state"
+		return 1
+	fi
+	case "$link" in
+		*LOWER_UP*) carrier=1 ;;
+	esac
+	if [ "$carrier" -ne "$expected" ]; then
+		printf ' fail - veth%s carrier is %s, expected %s\n' \
+			"$target" "$carrier" "$expected"
+		return 1
+	fi
+)
+
+# Keep per-case variables separate from the other tests.
+chk_channels_carrier() (
+	src_state=$1
+	dst_state=$2
+	expected=0
+	err=0
+	msg="carrier after channel change ($src_state/$dst_state)"
+
+	if ! create_ns numtxqueues 2 numrxqueues 2; then
+		printf "%-60s" "$msg"
+		echo " skip - cannot create veth pair"
+		cleanup
+		return 0
+	fi
+
+	ip -n "$NS_SRC" link set dev "veth$SRC" "$src_state" || err=1
+	ip -n "$NS_DST" link set dev "veth$DST" "$dst_state" || err=1
+	[ "$src_state" = up ] && [ "$dst_state" = up ] && expected=1
+	chk_carrier "$SRC" "$src_state" "$expected" || err=1
+	chk_carrier "$DST" "$dst_state" "$expected" || err=1
+
+	for target in "$SRC" "$DST"; do
+		for count in 1 2; do
+			ip netns exec "$BASE$target" ethtool -L "veth$target" \
+				rx "$count" tx "$count" || err=1
+			chk_carrier "$SRC" "$src_state" "$expected" || err=1
+			chk_carrier "$DST" "$dst_state" "$expected" || err=1
+		done
+
+		if ip netns exec "$BASE$target" ethtool -L "veth$target" \
+			rx 3 tx 3 \
+			>/dev/null 2>&1; then
+			echo " fail - out-of-range channel counts were accepted"
+			err=1
+		fi
+		chk_carrier "$SRC" "$src_state" "$expected" || err=1
+		chk_carrier "$DST" "$dst_state" "$expected" || err=1
+	done
+
+	cleanup
+	printf "%-60s" "$msg"
+	if [ "$err" -eq 0 ]; then
+		echo " ok "
+	else
+		echo " fail "
+	fi
+	return "$err"
+)
 
 chk_gro() {
 	local msg="$1"
@@ -257,6 +332,10 @@ fi
 [ $STRESS -gt 0 -a $CPUS -lt 3 ] && echo " stress test will be skipped, too"
 [ ! -f "$YNL" ] && echo "ynl cli not found, ndo-xmit tests will be skipped"
 
+chk_channels_carrier up up || ret=1
+chk_channels_carrier up down || ret=1
+chk_channels_carrier down up || ret=1
+
 create_ns
 chk_gro_flag "default - gro flag" $SRC off
 chk_gro_flag "        - peer gro flag" $DST off
@@ -327,11 +406,41 @@ if [ -f "$YNL" ]; then
 	ip netns exec $NS_DST ethtool -K veth$DST gro off
 	ip -n $NS_DST link set dev veth$DST up
 	chk_xdp_feature "        - peer ndo-xmit cleared" $SRC 0 ndo-xmit
+	ip -n $NS_SRC link set dev veth$SRC down
+	ip -n $NS_DST link set dev veth$DST down
 	ip netns exec $NS_DST ethtool -K veth$DST gro on
+	ip -n $NS_SRC link set dev veth$SRC up
+	chk_xdp_feature "        - own ndo-xmit" $SRC 1 ndo-xmit
+	ip -n $NS_DST link set dev veth$DST up
 fi
 ip netns exec $NS_SRC ethtool -K veth$SRC tx-udp-segmentation off
 ip netns exec $NS_DST ethtool -K veth$DST rx-udp-gro-forwarding on
 chk_gro "        - aggregation with TSO off" 1
+cleanup
+
+create_ns
+ip netns exec $NS_SRC sysctl -qw net.ipv6.conf.veth$SRC.disable_ipv6=1
+ip netns exec $NS_DST sysctl -qw net.ipv6.conf.veth$DST.disable_ipv6=1
+ip netns exec $NS_SRC ethtool -K veth$SRC gro on
+ip -n $NS_DST link set dev veth$DST xdp object ${BPF_FILE} section xdp_tx
+# veth$DST sends every frame back, so neither ARP nor ping gets an answer
+mac=`ip netns exec $NS_DST cat /sys/class/net/veth$DST/address`
+ip -n $NS_SRC neigh replace $BM_NET_V4$DST lladdr $mac dev veth$SRC
+ip netns exec $NS_SRC ping -qc 5 -i 0.01 -W 1 $BM_NET_V4$DST >/dev/null
+tx=`ip netns exec $NS_DST ethtool -S veth$DST | \
+    awk '/rx_queue_[0-9]+_xdp_tx:/ {s += $2} END {print s + 0}'`
+rx=`ip netns exec $NS_SRC ethtool -S veth$SRC | \
+    awk '/rx_queue_[0-9]+_xdp_packets:/ {s += $2} END {print s + 0}'`
+printf "%-60s" "xdp_tx to peer with gro on"
+if [ $tx -ne 5 ]; then
+	echo " fail - $tx frames sent back, expected 5"
+	ret=1
+elif [ $rx -ne 5 ]; then
+	echo " fail - $rx frames received by the peer NAPI, expected 5"
+	ret=1
+else
+	echo " ok "
+fi
 cleanup
 
 create_ns

@@ -2030,6 +2030,7 @@ static int imx319_get_pad_format(struct v4l2_subdev *sd,
 
 static int
 imx319_set_pad_format(struct v4l2_subdev *sd,
+		      const struct v4l2_subdev_client_info *ci,
 		      struct v4l2_subdev_state *sd_state,
 		      struct v4l2_subdev_format *fmt)
 {
@@ -2343,7 +2344,7 @@ static struct imx319_hwcfg *imx319_get_hwcfg(struct device *dev)
 	if (ret)
 		goto out_err;
 
-	cfg = devm_kzalloc(dev, sizeof(*cfg), GFP_KERNEL);
+	cfg = devm_kzalloc_obj(dev, *cfg);
 	if (!cfg)
 		goto out_err;
 
@@ -2373,7 +2374,7 @@ static int imx319_probe(struct i2c_client *client)
 	bool full_power;
 	int ret;
 
-	imx319 = devm_kzalloc(&client->dev, sizeof(*imx319), GFP_KERNEL);
+	imx319 = devm_kzalloc_obj(&client->dev, *imx319);
 	if (!imx319)
 		return -ENOMEM;
 

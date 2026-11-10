@@ -276,9 +276,11 @@ static int lm3692x_leds_enable(struct lm3692x_led *led)
 
 	ret = regmap_update_bits(led->regmap, LM3692X_EN, LM3692X_ENABLE_MASK,
 				 enable_state | LM3692X_DEVICE_EN);
+	if (ret)
+		goto out;
 
 	led->enabled = true;
-	return ret;
+	return 0;
 out:
 	dev_err(&led->client->dev, "Fail writing initialization values\n");
 
@@ -464,7 +466,7 @@ static int lm3692x_probe(struct i2c_client *client)
 	struct lm3692x_led *led;
 	int ret;
 
-	led = devm_kzalloc(&client->dev, sizeof(*led), GFP_KERNEL);
+	led = devm_kzalloc_obj(&client->dev, *led);
 	if (!led)
 		return -ENOMEM;
 

@@ -2053,29 +2053,43 @@ static int rt1011_probe(struct snd_soc_component *component)
 	schedule_work(&rt1011->cali_work);
 
 	rt1011->i2s_ref = 0;
-	rt1011->bq_drc_params = devm_kcalloc(component->dev,
-		RT1011_ADVMODE_NUM, sizeof(struct rt1011_bq_drc_params *),
-		GFP_KERNEL);
+	rt1011->bq_drc_params = kzalloc_objs(struct rt1011_bq_drc_params *,
+					     RT1011_ADVMODE_NUM);
 	if (!rt1011->bq_drc_params)
 		return -ENOMEM;
 
 	for (i = 0; i < RT1011_ADVMODE_NUM; i++) {
-		rt1011->bq_drc_params[i] = devm_kcalloc(component->dev,
-			RT1011_BQ_DRC_NUM, sizeof(struct rt1011_bq_drc_params),
-			GFP_KERNEL);
+		rt1011->bq_drc_params[i] = kzalloc_objs(struct rt1011_bq_drc_params,
+							RT1011_BQ_DRC_NUM);
 		if (!rt1011->bq_drc_params[i])
-			return -ENOMEM;
+			goto err;
 	}
 
 	return 0;
+
+err:
+	while (i--)
+		kfree(rt1011->bq_drc_params[i]);
+	kfree(rt1011->bq_drc_params);
+	rt1011->bq_drc_params = NULL;
+
+	return -ENOMEM;
 }
 
 static void rt1011_remove(struct snd_soc_component *component)
 {
 	struct rt1011_priv *rt1011 = snd_soc_component_get_drvdata(component);
+	int i;
 
 	cancel_work_sync(&rt1011->cali_work);
 	rt1011_reset(rt1011->regmap);
+
+	if (rt1011->bq_drc_params) {
+		for (i = 0; i < RT1011_ADVMODE_NUM; i++)
+			kfree(rt1011->bq_drc_params[i]);
+		kfree(rt1011->bq_drc_params);
+		rt1011->bq_drc_params = NULL;
+	}
 }
 
 #ifdef CONFIG_PM
@@ -2094,9 +2108,7 @@ static int rt1011_resume(struct snd_soc_component *component)
 	struct rt1011_priv *rt1011 = snd_soc_component_get_drvdata(component);
 
 	regcache_cache_only(rt1011->regmap, false);
-	regcache_sync(rt1011->regmap);
-
-	return 0;
+	return regcache_sync(rt1011->regmap);
 }
 #else
 #define rt1011_suspend NULL
@@ -2133,10 +2145,20 @@ static int rt1011_set_bias_level(struct snd_soc_component *component,
 			SNDRV_PCM_FMTBIT_S20_3LE | SNDRV_PCM_FMTBIT_S16_LE | \
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
 
+static const u64 rt1011_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF;
+
 static const struct snd_soc_dai_ops rt1011_aif_dai_ops = {
 	.hw_params = rt1011_hw_params,
 	.set_fmt = rt1011_set_dai_fmt,
 	.set_tdm_slot = rt1011_set_tdm_slot,
+	.auto_selectable_formats = &rt1011_selectable_formats,
+	.num_auto_selectable_formats = 1,
 };
 
 static struct snd_soc_dai_driver rt1011_dai[] = {
@@ -2430,8 +2452,7 @@ static int rt1011_i2c_probe(struct i2c_client *i2c)
 	int ret;
 	unsigned int val;
 
-	rt1011 = devm_kzalloc(&i2c->dev, sizeof(struct rt1011_priv),
-				GFP_KERNEL);
+	rt1011 = devm_kzalloc_obj(&i2c->dev, struct rt1011_priv);
 	if (!rt1011)
 		return -ENOMEM;
 

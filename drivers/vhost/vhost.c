@@ -529,8 +529,7 @@ static long vhost_dev_alloc_iovecs(struct vhost_dev *dev)
 		vq->indirect = kmalloc_objs(*vq->indirect, UIO_MAXIOV);
 		vq->log = kmalloc_objs(*vq->log, dev->iov_limit);
 		vq->heads = kmalloc_objs(*vq->heads, dev->iov_limit);
-		vq->nheads = kmalloc_array(dev->iov_limit, sizeof(*vq->nheads),
-					   GFP_KERNEL);
+		vq->nheads = kmalloc_objs(*vq->nheads, dev->iov_limit);
 		if (!vq->indirect || !vq->log || !vq->heads || !vq->nheads)
 			goto err_nomem;
 	}
@@ -731,7 +730,7 @@ static void vhost_worker_destroy(struct vhost_dev *dev,
 	kfree(worker);
 }
 
-static void vhost_workers_free(struct vhost_dev *dev)
+static void vhost_workers_free(struct vhost_dev *dev, bool sync)
 {
 	struct vhost_worker *worker;
 	unsigned long i;
@@ -741,6 +740,21 @@ static void vhost_workers_free(struct vhost_dev *dev)
 
 	for (i = 0; i < dev->nvqs; i++)
 		rcu_assign_pointer(dev->vqs[i]->worker, NULL);
+
+	/*
+	 * This path can be reached by lockless work queuers.  In this case
+	 * vhost_vq_work_queue() reads vq->worker under rcu_read_lock(), so a
+	 * RCU reader that fetched a worker before we cleared the pointers above
+	 * may still be queueing work on it.  Wait for those readers to finish,
+	 * then flush so any work they queued runs (clearing VHOST_WORK_QUEUED)
+	 * before the workers are freed.  Notably, that is the case for the
+	 * vsock RESET_OWNER path.
+	 */
+	if (sync) {
+		synchronize_rcu();
+		vhost_dev_flush(dev);
+	}
+
 	/*
 	 * Free the default worker we created and cleanup workers userspace
 	 * created but couldn't clean up (it forgot or crashed).
@@ -1163,11 +1177,12 @@ struct vhost_iotlb *vhost_dev_reset_owner_prepare(void)
 EXPORT_SYMBOL_GPL(vhost_dev_reset_owner_prepare);
 
 /* Caller should have device mutex */
-void vhost_dev_reset_owner(struct vhost_dev *dev, struct vhost_iotlb *umem)
+void vhost_dev_reset_owner(struct vhost_dev *dev, struct vhost_iotlb *umem,
+			   bool sync)
 {
 	int i;
 
-	vhost_dev_cleanup(dev);
+	vhost_dev_cleanup(dev, sync);
 
 	dev->fork_owner = fork_from_owner_default;
 	dev->umem = umem;
@@ -1227,7 +1242,7 @@ void vhost_clear_msg(struct vhost_dev *dev)
 }
 EXPORT_SYMBOL_GPL(vhost_clear_msg);
 
-void vhost_dev_cleanup(struct vhost_dev *dev)
+void vhost_dev_cleanup(struct vhost_dev *dev, bool sync)
 {
 	int i;
 
@@ -1251,7 +1266,7 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
 	dev->iotlb = NULL;
 	vhost_clear_msg(dev);
 	wake_up_interruptible_poll(&dev->wait, EPOLLIN | EPOLLRDNORM);
-	vhost_workers_free(dev);
+	vhost_workers_free(dev, sync);
 	vhost_detach_mm(dev);
 }
 EXPORT_SYMBOL_GPL(vhost_dev_cleanup);
@@ -1750,7 +1765,8 @@ ssize_t vhost_chr_write_iter(struct vhost_dev *dev,
 		goto done;
 	}
 
-	if (msg.type == VHOST_IOTLB_UPDATE && msg.size == 0) {
+	if (msg.type == VHOST_IOTLB_UPDATE &&
+	    (!msg.size || !msg.perm || (msg.perm & ~VHOST_ACCESS_RW))) {
 		ret = -EINVAL;
 		goto done;
 	}
@@ -3163,7 +3179,6 @@ static int vhost_add_used_n_in_order(struct vhost_virtqueue *vq,
 		return -EINVAL;
 
 	start = vq->last_used_idx & (vq->num - 1);
-	used = vq->used->ring + start;
 
 	for (i = 0; i < count; i++) {
 		if (vhost_put_used(vq, &heads[i], start, 1)) {
@@ -3172,19 +3187,35 @@ static int vhost_add_used_n_in_order(struct vhost_virtqueue *vq,
 		}
 		start += nheads[i];
 		new += nheads[i];
-		if (start >= vq->num)
-			start -= vq->num;
+		start &= vq->num - 1;
 	}
 
 	if (unlikely(vq->log_used)) {
+		unsigned int log_count = 0;
+		int log_start = 0, next;
+
 		/* Make sure data is seen before log. */
 		smp_wmb();
-		/* Log used ring entry write. */
-		log_used(vq, ((void __user *)used - (void __user *)vq->used),
-			 (vq->num - start) * sizeof *used);
-		if (start + count > vq->num)
-			log_used(vq, 0,
-				 (start + count - vq->num) * sizeof *used);
+		/* Log contiguous runs of used ring entries that were written. */
+		start = vq->last_used_idx & (vq->num - 1);
+		for (i = 0; i < count; i++) {
+			if (!log_count)
+				log_start = start;
+			log_count++;
+
+			next = start + nheads[i];
+			if (next >= vq->num)
+				next -= vq->num;
+			if (i + 1 == count || next != start + 1) {
+				used = vq->used->ring + log_start;
+				log_used(vq,
+					 ((void __user *)used -
+					  (void __user *)vq->used),
+					 log_count * sizeof(*used));
+				log_count = 0;
+			}
+			start = next;
+		}
 	}
 
 	old = vq->last_used_idx;

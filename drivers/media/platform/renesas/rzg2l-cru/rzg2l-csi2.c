@@ -633,6 +633,7 @@ static int rzg2l_csi2_post_streamoff(struct v4l2_subdev *sd)
 }
 
 static int rzg2l_csi2_set_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -687,7 +688,7 @@ static int rzg2l_csi2_init_state(struct v4l2_subdev *sd,
 	fmt.format.quantization = V4L2_QUANTIZATION_DEFAULT;
 	fmt.format.xfer_func = V4L2_XFER_FUNC_DEFAULT;
 
-	return rzg2l_csi2_set_format(sd, sd_state, &fmt);
+	return rzg2l_csi2_set_format(sd, NULL, sd_state, &fmt);
 }
 
 static int rzg2l_csi2_enum_mbus_code(struct v4l2_subdev *sd,
@@ -902,7 +903,7 @@ static int rzg2l_csi2_probe(struct platform_device *pdev)
 	struct rzg2l_csi2 *csi2;
 	int ret;
 
-	csi2 = devm_kzalloc(dev, sizeof(*csi2), GFP_KERNEL);
+	csi2 = devm_kzalloc_obj(dev, *csi2);
 	if (!csi2)
 		return -ENOMEM;
 

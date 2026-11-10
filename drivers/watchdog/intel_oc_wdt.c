@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define INTEL_OC_WDT_TOV		GENMASK(9, 0)
@@ -48,12 +49,12 @@ struct intel_oc_wdt {
 static int heartbeat;
 module_param(heartbeat, uint, 0);
 MODULE_PARM_DESC(heartbeat, "Watchdog heartbeats in seconds. (default="
-		 __MODULE_STRING(WDT_HEARTBEAT) ")");
+		 __stringify(WDT_HEARTBEAT) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 static int intel_oc_wdt_start(struct watchdog_device *wdd)
 {
@@ -171,7 +172,7 @@ static int intel_oc_wdt_probe(struct platform_device *pdev)
 	struct watchdog_device *wdd;
 	int ret;
 
-	oc_wdt = devm_kzalloc(&pdev->dev, sizeof(*oc_wdt), GFP_KERNEL);
+	oc_wdt = devm_kzalloc_obj(&pdev->dev, *oc_wdt);
 	if (!oc_wdt)
 		return -ENOMEM;
 

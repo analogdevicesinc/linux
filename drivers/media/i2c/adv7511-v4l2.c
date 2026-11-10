@@ -1273,6 +1273,7 @@ static int adv7511_get_fmt(struct v4l2_subdev *sd,
 }
 
 static int adv7511_set_fmt(struct v4l2_subdev *sd,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *format)
 {
@@ -1836,7 +1837,7 @@ static int adv7511_probe(struct i2c_client *client)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -EIO;
 
-	state = devm_kzalloc(&client->dev, sizeof(struct adv7511_state), GFP_KERNEL);
+	state = devm_kzalloc_obj(&client->dev, struct adv7511_state);
 	if (!state)
 		return -ENOMEM;
 

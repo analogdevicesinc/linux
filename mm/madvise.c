@@ -158,7 +158,7 @@ static int madvise_update_vma(vm_flags_t new_flags,
 	bool set_new_anon_name = madv_behavior->behavior == __MADV_SET_ANON_VMA_NAME;
 	VMA_ITERATOR(vmi, madv_behavior->mm, range->start);
 
-	if (vma_flags_same_mask(&vma->flags, new_vma_flags) &&
+	if (vma_flags_same_pair(&vma->flags, &new_vma_flags) &&
 	    (!set_new_anon_name ||
 	     anon_vma_name_eq(anon_vma_name(vma), anon_name)))
 		return 0;
@@ -177,7 +177,10 @@ static int madvise_update_vma(vm_flags_t new_flags,
 
 	/* vm_flags is protected by the mmap_lock held in write mode. */
 	vma_start_write(vma);
-	vma->flags = new_vma_flags;
+	if (set_new_anon_name)
+		return replace_anon_vma_name(vma, anon_name);
+
+	vma_overwrite_flags(vma, new_vma_flags);
 	/*
 	 * If the vma become good for khugepaged to scan,
 	 * register it here without waiting a page fault that
@@ -185,9 +188,6 @@ static int madvise_update_vma(vm_flags_t new_flags,
 	 */
 	if (vma_flags_test(&new_vma_flags, VMA_HUGEPAGE_BIT))
 		khugepaged_enter_vma(vma, vma_flags_to_legacy(new_vma_flags));
-
-	if (set_new_anon_name)
-		return replace_anon_vma_name(vma, anon_name);
 
 	return 0;
 }
@@ -297,11 +297,12 @@ static long madvise_willneed(struct madvise_behavior *madv_behavior)
 	loff_t offset;
 
 #ifdef CONFIG_SWAP
-	if (!file) {
+	if (vma_is_cow_mapping(vma) && vma->anon_vma) {
 		walk_page_range_vma(vma, start, end, &swapin_walk_ops, vma);
 		lru_add_drain(); /* Push any new pages onto the LRU now */
-		return 0;
 	}
+	if (!file)
+		return 0;
 
 	if (shmem_mapping(file->f_mapping)) {
 		shmem_swapin_range(vma, start, end, file->f_mapping);
@@ -393,16 +394,18 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 			return 0;
 
 		orig_pmd = *pmd;
-		if (is_huge_zero_pmd(orig_pmd))
-			goto huge_unlock;
-
 		if (unlikely(!pmd_present(orig_pmd))) {
 			VM_WARN_ON_ONCE(!pmd_is_migration_entry(orig_pmd) &&
 					!pmd_is_device_private_entry(orig_pmd));
 			goto huge_unlock;
 		}
 
-		folio = pmd_folio(orig_pmd);
+		folio = vm_normal_folio_pmd(vma, addr, orig_pmd);
+		if (!folio)
+			goto huge_unlock;
+
+		if (folio_is_zone_device(folio))
+			goto huge_unlock;
 
 		/* Do not interfere with other mappings of this folio */
 		if (folio_maybe_mapped_shared(folio))
@@ -414,9 +417,10 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 		if (next - addr != HPAGE_PMD_SIZE) {
 			int err;
 
+			if (!folio_trylock(folio))
+				goto huge_unlock;
 			folio_get(folio);
 			spin_unlock(ptl);
-			folio_lock(folio);
 			err = split_folio(folio);
 			folio_unlock(folio);
 			folio_put(folio);
@@ -426,10 +430,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 		}
 
 		if (!pageout && pmd_young(orig_pmd)) {
-			pmdp_invalidate(vma, addr, pmd);
-			orig_pmd = pmd_mkold(orig_pmd);
-
-			set_pmd_at(mm, addr, pmd, orig_pmd);
+			pmdp_test_and_clear_young(vma, addr, pmd);
 			tlb_remove_pmd_tlb_entry(tlb, pmd, addr);
 		}
 
@@ -450,6 +451,7 @@ huge_unlock:
 		spin_unlock(ptl);
 		if (pageout)
 			reclaim_pages(&folio_list);
+		cond_resched();
 		return 0;
 	}
 
@@ -459,7 +461,7 @@ regular_folio:
 restart:
 	start_pte = pte = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
 	if (!start_pte)
-		return 0;
+		goto out;
 	flush_tlb_batched_pending(mm);
 	lazy_mmu_mode_enable();
 	for (; addr < end; pte += nr, addr += nr * PAGE_SIZE) {
@@ -563,6 +565,7 @@ restart:
 			folio_deactivate(folio);
 	}
 
+out:
 	if (start_pte) {
 		lazy_mmu_mode_disable();
 		pte_unmap_unlock(start_pte, ptl);
@@ -754,6 +757,15 @@ static int madvise_free_pte_range(pmd_t *pmd, unsigned long addr,
 			if (!folio_trylock(folio))
 				continue;
 			/*
+			 * KSM folios can gain new mappings at any time, so we must
+			 * not clear their dirty flag.
+			 */
+			if (folio_test_ksm(folio)) {
+				folio_unlock(folio);
+				continue;
+			}
+
+			/*
 			 * If we have a large folio at this point, we know it is
 			 * fully mapped so if its mapcount is the same as its
 			 * number of pages, it must be exclusive.
@@ -877,7 +889,7 @@ bool madvise_dontneed_free_valid_vma(struct madvise_behavior *madv_behavior)
 	int behavior = madv_behavior->behavior;
 	struct madvise_behavior_range *range = &madv_behavior->range;
 
-	if (!is_vm_hugetlb_page(vma)) {
+	if (!vma_is_hugetlb(vma)) {
 		unsigned int forbidden = VM_PFNMAP;
 
 		if (behavior != MADV_DONTNEED_LOCKED)
@@ -1052,19 +1064,25 @@ static long madvise_remove(struct madvise_behavior *madv_behavior)
 	return error;
 }
 
-static bool is_valid_guard_vma(struct vm_area_struct *vma, bool allow_locked)
+static bool is_valid_guard_vma(const struct vm_area_struct *vma,
+			       bool allow_locked)
 {
-	vm_flags_t disallowed = VM_SPECIAL | VM_HUGETLB;
-
 	/*
-	 * A user could lock after setting a guard range but that's fine, as
+	 * A user could lock after setting a guard range but that's fine as
 	 * they'd not be able to fault in. The issue arises when we try to zap
 	 * existing locked VMAs. We don't want to do that.
 	 */
-	if (!allow_locked)
-		disallowed |= VM_LOCKED;
+	if (!allow_locked && vma_test(vma, VMA_LOCKED_BIT))
+		return false;
+	/*
+	 * Guard regions require a VMA whose page tables are managed solely by
+	 * core mm, so the VMA must be mm-backed (excluding hugetlb, in which
+	 * guard markers cannot be installed).
+	 */
+	if (!vma_is_mm_backed(vma) || vma_is_hugetlb(vma))
+		return false;
 
-	return !(vma->vm_flags & disallowed);
+	return true;
 }
 
 static bool is_guard_pte_marker(pte_t ptent)
@@ -1147,13 +1165,13 @@ static long madvise_guard_install(struct madvise_behavior *madv_behavior)
 
 	/*
 	 * If anonymous and we are establishing page tables the VMA ought to
-	 * have an anon_vma associated with it.
+	 * have an anon rmap associated with it.
 	 *
 	 * We will hold an mmap read lock if this is necessary, this is checked
 	 * as part of the VMA lock logic.
 	 */
 	if (vma_is_anonymous(vma)) {
-		VM_WARN_ON_ONCE(!vma->anon_vma &&
+		VM_WARN_ON_ONCE(!vma_has_anon_rmap(vma) &&
 				madv_behavior->lock_mode != MADVISE_MMAP_READ_LOCK);
 
 		err = anon_vma_prepare(vma);
@@ -1293,7 +1311,7 @@ static bool is_discard(int behavior)
  * We are restricted from madvise()'ing mseal()'d VMAs only in very particular
  * circumstances - discarding of data from read-only anonymous SEALED mappings.
  *
- * This is because users cannot trivally discard data from these VMAs, and may
+ * This is because users cannot trivially discard data from these VMAs, and may
  * only do so via an appropriate madvise() call.
  */
 static bool can_madvise_modify(struct madvise_behavior *madv_behavior)
@@ -1391,7 +1409,7 @@ static int madvise_vma_behavior(struct madvise_behavior *madv_behavior)
 		new_flags |= VM_DONTCOPY;
 		break;
 	case MADV_DOFORK:
-		if (new_flags & VM_SPECIAL)
+		if (!vma_is_mm_backed(vma) || vma_is_hugetlb(vma))
 			return -EINVAL;
 		new_flags &= ~VM_DONTCOPY;
 		break;
@@ -1410,8 +1428,11 @@ static int madvise_vma_behavior(struct madvise_behavior *madv_behavior)
 		new_flags |= VM_DONTDUMP;
 		break;
 	case MADV_DODUMP:
-		if ((!is_vm_hugetlb_page(vma) && (new_flags & VM_SPECIAL)) ||
-		    (new_flags & VM_DROPPABLE))
+		/* Only mm-backed memory can be meaningfully dumped. */
+		if (!vma_is_mm_backed(vma))
+			return -EINVAL;
+		/* Core mm may discard droppable memory at any time. */
+		if (new_flags & VM_DROPPABLE)
 			return -EINVAL;
 		new_flags &= ~VM_DONTDUMP;
 		break;
@@ -1612,11 +1633,11 @@ static bool is_vma_lock_sufficient(struct vm_area_struct *vma,
 	 * anon_vma_prepare() explicitly requires an mmap lock for
 	 * serialisation, so we cannot use a VMA lock in this case.
 	 *
-	 * Note we might race with anon_vma being set, however this makes this
-	 * check overly paranoid which is safe.
+	 * Note we might race with the anon rmap being assigned, however this
+	 * makes this check overly paranoid which is safe.
 	 */
 	if (vma_is_anonymous(vma) &&
-	    prepares_anon_vma(madv_behavior->behavior) && !vma->anon_vma)
+	    prepares_anon_vma(madv_behavior->behavior) && !vma_has_anon_rmap(vma))
 		return false;
 
 	return true;

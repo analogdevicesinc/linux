@@ -431,7 +431,7 @@ static void gdlm_cancel(struct gfs2_glock *gl)
  * 10. gfs2_control sets control_lock lvb = new gen + bits for failed jids
  * 12. gfs2_recover does journal recoveries for failed jids identified above
  * 14. gfs2_control clears control_lock lvb bits for recovered jids
- * 15. gfs2_control checks if recover_block == recover_start (step 3 occured
+ * 15. gfs2_control checks if recover_block == recover_start (step 3 occurred
  *     again) then do nothing, otherwise if recover_start > recover_block
  *     then clear BLOCK_LOCKS.
  *
@@ -809,7 +809,7 @@ static void gfs2_control_func(struct work_struct *work)
 
 	/*
 	 * No more jid bits set in lvb, all recovery is done, unblock locks
-	 * (unless a new recover_prep callback has occured blocking locks
+	 * (unless a new recover_prep callback has occurred blocking locks
 	 * again while working above)
 	 */
 
@@ -1120,8 +1120,8 @@ static int set_recover_size(struct gfs2_sbd *sdp, struct dlm_slot *slots,
 	if (new_size == old_size)
 		return 0;
 
-	submit = kcalloc(new_size, sizeof(uint32_t), GFP_NOFS);
-	result = kcalloc(new_size, sizeof(uint32_t), GFP_NOFS);
+	submit = kzalloc_objs(uint32_t, new_size, GFP_NOFS);
+	result = kzalloc_objs(uint32_t, new_size, GFP_NOFS);
 	if (!submit || !result) {
 		kfree(submit);
 		kfree(result);

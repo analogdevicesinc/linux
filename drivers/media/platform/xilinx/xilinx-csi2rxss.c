@@ -694,6 +694,7 @@ static int xcsi2rxss_get_format(struct v4l2_subdev *sd,
 }
 
 static int xcsi2rxss_set_format(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_format *fmt)
 {
@@ -905,7 +906,7 @@ static int xcsi2rxss_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int irq, ret;
 
-	xcsi2rxss = devm_kzalloc(dev, sizeof(*xcsi2rxss), GFP_KERNEL);
+	xcsi2rxss = devm_kzalloc_obj(dev, *xcsi2rxss);
 	if (!xcsi2rxss)
 		return -ENOMEM;
 

@@ -1701,7 +1701,7 @@ static int xgene_dma_probe(struct platform_device *pdev)
 	struct xgene_dma *pdma;
 	int ret, i;
 
-	pdma = devm_kzalloc(&pdev->dev, sizeof(*pdma), GFP_KERNEL);
+	pdma = devm_kzalloc_obj(&pdev->dev, *pdma);
 	if (!pdma)
 		return -ENOMEM;
 
@@ -1800,8 +1800,8 @@ static void xgene_dma_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id xgene_dma_acpi_match_ptr[] = {
-	{"APMC0D43", 0},
-	{},
+	{ .id = "APMC0D43" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, xgene_dma_acpi_match_ptr);
 #endif

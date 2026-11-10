@@ -148,15 +148,11 @@ static int gpd_pocket_fan_probe(struct platform_device *pdev)
 		speed_on_ac = SPEED_ON_AC_DEFAULT;
 	}
 
-	fan = devm_kzalloc(&pdev->dev, sizeof(*fan), GFP_KERNEL);
+	fan = devm_kzalloc_obj(&pdev->dev, *fan);
 	if (!fan)
 		return -ENOMEM;
 
 	fan->dev = &pdev->dev;
-	ret = devm_delayed_work_autocancel(&pdev->dev, &fan->work,
-					   gpd_pocket_fan_worker);
-	if (ret)
-		return ret;
 
 	/* Note this returns a "weak" reference which we don't need to free */
 	fan->dts0 = thermal_zone_get_zone_by_name("soc_dts0");
@@ -174,6 +170,11 @@ static int gpd_pocket_fan_probe(struct platform_device *pdev)
 	fan->gpio1 = devm_gpiod_get_index(fan->dev, NULL, 1, GPIOD_ASIS);
 	if (IS_ERR(fan->gpio1))
 		return PTR_ERR(fan->gpio1);
+
+	ret = devm_delayed_work_autocancel(&pdev->dev, &fan->work,
+					   gpd_pocket_fan_worker);
+	if (ret)
+		return ret;
 
 	gpd_pocket_fan_force_update(fan);
 

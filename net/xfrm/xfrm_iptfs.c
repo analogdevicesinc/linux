@@ -486,8 +486,7 @@ static int iptfs_skb_add_frags(struct sk_buff *skb,
 			tofrag->len -= offset;
 			offset = 0;
 		}
-		__skb_frag_ref(tofrag);
-		shinfo->nr_frags++;
+		skb_frag_ref(skb, shinfo->nr_frags++);
 		shinfo->flags |= SKBFL_SHARED_FRAG;
 
 		/* see if we are done */
@@ -1183,6 +1182,7 @@ static bool __input_process_payload(struct xfrm_state *x, u32 data,
 		/* this should not happen from the above code */
 		XFRM_INC_STATS(net, LINUX_MIB_XFRMINIPTFSERROR);
 
+done:
 	if (first_skb && first_iplen && !defer && !first_skb_partial) {
 		/* first_skb is queued b/c !defer and not partial */
 		if (pskb_trim(first_skb, first_iplen)) {
@@ -1199,7 +1199,7 @@ static bool __input_process_payload(struct xfrm_state *x, u32 data,
 		if (xfrm_input(skb, 0, 0, -2))
 			kfree_skb(skb);
 	}
-done:
+
 	skb = skbseq->root_skb;
 	skb_abort_seq_read(skbseq);
 

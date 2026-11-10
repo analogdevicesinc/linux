@@ -473,8 +473,7 @@ static void drbd_calc_cpu_mask(cpumask_var_t *cpu_mask)
 {
 	unsigned int *resources_per_cpu, min_index = ~0;
 
-	resources_per_cpu = kcalloc(nr_cpu_ids, sizeof(*resources_per_cpu),
-				    GFP_KERNEL);
+	resources_per_cpu = kzalloc_objs(*resources_per_cpu, nr_cpu_ids);
 	if (resources_per_cpu) {
 		struct drbd_resource *resource;
 		unsigned int cpu, min = ~0;
@@ -2163,6 +2162,7 @@ void drbd_destroy_device(struct kref *kref)
 	struct drbd_peer_device *peer_device, *tmp_peer_device;
 
 	timer_shutdown_sync(&device->request_timer);
+	timer_shutdown_sync(&device->start_resync_timer);
 
 	/* paranoia asserts */
 	D_ASSERT(device, device->open_cnt == 0);

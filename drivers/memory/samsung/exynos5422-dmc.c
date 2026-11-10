@@ -353,8 +353,7 @@ static int exynos5_init_freq_table(struct exynos5_dmc *dmc,
 
 	dmc->opp_count = dev_pm_opp_get_opp_count(dev);
 
-	dmc->opp = devm_kmalloc_array(dev, dmc->opp_count,
-				      sizeof(struct dmc_opp_table), GFP_KERNEL);
+	dmc->opp = devm_kmalloc_objs(dev, struct dmc_opp_table, dmc->opp_count);
 	if (!dmc->opp)
 		return -ENOMEM;
 
@@ -1188,18 +1187,15 @@ static int of_get_dram_timings(struct exynos5_dmc *dmc)
 		return -EINVAL;
 	}
 
-	dmc->timing_row = devm_kmalloc_array(dev, TIMING_COUNT,
-					     sizeof(u32), GFP_KERNEL);
+	dmc->timing_row = devm_kmalloc_objs(dev, u32, TIMING_COUNT);
 	if (!dmc->timing_row)
 		return -ENOMEM;
 
-	dmc->timing_data = devm_kmalloc_array(dev, TIMING_COUNT,
-					      sizeof(u32), GFP_KERNEL);
+	dmc->timing_data = devm_kmalloc_objs(dev, u32, TIMING_COUNT);
 	if (!dmc->timing_data)
 		return -ENOMEM;
 
-	dmc->timing_power = devm_kmalloc_array(dev, TIMING_COUNT,
-					       sizeof(u32), GFP_KERNEL);
+	dmc->timing_power = devm_kmalloc_objs(dev, u32, TIMING_COUNT);
 	if (!dmc->timing_power)
 		return -ENOMEM;
 
@@ -1297,8 +1293,15 @@ static int exynos5_dmc_init_clks(struct exynos5_dmc *dmc)
 	if (ret)
 		return ret;
 
-	clk_prepare_enable(dmc->fout_bpll);
-	clk_prepare_enable(dmc->mout_bpll);
+	ret = clk_prepare_enable(dmc->fout_bpll);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(dmc->mout_bpll);
+	if (ret) {
+		clk_disable_unprepare(dmc->fout_bpll);
+		return ret;
+	}
 
 	/*
 	 * Some bootloaders do not set clock routes correctly.
@@ -1331,8 +1334,7 @@ static int exynos5_performance_counters_init(struct exynos5_dmc *dmc)
 		return dmc->num_counters;
 	}
 
-	dmc->counter = devm_kcalloc(dev, dmc->num_counters,
-				    sizeof(*dmc->counter), GFP_KERNEL);
+	dmc->counter = devm_kzalloc_objs(dev, *dmc->counter, dmc->num_counters);
 	if (!dmc->counter)
 		return -ENOMEM;
 
@@ -1417,7 +1419,7 @@ static int exynos5_dmc_probe(struct platform_device *pdev)
 	struct exynos5_dmc *dmc;
 	int irq[2];
 
-	dmc = devm_kzalloc(dev, sizeof(*dmc), GFP_KERNEL);
+	dmc = devm_kzalloc_obj(dev, *dmc);
 	if (!dmc)
 		return -ENOMEM;
 

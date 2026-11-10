@@ -55,6 +55,9 @@ static int pxrc_raw_event(struct hid_device *hdev, struct hid_report *report,
 {
 	struct pxrc_priv *priv = hid_get_drvdata(hdev);
 
+	if (size < 8)
+		return 0;
+
 	if (priv->alternate)
 		priv->slider = data[7];
 	else
@@ -72,7 +75,7 @@ static int pxrc_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	int ret;
 	struct pxrc_priv *priv;
 
-	priv = devm_kzalloc(&hdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&hdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 	hid_set_drvdata(hdev, priv);

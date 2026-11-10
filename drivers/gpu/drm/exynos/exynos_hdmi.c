@@ -1738,7 +1738,7 @@ static int hdmi_clk_init(struct hdmi_context *hdata)
 	if (!count)
 		return 0;
 
-	clks = devm_kcalloc(dev, count, sizeof(*clks), GFP_KERNEL);
+	clks = devm_kzalloc_objs(dev, *clks, count);
 	if (!clks)
 		return -ENOMEM;
 
@@ -1869,8 +1869,7 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 	ret = drm_encoder_init(drm_dev, encoder, &exynos_hdmi_encoder_funcs,
 			       DRM_MODE_ENCODER_TMDS, NULL);
 	if (ret) {
-		DRM_DEV_ERROR(dev, "failed to initialize encoder ret = %d\n",
-			      ret);
+		drm_err(drm_dev, "failed to initialize encoder ret = %d\n", ret);
 		return ret;
 	}
 
@@ -1976,7 +1975,7 @@ static int hdmi_probe(struct platform_device *pdev)
 	struct hdmi_context *hdata;
 	int ret;
 
-	hdata = devm_kzalloc(dev, sizeof(struct hdmi_context), GFP_KERNEL);
+	hdata = devm_kzalloc_obj(dev, struct hdmi_context);
 	if (!hdata)
 		return -ENOMEM;
 

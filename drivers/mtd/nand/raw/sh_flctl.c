@@ -378,6 +378,7 @@ static int flctl_dma_fifo0_transfer(struct sh_flctl *flctl, unsigned long *buf,
 					int len, enum dma_data_direction dir)
 {
 	struct dma_async_tx_descriptor *desc = NULL;
+	struct device *dma_dev;
 	struct dma_chan *chan;
 	enum dma_transfer_direction tr_dir;
 	dma_addr_t dma_addr;
@@ -394,9 +395,10 @@ static int flctl_dma_fifo0_transfer(struct sh_flctl *flctl, unsigned long *buf,
 		tr_dir = DMA_MEM_TO_DEV;
 	}
 
-	dma_addr = dma_map_single(chan->device->dev, buf, len, dir);
+	dma_dev = dmaengine_get_dma_device(chan);
+	dma_addr = dma_map_single(dma_dev, buf, len, dir);
 
-	if (!dma_mapping_error(chan->device->dev, dma_addr))
+	if (!dma_mapping_error(dma_dev, dma_addr))
 		desc = dmaengine_prep_slave_single(chan, dma_addr, len,
 			tr_dir, DMA_PREP_INTERRUPT | DMA_CTRL_ACK);
 
@@ -440,7 +442,7 @@ out:
 	reg &= ~DREQ0EN;
 	writel(reg, FLINTDMACR(flctl));
 
-	dma_unmap_single(chan->device->dev, dma_addr, len, dir);
+	dma_unmap_single(dma_dev, dma_addr, len, dir);
 
 	/* ret == 0 is success */
 	return ret;
@@ -1096,8 +1098,7 @@ static struct sh_flctl_platform_data *flctl_parse_dt(struct device *dev)
 		return NULL;
 	}
 
-	pdata = devm_kzalloc(dev, sizeof(struct sh_flctl_platform_data),
-								GFP_KERNEL);
+	pdata = devm_kzalloc_obj(dev, struct sh_flctl_platform_data);
 	if (!pdata)
 		return NULL;
 
@@ -1119,7 +1120,7 @@ static int flctl_probe(struct platform_device *pdev)
 	int ret;
 	int irq;
 
-	flctl = devm_kzalloc(&pdev->dev, sizeof(struct sh_flctl), GFP_KERNEL);
+	flctl = devm_kzalloc_obj(&pdev->dev, struct sh_flctl);
 	if (!flctl)
 		return -ENOMEM;
 

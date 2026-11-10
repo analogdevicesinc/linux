@@ -190,7 +190,7 @@ static int wm8739_probe(struct i2c_client *client)
 	v4l_info(client, "chip found @ 0x%x (%s)\n",
 			client->addr << 1, client->adapter->name);
 
-	state = devm_kzalloc(&client->dev, sizeof(*state), GFP_KERNEL);
+	state = devm_kzalloc_obj(&client->dev, *state);
 	if (state == NULL)
 		return -ENOMEM;
 	sd = &state->sd;
@@ -217,7 +217,7 @@ static int wm8739_probe(struct i2c_client *client)
 
 	/* reset */
 	wm8739_write(sd, R15, 0x00);
-	/* filter setting, high path, offet clear */
+	/* filter setting, high path, offset clear */
 	wm8739_write(sd, R5, 0x000);
 	/* ADC, OSC, Power Off mode Disable */
 	wm8739_write(sd, R6, 0x000);

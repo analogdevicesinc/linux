@@ -150,8 +150,8 @@ static int vcn_v1_0_sw_init(struct amdgpu_ip_block *ip_block)
 	if (r)
 		return r;
 
-	/* Override the work func */
-	adev->vcn.inst[0].idle_work.work.func = vcn_v1_0_idle_work_handler;
+	/* Own lockdep class, this work is still cancelled synchronously */
+	INIT_DELAYED_WORK(&adev->vcn.inst[0].idle_work, vcn_v1_0_idle_work_handler);
 
 	amdgpu_vcn_setup_ucode(adev, 0);
 
@@ -202,7 +202,7 @@ static int vcn_v1_0_sw_init(struct amdgpu_ip_block *ip_block)
 	r = jpeg_v1_0_sw_init(ip_block);
 
 	/* Allocate memory for VCN IP Dump buffer */
-	ptr = kcalloc(adev->vcn.num_vcn_inst * reg_count, sizeof(uint32_t), GFP_KERNEL);
+	ptr = kzalloc_objs(*ptr, adev->vcn.num_vcn_inst * reg_count);
 	if (!ptr) {
 		DRM_ERROR("Failed to allocate memory for VCN IP Dump\n");
 		adev->vcn.ip_dump = NULL;
@@ -252,18 +252,25 @@ static int vcn_v1_0_hw_init(struct amdgpu_ip_block *ip_block)
 
 	r = amdgpu_ring_test_helper(ring);
 	if (r)
-		return r;
+		goto error_vcn;
 
 	for (i = 0; i < adev->vcn.inst[0].num_enc_rings; ++i) {
 		ring = &adev->vcn.inst->ring_enc[i];
 		r = amdgpu_ring_test_helper(ring);
 		if (r)
-			return r;
+			goto error_vcn;
 	}
 
 	ring = adev->jpeg.inst->ring_dec;
 	r = amdgpu_ring_test_helper(ring);
+	if (r)
+		goto error_both;
+	return 0;
 
+error_both:
+	cancel_delayed_work_sync(&adev->jpeg.idle_work);
+error_vcn:
+	cancel_delayed_work_sync(&adev->vcn.inst[0].idle_work);
 	return r;
 }
 
@@ -2034,7 +2041,6 @@ static const struct amd_ip_funcs vcn_v1_0_ip_funcs = {
 	.hw_fini = vcn_v1_0_hw_fini,
 	.suspend = vcn_v1_0_suspend,
 	.resume = vcn_v1_0_resume,
-	.is_idle = vcn_v1_0_is_idle,
 	.wait_for_idle = vcn_v1_0_wait_for_idle,
 	.set_clockgating_state = vcn_v1_0_set_clockgating_state,
 	.set_powergating_state = vcn_set_powergating_state,
@@ -2065,7 +2071,7 @@ static int vcn_v1_0_validate_bo(struct amdgpu_cs_parser *parser,
 		return -EINVAL;
 	}
 
-	mapping = amdgpu_vm_bo_lookup_mapping(vm, addr/AMDGPU_GPU_PAGE_SIZE);
+	mapping = amdgpu_vm_bo_lookup_mapping(vm, addr);
 	if (!mapping || !mapping->bo_va || !mapping->bo_va->base.bo)
 		return -EINVAL;
 

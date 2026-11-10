@@ -612,7 +612,7 @@ static void mpfs_pinctrl_pinconf_dbg_show(struct pinctrl_dev *pctrl_dev, struct 
 	reg = mpfs_pinctrl_pin_to_iocfg_reg(pin);
 	offset = mpfs_pinctrl_pin_to_iocfg_offset(pin);
 
-	seq_printf(seq, "pin: %u ", pin);
+	seq_printf(seq, " pin: %u ", pin);
 	seq_printf(seq, "reg: %x offset: %u ", reg, offset);
 
 	if (reg < 0 || offset < 0)
@@ -679,7 +679,7 @@ static int mpfs_pinctrl_probe(struct platform_device *pdev)
 	struct mpfs_pinctrl *pctrl;
 	int ret;
 
-	pctrl = devm_kzalloc(dev, sizeof(*pctrl), GFP_KERNEL);
+	pctrl = devm_kzalloc_obj(dev, *pctrl);
 	if (!pctrl)
 		return -ENOMEM;
 

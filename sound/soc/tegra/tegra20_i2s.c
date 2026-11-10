@@ -309,12 +309,22 @@ static int tegra20_i2s_startup(struct snd_pcm_substream *substream,
 				   SNDRV_PCM_HW_PARAM_RATE, -1);
 }
 
+static const u64 tegra20_i2s_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J;
+
 static const struct snd_soc_dai_ops tegra20_i2s_dai_ops = {
 	.probe		= tegra20_i2s_probe,
 	.set_fmt	= tegra20_i2s_set_fmt,
 	.hw_params	= tegra20_i2s_hw_params,
 	.trigger	= tegra20_i2s_trigger,
 	.startup	= tegra20_i2s_startup,
+	.auto_selectable_formats	= &tegra20_i2s_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static const struct snd_soc_dai_driver tegra20_i2s_dai_template = {
@@ -403,7 +413,7 @@ static int tegra20_i2s_platform_probe(struct platform_device *pdev)
 	void __iomem *regs;
 	int ret;
 
-	i2s = devm_kzalloc(&pdev->dev, sizeof(struct tegra20_i2s), GFP_KERNEL);
+	i2s = devm_kzalloc_obj(&pdev->dev, struct tegra20_i2s);
 	if (!i2s) {
 		ret = -ENOMEM;
 		goto err;

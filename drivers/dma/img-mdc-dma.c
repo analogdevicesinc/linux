@@ -738,7 +738,7 @@ static int mdc_alloc_chan_resources(struct dma_chan *chan)
 	struct mdc_chan *mchan = to_mdc_chan(chan);
 	struct device *dev = mdma2dev(mchan->mdma);
 
-	return pm_runtime_get_sync(dev);
+	return pm_runtime_resume_and_get(dev);
 }
 
 static void mdc_free_chan_resources(struct dma_chan *chan)
@@ -889,7 +889,7 @@ static int mdc_dma_probe(struct platform_device *pdev)
 	u32 val;
 	int ret;
 
-	mdma = devm_kzalloc(&pdev->dev, sizeof(*mdma), GFP_KERNEL);
+	mdma = devm_kzalloc_obj(&pdev->dev, *mdma);
 	if (!mdma)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, mdma);

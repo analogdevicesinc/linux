@@ -198,6 +198,24 @@ static void alc897_fixup_lenovo_headset_mode(struct hda_codec *codec,
 	}
 }
 
+static void alc897_fixup_limit_linein_boost(struct hda_codec *codec,
+					    const struct hda_fixup *fix, int action)
+{
+	if (action != HDA_FIXUP_ACT_PROBE)
+		return;
+
+	snd_hda_override_amp_caps(codec, 0x1a, HDA_INPUT,
+				  (0x00 << AC_AMPCAP_OFFSET_SHIFT) |
+				  (0x01 << AC_AMPCAP_NUM_STEPS_SHIFT) |
+				  (0x2f << AC_AMPCAP_STEP_SIZE_SHIFT) |
+				  (0 << AC_AMPCAP_MUTE_SHIFT));
+	snd_hda_override_amp_caps(codec, 0x08, HDA_INPUT,
+				  (0x00 << AC_AMPCAP_OFFSET_SHIFT) |
+				  (0x01 << AC_AMPCAP_NUM_STEPS_SHIFT) |
+				  (0x02 << AC_AMPCAP_STEP_SIZE_SHIFT) |
+				  (0 << AC_AMPCAP_MUTE_SHIFT));
+}
+
 static const struct coef_fw alc668_coefs[] = {
 	WRITE_COEF(0x01, 0xbebe), WRITE_COEF(0x02, 0xaaaa), WRITE_COEF(0x03,    0x0),
 	WRITE_COEF(0x04, 0x0180), WRITE_COEF(0x06,    0x0), WRITE_COEF(0x07, 0x0f80),
@@ -266,6 +284,21 @@ static void alc662_fixup_csl_amp(struct hda_codec *codec,
 	}
 }
 
+static void alc897_fixup_asus_b650m_depop(struct hda_codec *codec,
+					  const struct hda_fixup *fix, int action)
+{
+	if (action != HDA_FIXUP_ACT_INIT)
+		return;
+
+	alc_auto_setup_eapd(codec, false);
+	snd_hda_codec_write(codec, 0x1b, 0,
+			    AC_VERB_SET_EAPD_BTLENABLE, 0);
+	msleep(200);
+	alc_auto_setup_eapd(codec, true);
+	snd_hda_codec_write(codec, 0x1b, 0,
+			    AC_VERB_SET_EAPD_BTLENABLE, 2);
+}
+
 enum {
 	ALC662_FIXUP_ASPIRE,
 	ALC662_FIXUP_LED_GPIO1,
@@ -326,6 +359,8 @@ enum {
 	ALC897_FIXUP_HEADSET_MIC_PIN3,
 	ALC662_FIXUP_CSL_GPIO,
 	ALC897_FIXUP_BEELINK_SER6_AMP,
+	ALC897_FIXUP_LIMIT_LINEIN_BOOST,
+	ALC897_FIXUP_ASUS_B650M_DEPOP,
 };
 
 static const struct hda_fixup alc662_fixups[] = {
@@ -787,6 +822,14 @@ static const struct hda_fixup alc662_fixups[] = {
 		.type = HDA_FIXUP_FUNC,
 		.v.func = alc_fixup_gpio4,
 	},
+	[ALC897_FIXUP_LIMIT_LINEIN_BOOST] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = alc897_fixup_limit_linein_boost,
+	},
+	[ALC897_FIXUP_ASUS_B650M_DEPOP] = {
+		.type = HDA_FIXUP_FUNC,
+		.v.func = alc897_fixup_asus_b650m_depop,
+	},
 };
 
 static const struct hda_quirk alc662_fixup_tbl[] = {
@@ -835,6 +878,7 @@ static const struct hda_quirk alc662_fixup_tbl[] = {
 	SND_PCI_QUIRK(0x1043, 0x1b73, "ASUS N55SF", ALC662_FIXUP_BASS_16),
 	SND_PCI_QUIRK(0x1043, 0x1bf3, "ASUS N76VZ", ALC662_FIXUP_BASS_MODE4_CHMAP),
 	SND_PCI_QUIRK(0x1043, 0x8469, "ASUS mobo", ALC662_FIXUP_NO_JACK_DETECT),
+	SND_PCI_QUIRK(0x1043, 0x87fb, "ASUS PRIME B650M-K", ALC897_FIXUP_ASUS_B650M_DEPOP),
 	SND_PCI_QUIRK(0x105b, 0x0cd6, "Foxconn", ALC662_FIXUP_ASUS_MODE2),
 	SND_PCI_QUIRK(0x144d, 0xc051, "Samsung R720", ALC662_FIXUP_IDEAPAD),
 	SND_PCI_QUIRK(0x14cd, 0x5003, "USI", ALC662_FIXUP_USI_HEADSET_MODE),
@@ -857,6 +901,7 @@ static const struct hda_quirk alc662_fixup_tbl[] = {
 	SND_PCI_QUIRK(0x1b35, 0x1234, "CZC ET26", ALC662_FIXUP_CZC_ET26),
 	SND_PCI_QUIRK(0x1b35, 0x2206, "CZC P10T", ALC662_FIXUP_CZC_P10T),
 	SND_PCI_QUIRK(0x1c6c, 0x1239, "Compaq N14JP6-V2", ALC897_FIXUP_HP_HSMIC_VERB),
+	SND_PCI_QUIRK(0x1e0b, 0x1297, "DECENTA MATX03", ALC897_FIXUP_LIMIT_LINEIN_BOOST),
 	SND_PCI_QUIRK(0x1e63, 0x6d9a, "F+ FLAPTOP r", ALC897_FIXUP_HP_HSMIC_VERB),
 	SND_PCI_QUIRK(0x1f66, 0x0202, "Beelink SER6 Max 6900", ALC897_FIXUP_BEELINK_SER6_AMP),
 

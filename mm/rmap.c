@@ -208,7 +208,7 @@ int __anon_vma_prepare(struct vm_area_struct *vma)
 	anon_vma_lock_write(anon_vma);
 	/* page_table_lock to protect against threads */
 	spin_lock(&mm->page_table_lock);
-	if (likely(!vma->anon_vma)) {
+	if (likely(!vma_has_anon_rmap(vma))) {
 		/*
 		 * Make anon_vma fields visible before anon_vma is published.
 		 * Paired with an address dependency in reusable_anon_vma().
@@ -246,36 +246,34 @@ static void check_anon_vma_clone(struct vm_area_struct *dst,
 	VM_WARN_ON_ONCE(operation != VMA_OP_FORK && dst->vm_mm != src->vm_mm);
 
 	/* If we have anything to do src->anon_vma must be provided. */
-	VM_WARN_ON_ONCE(!src->anon_vma && !list_empty(&src->anon_vma_chain));
-	VM_WARN_ON_ONCE(!src->anon_vma && dst->anon_vma);
+	VM_WARN_ON_ONCE(!vma_has_anon_rmap(src) && !list_empty(&src->anon_vma_chain));
+	VM_WARN_ON_ONCE(!vma_has_anon_rmap(src) && vma_has_anon_rmap(dst));
 	/* We are establishing a new anon_vma_chain. */
 	VM_WARN_ON_ONCE(!list_empty(&dst->anon_vma_chain));
 	/*
 	 * On fork, dst->anon_vma is set NULL (temporarily). Otherwise, anon_vma
 	 * must be the same across dst and src.
 	 */
-	VM_WARN_ON_ONCE(dst->anon_vma && dst->anon_vma != src->anon_vma);
+	VM_WARN_ON_ONCE(vma_has_anon_rmap(dst) && dst->anon_vma != src->anon_vma);
 	/*
 	 * Essentially equivalent to above - if not a no-op, we should expect
 	 * dst->anon_vma to be set for everything except a fork.
 	 */
-	VM_WARN_ON_ONCE(operation != VMA_OP_FORK && src->anon_vma &&
-			!dst->anon_vma);
+	VM_WARN_ON_ONCE(operation != VMA_OP_FORK && vma_has_anon_rmap(src) &&
+			!vma_has_anon_rmap(dst));
 	/* For the anon_vma to be compatible, it can only be singular. */
 	VM_WARN_ON_ONCE(operation == VMA_OP_MERGE_UNFAULTED &&
 			!list_is_singular(&src->anon_vma_chain));
-#ifdef CONFIG_PER_VMA_LOCK
 	/* Only merging an unfaulted VMA leaves the destination attached. */
 	VM_WARN_ON_ONCE(operation != VMA_OP_MERGE_UNFAULTED &&
 			vma_is_attached(dst));
-#endif
 }
 
 static void maybe_reuse_anon_vma(struct vm_area_struct *dst,
 		struct anon_vma *anon_vma)
 {
 	/* If already populated, nothing to do.*/
-	if (dst->anon_vma)
+	if (vma_has_anon_rmap(dst))
 		return;
 
 	/*
@@ -329,7 +327,7 @@ int anon_vma_clone(struct vm_area_struct *dst, struct vm_area_struct *src,
 
 	check_anon_vma_clone(dst, src, operation);
 
-	if (!active_anon_vma)
+	if (!vma_has_anon_rmap(src))
 		return 0;
 
 	/*
@@ -386,7 +384,7 @@ int anon_vma_fork(struct vm_area_struct *vma, struct vm_area_struct *pvma)
 	int rc;
 
 	/* Don't bother if the parent process has no anon_vma here. */
-	if (!pvma->anon_vma)
+	if (!vma_has_anon_rmap(pvma))
 		return 0;
 
 	/* Drop inherited anon_vma, we'll reuse existing or allocate new. */
@@ -407,7 +405,7 @@ int anon_vma_fork(struct vm_area_struct *vma, struct vm_area_struct *pvma)
 	 */
 	rc = anon_vma_clone(vma, pvma, VMA_OP_FORK);
 	/* An error arose or an existing anon_vma was reused, all done then. */
-	if (rc || vma->anon_vma) {
+	if (rc || vma_has_anon_rmap(vma)) {
 		put_anon_vma(anon_vma);
 		anon_vma_chain_free(avc);
 		return rc;
@@ -866,7 +864,7 @@ unsigned long page_address_in_vma(const struct folio *folio,
 		 * Note: swapoff's unuse_vma() is more efficient with this
 		 * check, and needs it to match anon_vma when KSM is active.
 		 */
-		if (!vma->anon_vma || !anon_vma ||
+		if (!vma_has_anon_rmap(vma) || !anon_vma ||
 		    vma->anon_vma->root != anon_vma->root)
 			return -EFAULT;
 		/* KSM folios don't reach here because of the !anon_vma check */
@@ -926,6 +924,7 @@ static bool folio_referenced_one(struct folio *folio,
 	DEFINE_FOLIO_VMA_WALK(pvmw, folio, vma, address, 0);
 	int ptes = 0, referenced = 0;
 	unsigned int nr;
+	pte_t pteval;
 
 	while (page_vma_mapped_walk(&pvmw)) {
 		address = pvmw.address;
@@ -970,10 +969,12 @@ static bool folio_referenced_one(struct folio *folio,
 			return false;
 		}
 
-		if (pvmw.pte && folio_test_large(folio)) {
+		if (pvmw.pte)
+			pteval = ptep_get(pvmw.pte);
+
+		if (pvmw.pte && pte_present(pteval) && folio_test_large(folio)) {
 			const unsigned long end_addr = pmd_addr_end(address, vma->vm_end);
 			const unsigned int max_nr = (end_addr - address) >> PAGE_SHIFT;
-			pte_t pteval = ptep_get(pvmw.pte);
 
 			nr = folio_pte_batch(folio, pvmw.pte, pteval, max_nr);
 		}
@@ -983,11 +984,23 @@ static bool folio_referenced_one(struct folio *folio,
 		 * are. —they could be on active/inactive lists or on MGLRU. So the
 		 * simplest approach is to disable this look-around optimization.
 		 */
-		if (lru_gen_enabled() && !lru_gen_switching() && pvmw.pte) {
+		if (lru_gen_enabled() && !lru_gen_switching() && pvmw.pte &&
+		    pte_present(pteval)) {
 			if (lru_gen_look_around(&pvmw, nr))
 				referenced++;
 		} else if (pvmw.pte) {
-			if (clear_flush_young_ptes_notify(vma, address, pvmw.pte, nr))
+			bool young = false;
+
+			/*
+			 * PFN swap PTEs, such as device-exclusive ones, that
+			 * actually map pages are "old" from a CPU perspective.
+			 * The MMU notifier takes care of any device aspects.
+			 */
+			if (pte_present(pteval))
+				young = clear_flush_young_ptes(vma, address, pvmw.pte, nr);
+			young |= mmu_notifier_clear_flush_young(vma->vm_mm, address,
+								address + nr * PAGE_SIZE);
+			if (young)
 				referenced++;
 		} else if (IS_ENABLED(CONFIG_TRANSPARENT_HUGEPAGE)) {
 			if (pmdp_clear_flush_young_notify(vma, address,
@@ -2149,7 +2162,7 @@ static bool ttu_anon_swapbacked_folio(struct vm_area_struct *vma,
 {
 	const bool anon_exclusive = folio_test_anon(folio) &&
 				    PageAnonExclusive(page);
-	swp_entry_t entry = page_swap_entry(page);
+	swp_entry_t entry = folio_page_swap_entry(folio, page);
 	struct mm_struct *mm = vma->vm_mm;
 
 	if (folio_dup_swap(folio, page) < 0)
@@ -2241,9 +2254,11 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
 
 		/*
 		 * If the folio is in an mlock()d vma, we must not swap it out.
+		 * VMA_LOCKONFAULT_BIT alone marks an mlock walk in progress, see
+		 * mlock_vma_pages_range().
 		 */
 		if (!(flags & TTU_IGNORE_MLOCK) &&
-		    (vma->vm_flags & VM_LOCKED)) {
+		    vma_test_any_mask(vma, VMA_LOCKED_MASK)) {
 			ptes++;
 
 			/*
@@ -2275,17 +2290,6 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
 		}
 
 		if (!pvmw.pte) {
-			if (folio_test_lazyfree(folio)) {
-				if (unmap_huge_pmd_locked(vma, pvmw.address, pvmw.pmd, folio))
-					goto walk_done;
-				/*
-				 * unmap_huge_pmd_locked has either already marked
-				 * the folio as swap-backed or decided to retain it
-				 * due to GUP or speculative references.
-				 */
-				goto walk_abort;
-			}
-
 			if (flags & TTU_SPLIT_HUGE_PMD) {
 				/*
 				 * We temporarily have to drop the PTL and
@@ -2303,11 +2307,8 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
 		VM_BUG_ON_FOLIO(!pvmw.pte, folio);
 
 		address = pvmw.address;
-		if (folio_test_hugetlb(folio)) {
-			pteval = huge_ptep_get(mm, address, pvmw.pte);
-		} else {
-			pteval = ptep_get(pvmw.pte);
-		}
+		pteval = ptep_get(pvmw.pte);
+
 		if (likely(pte_present(pteval))) {
 			pfn = pte_pfn(pteval);
 		} else {
@@ -2400,7 +2401,7 @@ static bool try_to_unmap_one(struct folio *folio, struct vm_area_struct *vma,
 		}
 finish_unmap:
 		folio_remove_rmap_ptes(folio, page, nr_pages, vma);
-		if (vma->vm_flags & VM_LOCKED)
+		if (vma_test_any_mask(vma, VMA_LOCKED_MASK))
 			mlock_drain_local();
 		folio_put_refs(folio, nr_pages);
 
@@ -2775,7 +2776,7 @@ static bool try_to_migrate_one(struct folio *folio, struct vm_area_struct *vma,
 			hugetlb_remove_rmap(folio);
 		else
 			folio_remove_rmap_pte(folio, subpage, vma);
-		if (vma->vm_flags & VM_LOCKED)
+		if (vma_test_any_mask(vma, VMA_LOCKED_MASK))
 			mlock_drain_local();
 		folio_put(folio);
 	}

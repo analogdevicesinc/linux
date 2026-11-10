@@ -248,10 +248,19 @@ static const struct regmap_config tfa9879_regmap = {
 	.cache_type = REGCACHE_RBTREE,
 };
 
+static const u64 tfa9879_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF;
+
 static const struct snd_soc_dai_ops tfa9879_dai_ops = {
 	.hw_params = tfa9879_hw_params,
 	.mute_stream = tfa9879_mute_stream,
 	.set_fmt = tfa9879_set_fmt,
+	.auto_selectable_formats	= &tfa9879_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
@@ -276,7 +285,7 @@ static int tfa9879_i2c_probe(struct i2c_client *i2c)
 	struct tfa9879_priv *tfa9879;
 	int i;
 
-	tfa9879 = devm_kzalloc(&i2c->dev, sizeof(*tfa9879), GFP_KERNEL);
+	tfa9879 = devm_kzalloc_obj(&i2c->dev, *tfa9879);
 	if (!tfa9879)
 		return -ENOMEM;
 

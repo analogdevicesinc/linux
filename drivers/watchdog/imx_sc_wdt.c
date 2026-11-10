@@ -11,6 +11,7 @@
 #include <linux/moduleparam.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define DEFAULT_TIMEOUT 60
@@ -39,7 +40,7 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0000);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 struct imx_sc_wdt_device {
 	struct watchdog_device wdd;
@@ -182,7 +183,7 @@ static int imx_sc_wdt_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret;
 
-	imx_sc_wdd = devm_kzalloc(dev, sizeof(*imx_sc_wdd), GFP_KERNEL);
+	imx_sc_wdd = devm_kzalloc_obj(dev, *imx_sc_wdd);
 	if (!imx_sc_wdd)
 		return -ENOMEM;
 

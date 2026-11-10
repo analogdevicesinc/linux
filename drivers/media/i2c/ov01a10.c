@@ -634,6 +634,7 @@ static void ov01a10_update_blank_ctrls(struct ov01a10 *ov01a10,
 }
 
 static int ov01a10_set_format(struct v4l2_subdev *sd,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *fmt)
 {
@@ -715,6 +716,7 @@ static int ov01a10_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int ov01a10_get_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -747,6 +749,7 @@ static int ov01a10_get_selection(struct v4l2_subdev *sd,
 }
 
 static int ov01a10_set_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -1000,7 +1003,7 @@ static int ov01a10_probe(struct i2c_client *client)
 	if (!cfg)
 		return -EINVAL;
 
-	ov01a10 = devm_kzalloc(&client->dev, sizeof(*ov01a10), GFP_KERNEL);
+	ov01a10 = devm_kzalloc_obj(&client->dev, *ov01a10);
 	if (!ov01a10)
 		return -ENOMEM;
 

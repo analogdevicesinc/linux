@@ -164,7 +164,7 @@ enum xgene_pmu_dev_type {
  */
 #define XGENE_PMU_FORMAT_ATTR(_name, _config)		\
 	(&((struct dev_ext_attribute[]) {		\
-		{ .attr = __ATTR(_name, S_IRUGO, device_show_string, NULL), \
+		{ .attr = __DEVICE_ATTR(_name, S_IRUGO, device_show_string, NULL), \
 		  .var = (void *) _config, }		\
 	})[0].attr.attr)
 
@@ -1120,7 +1120,7 @@ xgene_pmu_dev_add(struct xgene_pmu *xgene_pmu, struct xgene_pmu_dev_ctx *ctx)
 	struct device *dev = xgene_pmu->dev;
 	struct xgene_pmu_dev *pmu;
 
-	pmu = devm_kzalloc(dev, sizeof(*pmu), GFP_KERNEL);
+	pmu = devm_kzalloc_obj(dev, *pmu);
 	if (!pmu)
 		return -ENOMEM;
 	pmu->parent = xgene_pmu;
@@ -1454,7 +1454,7 @@ xgene_pmu_dev_ctx *acpi_get_pmu_hw_inf(struct xgene_pmu *xgene_pmu,
 	int enable_bit;
 	int rc;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc_obj(dev, *ctx);
 	if (!ctx)
 		return NULL;
 
@@ -1620,7 +1620,7 @@ xgene_pmu_dev_ctx *fdt_get_pmu_hw_inf(struct xgene_pmu *xgene_pmu,
 	struct resource res;
 	int enable_bit;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc_obj(dev, *ctx);
 	if (!ctx)
 		return NULL;
 
@@ -1839,7 +1839,7 @@ static int xgene_pmu_probe(struct platform_device *pdev)
 	if (rc)
 		return rc;
 
-	xgene_pmu = devm_kzalloc(&pdev->dev, sizeof(*xgene_pmu), GFP_KERNEL);
+	xgene_pmu = devm_kzalloc_obj(&pdev->dev, *xgene_pmu);
 	if (!xgene_pmu)
 		return -ENOMEM;
 	xgene_pmu->dev = &pdev->dev;
@@ -1873,6 +1873,8 @@ static int xgene_pmu_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return -EINVAL;
 
+	raw_spin_lock_init(&xgene_pmu->lock);
+
 	rc = devm_request_irq(&pdev->dev, irq, xgene_pmu_isr,
 				IRQF_NOBALANCING | IRQF_NO_THREAD,
 				dev_name(&pdev->dev), xgene_pmu);
@@ -1880,8 +1882,6 @@ static int xgene_pmu_probe(struct platform_device *pdev)
 		return rc;
 
 	xgene_pmu->irq = irq;
-
-	raw_spin_lock_init(&xgene_pmu->lock);
 
 	/* Check for active MCBs and MCUs */
 	rc = xgene_pmu_probe_active_mcb_mcu_l3c(xgene_pmu, pdev);

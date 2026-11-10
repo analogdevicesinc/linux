@@ -127,14 +127,13 @@ static int s2mps11_clk_probe(struct platform_device *pdev)
 	int i, ret = 0;
 	enum sec_device_type hwid = platform_get_device_id(pdev)->driver_data;
 
-	s2mps11_clks = devm_kcalloc(&pdev->dev, S2MPS11_CLKS_NUM,
-				sizeof(*s2mps11_clks), GFP_KERNEL);
+	s2mps11_clks = devm_kzalloc_objs(&pdev->dev, *s2mps11_clks,
+					 S2MPS11_CLKS_NUM);
 	if (!s2mps11_clks)
 		return -ENOMEM;
 
-	clk_data = devm_kzalloc(&pdev->dev,
-				struct_size(clk_data, hws, S2MPS11_CLKS_NUM),
-				GFP_KERNEL);
+	clk_data = devm_kzalloc_flex(&pdev->dev, *clk_data, hws,
+				     S2MPS11_CLKS_NUM);
 	if (!clk_data)
 		return -ENOMEM;
 
@@ -192,8 +191,10 @@ static int s2mps11_clk_probe(struct platform_device *pdev)
 		clk_data->hws[i] = &s2mps11_clks[i].hw;
 	}
 
-	of_clk_add_hw_provider(s2mps11_clks->clk_np, of_clk_hw_onecell_get,
-			       clk_data);
+	ret = of_clk_add_hw_provider(s2mps11_clks->clk_np,
+				     of_clk_hw_onecell_get, clk_data);
+	if (ret)
+		goto err_reg;
 
 	platform_set_drvdata(pdev, s2mps11_clks);
 
@@ -201,8 +202,10 @@ static int s2mps11_clk_probe(struct platform_device *pdev)
 
 err_reg:
 	of_node_put(s2mps11_clks[0].clk_np);
-	while (--i >= 0)
-		clkdev_drop(s2mps11_clks[i].lookup);
+	while (--i >= 0) {
+		if (s2mps11_clks[i].lookup)
+			clkdev_drop(s2mps11_clks[i].lookup);
+	}
 
 	return ret;
 }

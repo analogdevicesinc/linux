@@ -79,6 +79,13 @@ static const struct dmi_system_id dmi_table[] = {
 	{
 		.matches = {
 			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
+			DMI_EXACT_MATCH(DMI_BOARD_NAME, "AYANEO 2S"),
+		},
+		.driver_data = (void *)&quirk_charge_limit,
+	},
+	{
+		.matches = {
+			DMI_MATCH(DMI_BOARD_VENDOR, "AYANEO"),
 			DMI_MATCH(DMI_BOARD_NAME, "AYANEO 2"),
 		},
 		.driver_data = (void *)&quirk_fan,
@@ -471,7 +478,7 @@ static int ayaneo_ec_probe(struct platform_device *pdev)
 	if (!dmi_entry)
 		return -ENODEV;
 
-	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(&pdev->dev, *data);
 	if (!data)
 		return -ENOMEM;
 

@@ -405,9 +405,9 @@ static ssize_t hns3_pmu_filter_mode_show(struct device *dev,
 	return len;
 }
 
-#define HNS3_PMU_ATTR(_name, _func, _config)				\
-	(&((struct dev_ext_attribute[]) {				\
-		{ __ATTR(_name, 0444, _func, NULL), (void *)_config }	\
+#define HNS3_PMU_ATTR(_name, _func, _config)				     \
+	(&((struct dev_ext_attribute[]) {				     \
+		{ __DEVICE_ATTR(_name, 0444, _func, NULL), (void *)_config } \
 	})[0].attr.attr)
 
 #define HNS3_PMU_FORMAT_ATTR(_name, _format) \
@@ -1601,7 +1601,7 @@ static int hns3_pmu_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct hns3_pmu *hns3_pmu;
 	int ret;
 
-	hns3_pmu = devm_kzalloc(&pdev->dev, sizeof(*hns3_pmu), GFP_KERNEL);
+	hns3_pmu = devm_kzalloc_obj(&pdev->dev, *hns3_pmu);
 	if (!hns3_pmu)
 		return -ENOMEM;
 

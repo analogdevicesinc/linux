@@ -1663,6 +1663,8 @@ static int __sev_snp_init_locked(int *error, unsigned int max_snp_asid)
 
 	sev_es_tmr_size = SNP_TMR_SIZE;
 
+	snp_enable_rmpopt();
+
 	return 0;
 }
 
@@ -2852,7 +2854,7 @@ int sev_dev_init(struct psp_device *psp)
 		return 0;
 	}
 
-	sev = devm_kzalloc(dev, sizeof(*sev), GFP_KERNEL);
+	sev = devm_kzalloc_obj(dev, *sev);
 	if (!sev)
 		goto e_err;
 

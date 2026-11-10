@@ -31,7 +31,7 @@ static int idpf_init_vector_stack(struct idpf_adapter *adapter)
 	stack->base = min_vec;
 	stack->top = min_vec;
 
-	stack->vec_idx = kcalloc(stack->size, sizeof(u16), GFP_KERNEL);
+	stack->vec_idx = kzalloc_objs(u16, stack->size);
 	if (!stack->vec_idx) {
 		mutex_unlock(&adapter->vector_lock);
 
@@ -378,7 +378,7 @@ int idpf_intr_req(struct idpf_adapter *adapter)
 
 	adapter->mb_vector.v_idx = le16_to_cpu(adapter->caps.mailbox_vector_id);
 
-	vecids = kcalloc(actual_vecs, sizeof(u16), GFP_KERNEL);
+	vecids = kzalloc_objs(u16, actual_vecs);
 	if (!vecids) {
 		err = -ENOMEM;
 		goto free_msix;
@@ -817,6 +817,21 @@ static void idpf_attach_and_open(struct idpf_adapter *adapter)
 	}
 }
 
+static void idpf_vport_set_pacing_offload(struct idpf_vport *vport,
+					  struct net_device *netdev)
+{
+	struct idpf_adapter *adapter = vport->adapter;
+	u32 max_horizon = 0;
+
+	if (adapter->edt_caps.time_horizon_ns &&
+	    idpf_is_queue_model_split(vport->dflt_qv_rsrc.txq_model) &&
+	    !idpf_is_cap_ena(adapter, IDPF_OTHER_CAPS,
+			     VIRTCHNL2_CAP_SPLITQ_QSCHED))
+		max_horizon = adapter->edt_caps.time_horizon_ns;
+
+	WRITE_ONCE(netdev->max_pacing_offload_horizon, max_horizon);
+}
+
 /**
  * idpf_cfg_netdev - Allocate, configure and register a netdev
  * @vport: main vport structure
@@ -849,6 +864,8 @@ static int idpf_cfg_netdev(struct idpf_vport *vport)
 		np->vport_id = vport->vport_id;
 		np->max_tx_hdr_size = idpf_get_max_tx_hdr_size(adapter);
 		vport->netdev = netdev;
+
+		idpf_vport_set_pacing_offload(vport, netdev);
 
 		return idpf_init_mac_addr(vport, netdev);
 	}
@@ -889,6 +906,8 @@ static int idpf_cfg_netdev(struct idpf_vport *vport)
 	/* configure default MTU size */
 	netdev->min_mtu = ETH_MIN_MTU;
 	netdev->max_mtu = vport->max_mtu;
+
+	idpf_vport_set_pacing_offload(vport, netdev);
 
 	dflt_features = NETIF_F_SG	|
 			NETIF_F_HIGHDMA;
@@ -1279,7 +1298,7 @@ static struct idpf_vport *idpf_vport_alloc(struct idpf_adapter *adapter,
 
 	rsrc = &vport->dflt_qv_rsrc;
 	rsrc->dev = &adapter->pdev->dev;
-	rsrc->q_vector_idxs = kcalloc(num_max_q, sizeof(u16), GFP_KERNEL);
+	rsrc->q_vector_idxs = kzalloc_objs(u16, num_max_q);
 	if (!rsrc->q_vector_idxs)
 		goto free_vport;
 

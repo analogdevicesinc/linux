@@ -325,7 +325,7 @@ static void ctrl_set_default(struct mmphw_ctrl *ctrl)
 	u32 tmp, irq_mask;
 
 	/*
-	 * LCD Global control(LCD_TOP_CTRL) should be configed before
+	 * LCD Global control(LCD_TOP_CTRL) should be configured before
 	 * any other LCD registers read/write, or there maybe issues.
 	 */
 	tmp = readl_relaxed(ctrl->reg_base + LCD_TOP_CTRL);
@@ -469,9 +469,7 @@ static int mmphw_probe(struct platform_device *pdev)
 	}
 
 	/* allocate */
-	ctrl = devm_kzalloc(&pdev->dev,
-			    struct_size(ctrl, path_plats, mi->path_num),
-			    GFP_KERNEL);
+	ctrl = devm_kzalloc_flex(&pdev->dev, *ctrl, path_plats, mi->path_num);
 	if (!ctrl) {
 		ret = -ENOMEM;
 		goto failed;
@@ -521,7 +519,7 @@ static int mmphw_probe(struct platform_device *pdev)
 	/* init global regs */
 	ctrl_set_default(ctrl);
 
-	/* init pathes from machine info and register them */
+	/* init paths from machine info and register them */
 	for (i = 0; i < ctrl->path_num; i++) {
 		/* get from config and machine info */
 		path_plat = &ctrl->path_plats[i];

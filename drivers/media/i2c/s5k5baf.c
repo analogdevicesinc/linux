@@ -362,7 +362,7 @@ static int s5k5baf_fw_parse(struct device *dev, struct s5k5baf_fw **fw,
 	data += S5K5BAG_FW_TAG_LEN;
 	count -= S5K5BAG_FW_TAG_LEN;
 
-	d = devm_kcalloc(dev, count, sizeof(u16), GFP_KERNEL);
+	d = devm_kzalloc_objs(dev, u16, count);
 	if (!d)
 		return -ENOMEM;
 
@@ -1307,6 +1307,7 @@ static int s5k5baf_get_fmt(struct v4l2_subdev *sd,
 }
 
 static int s5k5baf_set_fmt(struct v4l2_subdev *sd,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *fmt)
 {
@@ -1370,6 +1371,7 @@ static int s5k5baf_is_bound_target(u32 target)
 }
 
 static int s5k5baf_get_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -1463,6 +1465,7 @@ static bool s5k5baf_cmp_rect(const struct v4l2_rect *r1,
 }
 
 static int s5k5baf_set_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -1929,7 +1932,7 @@ static int s5k5baf_probe(struct i2c_client *c)
 	struct s5k5baf *state;
 	int ret;
 
-	state = devm_kzalloc(&c->dev, sizeof(*state), GFP_KERNEL);
+	state = devm_kzalloc_obj(&c->dev, *state);
 	if (!state)
 		return -ENOMEM;
 

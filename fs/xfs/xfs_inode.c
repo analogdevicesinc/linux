@@ -755,7 +755,7 @@ xfs_create(
 	*ipp = du.ip;
 	xfs_iunlock(du.ip, XFS_ILOCK_EXCL);
 	xfs_iunlock(dp, XFS_ILOCK_EXCL);
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
 	return 0;
 
  out_trans_cancel:
@@ -772,7 +772,7 @@ xfs_create(
 		xfs_irele(du.ip);
 	}
  out_parent:
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
  out_release_dquots:
 	xfs_qm_dqrele(udqp);
 	xfs_qm_dqrele(gdqp);
@@ -972,7 +972,7 @@ xfs_link(
 	error = xfs_trans_commit(tp);
 	xfs_iunlock(tdp, XFS_ILOCK_EXCL);
 	xfs_iunlock(sip, XFS_ILOCK_EXCL);
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
 	return error;
 
  error_return:
@@ -980,7 +980,7 @@ xfs_link(
 	xfs_iunlock(tdp, XFS_ILOCK_EXCL);
 	xfs_iunlock(sip, XFS_ILOCK_EXCL);
  out_parent:
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
  std_return:
 	if (error == -ENOSPC && nospace_error)
 		error = nospace_error;
@@ -1064,7 +1064,7 @@ xfs_itruncate_extents_flags(
 	 * the page cache can't scale that far.
 	 */
 	first_unmap_block = XFS_B_TO_FSB(mp, (xfs_ufsize_t)new_size);
-	if (!xfs_verify_fileoff(mp, first_unmap_block)) {
+	if (!xfs_verify_fileoff(first_unmap_block)) {
 		WARN_ON_ONCE(first_unmap_block > XFS_MAX_FILEOFF);
 		return 0;
 	}
@@ -1481,8 +1481,17 @@ xfs_inactive(
 	 */
 	if (xfs_inode_has_attr_fork(ip)) {
 		error = xfs_attr_inactive(ip);
-		if (error)
+		if (error) {
+			/*
+			 * Attr teardown failed, leaking blocks with no in-core
+			 * record. Clear i_mode to block xfs_iget() recycling,
+			 * then shut down so recovery cleans up the inode.
+			 */
+			VFS_I(ip)->i_mode = 0;
+			if (!xfs_is_shutdown(mp))
+				xfs_force_shutdown(mp, SHUTDOWN_CORRUPT_INCORE);
 			goto out;
+		}
 	}
 
 	ASSERT(ip->i_forkoff == 0);
@@ -1985,7 +1994,7 @@ xfs_remove(
 
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
 	xfs_iunlock(dp, XFS_ILOCK_EXCL);
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
 	return 0;
 
  out_trans_cancel:
@@ -1994,7 +2003,7 @@ xfs_remove(
 	xfs_iunlock(ip, XFS_ILOCK_EXCL);
 	xfs_iunlock(dp, XFS_ILOCK_EXCL);
  out_parent:
-	xfs_parent_finish(mp, du.ppargs);
+	xfs_parent_finish(du.ppargs);
  std_return:
 	return error;
 }
@@ -2084,7 +2093,7 @@ xfs_sort_inodes(
  */
 static int
 xfs_rename_alloc_whiteout(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct xfs_name		*src_name,
 	struct xfs_inode	*dp,
 	struct xfs_inode	**wip)
@@ -2130,7 +2139,7 @@ xfs_rename_alloc_whiteout(
  */
 int
 xfs_rename(
-	struct mnt_idmap	*idmap,
+	const struct mnt_idmap	*idmap,
 	struct xfs_inode	*src_dp,
 	struct xfs_name		*src_name,
 	struct xfs_inode	*src_ip,
@@ -2357,11 +2366,11 @@ out_trans_cancel:
 out_unlock:
 	xfs_iunlock_rename(inodes, num_inodes);
 out_tgt_ppargs:
-	xfs_parent_finish(mp, du_tgt.ppargs);
+	xfs_parent_finish(du_tgt.ppargs);
 out_wip_ppargs:
-	xfs_parent_finish(mp, du_wip.ppargs);
+	xfs_parent_finish(du_wip.ppargs);
 out_src_ppargs:
-	xfs_parent_finish(mp, du_src.ppargs);
+	xfs_parent_finish(du_src.ppargs);
 out_release_wip:
 	if (du_wip.ip)
 		xfs_irele(du_wip.ip);
@@ -2669,11 +2678,36 @@ xfs_irele(
 }
 
 /*
- * Ensure all committed transactions touching the inode are written to the log.
+ * Ensure all committed transactions touching the inode are written to the log,
+ * or with @datasync only those that fdatasync has to wait for.
+ *
+ * All metadata updates are logged, which means that we just have to push the
+ * journal to the required sequence number that holds the updates. We track
+ * datasync commits separately to full sync commits, and hence only need to
+ * select the correct sequence number for the log force here.
+ *
+ * We don't have to serialise against concurrent modifications, as we do not
+ * have to wait for modifications that have not yet completed. We define a
+ * transaction commit as completing when the commit sequence number is updated,
+ * hence if the sequence number has not updated, the sync operation has been
+ * run before the commit completed and we don't have to wait for it.
+ *
+ * If we have concurrent fsync/fdatasync() calls, the sequence numbers remain
+ * set on the log item until - at least - the journal flush completes. In
+ * reality, they are only cleared when the inode is fully unpinned (i.e.
+ * persistent in the journal and not dirty in the CIL), and so we rely on
+ * xfs_log_force_seq() either skipping sequences that have been persisted or
+ * waiting on sequences that are still in flight to correctly order concurrent
+ * sync operations.
+ *
+ * If @log_flushed is not NULL, it is set when the log force wrote an iclog,
+ * which flushes the device caches before the log write.
  */
 int
 xfs_log_force_inode(
-	struct xfs_inode	*ip)
+	struct xfs_inode	*ip,
+	bool			datasync,
+	int			*log_flushed)
 {
 	struct xfs_inode_log_item *iip = ip->i_itemp;
 	xfs_csn_t		seq = 0;
@@ -2682,12 +2716,15 @@ xfs_log_force_inode(
 		return 0;
 
 	spin_lock(&iip->ili_lock);
-	seq = iip->ili_commit_seq;
+	if (datasync)
+		seq = iip->ili_datasync_seq;
+	else
+		seq = iip->ili_commit_seq;
 	spin_unlock(&iip->ili_lock);
 
 	if (!seq)
 		return 0;
-	return xfs_log_force_seq(ip->i_mount, seq, XFS_LOG_SYNC, NULL);
+	return xfs_log_force_seq(ip->i_mount, seq, XFS_LOG_SYNC, log_flushed);
 }
 
 /*

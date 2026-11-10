@@ -15,6 +15,20 @@
 #include "msm_mmu.h"
 #include "mdp4_kms.h"
 
+static const struct of_device_id mdp4_dt_match[];
+int msm_count_mdp4(void)
+{
+	struct device_node *np;
+	int count = 0;
+
+	for_each_matching_node(np, mdp4_dt_match) {
+		if (of_device_is_available(np))
+			count++;
+	}
+
+	return count;
+}
+
 static int mdp4_hw_init(struct msm_kms *kms)
 {
 	struct mdp4_kms *mdp4_kms = to_mdp4_kms(to_mdp_kms(kms));
@@ -497,7 +511,7 @@ static int mdp4_probe(struct platform_device *pdev)
 	struct mdp4_kms *mdp4_kms;
 	int irq;
 
-	mdp4_kms = devm_kzalloc(dev, sizeof(*mdp4_kms), GFP_KERNEL);
+	mdp4_kms = devm_kzalloc_obj(dev, *mdp4_kms);
 	if (!mdp4_kms)
 		return -ENOMEM;
 

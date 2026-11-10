@@ -657,17 +657,24 @@ static int cs35l35_dai_set_sysclk(struct snd_soc_dai *dai,
 	return 0;
 }
 
+static const u64 cs35l35_selectable_formats_i2s = SND_SOC_POSSIBLE_DAIFMT_I2S;
+static const u64 cs35l35_selectable_formats_pdm = SND_SOC_POSSIBLE_DAIFMT_PDM;
+
 static const struct snd_soc_dai_ops cs35l35_ops = {
 	.startup = cs35l35_pcm_startup,
 	.set_fmt = cs35l35_set_dai_fmt,
 	.hw_params = cs35l35_hw_params,
 	.set_sysclk = cs35l35_dai_set_sysclk,
+	.auto_selectable_formats = &cs35l35_selectable_formats_i2s,
+	.num_auto_selectable_formats = 1,
 };
 
 static const struct snd_soc_dai_ops cs35l35_pdm_ops = {
 	.startup = cs35l35_pdm_startup,
 	.set_fmt = cs35l35_set_dai_fmt,
 	.hw_params = cs35l35_hw_params,
+	.auto_selectable_formats	= &cs35l35_selectable_formats_pdm,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver cs35l35_dai[] = {
@@ -1471,7 +1478,7 @@ static int cs35l35_i2c_probe(struct i2c_client *i2c_client)
 	int ret;
 	unsigned int reg;
 
-	cs35l35 = devm_kzalloc(dev, sizeof(struct cs35l35_private), GFP_KERNEL);
+	cs35l35 = devm_kzalloc_obj(dev, struct cs35l35_private);
 	if (!cs35l35)
 		return -ENOMEM;
 
@@ -1500,8 +1507,7 @@ static int cs35l35_i2c_probe(struct i2c_client *i2c_client)
 	if (pdata) {
 		cs35l35->pdata = *pdata;
 	} else {
-		pdata = devm_kzalloc(dev, sizeof(struct cs35l35_platform_data),
-				     GFP_KERNEL);
+		pdata = devm_kzalloc_obj(dev, struct cs35l35_platform_data);
 		if (!pdata)
 			return -ENOMEM;
 		if (i2c_client->dev.of_node) {

@@ -32,7 +32,7 @@ static const u8 REG_TEMP_MAX[4] = { 0x34, 0x30, 0x31, 0x32 };
 #define REG_PRODUCT_ID		0xfd
 #define REG_MFG_ID		0xfe
 
-/* equation 4 from datasheet: rpm = (3932160 * multipler) / count */
+/* equation 4 from datasheet: rpm = (3932160 * multiplier) / count */
 #define FAN_RPM_FACTOR		3932160
 
 /*
@@ -564,8 +564,7 @@ emc2103_probe(struct i2c_client *client)
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -EIO;
 
-	data = devm_kzalloc(&client->dev, sizeof(struct emc2103_data),
-			    GFP_KERNEL);
+	data = devm_kzalloc_obj(&client->dev, struct emc2103_data);
 	if (!data)
 		return -ENOMEM;
 

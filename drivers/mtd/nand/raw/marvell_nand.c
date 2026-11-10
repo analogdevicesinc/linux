@@ -868,6 +868,7 @@ static int marvell_nfc_xfer_data_dma(struct marvell_nfc *nfc,
 				     unsigned int len)
 {
 	unsigned int dma_len = min_t(int, ALIGN(len, 32), MAX_CHUNK_SIZE);
+	struct device *dma_dev = dmaengine_get_dma_device(nfc->dma_chan);
 	struct dma_async_tx_descriptor *tx;
 	struct scatterlist sg;
 	dma_cookie_t cookie;
@@ -876,7 +877,7 @@ static int marvell_nfc_xfer_data_dma(struct marvell_nfc *nfc,
 	marvell_nfc_enable_dma(nfc);
 	/* Prepare the DMA transfer */
 	sg_init_one(&sg, nfc->dma_buf, dma_len);
-	ret = dma_map_sg(nfc->dma_chan->device->dev, &sg, 1, direction);
+	ret = dma_map_sg(dma_dev, &sg, 1, direction);
 	if (!ret) {
 		dev_err(nfc->dev, "Could not map DMA S/G list\n");
 		return -ENXIO;
@@ -888,7 +889,7 @@ static int marvell_nfc_xfer_data_dma(struct marvell_nfc *nfc,
 				     DMA_PREP_INTERRUPT);
 	if (!tx) {
 		dev_err(nfc->dev, "Could not prepare DMA S/G list\n");
-		dma_unmap_sg(nfc->dma_chan->device->dev, &sg, 1, direction);
+		dma_unmap_sg(dma_dev, &sg, 1, direction);
 		return -ENXIO;
 	}
 
@@ -900,7 +901,7 @@ static int marvell_nfc_xfer_data_dma(struct marvell_nfc *nfc,
 
 	dma_async_issue_pending(nfc->dma_chan);
 	ret = marvell_nfc_wait_cmdd(nfc->selected_chip);
-	dma_unmap_sg(nfc->dma_chan->device->dev, &sg, 1, direction);
+	dma_unmap_sg(dma_dev, &sg, 1, direction);
 	marvell_nfc_disable_dma(nfc);
 	if (ret) {
 		dev_err(nfc->dev, "Timeout waiting for DMA (status: %d)\n",
@@ -2630,9 +2631,7 @@ static int marvell_nand_chip_init(struct device *dev, struct marvell_nfc *nfc,
 	}
 
 	/* Alloc the nand chip structure */
-	marvell_nand = devm_kzalloc(dev,
-				    struct_size(marvell_nand, sels, nsels),
-				    GFP_KERNEL);
+	marvell_nand = devm_kzalloc_flex(dev, *marvell_nand, sels, nsels);
 	if (!marvell_nand) {
 		dev_err(dev, "could not allocate chip structure\n");
 		return -ENOMEM;
@@ -2939,8 +2938,7 @@ static int marvell_nfc_probe(struct platform_device *pdev)
 	int ret;
 	int irq;
 
-	nfc = devm_kzalloc(&pdev->dev, sizeof(struct marvell_nfc),
-			   GFP_KERNEL);
+	nfc = devm_kzalloc_obj(&pdev->dev, struct marvell_nfc);
 	if (!nfc)
 		return -ENOMEM;
 

@@ -332,7 +332,7 @@ static int sdhci_omap_execute_tuning(struct mmc_host *mmc, u32 opcode)
 	u32 reg;
 	int i;
 
-	/* clock tuning is not needed for upto 52MHz */
+	/* clock tuning is not needed for up to 52MHz */
 	if (ios->clock <= 52000000)
 		return 0;
 
@@ -1122,10 +1122,8 @@ static int sdhci_omap_config_iodelay_pinctrl_state(struct sdhci_omap_host
 	if (!(omap_host->flags & SDHCI_OMAP_REQUIRE_IODELAY))
 		return 0;
 
-	pinctrl_state = devm_kcalloc(dev,
-				     MMC_TIMING_MMC_HS200 + 1,
-				     sizeof(*pinctrl_state),
-				     GFP_KERNEL);
+	pinctrl_state = devm_kzalloc_objs(dev, *pinctrl_state,
+					  MMC_TIMING_MMC_HS200 + 1);
 	if (!pinctrl_state)
 		return -ENOMEM;
 

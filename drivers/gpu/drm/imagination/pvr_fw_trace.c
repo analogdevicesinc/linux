@@ -101,7 +101,6 @@ tracebuf_ctrl_init(void *cpu_ptr, void *priv)
 		pvr_fw_object_get_fw_addr(trace_buffer->buf_obj,
 					  &tracebuf_space->trace_buffer_fw_addr);
 
-		tracebuf_space->trace_buffer = trace_buffer->buf;
 		tracebuf_space->trace_pointer = 0;
 	}
 }
@@ -459,8 +458,8 @@ static int fw_trace_open(struct inode *inode, struct file *file)
 	if (!trace_seq_data)
 		return -ENOMEM;
 
-	trace_seq_data->buffer = kcalloc(ROGUE_FW_TRACE_BUF_DEFAULT_SIZE_IN_DWORDS,
-					 sizeof(*trace_seq_data->buffer), GFP_KERNEL);
+	trace_seq_data->buffer = kzalloc_objs(*trace_seq_data->buffer,
+					      ROGUE_FW_TRACE_BUF_DEFAULT_SIZE_IN_DWORDS);
 	if (!trace_seq_data->buffer) {
 		err = -ENOMEM;
 		goto err_free_data;

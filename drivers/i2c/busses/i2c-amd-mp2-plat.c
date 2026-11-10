@@ -266,7 +266,7 @@ static int i2c_amd_probe(struct platform_device *pdev)
 		/* The MP2 PCI device should get probed later */
 		return -EPROBE_DEFER;
 
-	i2c_dev = devm_kzalloc(&pdev->dev, sizeof(*i2c_dev), GFP_KERNEL);
+	i2c_dev = devm_kzalloc_obj(&pdev->dev, *i2c_dev);
 	if (!i2c_dev)
 		return -ENOMEM;
 
@@ -341,7 +341,7 @@ static void i2c_amd_remove(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id i2c_amd_acpi_match[] = {
-	{ "AMDI0011" },
+	{ .id = "AMDI0011" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, i2c_amd_acpi_match);

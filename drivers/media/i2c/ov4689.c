@@ -330,6 +330,7 @@ static void ov4689_fill_fmt(const struct ov4689_mode *mode,
 }
 
 static int ov4689_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -385,6 +386,7 @@ static int ov4689_enable_test_pattern(struct ov4689 *ov4689, u32 pattern)
 }
 
 static int ov4689_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -899,7 +901,7 @@ static int ov4689_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	ov4689 = devm_kzalloc(dev, sizeof(*ov4689), GFP_KERNEL);
+	ov4689 = devm_kzalloc_obj(dev, *ov4689);
 	if (!ov4689)
 		return -ENOMEM;
 

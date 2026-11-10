@@ -972,7 +972,7 @@ static ssize_t timestamp_show(struct device *dev,
 		if (ret)
 			return ret;
 	}
-	return sprintf(buf, "%llu\n", (unsigned long long)ts);
+	return sysfs_emit(buf, "%llu\n", (unsigned long long)ts);
 }
 
 static ssize_t timestamp0_show(struct device *dev,
@@ -1196,7 +1196,7 @@ static int pcf2127_probe(struct device *dev, struct regmap *regmap,
 
 	dev_dbg(dev, "%s\n", __func__);
 
-	pcf2127 = devm_kzalloc(dev, sizeof(*pcf2127), GFP_KERNEL);
+	pcf2127 = devm_kzalloc_obj(dev, *pcf2127);
 	if (!pcf2127)
 		return -ENOMEM;
 

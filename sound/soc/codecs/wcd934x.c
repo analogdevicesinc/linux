@@ -1706,7 +1706,7 @@ static int wcd934x_slim_set_hw_params(struct wcd934x_codec *wcd,
 		cfg->port_mask |= BIT(ch->port);
 	}
 
-	cfg->chs = kcalloc(cfg->ch_count, sizeof(unsigned int), GFP_KERNEL);
+	cfg->chs = kzalloc_objs(unsigned int, cfg->ch_count);
 	if (!cfg->chs)
 		return -ENOMEM;
 
@@ -2130,9 +2130,9 @@ static struct clk *wcd934x_register_mclk_output(struct wcd934x_codec *wcd)
 	struct device *dev = wcd->dev;
 	struct device_node *np = dev->parent->of_node;
 	const char *parent_clk_name = NULL;
+	struct clk_init_data init = {};
 	const char *clk_name = "mclk";
 	struct clk_hw *hw;
-	struct clk_init_data init;
 	int ret;
 
 	if (of_property_read_u32(np, "clock-frequency", &wcd->rate))
@@ -5839,7 +5839,7 @@ static int wcd934x_codec_probe(struct platform_device *pdev)
 	struct wcd934x_codec *wcd;
 	int ret, irq;
 
-	wcd = devm_kzalloc(dev, sizeof(*wcd), GFP_KERNEL);
+	wcd = devm_kzalloc_obj(dev, *wcd);
 	if (!wcd)
 		return -ENOMEM;
 

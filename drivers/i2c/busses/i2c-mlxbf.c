@@ -1044,8 +1044,7 @@ static int mlxbf_i2c_init_resource(struct platform_device *pdev,
 	if (!res || *res || type >= MLXBF_I2C_END_RES)
 		return -EINVAL;
 
-	tmp_res = devm_kzalloc(dev, sizeof(struct mlxbf_i2c_resource),
-			       GFP_KERNEL);
+	tmp_res = devm_kzalloc_obj(dev, struct mlxbf_i2c_resource);
 	if (!tmp_res)
 		return -ENOMEM;
 
@@ -2198,10 +2197,10 @@ static struct i2c_adapter_quirks mlxbf_i2c_quirks = {
 };
 
 static const struct acpi_device_id mlxbf_i2c_acpi_ids[] = {
-	{ "MLNXBF03", (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_1] },
-	{ "MLNXBF23", (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_2] },
-	{ "MLNXBF31", (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_3] },
-	{},
+	{ .id = "MLNXBF03", .driver_data = (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_1] },
+	{ .id = "MLNXBF23", .driver_data = (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_2] },
+	{ .id = "MLNXBF31", .driver_data = (kernel_ulong_t)&mlxbf_i2c_chip[MLXBF_I2C_CHIP_TYPE_3] },
+	{ }
 };
 
 MODULE_DEVICE_TABLE(acpi, mlxbf_i2c_acpi_ids);
@@ -2240,7 +2239,7 @@ static int mlxbf_i2c_probe(struct platform_device *pdev)
 	u32 resource_version;
 	int irq, ret;
 
-	priv = devm_kzalloc(dev, sizeof(struct mlxbf_i2c_priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, struct mlxbf_i2c_priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -2259,15 +2258,15 @@ static int mlxbf_i2c_probe(struct platform_device *pdev)
 	priv->resource_version = resource_version;
 
 	if (priv->chip->type < MLXBF_I2C_CHIP_TYPE_3 && resource_version == 0) {
-		priv->timer = devm_kzalloc(dev, sizeof(struct mlxbf_i2c_resource), GFP_KERNEL);
+		priv->timer = devm_kzalloc_obj(dev, struct mlxbf_i2c_resource);
 		if (!priv->timer)
 			return -ENOMEM;
 
-		priv->mst = devm_kzalloc(dev, sizeof(struct mlxbf_i2c_resource), GFP_KERNEL);
+		priv->mst = devm_kzalloc_obj(dev, struct mlxbf_i2c_resource);
 		if (!priv->mst)
 			return -ENOMEM;
 
-		priv->slv = devm_kzalloc(dev, sizeof(struct mlxbf_i2c_resource), GFP_KERNEL);
+		priv->slv = devm_kzalloc_obj(dev, struct mlxbf_i2c_resource);
 		if (!priv->slv)
 			return -ENOMEM;
 

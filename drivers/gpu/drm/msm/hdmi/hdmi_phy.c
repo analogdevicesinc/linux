@@ -14,13 +14,11 @@ static int msm_hdmi_phy_resource_init(struct hdmi_phy *phy)
 	struct device *dev = &phy->pdev->dev;
 	int i, ret;
 
-	phy->regs = devm_kcalloc(dev, cfg->num_regs, sizeof(phy->regs[0]),
-				 GFP_KERNEL);
+	phy->regs = devm_kzalloc_objs(dev, phy->regs[0], cfg->num_regs);
 	if (!phy->regs)
 		return -ENOMEM;
 
-	phy->clks = devm_kcalloc(dev, cfg->num_clks, sizeof(phy->clks[0]),
-				 GFP_KERNEL);
+	phy->clks = devm_kzalloc_objs(dev, phy->clks[0], cfg->num_clks);
 	if (!phy->clks)
 		return -ENOMEM;
 
@@ -67,15 +65,27 @@ int msm_hdmi_phy_resource_enable(struct hdmi_phy *phy)
 	ret = regulator_bulk_enable(cfg->num_regs, phy->regs);
 	if (ret) {
 		DRM_DEV_ERROR(dev, "failed to enable regulators: (%d)\n", ret);
-		return ret;
+		goto err_pm_put;
 	}
 
 	for (i = 0; i < cfg->num_clks; i++) {
 		ret = clk_prepare_enable(phy->clks[i]);
-		if (ret)
+		if (ret) {
 			DRM_DEV_ERROR(dev, "failed to enable clock: %s (%d)\n",
 				cfg->clk_names[i], ret);
+			goto err_clk_unprepare;
+		}
 	}
+
+	return 0;
+
+err_clk_unprepare:
+	for (; i > 0; i--)
+		clk_disable_unprepare(phy->clks[i - 1]);
+	regulator_bulk_disable(cfg->num_regs, phy->regs);
+
+err_pm_put:
+	pm_runtime_put_sync(dev);
 
 	return ret;
 }
@@ -144,7 +154,7 @@ static int msm_hdmi_phy_probe(struct platform_device *pdev)
 	struct hdmi_phy *phy;
 	int ret;
 
-	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
+	phy = devm_kzalloc_obj(dev, *phy);
 	if (!phy)
 		return -ENODEV;
 

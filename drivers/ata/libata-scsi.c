@@ -190,28 +190,25 @@ DEVICE_ATTR(unload_heads, S_IRUGO | S_IWUSR,
 	    ata_scsi_park_show, ata_scsi_park_store);
 EXPORT_SYMBOL_GPL(dev_attr_unload_heads);
 
-bool ata_scsi_sense_is_valid(u8 sk, u8 asc, u8 ascq)
+bool ata_scsi_sense_is_valid(u8 sense_key, u16 sense_code)
 {
-	/*
-	 * If sk == NO_SENSE, and asc + ascq == NO ADDITIONAL SENSE INFORMATION,
-	 * then there is no sense data to add.
-	 */
-	if (sk == 0 && asc == 0 && ascq == 0)
+	if (sense_key == NO_SENSE &&
+	    sense_code == NO_ADDITIONAL_SENSE_INFORMATION)
 		return false;
 
 	/* If sk > COMPLETED, sense data is bogus. */
-	if (sk > COMPLETED)
+	if (sense_key > COMPLETED)
 		return false;
 
 	return true;
 }
 
 void ata_scsi_set_sense(struct ata_device *dev, struct scsi_cmnd *cmd,
-			u8 sk, u8 asc, u8 ascq)
+			u8 sk, u16 code)
 {
 	bool d_sense = (dev->flags & ATA_DFLAG_D_SENSE);
 
-	scsi_build_sense(cmd, d_sense, sk, asc, ascq);
+	scsi_set_sense(cmd, d_sense, sk, code);
 }
 
 static void ata_scsi_set_sense_information(struct ata_queued_cmd *qc)
@@ -322,8 +319,7 @@ static void ata_scsi_set_passthru_sense_fields(struct ata_queued_cmd *qc)
 static void ata_scsi_set_invalid_field(struct ata_device *dev,
 				       struct scsi_cmnd *cmd, u16 field, u8 bit)
 {
-	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, 0x24, 0x0);
-	/* "Invalid field in CDB" */
+	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, INVALID_FIELD_IN_CDB);
 	scsi_set_sense_field_pointer(cmd->sense_buffer, SCSI_SENSE_BUFFERSIZE,
 				     field, bit, 1);
 }
@@ -331,8 +327,8 @@ static void ata_scsi_set_invalid_field(struct ata_device *dev,
 static void ata_scsi_set_invalid_parameter(struct ata_device *dev,
 					   struct scsi_cmnd *cmd, u16 field)
 {
-	/* "Invalid field in parameter list" */
-	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, 0x26, 0x0);
+	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST,
+			   INVALID_FIELD_IN_PARAMETER_LIST);
 	scsi_set_sense_field_pointer(cmd->sense_buffer, SCSI_SENSE_BUFFERSIZE,
 				     field, 0xff, 0);
 }
@@ -531,7 +527,8 @@ int ata_cmd_ioctl(struct scsi_device *scsidev, void __user *arg)
 		 * check condition even if no error. Filter that. */
 		if (scsi_status_is_check_condition(cmd_result)) {
 			if (sshdr.sense_key == RECOVERED_ERROR &&
-			    sshdr.asc == 0 && sshdr.ascq == 0x1d)
+			    sshdr.sense_code ==
+			    ATA_PASS_THROUGH_INFORMATION_AVAILABLE)
 				cmd_result &= ~SAM_STAT_CHECK_CONDITION;
 		}
 
@@ -619,7 +616,8 @@ int ata_task_ioctl(struct scsi_device *scsidev, void __user *arg)
 		 * check condition even if no error. Filter that. */
 		if (cmd_result & SAM_STAT_CHECK_CONDITION) {
 			if (sshdr.sense_key == RECOVERED_ERROR &&
-			    sshdr.asc == 0 && sshdr.ascq == 0x1d)
+			    sshdr.sense_code ==
+			    ATA_PASS_THROUGH_INFORMATION_AVAILABLE)
 				cmd_result &= ~SAM_STAT_CHECK_CONDITION;
 		}
 
@@ -798,79 +796,143 @@ static void ata_qc_set_pc_nbytes(struct ata_queued_cmd *qc)
 	qc->nbytes = scsi_bufflen(scmd) + qc->extrabytes;
 }
 
+struct ata_err_sense {
+	u8	err_mask;
+	u8	sense_key;
+	u16	sense_code;
+};
+
 /**
  *	ata_to_sense_error - convert ATA error to SCSI error
  *	@drv_stat: value contained in ATA status register
  *	@drv_err: value contained in ATA error register
  *	@sk: the sense key we'll fill out
- *	@asc: the additional sense code we'll fill out
- *	@ascq: the additional sense code qualifier we'll fill out
+ *	@scode: the additional sense code and its qualifier we'll fill out
  *
  *	Converts an ATA error into a SCSI error.  Fill out pointers to
- *	SK, ASC, and ASCQ bytes for later use in fixed or descriptor
+ *	the sense key and sense code for later use in fixed or descriptor
  *	format sense blocks.
  *
  *	LOCKING:
  *	spin_lock_irqsave(host lock)
  */
-static void ata_to_sense_error(u8 drv_stat, u8 drv_err, u8 *sk, u8 *asc,
-			       u8 *ascq)
+static void ata_to_sense_error(u8 drv_stat, u8 drv_err, u8 *sk, u16 *scode)
 {
 	int i;
 
 	/* Based on the 3ware driver translation table */
-	static const unsigned char sense_table[][4] = {
-		/* BBD|ECC|ID|MAR */
-		{0xd1,		ABORTED_COMMAND, 0x00, 0x00},
-			// Device busy                  Aborted command
-		/* BBD|ECC|ID */
-		{0xd0,		ABORTED_COMMAND, 0x00, 0x00},
-			// Device busy                  Aborted command
-		/* ECC|MC|MARK */
-		{0x61,		HARDWARE_ERROR, 0x00, 0x00},
-			// Device fault                 Hardware error
-		/* ICRC|ABRT */		/* NB: ICRC & !ABRT is BBD */
-		{0x84,		ABORTED_COMMAND, 0x47, 0x00},
-			// Data CRC error               SCSI parity error
-		/* MC|ID|ABRT|TRK0|MARK */
-		{0x37,		NOT_READY, 0x04, 0x00},
-			// Unit offline                 Not ready
-		/* MCR|MARK */
-		{0x09,		NOT_READY, 0x04, 0x00},
-			// Unrecovered disk error       Not ready
-		/*  Bad address mark */
-		{0x01,		MEDIUM_ERROR, 0x13, 0x00},
-			// Address mark not found for data field
-		/* TRK0 - Track 0 not found */
-		{0x02,		HARDWARE_ERROR, 0x00, 0x00},
-			// Hardware error
-		/* Abort: 0x04 is not translated here, see below */
-		/* Media change request */
-		{0x08,		NOT_READY, 0x04, 0x00},
-			// FIXME: faking offline
-		/* SRV/IDNF - ID not found */
-		{0x10,		ILLEGAL_REQUEST, 0x21, 0x00},
-			// Logical address out of range
-		/* MC - Media Changed */
-		{0x20,		UNIT_ATTENTION, 0x28, 0x00},
-			// Not ready to ready change, medium may have changed
-		/* ECC - Uncorrectable ECC error */
-		{0x40,		MEDIUM_ERROR, 0x11, 0x04},
-			// Unrecovered read error
-		/* BBD - block marked bad */
-		{0x80,		MEDIUM_ERROR, 0x11, 0x04},
-			// Block marked bad	Medium error, unrecovered read error
-		{0xFF, 0xFF, 0xFF, 0xFF}, // END mark
+	static const struct ata_err_sense sense_table[] = {
+		{
+			/* BBD|ECC|ID|MAR - Device busy */
+			0xd1,
+			ABORTED_COMMAND,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* BBD|ECC|ID - Device busy */
+			0xd0,
+			ABORTED_COMMAND,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* ECC|MC|MARK - Device fault */
+			0x61,
+			HARDWARE_ERROR,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* ICRC|ABRT - Data CRC error */
+			/* NB: ICRC & !ABRT is BBD */
+			0x84,
+			ABORTED_COMMAND,
+			SCSI_PARITY_ERROR
+		},
+		{
+			/* MC|ID|ABRT|TRK0|MARK - Unit offline */
+			0x37,
+			NOT_READY,
+			LU_NOT_READY
+		},
+		{
+			/* MCR|MARK - Unrecovered disk error */
+			0x09,
+			NOT_READY,
+			LU_NOT_READY
+		},
+		{
+			/* Bad address mark */
+			0x01,
+			MEDIUM_ERROR,
+			ADDRESS_MARK_NOT_FOUND_FOR_DATA_FIELD
+		},
+		{
+			/* TRK0 - Track 0 not found */
+			0x02,
+			HARDWARE_ERROR,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* Abort: 0x04 is not translated here, see below */
+			/* Media change request */
+			0x08,
+			NOT_READY,
+			LU_NOT_READY
+		},
+		{
+			/* SRV/IDNF - ID not found */
+			0x10,
+			ILLEGAL_REQUEST,
+			LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE
+		},
+		{
+			/* MC - Media Changed */
+			0x20,
+			UNIT_ATTENTION,
+			NOT_READY_TO_READY_CHANGE_MEDIUM_MAY_HAVE_CHANGED
+		},
+		{
+			/* ECC - Uncorrectable ECC error */
+			0x40,
+			MEDIUM_ERROR,
+			UNRECOVERED_READ_ERROR_AUTO_REALLOCATE_FAILED
+		},
+		{
+			/* BBD - block marked bad */
+			0x80,
+			MEDIUM_ERROR,
+			UNRECOVERED_READ_ERROR_AUTO_REALLOCATE_FAILED
+		},
+		{
+			/* END mark */
+			0xFF, 0xFF, 0xFFFF
+		},
 	};
-	static const unsigned char stat_table[][4] = {
-		/* Busy: must be first because BUSY means no other bits valid */
-		{ ATA_BUSY,	ABORTED_COMMAND, 0x00, 0x00 },
-		/* Device fault: INTERNAL TARGET FAILURE */
-		{ ATA_DF,	HARDWARE_ERROR,  0x44, 0x00 },
-		/* Corrected data error */
-		{ ATA_CORR,	RECOVERED_ERROR, 0x00, 0x00 },
-
-		{ 0xFF, 0xFF, 0xFF, 0xFF }, /* END mark */
+	static const struct ata_err_sense stat_table[] = {
+		{
+			/*
+			 * Busy: must be first because BUSY means no other bits
+			 * valid.
+			 */
+			ATA_BUSY,
+			ABORTED_COMMAND,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* Device fault */
+			ATA_DF,
+			HARDWARE_ERROR,
+			INTERNAL_TARGET_FAILURE
+		},
+		{
+			/* Corrected data error */
+			ATA_CORR,
+			RECOVERED_ERROR,
+			NO_ADDITIONAL_SENSE_INFORMATION
+		},
+		{
+			/* END mark */
+			0xFF, 0xFF, 0xFFFF
+		},
 	};
 
 	/*
@@ -882,13 +944,12 @@ static void ata_to_sense_error(u8 drv_stat, u8 drv_err, u8 *sk, u8 *asc,
 
 	if (drv_err) {
 		/* Look for drv_err */
-		for (i = 0; sense_table[i][0] != 0xFF; i++) {
+		for (i = 0; sense_table[i].err_mask != 0xFF; i++) {
 			/* Look for best matches first */
-			if ((sense_table[i][0] & drv_err) ==
-			    sense_table[i][0]) {
-				*sk = sense_table[i][1];
-				*asc = sense_table[i][2];
-				*ascq = sense_table[i][3];
+			if ((sense_table[i].err_mask & drv_err) ==
+			    sense_table[i].err_mask) {
+				*sk = sense_table[i].sense_key;
+				*scode = sense_table[i].sense_code;
 				return;
 			}
 		}
@@ -899,11 +960,10 @@ static void ata_to_sense_error(u8 drv_stat, u8 drv_err, u8 *sk, u8 *asc,
 	 * has only the ABRT bit set, we decode drv_stat.  ABRT by itself
 	 * is not descriptive enough.
 	 */
-	for (i = 0; stat_table[i][0] != 0xFF; i++) {
-		if (stat_table[i][0] & drv_stat) {
-			*sk = stat_table[i][1];
-			*asc = stat_table[i][2];
-			*ascq = stat_table[i][3];
+	for (i = 0; stat_table[i].err_mask != 0xFF; i++) {
+		if (stat_table[i].err_mask & drv_stat) {
+			*sk = stat_table[i].sense_key;
+			*scode = stat_table[i].sense_code;
 			return;
 		}
 	}
@@ -913,8 +973,7 @@ static void ata_to_sense_error(u8 drv_stat, u8 drv_err, u8 *sk, u8 *asc,
 	 * that won't cause people to do things like return a disk wrongly.
 	 */
 	*sk = ABORTED_COMMAND;
-	*asc = 0x00;
-	*ascq = 0x00;
+	*scode = NO_ADDITIONAL_SENSE_INFORMATION;
 }
 
 /*
@@ -937,40 +996,41 @@ static void ata_gen_passthru_sense(struct ata_queued_cmd *qc)
 	struct ata_device *dev = qc->dev;
 	struct scsi_cmnd *cmd = qc->scsicmd;
 	struct ata_taskfile *tf = &qc->result_tf;
-	u8 sense_key, asc, ascq;
+	u16 sense_code;
+	u8 sense_key;
 
 	if (!(qc->flags & ATA_QCFLAG_RTF_FILLED)) {
 		ata_dev_dbg(dev,
 			    "missing result TF: can't generate ATA PT sense data\n");
 		if (qc->err_mask)
-			ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND, 0, 0);
+			ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND,
+					   NO_ADDITIONAL_SENSE_INFORMATION);
 		return;
 	}
 
 	/*
-	 * Use ata_to_sense_error() to map status register bits
-	 * onto sense key, asc & ascq.
+	 * Use ata_to_sense_error() to map status register bits onto sense key
+	 * and sense code.
 	 */
 	if (qc->err_mask ||
 	    tf->status & (ATA_BUSY | ATA_DF | ATA_ERR | ATA_DRQ)) {
 		ata_to_sense_error(tf->status, tf->error,
-				   &sense_key, &asc, &ascq);
-		ata_scsi_set_sense(qc->dev, cmd, sense_key, asc, ascq);
-	} else {
-		/*
-		 * ATA PASS-THROUGH INFORMATION AVAILABLE
-		 *
-		 * Note: we are supposed to call ata_scsi_set_sense(), which
-		 * respects the D_SENSE bit, instead of unconditionally
-		 * generating the sense data in descriptor format. However,
-		 * because hdparm, hddtemp, and udisks incorrectly assume sense
-		 * data in descriptor format, without even looking at the
-		 * RESPONSE CODE field in the returned sense data (to see which
-		 * format the returned sense data is in), we are stuck with
-		 * being bug compatible with older kernels.
-		 */
-		scsi_build_sense(cmd, 1, RECOVERED_ERROR, 0, 0x1D);
+				   &sense_key, &sense_code);
+		ata_scsi_set_sense(qc->dev, cmd, sense_key, sense_code);
+		return;
 	}
+
+	/*
+	 * Note: we are supposed to call ata_scsi_set_sense(), which respects
+	 * the D_SENSE bit, instead of unconditionally generating the sense data
+	 * in descriptor format. However, because hdparm, hddtemp, and udisks
+	 * incorrectly assume sense data in descriptor format, without even
+	 * looking at the RESPONSE CODE field in the returned sense data (to see
+	 * which format the returned sense data is in), we are stuck with being
+	 * bug compatible with older kernels.
+	 */
+	scsi_set_sense(cmd, 1, RECOVERED_ERROR,
+		       ATA_PASS_THROUGH_INFORMATION_AVAILABLE);
 }
 
 /**
@@ -987,19 +1047,18 @@ static void ata_gen_ata_sense(struct ata_queued_cmd *qc)
 	struct ata_device *dev = qc->dev;
 	struct scsi_cmnd *cmd = qc->scsicmd;
 	struct ata_taskfile *tf = &qc->result_tf;
-	u8 sense_key, asc, ascq;
 
 	if (ata_dev_disabled(dev)) {
 		/* Device disabled after error recovery */
-		/* LOGICAL UNIT NOT READY, HARD RESET REQUIRED */
-		ata_scsi_set_sense(dev, cmd, NOT_READY, 0x04, 0x21);
+		ata_scsi_set_sense(dev, cmd, NOT_READY,
+				   LU_NOT_READY_HARD_RESET_REQUIRED);
 		return;
 	}
 
 	if (ata_id_is_locked(dev->id)) {
 		/* Security locked */
-		/* LOGICAL UNIT ACCESS NOT AUTHORIZED */
-		ata_scsi_set_sense(dev, cmd, DATA_PROTECT, 0x74, 0x71);
+		ata_scsi_set_sense(dev, cmd, DATA_PROTECT,
+				   LU_ACCESS_NOT_AUTHORIZED);
 		return;
 	}
 
@@ -1014,9 +1073,12 @@ static void ata_gen_ata_sense(struct ata_queued_cmd *qc)
 	 */
 	if (qc->err_mask ||
 	    tf->status & (ATA_BUSY | ATA_DF | ATA_ERR | ATA_DRQ)) {
+		u16 sense_code;
+		u8 sense_key;
+
 		ata_to_sense_error(tf->status, tf->error,
-				   &sense_key, &asc, &ascq);
-		ata_scsi_set_sense(dev, cmd, sense_key, asc, ascq);
+				   &sense_key, &sense_code);
+		ata_scsi_set_sense(dev, cmd, sense_key, sense_code);
 		return;
 	}
 
@@ -1025,7 +1087,8 @@ static void ata_gen_ata_sense(struct ata_queued_cmd *qc)
 		"Could not decode error 0x%x, status 0x%x (err_mask=0x%x)\n",
 		tf->error, tf->status, qc->err_mask);
 aborted:
-	ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND, 0, 0);
+	ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND,
+			   NO_ADDITIONAL_SENSE_INFORMATION);
 }
 
 void ata_scsi_sdev_config(struct scsi_device *sdev)
@@ -1279,7 +1342,8 @@ static unsigned int ata_scsi_start_stop_xlat(struct ata_queued_cmd *qc)
 
 	/* Ignore IMMED bit (cdb[1] & 0x1), violates sat-r05 */
 	if (!ata_dev_power_init_tf(qc->dev, &qc->tf, cdb[4] & 0x1)) {
-		ata_scsi_set_sense(qc->dev, scmd, ABORTED_COMMAND, 0, 0);
+		ata_scsi_set_sense(qc->dev, scmd, ABORTED_COMMAND,
+				   NO_ADDITIONAL_SENSE_INFORMATION);
 		return 1;
 	}
 
@@ -1507,8 +1571,8 @@ invalid_fld:
 	return 1;
 
 out_of_range:
-	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST, 0x21, 0x0);
-	/* "Logical Block Address out of range" */
+	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST,
+			   LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE);
 	return 1;
 
 nothing_to_do:
@@ -1644,8 +1708,8 @@ invalid_fld:
 	return 1;
 
 out_of_range:
-	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST, 0x21, 0x0);
-	/* "Logical Block Address out of range" */
+	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST,
+			   LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE);
 	return 1;
 
 nothing_to_do:
@@ -1984,6 +2048,19 @@ static int ata_scsi_translate(struct ata_device *dev, struct scsi_cmnd *cmd,
 	if (xlat_func(qc))
 		goto done;
 
+	/*
+	 * A data-out request may contain pages pinned without write access.
+	 * Reject a translated data-in command before issuing it, since its
+	 * completion handler may write to the buffer even if the device fails.
+	 */
+	if (unlikely(cmd->sc_data_direction == DMA_TO_DEVICE &&
+		     ata_is_data(qc->tf.protocol) &&
+		     !(qc->tf.flags & ATA_TFLAG_WRITE))) {
+		ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND,
+				   DATA_IN_BUFFER_ERROR);
+		goto done;
+	}
+
 	return ata_scsi_qc_issue(ap, qc);
 
 done:
@@ -2015,13 +2092,21 @@ static void ata_scsi_rbuf_fill(struct ata_device *dev, struct scsi_cmnd *cmd,
 	unsigned long flags;
 	unsigned int len;
 
+	/* A data-out request may contain pages pinned without write access. */
+	if (cmd->sc_data_direction == DMA_TO_DEVICE) {
+		ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND,
+				   DATA_IN_BUFFER_ERROR);
+		return;
+	}
+
 	spin_lock_irqsave(&ata_scsi_rbuf_lock, flags);
 
 	memset(ata_scsi_rbuf, 0, ATA_SCSI_RBUF_SIZE);
 	len = actor(dev, cmd, ata_scsi_rbuf);
 	if (len) {
 		if (WARN_ON(len > ATA_SCSI_RBUF_SIZE)) {
-			ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND, 0, 0);
+			ata_scsi_set_sense(dev, cmd, ABORTED_COMMAND,
+					   NO_ADDITIONAL_SENSE_INFORMATION);
 			spin_unlock_irqrestore(&ata_scsi_rbuf_lock, flags);
 			return;
 		}
@@ -2899,8 +2984,8 @@ invalid_fld:
 	return 0;
 
 saving_not_supp:
-	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, 0x39, 0x0);
-	 /* "Saving parameters not supported" */
+	ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST,
+			   SAVING_PARAMETERS_NOT_SUPPORTED);
 	return 0;
 }
 
@@ -3107,6 +3192,14 @@ static unsigned int atapi_xlat(struct ata_queued_cmd *qc)
 	memcpy(qc->cdb, scmd->cmnd, scmd->cmd_len);
 
 	qc->complete_fn = atapi_qc_complete;
+
+	/* atapi_fixup_inquiry() writes to the buffer on successful completion. */
+	if (scmd->sc_data_direction == DMA_TO_DEVICE &&
+	    scmd->cmnd[0] == INQUIRY) {
+		ata_scsi_set_sense(dev, scmd, ABORTED_COMMAND,
+				   DATA_IN_BUFFER_ERROR);
+		return 1;
+	}
 
 	qc->tf.flags |= ATA_TFLAG_ISADDR | ATA_TFLAG_DEVICE;
 	if (scmd->sc_data_direction == DMA_TO_DEVICE) {
@@ -3517,6 +3610,12 @@ static unsigned int ata_scsi_pass_thru(struct ata_queued_cmd *qc)
 	if (is_multi_taskfile(tf)) {
 		unsigned int multi_count = 1 << (cdb[1] >> 5);
 
+		if (!dev->multi_count) {
+			ata_scsi_set_sense(dev, scmd, ABORTED_COMMAND,
+					   NO_ADDITIONAL_SENSE_INFORMATION);
+			return 1;
+		}
+
 		/* compare the passed through multi_count
 		 * with the cached multi_count of libata
 		 */
@@ -3742,12 +3841,12 @@ invalid_fld:
 	ata_scsi_set_invalid_field(dev, scmd, fp, bp);
 	return 1;
 invalid_param_len:
-	/* "Parameter list length error" */
-	ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x1a, 0x0);
+	ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+			   PARAMETER_LIST_LENGTH_ERROR);
 	return 1;
 invalid_opcode:
-	/* "Invalid command operation code" */
-	ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x20, 0x0);
+	ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+			   INVALID_COMMAND_OP_CODE);
 	return 1;
 }
 
@@ -4209,8 +4308,8 @@ invalid_fld:
 	return 1;
 
 invalid_param_len:
-	/* "Parameter list length error" */
-	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST, 0x1a, 0x0);
+	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST,
+			   PARAMETER_LIST_LENGTH_ERROR);
 	return 1;
 }
 
@@ -4287,22 +4386,30 @@ static unsigned int ata_scsi_zbc_out_xlat(struct ata_queued_cmd *qc)
 	ata_scsi_set_invalid_field(qc->dev, scmd, fp, 0xff);
 	return 1;
 invalid_param_len:
-	/* "Parameter list length error" */
-	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST, 0x1a, 0x0);
+	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST,
+			   PARAMETER_LIST_LENGTH_ERROR);
 	return 1;
 }
 
 /**
  *	ata_mselect_caching - Simulate MODE SELECT for caching info page
  *	@qc: Storage for translated ATA taskfile
- *	@buf: input buffer
- *	@len: number of valid bytes in the input buffer
- *	@fp: out parameter for the failed field on error
+ *	@buf: Mode page, starting with the mode page header
+ *	@len: Length of the mode page, including the mode page header
+ *	@fp: Out parameter, offset in @buf of the first invalid byte on error
  *
  *	Prepare a taskfile to modify caching information for the device.
  *
+ *	The caller has stripped the mode parameter header and the block
+ *	descriptors, so @buf points at the mode page header, like the buffer
+ *	filled by the ata_msense_*() functions, and offsets in @buf, including
+ *	the one returned in @fp, are the byte numbers of the mode page.
+ *
  *	LOCKING:
  *	None.
+ *
+ *	RETURNS:
+ *	0 if a taskfile was prepared, -EINVAL if the mode page is invalid.
  */
 static int ata_mselect_caching(struct ata_queued_cmd *qc,
 			       const u8 *buf, int len, u16 *fp)
@@ -4313,26 +4420,19 @@ static int ata_mselect_caching(struct ata_queued_cmd *qc,
 	u8 wce;
 	int i;
 
-	/*
-	 * The first two bytes of def_cache_mpage are a header, so offsets
-	 * in mpage are off by 2 compared to buf.  Same for len.
-	 */
-
-	if (len != CACHE_MPAGE_LEN - 2) {
-		*fp = min(len, CACHE_MPAGE_LEN - 2);
+	if (len != CACHE_MPAGE_LEN) {
+		*fp = 1;
 		return -EINVAL;
 	}
 
-	wce = buf[0] & (1 << 2);
+	wce = buf[2] & (1 << 2);
 
 	/*
 	 * Check that read-only bits are not modified.
 	 */
 	ata_msense_caching(dev->id, mpage, false);
-	for (i = 0; i < CACHE_MPAGE_LEN - 2; i++) {
-		if (i == 0)
-			continue;
-		if (mpage[i + 2] != buf[i]) {
+	for (i = 3; i < CACHE_MPAGE_LEN; i++) {
+		if (mpage[i] != buf[i]) {
 			*fp = i;
 			return -EINVAL;
 		}
@@ -4346,8 +4446,26 @@ static int ata_mselect_caching(struct ata_queued_cmd *qc,
 	return 0;
 }
 
-/*
- * Simulate MODE SELECT control mode page, sub-page 0.
+/**
+ *	ata_mselect_control_spg0 - Simulate MODE SELECT for control sub-page 0
+ *	@qc: Storage for translated ATA taskfile
+ *	@buf: Mode page, starting with the mode page header
+ *	@len: Length of the mode page, including the mode page header
+ *	@fp: Out parameter, offset in @buf of the first invalid byte on error
+ *
+ *	Simulate MODE SELECT control mode page, sub-page 0.
+ *
+ *	The caller has stripped the mode parameter header and the block
+ *	descriptors, so @buf points at the mode page header, like the buffer
+ *	filled by the ata_msense_*() functions, and offsets in @buf, including
+ *	the one returned in @fp, are the byte numbers of the mode page.
+ *
+ *	LOCKING:
+ *	None.
+ *
+ *	RETURNS:
+ *	0, as no ATA command needs to be sent, or -EINVAL if the mode page is
+ *	invalid.
  */
 static int ata_mselect_control_spg0(struct ata_queued_cmd *qc,
 				    const u8 *buf, int len, u16 *fp)
@@ -4357,26 +4475,19 @@ static int ata_mselect_control_spg0(struct ata_queued_cmd *qc,
 	u8 d_sense;
 	int i;
 
-	/*
-	 * The first two bytes of def_control_mpage are a header, so offsets
-	 * in mpage are off by 2 compared to buf.  Same for len.
-	 */
-
-	if (len != CONTROL_MPAGE_LEN - 2) {
-		*fp = min(len, CONTROL_MPAGE_LEN - 2);
+	if (len != CONTROL_MPAGE_LEN) {
+		*fp = 1;
 		return -EINVAL;
 	}
 
-	d_sense = buf[0] & (1 << 2);
+	d_sense = buf[2] & (1 << 2);
 
 	/*
 	 * Check that read-only bits are not modified.
 	 */
 	ata_msense_control_spg0(dev, mpage, false);
-	for (i = 0; i < CONTROL_MPAGE_LEN - 2; i++) {
-		if (i == 0)
-			continue;
-		if (mpage[2 + i] != buf[i]) {
+	for (i = 3; i < CONTROL_MPAGE_LEN; i++) {
+		if (mpage[i] != buf[i]) {
 			*fp = i;
 			return -EINVAL;
 		}
@@ -4388,9 +4499,27 @@ static int ata_mselect_control_spg0(struct ata_queued_cmd *qc,
 	return 0;
 }
 
-/*
- * Translate MODE SELECT control mode page, sub-page f2h (ATA feature mode
- * page) into a SET FEATURES command.
+/**
+ *	ata_mselect_control_ata_feature - Translate ATA Feature Control page
+ *	@qc: Storage for translated ATA taskfile
+ *	@buf: Mode page, starting with the mode page header
+ *	@len: Length of the mode page, including the mode page header
+ *	@fp: Out parameter, offset in @buf of the first invalid byte on error
+ *
+ *	Translate MODE SELECT control mode page, sub-page f2h (ATA feature mode
+ *	page) into a SET FEATURES command.
+ *
+ *	The caller has stripped the mode parameter header and the block
+ *	descriptors, so @buf points at the mode page header, like the buffer
+ *	filled by the ata_msense_*() functions, and offsets in @buf, including
+ *	the one returned in @fp, are the byte numbers of the mode page.
+ *
+ *	LOCKING:
+ *	None.
+ *
+ *	RETURNS:
+ *	1 if a taskfile was prepared, -EINVAL if the mode page is invalid or if
+ *	CDL cannot be enabled.
  */
 static int ata_mselect_control_ata_feature(struct ata_queued_cmd *qc,
 					   const u8 *buf, int len, u16 *fp)
@@ -4399,17 +4528,13 @@ static int ata_mselect_control_ata_feature(struct ata_queued_cmd *qc,
 	struct ata_taskfile *tf = &qc->tf;
 	u8 cdl_action;
 
-	/*
-	 * The first four bytes of ATA Feature Control mode page are a header,
-	 * so offsets in mpage are off by 4 compared to buf.  Same for len.
-	 */
-	if (len != ATA_FEATURE_SUB_MPAGE_LEN - 4) {
-		*fp = min(len, ATA_FEATURE_SUB_MPAGE_LEN - 4);
+	if (len != ATA_FEATURE_SUB_MPAGE_LEN) {
+		*fp = 2;
 		return -EINVAL;
 	}
 
 	/* Check cdl_ctrl */
-	switch (buf[0] & 0x03) {
+	switch (buf[4] & 0x03) {
 	case 0:
 		/* Disable CDL */
 		ata_dev_dbg(dev, "Disabling CDL\n");
@@ -4424,6 +4549,7 @@ static int ata_mselect_control_ata_feature(struct ata_queued_cmd *qc,
 		if (dev->flags & ATA_DFLAG_NCQ_PRIO_ENABLED) {
 			ata_dev_err(dev,
 				"NCQ priority must be disabled to enable CDL\n");
+			*fp = 4;
 			return -EINVAL;
 		}
 		ata_dev_dbg(dev, "Enabling CDL\n");
@@ -4431,7 +4557,7 @@ static int ata_mselect_control_ata_feature(struct ata_queued_cmd *qc,
 		dev->flags |= ATA_DFLAG_CDL_ENABLED;
 		break;
 	default:
-		*fp = 0;
+		*fp = 4;
 		return -EINVAL;
 	}
 
@@ -4447,15 +4573,24 @@ static int ata_mselect_control_ata_feature(struct ata_queued_cmd *qc,
 /**
  *	ata_mselect_control - Simulate MODE SELECT for control page
  *	@qc: Storage for translated ATA taskfile
- *	@spg: target sub-page of the control page
- *	@buf: input buffer
- *	@len: number of valid bytes in the input buffer
- *	@fp: out parameter for the failed field on error
+ *	@spg: Sub-page of the control page, 0 or ATA_FEATURE_SUB_MPAGE
+ *	@buf: Mode page, starting with the mode page header
+ *	@len: Length of the mode page, including the mode page header
+ *	@fp: Out parameter, offset in @buf of the first invalid byte on error
  *
- *	Prepare a taskfile to modify caching information for the device.
+ *	Call the handler of sub-page @spg of the control mode page.
+ *
+ *	The caller has stripped the mode parameter header and the block
+ *	descriptors, so @buf points at the mode page header, like the buffer
+ *	filled by the ata_msense_*() functions, and offsets in @buf, including
+ *	the one returned in @fp, are the byte numbers of the mode page.
  *
  *	LOCKING:
  *	None.
+ *
+ *	RETURNS:
+ *	0 if no ATA command needs to be sent, 1 if a taskfile was prepared,
+ *	-EINVAL if the mode page is invalid.
  */
 static int ata_mselect_control(struct ata_queued_cmd *qc, u8 spg,
 			       const u8 *buf, int len, u16 *fp)
@@ -4542,7 +4677,6 @@ static unsigned int ata_scsi_mode_select_xlat(struct ata_queued_cmd *qc)
 		goto invalid_param_len;
 	if (bd_len != 0 && bd_len != 8) {
 		fp = (six_byte) ? 3 : 6;
-		fp += bd_len + hdr_len;
 		goto invalid_param;
 	}
 
@@ -4557,47 +4691,55 @@ static unsigned int ata_scsi_mode_select_xlat(struct ata_queued_cmd *qc)
 		if (len < 4)
 			goto invalid_param_len;
 
+		/*
+		 * Mode pages with subpage code 00h use the page_0 format: SAT
+		 * defines the SPF bit of the Caching and Control mode pages,
+		 * for subpage code 00h, as not changeable and set to zero.
+		 */
 		spg = p[1];
-		pg_len = get_unaligned_be16(&p[2]);
-		p += 4;
-		len -= 4;
+		if (!spg) {
+			fp = hdr_len + bd_len;
+			goto invalid_param;
+		}
+
+		pg_len = get_unaligned_be16(&p[2]) + 4;
 	} else {
 		if (len < 2)
 			goto invalid_param_len;
 
 		spg = 0;
-		pg_len = p[1];
-		p += 2;
-		len -= 2;
+		pg_len = p[1] + 2;
 	}
 
 	/*
-	 * Supported subpages: all subpages and ATA feature sub-page f2h of
-	 * the control page.
+	 * The only supported subpage is the ATA feature sub-page f2h of the
+	 * control page.
 	 */
 	if (spg) {
 		switch (spg) {
-		case ALL_SUB_MPAGES:
-			/* All subpages is not supported for the control page */
-			if (pg == CONTROL_MPAGE) {
-				fp = (p[0] & 0x40) ? 1 : 0;
-				fp += hdr_len + bd_len;
-				goto invalid_param;
-			}
-			break;
 		case ATA_FEATURE_SUB_MPAGE:
 			if (qc->dev->flags & ATA_DFLAG_CDL &&
 			    pg == CONTROL_MPAGE)
 				break;
 			fallthrough;
 		default:
-			fp = (p[0] & 0x40) ? 1 : 0;
-			fp += hdr_len + bd_len;
+			fp = hdr_len + bd_len + 1;
 			goto invalid_param;
 		}
 	}
 	if (pg_len > len)
 		goto invalid_param_len;
+
+	/*
+	 * A MODE SELECT command is translated into at most one ATA command, so
+	 * only one mode page per command is supported. Reject any data after
+	 * the mode page before calling the mode page handlers, which may
+	 * already update the device flags.
+	 */
+	if (len > pg_len) {
+		fp = p - buffer + pg_len;
+		goto invalid_param;
+	}
 
 	switch (pg) {
 	case CACHE_MPAGE:
@@ -4621,13 +4763,6 @@ static unsigned int ata_scsi_mode_select_xlat(struct ata_queued_cmd *qc)
 		goto invalid_param;
 	}
 
-	/*
-	 * Only one page has changeable data, so we only support setting one
-	 * page at a time.
-	 */
-	if (len > pg_len)
-		goto invalid_param;
-
 	return 0;
 
  invalid_fld:
@@ -4639,8 +4774,8 @@ static unsigned int ata_scsi_mode_select_xlat(struct ata_queued_cmd *qc)
 	return 1;
 
  invalid_param_len:
-	/* "Parameter list length error" */
-	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST, 0x1a, 0x0);
+	ata_scsi_set_sense(qc->dev, scmd, ILLEGAL_REQUEST,
+			   PARAMETER_LIST_LENGTH_ERROR);
 	return 1;
 
  skip:
@@ -4799,7 +4934,8 @@ ata_scsi_get_phys_element_status_xlat(struct ata_queued_cmd *qc)
 
 	/* ATA_CMD_GET_PHYS_ELEMENT_STATUS is a DMA command. */
 	if (!(dev->flags & ATA_DFLAG_DEPOP) || !ata_dma_enabled(dev)) {
-		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x20, 0x0);
+		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+				   INVALID_COMMAND_OP_CODE);
 		return 1;
 	}
 
@@ -4844,7 +4980,8 @@ ata_scsi_remove_element_and_truncate_xlat(struct ata_queued_cmd *qc)
 	u32 id;
 
 	if (!(dev->flags & ATA_DFLAG_DEPOP)) {
-		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x20, 0x0);
+		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+				   INVALID_COMMAND_OP_CODE);
 		return 1;
 	}
 
@@ -4886,7 +5023,8 @@ ata_scsi_remove_element_and_modify_zones_xlat(struct ata_queued_cmd *qc)
 	u32 id;
 
 	if (!(dev->flags & ATA_DFLAG_DEPOP_MODIFY)) {
-		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x20, 0x0);
+		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+				   INVALID_COMMAND_OP_CODE);
 		return 1;
 	}
 
@@ -4914,7 +5052,8 @@ ata_scsi_restore_elements_and_rebuild_xlat(struct ata_queued_cmd *qc)
 	struct ata_taskfile *tf = &qc->tf;
 
 	if (!(dev->flags & ATA_DFLAG_DEPOP_RESTORE)) {
-		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST, 0x20, 0x0);
+		ata_scsi_set_sense(dev, scmd, ILLEGAL_REQUEST,
+				   INVALID_COMMAND_OP_CODE);
 		return 1;
 	}
 
@@ -5074,7 +5213,8 @@ static void ata_scsi_simulate(struct ata_device *dev, struct scsi_cmnd *cmd)
 		break;
 
 	case REQUEST_SENSE:
-		ata_scsi_set_sense(dev, cmd, 0, 0, 0);
+		ata_scsi_set_sense(dev, cmd, NO_SENSE,
+				   NO_ADDITIONAL_SENSE_INFORMATION);
 		break;
 
 	/* if we reach this, then writeback caching is disabled,
@@ -5103,8 +5243,8 @@ static void ata_scsi_simulate(struct ata_device *dev, struct scsi_cmnd *cmd)
 
 	/* all other commands */
 	default:
-		ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST, 0x20, 0x0);
-		/* "Invalid command operation code" */
+		ata_scsi_set_sense(dev, cmd, ILLEGAL_REQUEST,
+				   INVALID_COMMAND_OP_CODE);
 		break;
 	}
 
@@ -5392,7 +5532,7 @@ bool ata_scsi_offline_dev(struct ata_device *dev)
  *	ata_scsi_remove_dev - remove attached SCSI device
  *	@dev: ATA device to remove attached SCSI device for
  *
- *	This function is called from ata_eh_scsi_hotplug() and
+ *	This function is called from ata_scsi_hotplug() and
  *	responsible for removing the SCSI device attached to @dev.
  *
  *	LOCKING:

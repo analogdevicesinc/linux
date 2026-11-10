@@ -805,12 +805,10 @@ static int ms_lib_alloc_logicalmap(struct us_data *us)
 	u32  i;
 	struct ene_ub6250_info *info = (struct ene_ub6250_info *) us->extra;
 
-	info->MS_Lib.Phy2LogMap = kmalloc_array(info->MS_Lib.NumberOfPhyBlock,
-						sizeof(u16),
-						GFP_KERNEL);
-	info->MS_Lib.Log2PhyMap = kmalloc_array(info->MS_Lib.NumberOfLogBlock,
-						sizeof(u16),
-						GFP_KERNEL);
+	info->MS_Lib.Phy2LogMap = kmalloc_objs(u16,
+					       info->MS_Lib.NumberOfPhyBlock);
+	info->MS_Lib.Log2PhyMap = kmalloc_objs(u16,
+					       info->MS_Lib.NumberOfLogBlock);
 
 	if ((info->MS_Lib.Phy2LogMap == NULL) || (info->MS_Lib.Log2PhyMap == NULL)) {
 		ms_lib_free_logicalmap(us);
@@ -2350,6 +2348,8 @@ static int ene_ub6250_probe(struct usb_interface *intf,
 
 	us->transport_name = "ene_ub6250";
 	us->transport = ene_transport;
+	/* get_transport() only sets this for the standard USB_PR_* protocols */
+	us->transport_reset = usb_stor_Bulk_reset;
 	us->max_lun = 0;
 
 	result = usb_stor_probe2(us);

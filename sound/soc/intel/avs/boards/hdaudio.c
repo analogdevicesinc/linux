@@ -40,8 +40,8 @@ static int avs_create_dai_links(struct device *dev, struct hda_codec *codec, int
 	const char *cname = dev_name(&codec->core.dev);
 	int i;
 
-	dl = devm_kcalloc(dev, pcm_count, sizeof(*dl), GFP_KERNEL);
-	platform = devm_kzalloc(dev, sizeof(*platform), GFP_KERNEL);
+	dl = devm_kzalloc_objs(dev, *dl, pcm_count);
+	platform = devm_kzalloc_obj(dev, *platform);
 	if (!dl || !platform)
 		return -ENOMEM;
 
@@ -61,8 +61,8 @@ static int avs_create_dai_links(struct device *dev, struct hda_codec *codec, int
 		dl[i].ignore_pmdown_time = 1;
 		dl[i].ops = &avs_link_ops;
 
-		dl[i].codecs = devm_kzalloc(dev, sizeof(*dl->codecs), GFP_KERNEL);
-		dl[i].cpus = devm_kzalloc(dev, sizeof(*dl->cpus), GFP_KERNEL);
+		dl[i].codecs = devm_kzalloc_obj(dev, *dl->codecs);
+		dl[i].cpus = devm_kzalloc_obj(dev, *dl->cpus);
 		if (!dl[i].codecs || !dl[i].cpus)
 			return -ENOMEM;
 
@@ -147,17 +147,15 @@ static int avs_probing_link_init(struct snd_soc_pcm_runtime *rtm)
 	struct snd_soc_dai_link *links = NULL;
 	struct snd_soc_card *card = rtm->card;
 	struct hda_codec *codec;
-	struct hda_pcm *pcm;
-	int ret, pcm_count = 0;
+	int ret, pcm_count;
 
 	mach = dev_get_platdata(card->dev);
 	pdata = mach->pdata;
 	codec = pdata->codec;
+	pcm_count = list_count_nodes(&codec->pcm_list_head);
 
-	if (list_empty(&codec->pcm_list_head))
+	if (!pcm_count)
 		return -EINVAL;
-	list_for_each_entry(pcm, &codec->pcm_list_head, list)
-		pcm_count++;
 
 	ret = avs_create_dai_links(card->dev, codec, pcm_count, &links);
 	if (ret < 0) {
@@ -205,8 +203,8 @@ static int avs_hdaudio_probe(struct platform_device *pdev)
 	if (!binder)
 		return -ENOMEM;
 
-	binder->platforms = devm_kzalloc(dev, sizeof(*binder->platforms), GFP_KERNEL);
-	binder->codecs = devm_kzalloc(dev, sizeof(*binder->codecs), GFP_KERNEL);
+	binder->platforms = devm_kzalloc_obj(dev, *binder->platforms);
+	binder->codecs = devm_kzalloc_obj(dev, *binder->codecs);
 	if (!binder->platforms || !binder->codecs)
 		return -ENOMEM;
 
@@ -219,7 +217,7 @@ static int avs_hdaudio_probe(struct platform_device *pdev)
 	binder->codecs->dai_name = "codec-probing-DAI";
 	binder->num_codecs = 1;
 
-	card = devm_kzalloc(dev, sizeof(*card), GFP_KERNEL);
+	card = devm_kzalloc_obj(dev, *card);
 	if (!card)
 		return -ENOMEM;
 

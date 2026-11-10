@@ -6,17 +6,12 @@
  *	Suman Anna <s-anna@ti.com>
  */
 
-#include <linux/dma-mapping.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
-#include <linux/kernel.h>
-#include <linux/mailbox_client.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
-#include <linux/of_reserved_mem.h>
 #include <linux/of_platform.h>
-#include <linux/omap-mailbox.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
@@ -926,8 +921,7 @@ static int k3_r5_core_of_get_internal_memories(struct platform_device *pdev,
 	int i, ret;
 
 	num_mems = data->num_mems;
-	kproc->mem = devm_kcalloc(kproc->dev, num_mems, sizeof(*kproc->mem),
-				  GFP_KERNEL);
+	kproc->mem = devm_kzalloc_objs(kproc->dev, *kproc->mem, num_mems);
 	if (!kproc->mem)
 		return -ENOMEM;
 
@@ -977,7 +971,7 @@ static int k3_r5_core_of_get_sram_memories(struct platform_device *pdev,
 		return 0;
 	}
 
-	core->sram = devm_kcalloc(dev, num_sram, sizeof(*core->sram), GFP_KERNEL);
+	core->sram = devm_kzalloc_objs(dev, *core->sram, num_sram);
 	if (!core->sram)
 		return -ENOMEM;
 
@@ -1046,6 +1040,10 @@ static int k3_r5_cluster_rproc_init(struct platform_device *pdev)
 			ret = -ENOMEM;
 			goto out;
 		}
+
+		ret = dma_coerce_mask_and_coherent(&rproc->dev, DMA_BIT_MASK(48));
+		if (ret)
+			dev_warn(dev, "Failed to set DMA mask (%d)\n", ret);
 
 		/* K3 R5s have a Region Address Translator (RAT) but no MMU */
 		rproc->has_iommu = false;
@@ -1217,7 +1215,7 @@ static int k3_r5_core_of_init(struct platform_device *pdev)
 	if (!devres_open_group(dev, k3_r5_core_of_init, GFP_KERNEL))
 		return -ENOMEM;
 
-	core = devm_kzalloc(dev, sizeof(*core), GFP_KERNEL);
+	core = devm_kzalloc_obj(dev, *core);
 	if (!core) {
 		ret = -ENOMEM;
 		goto err;
@@ -1346,7 +1344,7 @@ static int k3_r5_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	cluster = devm_kzalloc(dev, sizeof(*cluster), GFP_KERNEL);
+	cluster = devm_kzalloc_obj(dev, *cluster);
 	if (!cluster)
 		return -ENOMEM;
 

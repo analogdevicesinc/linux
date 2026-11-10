@@ -547,7 +547,7 @@ unsigned long do_mmap(struct file *file, unsigned long addr,
 		}
 		case MAP_PRIVATE:
 			/*
-			 * Set pgoff according to addr for anon_vma.
+			 * Set pgoff according to addr for the anon rmap.
 			 */
 			pgoff = addr >> PAGE_SHIFT;
 			break;
@@ -1713,8 +1713,7 @@ __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 	LIST_HEAD(uf);
 	VMA_ITERATOR(vmi, mm, 0);
 
-	if (mmap_write_lock_killable(oldmm))
-		return -EINTR;
+	mmap_assert_write_locked(oldmm);
 	flush_cache_dup_mm(oldmm);
 	uprobe_dup_mmap(oldmm, mm);
 	/*
@@ -1724,11 +1723,6 @@ __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 
 	/* No ordering required: file already has been exposed. */
 	dup_mm_exe_file(mm, oldmm);
-
-	mm->total_vm = oldmm->total_vm;
-	mm->data_vm = oldmm->data_vm;
-	mm->exec_vm = oldmm->exec_vm;
-	mm->stack_vm = oldmm->stack_vm;
 
 	/* Use __mt_dup() to efficiently build an identical maple tree. */
 	retval = __mt_dup(&oldmm->mm_mt, &mm->mm_mt, GFP_KERNEL);
@@ -1774,8 +1768,8 @@ __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		if (vma_test(tmp, VMA_WIPEONFORK_BIT)) {
 			/*
 			 * VMA_WIPEONFORK_BIT gets a clean slate in the child.
-			 * Don't prepare anon_vma until fault since we don't
-			 * copy page for current vma.
+			 * Don't prepare the anon rmap until fault since we
+			 * don't copy pages for the current vma.
 			 */
 			tmp->anon_vma = NULL;
 		} else if (anon_vma_fork(tmp, mpnt))
@@ -1786,7 +1780,7 @@ __latent_entropy int dup_mmap(struct mm_struct *mm, struct mm_struct *oldmm)
 		/*
 		 * Copy/update hugetlb private vma information.
 		 */
-		if (is_vm_hugetlb_page(tmp))
+		if (vma_is_hugetlb(tmp))
 			hugetlb_dup_vma_private(tmp);
 
 		/*

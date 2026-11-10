@@ -556,13 +556,13 @@ static void pch_gbe_mac_set_pause_packet(struct pch_gbe_hw *hw)
  */
 static int pch_gbe_alloc_queues(struct pch_gbe_adapter *adapter)
 {
-	adapter->tx_ring = devm_kzalloc(&adapter->pdev->dev,
-					sizeof(*adapter->tx_ring), GFP_KERNEL);
+	adapter->tx_ring = devm_kzalloc_obj(&adapter->pdev->dev,
+					    *adapter->tx_ring);
 	if (!adapter->tx_ring)
 		return -ENOMEM;
 
-	adapter->rx_ring = devm_kzalloc(&adapter->pdev->dev,
-					sizeof(*adapter->rx_ring), GFP_KERNEL);
+	adapter->rx_ring = devm_kzalloc_obj(&adapter->pdev->dev,
+					    *adapter->rx_ring);
 	if (!adapter->rx_ring)
 		return -ENOMEM;
 	return 0;
@@ -2504,12 +2504,10 @@ static int pch_gbe_probe(struct pci_dev *pdev,
 	if (ret)
 		return ret;
 
-	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64))) {
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-		if (ret) {
-			dev_err(&pdev->dev, "ERR: No usable DMA configuration, aborting\n");
-			return ret;
-		}
+	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (ret) {
+		dev_err(&pdev->dev, "ERR: No usable DMA configuration, aborting\n");
+		return ret;
 	}
 
 	ret = pcim_iomap_regions(pdev, 1 << PCH_GBE_PCI_BAR, pci_name(pdev));

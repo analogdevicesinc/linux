@@ -308,7 +308,7 @@ static int mv88e6060_probe(struct mdio_device *mdiodev)
 	struct dsa_switch *ds;
 	const char *name;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -321,7 +321,7 @@ static int mv88e6060_probe(struct mdio_device *mdiodev)
 
 	dev_info(dev, "switch %s detected\n", name);
 
-	ds = devm_kzalloc(dev, sizeof(*ds), GFP_KERNEL);
+	ds = devm_kzalloc_obj(dev, *ds);
 	if (!ds)
 		return -ENOMEM;
 
@@ -362,8 +362,9 @@ static const struct of_device_id mv88e6060_of_match[] = {
 	{
 		.compatible = "marvell,mv88e6060",
 	},
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
+MODULE_DEVICE_TABLE(of, mv88e6060_of_match);
 
 static struct mdio_driver mv88e6060_driver = {
 	.probe	= mv88e6060_probe,

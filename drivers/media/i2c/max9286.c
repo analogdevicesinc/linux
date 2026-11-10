@@ -910,6 +910,7 @@ static int max9286_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int max9286_set_fmt(struct v4l2_subdev *sd,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_subdev_format *format)
 {
@@ -1585,7 +1586,7 @@ static int max9286_probe(struct i2c_client *client)
 	struct max9286_priv *priv;
 	int ret;
 
-	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&client->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

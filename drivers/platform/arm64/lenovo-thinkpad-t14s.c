@@ -488,8 +488,14 @@ static irqreturn_t t14s_ec_irq_handler(int irq, void *data)
 	case T14S_EC_EVT_NONE:
 		break;
 	case T14S_EC_EVT_KEY_FN_SPACE:
+		/*
+		 * Firmware already cycles the keyboard backlight
+		 * (off / low / high). Notify userspace through the LED
+		 * class only. Emitting KEY_KBDILLUMTOGGLE as well makes
+		 * desktop environments toggle the LED a second time.
+		 */
 		t14s_kbd_bl_update(ec);
-		fallthrough;
+		break;
 	case T14S_EC_EVT_KEY_FN_F4:
 	case T14S_EC_EVT_KEY_FN_F7:
 	case T14S_EC_EVT_KEY_FN_4:
@@ -561,7 +567,7 @@ static int t14s_ec_probe(struct i2c_client *client)
 	struct t14s_ec *ec;
 	int ret;
 
-	ec = devm_kzalloc(dev, sizeof(*ec), GFP_KERNEL);
+	ec = devm_kzalloc_obj(dev, *ec);
 	if (!ec)
 		return -ENOMEM;
 
@@ -594,7 +600,7 @@ static int t14s_ec_probe(struct i2c_client *client)
 					t14s_ec_irq_handler,
 					IRQF_ONESHOT, dev_name(dev), ec);
 	if (ret < 0)
-		return dev_err_probe(dev, ret, "Failed to get IRQ\n");
+		return ret;
 
 	/*
 	 * Disable wakeup support by default, because the driver currently does

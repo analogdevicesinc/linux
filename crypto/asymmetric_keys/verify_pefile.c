@@ -87,6 +87,11 @@ static int pefile_parse_binary(const void *pebuf, unsigned int pelen,
 	if (ctx->n_data_dirents > (ctx->header_size - cursor) / sizeof(*dde))
 		return -ELIBBAD;
 
+	/* the certificate table entry must be present in the data directory */
+	if (ctx->n_data_dirents <=
+	    offsetof(struct data_directory, certs) / sizeof(*dde))
+		return -ELIBBAD;
+
 	ddir = pebuf + cursor;
 	cursor += sizeof(*dde) * ctx->n_data_dirents;
 
@@ -267,7 +272,7 @@ static int pefile_digest_pe_contents(const void *pebuf, unsigned int pelen,
 	if (ret < 0)
 		return ret;
 
-	canon = kcalloc(ctx->n_sections, sizeof(unsigned), GFP_KERNEL);
+	canon = kzalloc_objs(unsigned, ctx->n_sections);
 	if (!canon)
 		return -ENOMEM;
 

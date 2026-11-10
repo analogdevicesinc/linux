@@ -143,10 +143,7 @@ static void mtk_dai_dmic_hw_gain_bypass(struct mtk_base_afe *afe,
 		return;
 	}
 
-	if (bypass)
-		regmap_set_bits(afe->regmap, reg->bypass, msk);
-	else
-		regmap_clear_bits(afe->regmap, reg->bypass, msk);
+	regmap_assign_bits(afe->regmap, reg->bypass, msk, bypass);
 }
 
 static void mtk_dai_dmic_hw_gain_on(struct mtk_base_afe *afe, unsigned int id,
@@ -157,10 +154,7 @@ static void mtk_dai_dmic_hw_gain_on(struct mtk_base_afe *afe, unsigned int id,
 	if (!reg)
 		return;
 
-	if (on)
-		regmap_set_bits(afe->regmap, reg->con0, DMIC_GAIN_CON0_GAIN_ON);
-	else
-		regmap_clear_bits(afe->regmap, reg->con0, DMIC_GAIN_CON0_GAIN_ON);
+	regmap_assign_bits(afe->regmap, reg->con0, DMIC_GAIN_CON0_GAIN_ON, on);
 }
 
 static const struct reg_sequence mtk_dai_dmic_iir_coeff_reg_defaults[] = {
@@ -651,8 +645,7 @@ static int init_dmic_priv_data(struct mtk_base_afe *afe)
 	struct mt8188_afe_private *afe_priv = afe->platform_priv;
 	struct mtk_dai_dmic_priv *dmic_priv;
 
-	dmic_priv = devm_kzalloc(afe->dev, sizeof(struct mtk_dai_dmic_priv),
-				 GFP_KERNEL);
+	dmic_priv = devm_kzalloc_obj(afe->dev, struct mtk_dai_dmic_priv);
 	if (!dmic_priv)
 		return -ENOMEM;
 
@@ -664,7 +657,7 @@ int mt8188_dai_dmic_register(struct mtk_base_afe *afe)
 {
 	struct mtk_base_afe_dai *dai;
 
-	dai = devm_kzalloc(afe->dev, sizeof(*dai), GFP_KERNEL);
+	dai = devm_kzalloc_obj(afe->dev, *dai);
 	if (!dai)
 		return -ENOMEM;
 

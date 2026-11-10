@@ -60,6 +60,7 @@
 #include <linux/ioport.h>		/* For io-port access */
 #include <linux/uaccess.h>		/* For copy_to_user/put_user/... */
 #include <linux/io.h>			/* For inb/outb/... */
+#include <linux/stringify.h>		/* For __stringify */
 #include <linux/platform_data/itco_wdt.h>
 #include <linux/mfd/intel_pmc_bxt.h>
 
@@ -115,13 +116,13 @@ static int heartbeat = WATCHDOG_TIMEOUT;  /* in seconds */
 module_param(heartbeat, int, 0);
 MODULE_PARM_DESC(heartbeat, "Watchdog timeout in seconds. "
 	"5..76 (TCO v1) or 3..614 (TCO v2), default="
-				__MODULE_STRING(WATCHDOG_TIMEOUT) ")");
+				__stringify(WATCHDOG_TIMEOUT) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 	"Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 
 static int turn_SMI_watchdog_clear_off = 1;
 module_param(turn_SMI_watchdog_clear_off, int, 0);
@@ -461,7 +462,7 @@ static int iTCO_wdt_probe(struct platform_device *pdev)
 	if (!pdata)
 		return -ENODEV;
 
-	p = devm_kzalloc(dev, sizeof(*p), GFP_KERNEL);
+	p = devm_kzalloc_obj(dev, *p);
 	if (!p)
 		return -ENOMEM;
 

@@ -21,6 +21,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/workqueue.h>
 #include <trace/events/pci_controller.h>
@@ -818,7 +819,7 @@ static int rockchip_pcie_probe(struct platform_device *pdev)
 	if (!data)
 		return -EINVAL;
 
-	rockchip = devm_kzalloc(dev, sizeof(*rockchip), GFP_KERNEL);
+	rockchip = devm_kzalloc_obj(dev, *rockchip);
 	if (!rockchip)
 		return -ENOMEM;
 

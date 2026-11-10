@@ -135,7 +135,7 @@ static void gab_work(struct work_struct *work)
 	adc_bat = container_of(delayed_work, struct gab, bat_work);
 	status = adc_bat->status;
 
-	if (!power_supply_am_i_supplied(adc_bat->psy))
+	if (power_supply_am_i_supplied(adc_bat->psy) <= 0)
 		adc_bat->status =  POWER_SUPPLY_STATUS_DISCHARGING;
 	else if (gab_charge_finished(adc_bat))
 		adc_bat->status = POWER_SUPPLY_STATUS_NOT_CHARGING;
@@ -167,7 +167,7 @@ static int gab_probe(struct platform_device *pdev)
 	int index = ARRAY_SIZE(gab_props);
 	bool any = false;
 
-	adc_bat = devm_kzalloc(&pdev->dev, sizeof(*adc_bat), GFP_KERNEL);
+	adc_bat = devm_kzalloc_obj(&pdev->dev, *adc_bat);
 	if (!adc_bat)
 		return -ENOMEM;
 
@@ -186,11 +186,8 @@ static int gab_probe(struct platform_device *pdev)
 	 * copying the static properties and allocating extra memory for holding
 	 * the extra configurable properties received from platform data.
 	 */
-	properties = devm_kcalloc(&pdev->dev,
-				  ARRAY_SIZE(gab_props) +
-				  ARRAY_SIZE(gab_chan_name),
-				  sizeof(*properties),
-				  GFP_KERNEL);
+	properties = devm_kzalloc_objs(&pdev->dev, *properties,
+				       ARRAY_SIZE(gab_props) + ARRAY_SIZE(gab_chan_name));
 	if (!properties)
 		return -ENOMEM;
 
@@ -243,6 +240,9 @@ static int gab_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, ret, "Failed to register delayed work\n");
 
 	adc_bat->charge_finished = devm_gpiod_get_optional(&pdev->dev, "charged", GPIOD_IN);
+	if (IS_ERR(adc_bat->charge_finished))
+		return dev_err_probe(&pdev->dev, PTR_ERR(adc_bat->charge_finished),
+				     "failed to get charged GPIO\n");
 	if (adc_bat->charge_finished) {
 		int irq;
 

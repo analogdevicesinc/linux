@@ -961,7 +961,7 @@ static int omap_des_probe(struct platform_device *pdev)
 	int err = -ENOMEM, i, j, irq = -1;
 	u32 reg;
 
-	dd = devm_kzalloc(dev, sizeof(struct omap_des_dev), GFP_KERNEL);
+	dd = devm_kzalloc_obj(dev, struct omap_des_dev);
 	if (dd == NULL) {
 		dev_err(dev, "unable to alloc data struct.\n");
 		goto err_data;
@@ -1081,6 +1081,8 @@ static void omap_des_remove(struct platform_device *pdev)
 	spin_unlock_bh(&list_lock);
 
 	omap_des_unregister_algs(dd->pdata);
+
+	crypto_engine_exit(dd->engine);
 
 	cancel_work_sync(&dd->done_task);
 	omap_des_dma_cleanup(dd);

@@ -49,7 +49,7 @@ static int platform_parse_resource(struct platform_device *pdev, void *data)
 	struct mtk_adsp_chip_info *adsp = data;
 	int ret;
 
-	ret = of_reserved_mem_device_init(dev);
+	ret = devm_of_reserved_mem_device_init(dev);
 	if (ret) {
 		dev_err(dev, "of_reserved_mem_device_init failed\n");
 		return ret;
@@ -178,7 +178,7 @@ static int mt8195_dsp_probe(struct snd_sof_dev *sdev)
 	struct adsp_priv *priv;
 	int ret;
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&pdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -186,7 +186,7 @@ static int mt8195_dsp_probe(struct snd_sof_dev *sdev)
 	priv->dev = sdev->dev;
 	priv->sdev = sdev;
 
-	priv->adsp = devm_kzalloc(&pdev->dev, sizeof(struct mtk_adsp_chip_info), GFP_KERNEL);
+	priv->adsp = devm_kzalloc_obj(&pdev->dev, struct mtk_adsp_chip_info);
 	if (!priv->adsp)
 		return -ENOMEM;
 

@@ -25,6 +25,7 @@
  */
 #define SDCA_PROPERTY_LENGTH 64
 
+#if IS_ENABLED(CONFIG_ACPI)
 static int patch_sdca_function_type(u32 interface_revision, u32 *function_type)
 {
 	/*
@@ -78,6 +79,8 @@ static const char *get_sdca_function_name(u32 function_type)
 		return SDCA_FUNCTION_TYPE_SPEAKER_MIC_NAME;
 	case SDCA_FUNCTION_TYPE_RJ:
 		return SDCA_FUNCTION_TYPE_RJ_NAME;
+	case SDCA_FUNCTION_TYPE_SIMPLE_JACK:
+		return SDCA_FUNCTION_TYPE_SIMPLE_NAME;
 	case SDCA_FUNCTION_TYPE_COMPANION_AMP:
 		return SDCA_FUNCTION_TYPE_COMPANION_AMP_NAME;
 	case SDCA_FUNCTION_TYPE_IMP_DEF:
@@ -199,6 +202,7 @@ void sdca_lookup_functions(struct sdw_slave *slave)
 	acpi_dev_for_each_child(adev, find_sdca_function, &slave->sdca_data);
 }
 EXPORT_SYMBOL_NS(sdca_lookup_functions, "SND_SOC_SDCA");
+#endif
 
 struct raw_init_write {
 	__le32 addr;
@@ -236,7 +240,7 @@ static int find_sdca_init_table(struct device *dev,
 
 	num_init_writes /= sizeof(*raw);
 
-	init_write = devm_kcalloc(dev, num_init_writes, sizeof(*init_write), GFP_KERNEL);
+	init_write = devm_kzalloc_objs(dev, *init_write, num_init_writes);
 	if (!init_write)
 		return -ENOMEM;
 
@@ -918,8 +922,8 @@ static int find_sdca_control_value(struct device *dev, struct sdca_entity *entit
 	return 0;
 }
 
-static int find_sdca_control_reset(const struct sdca_entity *entity,
-				   struct sdca_control *control)
+static void find_sdca_control_reset(const struct sdca_entity *entity,
+				    struct sdca_control *control)
 {
 	switch (SDCA_CTL_TYPE(entity->type, control->sel)) {
 	case SDCA_CTL_TYPE_S(FU, AGC):
@@ -946,8 +950,6 @@ static int find_sdca_control_reset(const struct sdca_entity *entity,
 	default:
 		break;
 	}
-
-	return 0;
 }
 
 static int find_sdca_entity_control(struct device *dev, struct sdca_entity *entity,
@@ -986,8 +988,8 @@ static int find_sdca_entity_control(struct device *dev, struct sdca_entity *enti
 		return ret;
 	}
 
-	control->values = devm_kcalloc(dev, hweight64(control->cn_list),
-				       sizeof(*control->values), GFP_KERNEL);
+	control->values = devm_kzalloc_objs(dev, *control->values,
+					    hweight64(control->cn_list));
 	if (!control->values)
 		return -ENOMEM;
 
@@ -1028,9 +1030,7 @@ static int find_sdca_entity_control(struct device *dev, struct sdca_entity *enti
 
 	control->is_volatile = find_sdca_control_volatile(entity, control);
 
-	ret = find_sdca_control_reset(entity, control);
-	if (ret)
-		return ret;
+	find_sdca_control_reset(entity, control);
 
 	ret = find_sdca_control_range(dev, control_node, &control->range);
 	if (ret) {
@@ -1085,7 +1085,7 @@ static int find_sdca_entity_controls(struct device *dev,
 	}
 
 	num_controls = hweight64(control_list);
-	controls = devm_kcalloc(dev, num_controls, sizeof(*controls), GFP_KERNEL);
+	controls = devm_kzalloc_objs(dev, *controls, num_controls);
 	if (!controls)
 		return -ENOMEM;
 
@@ -1259,7 +1259,7 @@ static int find_sdca_entity_pde(struct device *dev,
 
 	num_delays /= mult_delay;
 
-	delays = devm_kcalloc(dev, num_delays, sizeof(*delays), GFP_KERNEL);
+	delays = devm_kzalloc_objs(dev, *delays, num_delays);
 	if (!delays)
 		return -ENOMEM;
 
@@ -1324,8 +1324,7 @@ static int find_sdca_entity_ge(struct device *dev,
 	group->num_modes = *affected_list;
 	affected_iter = affected_list + 1;
 
-	group->modes = devm_kcalloc(dev, group->num_modes, sizeof(*group->modes),
-				    GFP_KERNEL);
+	group->modes = devm_kzalloc_objs(dev, *group->modes, group->num_modes);
 	if (!group->modes)
 		return -ENOMEM;
 
@@ -1344,8 +1343,8 @@ static int find_sdca_entity_ge(struct device *dev,
 		if (affected_iter > affected_list + num_affected)
 			goto bad_list;
 
-		mode->controls = devm_kcalloc(dev, mode->num_controls,
-					      sizeof(*mode->controls), GFP_KERNEL);
+		mode->controls = devm_kzalloc_objs(dev, *mode->controls,
+						   mode->num_controls);
 		if (!mode->controls)
 			return -ENOMEM;
 
@@ -1386,8 +1385,8 @@ static int find_sdca_entity_hide(struct device *dev,
 		return num_reports;
 	} else if (num_reports > 0) {
 		hide->num_hidtx_ids = num_reports;
-		hide->hidtx_ids = devm_kcalloc(dev, hide->num_hidtx_ids,
-					       sizeof(*hide->hidtx_ids), GFP_KERNEL);
+		hide->hidtx_ids = devm_kzalloc_objs(dev, *hide->hidtx_ids,
+						    hide->num_hidtx_ids);
 		if (!hide->hidtx_ids)
 			return -ENOMEM;
 
@@ -1404,8 +1403,8 @@ static int find_sdca_entity_hide(struct device *dev,
 		return num_reports;
 	} else if (num_reports > 0) {
 		hide->num_hidrx_ids = num_reports;
-		hide->hidrx_ids = devm_kcalloc(dev, hide->num_hidrx_ids,
-					       sizeof(*hide->hidrx_ids), GFP_KERNEL);
+		hide->hidrx_ids = devm_kzalloc_objs(dev, *hide->hidrx_ids,
+						    hide->num_hidrx_ids);
 		if (!hide->hidrx_ids)
 			return -ENOMEM;
 
@@ -1547,7 +1546,7 @@ static int find_sdca_entities(struct device *dev, struct fwnode_handle *function
 	}
 
 	/* Add 1 to make space for Entity 0 */
-	entities = devm_kcalloc(dev, num_entities + 1, sizeof(*entities), GFP_KERNEL);
+	entities = devm_kzalloc_objs(dev, *entities, num_entities + 1);
 	if (!entities)
 		return -ENOMEM;
 
@@ -1710,7 +1709,7 @@ static int find_sdca_entity_connection_pde(struct device *dev,
 		return -EINVAL;
 	}
 
-	managed = devm_kcalloc(dev, num_managed, sizeof(*managed), GFP_KERNEL);
+	managed = devm_kzalloc_objs(dev, *managed, num_managed);
 	if (!managed)
 		return -ENOMEM;
 
@@ -1827,7 +1826,7 @@ static int find_sdca_entity_connection(struct device *dev,
 	}
 
 	num_pins = hweight64(pin_list);
-	pins = devm_kcalloc(dev, num_pins, sizeof(*pins), GFP_KERNEL);
+	pins = devm_kzalloc_objs(dev, *pins, num_pins);
 	if (!pins)
 		return -ENOMEM;
 
@@ -1977,7 +1976,7 @@ static int find_sdca_cluster_channels(struct device *dev,
 		return -EINVAL;
 	}
 
-	channels = devm_kcalloc(dev, num_channels, sizeof(*channels), GFP_KERNEL);
+	channels = devm_kzalloc_objs(dev, *channels, num_channels);
 	if (!channels)
 		return -ENOMEM;
 
@@ -1985,7 +1984,6 @@ static int find_sdca_cluster_channels(struct device *dev,
 		char channel_property[SDCA_PROPERTY_LENGTH];
 		struct fwnode_handle *channel_node;
 
-		/* DisCo uses upper-case for hex numbers */
 		snprintf(channel_property, sizeof(channel_property),
 			 "mipi-sdca-channel-%d-subproperties", i + 1);
 
@@ -2028,7 +2026,7 @@ static int find_sdca_clusters(struct device *dev,
 		return -EINVAL;
 	}
 
-	clusters = devm_kcalloc(dev, num_clusters, sizeof(*clusters), GFP_KERNEL);
+	clusters = devm_kzalloc_objs(dev, *clusters, num_clusters);
 	if (!clusters)
 		return -ENOMEM;
 
@@ -2099,7 +2097,7 @@ static int find_sdca_filesets(struct device *dev, struct fwnode_handle *function
 	fwnode_property_read_u32_array(function_node, "mipi-sdca-file-set-id-list",
 				       filesets_list, num_sets);
 
-	sets = devm_kcalloc(dev, num_sets, sizeof(*sets), GFP_KERNEL);
+	sets = devm_kzalloc_objs(dev, *sets, num_sets);
 	if (!sets)
 		return -ENOMEM;
 
@@ -2124,8 +2122,8 @@ static int find_sdca_filesets(struct device *dev, struct fwnode_handle *function
 
 		dev_dbg(dev, "fileset: %#x\n", filesets_list[i]);
 
-		files = devm_kcalloc(dev, num_entries / mult_fileset,
-				     sizeof(*files), GFP_KERNEL);
+		files = devm_kzalloc_objs(dev, *files,
+					  num_entries / mult_fileset);
 		if (!files)
 			return -ENOMEM;
 

@@ -11,7 +11,6 @@
 #include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
-#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/timer.h>
@@ -151,6 +150,7 @@ out:
 }
 
 static int prp_set_fmt(struct v4l2_subdev *sd,
+		       const struct v4l2_subdev_client_info *ci,
 		       struct v4l2_subdev_state *sd_state,
 		       struct v4l2_subdev_format *sdformat)
 {
@@ -496,7 +496,7 @@ static int prp_init(struct imx_ic_priv *ic_priv)
 	struct prp_priv *priv;
 	int i;
 
-	priv = devm_kzalloc(ic_priv->ipu_dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(ic_priv->ipu_dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

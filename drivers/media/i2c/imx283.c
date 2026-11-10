@@ -958,6 +958,7 @@ static void imx283_set_framing_limits(struct imx283 *imx283,
 }
 
 static int imx283_set_pad_format(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -1260,6 +1261,7 @@ static int imx283_identify_module(struct imx283 *imx283)
 }
 
 static int imx283_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1461,7 +1463,7 @@ static int imx283_probe(struct i2c_client *client)
 	unsigned int xclk_freq;
 	int ret;
 
-	imx283 = devm_kzalloc(&client->dev, sizeof(*imx283), GFP_KERNEL);
+	imx283 = devm_kzalloc_obj(&client->dev, *imx283);
 	if (!imx283)
 		return -ENOMEM;
 

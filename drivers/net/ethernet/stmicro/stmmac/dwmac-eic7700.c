@@ -183,7 +183,7 @@ static int eic7700_dwmac_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(plat_dat),
 				"dt configuration failed\n");
 
-	dwc_priv = devm_kzalloc(&pdev->dev, sizeof(*dwc_priv), GFP_KERNEL);
+	dwc_priv = devm_kzalloc_obj(&pdev->dev, *dwc_priv);
 	if (!dwc_priv)
 		return -ENOMEM;
 
@@ -198,18 +198,9 @@ static int eic7700_dwmac_probe(struct platform_device *pdev)
 	/*
 	 * The MAC silicon unconditionally adds ~2 ns TX delay; prevent
 	 * the PHY from also adding TX delay to avoid doubling it.
-	 *
-	 * DT specifies rgmii-id (TX from MAC silicon, RX from PHY);
-	 * override to rgmii-rxid so the PHY only adds its RX delay.
+	 * The common platform code adjusts the PHY interface accordingly.
 	 */
-	if (data->has_internal_tx_delay) {
-		plat_dat->phy_interface =
-				 phy_fix_phy_mode_for_mac_delays(plat_dat->phy_interface,
-								 true, false);
-		if (plat_dat->phy_interface == PHY_INTERFACE_MODE_NA)
-			return dev_err_probe(&pdev->dev, -EINVAL,
-				"phy interface mode is NA\n");
-	}
+	plat_dat->has_internal_tx_delay = data->has_internal_tx_delay;
 
 	/* Read rx-internal-delay-ps and update rx_clk delay */
 	if (!of_property_read_u32(pdev->dev.of_node,
@@ -304,10 +295,8 @@ static int eic7700_dwmac_probe(struct platform_device *pdev)
 		dwc_priv->has_rxd_offset = true;
 
 	plat_dat->num_clks = ARRAY_SIZE(eic7700_clk_names);
-	plat_dat->clks = devm_kcalloc(&pdev->dev,
-				      plat_dat->num_clks,
-				      sizeof(*plat_dat->clks),
-				      GFP_KERNEL);
+	plat_dat->clks = devm_kzalloc_objs(&pdev->dev, *plat_dat->clks,
+					   plat_dat->num_clks);
 	if (!plat_dat->clks)
 		return -ENOMEM;
 

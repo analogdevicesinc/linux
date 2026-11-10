@@ -512,7 +512,7 @@ static int d350_alloc_chan_resources(struct dma_chan *chan)
 {
 	struct d350_chan *dch = to_d350_chan(chan);
 	int ret = request_irq(dch->irq, d350_irq, IRQF_SHARED,
-			      dev_name(&dch->vc.chan.dev->device), dch);
+			      vchan_chan_name(&dch->vc), dch);
 	if (!ret)
 		writel_relaxed(CH_INTREN_DONE | CH_INTREN_ERR, dch->base + CH_INTREN);
 
@@ -556,7 +556,7 @@ static int d350_probe(struct platform_device *pdev)
 	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(aw));
 	coherent = device_get_dma_attr(dev) == DEV_DMA_COHERENT;
 
-	dmac = devm_kzalloc(dev, struct_size(dmac, channels, nchan), GFP_KERNEL);
+	dmac = devm_kzalloc_flex(dev, *dmac, channels, nchan);
 	if (!dmac)
 		return -ENOMEM;
 

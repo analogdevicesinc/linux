@@ -3106,6 +3106,7 @@ static int ov64a40_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int ov64a40_get_selection(struct v4l2_subdev *sd,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -3137,6 +3138,7 @@ static int ov64a40_get_selection(struct v4l2_subdev *sd,
 }
 
 static int ov64a40_set_format(struct v4l2_subdev *sd,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *state,
 			      struct v4l2_subdev_format *fmt)
 {
@@ -3532,7 +3534,7 @@ static int ov64a40_probe(struct i2c_client *client)
 	u32 xclk_freq;
 	int ret;
 
-	ov64a40 = devm_kzalloc(&client->dev, sizeof(*ov64a40), GFP_KERNEL);
+	ov64a40 = devm_kzalloc_obj(&client->dev, *ov64a40);
 	if (!ov64a40)
 		return -ENOMEM;
 

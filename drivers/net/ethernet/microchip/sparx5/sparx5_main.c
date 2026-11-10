@@ -794,7 +794,7 @@ static int mchp_sparx5_probe(struct platform_device *pdev)
 	if (!np && !pdev->dev.platform_data)
 		return -ENODEV;
 
-	sparx5 = devm_kzalloc(&pdev->dev, sizeof(*sparx5), GFP_KERNEL);
+	sparx5 = devm_kzalloc_obj(&pdev->dev, *sparx5);
 	if (!sparx5)
 		return -ENOMEM;
 
@@ -1064,6 +1064,8 @@ static const struct sparx5_consts sparx5_consts = {
 	.n_gates             = 1024,
 	.n_sdlbs             = 4096,
 	.n_dsm_cal_taxis     = 8,
+	.n_tas_gcl           = 10000,
+	.n_tas_lists         = 128,
 	.buf_size            = 4194280,
 	.qres_max_prio_idx   = 630,
 	.qres_max_colour_idx = 638,

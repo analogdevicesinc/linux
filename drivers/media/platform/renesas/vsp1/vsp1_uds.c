@@ -193,6 +193,7 @@ static void uds_try_format(struct vsp1_uds *uds,
 }
 
 static int uds_set_format(struct v4l2_subdev *subdev,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -386,7 +387,7 @@ struct vsp1_uds *vsp1_uds_create(struct vsp1_device *vsp1, unsigned int index)
 	char name[6];
 	int ret;
 
-	uds = devm_kzalloc(vsp1->dev, sizeof(*uds), GFP_KERNEL);
+	uds = devm_kzalloc_obj(vsp1->dev, *uds);
 	if (uds == NULL)
 		return ERR_PTR(-ENOMEM);
 

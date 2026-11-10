@@ -216,8 +216,7 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_generic *nop)
 	if (nop->gpiod_reset)
 		gpiod_direction_output(nop->gpiod_reset, 1);
 
-	nop->phy.otg = devm_kzalloc(dev, sizeof(*nop->phy.otg),
-			GFP_KERNEL);
+	nop->phy.otg = devm_kzalloc_obj(dev, *nop->phy.otg);
 	if (!nop->phy.otg)
 		return -ENOMEM;
 
@@ -267,7 +266,7 @@ static int usb_phy_generic_probe(struct platform_device *pdev)
 	struct usb_phy_generic	*nop;
 	int err;
 
-	nop = devm_kzalloc(dev, sizeof(*nop), GFP_KERNEL);
+	nop = devm_kzalloc_obj(dev, *nop);
 	if (!nop)
 		return -ENOMEM;
 
@@ -282,8 +281,7 @@ static int usb_phy_generic_probe(struct platform_device *pdev)
 						VBUS_IRQ_FLAGS, "vbus_detect",
 						nop);
 		if (err)
-			return dev_err_probe(dev, err, "can't request irq %i\n",
-					     gpiod_to_irq(nop->gpiod_vbus));
+			return err;
 
 		nop->phy.otg->state = gpiod_get_value(nop->gpiod_vbus) ?
 			OTG_STATE_B_PERIPHERAL : OTG_STATE_B_IDLE;

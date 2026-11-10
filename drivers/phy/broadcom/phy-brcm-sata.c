@@ -334,7 +334,7 @@ static int brcm_stb_sata_16nm_ssc_init(struct brcm_sata_port *port)
 	brcm_sata_phy_wr(port, RXPMD_REG_BANK, RXPMD_RX_CDR_CONTROL1,
 			 ~RXPMD_RX_PPM_VAL_MASK, value);
 
-	/* Set proportional loop bandwith Gen1/2/3 */
+	/* Set proportional loop bandwidth Gen1/2/3 */
 	tmp = RXPMD_G_CDR_PROP_BW_MASK << RXPMD_G1_CDR_PROP_BW_SHIFT |
 	      RXPMD_G_CDR_PROP_BW_MASK << RXPMD_G2_CDR_PROP_BW_SHIFT |
 	      RXPMD_G_CDR_PROP_BW_MASK << RXPMD_G3_CDR_PROB_BW_SHIFT;
@@ -760,7 +760,7 @@ static int brcm_sata_phy_probe(struct platform_device *pdev)
 	if (of_get_child_count(dn) == 0)
 		return -ENODEV;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 	dev_set_drvdata(dev, priv);

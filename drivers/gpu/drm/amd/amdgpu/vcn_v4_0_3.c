@@ -25,6 +25,7 @@
 #include <drm/drm_drv.h>
 
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_vcn.h"
 #include "amdgpu_pm.h"
 #include "soc15.h"
@@ -394,10 +395,18 @@ static int vcn_v4_0_3_hw_init(struct amdgpu_ip_block *ip_block)
 
 			r = amdgpu_ring_test_helper(ring);
 			if (r)
-				return r;
+				goto error;
 		}
 	}
 
+	return r;
+
+error:
+	while (i >= 0) {
+		if (!(adev->vcn.harvest_config & (1 << i)))
+			amdgpu_vcn_cancel_idle_work(&adev->vcn.inst[i]);
+		i--;
+	}
 	return r;
 }
 
@@ -416,7 +425,9 @@ static int vcn_v4_0_3_hw_fini(struct amdgpu_ip_block *ip_block)
 	for (i = 0; i < adev->vcn.num_vcn_inst; ++i) {
 		struct amdgpu_vcn_inst *vinst = &adev->vcn.inst[i];
 
-		cancel_delayed_work_sync(&vinst->idle_work);
+		/* Teardown cancelled it synchronously in early_fini */
+		if (!adev->shutdown)
+			amdgpu_vcn_cancel_idle_work(vinst);
 
 		if (vinst->cur_state != AMD_PG_STATE_GATE)
 			vinst->set_pg_state(vinst, AMD_PG_STATE_GATE);
@@ -1842,26 +1853,6 @@ static void vcn_v4_0_3_set_unified_ring_funcs(struct amdgpu_device *adev)
 }
 
 /**
- * vcn_v4_0_3_is_idle - check VCN block is idle
- *
- * @ip_block: Pointer to the amdgpu_ip_block structure
- *
- * Check whether VCN block is idle
- */
-static bool vcn_v4_0_3_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	int i, ret = 1;
-
-	for (i = 0; i < adev->vcn.num_vcn_inst; ++i) {
-		ret &= (RREG32_SOC15(VCN, GET_INST(VCN, i), regUVD_STATUS) ==
-			UVD_STATUS__IDLE);
-	}
-
-	return ret;
-}
-
-/**
  * vcn_v4_0_3_wait_for_idle - wait for VCN block idle
  *
  * @ip_block: Pointer to the amdgpu_ip_block for this hw instance.
@@ -2046,11 +2037,11 @@ static const struct amd_ip_funcs vcn_v4_0_3_ip_funcs = {
 	.late_init = vcn_v4_0_3_late_init,
 	.sw_init = vcn_v4_0_3_sw_init,
 	.sw_fini = vcn_v4_0_3_sw_fini,
+	.early_fini = amdgpu_vcn_early_fini,
 	.hw_init = vcn_v4_0_3_hw_init,
 	.hw_fini = vcn_v4_0_3_hw_fini,
 	.suspend = vcn_v4_0_3_suspend,
 	.resume = vcn_v4_0_3_resume,
-	.is_idle = vcn_v4_0_3_is_idle,
 	.wait_for_idle = vcn_v4_0_3_wait_for_idle,
 	.set_clockgating_state = vcn_v4_0_3_set_clockgating_state,
 	.set_powergating_state = vcn_set_powergating_state,

@@ -464,7 +464,7 @@ rcar_drif_get_fbuf(struct rcar_drif_sdr *sdr)
 					rcar_drif_frame_buf, list);
 	if (!fbuf) {
 		/*
-		 * App is late in enqueing buffers. Samples lost & there will
+		 * App is late in enqueuing buffers. Samples lost & there will
 		 * be a gap in sequence number when app recovers
 		 */
 		rdrif_dbg(sdr, "\napp late: prod %u\n", sdr->produced);
@@ -1375,7 +1375,7 @@ static int rcar_drif_probe(struct platform_device *pdev)
 	int ret;
 
 	/* Reserve memory for enabled channel */
-	ch = devm_kzalloc(&pdev->dev, sizeof(*ch), GFP_KERNEL);
+	ch = devm_kzalloc_obj(&pdev->dev, *ch);
 	if (!ch)
 		return -ENOMEM;
 
@@ -1409,7 +1409,7 @@ static int rcar_drif_probe(struct platform_device *pdev)
 	}
 
 	/* Reserve memory for SDR structure */
-	sdr = devm_kzalloc(&pdev->dev, sizeof(*sdr), GFP_KERNEL);
+	sdr = devm_kzalloc_obj(&pdev->dev, *sdr);
 	if (!sdr) {
 		of_node_put(np);
 		return -ENOMEM;

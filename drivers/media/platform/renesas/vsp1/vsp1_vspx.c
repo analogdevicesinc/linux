@@ -120,7 +120,8 @@ static int vsp1_vspx_rwpf_set_subdev_fmt(struct vsp1_device *vsp1,
 	format.format.field = V4L2_FIELD_NONE;
 	format.format.code = rwpf->fmtinfo->mbus;
 
-	return v4l2_subdev_call(&ent->subdev, pad, set_fmt, NULL, &format);
+	return v4l2_subdev_call(&ent->subdev, pad, set_fmt, NULL, NULL,
+				&format);
 }
 
 /* Configure the RPF->IIF->WPF pipeline for ConfigDMA or RAW image transfer. */
@@ -583,7 +584,7 @@ int vsp1_vspx_init(struct vsp1_device *vsp1)
 	struct vsp1_vspx_pipeline *vspx_pipe;
 	struct vsp1_pipeline *pipe;
 
-	vsp1->vspx = devm_kzalloc(vsp1->dev, sizeof(*vsp1->vspx), GFP_KERNEL);
+	vsp1->vspx = devm_kzalloc_obj(vsp1->dev, *vsp1->vspx);
 	if (!vsp1->vspx)
 		return -ENOMEM;
 

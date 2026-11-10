@@ -471,13 +471,15 @@ static u8 intel_dp_get_sink_sync_latency(struct intel_dp *intel_dp)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
 	u8 val = 8; /* assume the worst if we can't read the value */
+	int ret;
 
-	if (drm_dp_dpcd_readb(&intel_dp->aux,
-			      DP_SYNCHRONIZATION_LATENCY_IN_SINK, &val) == 1)
+	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_SYNCHRONIZATION_LATENCY_IN_SINK, &val);
+	if (!ret)
 		val &= DP_MAX_RESYNC_FRAME_COUNT_MASK;
 	else
 		drm_dbg_kms(display->drm,
-			    "Unable to get sink synchronization latency, assuming 8 frames\n");
+			    "Unable to get sink synchronization latency, assuming 8 frames (%pe)\n",
+			    ERR_PTR(ret));
 	return val;
 }
 
@@ -485,7 +487,7 @@ static void _psr_compute_su_granularity(struct intel_dp *intel_dp,
 					struct intel_connector *connector)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
-	ssize_t r;
+	int ret;
 	__le16 w;
 	u8 y;
 
@@ -500,21 +502,23 @@ static void _psr_compute_su_granularity(struct intel_dp *intel_dp,
 		goto exit;
 	}
 
-	r = drm_dp_dpcd_read(&intel_dp->aux, DP_PSR2_SU_X_GRANULARITY, &w, sizeof(w));
-	if (r != sizeof(w))
+	ret = drm_dp_dpcd_read_data(&intel_dp->aux, DP_PSR2_SU_X_GRANULARITY, &w, sizeof(w));
+	if (ret < 0)
 		drm_dbg_kms(display->drm,
-			    "Unable to read selective update x granularity\n");
+			    "Unable to read selective update x granularity (%pe)\n",
+			    ERR_PTR(ret));
 	/*
 	 * Spec says that if the value read is 0 the default granularity should
 	 * be used instead.
 	 */
-	if (r != sizeof(w) || w == 0)
+	if (ret < 0 || w == 0)
 		w = cpu_to_le16(4);
 
-	r = drm_dp_dpcd_read(&intel_dp->aux, DP_PSR2_SU_Y_GRANULARITY, &y, 1);
-	if (r != 1) {
+	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_PSR2_SU_Y_GRANULARITY, &y);
+	if (ret < 0) {
 		drm_dbg_kms(display->drm,
-			    "Unable to read selective update y granularity\n");
+			    "Unable to read selective update y granularity (%pe)\n",
+			    ERR_PTR(ret));
 		y = 4;
 	}
 	if (y == 0)
@@ -796,11 +800,11 @@ static void _panel_replay_enable_sink(struct intel_dp *intel_dp,
 		panel_replay_config[1] |=
 			DP_PANEL_REPLAY_SU_REGION_SCANLINE_CAPTURE;
 
-	drm_dp_dpcd_write(&intel_dp->aux, PANEL_REPLAY_CONFIG,
-			  panel_replay_config, sizeof(panel_replay_config));
+	drm_dp_dpcd_write_data(&intel_dp->aux, PANEL_REPLAY_CONFIG,
+			       panel_replay_config, sizeof(panel_replay_config));
 
 	panel_replay_config_3 = intel_dp_as_sdp_transmission_time();
-	drm_dp_dpcd_writeb(&intel_dp->aux, PANEL_REPLAY_CONFIG3, panel_replay_config_3);
+	drm_dp_dpcd_write_byte(&intel_dp->aux, PANEL_REPLAY_CONFIG3, panel_replay_config_3);
 }
 
 static void _psr_enable_sink(struct intel_dp *intel_dp,
@@ -827,10 +831,10 @@ static void _psr_enable_sink(struct intel_dp *intel_dp,
 
 	if (intel_dp->psr.entry_setup_frames > 0)
 		val |= DP_PSR_FRAME_CAPTURE;
-	drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_EN_CFG, val);
+	drm_dp_dpcd_write_byte(&intel_dp->aux, DP_PSR_EN_CFG, val);
 
 	val |= DP_PSR_ENABLE;
-	drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_EN_CFG, val);
+	drm_dp_dpcd_write_byte(&intel_dp->aux, DP_PSR_EN_CFG, val);
 }
 
 static void intel_psr_enable_sink(struct intel_dp *intel_dp,
@@ -843,7 +847,7 @@ static void intel_psr_enable_sink(struct intel_dp *intel_dp,
 		_psr_enable_sink(intel_dp, crtc_state);
 
 	if (intel_dp_is_edp(intel_dp))
-		drm_dp_dpcd_writeb(&intel_dp->aux, DP_SET_POWER, DP_SET_POWER_D0);
+		drm_dp_dpcd_write_byte(&intel_dp->aux, DP_SET_POWER, DP_SET_POWER_D0);
 }
 
 void intel_psr_panel_replay_enable_sink(struct intel_dp *intel_dp)
@@ -854,8 +858,8 @@ void intel_psr_panel_replay_enable_sink(struct intel_dp *intel_dp)
 	 * ensure this bit is cleared/set accordingly.
 	 */
 	if (CAN_PANEL_REPLAY(intel_dp) && panel_replay_global_enabled(intel_dp))
-		drm_dp_dpcd_writeb(&intel_dp->aux, PANEL_REPLAY_CONFIG,
-				   DP_PANEL_REPLAY_ENABLE);
+		drm_dp_dpcd_write_byte(&intel_dp->aux, PANEL_REPLAY_CONFIG,
+				       DP_PANEL_REPLAY_ENABLE);
 }
 
 static u32 intel_psr1_get_tp_time(struct intel_dp *intel_dp)
@@ -1490,6 +1494,12 @@ static bool intel_psr2_config_valid(struct intel_dp *intel_dp,
 	int crtc_hdisplay = crtc_state->hw.adjusted_mode.crtc_hdisplay;
 	int crtc_vdisplay = crtc_state->hw.adjusted_mode.crtc_vdisplay;
 	int psr_max_h = 0, psr_max_v = 0, max_bpp = 0;
+
+	if (crtc_state->vrr.cmrr.enable) {
+		drm_dbg_kms(display->drm,
+			    "PSR2 cannot be enabled when CMRR is enabled\n");
+		return false;
+	}
 
 	if (!connector->dp.psr_caps.su_support || display->params.enable_psr == 1)
 		return false;
@@ -2367,11 +2377,11 @@ static void intel_psr_disable_locked(struct intel_dp *intel_dp)
 
 	/* Disable PSR on Sink */
 	if (!intel_dp->psr.panel_replay_enabled) {
-		drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_EN_CFG, 0);
+		drm_dp_dpcd_write_byte(&intel_dp->aux, DP_PSR_EN_CFG, 0);
 
 		if (intel_dp->psr.sel_update_enabled)
-			drm_dp_dpcd_writeb(&intel_dp->aux,
-					   DP_RECEIVER_ALPM_CONFIG, 0);
+			drm_dp_dpcd_write_byte(&intel_dp->aux,
+					       DP_RECEIVER_ALPM_CONFIG, 0);
 	}
 
 	/* Wa_16025596647 */
@@ -2702,23 +2712,25 @@ static u32 psr2_pipe_srcsz_early_tpt_calc(struct intel_crtc_state *crtc_state,
 }
 
 static void clip_area_update(struct drm_rect *overlap_damage_area,
-			     struct drm_rect *damage_area,
-			     struct drm_rect *display_area)
+			     const struct drm_rect *damage_area,
+			     const struct drm_rect *display_area)
 {
-	if (!drm_rect_intersect(damage_area, display_area))
+	struct drm_rect inter = *damage_area;
+
+	if (!drm_rect_intersect(&inter, display_area))
 		return;
 
 	if (overlap_damage_area->y1 == -1) {
-		overlap_damage_area->y1 = damage_area->y1;
-		overlap_damage_area->y2 = damage_area->y2;
+		overlap_damage_area->y1 = inter.y1;
+		overlap_damage_area->y2 = inter.y2;
 		return;
 	}
 
-	if (damage_area->y1 < overlap_damage_area->y1)
-		overlap_damage_area->y1 = damage_area->y1;
+	if (inter.y1 < overlap_damage_area->y1)
+		overlap_damage_area->y1 = inter.y1;
 
-	if (damage_area->y2 > overlap_damage_area->y2)
-		overlap_damage_area->y2 = damage_area->y2;
+	if (inter.y2 > overlap_damage_area->y2)
+		overlap_damage_area->y2 = inter.y2;
 }
 
 static bool intel_psr2_sel_fetch_pipe_alignment(struct intel_crtc_state *crtc_state)
@@ -2895,7 +2907,7 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 		.y2 = crtc_state->hw.adjusted_mode.crtc_vdisplay,
 	};
 	bool full_update = false, su_area_changed;
-	int i, ret;
+	int i;
 
 	/*
 	 * Selective fetch is not always usable, for instance it is dropped
@@ -2913,15 +2925,15 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 	if (!crtc_state->enable_psr2_sel_fetch)
 		return 0;
 
-	if (!psr2_sel_fetch_pipe_state_supported(crtc_state)) {
-		full_update = true;
-		goto skip_sel_fetch_set_loop;
-	}
-
 	crtc_state->psr2_su_area.x1 = 0;
 	crtc_state->psr2_su_area.y1 = -1;
 	crtc_state->psr2_su_area.x2 = drm_rect_width(&display_area);
 	crtc_state->psr2_su_area.y2 = -1;
+
+	if (!psr2_sel_fetch_pipe_state_supported(crtc_state)) {
+		full_update = true;
+		goto skip_su_area_calc;
+	}
 
 	/*
 	 * Calculate minimal selective fetch area of each plane and calculate
@@ -3006,23 +3018,19 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 	}
 
 	if (full_update)
-		goto skip_sel_fetch_set_loop;
+		goto skip_su_area_calc;
 
 	intel_psr_apply_su_area_workarounds(crtc_state);
-
-	ret = drm_atomic_add_affected_planes(&state->base, &crtc->base);
-	if (ret)
-		return ret;
 
 	do {
 		bool cursor_in_su_area = false;
 
 		/*
 		 * Adjust su area to cover cursor fully as necessary
-		 * (early transport). This needs to be done after
-		 * drm_atomic_add_affected_planes to ensure visible
-		 * cursor is added into affected planes even when
-		 * cursor is not updated by itself.
+		 * (early transport). A visible cursor is in the state
+		 * even when it is not updated by itself as all planes
+		 * of the pipe are added into the state before the plane
+		 * checks when selective fetch is enabled.
 		 */
 		intel_psr2_sel_fetch_et_alignment(state, crtc, &display_area,
 						  &cursor_in_su_area);
@@ -3042,6 +3050,11 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 			break;
 	} while (su_area_changed);
 
+skip_su_area_calc:
+	if (full_update)
+		clip_area_update(&crtc_state->psr2_su_area, &display_area,
+				 &display_area);
+
 	/*
 	 * Now that we have the pipe damaged area check if it intersect with
 	 * every plane, if it does set the plane selective fetch area.
@@ -3057,28 +3070,14 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 
 		inter = crtc_state->psr2_su_area;
 		sel_fetch_area = &new_plane_state->psr2_sel_fetch_area;
-		if (!drm_rect_intersect(&inter, &new_plane_state->uapi.dst)) {
-			sel_fetch_area->y1 = -1;
-			sel_fetch_area->y2 = -1;
-			/*
-			 * if plane sel fetch was previously enabled ->
-			 * disable it
-			 */
-			if (drm_rect_height(&old_plane_state->psr2_sel_fetch_area) > 0)
-				crtc_state->update_planes |= BIT(plane->id);
-
-			continue;
+		if (drm_rect_intersect(&inter, &new_plane_state->uapi.dst)) {
+			sel_fetch_area->y1 = inter.y1 - new_plane_state->uapi.dst.y1;
+			sel_fetch_area->y2 = inter.y2 - new_plane_state->uapi.dst.y1;
 		}
 
-		if (!psr2_sel_fetch_plane_state_supported(new_plane_state)) {
-			full_update = true;
-			break;
-		}
-
-		sel_fetch_area = &new_plane_state->psr2_sel_fetch_area;
-		sel_fetch_area->y1 = inter.y1 - new_plane_state->uapi.dst.y1;
-		sel_fetch_area->y2 = inter.y2 - new_plane_state->uapi.dst.y1;
-		crtc_state->update_planes |= BIT(plane->id);
+		if (!drm_rect_equals(&old_plane_state->psr2_sel_fetch_area,
+				     sel_fetch_area))
+			crtc_state->update_planes |= BIT(plane->id);
 
 		/*
 		 * Sel_fetch_area is calculated for UV plane. Use
@@ -3086,23 +3085,24 @@ int intel_psr2_sel_fetch_update(struct intel_atomic_state *state,
 		 */
 		if (linked) {
 			struct intel_plane_state *linked_new_plane_state;
+			struct intel_plane_state *linked_old_plane_state;
 			struct drm_rect *linked_sel_fetch_area;
 
-			linked_new_plane_state = intel_atomic_get_plane_state(state, linked);
-			if (IS_ERR(linked_new_plane_state))
-				return PTR_ERR(linked_new_plane_state);
+			linked_new_plane_state = intel_atomic_get_new_plane_state(state, linked);
+			if (!linked_new_plane_state)
+				return -EINVAL;
+
+			linked_old_plane_state = intel_atomic_get_old_plane_state(state, linked);
 
 			linked_sel_fetch_area = &linked_new_plane_state->psr2_sel_fetch_area;
 			linked_sel_fetch_area->y1 = sel_fetch_area->y1;
 			linked_sel_fetch_area->y2 = sel_fetch_area->y2;
-			crtc_state->update_planes |= BIT(linked->id);
+
+			if (!drm_rect_equals(&linked_old_plane_state->psr2_sel_fetch_area,
+					     linked_sel_fetch_area))
+				crtc_state->update_planes |= BIT(linked->id);
 		}
 	}
-
-skip_sel_fetch_set_loop:
-	if (full_update)
-		clip_area_update(&crtc_state->psr2_su_area, &display_area,
-				 &display_area);
 
 	psr2_man_trk_ctl_calc(crtc_state, full_update);
 	crtc_state->pipe_srcsz_early_tpt =
@@ -3511,7 +3511,7 @@ static void intel_psr_handle_irq(struct intel_dp *intel_dp)
 	intel_psr_disable_locked(intel_dp);
 	psr->sink_not_reliable = true;
 	/* let's make sure that sink is awaken */
-	drm_dp_dpcd_writeb(&intel_dp->aux, DP_SET_POWER, DP_SET_POWER_D0);
+	drm_dp_dpcd_write_byte(&intel_dp->aux, DP_SET_POWER, DP_SET_POWER_D0);
 }
 
 static void intel_psr_work(struct work_struct *work)
@@ -3790,15 +3790,15 @@ static int psr_get_status_and_error_status(struct intel_dp *intel_dp,
 	offset = intel_dp->psr.panel_replay_enabled ?
 		 DP_SINK_DEVICE_PR_AND_FRAME_LOCK_STATUS : DP_PSR_STATUS;
 
-	ret = drm_dp_dpcd_readb(aux, offset, status);
-	if (ret != 1)
+	ret = drm_dp_dpcd_read_byte(aux, offset, status);
+	if (ret < 0)
 		return ret;
 
 	offset = intel_dp->psr.panel_replay_enabled ?
 		 DP_PANEL_REPLAY_ERROR_STATUS : DP_PSR_ERROR_STATUS;
 
-	ret = drm_dp_dpcd_readb(aux, offset, error_status);
-	if (ret != 1)
+	ret = drm_dp_dpcd_read_byte(aux, offset, error_status);
+	if (ret < 0)
 		return ret;
 
 	*status = *status & DP_PSR_SINK_STATE_MASK;
@@ -3823,12 +3823,12 @@ static void psr_capability_changed_check(struct intel_dp *intel_dp)
 {
 	struct intel_display *display = to_intel_display(intel_dp);
 	struct intel_psr *psr = &intel_dp->psr;
+	int ret;
 	u8 val;
-	int r;
 
-	r = drm_dp_dpcd_readb(&intel_dp->aux, DP_PSR_ESI, &val);
-	if (r != 1) {
-		drm_err(display->drm, "Error reading DP_PSR_ESI\n");
+	ret = drm_dp_dpcd_read_byte(&intel_dp->aux, DP_PSR_ESI, &val);
+	if (ret < 0) {
+		drm_err(display->drm, "Error reading DP_PSR_ESI (%pe)\n", ERR_PTR(ret));
 		return;
 	}
 
@@ -3839,7 +3839,7 @@ static void psr_capability_changed_check(struct intel_dp *intel_dp)
 			    "Sink PSR capability changed, disabling PSR\n");
 
 		/* Clearing it */
-		drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_ESI, val);
+		drm_dp_dpcd_write_byte(&intel_dp->aux, DP_PSR_ESI, val);
 	}
 }
 
@@ -3855,6 +3855,7 @@ void intel_psr_short_pulse(struct intel_dp *intel_dp)
 	struct intel_display *display = to_intel_display(intel_dp);
 	struct intel_psr *psr = &intel_dp->psr;
 	u8 status, error_status;
+	bool panel_replay_enabled;
 	const u8 errors = DP_PSR_RFB_STORAGE_ERROR |
 			  DP_PSR_VSC_SDP_UNCORRECTABLE_ERROR |
 			  DP_PSR_LINK_CRC_ERROR;
@@ -3874,6 +3875,12 @@ void intel_psr_short_pulse(struct intel_dp *intel_dp)
 			"Error reading PSR status or error status\n");
 		goto exit;
 	}
+
+	/*
+	 * Save this before intel_psr_disable_locked() clears it; the error
+	 * status is acknowledged to a different DPCD address depending on it.
+	 */
+	panel_replay_enabled = psr->panel_replay_enabled;
 
 	if ((!psr->panel_replay_enabled && status == DP_PSR_SINK_INTERNAL_ERROR) ||
 	    (error_status & errors)) {
@@ -3900,7 +3907,10 @@ void intel_psr_short_pulse(struct intel_dp *intel_dp)
 			"PSR_ERROR_STATUS unhandled errors %x\n",
 			error_status & ~errors);
 	/* clear status register */
-	drm_dp_dpcd_writeb(&intel_dp->aux, DP_PSR_ERROR_STATUS, error_status);
+	drm_dp_dpcd_write_byte(&intel_dp->aux,
+			       panel_replay_enabled ?
+			       DP_PANEL_REPLAY_ERROR_STATUS : DP_PSR_ERROR_STATUS,
+			       error_status);
 
 	if (!psr->panel_replay_enabled) {
 		psr_alpm_check(intel_dp);

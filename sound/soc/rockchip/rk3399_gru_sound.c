@@ -258,10 +258,20 @@ static int rockchip_sound_dmic_hw_params(struct snd_pcm_substream *substream,
 static int rockchip_sound_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	int ret;
 
 	runtime->hw.formats = SNDRV_PCM_FMTBIT_S16_LE;
-	return snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_RATE,
-			8000, 96000);
+	ret = snd_pcm_hw_constraint_minmax(runtime, SNDRV_PCM_HW_PARAM_RATE,
+					   8000, 96000);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI link as started when .startup() returns 0.
+	 * Since snd_pcm_hw_constraint_minmax() may return 1, explicitly
+	 * return 0 to ensure the DAI link is correctly marked as started.
+	 */
+	return 0;
 }
 
 static const struct snd_soc_ops rockchip_sound_max98357a_ops = {
@@ -505,16 +515,15 @@ static int rockchip_sound_of_parse_dais(struct device *dev,
 	int i, index;
 	int num_routes;
 
-	card->dai_link = devm_kzalloc(dev, sizeof(rockchip_dais),
-				      GFP_KERNEL);
+	card->dai_link = devm_kzalloc_objs(dev, *card->dai_link,
+					   ARRAY_SIZE(rockchip_dais));
 	if (!card->dai_link)
 		return -ENOMEM;
 
 	num_routes = 0;
 	for (i = 0; i < ARRAY_SIZE(rockchip_routes); i++)
 		num_routes += rockchip_routes[i].num_routes;
-	routes = devm_kcalloc(dev, num_routes, sizeof(*routes),
-			      GFP_KERNEL);
+	routes = devm_kzalloc_objs(dev, *routes, num_routes);
 	if (!routes)
 		return -ENOMEM;
 	card->dapm_routes = routes;

@@ -870,7 +870,7 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 	int ret;
 	u32 bus_speed;
 
-	pd = devm_kzalloc(&dev->dev, sizeof(struct sh_mobile_i2c_data), GFP_KERNEL);
+	pd = devm_kzalloc_obj(&dev->dev, struct sh_mobile_i2c_data);
 	if (!pd)
 		return -ENOMEM;
 
@@ -880,16 +880,16 @@ static int sh_mobile_i2c_probe(struct platform_device *dev)
 		return PTR_ERR(pd->clk);
 	}
 
-	ret = sh_mobile_i2c_hook_irqs(dev, pd);
-	if (ret)
-		return ret;
-
 	pd->dev = &dev->dev;
 	platform_set_drvdata(dev, pd);
 
 	pd->reg = devm_platform_get_and_ioremap_resource(dev, 0, &pd->res);
 	if (IS_ERR(pd->reg))
 		return PTR_ERR(pd->reg);
+
+	ret = sh_mobile_i2c_hook_irqs(dev, pd);
+	if (ret)
+		return ret;
 
 	ret = of_property_read_u32(dev->dev.of_node, "clock-frequency", &bus_speed);
 	pd->bus_speed = (ret || !bus_speed) ? I2C_MAX_STANDARD_MODE_FREQ : bus_speed;

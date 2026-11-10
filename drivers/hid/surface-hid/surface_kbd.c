@@ -241,7 +241,7 @@ static int surface_kbd_probe(struct platform_device *pdev)
 	if (IS_ERR(ctrl))
 		return PTR_ERR(ctrl) == -ENODEV ? -EPROBE_DEFER : PTR_ERR(ctrl);
 
-	shid = devm_kzalloc(&pdev->dev, sizeof(*shid), GFP_KERNEL);
+	shid = devm_kzalloc_obj(&pdev->dev, *shid);
 	if (!shid)
 		return -ENOMEM;
 
@@ -277,8 +277,8 @@ static void surface_kbd_remove(struct platform_device *pdev)
 }
 
 static const struct acpi_device_id surface_kbd_match[] = {
-	{ "MSHW0096" },
-	{ },
+	{ .id = "MSHW0096" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, surface_kbd_match);
 

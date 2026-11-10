@@ -94,10 +94,10 @@ struct clk *clk_register_hisi_phase(struct device *dev,
 		const struct hisi_phase_clock *clks,
 		void __iomem *base, spinlock_t *lock)
 {
+	struct clk_init_data init = {};
 	struct clk_hisi_phase *phase;
-	struct clk_init_data init;
 
-	phase = devm_kzalloc(dev, sizeof(struct clk_hisi_phase), GFP_KERNEL);
+	phase = devm_kzalloc_obj(dev, struct clk_hisi_phase);
 	if (!phase)
 		return ERR_PTR(-ENOMEM);
 

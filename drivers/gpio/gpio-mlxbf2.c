@@ -356,7 +356,7 @@ mlxbf2_gpio_probe(struct platform_device *pdev)
 
 	name = dev_name(dev);
 
-	gs = devm_kzalloc(dev, sizeof(*gs), GFP_KERNEL);
+	gs = devm_kzalloc_obj(dev, *gs);
 	if (!gs)
 		return -ENOMEM;
 
@@ -394,7 +394,9 @@ mlxbf2_gpio_probe(struct platform_device *pdev)
 	gc->owner = THIS_MODULE;
 
 	irq = platform_get_irq_optional(pdev, 0);
-	if (irq >= 0) {
+	if (irq < 0 && irq != -ENXIO)
+		return irq;
+	if (irq > 0) {
 		girq = &gs->chip.gc.irq;
 		gpio_irq_chip_set_chip(girq, &mlxbf2_gpio_irq_chip);
 		girq->handler = handle_simple_irq;

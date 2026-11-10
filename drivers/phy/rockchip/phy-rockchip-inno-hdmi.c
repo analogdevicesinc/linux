@@ -1044,7 +1044,7 @@ static int inno_hdmi_phy_clk_register(struct inno_hdmi_phy *inno)
 {
 	struct device *dev = inno->dev;
 	struct device_node *np = dev->of_node;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	const char *parent_name;
 	int ret;
 
@@ -1355,7 +1355,7 @@ static int inno_hdmi_phy_probe(struct platform_device *pdev)
 	void __iomem *regs;
 	int ret;
 
-	inno = devm_kzalloc(&pdev->dev, sizeof(*inno), GFP_KERNEL);
+	inno = devm_kzalloc_obj(&pdev->dev, *inno);
 	if (!inno)
 		return -ENOMEM;
 
