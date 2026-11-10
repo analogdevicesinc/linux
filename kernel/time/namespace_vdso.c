@@ -87,7 +87,6 @@ static void timens_set_vvar_page(struct task_struct *task,
 				struct time_namespace *ns)
 {
 	struct vdso_time_data *vdata;
-	struct vdso_clock *vc;
 	unsigned int i;
 
 	if (ns == &init_time_ns)
@@ -104,10 +103,9 @@ static void timens_set_vvar_page(struct task_struct *task,
 
 	ns->frozen_offsets = true;
 	vdata = page_address(ns->vvar_page);
-	vc = vdata->clock_data;
 
-	for (i = 0; i < CS_BASES; i++)
-		timens_setup_vdso_clock_data(&vc[i], ns);
+	timens_setup_vdso_clock_data(&vdata->hres_coarse, ns);
+	timens_setup_vdso_clock_data(&vdata->raw, ns);
 
 	if (IS_ENABLED(CONFIG_POSIX_AUX_CLOCKS)) {
 		for (i = 0; i < ARRAY_SIZE(vdata->aux_clock_data); i++)
