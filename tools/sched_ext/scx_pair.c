@@ -48,12 +48,13 @@ int main(int argc, char **argv)
 	struct bpf_link *link;
 	__u64 seq = 0, ecode;
 	__s32 stride, i, opt, outer_fd;
-	__u32 pair_id = 0;
+	__u32 pair_id;
 
 	libbpf_set_print(libbpf_print_fn);
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
 restart:
+	pair_id = 0;
 	optind = 1;
 	skel = SCX_OPS_OPEN(pair_ops, scx_pair);
 
