@@ -118,8 +118,6 @@ struct vc4_hdmi {
 	struct vc4_encoder encoder;
 	struct drm_connector connector;
 
-	struct delayed_work scrambling_work;
-
 	struct i2c_adapter *ddc;
 	void __iomem *hdmicore_regs;
 	void __iomem *hd_regs;
@@ -186,25 +184,6 @@ struct vc4_hdmi {
 	 * for use by ALSA hooks and interrupt handlers. Protected by @mutex.
 	 */
 	struct drm_display_mode saved_adjusted_mode;
-
-	/**
-	 * @scdc_enabled: Is the HDMI controller currently running with
-	 * the scrambler on? Protected by @mutex.
-	 */
-	bool scdc_enabled;
-
-	/**
-	 * @output_bpc: Copy of @drm_connector_state.hdmi.output_bpc for
-	 * use outside of KMS hooks. Protected by @mutex.
-	 */
-	unsigned int output_bpc;
-
-	/**
-	 * @output_format: Copy of
-	 * @drm_connector_state.hdmi.output_format for use outside of
-	 * KMS hooks. Protected by @mutex.
-	 */
-	enum drm_output_color_format output_format;
 
 	/**
 	 * @hdmi_jack: Represents the connection state of the HDMI plug, for
