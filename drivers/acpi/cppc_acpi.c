@@ -3301,23 +3301,11 @@ EXPORT_SYMBOL_GPL(cppc_set_auto_act_window);
 /**
  * cppc_get_auto_sel() - Read autonomous selection register.
  * @cpu: CPU from which to read register.
- * @enable: Return address.
+ * @enable: Return address, set to 0 or 1.
  */
-int cppc_get_auto_sel(int cpu, bool *enable)
+int cppc_get_auto_sel(int cpu, u64 *enable)
 {
-	u64 auto_sel;
-	int ret;
-
-	if (enable == NULL)
-		return -EINVAL;
-
-	ret = cppc_get_reg_val(cpu, AUTO_SEL_ENABLE, &auto_sel);
-	if (ret)
-		return ret;
-
-	*enable = (bool)auto_sel;
-
-	return 0;
+	return cppc_get_reg_val(cpu, AUTO_SEL_ENABLE, enable);
 }
 EXPORT_SYMBOL_GPL(cppc_get_auto_sel);
 
@@ -3348,7 +3336,7 @@ EXPORT_SYMBOL_GPL(cppc_auto_sel_is_immutable);
  * @cpu    : CPU to which to write register.
  * @enable : the desired value of autonomous selection resiter to be updated.
  */
-int cppc_set_auto_sel(int cpu, bool enable)
+int cppc_set_auto_sel(int cpu, u64 enable)
 {
 	return cppc_set_reg_val(cpu, AUTO_SEL_ENABLE, enable);
 }
@@ -3468,10 +3456,213 @@ out_err:
 }
 EXPORT_SYMBOL_GPL(cppc_get_perf);
 
+enum cppc_perf_update {
+	CPPC_UPDATE_DESIRED	= BIT(0),
+	CPPC_UPDATE_MIN		= BIT(1),
+	CPPC_UPDATE_MAX		= BIT(2),
+};
+
+/* The caller holds pcc_lock for write if either limit is in PCC. */
+static int cppc_read_perf_limits(int cpu, u32 *min_perf, u32 *max_perf)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpu);
+	struct cpc_register_resource *min_reg = &cpc_desc->cpc_regs[MIN_PERF];
+	struct cpc_register_resource *max_reg = &cpc_desc->cpc_regs[MAX_PERF];
+	u64 min = 0, max = U32_MAX;
+	int ret;
+
+	if (!cpc_is_readable(min_reg) || !cpc_is_readable(max_reg))
+		return -EOPNOTSUPP;
+
+	/* Firmware may have reset the controls, so read the live limits. */
+	if (CPC_IN_PCC(min_reg) || CPC_IN_PCC(max_reg)) {
+		ret = send_pcc_cmd(per_cpu(cpu_pcc_subspace_idx, cpu), CMD_READ);
+		if (ret)
+			return ret;
+	}
+
+	/* An absent optional limit leaves that side of the interval open. */
+	if (CPC_SUPPORTED(min_reg)) {
+		ret = cpc_read(cpu, min_reg, &min);
+		if (ret)
+			return ret;
+	}
+	if (CPC_SUPPORTED(max_reg)) {
+		ret = cpc_read(cpu, max_reg, &max);
+		if (ret)
+			return ret;
+	}
+	if (min > U32_MAX || max > U32_MAX)
+		return -EFAULT;
+	if (min > max)
+		pr_debug("CPU:%d live MIN_PERF %llu above MAX_PERF %llu\n",
+			 cpu, min, max);
+
+	*min_perf = min;
+	*max_perf = max;
+	return 0;
+}
+
+static bool cppc_perf_updates_in_pcc(int cpu, unsigned int updates)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpu);
+
+	return ((updates & CPPC_UPDATE_DESIRED) &&
+		CPC_IN_PCC(&cpc_desc->cpc_regs[DESIRED_PERF])) ||
+	       ((updates & CPPC_UPDATE_MIN) &&
+		CPC_IN_PCC(&cpc_desc->cpc_regs[MIN_PERF])) ||
+	       ((updates & CPPC_UPDATE_MAX) &&
+		CPC_IN_PCC(&cpc_desc->cpc_regs[MAX_PERF]));
+}
+
+/* The caller holds pcc_lock for write if an updated control is in PCC. */
+static int cppc_write_perf_controls(int cpu,
+				    struct cppc_perf_ctrls *perf_ctrls,
+				    unsigned int updates, bool sync_desired)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpu);
+	struct cpc_register_resource *desired_reg =
+		&cpc_desc->cpc_regs[DESIRED_PERF];
+	struct cpc_register_resource *min_reg = &cpc_desc->cpc_regs[MIN_PERF];
+	struct cpc_register_resource *max_reg = &cpc_desc->cpc_regs[MAX_PERF];
+	struct cppc_pcc_data *pcc_ss_data;
+	int pcc_ss_id, ret;
+	bool pcc_update = false;
+
+	/* Direct writes precede the PCC command in each ordered phase. */
+	if ((updates & CPPC_UPDATE_DESIRED) && !CPC_IN_PCC(desired_reg)) {
+		ret = cpc_write(cpu, desired_reg, perf_ctrls->desired_perf);
+		if (ret)
+			return ret;
+	}
+	if ((updates & CPPC_UPDATE_MIN) && !CPC_IN_PCC(min_reg)) {
+		ret = cpc_write(cpu, min_reg, perf_ctrls->min_perf);
+		if (ret)
+			return ret;
+	}
+	if ((updates & CPPC_UPDATE_MAX) && !CPC_IN_PCC(max_reg)) {
+		ret = cpc_write(cpu, max_reg, perf_ctrls->max_perf);
+		if (ret)
+			return ret;
+	}
+
+	/* Keep Desired Performance valid in every intermediate PCC command. */
+	if (((updates & CPPC_UPDATE_DESIRED) || sync_desired) &&
+	    CPC_IN_PCC(desired_reg)) {
+		ret = cpc_write(cpu, desired_reg, perf_ctrls->desired_perf);
+		if (ret)
+			return ret;
+		pcc_update = true;
+	}
+	if ((updates & CPPC_UPDATE_MIN) && CPC_IN_PCC(min_reg)) {
+		ret = cpc_write(cpu, min_reg, perf_ctrls->min_perf);
+		if (ret)
+			return ret;
+		pcc_update = true;
+	}
+	if ((updates & CPPC_UPDATE_MAX) && CPC_IN_PCC(max_reg)) {
+		ret = cpc_write(cpu, max_reg, perf_ctrls->max_perf);
+		if (ret)
+			return ret;
+		pcc_update = true;
+	}
+	if (!pcc_update)
+		return 0;
+
+	pcc_ss_id = per_cpu(cpu_pcc_subspace_idx, cpu);
+	pcc_ss_data = pcc_data[pcc_ss_id];
+	WRITE_ONCE(pcc_ss_data->pending_pcc_write_cmd, true);
+	cpc_desc->write_cmd_id = pcc_ss_data->pcc_write_cnt;
+	cpc_desc->write_cmd_status = 0;
+	return send_pcc_cmd(pcc_ss_id, CMD_WRITE);
+}
+
+/*
+ * Move from the live interval to the requested interval without exposing an
+ * invalid control tuple: widen, update Desired Performance, then narrow.
+ */
+static int cppc_write_ordered_perf(int cpu,
+				   struct cppc_perf_ctrls *perf_ctrls,
+				   bool desired_update, bool min_update,
+				   bool max_update)
+{
+	struct cpc_desc *cpc_desc = per_cpu(cpc_desc_ptr, cpu);
+	struct cpc_register_resource *desired_reg =
+		&cpc_desc->cpc_regs[DESIRED_PERF];
+	struct cppc_perf_ctrls ctrls = *perf_ctrls;
+	unsigned int widen = 0, narrow = 0;
+	u32 current_min, current_max;
+	u32 target_min, target_max;
+	bool desired_done = false;
+	bool sync_desired;
+	int ret;
+
+	ret = cppc_read_perf_limits(cpu, &current_min, &current_max);
+	if (ret)
+		return ret;
+
+	target_min = min_update ? perf_ctrls->min_perf : current_min;
+	target_max = max_update ? perf_ctrls->max_perf : current_max;
+
+	/*
+	 * Check only the new interval. If the live one is inverted, this
+	 * update fixes it.
+	 */
+	if (target_min > target_max)
+		return -EINVAL;
+
+	/* Callers can round Desired just outside the new interval. */
+	if (desired_update && ctrls.desired_perf)
+		ctrls.desired_perf = clamp(ctrls.desired_perf, target_min,
+					   target_max);
+
+	if (min_update) {
+		if (perf_ctrls->min_perf < current_min)
+			widen |= CPPC_UPDATE_MIN;
+		else
+			narrow |= CPPC_UPDATE_MIN;
+	}
+	if (max_update) {
+		if (perf_ctrls->max_perf > current_max)
+			widen |= CPPC_UPDATE_MAX;
+		else
+			narrow |= CPPC_UPDATE_MAX;
+	}
+
+	if (widen) {
+		sync_desired = desired_update && CPC_IN_PCC(desired_reg) &&
+			cppc_perf_updates_in_pcc(cpu, widen);
+		ret = cppc_write_perf_controls(cpu, &ctrls, widen,
+					       sync_desired);
+		if (ret)
+			return ret;
+		desired_done = sync_desired;
+	}
+
+	if (desired_update && !desired_done) {
+		ret = cppc_write_perf_controls(cpu, &ctrls,
+					       CPPC_UPDATE_DESIRED, false);
+		if (ret)
+			return ret;
+	}
+
+	if (!narrow)
+		return 0;
+
+	sync_desired = desired_update && CPC_IN_PCC(desired_reg) &&
+		cppc_perf_updates_in_pcc(cpu, narrow);
+	return cppc_write_perf_controls(cpu, &ctrls, narrow, sync_desired);
+}
+
 /**
  * cppc_set_perf - Set a CPU's performance controls.
  * @cpu: CPU for which to set performance controls.
  * @perf_ctrls: ptr to cppc_perf_ctrls. See cppc_acpi.h
+ *
+ * Callers must serialize updates to the same CPU's performance controls.
+ * Limit updates preserve MIN <= MAX, including intermediate states on
+ * directly accessed registers. An error may leave an earlier write applied.
+ * A nonzero Desired is clamped to the new [MIN, MAX] when a limit is updated.
  *
  * Return: 0 for success, -ERRNO otherwise.
  */
@@ -3484,6 +3675,7 @@ int cppc_set_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls)
 	bool desired_update, min_update, max_update;
 	bool desired_pcc, min_pcc, max_pcc, pcc_update;
 	bool pcc_layout, direct_layout, mixed_layout;
+	u32 desired_perf;
 	int ret = 0;
 
 	if (!cpc_desc) {
@@ -3499,10 +3691,21 @@ int cppc_set_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls)
 		     (perf_ctrls->min_perf || perf_ctrls->min_perf_valid);
 	max_update = cpc_is_writable(max_perf_reg) &&
 		     perf_ctrls->max_perf;
+
+	if (min_update && max_update &&
+	    perf_ctrls->min_perf > perf_ctrls->max_perf)
+		return -EINVAL;
+
+	desired_perf = perf_ctrls->desired_perf;
+	if (desired_perf && min_update && max_update)
+		desired_perf = clamp(desired_perf, perf_ctrls->min_perf,
+				     perf_ctrls->max_perf);
+
 	desired_pcc = desired_update && CPC_IN_PCC(desired_reg);
 	min_pcc = min_update && CPC_IN_PCC(min_perf_reg);
 	max_pcc = max_update && CPC_IN_PCC(max_perf_reg);
 	pcc_update = desired_pcc || min_pcc || max_pcc;
+
 	pcc_layout = (cpc_is_writable(desired_reg) && CPC_IN_PCC(desired_reg)) ||
 		     (cpc_is_writable(min_perf_reg) && CPC_IN_PCC(min_perf_reg)) ||
 		     (cpc_is_writable(max_perf_reg) && CPC_IN_PCC(max_perf_reg));
@@ -3528,9 +3731,10 @@ int cppc_set_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls)
 	 * A mixed layout cannot batch fallible direct writes safely: another
 	 * CPU's staged PCC values may no longer match if a direct write fails.
 	 * Serialize the complete mixed transaction and drain an older batch
-	 * before changing a direct control.
+	 * before changing a direct control. A single PCC limit update also
+	 * needs the exclusive lock to read and check the unchanged limit.
 	 */
-	if (mixed_layout) {
+	if (mixed_layout || (pcc_update && min_update != max_update)) {
 		down_write(&pcc_ss_data->pcc_lock);
 		if (pcc_ss_data->pending_pcc_write_cmd) {
 			ret = send_pcc_cmd(pcc_ss_id, CMD_WRITE);
@@ -3544,50 +3748,14 @@ int cppc_set_perf(int cpu, struct cppc_perf_ctrls *perf_ctrls)
 				goto out_mixed_unlock;
 		}
 
-		if (desired_update && !desired_pcc) {
-			ret = cpc_write(cpu, desired_reg,
-					perf_ctrls->desired_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-		if (min_update && !min_pcc) {
-			ret = cpc_write(cpu, min_perf_reg,
-					perf_ctrls->min_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-		if (max_update && !max_pcc) {
-			ret = cpc_write(cpu, max_perf_reg,
-					perf_ctrls->max_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-
-		if (desired_pcc) {
-			ret = cpc_write(cpu, desired_reg,
-					perf_ctrls->desired_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-		if (min_pcc) {
-			ret = cpc_write(cpu, min_perf_reg,
-					perf_ctrls->min_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-		if (max_pcc) {
-			ret = cpc_write(cpu, max_perf_reg,
-					perf_ctrls->max_perf);
-			if (ret)
-				goto out_mixed_unlock;
-		}
-
-		if (pcc_update) {
-			WRITE_ONCE(pcc_ss_data->pending_pcc_write_cmd, true);
-			cpc_desc->write_cmd_id = pcc_ss_data->pcc_write_cnt;
-			cpc_desc->write_cmd_status = 0;
-			ret = send_pcc_cmd(pcc_ss_id, CMD_WRITE);
-		}
+		if (min_update || max_update)
+			ret = cppc_write_ordered_perf(cpu, perf_ctrls,
+						      desired_update,
+						      min_update, max_update);
+		else if (desired_update)
+			ret = cppc_write_perf_controls(cpu, perf_ctrls,
+						       CPPC_UPDATE_DESIRED,
+						       false);
 
 out_mixed_unlock:
 		up_write(&pcc_ss_data->pcc_lock);
@@ -3596,22 +3764,14 @@ out_mixed_unlock:
 
 	/* A request without PCC updates has no payload to coordinate. */
 	if (!pcc_update) {
-		if (desired_update) {
-			ret = cpc_write(cpu, desired_reg,
-					perf_ctrls->desired_perf);
-			if (ret)
-				return ret;
-		}
-		if (min_update) {
-			ret = cpc_write(cpu, min_perf_reg,
-					perf_ctrls->min_perf);
-			if (ret)
-				return ret;
-		}
-		if (max_update)
-			ret = cpc_write(cpu, max_perf_reg,
-					perf_ctrls->max_perf);
-		return ret;
+		if (min_update || max_update)
+			return cppc_write_ordered_perf(cpu, perf_ctrls,
+						       desired_update,
+						       min_update, max_update);
+		if (desired_update)
+			return cpc_write(cpu, desired_reg,
+					 perf_ctrls->desired_perf);
+		return 0;
 	}
 
 	down_read(&pcc_ss_data->pcc_lock); /* BEGIN Phase-I */
@@ -3629,7 +3789,7 @@ out_mixed_unlock:
 	 * achieve that goal here.
 	 */
 	if (desired_pcc) {
-		ret = cpc_write(cpu, desired_reg, perf_ctrls->desired_perf);
+		ret = cpc_write(cpu, desired_reg, desired_perf);
 		if (ret)
 			goto out_pcc_read_unlock;
 	}
