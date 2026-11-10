@@ -51,8 +51,7 @@
 #define APPL_CTRL_SYS_PRE_DET_STATE		BIT(6)
 #define APPL_CTRL_LTSSM_EN			BIT(7)
 #define APPL_CTRL_HW_HOT_RST_EN			BIT(20)
-#define APPL_CTRL_HW_HOT_RST_MODE_MASK		GENMASK(1, 0)
-#define APPL_CTRL_HW_HOT_RST_MODE_SHIFT		22
+#define APPL_CTRL_HW_HOT_RST_MODE_MASK		GENMASK(23, 22)
 #define APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST	0x1
 #define APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST_LTSSM_EN	0x2
 
@@ -137,14 +136,13 @@
 
 #define APPL_DEBUG				0xD0
 #define APPL_DEBUG_PM_LINKST_IN_L2_LAT		BIT(21)
-#define APPL_DEBUG_PM_LINKST_IN_L0		0x11
 #define APPL_DEBUG_LTSSM_STATE_MASK		GENMASK(8, 3)
-#define APPL_DEBUG_LTSSM_STATE_SHIFT		3
-#define LTSSM_STATE_DETECT_QUIET		0x00
-#define LTSSM_STATE_DETECT_ACT			0x08
-#define LTSSM_STATE_PRE_DETECT_QUIET		0x28
-#define LTSSM_STATE_DETECT_WAIT			0x30
-#define LTSSM_STATE_L2_IDLE			0xa8
+#define LTSSM_STATE_DETECT_QUIET		0x0
+#define LTSSM_STATE_DETECT_ACT			0x1
+#define LTSSM_STATE_PRE_DETECT_QUIET		0x5
+#define LTSSM_STATE_DETECT_WAIT			0x6
+#define LTSSM_STATE_L0				0x11
+#define LTSSM_STATE_L2_IDLE			0x15
 
 #define APPL_RADM_STATUS			0xE4
 #define APPL_PM_XMT_TURNOFF_STATE		BIT(0)
@@ -163,7 +161,6 @@
 #define APPL_CFG_MISC				0x110
 #define APPL_CFG_MISC_SLV_EP_MODE		BIT(14)
 #define APPL_CFG_MISC_ARCACHE_MASK		GENMASK(13, 10)
-#define APPL_CFG_MISC_ARCACHE_SHIFT		10
 #define APPL_CFG_MISC_ARCACHE_VAL		3
 
 #define APPL_CFG_SLCG_OVERRIDE			0x114
@@ -179,14 +176,14 @@
 #define CFG_PREF_MEM_LIMIT_BASE_MEM_LIMIT_DECODE	BIT(16)
 
 #define CFG_TIMER_CTRL_MAX_FUNC_NUM_OFF	0x718
-#define CFG_TIMER_CTRL_ACK_NAK_SHIFT	(19)
+#define CFG_TIMER_CTRL_ACK_NAK_MASK		GENMASK(23, 19)
+#define CFG_TIMER_CTRL_ACK_NAK_VAL		1
 
 #define N_FTS_VAL					52
 #define FTS_VAL						52
 
 #define PORT_LOGIC_AMBA_ERROR_RESPONSE_DEFAULT	0x8D0
-#define AMBA_ERROR_RESPONSE_RRS_SHIFT		3
-#define AMBA_ERROR_RESPONSE_RRS_MASK		GENMASK(1, 0)
+#define AMBA_ERROR_RESPONSE_RRS_MASK		GENMASK(4, 3)
 #define AMBA_ERROR_RESPONSE_RRS_OKAY		0
 #define AMBA_ERROR_RESPONSE_RRS_OKAY_FFFFFFFF	1
 #define AMBA_ERROR_RESPONSE_RRS_OKAY_FFFF0001	2
@@ -203,7 +200,6 @@
 #define CAP_SPCIE_CAP_OFF			0x154
 #define CAP_SPCIE_CAP_OFF_DSP_TX_PRESET0_MASK	GENMASK(3, 0)
 #define CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_MASK	GENMASK(11, 8)
-#define CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_SHIFT	8
 
 #define LTSSM_DELAY_US		10000	/* 10 ms */
 #define LTSSM_TIMEOUT_US	120000	/* 120 ms */
@@ -349,8 +345,8 @@ static void apply_bad_link_workaround(struct dw_pcie_rp *pp)
 			dev_warn(pci->dev, "PCIe link is bad, width reduced\n");
 			val = dw_pcie_readw_dbi(pci, pcie->pcie_cap_base +
 						PCI_EXP_LNKCTL2);
-			val &= ~PCI_EXP_LNKCTL2_TLS;
-			val |= PCI_EXP_LNKCTL2_TLS_2_5GT;
+			FIELD_MODIFY(PCI_EXP_LNKCTL2_TLS, &val,
+				     PCI_EXP_LNKCTL2_TLS_2_5GT);
 			dw_pcie_writew_dbi(pci, pcie->pcie_cap_base +
 					   PCI_EXP_LNKCTL2, val);
 
@@ -623,10 +619,9 @@ static inline u32 event_counter_prog(struct tegra_pcie_dw *pcie, u32 event)
 
 	val = dw_pcie_readl_dbi(&pcie->pci, pcie->ras_des_cap +
 				RAS_DES_EVENT_COUNTER_CONTROL);
-	val &= ~EVENT_COUNTER_EVENT_SEL_MASK;
-	val |= FIELD_PREP(EVENT_COUNTER_GROUP_SEL_MASK, EVENT_COUNTER_GROUP_5);
-	val |= FIELD_PREP(EVENT_COUNTER_EVENT_SEL_MASK, event);
-	val |= FIELD_PREP(EVENT_COUNTER_ENABLE_MASK, EVENT_COUNTER_ENABLE_ALL);
+	FIELD_MODIFY(EVENT_COUNTER_EVENT_SEL_MASK, &val, event);
+	FIELD_MODIFY(EVENT_COUNTER_GROUP_SEL_MASK, &val, EVENT_COUNTER_GROUP_5);
+	FIELD_MODIFY(EVENT_COUNTER_ENABLE_MASK, &val, EVENT_COUNTER_ENABLE_ALL);
 	dw_pcie_writel_dbi(&pcie->pci, pcie->ras_des_cap +
 			   RAS_DES_EVENT_COUNTER_CONTROL, val);
 	val = dw_pcie_readl_dbi(&pcie->pci, pcie->ras_des_cap +
@@ -688,9 +683,8 @@ static void init_host_aspm(struct tegra_pcie_dw *pcie)
 
 	/* Program T_cmrt and T_pwr_on values */
 	val = dw_pcie_readl_dbi(pci, l1ss + PCI_L1SS_CAP);
-	val &= ~(PCI_L1SS_CAP_CM_RESTORE_TIME | PCI_L1SS_CAP_P_PWR_ON_VALUE);
-	val |= (pcie->aspm_cmrt << 8);
-	val |= (pcie->aspm_pwr_on_t << 19);
+	FIELD_MODIFY(PCI_L1SS_CAP_CM_RESTORE_TIME, &val, pcie->aspm_cmrt);
+	FIELD_MODIFY(PCI_L1SS_CAP_P_PWR_ON_VALUE, &val, pcie->aspm_pwr_on_t);
 	dw_pcie_writel_dbi(pci, l1ss + PCI_L1SS_CAP, val);
 
 	if (pcie->supports_clkreq)
@@ -715,10 +709,10 @@ static void init_host_aspm(struct tegra_pcie_dw *pcie)
 
 	/* Program L0s and L1 entrance latencies */
 	val = dw_pcie_readl_dbi(pci, PORT_AFAC);
-	val &= ~PORT_AFAC_L0S_ELM;
-	val |= FIELD_PREP(PORT_AFAC_L0S_ELM, pcie->aspm_l0s_enter_lat);
-	val &= ~PORT_AFAC_L1_ELM;
-	val |= FIELD_PREP(PORT_AFAC_L1_ELM, pcie->aspm_l1_enter_lat);
+	FIELD_MODIFY(PORT_AFAC_L0S_ELM, &val,
+		     pcie->aspm_l0s_enter_lat);
+	FIELD_MODIFY(PORT_AFAC_L1_ELM, &val,
+		     pcie->aspm_l1_enter_lat);
 	val |= PORT_AFAC_ENTER_ASPM;
 	dw_pcie_writel_dbi(pci, PORT_AFAC, val);
 }
@@ -852,22 +846,20 @@ static void config_gen3_gen4_eq_presets(struct tegra_pcie_dw *pcie)
 	/* Program init preset */
 	for (i = 0; i < pcie->num_lanes; i++) {
 		val = dw_pcie_readw_dbi(pci, CAP_SPCIE_CAP_OFF + (i * 2));
-		val &= ~CAP_SPCIE_CAP_OFF_DSP_TX_PRESET0_MASK;
-		val |= GEN3_GEN4_EQ_PRESET_INIT;
-		val &= ~CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_MASK;
-		val |= (GEN3_GEN4_EQ_PRESET_INIT <<
-			   CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_SHIFT);
+		FIELD_MODIFY(CAP_SPCIE_CAP_OFF_DSP_TX_PRESET0_MASK, &val,
+			     GEN3_GEN4_EQ_PRESET_INIT);
+		FIELD_MODIFY(CAP_SPCIE_CAP_OFF_USP_TX_PRESET0_MASK, &val,
+			     GEN3_GEN4_EQ_PRESET_INIT);
 		dw_pcie_writew_dbi(pci, CAP_SPCIE_CAP_OFF + (i * 2), val);
 
 		offset = dw_pcie_find_ext_capability(pci,
 						     PCI_EXT_CAP_ID_PL_16GT) +
 				PCI_PL_16GT_LE_CTRL;
 		val = dw_pcie_readb_dbi(pci, offset + i);
-		val &= ~PCI_PL_16GT_LE_CTRL_DSP_TX_PRESET_MASK;
-		val |= GEN3_GEN4_EQ_PRESET_INIT;
-		val &= ~PCI_PL_16GT_LE_CTRL_USP_TX_PRESET_MASK;
-		val |= (GEN3_GEN4_EQ_PRESET_INIT <<
-			PCI_PL_16GT_LE_CTRL_USP_TX_PRESET_SHIFT);
+		FIELD_MODIFY(PCI_PL_16GT_LE_CTRL_DSP_TX_PRESET_MASK, &val,
+			     GEN3_GEN4_EQ_PRESET_INIT);
+		FIELD_MODIFY(PCI_PL_16GT_LE_CTRL_USP_TX_PRESET_MASK, &val,
+			     GEN3_GEN4_EQ_PRESET_INIT);
 		dw_pcie_writeb_dbi(pci, offset + i, val);
 	}
 
@@ -881,8 +873,7 @@ static void config_gen3_gen4_eq_presets(struct tegra_pcie_dw *pcie)
 	dw_pcie_writel_dbi(pci, GEN3_EQ_CTRL, val);
 
 	val = dw_pcie_readl_dbi(pci, GEN3_CTRL);
-	val &= ~GEN3_CTRL_RATE_SHADOW_SEL_MASK;
-	val |= FIELD_PREP(GEN3_CTRL_RATE_SHADOW_SEL_MASK, 0x1);
+	FIELD_MODIFY(GEN3_CTRL_RATE_SHADOW_SEL_MASK, &val, 0x1);
 	dw_pcie_writel_dbi(pci, GEN3_CTRL, val);
 
 	val = dw_pcie_readl_dbi(pci, GEN3_EQ_CTRL);
@@ -906,8 +897,7 @@ static int tegra_pcie_dw_host_init(struct dw_pcie_rp *pp)
 	pp->bridge->ops = &tegra_pci_ops;
 
 	if (!pcie->pcie_cap_base)
-		pcie->pcie_cap_base = dw_pcie_find_capability(&pcie->pci,
-							      PCI_CAP_ID_EXP);
+		pcie->pcie_cap_base = dw_pcie_get_pcie_cap(pci);
 
 	val = dw_pcie_readl_dbi(pci, PCI_IO_BASE);
 	val &= ~(IO_BASE_IO_DECODE | IO_BASE_IO_DECODE_BIT8);
@@ -922,9 +912,8 @@ static int tegra_pcie_dw_host_init(struct dw_pcie_rp *pp)
 
 	/* Enable as 0xFFFF0001 response for RRS */
 	val = dw_pcie_readl_dbi(pci, PORT_LOGIC_AMBA_ERROR_RESPONSE_DEFAULT);
-	val &= ~(AMBA_ERROR_RESPONSE_RRS_MASK << AMBA_ERROR_RESPONSE_RRS_SHIFT);
-	val |= (AMBA_ERROR_RESPONSE_RRS_OKAY_FFFF0001 <<
-		AMBA_ERROR_RESPONSE_RRS_SHIFT);
+	FIELD_MODIFY(AMBA_ERROR_RESPONSE_RRS_MASK, &val,
+		     AMBA_ERROR_RESPONSE_RRS_OKAY_FFFF0001);
 	dw_pcie_writel_dbi(pci, PORT_LOGIC_AMBA_ERROR_RESPONSE_DEFAULT, val);
 
 	/* Clear Slot Clock Configuration bit if SRNS configuration */
@@ -948,7 +937,8 @@ static int tegra_pcie_dw_host_init(struct dw_pcie_rp *pp)
 
 	if (pcie->update_fc_fixup) {
 		val = dw_pcie_readl_dbi(pci, CFG_TIMER_CTRL_MAX_FUNC_NUM_OFF);
-		val |= 0x1 << CFG_TIMER_CTRL_ACK_NAK_SHIFT;
+		FIELD_MODIFY(CFG_TIMER_CTRL_ACK_NAK_MASK, &val,
+			     CFG_TIMER_CTRL_ACK_NAK_VAL);
 		dw_pcie_writel_dbi(pci, CFG_TIMER_CTRL_MAX_FUNC_NUM_OFF, val);
 	}
 
@@ -1003,11 +993,10 @@ retry_link:
 		 * link up once again with DLF disabled.
 		 */
 		val = appl_readl(pcie, APPL_DEBUG);
-		val &= APPL_DEBUG_LTSSM_STATE_MASK;
-		val >>= APPL_DEBUG_LTSSM_STATE_SHIFT;
+		val = FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val);
 		tmp = appl_readl(pcie, APPL_LINK_STATUS);
 		tmp &= APPL_LINK_STATUS_RDLH_LINK_UP;
-		if (!(val == 0x11 && !tmp)) {
+		if (!(val == LTSSM_STATE_L0 && !tmp)) {
 			/* Link is down for all good reasons */
 			return 0;
 		}
@@ -1420,10 +1409,8 @@ static int tegra_pcie_config_controller(struct tegra_pcie_dw *pcie,
 	if (en_hw_hot_rst || pcie->of_data->has_sbr_reset_fix) {
 		/* Enable HW_HOT_RST mode */
 		val = appl_readl(pcie, APPL_CTRL);
-		val &= ~(APPL_CTRL_HW_HOT_RST_MODE_MASK <<
-			 APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
-		val |= (APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST_LTSSM_EN <<
-			APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
+		FIELD_MODIFY(APPL_CTRL_HW_HOT_RST_MODE_MASK, &val,
+			     APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST_LTSSM_EN);
 		val |= APPL_CTRL_HW_HOT_RST_EN;
 		appl_writel(pcie, val, APPL_CTRL);
 	}
@@ -1447,7 +1434,8 @@ static int tegra_pcie_config_controller(struct tegra_pcie_dw *pcie,
 	appl_writel(pcie, val | APPL_CTRL_SYS_PRE_DET_STATE, APPL_CTRL);
 
 	val = appl_readl(pcie, APPL_CFG_MISC);
-	val |= (APPL_CFG_MISC_ARCACHE_VAL << APPL_CFG_MISC_ARCACHE_SHIFT);
+	FIELD_MODIFY(APPL_CFG_MISC_ARCACHE_MASK, &val,
+		     APPL_CFG_MISC_ARCACHE_VAL);
 	appl_writel(pcie, val, APPL_CFG_MISC);
 
 	if (pcie->enable_srns || pcie->enable_ext_refclk) {
@@ -1606,10 +1594,14 @@ static void tegra_pcie_dw_pme_turnoff(struct tegra_pcie_dw *pcie)
 		appl_writel(pcie, data, APPL_PINMUX);
 
 		err = readl_poll_timeout(pcie->appl_base + APPL_DEBUG, data,
-			((data & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_QUIET) ||
-			((data & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_ACT) ||
-			((data & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_PRE_DETECT_QUIET) ||
-			((data & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_WAIT),
+			(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, data) ==
+			 LTSSM_STATE_DETECT_QUIET) ||
+			(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, data) ==
+			 LTSSM_STATE_DETECT_ACT) ||
+			(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, data) ==
+			 LTSSM_STATE_PRE_DETECT_QUIET) ||
+			(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, data) ==
+			 LTSSM_STATE_DETECT_WAIT),
 			LTSSM_DELAY_US, LTSSM_TIMEOUT_US);
 		if (err)
 			dev_info(pcie->dev, "LTSSM state: 0x%x detect timeout: %d\n", data, err);
@@ -1695,11 +1687,16 @@ static void pex_ep_event_pex_rst_assert(struct tegra_pcie_dw *pcie)
 		return;
 
 	ret = readl_poll_timeout(pcie->appl_base + APPL_DEBUG, val,
-		((val & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_QUIET) ||
-		((val & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_ACT) ||
-		((val & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_PRE_DETECT_QUIET) ||
-		((val & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_DETECT_WAIT) ||
-		((val & APPL_DEBUG_LTSSM_STATE_MASK) == LTSSM_STATE_L2_IDLE),
+		(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val) ==
+		 LTSSM_STATE_DETECT_QUIET) ||
+		(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val) ==
+		 LTSSM_STATE_DETECT_ACT) ||
+		(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val) ==
+		 LTSSM_STATE_PRE_DETECT_QUIET) ||
+		(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val) ==
+		 LTSSM_STATE_DETECT_WAIT) ||
+		(FIELD_GET(APPL_DEBUG_LTSSM_STATE_MASK, val) ==
+		 LTSSM_STATE_L2_IDLE),
 		LTSSM_DELAY_US, LTSSM_TIMEOUT_US);
 	if (ret)
 		dev_info(pcie->dev, "LTSSM state: 0x%x detect timeout: %d\n", val, ret);
@@ -1818,13 +1815,14 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw *pcie)
 	val = appl_readl(pcie, APPL_CTRL);
 	val |= APPL_CTRL_SYS_PRE_DET_STATE;
 	val |= APPL_CTRL_HW_HOT_RST_EN;
-	val &= ~(APPL_CTRL_HW_HOT_RST_MODE_MASK << APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
-	val |= (APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST_LTSSM_EN << APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
+	FIELD_MODIFY(APPL_CTRL_HW_HOT_RST_MODE_MASK, &val,
+		     APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST_LTSSM_EN);
 	appl_writel(pcie, val, APPL_CTRL);
 
 	val = appl_readl(pcie, APPL_CFG_MISC);
 	val |= APPL_CFG_MISC_SLV_EP_MODE;
-	val |= (APPL_CFG_MISC_ARCACHE_VAL << APPL_CFG_MISC_ARCACHE_SHIFT);
+	FIELD_MODIFY(APPL_CFG_MISC_ARCACHE_MASK, &val,
+		     APPL_CFG_MISC_ARCACHE_VAL);
 	appl_writel(pcie, val, APPL_CFG_MISC);
 
 	val = appl_readl(pcie, APPL_PINMUX);
@@ -1876,7 +1874,8 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw *pcie)
 
 	if (pcie->update_fc_fixup) {
 		val = dw_pcie_readl_dbi(pci, CFG_TIMER_CTRL_MAX_FUNC_NUM_OFF);
-		val |= 0x1 << CFG_TIMER_CTRL_ACK_NAK_SHIFT;
+		FIELD_MODIFY(CFG_TIMER_CTRL_ACK_NAK_MASK, &val,
+			     CFG_TIMER_CTRL_ACK_NAK_VAL);
 		dw_pcie_writel_dbi(pci, CFG_TIMER_CTRL_MAX_FUNC_NUM_OFF, val);
 	}
 
@@ -1890,8 +1889,7 @@ static void pex_ep_event_pex_rst_deassert(struct tegra_pcie_dw *pcie)
 		dw_pcie_writel_dbi(pci, GEN3_CTRL, val);
 	}
 
-	pcie->pcie_cap_base = dw_pcie_find_capability(&pcie->pci,
-						      PCI_CAP_ID_EXP);
+	pcie->pcie_cap_base = dw_pcie_get_pcie_cap(pci);
 
 	/* Clear Slot Clock Configuration bit if SRNS configuration */
 	if (pcie->enable_srns) {
@@ -2391,8 +2389,7 @@ static int tegra_pcie_dw_suspend_late(struct device *dev)
 	/* Enable HW_HOT_RST mode */
 	if (!pcie->of_data->has_sbr_reset_fix) {
 		val = appl_readl(pcie, APPL_CTRL);
-		val &= ~(APPL_CTRL_HW_HOT_RST_MODE_MASK <<
-			 APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
+		FIELD_MODIFY(APPL_CTRL_HW_HOT_RST_MODE_MASK, &val, 0);
 		val |= APPL_CTRL_HW_HOT_RST_EN;
 		appl_writel(pcie, val, APPL_CTRL);
 	}
@@ -2467,10 +2464,8 @@ static int tegra_pcie_dw_resume_early(struct device *dev)
 	/* Disable HW_HOT_RST mode */
 	if (!pcie->of_data->has_sbr_reset_fix) {
 		val = appl_readl(pcie, APPL_CTRL);
-		val &= ~(APPL_CTRL_HW_HOT_RST_MODE_MASK <<
-			 APPL_CTRL_HW_HOT_RST_MODE_SHIFT);
-		val |= APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST <<
-		       APPL_CTRL_HW_HOT_RST_MODE_SHIFT;
+		FIELD_MODIFY(APPL_CTRL_HW_HOT_RST_MODE_MASK, &val,
+			     APPL_CTRL_HW_HOT_RST_MODE_IMDT_RST);
 		val &= ~APPL_CTRL_HW_HOT_RST_EN;
 		appl_writel(pcie, val, APPL_CTRL);
 	}
