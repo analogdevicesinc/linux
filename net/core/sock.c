@@ -1586,6 +1586,13 @@ set_sndbuf:
 			ret = -EOPNOTSUPP;
 		break;
 
+	case SO_PASSCRED_THREAD:
+		if (sk_is_unix(sk))
+			sk->sk_scm_credentials_thread = valbool;
+		else
+			ret = -EOPNOTSUPP;
+		break;
+
 	case SO_PASSRIGHTS:
 		if (sk_is_unix(sk))
 			sk->sk_scm_rights = valbool;
@@ -1950,6 +1957,13 @@ int sk_getsockopt(struct sock *sk, int level, int optname,
 			return -EOPNOTSUPP;
 
 		v.val = sk->sk_scm_pidfd_thread;
+		break;
+
+	case SO_PASSCRED_THREAD:
+		if (!sk_is_unix(sk))
+			return -EOPNOTSUPP;
+
+		v.val = sk->sk_scm_credentials_thread;
 		break;
 
 	case SO_PASSRIGHTS:
