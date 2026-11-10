@@ -4957,17 +4957,45 @@ int pci_bridge_secondary_bus_reset(struct pci_dev *dev)
 }
 EXPORT_SYMBOL_GPL(pci_bridge_secondary_bus_reset);
 
+static int pci_root_bus_reset(struct pci_dev *dev, bool probe)
+{
+	struct pci_host_bridge *host = pci_find_host_bridge(dev->bus);
+	int rc;
+
+	/*
+	 * Bridges, e.g., Root Ports, are not eligible.  Check the header type
+	 * because dev->subordinate is not set up yet when the reset methods
+	 * are probed during enumeration.
+	 */
+	if (pci_is_bridge(dev) || !host->reset_root_port)
+		return -ENOTTY;
+
+	if (probe)
+		return 0;
+
+	rc = host->reset_root_port(host, dev);
+	if (rc)
+		return rc;
+
+	return pci_dev_wait(dev, "bus reset", PCIE_RESET_READY_POLL_MS);
+}
+
 static int pci_parent_bus_reset(struct pci_dev *dev, bool probe)
 {
 	struct pci_dev *pdev;
 
-	if (pci_is_root_bus(dev->bus) || dev->subordinate ||
-	    !dev->bus->self || dev->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET)
+	if (dev->subordinate || dev->dev_flags & PCI_DEV_FLAGS_NO_BUS_RESET)
 		return -ENOTTY;
 
 	list_for_each_entry(pdev, &dev->bus->devices, bus_list)
 		if (pdev != dev)
 			return -ENOTTY;
+
+	if (pci_is_root_bus(dev->bus))
+		return pci_root_bus_reset(dev, probe);
+
+	if (!dev->bus->self)
+		return -ENOTTY;
 
 	if (probe)
 		return 0;

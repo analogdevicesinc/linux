@@ -65,7 +65,7 @@ exchange messages with the vPCI VSP for the purpose of setting
 up and configuring the vPCI device in Linux.  Once the device
 is fully configured in Linux as a PCI device, the VMBus
 channel is used only if Linux changes the vCPU to be interrupted
-in the guest, or if the vPCI device is removed from
+in the guest, or if the vPCI device is reset or removed from
 the VM while the VM is running.  The ongoing operation of the
 device happens directly between the Linux device driver for
 the device and the hardware, with VMBus and the VMBus channel
