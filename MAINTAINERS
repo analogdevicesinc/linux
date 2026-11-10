@@ -20574,13 +20574,6 @@ F:	drivers/regulator/twl6030-regulator.c
 F:	include/linux/platform_data/i2c-omap.h
 F:	include/linux/platform_data/ti-sysc.h
 
-OMFS FILESYSTEM
-M:	Bob Copeland <me@bobcopeland.com>
-L:	linux-karma-devel@lists.sourceforge.net
-S:	Maintained
-F:	Documentation/filesystems/omfs.rst
-F:	fs/omfs/
-
 OMNIVISION OG01A1B SENSOR DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>
 L:	linux-media@vger.kernel.org
