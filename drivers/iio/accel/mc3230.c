@@ -183,12 +183,12 @@ static int mc3230_probe(struct i2c_client *client)
 	indio_dev->channels = mc3230_channels;
 	indio_dev->num_channels = ARRAY_SIZE(mc3230_channels);
 
-	ret = mc3230_set_opcon(data, MC3230_MODE_OPCON_WAKE);
-	if (ret < 0)
-		return ret;
-
 	ret = iio_read_mount_matrix(&client->dev, &data->orientation);
 	if (ret)
+		return ret;
+
+	ret = mc3230_set_opcon(data, MC3230_MODE_OPCON_WAKE);
+	if (ret < 0)
 		return ret;
 
 	ret = iio_device_register(indio_dev);
