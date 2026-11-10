@@ -1,0 +1,74 @@
+C file-ref-reload-dep-field
+
+(*
+ * Result: Never
+ *
+ * The recheck of __fget_files_rcu() passes when the file was recycled
+ * into the same descriptor: thread A closes fd and opens again, gets the
+ * same struct file and the same fd back, and thread B looks fd up
+ * meanwhile.  B's increment lands on the recycled file and the reload
+ * sees the slot hold that file again, which is fine, the descriptor
+ * does name it now.  But the fields of the file that B's caller reads
+ * next have to be the new incarnation's.  init_file() sets f_ref before
+ * do_dentry_open() stores f_op, and what publishes f_op is the release
+ * store of fd_install(), the one the reload saw.  So the field read has
+ * to depend on the reload, not on the first load.
+ *
+ * P0 is thread A: close() clears the slot, fput() marks the file DEAD
+ * and frees it, open() recycles it: init_file() stores ONEREF, the
+ * plain store of f_op follows, fd_install() publishes the slot.  P1 is
+ * thread B: the first load of the slot, the acquire-ordered increment,
+ * the reload and the compare, then f_op read through the reloaded
+ * pointer, as __get_file_rcu() does and as __fget_files_rcu() does since
+ * the reload became the pointer it returns.
+ *
+ * The slot holds a pointer to fop, the f_op field, or to q, NULL; fop
+ * is 1 in the old incarnation and 2 in the new one.  The address
+ * dependency of the field read on the reload orders it after the
+ * release store the reload read from, so it returns 2.
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=fop;
+	fop=1;
+	q=0;
+	0:r1=-9;
+	1:r3=-9;
+}
+
+P0(int **slot, int *fop, int *q, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, q);
+	r0 = atomic_fetch_sub(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			atomic_set(cnt, 0);
+			WRITE_ONCE(*fop, 2);
+			smp_store_release(slot, fop);
+		}
+	}
+}
+
+P1(int **slot, atomic_t *cnt)
+{
+	int *r0;
+	int r1;
+	int *r2;
+	int r3;
+
+	rcu_read_lock();
+	r0 = rcu_dereference(*slot);
+	r1 = atomic_fetch_add_acquire(1, cnt);
+	r2 = rcu_dereference(*slot);
+	if (r2 == r0) {
+		r3 = READ_ONCE(*r2);
+	}
+	rcu_read_unlock();
+}
+
+exists (0:r1=-1 /\ 1:r0=fop /\ 1:r1=0 /\ 1:r2=fop /\ 1:r3=1)

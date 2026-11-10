@@ -1,0 +1,59 @@
+C file-ref-reload-nodep-field
+
+(*
+ * Result: Sometimes
+ *
+ * file-ref-reload-dep-field.litmus with f_op read through the pointer of
+ * the first load, which is what __fget_files_rcu() returned between
+ * 253ca8678d30 and the reload becoming the pointer it returns.  The
+ * field read is ordered after the increment by the acquire, and a fully
+ * ordered increment does no better, but nothing ties it to the reload
+ * and so nothing ties it to the release store of fd_install() that
+ * published the new f_op.  The lookup returns the recycled file and the
+ * caller reads the old incarnation's f_op.
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=fop;
+	fop=1;
+	q=0;
+	0:r1=-9;
+	1:r3=-9;
+}
+
+P0(int **slot, int *fop, int *q, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, q);
+	r0 = atomic_fetch_sub(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			atomic_set(cnt, 0);
+			WRITE_ONCE(*fop, 2);
+			smp_store_release(slot, fop);
+		}
+	}
+}
+
+P1(int **slot, atomic_t *cnt)
+{
+	int *r0;
+	int r1;
+	int *r2;
+	int r3;
+
+	rcu_read_lock();
+	r0 = rcu_dereference(*slot);
+	r1 = atomic_fetch_add_acquire(1, cnt);
+	r2 = rcu_dereference(*slot);
+	if (r2 == r0) {
+		r3 = READ_ONCE(*r0);
+	}
+	rcu_read_unlock();
+}
+
+exists (0:r1=-1 /\ 1:r0=fop /\ 1:r1=0 /\ 1:r2=fop /\ 1:r3=1)

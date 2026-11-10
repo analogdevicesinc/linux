@@ -61,29 +61,32 @@ the fdtable structure -
 3. For any update to the fd table, files->file_lock must
    be held.
 
-4. To look up the file structure given an fd, a reader
-   must use either lookup_fdget_rcu() or files_lookup_fdget_rcu() APIs. These
-   take care of barrier requirements due to lock-free lookup.
+4. To look up the file structure given an fd, a reader must use one of
+   the fget() helpers: fget(), fget_raw(), fget_task(), fget_task_next()
+   or fdget() and friends. These take the reference and take care of
+   the barrier requirements of the lock-free lookup.
 
    An example::
 
 	struct file *file;
 
-	rcu_read_lock();
-	file = lookup_fdget_rcu(fd);
-	rcu_read_unlock();
+	file = fget(fd);
 	if (file) {
 		...
-                fput(file);
+		fput(file);
 	}
 	....
+
+   fdget() skips the reference when the file descriptor table isn't
+   shared, see the comment above __fget_light() for the rules that come
+   with that. Under files->file_lock a file can be looked up without a
+   reference with files_lookup_fd_locked() as long as the lock is held.
 
 5. Since both fdtable and file structures can be looked up
    lock-free, they must be installed using rcu_assign_pointer()
    API. If they are looked up lock-free, rcu_dereference()
    must be used. However it is advisable to use files_fdtable()
-   and lookup_fdget_rcu()/files_lookup_fdget_rcu() which take care of these
-   issues.
+   and the fget() helpers which take care of these issues.
 
 6. While updating, the fdtable pointer must be looked up while
    holding files->file_lock. If ->file_lock is dropped, then
@@ -105,15 +108,24 @@ the fdtable structure -
    Since locate_fd() can drop ->file_lock (and reacquire ->file_lock),
    the fdtable pointer (fdt) must be loaded after locate_fd().
 
-On newer kernels rcu based file lookup has been switched to rely on
-SLAB_TYPESAFE_BY_RCU instead of call_rcu(). It isn't sufficient anymore
-to just acquire a reference to the file in question under rcu using
-atomic_long_inc_not_zero() since the file might have already been
-recycled and someone else might have bumped the reference. In other
-words, callers might see reference count bumps from newer users. For
-this is reason it is necessary to verify that the pointer is the same
-before and after the reference count increment. This pattern can be seen
-in get_file_rcu() and __files_get_rcu().
+Files are allocated from a SLAB_TYPESAFE_BY_RCU cache since commit
+0ede61d8589c ("file: convert to SLAB_TYPESAFE_BY_RCU"). Freeing a file
+doesn't wait for a grace period anymore. The memory can be handed out
+again right away and only the type of the object is stable under
+rcu_read_lock(). So it isn't sufficient to take a reference on the file
+found in a descriptor slot. The file might have been closed, freed and
+recycled in the meantime and the reference lands on whoever owns the
+object now. The lock-free lookup in __fget_files_rcu() and
+__get_file_rcu() therefore:
+
+(1) loads the pointer from the slot and takes a reference with
+    file_ref_get(), which fails if the file is dead,
+
+(2) reloads the pointer and compares it against the earlier load, if they
+    differ the file was recycled and the reference is dropped again, and
+
+(3) returns the reloaded pointer so that everything the caller reads
+    from the file depends on the reload.
 
 In addition, it isn't possible to access or check fields in struct file
 without first acquiring a reference on it under rcu lookup. Not doing

@@ -1096,13 +1096,13 @@ static struct file *__get_file_rcu(struct file __rcu **f)
 	OPTIMIZER_HIDE_VAR(file_reloaded_cmp);
 
 	/*
-	 * file_ref_get() above provided a full memory barrier when we
-	 * acquired a reference.
+	 * file_ref_get() above is an acquire, so the reload of the
+	 * pointer is ordered after the increment.
 	 *
-	 * This is paired with the write barrier from assigning to the
-	 * __rcu protected file pointer so that if that pointer still
-	 * matches the current file, we know we have successfully
-	 * acquired a reference to the right file.
+	 * This is paired with the release of the rcu_assign_pointer()
+	 * that published the __rcu protected file pointer so that if
+	 * that pointer still matches the current file, we know we have
+	 * successfully acquired a reference to the right file.
 	 *
 	 * If the pointers don't match the file has been reallocated by
 	 * SLAB_TYPESAFE_BY_RCU.
@@ -1168,6 +1168,8 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 {
 	for (;;) {
 		struct file *file;
+		struct file *file_reloaded;
+		struct file *file_reloaded_cmp;
 		struct fdtable *fdt = rcu_dereference_raw(files->fdt);
 		struct file __rcu **fdentry;
 		unsigned long nospec_mask;
@@ -1195,9 +1197,8 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 		 * We need to confirm it by incrementing the refcount
 		 * and then check the lookup again.
 		 *
-		 * file_ref_get() gives us a full memory barrier. We
-		 * only really need an 'acquire' one to protect the
-		 * loads below, but we don't have that.
+		 * file_ref_get() is an acquire, which is what orders
+		 * the loads below after the increment.
 		 */
 		if (unlikely(!file_ref_get(&file->f_ref)))
 			continue;
@@ -1216,11 +1217,32 @@ static inline struct file *__fget_files_rcu(struct files_struct *files,
 		 *
 		 * If so, we need to put our ref and try again.
 		 */
-		if (unlikely(file != rcu_dereference_raw(*fdentry)) ||
+		file_reloaded = rcu_dereference_raw(*fdentry);
+
+		/*
+		 * Every load needs to depend on the reload. If the
+		 * file was freed and reallocated into this slot in the
+		 * meantime, what open() wrote to it was published by the
+		 * rcu_assign_pointer() in fd_install(), which is the
+		 * store the reload saw.
+		 *
+		 * The increment above only orders against file_ref_init()
+		 * and init_file(). That happens before do_dentry_open()
+		 * sets f_op et al. So every load needs to depend on the
+		 * reload otherwise we can see e.g., stale f_op on e.g.,
+		 * arm64.
+		 *
+		 * So compare against a copy the compiler can't see through
+		 * and use the reloaded pointer from here on.
+		 */
+		file_reloaded_cmp = file_reloaded;
+		OPTIMIZER_HIDE_VAR(file_reloaded_cmp);
+		if (unlikely(file != file_reloaded_cmp) ||
 		    unlikely(rcu_dereference_raw(files->fdt) != fdt)) {
 			fput(file);
 			continue;
 		}
+		file = file_reloaded;
 
 		/*
 		 * This isn't the file we're looking for or we're not

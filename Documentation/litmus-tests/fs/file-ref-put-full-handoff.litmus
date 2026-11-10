@@ -1,0 +1,76 @@
+C file-ref-put-full-handoff
+
+(*
+ * Result: Never
+ *
+ * Why file_ref_put() keeps its full ordering.  When the last put frees
+ * the file synchronously, in __fput_sync() or on the fallback path of
+ * fput_close_sync(), the object goes to another CPU through the slab
+ * freelist, that CPU recycles it, sets ONEREF and publishes it in a
+ * slot of its own, and a lookup on a third CPU can increment the
+ * recycled counter.  Its recheck must then see the cleared slot, which
+ * needs the slot clear ordered before the free.
+ *
+ * P0 is the owner: close() clears the slot, the fully ordered decrement
+ * of file_ref_put() reaches NOREF, the cmpxchg of __file_ref_put()
+ * marks the file DEAD, __fput() frees it and the object lands on the
+ * freelist, a relaxed RMW in SLUB and a plain store here.  P2 is open()
+ * on another CPU: it takes the object from the freelist, a load that
+ * the stores of init_file() depend on by control, sets ONEREF and
+ * publishes the file with fd_install().  P1 is __fget_files_rcu() with
+ * an acquire-ordered file_ref_get().
+ *
+ * The full barrier of the decrement orders the cleared slot before the
+ * freelist store.  P2's control dependency orders its stores after the
+ * freelist load, the acquire on P1 orders the reload after the
+ * increment that read P2's ONEREF, so the reload sees the cleared slot.
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=1;
+	slot2=0;
+	fl=0;
+	0:r1=-9;
+}
+
+P0(int *slot, int *fl, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, 0);
+	r0 = atomic_fetch_sub(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			WRITE_ONCE(*fl, 1);
+		}
+	}
+}
+
+P1(int *slot, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+	int r2;
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*slot);
+	r1 = atomic_fetch_add_acquire(1, cnt);
+	r2 = READ_ONCE(*slot);
+	rcu_read_unlock();
+}
+
+P2(int *slot2, int *fl, atomic_t *cnt)
+{
+	int r0;
+
+	r0 = READ_ONCE(*fl);
+	if (r0 == 1) {
+		atomic_set(cnt, 0);
+		smp_store_release(slot2, 1);
+	}
+}
+
+exists (0:r1=-1 /\ 2:r0=1 /\ 1:r0=1 /\ 1:r1=0 /\ 1:r2=1)
