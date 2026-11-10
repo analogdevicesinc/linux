@@ -214,7 +214,6 @@ struct vmcb_ctrl_area_cached {
 struct svm_nested_state {
 	struct kvm_vmcb_info vmcb02;
 	u64 hsave_msr;
-	u64 vm_cr_msr;
 	u64 vmcb12_gpa;
 	u64 last_vmcb12_gpa;
 	u64 last_bus_lock_rip;

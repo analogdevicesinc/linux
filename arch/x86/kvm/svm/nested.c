@@ -668,7 +668,7 @@ static void nested_save_pending_event_to_vmcb12(struct vcpu_svm *svm,
 		}
 
 	} else if (vcpu->arch.nmi_injected) {
-		exit_int_info = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI;
+		exit_int_info = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI | NMI_VECTOR;
 
 	} else if (vcpu->arch.interrupt.injected) {
 		nr = vcpu->arch.interrupt.nr;
@@ -2083,6 +2083,7 @@ static int svm_set_nested_state(struct kvm_vcpu *vcpu,
 	svm->nested.vmcb12_gpa = kvm_state->hdr.svm.vmcb_pa;
 
 	svm_copy_vmrun_state(vcpu, &svm->vmcb01.ptr->save, save);
+	vmcb_mark_all_dirty(svm->vmcb01.ptr);
 	nested_copy_vmcb_control_to_cache(svm, ctl);
 
 	svm_switch_vmcb(svm, &svm->nested.vmcb02);

@@ -2962,7 +2962,7 @@ static int svm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		msr_info->data = svm->nested.hsave_msr;
 		break;
 	case MSR_VM_CR:
-		msr_info->data = svm->nested.vm_cr_msr;
+		msr_info->data = SVM_VM_CR_SVM_LOCK_MASK;
 		break;
 	case MSR_IA32_SPEC_CTRL:
 		if (!msr_info->host_initiated &&
@@ -3021,31 +3021,6 @@ static int svm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 
 	svm_vmgexit_inject_exception(svm, X86_TRAP_GP);
 	return 1;
-}
-
-static int svm_set_vm_cr(struct kvm_vcpu *vcpu, u64 data)
-{
-	struct vcpu_svm *svm = to_svm(vcpu);
-	int svm_dis, chg_mask;
-
-	if (data & ~SVM_VM_CR_VALID_MASK)
-		return 1;
-
-	chg_mask = SVM_VM_CR_VALID_MASK;
-
-	if (svm->nested.vm_cr_msr & SVM_VM_CR_SVM_DIS_MASK)
-		chg_mask &= ~(SVM_VM_CR_SVM_LOCK_MASK | SVM_VM_CR_SVM_DIS_MASK);
-
-	svm->nested.vm_cr_msr &= ~chg_mask;
-	svm->nested.vm_cr_msr |= (data & chg_mask);
-
-	svm_dis = svm->nested.vm_cr_msr & SVM_VM_CR_SVM_DIS_MASK;
-
-	/* check for svm_disable while efer.svme is set */
-	if (svm_dis && (vcpu->arch.efer & EFER_SVME))
-		return 1;
-
-	return 0;
 }
 
 static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
@@ -3270,7 +3245,6 @@ static int svm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr)
 		svm->nested.hsave_msr = data & PAGE_MASK;
 		break;
 	case MSR_VM_CR:
-		return svm_set_vm_cr(vcpu, data);
 	case MSR_VM_IGNNE:
 		kvm_pr_unimpl_wrmsr(vcpu, ecx, data);
 		break;
@@ -3928,7 +3902,7 @@ static void svm_inject_nmi(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
 
-	svm->vmcb->control.event_inj = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI;
+	svm->vmcb->control.event_inj = SVM_EVTINJ_VALID | SVM_EVTINJ_TYPE_NMI | NMI_VECTOR;
 
 	if (svm->nmi_l1_to_l2)
 		return;
