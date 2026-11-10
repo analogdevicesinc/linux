@@ -540,18 +540,28 @@ TEST_MATRIX=(
 
 	# The extra CPUs gained by a child partition when its parent expands the
 	# exclusive CPUs have to be taken away from the parent.
-	" C2-6:X2-5:P1 CX3-6:P1 \
-	                    .      .    X2-6     .      .      .     0 A1:2|A2:3-6|XA2:3-6 A1:P1|A2:P1 ."
-	" C2-6:X2-5:P1 CX3-6:P2 \
-	                    .      .    X2-6     .      .      .     0 A1:2|A2:3-6|XA2:3-6 A1:P1|A2:P2 3-6"
+	" C2-6:X2-5:P1 CX4-6:P1 \
+	                    .      .    X2-6     .      .      .     0 A1:2-3|A2:4-6|XA2:4-6 \
+								       A1:P1|A2:P1 ."
+	" C2-6:X2-5:P1 CX4-6:P2 \
+	                    .      .    X2-6     .      .      .     0 A1:2-3|A2:4-6|XA2:4-6 \
+								       A1:P1|A2:P2 4-6"
 
 	# Both expansion and contraction of parent's effective_xcpus will be
 	# correctly handled in child partition and the child can be invalidated
 	# if a populated parent could lose all its effective_cpus.
 	" C2-6:X2-5:P1 CX3,5-6:P2 \
-	                    .      .    X4-6     .      .      .     0 A1:4|A2:5-6|XA2:5-6 A1:P1|A2:P2 5-6"
+	                    .      .    X4-6     .      .      .     0 A1:4|A2:5-6|XA2:5-6 \
+								       A1:P1|A2:P2 4-6|5-6"
 	" C2-6:X2-5:P1 CX3-6:P2 \
 	                    .      .   T:X4-6    .      .      .     0 A1:4-6|A2:4-6 A1:P1|A2:P-2 ."
+
+	# Switch PRS state (root <=> isolated) will properly update cpuset.cpus.isolated
+	# even if child partitions are present.
+	" C1-6:P1 C3-6:P1 C5-6:P2  .       .    P2      .      .     0 A1:1-2|A2:3-4|A3:5-6 \
+								       A1:P1|A2:P2|A3:P2 3-6"
+	" C1-6:P1 C3-6:P2 C5-6:P2  .       .    P1      .      .     0 A1:1-2|A2:3-4|A3:5-6 \
+								       A1:P1|A2:P1|A3:P2 5-6"
 
 	#
 	#  old-A1 old-A2 old-A3 old-B1 new-A1 new-A2 new-A3 new-B1 fail ECPUs Pstate ISOLCPUS
