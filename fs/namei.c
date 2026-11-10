@@ -4391,8 +4391,6 @@ static int may_o_create(const struct mnt_idmap *idmap,
 	bool create_dir = O_IS_MKDIR(open_flag);
 	int error;
 
-	WARN_ON_ONCE(create_dir && !S_ISDIR(mode));
-
 	if (create_dir)
 		error = security_path_mkdir(dir, dentry, mode);
 	else
@@ -4413,15 +4411,6 @@ static int may_o_create(const struct mnt_idmap *idmap,
 		error = security_inode_create(idmap, dir_inode, dentry, mode);
 
 	return error;
-}
-
-static inline umode_t o_create_mode(const struct mnt_idmap *idmap, const struct inode *dir,
-				    int open_flag, umode_t mode)
-{
-	if (O_IS_MKDIR(open_flag))
-		return vfs_prepare_mode(idmap, dir, mode, S_IRWXUGO | S_ISVTX, S_IFDIR);
-	else
-		return vfs_prepare_mode(idmap, dir, mode, S_IALLUGO, S_IFREG);
 }
 
 /**
@@ -4507,12 +4496,8 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 		return ERR_PTR(error);
 	}
 
-	if (file->f_mode & FMODE_CREATED) {
-		if (d_is_dir(dentry))
-			fsnotify_mkdir(dir_inode, dentry);
-		else
-			fsnotify_create(dir_inode, dentry);
-	}
+	if (file->f_mode & FMODE_CREATED)
+		fsnotify_create(dir_inode, dentry);
 	if (file->f_mode & FMODE_OPENED)
 		fsnotify_open(file);
 
@@ -4554,9 +4539,6 @@ retry:
 	mode = op->mode;
 	create_error = 0;
 	shared_flag = (open_flag & O_CREAT) ? 0 : LOOKUP_SHARED;
-
-	if (create_dir && (dir_inode->i_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
-		return ERR_PTR(-EOPNOTSUPP);
 
 	if (open_flag & (O_CREAT | O_TRUNC | O_WRONLY | O_RDWR)) {
 		got_write = !mnt_want_write(nd->path.mnt);
@@ -4619,7 +4601,7 @@ retry:
 	if (open_flag & O_CREAT) {
 		if (open_flag & O_EXCL)
 			open_flag &= ~O_TRUNC;
-		mode = o_create_mode(idmap, dir_inode, open_flag, mode);
+		mode = vfs_prepare_mode(idmap, dir_inode, mode, mode, mode);
 		if (likely(got_write))
 			create_error = may_o_create(idmap, &nd->path,
 						    dentry, open_flag, mode);
@@ -4839,16 +4821,18 @@ static const char *open_last_lookups(struct nameidata *nd,
 
 	nd->flags |= op->intent;
 
+	/*
+	 * Filesystems that cannot create and open a directory atomically
+	 * refuse O_CREAT|O_DIRECTORY before any lookup, whether or not
+	 * the name exists.
+	 */
+	if (O_IS_MKDIR(open_flag) &&
+	    unlikely(nd->path.dentry->d_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
+		return ERR_PTR(-EOPNOTSUPP);
+
 	if (nd->last_type != LAST_NORM) {
 		if (nd->depth)
 			put_link(nd);
-		/*
-		 * Return -EOPNOTSUPP consistently, not -EEXIST, for paths
-		 * ending in . or .., as lookup_open() does for other names.
-		 */
-		if (O_IS_MKDIR(open_flag) &&
-		    (nd->path.dentry->d_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
-			return ERR_PTR(-EOPNOTSUPP);
 		return handle_dots(nd, nd->last_type);
 	}
 

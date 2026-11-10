@@ -1264,8 +1264,9 @@ inline int build_open_flags(const struct open_how *how, struct open_flags *op)
 	if (WILL_CREATE(flags)) {
 		if (how->mode & ~S_IALLUGO)
 			return -EINVAL;
+		/* Like mkdir(2), ignore the setuid and setgid bits. */
 		if (O_IS_MKDIR(flags))
-			op->mode = how->mode | S_IFDIR;
+			op->mode = (how->mode & (S_IRWXUGO | S_ISVTX)) | S_IFDIR;
 		else
 			op->mode = how->mode | S_IFREG;
 	} else {
