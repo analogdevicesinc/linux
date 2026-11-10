@@ -225,6 +225,10 @@ static int ahci_dwc_init_dmacr(struct ahci_host_priv *hpriv)
 		if (of_property_read_u32(child, "reg", &port))
 			return -EINVAL;
 
+		/* Already reported by ahci_platform_get_resources() */
+		if (port >= hpriv->nports)
+			continue;
+
 		port_mmio = __ahci_port_base(hpriv, port);
 		dmacr = readl(port_mmio + AHCI_DWC_PORT_DMACR);
 
