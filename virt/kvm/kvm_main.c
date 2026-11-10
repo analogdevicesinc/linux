@@ -940,12 +940,30 @@ static void kvm_destroy_pm_notifier(struct kvm *kvm)
 }
 #endif /* CONFIG_HAVE_KVM_PM_NOTIFIER */
 
+void *kvm_memslot_metadata_alloc(size_t n, size_t size)
+{
+	size_t bytes;
+
+	if (unlikely(check_mul_overflow(n, size, &bytes)))
+		return NULL;
+
+	if (bytes <= KMALLOC_MAX_CACHE_SIZE)
+		return kvzalloc(bytes, GFP_KERNEL_ACCOUNT);
+
+	return __vcalloc(n, size, GFP_KERNEL_ACCOUNT);
+}
+
+void kvm_memslot_metadata_free(void *p)
+{
+	kvfree(p);
+}
+
 static void kvm_destroy_dirty_bitmap(struct kvm_memory_slot *memslot)
 {
 	if (!memslot->dirty_bitmap)
 		return;
 
-	vfree(memslot->dirty_bitmap);
+	kvm_memslot_metadata_free(memslot->dirty_bitmap);
 	memslot->dirty_bitmap = NULL;
 }
 
@@ -1448,7 +1466,7 @@ static int kvm_alloc_dirty_bitmap(struct kvm_memory_slot *memslot)
 {
 	unsigned long dirty_bytes = kvm_dirty_bitmap_bytes(memslot);
 
-	memslot->dirty_bitmap = __vcalloc(2, dirty_bytes, GFP_KERNEL_ACCOUNT);
+	memslot->dirty_bitmap = kvm_memslot_metadata_alloc(2, dirty_bytes);
 	if (!memslot->dirty_bitmap)
 		return -ENOMEM;
 
@@ -3114,7 +3132,8 @@ retry:
 		if (r < 0)
 			pfn = KVM_PFN_ERR_FAULT;
 	} else {
-		if ((kfp->flags & FOLL_NOWAIT) &&
+		/* Note, GUP returns '0' if retry is needed. */
+		if (!npages && (kfp->flags & FOLL_NOWAIT) &&
 		    vma_is_valid(vma, kfp->flags & FOLL_WRITE))
 			pfn = KVM_PFN_ERR_NEEDS_IO;
 		else
@@ -4466,10 +4485,7 @@ static int kvm_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 		}
 
 		r = kvm_arch_vcpu_pre_fault_memory(vcpu, range);
-		if (WARN_ON_ONCE(r == 0 || r == -EIO))
-			break;
-
-		if (r < 0)
+		if (WARN_ON_ONCE(!r) || r < 0)
 			break;
 
 		range->size -= r;

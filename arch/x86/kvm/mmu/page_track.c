@@ -43,7 +43,7 @@ bool kvm_page_track_write_tracking_enabled(struct kvm *kvm)
 
 void kvm_page_track_free_memslot(struct kvm_memory_slot *slot)
 {
-	vfree(slot->arch.gfn_write_track);
+	kvm_memslot_metadata_free(slot->arch.gfn_write_track);
 	slot->arch.gfn_write_track = NULL;
 }
 
@@ -53,8 +53,8 @@ static int __kvm_page_track_write_tracking_alloc(struct kvm_memory_slot *slot,
 	const size_t size = sizeof(*slot->arch.gfn_write_track);
 
 	if (!slot->arch.gfn_write_track)
-		slot->arch.gfn_write_track = __vcalloc(npages, size,
-						       GFP_KERNEL_ACCOUNT);
+		slot->arch.gfn_write_track =
+			kvm_memslot_metadata_alloc(npages, size);
 
 	return slot->arch.gfn_write_track ? 0 : -ENOMEM;
 }

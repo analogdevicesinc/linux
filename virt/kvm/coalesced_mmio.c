@@ -121,13 +121,24 @@ void kvm_coalesced_mmio_free(struct kvm *kvm)
 		free_page((unsigned long)kvm->coalesced_mmio_ring);
 }
 
+static bool kvm_is_valid_io_zone(struct kvm_coalesced_mmio_zone *zone)
+{
+	if (zone->pio != 1 && zone->pio != 0)
+		return false;
+
+	if (zone->size > INT_MAX)
+		return false;
+
+	return true;
+}
+
 int kvm_vm_ioctl_register_coalesced_mmio(struct kvm *kvm,
 					 struct kvm_coalesced_mmio_zone *zone)
 {
 	int ret;
 	struct kvm_coalesced_mmio_dev *dev;
 
-	if (zone->pio != 1 && zone->pio != 0)
+	if (!kvm_is_valid_io_zone(zone))
 		return -EINVAL;
 
 	dev = kzalloc_obj(struct kvm_coalesced_mmio_dev, GFP_KERNEL_ACCOUNT);
@@ -162,7 +173,7 @@ int kvm_vm_ioctl_unregister_coalesced_mmio(struct kvm *kvm,
 	struct kvm_coalesced_mmio_dev *dev, *tmp;
 	int r;
 
-	if (zone->pio != 1 && zone->pio != 0)
+	if (!kvm_is_valid_io_zone(zone))
 		return -EINVAL;
 
 	mutex_lock(&kvm->slots_lock);
