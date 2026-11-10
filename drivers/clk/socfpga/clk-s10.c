@@ -5,6 +5,7 @@
 #include <linux/slab.h>
 #include <linux/clk-provider.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 
 #include <dt-bindings/clock/stratix10-clock.h>
@@ -188,20 +189,36 @@ static const struct stratix10_pll_clock s10_pll_clks[] = {
 	  0, 0xe4},
 };
 
-static const struct stratix10_perip_c_clock s10_main_perip_c_clks[] = {
-	{ STRATIX10_MAIN_MPU_BASE_CLK, "main_mpu_base_clk", "main_pll", NULL, 1, 0, 0x84},
+/*
+ * The SP timers are probed from time_init() and cannot defer, so their
+ * l4_sp_clk and its parents are registered from of_clk_init(). Everything
+ * else is registered when the platform driver probes.
+ */
+static const struct stratix10_perip_c_clock s10_early_perip_c_clks[] = {
 	{ STRATIX10_MAIN_NOC_BASE_CLK, "main_noc_base_clk", "main_pll", NULL, 1, 0, 0x88},
-	{ STRATIX10_PERI_MPU_BASE_CLK, "peri_mpu_base_clk", "periph_pll", NULL, 1, 0,
-	  0xF4},
 	{ STRATIX10_PERI_NOC_BASE_CLK, "peri_noc_base_clk", "periph_pll", NULL, 1, 0,
 	  0xF8},
+};
+
+static const struct stratix10_perip_cnt_clock s10_early_perip_cnt_clks[] = {
+	{ STRATIX10_NOC_FREE_CLK, "noc_free_clk", NULL, noc_free_mux, ARRAY_SIZE(noc_free_mux),
+	  0, 0x4C, 0, 0x3C, 1},
+};
+
+static const struct stratix10_gate_clock s10_early_gate_clks[] = {
+	{ STRATIX10_L4_SP_CLK, "l4_sp_clk", NULL, noc_mux, ARRAY_SIZE(noc_mux),
+	  CLK_IS_CRITICAL, 0x30, 3, 0x70, 16, 2, 0x3C, 1, 0},
+};
+
+static const struct stratix10_perip_c_clock s10_main_perip_c_clks[] = {
+	{ STRATIX10_MAIN_MPU_BASE_CLK, "main_mpu_base_clk", "main_pll", NULL, 1, 0, 0x84},
+	{ STRATIX10_PERI_MPU_BASE_CLK, "peri_mpu_base_clk", "periph_pll", NULL, 1, 0,
+	  0xF4},
 };
 
 static const struct stratix10_perip_cnt_clock s10_main_perip_cnt_clks[] = {
 	{ STRATIX10_MPU_FREE_CLK, "mpu_free_clk", NULL, mpu_free_mux, ARRAY_SIZE(mpu_free_mux),
 	   0, 0x48, 0, 0, 0},
-	{ STRATIX10_NOC_FREE_CLK, "noc_free_clk", NULL, noc_free_mux, ARRAY_SIZE(noc_free_mux),
-	  0, 0x4C, 0, 0x3C, 1},
 	{ STRATIX10_MAIN_EMACA_CLK, "main_emaca_clk", "main_noc_base_clk", NULL, 1, 0,
 	  0x50, 0, 0, 0},
 	{ STRATIX10_MAIN_EMACB_CLK, "main_emacb_clk", "main_noc_base_clk", NULL, 1, 0,
@@ -263,8 +280,6 @@ static const struct stratix10_gate_clock s10_gate_clks[] = {
 	  1, 0x70, 0, 2, 0x3C, 1, 0},
 	{ STRATIX10_L4_MP_CLK, "l4_mp_clk", NULL, noc_mux, ARRAY_SIZE(noc_mux), 0, 0x30,
 	  2, 0x70, 8, 2, 0x3C, 1, 0},
-	{ STRATIX10_L4_SP_CLK, "l4_sp_clk", NULL, noc_mux, ARRAY_SIZE(noc_mux), CLK_IS_CRITICAL, 0x30,
-	  3, 0x70, 16, 2, 0x3C, 1, 0},
 	{ STRATIX10_CS_AT_CLK, "cs_at_clk", NULL, noc_mux, ARRAY_SIZE(noc_mux), 0, 0x30,
 	  4, 0x70, 24, 2, 0x3C, 1, 0},
 	{ STRATIX10_CS_TRACE_CLK, "cs_trace_clk", NULL, noc_mux, ARRAY_SIZE(noc_mux), 0, 0x30,
@@ -382,33 +397,111 @@ static int s10_clk_register_pll(const struct stratix10_pll_clock *clks,
 	return 0;
 }
 
-static int s10_clkmgr_init(struct platform_device *pdev)
+static struct stratix10_clock_data *s10_clk_data;
+
+static struct stratix10_clock_data *s10_clk_data_alloc(void __iomem *base)
 {
-	struct device_node *np = pdev->dev.of_node;
-	struct device *dev = &pdev->dev;
 	struct stratix10_clock_data *clk_data;
-	void __iomem *base;
-	int i, num_clks;
+	int i;
 
-	base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(base)) {
-		pr_err("%s: failed to map clock registers\n", __func__);
-		return PTR_ERR(base);
-	}
-
-	num_clks = STRATIX10_NUM_CLKS;
-	clk_data = devm_kzalloc(dev, struct_size(clk_data, clk_data.hws,
-						 num_clks), GFP_KERNEL);
+	clk_data = kzalloc(struct_size(clk_data, clk_data.hws, STRATIX10_NUM_CLKS),
+			   GFP_KERNEL);
 	if (!clk_data)
-		return -ENOMEM;
+		return NULL;
 
 	clk_data->base = base;
-	clk_data->clk_data.num = num_clks;
+	clk_data->clk_data.num = STRATIX10_NUM_CLKS;
 
-	for (i = 0; i < num_clks; i++)
-		clk_data->clk_data.hws[i] = ERR_PTR(-ENOENT);
+	for (i = 0; i < STRATIX10_NUM_CLKS; i++)
+		clk_data->clk_data.hws[i] = ERR_PTR(-EPROBE_DEFER);
 
+	return clk_data;
+}
+
+static void s10_clk_register_early(struct stratix10_clock_data *clk_data)
+{
 	s10_clk_register_pll(s10_pll_clks, ARRAY_SIZE(s10_pll_clks), clk_data);
+
+	s10_clk_register_c_perip(s10_early_perip_c_clks,
+				 ARRAY_SIZE(s10_early_perip_c_clks), clk_data);
+
+	s10_clk_register_cnt_perip(s10_early_perip_cnt_clks,
+				   ARRAY_SIZE(s10_early_perip_cnt_clks),
+				   clk_data);
+
+	s10_clk_register_gate(s10_early_gate_clks,
+			      ARRAY_SIZE(s10_early_gate_clks), clk_data);
+}
+
+/*
+ * The registered clocks keep using the mapping and clk_data, so neither is
+ * released once the early clocks have been registered.
+ */
+static int s10_clkmgr_setup(struct device_node *np)
+{
+	struct stratix10_clock_data *clk_data;
+	void __iomem *base;
+
+	base = of_iomap(np, 0);
+	if (!base) {
+		pr_err("%s: failed to map clock registers\n", __func__);
+		return -ENOMEM;
+	}
+
+	clk_data = s10_clk_data_alloc(base);
+	if (!clk_data) {
+		iounmap(base);
+		return -ENOMEM;
+	}
+
+	s10_clk_register_early(clk_data);
+	s10_clk_data = clk_data;
+
+	return 0;
+}
+
+static int s10_clkmgr_add_provider(struct device_node *np)
+{
+	static bool added;
+	int ret;
+
+	if (added)
+		return 0;
+
+	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get,
+				     &s10_clk_data->clk_data);
+	if (ret)
+		return ret;
+
+	added = true;
+
+	return 0;
+}
+
+static void __init s10_clkmgr_early_init(struct device_node *np)
+{
+	if (s10_clkmgr_setup(np))
+		return;
+
+	if (s10_clkmgr_add_provider(np))
+		pr_err("%s: failed to add clock provider\n", __func__);
+}
+
+CLK_OF_DECLARE_DRIVER(stratix10_clkmgr, "intel,stratix10-clkmgr",
+		      s10_clkmgr_early_init);
+
+static int s10_clkmgr_init(struct platform_device *pdev)
+{
+	struct stratix10_clock_data *clk_data;
+	int i, ret;
+
+	if (!s10_clk_data) {
+		ret = s10_clkmgr_setup(pdev->dev.of_node);
+		if (ret)
+			return ret;
+	}
+
+	clk_data = s10_clk_data;
 
 	s10_clk_register_c_perip(s10_main_perip_c_clks,
 				 ARRAY_SIZE(s10_main_perip_c_clks), clk_data);
@@ -420,8 +513,11 @@ static int s10_clkmgr_init(struct platform_device *pdev)
 	s10_clk_register_gate(s10_gate_clks, ARRAY_SIZE(s10_gate_clks),
 			      clk_data);
 
-	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, &clk_data->clk_data);
-	return 0;
+	for (i = 0; i < STRATIX10_NUM_CLKS; i++)
+		if (clk_data->clk_data.hws[i] == ERR_PTR(-EPROBE_DEFER))
+			clk_data->clk_data.hws[i] = ERR_PTR(-ENOENT);
+
+	return s10_clkmgr_add_provider(pdev->dev.of_node);
 }
 
 static int s10_clkmgr_probe(struct platform_device *pdev)
