@@ -108,7 +108,6 @@ int native_cpu_disable(unsigned int cpu)
 
 void play_dead_common(void)
 {
-	idle_task_exit();
 	irq_ctx_exit(raw_smp_processor_id());
 	mb();
 

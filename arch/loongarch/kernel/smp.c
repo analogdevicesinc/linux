@@ -478,7 +478,6 @@ static void __noreturn idle_play_dead(void)
 	register uint64_t addr;
 	register void (*init_fn)(void);
 
-	idle_task_exit();
 	local_irq_enable();
 	set_csr_ecfg(ECFGF_IPI);
 	__this_cpu_write(cpu_state, CPU_DEAD);
@@ -503,7 +502,6 @@ static void __noreturn poll_play_dead(void)
 	register uint64_t addr;
 	register void (*init_fn)(void);
 
-	idle_task_exit();
 	__this_cpu_write(cpu_state, CPU_DEAD);
 
 	__smp_mb();
