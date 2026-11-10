@@ -9,7 +9,6 @@
 #include <linux/hwmon.h>
 #include <linux/i2c.h>
 #include <linux/module.h>
-#include <linux/platform_data/emc2305.h>
 #include <linux/thermal.h>
 #include <linux/pwm.h>
 #include <linux/of_device.h>
@@ -20,6 +19,7 @@
 #define EMC2305_FAN_MAX			0xff
 #define EMC2305_FAN_MIN			0x00
 #define EMC2305_FAN_MAX_STATE		10
+#define EMC2305_PWM_MAX			5
 #define EMC2305_DEVICE			0x34
 #define EMC2305_VENDOR			0x5d
 #define EMC2305_REG_PRODUCT_ID		0xfd
@@ -627,7 +627,6 @@ static int emc2305_probe(struct i2c_client *client)
 	struct i2c_adapter *adapter = client->adapter;
 	struct device *dev = &client->dev;
 	struct emc2305_data *data;
-	struct emc2305_platform_data *pdata;
 	int vendor;
 	int ret;
 	int i;
@@ -657,43 +656,16 @@ static int emc2305_probe(struct i2c_client *client)
 
 	pwm_childs = emc2305_probe_childs_from_dt(dev);
 
-	pdata = dev_get_platdata(&client->dev);
+	data->max_state = EMC2305_FAN_MAX_STATE;
+	data->pwm_separate = false;
+	for (i = 0; i < EMC2305_PWM_MAX; i++)
+		data->pwm_min[i] = EMC2305_FAN_MIN;
 
 	if (!pwm_childs) {
-		if (pdata) {
-			if (!pdata->max_state || pdata->max_state > EMC2305_FAN_MAX_STATE)
-				return -EINVAL;
-			data->max_state = pdata->max_state;
-			/*
-			 * Validate a number of active PWM channels. Note that
-			 * configured number can be less than the actual maximum
-			 * supported by the device.
-			 */
-			if (!pdata->pwm_num || pdata->pwm_num > EMC2305_PWM_MAX)
-				return -EINVAL;
-			data->pwm_num = pdata->pwm_num;
-			data->pwm_output_mask = pdata->pwm_output_mask;
-			data->pwm_polarity_mask = pdata->pwm_polarity_mask;
-			data->pwm_separate = pdata->pwm_separate;
-			for (i = 0; i < EMC2305_PWM_MAX; i++) {
-				data->pwm_min[i] = pdata->pwm_min[i];
-				data->pwm_freq[i] = pdata->pwm_freq[i];
-			}
-		} else {
-			data->max_state = EMC2305_FAN_MAX_STATE;
-			data->pwm_separate = false;
-			data->pwm_output_mask = EMC2305_DEFAULT_OUTPUT;
-			data->pwm_polarity_mask = EMC2305_DEFAULT_POLARITY;
-			for (i = 0; i < EMC2305_PWM_MAX; i++) {
-				data->pwm_min[i] = EMC2305_FAN_MIN;
-				data->pwm_freq[i] = base_freq_table[3];
-			}
-		}
-	} else {
-		data->max_state = EMC2305_FAN_MAX_STATE;
-		data->pwm_separate = false;
+		data->pwm_output_mask = EMC2305_DEFAULT_OUTPUT;
+		data->pwm_polarity_mask = EMC2305_DEFAULT_POLARITY;
 		for (i = 0; i < EMC2305_PWM_MAX; i++)
-			data->pwm_min[i] = EMC2305_FAN_MIN;
+			data->pwm_freq[i] = base_freq_table[3];
 	}
 
 	data->hwmon_dev = devm_hwmon_device_register_with_info(dev, "emc2305", data,
