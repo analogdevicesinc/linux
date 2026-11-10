@@ -100,8 +100,10 @@ struct wb_completion {
  * refcounted with the number of inodes attached to it, and pins the memcg
  * and the corresponding blkcg.  As the corresponding blkcg for a memcg may
  * change as blkcg is disabled and enabled higher up in the hierarchy, a wb
- * is tested for blkcg after lookup and removed from index on mismatch so
- * that a new wb for the combination can be created.
+ * is tested for blkcg after lookup and killed on mismatch so that a new wb
+ * for the combination can be created.  A killed wb stays in the index until
+ * it is released or a new wb takes over its slot, so that foreign flushes
+ * can still reach it.
  *
  * Each bdi_writeback that is not embedded into the backing_dev_info must hold
  * a reference to the parent backing_dev_info.  See cgwb_create() for details.
@@ -160,6 +162,7 @@ struct bdi_writeback {
 					 * to this wb */
 	struct llist_head switch_wbs_ctxs;	/* queued contexts for
 						 * writeback switching */
+	struct work_struct replaced_work;	/* see switch_replaced_cgwb() */
 
 	union {
 		struct work_struct release_work;
@@ -196,7 +199,7 @@ struct backing_dev_info {
 	struct bdi_writeback wb;  /* the root writeback info for this bdi */
 	struct list_head wb_list; /* list of all wbs */
 #ifdef CONFIG_CGROUP_WRITEBACK
-	struct radix_tree_root cgwb_tree; /* radix tree of active cgroup wbs */
+	struct radix_tree_root cgwb_tree; /* radix tree of cgroup wbs, incl. killed */
 	struct mutex cgwb_release_mutex;  /* protect shutdown of wb structs */
 	struct rw_semaphore wb_switch_rwsem; /* no cgwb switch while syncing */
 #endif
@@ -226,6 +229,17 @@ static inline bool wb_tryget(struct bdi_writeback *wb)
 {
 	if (wb != &wb->bdi->wb)
 		return percpu_ref_tryget(&wb->refcnt);
+	return true;
+}
+
+/**
+ * wb_tryget_live - try to increment a wb's refcount if it hasn't been killed
+ * @wb: bdi_writeback to get
+ */
+static inline bool wb_tryget_live(struct bdi_writeback *wb)
+{
+	if (wb != &wb->bdi->wb)
+		return percpu_ref_tryget_live(&wb->refcnt);
 	return true;
 }
 
@@ -271,7 +285,8 @@ static inline void wb_put(struct bdi_writeback *wb)
  * wb_dying - is a wb dying?
  * @wb: bdi_writeback of interest
  *
- * Returns whether @wb is unlinked and being drained.
+ * Returns whether @wb has been killed and is being drained.  A dying wb may
+ * still be in bdi->cgwb_tree, see cgwb_kill().
  */
 static inline bool wb_dying(struct bdi_writeback *wb)
 {
