@@ -23,8 +23,8 @@ enum chips {
 	/* Managers */
 	ltc2972, ltc2974, ltc2975, ltc2977, ltc2978, ltc2979, ltc2980,
 	/* Controllers */
-	lt7170, lt7171, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
-	ltc3889, ltc7132, ltc7841, ltc7880,
+	lt7170, lt7171, lt7175, lt7176p, ltc3880, ltc3882, ltc3883, ltc3884,
+	ltc3886, ltc3887, ltc3889, ltc7132, ltc7841, ltc7880,
 	/* Modules */
 	ltm2987, ltm4664, ltm4673, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680,
 	ltm4686, ltm4700,
@@ -540,6 +540,8 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 static const struct i2c_device_id ltc2978_id[] = {
 	{ .name = "lt7170", .driver_data = lt7170 },
 	{ .name = "lt7171", .driver_data = lt7171 },
+	{ .name = "lt7175", .driver_data = lt7175 },
+	{ .name = "lt7176p", .driver_data = lt7176p },
 	{ .name = "ltc2972", .driver_data = ltc2972 },
 	{ .name = "ltc2974", .driver_data = ltc2974 },
 	{ .name = "ltc2975", .driver_data = ltc2975 },
@@ -630,6 +632,7 @@ static int ltc2978_get_id(struct i2c_client *client)
 	chip_id &= LTC2978_ID_MASK;
 
 	if (chip_id == LT7170_ID) {
+		const struct i2c_device_id *id;
 		u8 buf[I2C_SMBUS_BLOCK_MAX];
 		int ret;
 
@@ -638,13 +641,11 @@ static int ltc2978_get_id(struct i2c_client *client)
 		if (ret < 0)
 			return ret;
 
-		if (ret < 6)
-			return -ENODEV;
-
-		if (!strncmp(buf, "LT7170", 6))
-			return lt7170;
-		if (!strncmp(buf, "LT7171", 6))
-			return lt7171;
+		for (id = &ltc2978_id[0]; strlen(id->name); id++) {
+			if (ret >= strlen(id->name) &&
+			    !strncasecmp(id->name, buf, strlen(id->name)))
+				return (int)id->driver_data;
+		}
 
 		return -ENODEV;
 	}
@@ -761,6 +762,8 @@ static int ltc2978_probe(struct i2c_client *client)
 	switch (data->id) {
 	case lt7170:
 	case lt7171:
+	case lt7175:
+	case lt7176p:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
 		info->pages = LTC3883_NUM_PAGES;
@@ -961,6 +964,8 @@ static int ltc2978_probe(struct i2c_client *client)
 static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,lt7170" },
 	{ .compatible = "lltc,lt7171" },
+	{ .compatible = "lltc,lt7175" },
+	{ .compatible = "lltc,lt7176p" },
 	{ .compatible = "lltc,ltc2972" },
 	{ .compatible = "lltc,ltc2974" },
 	{ .compatible = "lltc,ltc2975" },
