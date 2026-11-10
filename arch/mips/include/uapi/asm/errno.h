@@ -75,7 +75,7 @@
 #define ENOPROTOOPT	99	/* Protocol not available */
 #define EPROTONOSUPPORT 120	/* Protocol not supported */
 #define ESOCKTNOSUPPORT 121	/* Socket type not supported */
-#define EOPNOTSUPP	122	/* Operation not supported */
+#define EOPNOTSUPP	122	/* Operation not supported on transport endpoint */
 #define EPFNOSUPPORT	123	/* Protocol family not supported */
 #define EAFNOSUPPORT	124	/* Address family not supported by protocol */
 #define EADDRINUSE	125	/* Address already in use */

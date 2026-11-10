@@ -4195,7 +4195,7 @@ int vfs_create_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
 	int error;
 
 	if (!dir->i_op->create)
-		return -EACCES;
+		return -EOPNOTSUPP;
 
 	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
 	if (error)
@@ -4218,7 +4218,7 @@ struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *idmap, struct inode *di
 	int error;
 
 	if (!dir->i_op->mkdir)
-		return ERR_PTR(-EPERM);
+		return ERR_PTR(-EOPNOTSUPP);
 
 	if (max_links && dir->i_nlink >= max_links)
 		return ERR_PTR(-EMLINK);

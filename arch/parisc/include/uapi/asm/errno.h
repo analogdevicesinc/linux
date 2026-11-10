@@ -84,7 +84,7 @@
 #define	ENOPROTOOPT	220	/* Protocol not available */
 #define	EPROTONOSUPPORT	221	/* Protocol not supported */
 #define	ESOCKTNOSUPPORT	222	/* Socket type not supported */
-#define	EOPNOTSUPP	223	/* Operation not supported */
+#define	EOPNOTSUPP	223	/* Operation not supported on transport endpoint */
 #define	EPFNOSUPPORT	224	/* Protocol family not supported */
 #define	EAFNOSUPPORT	225	/* Address family not supported by protocol */
 #define	EADDRINUSE	226	/* Address already in use */
