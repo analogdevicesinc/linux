@@ -609,8 +609,9 @@ static int graph_parse_node_multi(struct simple_util_priv *priv,
 	    dai_link->num_cpus > 1 && dai_link->num_codecs > 1 &&
 	    dai_link->num_cpus != dai_link->num_codecs) {
 
-		dai_link->ch_maps = devm_kcalloc(dev, nm_max,
-					sizeof(struct snd_soc_dai_link_ch_map), GFP_KERNEL);
+		dai_link->ch_maps = devm_kzalloc_objs(dev,
+						      struct snd_soc_dai_link_ch_map,
+						      nm_max);
 		if (!dai_link->ch_maps)
 			goto multi_err;
 	}
@@ -969,7 +970,8 @@ int audio_graph2_link_c2c(struct simple_util_priv *priv,
 	struct snd_soc_dai_link *dai_link = simple_priv_to_link(priv, li->link);
 	struct device_node *port0 = lnk;
 	struct device_node *ports __free(device_node) = port_to_ports(port0);
-	struct device_node *port1 __free(device_node) = of_graph_get_next_port(ports, port0);
+	struct device_node *port1 __free(device_node) =
+		of_graph_get_next_port(ports, of_node_get(port0));
 	u32 val = 0;
 	int ret = -EINVAL;
 
@@ -1003,7 +1005,7 @@ int audio_graph2_link_c2c(struct simple_util_priv *priv,
 		struct device *dev = simple_priv_to_dev(priv);
 		struct snd_soc_pcm_stream *c2c_conf;
 
-		c2c_conf = devm_kzalloc(dev, sizeof(*c2c_conf), GFP_KERNEL);
+		c2c_conf = devm_kzalloc_obj(dev, *c2c_conf);
 		if (!c2c_conf) {
 			/*
 			 * Clang doesn't allow to use "goto end" before calling __free(),
@@ -1310,6 +1312,7 @@ int audio_graph2_parse_of(struct simple_util_priv *priv, struct device *dev,
 		goto end;
 
 	card->probe	= graph_util_card_probe;
+	card->remove	= graph_util_card_remove;
 	card->owner	= THIS_MODULE;
 	card->dev	= dev;
 
@@ -1385,7 +1388,7 @@ static int graph_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	/* Allocate the private data and the DAI link array */
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

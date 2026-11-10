@@ -268,7 +268,7 @@ static int pxa_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 	spin_lock_irqsave(&gpio_lock, flags);
 
 	value = readl_relaxed(base + GPDR_OFFSET);
-	if (__gpio_is_inverted(chip->base + offset))
+	if (__gpio_is_inverted(offset))
 		value |= mask;
 	else
 		value &= ~mask;
@@ -297,7 +297,7 @@ static int pxa_gpio_direction_output(struct gpio_chip *chip,
 	spin_lock_irqsave(&gpio_lock, flags);
 
 	tmp = readl_relaxed(base + GPDR_OFFSET);
-	if (__gpio_is_inverted(chip->base + offset))
+	if (__gpio_is_inverted(offset))
 		tmp &= ~mask;
 	else
 		tmp |= mask;
@@ -345,8 +345,7 @@ static int pxa_init_gpio_chip(struct pxa_gpio_chip *pchip, int ngpio, void __iom
 	int i, gpio, nbanks = DIV_ROUND_UP(ngpio, 32);
 	struct pxa_gpio_bank *bank;
 
-	pchip->banks = devm_kcalloc(pchip->dev, nbanks, sizeof(*pchip->banks),
-				    GFP_KERNEL);
+	pchip->banks = devm_kzalloc_objs(pchip->dev, *pchip->banks, nbanks);
 	if (!pchip->banks)
 		return -ENOMEM;
 
@@ -617,7 +616,7 @@ static int pxa_gpio_probe(struct platform_device *pdev)
 	int gpio, ret;
 	int irq0 = 0, irq1 = 0, irq_mux;
 
-	pchip = devm_kzalloc(&pdev->dev, sizeof(*pchip), GFP_KERNEL);
+	pchip = devm_kzalloc_obj(&pdev->dev, *pchip);
 	if (!pchip)
 		return -ENOMEM;
 	pchip->dev = &pdev->dev;

@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/pm.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define MAX_WDAT_ACTIONS ACPI_WDAT_ACTION_RESERVED
@@ -54,14 +55,14 @@ struct wdat_wdt {
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 #define WDAT_DEFAULT_TIMEOUT	30
 
 static int timeout = WDAT_DEFAULT_TIMEOUT;
 module_param(timeout, int, 0);
 MODULE_PARM_DESC(timeout, "Watchdog timeout in seconds (default="
-		 __MODULE_STRING(WDAT_DEFAULT_TIMEOUT) ")");
+		 __stringify(WDAT_DEFAULT_TIMEOUT) ")");
 
 static int wdat_wdt_read(struct wdat_wdt *wdat,
 	 const struct wdat_instruction *instr, u32 *value)
@@ -350,14 +351,13 @@ static int wdat_wdt_probe(struct platform_device *pdev)
 	if (ACPI_FAILURE(status))
 		return -ENODEV;
 
-	wdat = devm_kzalloc(dev, sizeof(*wdat), GFP_KERNEL);
+	wdat = devm_kzalloc_obj(dev, *wdat);
 	if (!wdat) {
 		ret = -ENOMEM;
 		goto out_put_table;
 	}
 
-	regs = devm_kcalloc(dev, pdev->num_resources, sizeof(*regs),
-			    GFP_KERNEL);
+	regs = devm_kzalloc_objs(dev, *regs, pdev->num_resources);
 	if (!regs) {
 		ret = -ENOMEM;
 		goto out_put_table;
@@ -422,7 +422,7 @@ static int wdat_wdt_probe(struct platform_device *pdev)
 			continue;
 		}
 
-		instr = devm_kzalloc(dev, sizeof(*instr), GFP_KERNEL);
+		instr = devm_kzalloc_obj(dev, *instr);
 		if (!instr) {
 			ret = -ENOMEM;
 			goto out_put_table;
@@ -463,9 +463,7 @@ static int wdat_wdt_probe(struct platform_device *pdev)
 
 		instructions = wdat->instructions[action];
 		if (!instructions) {
-			instructions = devm_kzalloc(dev,
-						    sizeof(*instructions),
-						    GFP_KERNEL);
+			instructions = devm_kzalloc_obj(dev, *instructions);
 			if (!instructions) {
 				ret = -ENOMEM;
 				goto out_put_table;

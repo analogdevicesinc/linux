@@ -1215,7 +1215,15 @@ static struct sk_buff *bnxt_rx_multi_page_skb(struct bnxt *bp,
 				bp->rx_dir);
 	skb = napi_build_skb(frag_start, rxr->rx_page_size);
 	if (!skb) {
-		page_pool_recycle_direct(rxr->page_pool, page);
+		struct page *new_page;
+
+		new_page = rxr->rx_buf_ring[RING_RX(bp, prod)].data;
+		/* The caller may still need the XDP frags from shinfo at the
+		 * end of the head page. Release the new buffer instead and
+		 * put the head back on the ring.
+		 */
+		page_pool_recycle_direct(rxr->page_pool, new_page);
+		bnxt_reuse_rx_data(rxr, cons, data);
 		return NULL;
 	}
 	skb_mark_for_recycle(skb);
@@ -1419,16 +1427,19 @@ static u32 bnxt_rx_agg_netmems_xdp(struct bnxt *bp,
 	struct skb_shared_info *shinfo = xdp_get_shared_info_from_buff(xdp);
 	u32 total_frag_len = 0;
 
-	if (!xdp_buff_has_frags(xdp))
+	if (!xdp_buff_has_frags(xdp)) {
+		xdp_buff_set_frags_flag(xdp);
 		shinfo->nr_frags = 0;
+	}
 
 	total_frag_len = __bnxt_rx_agg_netmems(bp, cpr, idx, agg_bufs, tpa,
 					       NULL, xdp);
-	if (total_frag_len) {
-		xdp_buff_set_frags_flag(xdp);
-		shinfo->nr_frags = agg_bufs;
-		shinfo->xdp_frags_size = total_frag_len;
+	if (!total_frag_len) {
+		bnxt_xdp_buff_frags_free(cpr->bnapi->rx_ring, xdp);
+		return 0;
 	}
+	shinfo->nr_frags = agg_bufs;
+	shinfo->xdp_frags_size = total_frag_len;
 	return total_frag_len;
 }
 
@@ -1498,6 +1509,14 @@ static struct sk_buff *bnxt_copy_xdp(struct bnxt_napi *bnapi,
 	if (metasize) {
 		skb_metadata_set(skb, metasize);
 		__skb_pull(skb, metasize);
+	}
+
+	if (unlikely(xdp_buff_has_frags(xdp))) {
+		struct skb_shared_info *sinfo;
+
+		sinfo = xdp_get_shared_info_from_buff(xdp);
+		memcpy(skb_shinfo(skb)->frags, sinfo->frags,
+		       sinfo->nr_frags * sizeof(skb_frag_t));
 	}
 
 	return skb;
@@ -2285,8 +2304,10 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_cp_ring_info *cpr,
 							       cp_cons,
 							       agg_bufs,
 							       false);
-			if (!frag_len)
+			if (!frag_len) {
+				bnxt_reuse_rx_data(rxr, cons, data);
 				goto oom_next_rx;
+			}
 
 		}
 		xdp_active = true;
@@ -2313,17 +2334,8 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_cp_ring_info *cpr,
 			skb = bnxt_copy_xdp(bnapi, &bnxt_xdp.xdp, len,
 					    dma_addr);
 		bnxt_reuse_rx_data(rxr, cons, data);
-		if (!skb) {
-			if (agg_bufs) {
-				if (!xdp_active)
-					bnxt_reuse_rx_agg_bufs(cpr, cp_cons, 0,
-							       agg_bufs, false);
-				else
-					bnxt_xdp_buff_frags_free(rxr,
-								 &bnxt_xdp.xdp);
-			}
-			goto oom_next_rx;
-		}
+		if (!skb)
+			goto oom_next_rx_agg;
 	} else {
 		u32 payload;
 
@@ -2334,7 +2346,7 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_cp_ring_info *cpr,
 		skb = bp->rx_skb_func(bp, rxr, cons, data, data_ptr, dma_addr,
 				      payload | len);
 		if (!skb)
-			goto oom_next_rx;
+			goto oom_next_rx_agg;
 	}
 
 	if (agg_bufs) {
@@ -2424,6 +2436,14 @@ next_rx_no_prod_no_len:
 
 	return rc;
 
+oom_next_rx_agg:
+	if (agg_bufs) {
+		if (!xdp_active)
+			bnxt_reuse_rx_agg_bufs(cpr, cp_cons, 0, agg_bufs,
+					       false);
+		else
+			bnxt_xdp_buff_frags_free(rxr, &bnxt_xdp.xdp);
+	}
 oom_next_rx:
 	cpr->sw_stats->rx.rx_oom_discards += 1;
 	rc = -ENOMEM;
@@ -5120,7 +5140,7 @@ static int bnxt_alloc_vnic_attributes(struct bnxt *bp)
 		else
 			max_rings = 1;
 
-		vnic->fw_grp_ids = kcalloc(max_rings, sizeof(u16), GFP_KERNEL);
+		vnic->fw_grp_ids = kzalloc_objs(u16, max_rings);
 		if (!vnic->fw_grp_ids) {
 			rc = -ENOMEM;
 			goto out;
@@ -5670,8 +5690,7 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
 		if (!bp->tx_ring)
 			return -ENOMEM;
 
-		bp->tx_ring_map = kcalloc(bp->tx_nr_rings, sizeof(u16),
-					  GFP_KERNEL);
+		bp->tx_ring_map = kzalloc_objs(u16, bp->tx_nr_rings);
 
 		if (!bp->tx_ring_map)
 			return -ENOMEM;
@@ -6672,7 +6691,7 @@ static int bnxt_alloc_rss_indir_tbl(struct bnxt *bp)
 
 	bp->rss_indir_tbl_entries = entries;
 	bp->rss_indir_tbl =
-		kmalloc_array(entries, sizeof(*bp->rss_indir_tbl), GFP_KERNEL);
+		kmalloc_objs(*bp->rss_indir_tbl, entries);
 	if (!bp->rss_indir_tbl)
 		return -ENOMEM;
 
@@ -11524,6 +11543,7 @@ static int bnxt_change_msix(struct bnxt *bp, int total)
 		map.index = i - 1;
 		map.virq = bp->irq_tbl[i - 1].vector;
 		pci_msix_free_irq(bp->pdev, map);
+		bp->irq_tbl[i - 1].vector = 0;
 		bp->total_irqs--;
 	}
 	return bp->total_irqs;
@@ -11701,8 +11721,23 @@ int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 	int irqs_required;
 	int rc;
 
-	if (!bnxt_need_reserve_rings(bp))
+	if (!bnxt_need_reserve_rings(bp)) {
+		/* FW may already hold the reservation from an earlier
+		 * reservation that was not followed by growing the dynamic
+		 * MSI-X vectors, e.g. because the allocation failed.
+		 */
+		if (irq_re_init && BNXT_NEW_RM(bp) && bp->irq_tbl &&
+		    pci_msix_can_alloc_dyn(bp->pdev)) {
+			irqs_required = bnxt_get_num_msix(bp);
+			if (irqs_required > bp->total_irqs &&
+			    bnxt_change_msix(bp, irqs_required) != irqs_required) {
+				netdev_err(bp->dev, "Unable to allocate %d MSIX vectors, maximum available %d\n",
+					   irqs_required, bp->total_irqs);
+				return -ENOSPC;
+			}
+		}
 		return 0;
+	}
 
 	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(edev)) {
 		int ulp_msix = bnxt_get_avail_msix(bp, bp->ulp_num_msix_want);
@@ -11728,6 +11763,10 @@ int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 			rc = bnxt_init_int_mode(bp);
 		bnxt_ulp_irq_restart(bp, rc);
 	} else if (irq_change && !rc) {
+		/* Size the vectors from what FW actually reserved, which
+		 * can be less than what was requested.
+		 */
+		irqs_required = bnxt_get_num_msix(bp);
 		if (bnxt_change_msix(bp, irqs_required) != irqs_required)
 			rc = -ENOSPC;
 	}
@@ -14268,6 +14307,18 @@ static netdev_features_t bnxt_features_check(struct sk_buff *skb,
 	u8 *l4_proto;
 
 	features = vlan_features_check(skb, features);
+
+	/* SW USO pads at most the last segment; let the stack segment skbs
+	 * where every segment would be shorter than BNXT_MIN_PKT_SIZE.
+	 */
+	if (skb_is_gso(skb) &&
+	    (skb_shinfo(skb)->gso_type & SKB_GSO_UDP_L4) &&
+	    !(bp->flags & BNXT_FLAG_UDP_GSO_CAP) &&
+	    bnxt_sw_gso_pad_len(skb_transport_offset(skb) +
+				sizeof(struct udphdr),
+				skb_shinfo(skb)->gso_size))
+		features &= ~NETIF_F_GSO_MASK;
+
 	switch (vlan_get_protocol(skb)) {
 	case htons(ETH_P_IP):
 		if (!skb->encapsulation)
@@ -15081,6 +15132,7 @@ int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
 			hwr.cp = min_t(int, hwr.cp, bnxt_get_max_func_irqs(bp));
 		}
 		if (hwr.cp > bp->total_irqs) {
+			int old_total = bp->total_irqs;
 			int total_msix = bnxt_change_msix(bp, hwr.cp);
 
 			if (total_msix < hwr.cp) {
@@ -15088,6 +15140,17 @@ int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
 					    hwr.cp, total_msix);
 				rc = -ENOSPC;
 			}
+			/* FW has not reserved the new vectors yet, and writes to
+			 * MSI-X table entries beyond the reserved IRQs don't
+			 * stick (seen on BCM57508).  Free them again;
+			 * bnxt_reserve_rings() allocates them after
+			 * __bnxt_reserve_rings().  Without the new resource
+			 * manager there is no IRQ reservation and
+			 * bnxt_reserve_rings() does not grow the vectors, so
+			 * keep them.
+			 */
+			if (BNXT_NEW_RM(bp))
+				bnxt_change_msix(bp, old_total);
 		}
 	}
 	return rc;
@@ -15653,8 +15716,8 @@ static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
 		goto init_err_disable;
 	}
 
-	if (dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64)) != 0 &&
-	    dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32)) != 0) {
+	rc = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
+	if (rc) {
 		dev_err(&pdev->dev, "System does not support DMA, aborting\n");
 		rc = -EIO;
 		goto init_err_release;

@@ -629,7 +629,7 @@ static int ll_setup(struct hci_uart *hu)
 		gpiod_set_value_cansleep(lldev->enable_gpio, 0);
 		msleep(5);
 		gpiod_set_value_cansleep(lldev->enable_gpio, 1);
-		mdelay(100);
+		msleep(100);
 		err = serdev_device_wait_for_cts(serdev, true, 200);
 		if (err) {
 			bt_dev_err(hu->hdev, "Failed to get CTS");
@@ -696,7 +696,7 @@ static int hci_ti_probe(struct serdev_device *serdev)
 	struct nvmem_cell *bdaddr_cell;
 	u32 max_speed = 3000000;
 
-	lldev = devm_kzalloc(&serdev->dev, sizeof(struct ll_device), GFP_KERNEL);
+	lldev = devm_kzalloc_obj(&serdev->dev, struct ll_device);
 	if (!lldev)
 		return -ENOMEM;
 	hu = &lldev->hu;

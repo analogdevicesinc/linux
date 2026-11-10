@@ -484,7 +484,7 @@ static void sec_set_endian(struct hisi_qm *qm)
 	if (!IS_ENABLED(CONFIG_64BIT))
 		reg |= BIT(1);
 
-	if (!IS_ENABLED(CONFIG_CPU_LITTLE_ENDIAN))
+	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN))
 		reg |= BIT(0);
 
 	writel_relaxed(reg, qm->io_base + SEC_CONTROL_REG);
@@ -953,7 +953,7 @@ static int sec_core_debug_init(struct hisi_qm *qm)
 
 	tmp_d = debugfs_create_dir("sec_dfx", qm->debug.debug_root);
 
-	regset = devm_kzalloc(dev, sizeof(*regset), GFP_KERNEL);
+	regset = devm_kzalloc_obj(dev, *regset);
 	if (!regset)
 		return -ENOMEM;
 
@@ -1274,7 +1274,7 @@ static int sec_pre_store_cap_reg(struct hisi_qm *qm)
 	size_t i, size;
 
 	size = ARRAY_SIZE(sec_cap_query_info);
-	sec_cap = devm_kcalloc(&pdev->dev, size, sizeof(*sec_cap), GFP_KERNEL);
+	sec_cap = devm_kzalloc_objs(&pdev->dev, *sec_cap, size);
 	if (!sec_cap)
 		return -ENOMEM;
 
@@ -1285,8 +1285,8 @@ static int sec_pre_store_cap_reg(struct hisi_qm *qm)
 				     i, qm->cap_ver);
 	}
 
-	qm->cap_tables.dev_cap_table = sec_cap;
 	qm->cap_tables.dev_cap_size = size;
+	qm->cap_tables.dev_cap_table = sec_cap;
 
 	return 0;
 }
@@ -1413,7 +1413,7 @@ static int sec_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	struct hisi_qm *qm;
 	int ret;
 
-	sec = devm_kzalloc(&pdev->dev, sizeof(*sec), GFP_KERNEL);
+	sec = devm_kzalloc_obj(&pdev->dev, *sec);
 	if (!sec)
 		return -ENOMEM;
 

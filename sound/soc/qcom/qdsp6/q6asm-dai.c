@@ -485,11 +485,10 @@ static snd_pcm_uframes_t q6asm_dai_pointer(struct snd_soc_component *component,
 	struct q6asm_dai_rtd *prtd = runtime->private_data;
 	snd_pcm_uframes_t ptr;
 
-	ptr = q6asm_get_hw_pointer(prtd->audio_client, substream->stream) * runtime->period_size;
-	if (ptr)
-		return ptr - 1;
+	/* a full lap of period buffers is the start of the ring again */
+	ptr = q6asm_get_hw_pointer(prtd->audio_client, substream->stream) % runtime->periods;
 
-	return 0;
+	return ptr * runtime->period_size;
 }
 
 static int q6asm_dai_hw_params(struct snd_soc_component *component,
@@ -551,7 +550,7 @@ static void compress_event_handler(uint32_t opcode, uint32_t token,
 						 prtd->stream_id,
 						 CMD_CLOSE);
 				/*
-				 * vaild stream ids start from 1, So we are
+				 * valid stream ids start from 1, So we are
 				 * toggling this between 1 and 2.
 				 */
 				prtd->stream_id = (prtd->stream_id == 1 ? 2 : 1);
@@ -1263,8 +1262,7 @@ static int of_q6asm_parse_dai_data(struct device *dev,
 		return -EINVAL;
 	}
 
-	pdata->dais = devm_kcalloc(dev, pdata->num_dais, sizeof(*dai_drv),
-				   GFP_KERNEL);
+	pdata->dais = devm_kzalloc_objs(dev, *dai_drv, pdata->num_dais);
 	if (!pdata->dais)
 		return -ENOMEM;
 
@@ -1304,7 +1302,7 @@ static int q6asm_dai_probe(struct platform_device *pdev)
 	struct q6asm_dai_data *pdata;
 	int rc;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(dev, *pdata);
 	if (!pdata)
 		return -ENOMEM;
 

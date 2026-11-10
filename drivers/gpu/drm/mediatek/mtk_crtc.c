@@ -150,19 +150,17 @@ static void mtk_crtc_destroy(struct drm_crtc *crtc)
 	drm_crtc_cleanup(crtc);
 }
 
-static void mtk_crtc_reset(struct drm_crtc *crtc)
+static struct drm_crtc_state *mtk_crtc_create_state(struct drm_crtc *crtc)
 {
 	struct mtk_crtc_state *state;
 
-	if (crtc->state) {
-		__drm_atomic_helper_crtc_destroy_state(crtc->state);
-		kfree(to_mtk_crtc_state(crtc->state));
-	}
-	crtc->state = NULL;
-
 	state = kzalloc_obj(*state);
-	if (state)
-		__drm_atomic_helper_crtc_reset(crtc, &state->base);
+	if (!state)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_crtc_state_init(&state->base, crtc);
+
+	return &state->base;
 }
 
 static struct drm_crtc_state *mtk_crtc_duplicate_state(struct drm_crtc *crtc)
@@ -886,7 +884,7 @@ static const struct drm_crtc_funcs mtk_crtc_funcs = {
 	.set_config		= drm_atomic_helper_set_config,
 	.page_flip		= drm_atomic_helper_page_flip,
 	.destroy		= mtk_crtc_destroy,
-	.reset			= mtk_crtc_reset,
+	.atomic_create_state	= mtk_crtc_create_state,
 	.atomic_duplicate_state	= mtk_crtc_duplicate_state,
 	.atomic_destroy_state	= mtk_crtc_destroy_state,
 	.enable_vblank		= mtk_crtc_enable_vblank,
@@ -1049,9 +1047,8 @@ int mtk_crtc_create(struct drm_device *drm_dev, const unsigned int *path,
 		}
 	}
 
-	mtk_crtc = devm_kzalloc(dev,
-				struct_size(mtk_crtc, ddp_comp, path_len + (conn_routes ? 1 : 0)),
-				GFP_KERNEL);
+	mtk_crtc = devm_kzalloc_flex(dev, *mtk_crtc, ddp_comp,
+				     path_len + (conn_routes ? 1 : 0));
 	if (!mtk_crtc)
 		return -ENOMEM;
 
@@ -1091,8 +1088,8 @@ int mtk_crtc_create(struct drm_device *drm_dev, const unsigned int *path,
 	for (i = 0; i < mtk_crtc->ddp_comp_nr; i++)
 		num_comp_planes += mtk_crtc_num_comp_planes(mtk_crtc, i);
 
-	mtk_crtc->planes = devm_kcalloc(dev, num_comp_planes,
-					sizeof(struct drm_plane), GFP_KERNEL);
+	mtk_crtc->planes = devm_kzalloc_objs(dev, struct drm_plane,
+					     num_comp_planes);
 	if (!mtk_crtc->planes)
 		return -ENOMEM;
 

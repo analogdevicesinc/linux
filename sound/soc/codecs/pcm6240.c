@@ -620,12 +620,12 @@ static int pcmdev_get_volsw(struct snd_kcontrol *kcontrol,
 		/* Set to wide-range mode, before using vol ctrl. */
 		if (!val && vol_ctrl_type == PCMDEV_PCM1690_VOL_CTRL) {
 			ucontrol->value.integer.value[0] = -25500;
-			return ret;
+			return 0;
 		}
 		/* Set to fine mode, before using fine vol ctrl. */
 		if (val && vol_ctrl_type == PCMDEV_PCM1690_FINE_VOL_CTRL) {
 			ucontrol->value.integer.value[0] = -12750;
-			return ret;
+			return 0;
 		}
 	}
 
@@ -641,7 +641,7 @@ static int pcmdev_get_volsw(struct snd_kcontrol *kcontrol,
 	val = mc->invert ? max - val : val;
 	ucontrol->value.integer.value[0] = val;
 
-	return ret;
+	return 0;
 }
 
 static int pcmdevice_get_volsw(struct snd_kcontrol *kcontrol,
@@ -1346,8 +1346,8 @@ static int pcmdev_gain_ctrl_add(struct pcmdevice_priv *pcm_dev,
 		return 0;
 	}
 
-	pcmdev_controls = devm_kcalloc(pcm_dev->dev, nr_chn,
-				       sizeof(struct snd_kcontrol_new), GFP_KERNEL);
+	pcmdev_controls = devm_kzalloc_objs(pcm_dev->dev,
+					    struct snd_kcontrol_new, nr_chn);
 	if (!pcmdev_controls)
 		return -ENOMEM;
 
@@ -1407,8 +1407,7 @@ static int pcmdev_profile_ctrl_add(struct pcmdevice_priv *pcm_dev)
 	char *name;
 	int ret;
 
-	pcmdev_ctrl = devm_kzalloc(pcm_dev->dev,
-		sizeof(struct snd_kcontrol_new), GFP_KERNEL);
+	pcmdev_ctrl = devm_kzalloc_obj(pcm_dev->dev, struct snd_kcontrol_new);
 	if (!pcmdev_ctrl)
 		return -ENOMEM;
 
@@ -2019,8 +2018,6 @@ static const struct regmap_config pcmdevice_i2c_regmap = {
 
 static void pcmdevice_remove(struct pcmdevice_priv *pcm_dev)
 {
-	if (pcm_dev->irq)
-		free_irq(pcm_dev->irq, pcm_dev);
 	mutex_destroy(&pcm_dev->codec_lock);
 }
 
@@ -2046,7 +2043,7 @@ static int pcmdevice_i2c_probe(struct i2c_client *i2c)
 	unsigned int dev_addrs[PCMDEVICE_MAX_I2C_DEVICES];
 	int ret = 0, i = 0, ndev = 0;
 
-	pcm_dev = devm_kzalloc(&i2c->dev, sizeof(*pcm_dev), GFP_KERNEL);
+	pcm_dev = devm_kzalloc_obj(&i2c->dev, *pcm_dev);
 	if (!pcm_dev)
 		return -ENOMEM;
 

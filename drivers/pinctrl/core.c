@@ -147,7 +147,7 @@ int pin_get_from_name(struct pinctrl_dev *pctldev, const char *name)
 {
 	unsigned int i, pin;
 
-	/* The pin number can be retrived from the pin controller descriptor */
+	/* The pin number can be retrieved from the pin controller descriptor */
 	for (i = 0; i < pctldev->desc->npins; i++) {
 		struct pin_desc *desc;
 
@@ -668,7 +668,7 @@ int pinctrl_generic_add_group(struct pinctrl_dev *pctldev, const char *name,
 
 	selector = pctldev->num_groups;
 
-	group = devm_kzalloc(pctldev->dev, sizeof(*group), GFP_KERNEL);
+	group = devm_kzalloc_obj(pctldev->dev, *group);
 	if (!group)
 		return -ENOMEM;
 
@@ -1747,7 +1747,7 @@ static int pinctrl_pins_show(struct seq_file *s, void *what)
 
 	mutex_lock(&pctldev->mutex);
 
-	/* The pin number can be retrived from the pin controller descriptor */
+	/* The pin number can be retrieved from the pin controller descriptor */
 	for (i = 0; i < pctldev->desc->npins; i++) {
 		struct pin_desc *desc;
 

@@ -11,6 +11,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/reboot.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define WDOG_CS			0x0
@@ -51,7 +52,7 @@
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0000);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 struct imx_wdt_hw_feature {
 	bool prescaler_enable;
@@ -316,7 +317,7 @@ static int imx7ulp_wdt_probe(struct platform_device *pdev)
 	struct watchdog_device *wdog;
 	int ret;
 
-	imx7ulp_wdt = devm_kzalloc(dev, sizeof(*imx7ulp_wdt), GFP_KERNEL);
+	imx7ulp_wdt = devm_kzalloc_obj(dev, *imx7ulp_wdt);
 	if (!imx7ulp_wdt)
 		return -ENOMEM;
 

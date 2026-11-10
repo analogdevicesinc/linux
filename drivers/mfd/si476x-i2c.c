@@ -222,7 +222,7 @@ int si476x_core_stop(struct si476x_core *core, bool soft)
 	atomic_set(&core->is_alive, 0);
 
 	if (soft) {
-		/* TODO: This probably shoud be a configurable option,
+		/* TODO: This probably should be a configurable option,
 		 * so it is possible to have the chips keep their
 		 * oscillators running
 		 */
@@ -689,7 +689,7 @@ static int si476x_core_probe(struct i2c_client *client)
 	struct mfd_cell *cell;
 	int              cell_num;
 
-	core = devm_kzalloc(&client->dev, sizeof(*core), GFP_KERNEL);
+	core = devm_kzalloc_obj(&client->dev, *core);
 	if (!core)
 		return -ENOMEM;
 

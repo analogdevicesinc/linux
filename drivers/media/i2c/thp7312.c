@@ -729,6 +729,7 @@ static int thp7312_enum_frame_interval(struct v4l2_subdev *sd,
 }
 
 static int thp7312_set_fmt(struct v4l2_subdev *sd,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *format)
 {
@@ -2087,7 +2088,7 @@ static int thp7312_probe(struct i2c_client *client)
 	struct thp7312_device *thp7312;
 	int ret;
 
-	thp7312 = devm_kzalloc(dev, sizeof(*thp7312), GFP_KERNEL);
+	thp7312 = devm_kzalloc_obj(dev, *thp7312);
 	if (!thp7312)
 		return -ENOMEM;
 

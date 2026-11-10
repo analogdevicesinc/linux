@@ -393,7 +393,7 @@ static int icn8505_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	icn8505 = devm_kzalloc(dev, sizeof(*icn8505), GFP_KERNEL);
+	icn8505 = devm_kzalloc_obj(dev, *icn8505);
 	if (!icn8505)
 		return -ENOMEM;
 
@@ -486,7 +486,7 @@ static int icn8505_resume(struct device *dev)
 static DEFINE_SIMPLE_DEV_PM_OPS(icn8505_pm_ops, icn8505_suspend, icn8505_resume);
 
 static const struct acpi_device_id icn8505_acpi_match[] = {
-	{ "CHPN0001" },
+	{ .id = "CHPN0001" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, icn8505_acpi_match);

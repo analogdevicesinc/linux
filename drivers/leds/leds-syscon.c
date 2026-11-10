@@ -56,7 +56,6 @@ static int syscon_led_probe(struct platform_device *pdev)
 {
 	struct led_init_data init_data = {};
 	struct device *dev = &pdev->dev;
-	struct device_node *np = dev_of_node(dev);
 	struct device *parent;
 	struct regmap *map;
 	struct syscon_led *sled;
@@ -75,19 +74,19 @@ static int syscon_led_probe(struct platform_device *pdev)
 		return PTR_ERR(map);
 	}
 
-	sled = devm_kzalloc(dev, sizeof(*sled), GFP_KERNEL);
+	sled = devm_kzalloc_obj(dev, *sled);
 	if (!sled)
 		return -ENOMEM;
 
 	sled->map = map;
 
-	if (of_property_read_u32(np, "reg", &sled->offset) &&
-	    of_property_read_u32(np, "offset", &sled->offset))
+	if (device_property_read_u32(dev, "reg", &sled->offset) &&
+	    device_property_read_u32(dev, "offset", &sled->offset))
 		return -EINVAL;
-	if (of_property_read_u32(np, "mask", &sled->mask))
+	if (device_property_read_u32(dev, "mask", &sled->mask))
 		return -EINVAL;
 
-	init_data.fwnode = of_fwnode_handle(np);
+	init_data.fwnode = dev_fwnode(dev);
 
 	state = led_init_default_state_get(init_data.fwnode);
 	switch (state) {

@@ -226,8 +226,8 @@ static void cc_aead_complete(struct device *dev, void *cc_req, int err)
 		goto done;
 
 	if (areq_ctx->gen_ctx.op_type == DRV_CRYPTO_DIRECTION_DECRYPT) {
-		if (memcmp(areq_ctx->mac_buf, areq_ctx->icv_virt_addr,
-			   ctx->authsize) != 0) {
+		if (crypto_memneq(areq_ctx->mac_buf, areq_ctx->icv_virt_addr,
+				  ctx->authsize)) {
 			dev_dbg(dev, "Payload authentication failure, (auth-size=%d, cipher=%d)\n",
 				ctx->authsize, ctx->cipher_mode);
 			/* In case of payload authentication failure, MUST NOT
@@ -2564,7 +2564,7 @@ static struct cc_crypto_alg *cc_create_aead_alg(struct cc_alg_template *tmpl,
 	struct cc_crypto_alg *t_alg;
 	struct aead_alg *alg;
 
-	t_alg = devm_kzalloc(dev, sizeof(*t_alg), GFP_KERNEL);
+	t_alg = devm_kzalloc_obj(dev, *t_alg);
 	if (!t_alg)
 		return ERR_PTR(-ENOMEM);
 
@@ -2615,7 +2615,7 @@ int cc_aead_alloc(struct cc_drvdata *drvdata)
 	int alg;
 	struct device *dev = drvdata_to_dev(drvdata);
 
-	aead_handle = devm_kmalloc(dev, sizeof(*aead_handle), GFP_KERNEL);
+	aead_handle = devm_kmalloc_obj(dev, *aead_handle);
 	if (!aead_handle) {
 		rc = -ENOMEM;
 		goto fail0;

@@ -514,11 +514,14 @@ static int mt8365_afe_fe_startup(struct snd_pcm_substream *substream,
 	snd_soc_set_runtime_hwparams(substream, afe->mtk_afe_hardware);
 
 	ret = snd_pcm_hw_constraint_integer(runtime, SNDRV_PCM_HW_PARAM_PERIODS);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(afe->dev, "snd_pcm_hw_constraint_integer failed\n");
+		return ret;
+	}
 
 	mt8365_afe_enable_main_clk(afe);
-	return ret;
+
+	return 0;
 }
 
 static void mt8365_afe_fe_shutdown(struct snd_pcm_substream *substream,
@@ -1976,8 +1979,8 @@ static int mt8365_afe_suspend(struct device *dev)
 
 	if (!afe->reg_back_up) {
 		afe->reg_back_up =
-			devm_kcalloc(dev, afe->reg_back_up_list_num,
-				     sizeof(unsigned int), GFP_KERNEL);
+			devm_kzalloc_objs(dev, unsigned int,
+					  afe->reg_back_up_list_num);
 		if (!afe->reg_back_up) {
 			mt8365_afe_disable_main_clk(afe);
 			return -ENOMEM;
@@ -2069,7 +2072,7 @@ static int mt8365_dai_memif_register(struct mtk_base_afe *afe)
 {
 	struct mtk_base_afe_dai *dai;
 
-	dai = devm_kzalloc(afe->dev, sizeof(*dai), GFP_KERNEL);
+	dai = devm_kzalloc_obj(afe->dev, *dai);
 	if (!dai)
 		return -ENOMEM;
 
@@ -2103,13 +2106,12 @@ static int mt8365_afe_pcm_dev_probe(struct platform_device *pdev)
 	unsigned int irq_id;
 	struct resource *res;
 
-	afe = devm_kzalloc(&pdev->dev, sizeof(*afe), GFP_KERNEL);
+	afe = devm_kzalloc_obj(&pdev->dev, *afe);
 	if (!afe)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, afe);
 
-	afe->platform_priv = devm_kzalloc(&pdev->dev, sizeof(*afe_priv),
-					  GFP_KERNEL);
+	afe->platform_priv = devm_kzalloc_obj(&pdev->dev, *afe_priv);
 	if (!afe->platform_priv)
 		return -ENOMEM;
 
@@ -2144,14 +2146,12 @@ static int mt8365_afe_pcm_dev_probe(struct platform_device *pdev)
 
 	/* memif % irq initialize*/
 	afe->memif_size = MT8365_AFE_MEMIF_NUM;
-	afe->memif = devm_kcalloc(afe->dev, afe->memif_size,
-				  sizeof(*afe->memif), GFP_KERNEL);
+	afe->memif = devm_kzalloc_objs(afe->dev, *afe->memif, afe->memif_size);
 	if (!afe->memif)
 		return -ENOMEM;
 
 	afe->irqs_size = MT8365_AFE_IRQ_NUM;
-	afe->irqs = devm_kcalloc(afe->dev, afe->irqs_size,
-				 sizeof(*afe->irqs), GFP_KERNEL);
+	afe->irqs = devm_kzalloc_objs(afe->dev, *afe->irqs, afe->irqs_size);
 	if (!afe->irqs)
 		return -ENOMEM;
 

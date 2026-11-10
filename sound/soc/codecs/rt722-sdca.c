@@ -1617,7 +1617,7 @@ int rt722_sdca_init(struct device *dev, struct regmap *regmap, struct sdw_slave 
 {
 	struct rt722_sdca_priv *rt722;
 
-	rt722 = devm_kzalloc(dev, sizeof(*rt722), GFP_KERNEL);
+	rt722 = devm_kzalloc_obj(dev, *rt722);
 	if (!rt722)
 		return -ENOMEM;
 
@@ -1651,6 +1651,17 @@ int rt722_sdca_init(struct device *dev, struct regmap *regmap, struct sdw_slave 
 	return devm_snd_soc_register_component(dev,
 			&soc_sdca_dev_rt722, rt722_sdca_dai, ARRAY_SIZE(rt722_sdca_dai));
 }
+
+static const struct dmi_system_id dmi_dell_mono_spk_quirk_table[] = {
+	{
+		.ident = "Dell Pro 5 Micro P5M1270",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc"),
+			DMI_EXACT_MATCH(DMI_PRODUCT_SKU, "0EBA"),
+		}
+	},
+	{}
+};
 
 static void rt722_sdca_dmic_preset(struct rt722_sdca_priv *rt722)
 {
@@ -1740,6 +1751,13 @@ static void rt722_sdca_amp_preset(struct rt722_sdca_priv *rt722)
 
 		if (rt722->hw_vid == RT722_VB)
 			regmap_write(rt722->regmap, 0x2f54, 0x00);
+
+		/* This Dell machine only uses the mono speaker */
+		if (dmi_check_system(dmi_dell_mono_spk_quirk_table)) {
+			rt722_sdca_index_write(rt722, RT722_VENDOR_REG, RT722_CLSD_CTRL2, 0x391a);
+			rt722_sdca_index_update_bits(rt722, RT722_VENDOR_REG,
+				RT722_MISC_CTRL2, 0x0010, 0x0010);
+		}
 
 		/* clear flag */
 		regmap_write(rt722->regmap,

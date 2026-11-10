@@ -95,7 +95,7 @@ static int jornada720_kbd_probe(struct platform_device *pdev)
 	if (irq <= 0)
 		return irq < 0 ? irq : -EINVAL;
 
-	jornadakbd = devm_kzalloc(&pdev->dev, sizeof(*jornadakbd), GFP_KERNEL);
+	jornadakbd = devm_kzalloc_obj(&pdev->dev, *jornadakbd);
 	input_dev = devm_input_allocate_device(&pdev->dev);
 	if (!jornadakbd || !input_dev)
 		return -ENOMEM;
@@ -113,7 +113,6 @@ static int jornada720_kbd_probe(struct platform_device *pdev)
 	input_dev->keycodesize = sizeof(unsigned short);
 	input_dev->keycodemax = ARRAY_SIZE(jornada_std_keymap);
 	input_dev->id.bustype = BUS_HOST;
-	input_dev->dev.parent = &pdev->dev;
 
 	for (i = 0; i < ARRAY_SIZE(jornadakbd->keymap); i++)
 		__set_bit(jornadakbd->keymap[i], input_dev->keybit);

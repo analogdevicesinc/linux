@@ -1202,7 +1202,7 @@ static irqreturn_t nbpf_chan_irq(int irq, void *dev)
 
 	nbpf_status_ack(chan);
 
-	dev_dbg(&chan->dma_chan.dev->device, "%s()\n", __func__);
+	dev_dbg(dmaengine_chan_dev(&chan->dma_chan), "%s()\n", __func__);
 
 	spin_lock(&chan->lock);
 	desc = chan->running;
@@ -1321,8 +1321,7 @@ static int nbpf_probe(struct platform_device *pdev)
 	cfg = of_device_get_match_data(dev);
 	num_channels = cfg->num_channels;
 
-	nbpf = devm_kzalloc(dev, struct_size(nbpf, chan, num_channels),
-			    GFP_KERNEL);
+	nbpf = devm_kzalloc_flex(dev, *nbpf, chan, num_channels);
 	if (!nbpf)
 		return -ENOMEM;
 

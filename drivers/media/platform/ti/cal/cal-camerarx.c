@@ -762,6 +762,7 @@ static int cal_camerarx_sd_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int cal_camerarx_sd_set_fmt(struct v4l2_subdev *sd,
+				   const struct v4l2_subdev_client_info *ci,
 				   struct v4l2_subdev_state *state,
 				   struct v4l2_subdev_format *format)
 {
@@ -965,7 +966,7 @@ struct cal_camerarx *cal_camerarx_create(struct cal_dev *cal,
 	unsigned int i;
 	int ret;
 
-	phy = devm_kzalloc(cal->dev, sizeof(*phy), GFP_KERNEL);
+	phy = devm_kzalloc_obj(cal->dev, *phy);
 	if (!phy)
 		return ERR_PTR(-ENOMEM);
 

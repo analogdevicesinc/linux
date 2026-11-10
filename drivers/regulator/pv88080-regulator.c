@@ -368,7 +368,7 @@ static int pv88080_i2c_probe(struct i2c_client *i2c)
 	int i, error, ret;
 	unsigned int conf2, conf5;
 
-	chip = devm_kzalloc(&i2c->dev, sizeof(struct pv88080), GFP_KERNEL);
+	chip = devm_kzalloc_obj(&i2c->dev, struct pv88080);
 	if (!chip)
 		return -ENOMEM;
 
@@ -432,7 +432,7 @@ static int pv88080_i2c_probe(struct i2c_client *i2c)
 	config.dev = chip->dev;
 	config.regmap = chip->regmap;
 
-	/* Registeration for BUCK1, 2, 3 */
+	/* Registration for BUCK1, 2, 3 */
 	for (i = 0; i < PV88080_MAX_REGULATORS-1; i++) {
 		if (init_data)
 			config.init_data = &init_data[i];
@@ -498,7 +498,7 @@ static int pv88080_i2c_probe(struct i2c_client *i2c)
 	pv88080_regulator_info[PV88080_ID_HVBUCK].desc.vsel_mask
 		= regmap_config->hvbuck_vsel_mask;
 
-	/* Registeration for HVBUCK */
+	/* Registration for HVBUCK */
 	if (init_data)
 		config.init_data = &init_data[PV88080_ID_HVBUCK];
 

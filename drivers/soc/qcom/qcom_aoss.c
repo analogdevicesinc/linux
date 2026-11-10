@@ -401,9 +401,8 @@ static int qmp_cooling_devices_register(struct qmp *qmp)
 
 	np = qmp->dev->of_node;
 
-	qmp->cooling_devs = devm_kcalloc(qmp->dev, QMP_NUM_COOLING_RESOURCES,
-					 sizeof(*qmp->cooling_devs),
-					 GFP_KERNEL);
+	qmp->cooling_devs = devm_kzalloc_objs(qmp->dev, *qmp->cooling_devs,
+					      QMP_NUM_COOLING_RESOURCES);
 
 	if (!qmp->cooling_devs)
 		return -ENOMEM;
@@ -579,7 +578,7 @@ static int qmp_probe(struct platform_device *pdev)
 	int irq;
 	int ret;
 
-	qmp = devm_kzalloc(&pdev->dev, sizeof(*qmp), GFP_KERNEL);
+	qmp = devm_kzalloc_obj(&pdev->dev, *qmp);
 	if (!qmp)
 		return -ENOMEM;
 
@@ -602,10 +601,8 @@ static int qmp_probe(struct platform_device *pdev)
 	irq = platform_get_irq(pdev, 0);
 	ret = devm_request_irq(&pdev->dev, irq, qmp_intr, 0,
 			       "aoss-qmp", qmp);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "failed to request interrupt\n");
+	if (ret < 0)
 		goto err_free_mbox;
-	}
 
 	ret = qmp_open(qmp);
 	if (ret < 0)

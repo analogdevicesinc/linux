@@ -95,14 +95,14 @@ static const struct clk_ops clk_pwm_ops = {
 static int clk_pwm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk_pwm *clk_pwm;
 	struct pwm_device *pwm;
 	struct pwm_args pargs;
 	const char *clk_name;
 	int ret;
 
-	clk_pwm = devm_kzalloc(&pdev->dev, sizeof(*clk_pwm), GFP_KERNEL);
+	clk_pwm = devm_kzalloc_obj(&pdev->dev, *clk_pwm);
 	if (!clk_pwm)
 		return -ENOMEM;
 

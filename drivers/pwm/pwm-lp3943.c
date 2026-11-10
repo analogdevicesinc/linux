@@ -38,6 +38,9 @@ lp3943_pwm_request_map(struct lp3943_pwm *lp3943_pwm, int hwpwm)
 	struct lp3943_pwm_map *pwm_map = &lp3943_pwm->pwm_map[hwpwm];
 	int i, offset;
 
+	if (!pdata->pwms[hwpwm])
+		return ERR_PTR(-ENODEV);
+
 	pwm_map->output = pdata->pwms[hwpwm]->output;
 	pwm_map->num_outputs = pdata->pwms[hwpwm]->num_outputs;
 
@@ -223,7 +226,7 @@ static int lp3943_pwm_parse_dt(struct device *dev,
 	if (!node)
 		return -EINVAL;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(dev, *pdata);
 	if (!pdata)
 		return -ENOMEM;
 
@@ -237,8 +240,7 @@ static int lp3943_pwm_parse_dt(struct device *dev,
 		if (num_outputs <= 0)
 			continue;
 
-		output = devm_kcalloc(dev, num_outputs, sizeof(*output),
-				      GFP_KERNEL);
+		output = devm_kzalloc_objs(dev, *output, num_outputs);
 		if (!output)
 			return -ENOMEM;
 
@@ -247,7 +249,7 @@ static int lp3943_pwm_parse_dt(struct device *dev,
 		if (err)
 			return err;
 
-		pwm_map = devm_kzalloc(dev, sizeof(*pwm_map), GFP_KERNEL);
+		pwm_map = devm_kzalloc_obj(dev, *pwm_map);
 		if (!pwm_map)
 			return -ENOMEM;
 

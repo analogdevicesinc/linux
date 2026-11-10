@@ -1563,6 +1563,8 @@ static int icssm_prueth_netdev_init(struct prueth *prueth,
 	}
 	ether_addr_copy(emac->mac_addr, ndev->dev_addr);
 
+	ndev->netdev_ops = &emac_netdev_ops;
+
 	/* connect PHY */
 	emac->phydev = of_phy_get_and_connect(ndev, eth_node,
 					      icssm_emac_adjust_link);
@@ -1590,7 +1592,6 @@ static int icssm_prueth_netdev_init(struct prueth *prueth,
 	}
 
 	ndev->dev.of_node = eth_node;
-	ndev->netdev_ops = &emac_netdev_ops;
 
 	netif_napi_add(ndev, &emac->napi, icssm_emac_napi_poll);
 
@@ -1803,7 +1804,7 @@ static int icssm_prueth_probe(struct platform_device *pdev)
 	if (!np)
 		return -ENODEV; /* we don't support non DT */
 
-	prueth = devm_kzalloc(dev, sizeof(*prueth), GFP_KERNEL);
+	prueth = devm_kzalloc_obj(dev, *prueth);
 	if (!prueth)
 		return -ENOMEM;
 

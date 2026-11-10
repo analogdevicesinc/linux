@@ -201,7 +201,7 @@ static int dwc3_imx_probe(struct platform_device *pdev)
 	struct dwc3_probe_data	probe_data = {};
 	int			ret, irq;
 
-	dwc_imx = devm_kzalloc(dev, sizeof(*dwc_imx), GFP_KERNEL);
+	dwc_imx = devm_kzalloc_obj(dev, *dwc_imx);
 	if (!dwc_imx)
 		return -ENOMEM;
 
@@ -250,7 +250,7 @@ static int dwc3_imx_probe(struct platform_device *pdev)
 					IRQF_ONESHOT | IRQF_NO_AUTOEN,
 					irq_name, dwc_imx);
 	if (ret)
-		return dev_err_probe(dev, ret, "failed to request IRQ #%d\n", irq);
+		return ret;
 
 	ret = device_add_software_node(dev, &dwc3_imx_swnode);
 	if (ret)

@@ -292,11 +292,6 @@ static inline struct owl_dma *to_owl_dma(struct dma_device *dd)
 	return container_of(dd, struct owl_dma, dma);
 }
 
-static struct device *chan2dev(struct dma_chan *chan)
-{
-	return &chan->dev->device;
-}
-
 static inline struct owl_dma_vchan *to_owl_vchan(struct dma_chan *chan)
 {
 	return container_of(chan, struct owl_dma_vchan, vc.chan);
@@ -573,7 +568,7 @@ static int owl_dma_start_next_txd(struct owl_dma_vchan *vchan)
 
 	spin_unlock_irqrestore(&od->lock, flags);
 
-	dev_dbg(chan2dev(&vchan->vc.chan), "starting pchan %d\n", pchan->id);
+	dev_dbg(vchan_chan_dev(&vchan->vc), "starting pchan %d\n", pchan->id);
 
 	/* Start DMA transfer for this pchan */
 	pchan_writel(pchan, OWL_DMAX_START, 0x1);
@@ -757,7 +752,7 @@ static int owl_dma_resume(struct dma_chan *chan)
 	if (!vchan->pchan && !vchan->txd)
 		return 0;
 
-	dev_dbg(chan2dev(chan), "vchan %p: resume\n", &vchan->vc);
+	dev_dbg(dmaengine_chan_dev(chan), "vchan %p: resume\n", &vchan->vc);
 
 	spin_lock_irqsave(&vchan->vc.lock, flags);
 
@@ -888,7 +883,7 @@ static struct dma_async_tx_descriptor
 	for (offset = 0; offset < len; offset += bytes) {
 		lli = owl_dma_alloc_lli(od);
 		if (!lli) {
-			dev_warn(chan2dev(chan), "failed to allocate lli\n");
+			dev_warn(dmaengine_chan_dev(chan), "failed to allocate lli\n");
 			goto err_txd_free;
 		}
 
@@ -898,7 +893,7 @@ static struct dma_async_tx_descriptor
 				      bytes, DMA_MEM_TO_MEM,
 				      &vchan->cfg, txd->cyclic);
 		if (ret) {
-			dev_warn(chan2dev(chan), "failed to config lli\n");
+			dev_warn(dmaengine_chan_dev(chan), "failed to config lli\n");
 			goto err_txd_free;
 		}
 
@@ -947,7 +942,7 @@ static struct dma_async_tx_descriptor
 
 		lli = owl_dma_alloc_lli(od);
 		if (!lli) {
-			dev_err(chan2dev(chan), "failed to allocate lli");
+			dev_err(dmaengine_chan_dev(chan), "failed to allocate lli");
 			goto err_txd_free;
 		}
 
@@ -962,7 +957,7 @@ static struct dma_async_tx_descriptor
 		ret = owl_dma_cfg_lli(vchan, lli, src, dst, len, dir, sconfig,
 				      txd->cyclic);
 		if (ret) {
-			dev_warn(chan2dev(chan), "failed to config lli");
+			dev_warn(dmaengine_chan_dev(chan), "failed to config lli");
 			goto err_txd_free;
 		}
 
@@ -1003,7 +998,7 @@ static struct dma_async_tx_descriptor
 	for (i = 0; i < periods; i++) {
 		lli = owl_dma_alloc_lli(od);
 		if (!lli) {
-			dev_warn(chan2dev(chan), "failed to allocate lli");
+			dev_warn(dmaengine_chan_dev(chan), "failed to allocate lli");
 			goto err_txd_free;
 		}
 
@@ -1018,7 +1013,7 @@ static struct dma_async_tx_descriptor
 		ret = owl_dma_cfg_lli(vchan, lli, src, dst, period_len,
 				      dir, sconfig, txd->cyclic);
 		if (ret) {
-			dev_warn(chan2dev(chan), "failed to config lli");
+			dev_warn(dmaengine_chan_dev(chan), "failed to config lli");
 			goto err_txd_free;
 		}
 
@@ -1094,7 +1089,7 @@ static int owl_dma_probe(struct platform_device *pdev)
 	struct owl_dma *od;
 	int ret, i, nr_channels, nr_requests;
 
-	od = devm_kzalloc(&pdev->dev, sizeof(*od), GFP_KERNEL);
+	od = devm_kzalloc_obj(&pdev->dev, *od);
 	if (!od)
 		return -ENOMEM;
 
@@ -1169,8 +1164,8 @@ static int owl_dma_probe(struct platform_device *pdev)
 	}
 
 	/* Init physical channel */
-	od->pchans = devm_kcalloc(&pdev->dev, od->nr_pchans,
-				  sizeof(struct owl_dma_pchan), GFP_KERNEL);
+	od->pchans = devm_kzalloc_objs(&pdev->dev, struct owl_dma_pchan,
+				       od->nr_pchans);
 	if (!od->pchans)
 		return -ENOMEM;
 
@@ -1182,8 +1177,8 @@ static int owl_dma_probe(struct platform_device *pdev)
 	}
 
 	/* Init virtual channel */
-	od->vchans = devm_kcalloc(&pdev->dev, od->nr_vchans,
-				  sizeof(struct owl_dma_vchan), GFP_KERNEL);
+	od->vchans = devm_kzalloc_objs(&pdev->dev, struct owl_dma_vchan,
+				       od->nr_vchans);
 	if (!od->vchans)
 		return -ENOMEM;
 

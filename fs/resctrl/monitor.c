@@ -1041,6 +1041,8 @@ struct mon_evt mon_event_all[QOS_NUM_EVENTS] = {
 	MON_EVENT(PMT_EVENT_AUTO_C6_RES,		"c6_res",		RDT_RESOURCE_PERF_PKG,	false),
 	MON_EVENT(PMT_EVENT_UNHALTED_REF_CYCLES,	"unhalted_ref_cycles",	RDT_RESOURCE_PERF_PKG,	false),
 	MON_EVENT(PMT_EVENT_UOPS_RETIRED,		"uops_retired",		RDT_RESOURCE_PERF_PKG,	false),
+	MON_EVENT(PMT_EVENT_INST_RETIRED,		"inst_retired",		RDT_RESOURCE_PERF_PKG,	false),
+	MON_EVENT(PMT_EVENT_PCNT,			"pcnt",			RDT_RESOURCE_PERF_PKG,	false),
 };
 
 bool resctrl_enable_mon_event(enum resctrl_event_id eventid, bool any_cpu,
@@ -1885,7 +1887,7 @@ static int closid_num_dirty_rmid_alloc(struct rdt_resource *r)
 		 * use a smaller system wide value based on the resources in
 		 * use.
 		 */
-		tmp = kcalloc(num_closid, sizeof(*tmp), GFP_KERNEL);
+		tmp = kzalloc_objs(*tmp, num_closid);
 		if (!tmp) {
 			mutex_unlock(&rdtgroup_mutex);
 			return -ENOMEM;

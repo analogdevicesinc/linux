@@ -20,6 +20,7 @@
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/reboot.h>
+#include <linux/stringify.h>
 
 #define PM_RSTC				0x1c
 #define PM_RSTS				0x20
@@ -176,7 +177,7 @@ static int bcm2835_wdt_probe(struct platform_device *pdev)
 	struct bcm2835_wdt *wdt;
 	int err;
 
-	wdt = devm_kzalloc(dev, sizeof(struct bcm2835_wdt), GFP_KERNEL);
+	wdt = devm_kzalloc_obj(dev, struct bcm2835_wdt);
 	if (!wdt)
 		return -ENOMEM;
 
@@ -229,7 +230,7 @@ MODULE_PARM_DESC(heartbeat, "Initial watchdog heartbeat in seconds");
 
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-				__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+				__stringify(WATCHDOG_NOWAYOUT) ")");
 
 MODULE_ALIAS("platform:bcm2835-wdt");
 MODULE_AUTHOR("Lubomir Rintel <lkundrak@v3.sk>");

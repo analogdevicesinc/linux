@@ -3229,7 +3229,7 @@ static void cadence_nand_remove(struct cdns_nand_ctrl *cdns_ctrl)
 {
 	cadence_nand_chips_cleanup(cdns_ctrl);
 	if (cdns_ctrl->dmac)
-		dma_unmap_resource(cdns_ctrl->dmac->device->dev,
+		dma_unmap_resource(dmaengine_get_dma_device(cdns_ctrl->dmac),
 				   cdns_ctrl->io.iova_dma, cdns_ctrl->io.size,
 				   DMA_BIDIRECTIONAL, 0);
 	cadence_nand_irq_cleanup(cdns_ctrl->irq, cdns_ctrl);
@@ -3275,7 +3275,7 @@ static int cadence_nand_dt_probe(struct platform_device *ofdev)
 		return -ENOMEM;
 	}
 
-	dt = devm_kzalloc(&ofdev->dev, sizeof(*dt), GFP_KERNEL);
+	dt = devm_kzalloc_obj(&ofdev->dev, *dt);
 	if (!dt)
 		return -ENOMEM;
 

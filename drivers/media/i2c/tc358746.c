@@ -873,6 +873,7 @@ static int tc358746_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int tc358746_set_fmt(struct v4l2_subdev *sd,
+			    const struct v4l2_subdev_client_info *ci,
 			    struct v4l2_subdev_state *sd_state,
 			    struct v4l2_subdev_format *format)
 {
@@ -1513,7 +1514,7 @@ static int tc358746_probe(struct i2c_client *client)
 	unsigned int i;
 	int err;
 
-	tc358746 = devm_kzalloc(&client->dev, sizeof(*tc358746), GFP_KERNEL);
+	tc358746 = devm_kzalloc_obj(&client->dev, *tc358746);
 	if (!tc358746)
 		return -ENOMEM;
 

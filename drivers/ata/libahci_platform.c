@@ -539,7 +539,7 @@ struct ahci_host_priv *ahci_platform_get_resources(struct platform_device *pdev,
 		 * No clock bulk found: fallback to manually getting
 		 * the optional clock.
 		 */
-		hpriv->clks = devm_kzalloc(dev, sizeof(*hpriv->clks), GFP_KERNEL);
+		hpriv->clks = devm_kzalloc_obj(dev, *hpriv->clks);
 		if (!hpriv->clks) {
 			rc = -ENOMEM;
 			goto err_out;
@@ -688,6 +688,10 @@ EXPORT_SYMBOL_GPL(ahci_platform_get_resources);
  * This function does all the usual steps needed to bring up an
  * ahci-platform host, note any necessary resources (ie clks, phys, etc.)
  * must be initialized / enabled before calling this.
+ *
+ * On failure, ->host_stop() is not called, so the caller has to release the
+ * resources it enabled (clocks, regulators, resets, PHYs) in its probe()
+ * error path.
  *
  * RETURNS:
  * 0 on success otherwise a negative error code

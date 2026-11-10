@@ -300,6 +300,7 @@ int vsp1_subdev_enum_frame_size(struct v4l2_subdev *subdev,
  * entity's limits, and propagates the sink pad format to the source pad.
  */
 int vsp1_subdev_set_pad_format(struct v4l2_subdev *subdev,
+			       const struct v4l2_subdev_client_info *ci,
 			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
@@ -380,7 +381,8 @@ static int vsp1_entity_init_state(struct v4l2_subdev *subdev,
 			       : V4L2_SUBDEV_FORMAT_ACTIVE,
 		};
 
-		v4l2_subdev_call(subdev, pad, set_fmt, sd_state, &format);
+		v4l2_subdev_call(subdev, pad, set_fmt, NULL, sd_state,
+				 &format);
 	}
 
 	return 0;
@@ -605,17 +607,15 @@ int vsp1_entity_init(struct vsp1_device *vsp1, struct vsp1_entity *entity,
 	entity->source_pad = num_pads - 1;
 
 	/* Allocate and initialize pads. */
-	entity->pads = devm_kcalloc(vsp1->dev,
-				    num_pads, sizeof(*entity->pads),
-				    GFP_KERNEL);
+	entity->pads = devm_kzalloc_objs(vsp1->dev, *entity->pads, num_pads);
 	if (entity->pads == NULL)
 		return -ENOMEM;
 
 	for (i = 0; i < num_pads - 1; ++i)
 		entity->pads[i].flags = MEDIA_PAD_FL_SINK;
 
-	entity->sources = devm_kcalloc(vsp1->dev, max(num_pads - 1, 1U),
-				       sizeof(*entity->sources), GFP_KERNEL);
+	entity->sources = devm_kzalloc_objs(vsp1->dev, *entity->sources,
+					    max(num_pads - 1, 1U));
 	if (entity->sources == NULL)
 		return -ENOMEM;
 

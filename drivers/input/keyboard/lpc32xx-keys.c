@@ -167,8 +167,7 @@ static int lpc32xx_kscan_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return -EINVAL;
 
-	kscandat = devm_kzalloc(&pdev->dev, sizeof(*kscandat),
-				GFP_KERNEL);
+	kscandat = devm_kzalloc_obj(&pdev->dev, *kscandat);
 	if (!kscandat)
 		return -ENOMEM;
 
@@ -198,7 +197,6 @@ static int lpc32xx_kscan_probe(struct platform_device *pdev)
 	input->id.version	= 0x0100;
 	input->open		= lpc32xx_kscan_open;
 	input->close		= lpc32xx_kscan_close;
-	input->dev.parent	= &pdev->dev;
 
 	input_set_capability(input, EV_MSC, MSC_SCAN);
 

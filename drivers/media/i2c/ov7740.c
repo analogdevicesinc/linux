@@ -766,6 +766,7 @@ static int ov7740_try_fmt_internal(struct v4l2_subdev *sd,
 }
 
 static int ov7740_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
 {
@@ -1032,7 +1033,7 @@ static int ov7740_probe(struct i2c_client *client)
 	struct v4l2_subdev *sd;
 	int ret;
 
-	ov7740 = devm_kzalloc(&client->dev, sizeof(*ov7740), GFP_KERNEL);
+	ov7740 = devm_kzalloc_obj(&client->dev, *ov7740);
 	if (!ov7740)
 		return -ENOMEM;
 

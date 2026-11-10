@@ -291,7 +291,7 @@ static void fujitsu_uncore_event_read(struct perf_event *event)
 
 #define UNCORE_PMU_FORMAT_ATTR(_name, _config)				      \
 	(&((struct dev_ext_attribute[]) {				      \
-		{ .attr = __ATTR(_name, 0444, device_show_string, NULL),      \
+		{ .attr = __DEVICE_ATTR(_name, 0444, device_show_string, NULL), \
 		  .var = (void *)_config, }				      \
 	})[0].attr.attr)
 
@@ -458,7 +458,7 @@ static int fujitsu_uncore_pmu_probe(struct platform_device *pdev)
 	if (ret)
 		return dev_err_probe(dev, ret, "unable to read ACPI uid\n");
 
-	uncorepmu = devm_kzalloc(dev, sizeof(*uncorepmu), GFP_KERNEL);
+	uncorepmu = devm_kzalloc_obj(dev, *uncorepmu);
 	if (!uncorepmu)
 		return -ENOMEM;
 	uncorepmu->dev = dev;

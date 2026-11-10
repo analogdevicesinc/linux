@@ -60,8 +60,17 @@
 #define TIPC_MEDIA_TYPE_IB	2
 #define TIPC_MEDIA_TYPE_UDP	3
 
-/* Minimum bearer MTU */
-#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + INT_H_SIZE)
+/* Minimum bearer MTU, not counting the crypto overhead, see
+ * tipc_bearer_mtu_floor()
+ */
+#define TIPC_MIN_BEARER_MTU	(MAX_H_SIZE + 2 * INT_H_SIZE)
+
+/* Maximum bearer MTU
+ *
+ * struct tipc_link stores the link MTU in a u16, so a larger bearer MTU would
+ * be truncated when a link is created on the bearer.
+ */
+#define TIPC_MAX_BEARER_MTU	U16_MAX
 
 /* Identifiers for distinguishing between broadcast/multicast and replicast
  */
@@ -226,13 +235,15 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *buf,
 void tipc_bearer_add_dest(struct net *net, u32 bearer_id, u32 dest);
 void tipc_bearer_remove_dest(struct net *net, u32 bearer_id, u32 dest);
 struct tipc_bearer *tipc_bearer_find(struct net *net, const char *name);
-int tipc_bearer_get_name(struct net *net, char *name, u32 bearer_id);
+int tipc_bearer_get_name(struct net *net, char *name,
+			 size_t len, u32 bearer_id);
 struct tipc_media *tipc_media_find(const char *name);
 int tipc_bearer_setup(void);
 void tipc_bearer_cleanup(void);
 void tipc_bearer_stop(struct net *net);
 int tipc_bearer_mtu(struct net *net, u32 bearer_id);
 int tipc_bearer_min_mtu(struct net *net, u32 bearer_id);
+u32 tipc_bearer_mtu_floor(void);
 bool tipc_bearer_bcast_support(struct net *net, u32 bearer_id);
 void tipc_bearer_xmit_skb(struct net *net, u32 bearer_id,
 			  struct sk_buff *skb,
@@ -254,12 +265,13 @@ static inline void tipc_loopback_trace(struct net *net,
 		tipc_clone_to_loopback(net, pkts);
 }
 
-/* check if device MTU is too low for tipc headers */
+/* check if device MTU is usable for tipc bearers */
 static inline bool tipc_mtu_bad(struct net_device *dev)
 {
-	if (dev->mtu >= TIPC_MIN_BEARER_MTU)
+	if (dev->mtu >= tipc_bearer_mtu_floor() &&
+	    dev->mtu <= TIPC_MAX_BEARER_MTU)
 		return false;
-	netdev_warn(dev, "MTU too low for tipc bearer\n");
+	netdev_warn(dev, "MTU not usable for tipc bearer\n");
 	return true;
 }
 

@@ -77,6 +77,10 @@ static __always_inline void do_syscall_32_irqs_on(struct pt_regs *regs, unsigned
 	if (likely(nr < IA32_NR_syscalls)) {
 		nr = array_index_nospec(nr, IA32_NR_syscalls);
 		regs->ax = ia32_sys_call(regs, (unsigned int)nr);
+	} else {
+		/* See comment in do_syscall_64() */
+		if (nr != -1UL)
+			regs->ax = -ENOSYS;
 	}
 }
 
@@ -265,17 +269,8 @@ static noinstr bool __do_fast_syscall_32(struct pt_regs *regs)
 	instrumentation_begin();
 	local_irq_enable();
 	/* Fetch EBP from where the vDSO stashed it. */
-	if (IS_ENABLED(CONFIG_X86_64)) {
-		/*
-		 * Micro-optimization: the pointer we're following is
-		 * explicitly 32 bits, so it can't be out of range.
-		 */
-		res = __get_user(*(u32 *)&regs->bp,
-			 (u32 __user __force *)(unsigned long)(u32)regs->sp);
-	} else {
-		res = get_user(*(u32 *)&regs->bp,
+	res = get_user(*(u32 *)&regs->bp,
 		       (u32 __user __force *)(unsigned long)(u32)regs->sp);
-	}
 
 	if (res) {
 		/* User code screwed up. */

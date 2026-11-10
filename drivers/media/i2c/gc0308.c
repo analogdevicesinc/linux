@@ -1043,6 +1043,7 @@ static void gc0308_update_pad_format(const struct gc0308_frame_size *mode,
 }
 
 static int gc0308_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_format *fmt)
 {
@@ -1287,7 +1288,7 @@ static int gc0308_probe(struct i2c_client *client)
 	u64 regval;
 	int ret;
 
-	gc0308 = devm_kzalloc(dev, sizeof(*gc0308), GFP_KERNEL);
+	gc0308 = devm_kzalloc_obj(dev, *gc0308);
 	if (!gc0308)
 		return -ENOMEM;
 

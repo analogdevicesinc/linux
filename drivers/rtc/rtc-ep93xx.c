@@ -93,7 +93,7 @@ static ssize_t comp_preload_show(struct device *dev,
 
 	ep93xx_rtc_get_swcomp(dev->parent, &preload, NULL);
 
-	return sprintf(buf, "%d\n", preload);
+	return sysfs_emit(buf, "%d\n", preload);
 }
 static DEVICE_ATTR_RO(comp_preload);
 
@@ -104,7 +104,7 @@ static ssize_t comp_delete_show(struct device *dev,
 
 	ep93xx_rtc_get_swcomp(dev->parent, NULL, &delete);
 
-	return sprintf(buf, "%d\n", delete);
+	return sysfs_emit(buf, "%d\n", delete);
 }
 static DEVICE_ATTR_RO(comp_delete);
 
@@ -124,7 +124,7 @@ static int ep93xx_rtc_probe(struct platform_device *pdev)
 	struct rtc_device *rtc;
 	int err;
 
-	ep93xx_rtc = devm_kzalloc(&pdev->dev, sizeof(*ep93xx_rtc), GFP_KERNEL);
+	ep93xx_rtc = devm_kzalloc_obj(&pdev->dev, *ep93xx_rtc);
 	if (!ep93xx_rtc)
 		return -ENOMEM;
 

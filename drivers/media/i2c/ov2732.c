@@ -281,6 +281,7 @@ static int ov2732_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int ov2732_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -317,6 +318,7 @@ static int ov2732_set_fmt(struct v4l2_subdev *sd,
 }
 
 static int ov2732_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -442,7 +444,7 @@ static int ov2732_init_state(struct v4l2_subdev *sd,
 		}
 	};
 
-	return ov2732_set_fmt(sd, sd_state, &fmt);
+	return ov2732_set_fmt(sd, NULL, sd_state, &fmt);
 }
 
 static const struct v4l2_subdev_internal_ops ov2732_internal_ops = {
@@ -641,7 +643,7 @@ static int ov2732_probe(struct i2c_client *client)
 	struct ov2732 *ov2732;
 	int ret;
 
-	ov2732 = devm_kzalloc(&client->dev, sizeof(*ov2732), GFP_KERNEL);
+	ov2732 = devm_kzalloc_obj(&client->dev, *ov2732);
 	if (!ov2732)
 		return -ENOMEM;
 

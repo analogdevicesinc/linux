@@ -1844,6 +1844,7 @@ static int ov08x40_get_pad_format(struct v4l2_subdev *sd,
 
 static int
 ov08x40_set_pad_format(struct v4l2_subdev *sd,
+		       const struct v4l2_subdev_client_info *ci,
 		       struct v4l2_subdev_state *sd_state,
 		       struct v4l2_subdev_format *fmt)
 {
@@ -2279,7 +2280,7 @@ static int ov08x40_probe(struct i2c_client *client)
 	int ret;
 	bool full_power;
 
-	ov08x = devm_kzalloc(&client->dev, sizeof(*ov08x), GFP_KERNEL);
+	ov08x = devm_kzalloc_obj(&client->dev, *ov08x);
 	if (!ov08x)
 		return -ENOMEM;
 

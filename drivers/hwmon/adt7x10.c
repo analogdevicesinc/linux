@@ -321,7 +321,7 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 	struct device *hdev;
 	int ret;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, *data);
 	if (!data)
 		return -ENOMEM;
 
@@ -338,7 +338,7 @@ int adt7x10_probe(struct device *dev, const char *name, int irq,
 	data->oldconfig = config;
 
 	/*
-	 * Set to 16 bit resolution, continous conversion and comparator mode.
+	 * Set to 16 bit resolution, continuous conversion and comparator mode.
 	 */
 	data->config = data->oldconfig;
 	data->config &= ~(ADT7X10_MODE_MASK | ADT7X10_CT_POLARITY |

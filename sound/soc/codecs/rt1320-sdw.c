@@ -890,8 +890,9 @@ static bool rt1320_readable_register(struct device *dev, unsigned int reg)
 	case 0xf01e:
 	case 0xf717 ... 0xf719:
 	case 0xf720 ... 0xf723:
-	case 0x1000cd91 ... 0x1000cd96:
-	case RT1321_PATCH_MAIN_VER ... RT1321_PATCH_BETA_VER:
+	case 0x10000000 ... 0x10008fff:
+	case 0x1000c000 ... 0x1000cfff:
+	case 0x1000d800 ... 0x1000dfff:
 	case 0x1000f008:
 	case 0x1000f021:
 	case 0x20003000 ... 0x2000300f:
@@ -996,7 +997,8 @@ static bool rt1320_volatile_register(struct device *dev, unsigned int reg)
 	case 0xf717 ... 0xf719:
 	case 0xf720 ... 0xf723:
 	case 0x10000000 ... 0x10008fff:
-	case 0x1000c000 ... 0x1000dfff:
+	case 0x1000c000 ... 0x1000cfff:
+	case 0x1000d800 ... 0x1000dfff:
 	case 0x1000f008:
 	case 0x1000f021:
 	case 0x2000300e ... 0x2000300f:
@@ -1092,8 +1094,8 @@ static int rt1320_read_prop(struct sdw_slave *slave)
 	prop->sink_ports = BIT(1);
 
 	nval = hweight32(prop->source_ports);
-	prop->src_dpn_prop = devm_kcalloc(&slave->dev, nval,
-		sizeof(*prop->src_dpn_prop), GFP_KERNEL);
+	prop->src_dpn_prop = devm_kzalloc_objs(&slave->dev, *prop->src_dpn_prop,
+					       nval);
 	if (!prop->src_dpn_prop)
 		return -ENOMEM;
 
@@ -1110,8 +1112,8 @@ static int rt1320_read_prop(struct sdw_slave *slave)
 
 	/* do this again for sink now */
 	nval = hweight32(prop->sink_ports);
-	prop->sink_dpn_prop = devm_kcalloc(&slave->dev, nval,
-		sizeof(*prop->sink_dpn_prop), GFP_KERNEL);
+	prop->sink_dpn_prop = devm_kzalloc_objs(&slave->dev,
+						*prop->sink_dpn_prop, nval);
 	if (!prop->sink_dpn_prop)
 		return -ENOMEM;
 
@@ -1126,7 +1128,7 @@ static int rt1320_read_prop(struct sdw_slave *slave)
 		j++;
 	}
 
-	prop->dp0_prop = devm_kzalloc(&slave->dev, sizeof(*prop->dp0_prop), GFP_KERNEL);
+	prop->dp0_prop = devm_kzalloc_obj(&slave->dev, *prop->dp0_prop);
 	if (!prop->dp0_prop)
 		return -ENOMEM;
 
@@ -2084,7 +2086,7 @@ static int rt1320_rae_load(struct rt1320_sdw_priv *rt1320)
 		regmap_update_bits(rt1320->regmap, 0x20005818, 0x80, 0x80);
 		/* RAE run */
 		regmap_update_bits(rt1320->regmap, 0x2000301c, 0x01, 0x01);
-		/* Phase sync eanble */
+		/* Phase sync enable */
 		regmap_update_bits(rt1320->regmap, 0xc047, 0x80, 0x80);
 		break;
 	}
@@ -2470,7 +2472,7 @@ static int rt1320_io_init(struct device *dev, struct sdw_slave *slave)
 	dev_dbg(dev, "%s amp func_status=0x%x\n", __func__, amp_func_status);
 
 	/* initialization write */
-	if ((amp_func_status & FUNCTION_NEEDS_INITIALIZATION) || !rt1320->first_hw_init) {
+	if ((amp_func_status & FUNCTION_NEEDS_INITIALIZATION)) {
 		switch (rt1320->dev_id) {
 		case RT1320_DEV_ID:
 			if (rt1320->version_id < RT1320_VC)
@@ -3533,7 +3535,7 @@ static int rt1320_sdw_init(struct device *dev, struct regmap *regmap,
 	struct rt1320_sdw_priv *rt1320;
 	int ret;
 
-	rt1320 = devm_kzalloc(dev, sizeof(*rt1320), GFP_KERNEL);
+	rt1320 = devm_kzalloc_obj(dev, *rt1320);
 	if (!rt1320)
 		return -ENOMEM;
 

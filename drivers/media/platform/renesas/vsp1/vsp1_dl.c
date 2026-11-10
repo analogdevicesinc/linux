@@ -649,7 +649,7 @@ static void __vsp1_dl_list_put(struct vsp1_dl_list *dl)
 	dl->post_cmd = NULL;
 
 	/*
-	 * body0 is reused as as an optimisation as presently every display list
+	 * body0 is reused as an optimisation as presently every display list
 	 * has at least one body, thus we reinitialise the entries list.
 	 */
 	dl->body0->num_entries = 0;
@@ -1090,7 +1090,7 @@ struct vsp1_dl_manager *vsp1_dlm_create(struct vsp1_device *vsp1,
 	struct vsp1_dl_manager *dlm;
 	size_t header_size;
 
-	dlm = devm_kzalloc(vsp1->dev, sizeof(*dlm), GFP_KERNEL);
+	dlm = devm_kzalloc_obj(vsp1->dev, *dlm);
 	if (!dlm)
 		return NULL;
 

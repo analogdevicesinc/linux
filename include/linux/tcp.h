@@ -179,6 +179,9 @@ struct tcp_request_sock {
 	u8				ao_rcv_next;
 	bool				used_tcp_ao;
 #endif
+#if IS_ENABLED(CONFIG_IPV6)
+	__be32				syn_flowlabel;
+#endif
 };
 
 #define tcp_rsk(ptr) container_of_const(ptr, struct tcp_request_sock, req.req)
@@ -233,6 +236,13 @@ struct tcp_sock {
 		is_sack_reneg:1,    /* in recovery from loss with SACK reneg? */
 		is_cwnd_limited:1,/* forward progress limited by snd_cwnd? */
 		recvmsg_inq : 1;/* Indicate # of bytes in queue upon recvmsg */
+#ifdef CONFIG_BPF
+	u32	bpf_tcp_ops_flags;
+#define BPF_TCP_OPS_TEST_FLAG(TP, ARG) \
+	(READ_ONCE((TP)->bpf_tcp_ops_flags) & BPF_TCP_OPS_FLAG_ ## ARG)
+#else
+#define BPF_TCP_OPS_TEST_FLAG(TP, ARG) (0)
+#endif
 	__cacheline_group_end(tcp_sock_read_txrx);
 
 	/* RX read-mostly hotpath cache lines */
@@ -269,6 +279,9 @@ struct tcp_sock {
 				 */
 	u32	snd_sml;	/* Last byte of the most recently transmitted small packet */
 	u8	chrono_type;	/* current chronograph type */
+	u8	tcp_nospace;	/* mirrors SOCK_NOSPACE, must be set whenever
+				 * SOCK_NOSPACE is set.
+				 */
 	u32	chrono_start;	/* Start time in jiffies of a TCP chrono */
 	u32	chrono_stat[3];	/* Time in jiffies for chrono_stat stats */
 	u32	write_seq;	/* Tail(+1) of data held in tcp send buffer */

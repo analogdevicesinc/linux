@@ -82,7 +82,7 @@ static void mt6359_reset_capture_gpio(struct mt6359_priv *priv)
 			   0x3 << 0, 0x0);
 }
 
-/* use only when doing mtkaif calibraiton at the boot time */
+/* use only when doing mtkaif calibration at the boot time */
 static void mt6359_set_dcxo(struct mt6359_priv *priv, bool enable)
 {
 	regmap_update_bits(priv->regmap, MT6359_DCXO_CW12,
@@ -90,7 +90,7 @@ static void mt6359_set_dcxo(struct mt6359_priv *priv, bool enable)
 			   (enable ? 1 : 0) << RG_XO_AUDIO_EN_M_SFT);
 }
 
-/* use only when doing mtkaif calibraiton at the boot time */
+/* use only when doing mtkaif calibration at the boot time */
 static void mt6359_set_clksq(struct mt6359_priv *priv, bool enable)
 {
 	/* Enable/disable CLKSQ 26MHz */
@@ -99,7 +99,7 @@ static void mt6359_set_clksq(struct mt6359_priv *priv, bool enable)
 			   (enable ? 1 : 0) << RG_CLKSQ_EN_SFT);
 }
 
-/* use only when doing mtkaif calibraiton at the boot time */
+/* use only when doing mtkaif calibration at the boot time */
 static void mt6359_set_aud_global_bias(struct mt6359_priv *priv, bool enable)
 {
 	regmap_update_bits(priv->regmap, MT6359_AUDDEC_ANA_CON13,
@@ -107,7 +107,7 @@ static void mt6359_set_aud_global_bias(struct mt6359_priv *priv, bool enable)
 			   (enable ? 0 : 1) << RG_AUDGLB_PWRDN_VA32_SFT);
 }
 
-/* use only when doing mtkaif calibraiton at the boot time */
+/* use only when doing mtkaif calibration at the boot time */
 static void mt6359_set_topck(struct mt6359_priv *priv, bool enable)
 {
 	regmap_update_bits(priv->regmap, MT6359_AUD_TOP_CKPDN_CON0,
@@ -2921,7 +2921,7 @@ static int mt6359_platform_driver_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "%s(), dev name %s\n",
 		__func__, dev_name(&pdev->dev));
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&pdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

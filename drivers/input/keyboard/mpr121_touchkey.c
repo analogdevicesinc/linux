@@ -208,7 +208,7 @@ static int mpr_touchkey_probe(struct i2c_client *client)
 	if (vdd_uv < 0)
 		return dev_err_probe(dev, vdd_uv, "failed to get vdd voltage\n");
 
-	mpr121 = devm_kzalloc(dev, sizeof(*mpr121), GFP_KERNEL);
+	mpr121 = devm_kzalloc_obj(dev, *mpr121);
 	if (!mpr121)
 		return -ENOMEM;
 
@@ -235,7 +235,6 @@ static int mpr_touchkey_probe(struct i2c_client *client)
 
 	input_dev->name = "Freescale MPR121 Touchkey";
 	input_dev->id.bustype = BUS_I2C;
-	input_dev->dev.parent = dev;
 	if (device_property_read_bool(dev, "autorepeat"))
 		__set_bit(EV_REP, input_dev->evbit);
 	input_set_capability(input_dev, EV_MSC, MSC_SCAN);

@@ -30,7 +30,7 @@ static inline int ili9320_write_spi(struct ili9320 *ili,
 	unsigned char *addr = spi->buffer_addr;
 	unsigned char *data = spi->buffer_data;
 
-	/* spi message consits of:
+	/* spi message consists of:
 	 * first byte: ID and operation
 	 */
 
@@ -214,7 +214,7 @@ int ili9320_probe_spi(struct spi_device *spi,
 
 	/* allocate and initialse our state */
 
-	ili = devm_kzalloc(&spi->dev, sizeof(struct ili9320), GFP_KERNEL);
+	ili = devm_kzalloc_obj(&spi->dev, struct ili9320);
 	if (ili == NULL)
 		return -ENOMEM;
 

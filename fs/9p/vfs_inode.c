@@ -481,7 +481,7 @@ static int v9fs_at_to_dotl_flags(int flags)
 }
 
 /**
- * v9fs_dec_count - helper functon to drop i_nlink.
+ * v9fs_dec_count - helper function to drop i_nlink.
  *
  * If a directory had nlink <= 2 (including . and ..), then we should not drop
  * the link count, which indicates the underlying exported fs doesn't maintain
@@ -495,6 +495,12 @@ static int v9fs_at_to_dotl_flags(int flags)
  * nothing and races with concurrent metadata fetches that may already
  * have observed the post-unlink value (nlink == 0).
  *
+ * The same applies to a regular file whose cached nlink has already been
+ * driven to zero by the server: in the cached modes the attributes come
+ * from GETATTR and are applied verbatim, so decrementing a link count the
+ * server does not maintain only trips the drop_nlink() WARN_ON and
+ * underflows i_nlink.
+ *
  * @inode: inode whose nlink is being dropped
  */
 static void v9fs_dec_count(struct inode *inode)
@@ -502,6 +508,8 @@ static void v9fs_dec_count(struct inode *inode)
 	struct v9fs_session_info *v9ses = v9fs_inode2v9ses(inode);
 
 	if (!(v9ses->cache & (CACHE_META | CACHE_LOOSE)))
+		return;
+	if (inode->i_nlink == 0)
 		return;
 	if (!S_ISDIR(inode->i_mode) || inode->i_nlink > 2)
 		drop_nlink(inode);
@@ -652,7 +660,7 @@ error:
  */
 
 static int
-v9fs_vfs_create(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_create(const struct mnt_idmap *idmap, struct inode *dir,
 		struct dentry *dentry, umode_t mode)
 {
 	struct v9fs_session_info *v9ses = v9fs_inode2v9ses(dir);
@@ -673,13 +681,13 @@ v9fs_vfs_create(struct mnt_idmap *idmap, struct inode *dir,
 /**
  * v9fs_vfs_mkdir - VFS mkdir hook to create a directory
  * @idmap: idmap of the mount
- * @dir:  inode that is being unlinked
- * @dentry: dentry that is being unlinked
+ * @dir: inode of the parent directory
+ * @dentry: dentry representing the directory being created
  * @mode: mode for new directory
  *
  */
 
-static struct dentry *v9fs_vfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *v9fs_vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 				     struct dentry *dentry, umode_t mode)
 {
 	u32 perm;
@@ -802,6 +810,16 @@ v9fs_vfs_atomic_open(struct inode *dir, struct dentry *dentry,
 	v9fs_invalidate_inode_attr(dir);
 	inode = d_inode(dentry);
 	v9inode = V9FS_I(inode);
+	if (!S_ISREG(inode->i_mode)) {
+		/*
+		 * Not a regular file.  v9fs_create() already stored the
+		 * unopened fid on the dentry.  Clunk the opened fid from
+		 * the create and let the VFS call ->open.
+		 */
+		p9_fid_put(fid);
+		file->f_mode |= FMODE_CREATED;
+		return finish_no_open(file, NULL);
+	}
 	err = finish_open(file, dentry, generic_file_open);
 	if (unlikely(err)) {
 		p9_fid_put(fid);
@@ -858,7 +876,7 @@ int v9fs_vfs_rmdir(struct inode *i, struct dentry *d)
  */
 
 int
-v9fs_vfs_rename(struct mnt_idmap *idmap, struct inode *old_dir,
+v9fs_vfs_rename(const struct mnt_idmap *idmap, struct inode *old_dir,
 		struct dentry *old_dentry, struct inode *new_dir,
 		struct dentry *new_dentry, unsigned int flags)
 {
@@ -966,7 +984,7 @@ error:
  */
 
 static int
-v9fs_vfs_getattr(struct mnt_idmap *idmap, const struct path *path,
+v9fs_vfs_getattr(const struct mnt_idmap *idmap, const struct path *path,
 		 struct kstat *stat, u32 request_mask, unsigned int flags)
 {
 	struct dentry *dentry = path->dentry;
@@ -1014,7 +1032,7 @@ v9fs_vfs_getattr(struct mnt_idmap *idmap, const struct path *path,
  *
  */
 
-static int v9fs_vfs_setattr(struct mnt_idmap *idmap,
+static int v9fs_vfs_setattr(const struct mnt_idmap *idmap,
 			    struct dentry *dentry, struct iattr *iattr)
 {
 	int retval, use_dentry = 0;
@@ -1022,6 +1040,9 @@ static int v9fs_vfs_setattr(struct mnt_idmap *idmap,
 	struct v9fs_session_info *v9ses;
 	struct p9_fid *fid = NULL;
 	struct p9_wstat wstat;
+#ifdef CONFIG_9P_FSCACHE
+	uoff_t old_size = i_size_read(inode);
+#endif
 
 	p9_debug(P9_DEBUG_VFS, "\n");
 	retval = setattr_prepare(&nop_mnt_idmap, dentry, iattr);
@@ -1086,7 +1107,8 @@ static int v9fs_vfs_setattr(struct mnt_idmap *idmap,
 		if (v9ses->cache & CACHE_FSCACHE) {
 			struct v9fs_inode *v9inode = V9FS_I(inode);
 
-			fscache_resize_cookie(v9fs_inode_cookie(v9inode), iattr->ia_size);
+			fscache_resize_cookie(v9fs_inode_cookie(v9inode),
+					      iattr->ia_size, iattr->ia_size < old_size);
 		}
 #endif
 	}
@@ -1130,7 +1152,7 @@ v9fs_stat2inode(struct p9_wstat *stat, struct inode *inode,
 		if (v9fs_proto_dotu(v9ses)) {
 			unsigned int i_nlink;
 			/*
-			 * Hadlink support got added later to the .u extension.
+			 * Hardlink support got added later to the .u extension.
 			 * So there can be a server out there that doesn't
 			 * support this even with .u extension. That would
 			 * just leave us with stat->extension being an empty
@@ -1249,7 +1271,7 @@ static int v9fs_vfs_mkspecial(struct inode *dir, struct dentry *dentry,
  */
 
 static int
-v9fs_vfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_symlink(const struct mnt_idmap *idmap, struct inode *dir,
 		 struct dentry *dentry, const char *symname)
 {
 	p9_debug(P9_DEBUG_VFS, " %llu,%pd,%s\n",
@@ -1304,7 +1326,7 @@ v9fs_vfs_link(struct dentry *old_dentry, struct inode *dir,
  */
 
 static int
-v9fs_vfs_mknod(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_mknod(const struct mnt_idmap *idmap, struct inode *dir,
 	       struct dentry *dentry, umode_t mode, dev_t rdev)
 {
 	struct v9fs_session_info *v9ses = v9fs_inode2v9ses(dir);

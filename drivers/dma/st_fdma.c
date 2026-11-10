@@ -268,7 +268,7 @@ static int st_fdma_alloc_chan_res(struct dma_chan *chan)
 	struct st_fdma_chan *fchan = to_st_fdma_chan(chan);
 
 	/* Create the dma pool for descriptor allocation */
-	fchan->node_pool = dma_pool_create(dev_name(&chan->dev->device),
+	fchan->node_pool = dma_pool_create(dma_chan_name(chan),
 					    fchan->fdev->dev,
 					    sizeof(struct st_fdma_hw_node),
 					    __alignof__(struct st_fdma_hw_node),
@@ -746,7 +746,7 @@ static int st_fdma_probe(struct platform_device *pdev)
 
 	drvdata = device_get_match_data(&pdev->dev);
 
-	fdev = devm_kzalloc(&pdev->dev, sizeof(*fdev), GFP_KERNEL);
+	fdev = devm_kzalloc_obj(&pdev->dev, *fdev);
 	if (!fdev)
 		return -ENOMEM;
 
@@ -756,8 +756,8 @@ static int st_fdma_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	fdev->chans = devm_kcalloc(&pdev->dev, fdev->nr_channels,
-				   sizeof(struct st_fdma_chan), GFP_KERNEL);
+	fdev->chans = devm_kzalloc_objs(&pdev->dev, struct st_fdma_chan,
+					fdev->nr_channels);
 	if (!fdev->chans)
 		return -ENOMEM;
 

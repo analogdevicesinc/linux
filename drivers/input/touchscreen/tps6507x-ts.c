@@ -221,7 +221,7 @@ static int tps6507x_ts_probe(struct platform_device *pdev)
 	 */
 	init_data = tps_board->tps6507x_ts_init_data;
 
-	tsc = devm_kzalloc(&pdev->dev, sizeof(struct tps6507x_ts), GFP_KERNEL);
+	tsc = devm_kzalloc_obj(&pdev->dev, struct tps6507x_ts);
 	if (!tsc) {
 		dev_err(tps6507x_dev->dev, "failed to allocate driver data\n");
 		return -ENOMEM;
@@ -251,7 +251,6 @@ static int tps6507x_ts_probe(struct platform_device *pdev)
 
 	input_dev->name = "TPS6507x Touchscreen";
 	input_dev->phys = tsc->phys;
-	input_dev->dev.parent = tsc->dev;
 	input_dev->id.bustype = BUS_I2C;
 	if (init_data) {
 		input_dev->id.vendor = init_data->vendor;

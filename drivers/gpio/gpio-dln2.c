@@ -243,10 +243,8 @@ static int dln2_gpio_set_direction(struct gpio_chip *chip, unsigned offset,
 	if (ret < 0)
 		return ret;
 
-	if (dir == DLN2_GPIO_DIRECTION_OUT)
-		set_bit(offset, dln2->output_enabled);
-	else
-		clear_bit(offset, dln2->output_enabled);
+	assign_bit(offset, dln2->output_enabled,
+		   dir == DLN2_GPIO_DIRECTION_OUT);
 
 	return ret;
 }
@@ -455,7 +453,7 @@ static int dln2_gpio_probe(struct platform_device *pdev)
 		dev_warn(dev, "clamping pins to %d\n", DLN2_GPIO_MAX_PINS);
 	}
 
-	dln2 = devm_kzalloc(&pdev->dev, sizeof(*dln2), GFP_KERNEL);
+	dln2 = devm_kzalloc_obj(&pdev->dev, *dln2);
 	if (!dln2)
 		return -ENOMEM;
 

@@ -21,6 +21,7 @@
 #include <linux/uaccess.h>
 #include <linux/watchdog.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 #include <linux/mfd/kempld.h>
 
 #define KEMPLD_WDT_STAGE_TIMEOUT(x)	(0x1b + (x) * 4)
@@ -85,19 +86,19 @@ static unsigned int timeout = DEFAULT_TIMEOUT;
 module_param(timeout, uint, 0);
 MODULE_PARM_DESC(timeout,
 	"Watchdog timeout in seconds. (>=0, default="
-	__MODULE_STRING(DEFAULT_TIMEOUT) ")");
+	__stringify(DEFAULT_TIMEOUT) ")");
 
 static unsigned int pretimeout = DEFAULT_PRETIMEOUT;
 module_param(pretimeout, uint, 0);
 MODULE_PARM_DESC(pretimeout,
 	"Watchdog pretimeout in seconds. (>=0, default="
-	__MODULE_STRING(DEFAULT_PRETIMEOUT) ")");
+	__stringify(DEFAULT_PRETIMEOUT) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 	"Watchdog cannot be stopped once started (default="
-	__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+	__stringify(WATCHDOG_NOWAYOUT) ")");
 
 static int kempld_wdt_set_stage_action(struct kempld_wdt_data *wdt_data,
 					struct kempld_wdt_stage *stage,
@@ -440,7 +441,7 @@ static int kempld_wdt_probe(struct platform_device *pdev)
 	u8 status;
 	int ret = 0;
 
-	wdt_data = devm_kzalloc(dev, sizeof(*wdt_data), GFP_KERNEL);
+	wdt_data = devm_kzalloc_obj(dev, *wdt_data);
 	if (!wdt_data)
 		return -ENOMEM;
 

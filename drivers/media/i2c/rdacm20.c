@@ -442,7 +442,6 @@ static const struct v4l2_subdev_video_ops rdacm20_video_ops = {
 static const struct v4l2_subdev_pad_ops rdacm20_subdev_pad_ops = {
 	.enum_mbus_code = rdacm20_enum_mbus_code,
 	.get_fmt	= rdacm20_get_fmt,
-	.set_fmt	= rdacm20_get_fmt,
 };
 
 static const struct v4l2_subdev_ops rdacm20_subdev_ops = {
@@ -569,7 +568,7 @@ static int rdacm20_probe(struct i2c_client *client)
 	struct rdacm20_device *dev;
 	int ret;
 
-	dev = devm_kzalloc(&client->dev, sizeof(*dev), GFP_KERNEL);
+	dev = devm_kzalloc_obj(&client->dev, *dev);
 	if (!dev)
 		return -ENOMEM;
 	dev->dev = &client->dev;

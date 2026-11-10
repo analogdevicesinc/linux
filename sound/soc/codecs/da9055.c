@@ -1317,6 +1317,12 @@ pll_err:
 	return -EINVAL;
 }
 
+static const u64 da9055_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A;
+
 /* DAI operations */
 static const struct snd_soc_dai_ops da9055_dai_ops = {
 	.hw_params	= da9055_hw_params,
@@ -1324,6 +1330,8 @@ static const struct snd_soc_dai_ops da9055_dai_ops = {
 	.set_sysclk	= da9055_set_dai_sysclk,
 	.set_pll	= da9055_set_dai_pll,
 	.mute_stream	= da9055_mute,
+	.auto_selectable_formats	= &da9055_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
@@ -1479,8 +1487,7 @@ static int da9055_i2c_probe(struct i2c_client *i2c)
 	struct da9055_platform_data *pdata = dev_get_platdata(&i2c->dev);
 	int ret;
 
-	da9055 = devm_kzalloc(&i2c->dev, sizeof(struct da9055_priv),
-			      GFP_KERNEL);
+	da9055 = devm_kzalloc_obj(&i2c->dev, struct da9055_priv);
 	if (!da9055)
 		return -ENOMEM;
 

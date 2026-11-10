@@ -1299,7 +1299,6 @@ static int ast_udc_start(struct usb_gadget *gadget,
 
 	UDC_DBG(udc, "\n");
 	udc->driver = driver;
-	udc->gadget.dev.of_node = udc->pdev->dev.of_node;
 
 	for (i = 0; i < AST_UDC_NUM_ENDPOINTS; i++) {
 		ep = &udc->ep[i];
@@ -1483,7 +1482,7 @@ static int ast_udc_probe(struct platform_device *pdev)
 	struct ast_udc_dev *udc;
 	int rc;
 
-	udc = devm_kzalloc(&pdev->dev, sizeof(struct ast_udc_dev), GFP_KERNEL);
+	udc = devm_kzalloc_obj(&pdev->dev, struct ast_udc_dev);
 	if (!udc)
 		return -ENOMEM;
 
@@ -1568,10 +1567,8 @@ static int ast_udc_probe(struct platform_device *pdev)
 
 	rc = devm_request_irq(&pdev->dev, udc->irq, ast_udc_isr, 0,
 			      KBUILD_MODNAME, udc);
-	if (rc) {
-		dev_err(&pdev->dev, "Failed to request interrupt\n");
+	if (rc)
 		goto err_cleanup;
-	}
 
 	rc = usb_add_gadget_udc(&pdev->dev, &udc->gadget);
 	if (rc) {

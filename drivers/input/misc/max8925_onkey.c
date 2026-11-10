@@ -78,8 +78,7 @@ static int max8925_onkey_probe(struct platform_device *pdev)
 	if (irq[1] < 0)
 		return -EINVAL;
 
-	info = devm_kzalloc(&pdev->dev, sizeof(struct max8925_onkey_info),
-			    GFP_KERNEL);
+	info = devm_kzalloc_obj(&pdev->dev, struct max8925_onkey_info);
 	if (!info)
 		return -ENOMEM;
 
@@ -96,7 +95,6 @@ static int max8925_onkey_probe(struct platform_device *pdev)
 	input->name = "max8925_on";
 	input->phys = "max8925_on/input0";
 	input->id.bustype = BUS_I2C;
-	input->dev.parent = &pdev->dev;
 	input_set_capability(input, EV_KEY, KEY_POWER);
 
 	error = devm_request_threaded_irq(&pdev->dev, irq[0], NULL,

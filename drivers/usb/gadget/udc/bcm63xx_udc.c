@@ -1830,7 +1830,6 @@ static int bcm63xx_udc_start(struct usb_gadget *gadget,
 	bcm63xx_select_phy_mode(udc, true);
 
 	udc->driver = driver;
-	udc->gadget.dev.of_node = udc->dev->of_node;
 
 	spin_unlock_irqrestore(&udc->lock, flags);
 
@@ -2274,7 +2273,7 @@ static int bcm63xx_udc_probe(struct platform_device *pdev)
 	struct bcm63xx_udc *udc;
 	int rc = -ENOMEM, i, irq;
 
-	udc = devm_kzalloc(dev, sizeof(*udc), GFP_KERNEL);
+	udc = devm_kzalloc_obj(dev, *udc);
 	if (!udc)
 		return -ENOMEM;
 

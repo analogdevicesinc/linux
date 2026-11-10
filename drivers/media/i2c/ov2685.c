@@ -340,6 +340,7 @@ static void ov2685_fill_fmt(const struct ov2685_mode *mode,
 }
 
 static int ov2685_set_fmt(struct v4l2_subdev *sd,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -413,6 +414,7 @@ __ov2685_get_pad_crop(struct ov2685 *ov2685,
 }
 
 static int ov2685_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -776,7 +778,7 @@ static int ov2685_probe(struct i2c_client *client)
 	struct ov2685 *ov2685;
 	int ret;
 
-	ov2685 = devm_kzalloc(dev, sizeof(*ov2685), GFP_KERNEL);
+	ov2685 = devm_kzalloc_obj(dev, *ov2685);
 	if (!ov2685)
 		return -ENOMEM;
 

@@ -40,8 +40,8 @@ static const struct sp_dev_vdata dev_vdata[] = {
 };
 
 static const struct acpi_device_id sp_acpi_match[] = {
-	{ "AMDI0C00", (kernel_ulong_t)&dev_vdata[0] },
-	{ },
+	{ .id = "AMDI0C00", .driver_data = (kernel_ulong_t)&dev_vdata[0] },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, sp_acpi_match);
 
@@ -107,7 +107,7 @@ static int sp_platform_probe(struct platform_device *pdev)
 	if (!sp)
 		goto e_err;
 
-	sp_platform = devm_kzalloc(dev, sizeof(*sp_platform), GFP_KERNEL);
+	sp_platform = devm_kzalloc_obj(dev, *sp_platform);
 	if (!sp_platform)
 		goto e_err;
 

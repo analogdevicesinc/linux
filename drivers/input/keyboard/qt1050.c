@@ -446,7 +446,7 @@ static int qt1050_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
+	ts = devm_kzalloc_obj(dev, *ts);
 	if (!ts)
 		return -ENOMEM;
 
@@ -476,7 +476,6 @@ static int qt1050_probe(struct i2c_client *client)
 	}
 
 	input->name = "AT42QT1050 QTouch Sensor";
-	input->dev.parent = &client->dev;
 	input->id.bustype = BUS_I2C;
 
 	/* Add the keycode */

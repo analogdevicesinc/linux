@@ -96,6 +96,19 @@ static const struct nxpwifi_sdio_device nxpwifi_sdio_iw61x = {
 	.can_ext_scan = true,
 };
 
+static const struct nxpwifi_sdio_device nxpwifi_sdio_iw610 = {
+	.firmware = IW610_SDIO_FW_NAME,
+	.reg = &nxpwifi_reg_iw61x,
+	.max_ports = 32,
+	.mp_agg_pkt_limit = 16,
+	.tx_buf_size = NXPWIFI_TX_DATA_BUF_SIZE_4K,
+	.mp_tx_agg_buf_size = NXPWIFI_MP_AGGR_BSIZE_MAX,
+	.mp_rx_agg_buf_size = NXPWIFI_MP_AGGR_BSIZE_MAX,
+	.can_dump_fw = true,
+	.fw_dump_enh = true,
+	.can_ext_scan = true,
+};
+
 static struct memory_type_mapping generic_mem_type_map[] = {
 	{"DUMP", NULL, 0, 0xDD},
 };
@@ -125,7 +138,7 @@ nxpwifi_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 	int ret;
 	struct sdio_mmc_card *card = NULL;
 
-	card = devm_kzalloc(&func->dev, sizeof(*card), GFP_KERNEL);
+	card = devm_kzalloc_obj(&func->dev, *card);
 	if (!card)
 		return -ENOMEM;
 
@@ -458,6 +471,8 @@ static void nxpwifi_sdio_coredump(struct device *dev)
 static const struct sdio_device_id nxpwifi_ids[] = {
 	{SDIO_DEVICE(SDIO_VENDOR_ID_NXP, SDIO_DEVICE_ID_NXP_IW61X),
 		.driver_data = (unsigned long)&nxpwifi_sdio_iw61x},
+	{SDIO_DEVICE(SDIO_VENDOR_ID_NXP, SDIO_DEVICE_ID_NXP_IW610),
+		.driver_data = (unsigned long)&nxpwifi_sdio_iw610},
 	{},
 };
 
@@ -665,7 +680,7 @@ nxpwifi_sdio_poll_card_status(struct nxpwifi_adapter *adapter, u8 bits)
 
 	nxpwifi_dbg(adapter, ERROR, "poll card status failed, tries = %d\n", tries);
 
-	return ret;
+	return ret ?: -ETIMEDOUT;
 }
 
 /* Disable SDIO host interrupt and release IRQ. */
@@ -1729,8 +1744,8 @@ static int nxpwifi_init_sdio(struct nxpwifi_adapter *adapter)
 		return -ENOMEM;
 
 	card->mpa_rx.len_arr =
-		devm_kcalloc(&card->func->dev, card->mp_agg_pkt_limit,
-			     sizeof(*card->mpa_rx.len_arr), GFP_KERNEL);
+		devm_kzalloc_objs(&card->func->dev, *card->mpa_rx.len_arr,
+				  card->mp_agg_pkt_limit);
 
 	if (!card->mpa_rx.len_arr)
 		return -ENOMEM;
@@ -2326,3 +2341,4 @@ MODULE_DESCRIPTION("NXP WiFi SDIO Driver version " SDIO_VERSION);
 MODULE_VERSION(SDIO_VERSION);
 MODULE_LICENSE("GPL");
 MODULE_FIRMWARE(IW61X_SDIO_FW_NAME);
+MODULE_FIRMWARE(IW610_SDIO_FW_NAME);

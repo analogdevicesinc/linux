@@ -343,8 +343,7 @@ static int stmpe_keypad_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
-	keypad = devm_kzalloc(&pdev->dev, sizeof(struct stmpe_keypad),
-			      GFP_KERNEL);
+	keypad = devm_kzalloc_obj(&pdev->dev, struct stmpe_keypad);
 	if (!keypad)
 		return -ENOMEM;
 
@@ -361,7 +360,6 @@ static int stmpe_keypad_probe(struct platform_device *pdev)
 
 	input->name = "STMPE keypad";
 	input->id.bustype = BUS_I2C;
-	input->dev.parent = &pdev->dev;
 
 	error = matrix_keypad_parse_properties(&pdev->dev, &rows, &cols);
 	if (error)

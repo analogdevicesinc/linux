@@ -732,7 +732,6 @@ int otx2_txschq_config(struct otx2_nic *pfvf, int lvl, int prio, bool txschq_for
 
 	return otx2_sync_mbox_msg(&pfvf->mbox);
 }
-EXPORT_SYMBOL(otx2_txschq_config);
 
 int otx2_smq_flush(struct otx2_nic *pfvf, int smq)
 {
@@ -756,7 +755,6 @@ int otx2_smq_flush(struct otx2_nic *pfvf, int smq)
 	mutex_unlock(&pfvf->mbox.lock);
 	return rc;
 }
-EXPORT_SYMBOL(otx2_smq_flush);
 
 int otx2_txsch_alloc(struct otx2_nic *pfvf)
 {
@@ -828,7 +826,6 @@ void otx2_txschq_free_one(struct otx2_nic *pfvf, u16 lvl, u16 schq)
 
 	mutex_unlock(&pfvf->mbox.lock);
 }
-EXPORT_SYMBOL(otx2_txschq_free_one);
 
 void otx2_txschq_stop(struct otx2_nic *pfvf)
 {
@@ -1201,8 +1198,8 @@ int otx2_config_nix_queues(struct otx2_nic *pfvf)
 							   NIX_LF_CQ_OP_STATUS);
 
 	/* Initialize work queue for receive buffer refill */
-	pfvf->refill_wrk = devm_kcalloc(pfvf->dev, pfvf->qset.cq_cnt,
-					sizeof(struct refill_work), GFP_KERNEL);
+	pfvf->refill_wrk = devm_kzalloc_objs(pfvf->dev, struct refill_work,
+					     pfvf->qset.cq_cnt);
 	if (!pfvf->refill_wrk)
 		return -ENOMEM;
 
@@ -1528,8 +1525,8 @@ int otx2_pool_aq_init(struct otx2_nic *pfvf, u16 pool_id,
 	if (xsk_pool) {
 		pool->xsk_pool = xsk_pool;
 		pool->xdp_cnt = numptrs;
-		pool->xdp = devm_kcalloc(pfvf->dev,
-					 numptrs, sizeof(struct xdp_buff *), GFP_KERNEL);
+		pool->xdp = devm_kzalloc_objs(pfvf->dev, struct xdp_buff *,
+					      numptrs);
 		if (!pool->xdp)
 			return -ENOMEM;
 	}
@@ -1690,8 +1687,8 @@ int otx2_config_npa(struct otx2_nic *pfvf)
 	if (!hw->pool_cnt)
 		return -EINVAL;
 
-	qset->pool = devm_kcalloc(pfvf->dev, hw->pool_cnt,
-				  sizeof(struct otx2_pool), GFP_KERNEL);
+	qset->pool = devm_kzalloc_objs(pfvf->dev, struct otx2_pool,
+				       hw->pool_cnt);
 	if (!qset->pool)
 		return -ENOMEM;
 
@@ -1834,7 +1831,6 @@ int otx2_nix_config_bp(struct otx2_nic *pfvf, bool enable)
 
 	return otx2_sync_mbox_msg(&pfvf->mbox);
 }
-EXPORT_SYMBOL(otx2_nix_config_bp);
 
 int otx2_nix_cpt_config_bp(struct otx2_nic *pfvf, bool enable)
 {
@@ -1859,7 +1855,6 @@ int otx2_nix_cpt_config_bp(struct otx2_nic *pfvf, bool enable)
 
 	return otx2_sync_mbox_msg(&pfvf->mbox);
 }
-EXPORT_SYMBOL(otx2_nix_cpt_config_bp);
 
 /* Mbox message handlers */
 void mbox_handler_cgx_stats(struct otx2_nic *pfvf,
@@ -2106,8 +2101,7 @@ otx2_mbox_up_handler_ ## _fn_name(struct otx2_nic *pfvf,		\
 {									\
 	/* Nothing to do here */					\
 	return 0;							\
-}									\
-EXPORT_SYMBOL(otx2_mbox_up_handler_ ## _fn_name);
+}
 MBOX_UP_CGX_MESSAGES
 MBOX_UP_MCS_MESSAGES
 #undef M
@@ -2121,10 +2115,8 @@ dma_addr_t otx2_dma_map_skb_frag(struct otx2_nic *pfvf,
 	int offset;
 
 	/* Crypto hardware need write permission for ipsec crypto offload */
-	if (unlikely(xfrm_offload(skb))) {
+	if (unlikely(xfrm_offload(skb)))
 		dir = DMA_BIDIRECTIONAL;
-		skb = skb_unshare(skb, GFP_ATOMIC);
-	}
 
 	/* First segment is always skb->data */
 	if (!seg) {
@@ -2140,13 +2132,12 @@ dma_addr_t otx2_dma_map_skb_frag(struct otx2_nic *pfvf,
 	return otx2_dma_map_page(pfvf, page, offset, *len, dir);
 }
 
-void otx2_dma_unmap_skb_frags(struct otx2_nic *pfvf, struct sg_list *sg)
+void otx2_dma_unmap_skb_frags(struct otx2_nic *pfvf, struct sg_list *sg,
+			      struct sk_buff *skb)
 {
 	enum dma_data_direction dir = DMA_TO_DEVICE;
-	struct sk_buff *skb = NULL;
 	int seg;
 
-	skb = (struct sk_buff *)sg->skb;
 	if (unlikely(xfrm_offload(skb)))
 		dir = DMA_BIDIRECTIONAL;
 

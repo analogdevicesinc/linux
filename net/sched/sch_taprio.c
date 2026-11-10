@@ -49,6 +49,13 @@ static struct static_key_false taprio_have_working_mqprio;
  */
 #define TAPRIO_PICOS_PER_BYTE_MIN 17
 
+/* Each entry is a separate 368-byte sched_entry and, in full offload, is
+ * also composed into a per-entry offload array. The u16 nla_len admits
+ * roughly 5460 minimal 12-byte entries, pinning ~2 MiB; 1024 matches the
+ * SJA1105 schedule-table capacity (SJA1110 provides 4096) and the act_gate cap.
+ */
+#define TAPRIO_ENTRIES_MAX	1024U
+
 struct sched_entry {
 	/* Durations between this GCL entry and the GCL entry where the
 	 * respective traffic class gate closes
@@ -632,6 +639,11 @@ static int taprio_enqueue(struct sk_buff *skb, struct Qdisc *sch,
 	int queue;
 
 	queue = skb_get_queue_mapping(skb);
+	if (unlikely(queue >= qdisc_dev(sch)->real_num_tx_queues)) {
+		/* A tc BPF program may have stored an out-of-range mapping. */
+		queue = netdev_cap_txqueue(qdisc_dev(sch), queue);
+		skb_set_queue_mapping(skb, queue);
+	}
 
 	child = q->qdiscs[queue];
 	if (unlikely(child == &noop_qdisc))
@@ -1103,6 +1115,13 @@ static int parse_sched_list(struct taprio_sched *q, struct nlattr *list,
 		if (nla_type(n) != TCA_TAPRIO_SCHED_ENTRY) {
 			NL_SET_ERR_MSG(extack, "Attribute is not of type 'entry'");
 			continue;
+		}
+
+		if (i >= TAPRIO_ENTRIES_MAX) {
+			NL_SET_ERR_MSG_FMT(extack,
+					   "Too many schedule entries, at most %u are supported",
+					   TAPRIO_ENTRIES_MAX);
+			return -E2BIG;
 		}
 
 		entry = kzalloc_obj(*entry);
@@ -2572,7 +2591,11 @@ static int __init taprio_module_init(void)
 	if (err)
 		return err;
 
-	return register_qdisc(&taprio_qdisc_ops);
+	err = register_qdisc(&taprio_qdisc_ops);
+	if (err)
+		unregister_netdevice_notifier(&taprio_device_notifier);
+
+	return err;
 }
 
 static void __exit taprio_module_exit(void)

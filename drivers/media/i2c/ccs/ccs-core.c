@@ -1228,10 +1228,9 @@ static int ccs_get_mbus_formats(struct ccs_sensor *sensor)
 			    compressed_max_bpp);
 	}
 
-	sensor->valid_link_freqs = devm_kcalloc(
-		&client->dev,
-		compressed_max_bpp - sensor->compressed_min_bpp + 1,
-		sizeof(*sensor->valid_link_freqs), GFP_KERNEL);
+	sensor->valid_link_freqs = devm_kzalloc_objs(&client->dev,
+						     *sensor->valid_link_freqs,
+						     compressed_max_bpp - sensor->compressed_min_bpp + 1);
 	if (!sensor->valid_link_freqs)
 		return -ENOMEM;
 
@@ -2189,6 +2188,7 @@ static void ccs_propagate(struct v4l2_subdev *subdev,
 }
 
 static int ccs_set_format_source(struct v4l2_subdev *subdev,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
@@ -2242,6 +2242,7 @@ static int ccs_set_format_source(struct v4l2_subdev *subdev,
 }
 
 static int ccs_set_format(struct v4l2_subdev *subdev,
+			  const struct v4l2_subdev_client_info *ci,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *fmt)
 {
@@ -2252,7 +2253,7 @@ static int ccs_set_format(struct v4l2_subdev *subdev,
 	if (fmt->pad == ssd->source_pad) {
 		int rval;
 
-		rval = ccs_set_format_source(subdev, sd_state, fmt);
+		rval = ccs_set_format_source(subdev, ci, sd_state, fmt);
 
 		return rval;
 	}
@@ -2467,6 +2468,7 @@ static void ccs_set_compose_scaler(struct v4l2_subdev *subdev,
 }
 /* We're only called on source pads. This function sets scaling. */
 static int ccs_set_compose(struct v4l2_subdev *subdev,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_selection *sel)
 {
@@ -2536,6 +2538,7 @@ static int ccs_sel_supported(struct v4l2_subdev *subdev,
 }
 
 static int ccs_set_crop(struct v4l2_subdev *subdev,
+			const struct v4l2_subdev_client_info *ci,
 			struct v4l2_subdev_state *sd_state,
 			struct v4l2_subdev_selection *sel)
 {
@@ -2587,6 +2590,7 @@ static void ccs_get_native_size(struct ccs_subdev *ssd, struct v4l2_rect *r)
 }
 
 static int ccs_get_selection(struct v4l2_subdev *subdev,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_selection *sel)
 {
@@ -2633,6 +2637,7 @@ static int ccs_get_selection(struct v4l2_subdev *subdev,
 }
 
 static int ccs_set_selection(struct v4l2_subdev *subdev,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_selection *sel)
 {
@@ -2655,10 +2660,10 @@ static int ccs_set_selection(struct v4l2_subdev *subdev,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		ret = ccs_set_crop(subdev, sd_state, sel);
+		ret = ccs_set_crop(subdev, ci, sd_state, sel);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		ret = ccs_set_compose(subdev, sd_state, sel);
+		ret = ccs_set_compose(subdev, ci, sd_state, sel);
 		break;
 	default:
 		ret = -EINVAL;
@@ -3197,9 +3202,8 @@ static int ccs_get_hwconfig(struct ccs_sensor *sensor, struct device *dev)
 	}
 
 	hwcfg->op_sys_clock =
-		devm_kcalloc(dev,
-			     bus_cfg.nr_of_link_frequencies + 1 /* guardian */,
-			     sizeof(*hwcfg->op_sys_clock), GFP_KERNEL);
+		devm_kzalloc_objs(dev, *hwcfg->op_sys_clock,
+				  bus_cfg.nr_of_link_frequencies + 1)/* guardian */;
 	if (!hwcfg->op_sys_clock) {
 		rval = -ENOMEM;
 		goto out_err;
@@ -3269,7 +3273,7 @@ static int ccs_probe(struct i2c_client *client)
 	unsigned int i;
 	int rval;
 
-	sensor = devm_kzalloc(&client->dev, sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kzalloc_obj(&client->dev, *sensor);
 	if (sensor == NULL)
 		return -ENOMEM;
 
@@ -3282,10 +3286,9 @@ static int ccs_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&sensor->src->sd, client, &ccs_ops);
 	sensor->src->sd.internal_ops = &ccs_internal_src_ops;
 
-	sensor->regulators = devm_kcalloc(&client->dev,
-					  ARRAY_SIZE(ccs_regulators),
-					  sizeof(*sensor->regulators),
-					  GFP_KERNEL);
+	sensor->regulators = devm_kzalloc_objs(&client->dev,
+					       *sensor->regulators,
+					       ARRAY_SIZE(ccs_regulators));
 	if (!sensor->regulators)
 		return -ENOMEM;
 

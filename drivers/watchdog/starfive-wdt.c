@@ -12,6 +12,7 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 /* JH7100 Watchdog register define */
@@ -72,12 +73,12 @@ module_param(early_enable, bool, 0);
 module_param(nowayout, bool, 0);
 
 MODULE_PARM_DESC(heartbeat, "Watchdog heartbeat in seconds. (default="
-		 __MODULE_STRING(STARFIVE_WDT_DEFAULT_TIME) ")");
+		 __stringify(STARFIVE_WDT_DEFAULT_TIME) ")");
 MODULE_PARM_DESC(early_enable,
 		 "Watchdog is started at boot time if set to 1, default="
-		 __MODULE_STRING(STARFIVE_WDT_EARLY_ENA));
+		 __stringify(STARFIVE_WDT_EARLY_ENA));
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		 __stringify(WATCHDOG_NOWAYOUT) ")");
 
 struct starfive_wdt_variant {
 	unsigned int control;		/* Watchdog Control Register for reset enable */
@@ -430,7 +431,7 @@ static int starfive_wdt_probe(struct platform_device *pdev)
 	struct starfive_wdt *wdt;
 	int ret;
 
-	wdt = devm_kzalloc(&pdev->dev, sizeof(*wdt), GFP_KERNEL);
+	wdt = devm_kzalloc_obj(&pdev->dev, *wdt);
 	if (!wdt)
 		return -ENOMEM;
 

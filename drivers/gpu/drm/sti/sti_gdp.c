@@ -911,7 +911,7 @@ static const struct drm_plane_funcs sti_gdp_plane_helpers_funcs = {
 	.update_plane = drm_atomic_helper_update_plane,
 	.disable_plane = drm_atomic_helper_disable_plane,
 	.destroy = drm_plane_cleanup,
-	.reset = drm_atomic_helper_plane_reset,
+	.atomic_create_state = drm_atomic_helper_plane_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_plane_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_plane_destroy_state,
 	.late_register = sti_gdp_late_register,
@@ -926,7 +926,7 @@ struct drm_plane *sti_gdp_create(struct drm_device *drm_dev,
 	struct sti_gdp *gdp;
 	int res;
 
-	gdp = devm_kzalloc(dev, sizeof(*gdp), GFP_KERNEL);
+	gdp = devm_kzalloc_obj(dev, *gdp);
 	if (!gdp) {
 		DRM_ERROR("Failed to allocate memory for GDP\n");
 		return NULL;

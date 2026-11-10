@@ -265,7 +265,7 @@ static int cdns_idle_init(struct cdns *cdns)
 {
 	struct cdns_role_driver *rdrv;
 
-	rdrv = devm_kzalloc(cdns->dev, sizeof(*rdrv), GFP_KERNEL);
+	rdrv = devm_kzalloc_obj(cdns->dev, *rdrv);
 	if (!rdrv)
 		return -ENOMEM;
 
@@ -449,10 +449,8 @@ int cdns_init(struct cdns *cdns)
 						IRQF_SHARED,
 						dev_name(cdns->dev), cdns);
 
-		if (ret) {
-			dev_err(cdns->dev, "couldn't register wakeup irq handler\n");
+		if (ret)
 			goto role_switch_unregister;
-		}
 	}
 
 	ret = cdns_drd_init(cdns);

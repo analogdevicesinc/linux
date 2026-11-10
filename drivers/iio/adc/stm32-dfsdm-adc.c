@@ -1484,7 +1484,7 @@ static void stm32_dfsdm_dma_release(struct iio_dev *indio_dev)
 	struct stm32_dfsdm_adc *adc = iio_priv(indio_dev);
 
 	if (adc->dma_chan) {
-		dma_free_coherent(adc->dma_chan->device->dev,
+		dma_free_coherent(dmaengine_get_dma_device(adc->dma_chan),
 				  DFSDM_DMA_BUFFER_SIZE,
 				  adc->rx_buf, adc->dma_buf);
 		dma_release_channel(adc->dma_chan);
@@ -1504,7 +1504,7 @@ static int stm32_dfsdm_dma_request(struct device *dev,
 		return ret;
 	}
 
-	adc->rx_buf = dma_alloc_coherent(adc->dma_chan->device->dev,
+	adc->rx_buf = dma_alloc_coherent(dmaengine_get_dma_device(adc->dma_chan),
 					 DFSDM_DMA_BUFFER_SIZE,
 					 &adc->dma_buf, GFP_KERNEL);
 	if (!adc->rx_buf) {
@@ -1613,7 +1613,7 @@ static int stm32_dfsdm_audio_init(struct device *dev, struct iio_dev *indio_dev)
 	if (num_ch == 1)
 		legacy = true;
 
-	ch = devm_kzalloc(&indio_dev->dev, sizeof(*ch), GFP_KERNEL);
+	ch = devm_kzalloc_obj(&indio_dev->dev, *ch);
 	if (!ch)
 		return -ENOMEM;
 
@@ -1679,13 +1679,13 @@ static int stm32_dfsdm_adc_init(struct device *dev, struct iio_dev *indio_dev)
 		/* Generic binding. SD modulator IIO device not used. Use SD modulator backend. */
 		adc->hwc = NULL;
 
-		adc->backend = devm_kcalloc(&indio_dev->dev, num_ch, sizeof(*adc->backend),
-					    GFP_KERNEL);
+		adc->backend = devm_kzalloc_objs(&indio_dev->dev, *adc->backend,
+						 num_ch);
 		if (!adc->backend)
 			return -ENOMEM;
 	}
 
-	ch = devm_kcalloc(&indio_dev->dev, num_ch, sizeof(*ch), GFP_KERNEL);
+	ch = devm_kzalloc_objs(&indio_dev->dev, *ch, num_ch);
 	if (!ch)
 		return -ENOMEM;
 	indio_dev->channels = ch;

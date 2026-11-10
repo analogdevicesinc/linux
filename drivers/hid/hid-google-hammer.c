@@ -268,7 +268,7 @@ static void cbas_ec_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id cbas_ec_acpi_ids[] = {
-	{ "GOOG000B", 0 },
+	{ .id = "GOOG000B" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, cbas_ec_acpi_ids);
@@ -342,8 +342,7 @@ static int hammer_register_leds(struct hid_device *hdev)
 {
 	struct hammer_kbd_leds *kbd_backlight;
 
-	kbd_backlight = devm_kzalloc(&hdev->dev, sizeof(*kbd_backlight),
-				     GFP_KERNEL);
+	kbd_backlight = devm_kzalloc_obj(&hdev->dev, *kbd_backlight);
 	if (!kbd_backlight)
 		return -ENOMEM;
 
@@ -482,7 +481,7 @@ static int hammer_probe(struct hid_device *hdev,
 	struct vivaldi_data *vdata;
 	int error;
 
-	vdata = devm_kzalloc(&hdev->dev, sizeof(*vdata), GFP_KERNEL);
+	vdata = devm_kzalloc_obj(&hdev->dev, *vdata);
 	if (!vdata)
 		return -ENOMEM;
 

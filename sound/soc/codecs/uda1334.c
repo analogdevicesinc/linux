@@ -193,12 +193,18 @@ static int uda1334_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
 
 #define UDA1334_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE)
 
+static const u64 uda1334_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF;
+
 static const struct snd_soc_dai_ops uda1334_dai_ops = {
 	.startup	= uda1334_startup,
 	.shutdown	= uda1334_shutdown,
 	.set_sysclk	= uda1334_set_dai_sysclk,
 	.set_fmt	= uda1334_set_fmt,
 	.mute_stream	= uda1334_mute_stream,
+	.auto_selectable_formats	= &uda1334_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver uda1334_dai = {
@@ -248,8 +254,7 @@ static int uda1334_codec_probe(struct platform_device *pdev)
 	struct uda1334_priv *uda1334;
 	int ret;
 
-	uda1334 = devm_kzalloc(&pdev->dev, sizeof(struct uda1334_priv),
-			       GFP_KERNEL);
+	uda1334 = devm_kzalloc_obj(&pdev->dev, struct uda1334_priv);
 	if (!uda1334)
 		return -ENOMEM;
 

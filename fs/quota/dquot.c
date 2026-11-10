@@ -809,6 +809,7 @@ static unsigned long
 dqcache_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 {
 	struct dquot *dquot;
+	unsigned long orig_nr_to_scan = sc->nr_to_scan;
 	unsigned long freed = 0;
 
 	spin_lock(&dq_list_lock);
@@ -822,6 +823,21 @@ dqcache_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 		freed++;
 	}
 	spin_unlock(&dq_list_lock);
+
+	sc->nr_scanned = orig_nr_to_scan - sc->nr_to_scan;
+
+	/*
+	 * DQST_FREE_DQUOTS is a percpu counter, so count_objects() can
+	 * report a stale/approximate value that is still positive even
+	 * though free_dquots is actually empty by the time we get here.
+	 * When that happens sc->nr_scanned comes back 0 and we have
+	 * nothing further to offer this reclaim pass, so tell
+	 * do_shrink_slab() to stop calling us instead of letting it burn
+	 * through its one-shot scan budget against an empty list.
+	 */
+	if (sc->nr_scanned == 0)
+		return SHRINK_STOP;
+
 	return freed;
 }
 
@@ -2079,7 +2095,7 @@ EXPORT_SYMBOL(__dquot_transfer);
 /* Wrapper for transferring ownership of an inode for uid/gid only
  * Called from FSXXX_setattr()
  */
-int dquot_transfer(struct mnt_idmap *idmap, struct inode *inode,
+int dquot_transfer(const struct mnt_idmap *idmap, struct inode *inode,
 		   struct iattr *iattr)
 {
 	struct dquot *transfer_to[MAXQUOTAS] = {};
@@ -2942,15 +2958,13 @@ static const struct ctl_table fs_dqstats_table[] = {
 	},
 };
 
-static int __init dquot_init(void)
+void __init dquot_cache_init(void)
 {
 	int i, ret;
 	unsigned long nr_hash;
 	struct shrinker *dqcache_shrinker;
 
 	printk(KERN_NOTICE "VFS: Disk quotas %s\n", __DQUOT_VERSION__);
-
-	register_sysctl_init("fs/quota", fs_dqstats_table);
 
 	dquot_cachep = kmem_cache_create("dquot",
 			sizeof(struct dquot), sizeof(unsigned long) * 4,
@@ -2992,7 +3006,11 @@ static int __init dquot_init(void)
 					   WQ_UNBOUND | WQ_MEM_RECLAIM, WQ_MAX_ACTIVE);
 	if (!quota_unbound_wq)
 		panic("Cannot create quota_unbound_wq\n");
+}
 
+static int __init init_fs_dquot_sysctls(void)
+{
+	register_sysctl_init("fs/quota", fs_dqstats_table);
 	return 0;
 }
-fs_initcall(dquot_init);
+fs_initcall(init_fs_dquot_sysctls);

@@ -907,7 +907,7 @@ static int _si5351_clkout_set_disable_state(
 	return 0;
 }
 
-static void _si5351_clkout_reset_pll(struct si5351_driver_data *drvdata, int num)
+static int _si5351_clkout_reset_pll(struct si5351_driver_data *drvdata, int num)
 {
 	u8 val = si5351_reg_read(drvdata, SI5351_CLK0_CTRL + num);
 	u8 mask = val & SI5351_CLK_PLL_SELECT ? SI5351_PLL_RESET_B :
@@ -918,7 +918,7 @@ static void _si5351_clkout_reset_pll(struct si5351_driver_data *drvdata, int num
 	switch (val & SI5351_CLK_INPUT_MASK) {
 	case SI5351_CLK_INPUT_XTAL:
 	case SI5351_CLK_INPUT_CLKIN:
-		return;  /* pll not used, no need to reset */
+		return 0;  /* pll not used, no need to reset */
 	}
 
 	si5351_reg_write(drvdata, SI5351_PLL_RESET, mask);
@@ -931,6 +931,8 @@ static void _si5351_clkout_reset_pll(struct si5351_driver_data *drvdata, int num
 	dev_dbg(&drvdata->client->dev, "%s - %s: pll = %d\n",
 		__func__, clk_hw_get_name(&drvdata->clkout[num].hw),
 		(val & SI5351_CLK_PLL_SELECT) ? 1 : 0);
+
+	return err;
 }
 
 static int si5351_clkout_prepare(struct clk_hw *hw)
@@ -947,8 +949,18 @@ static int si5351_clkout_prepare(struct clk_hw *hw)
 	 * Do a pll soft reset on the parent pll -- needed to get a
 	 * deterministic phase relationship between the output clocks.
 	 */
-	if (pdata->clkout[hwdata->num].pll_reset)
-		_si5351_clkout_reset_pll(hwdata->drvdata, hwdata->num);
+	if (pdata->clkout[hwdata->num].pll_reset) {
+		int ret;
+
+		ret = _si5351_clkout_reset_pll(hwdata->drvdata, hwdata->num);
+		if (ret) {
+			si5351_set_bits(hwdata->drvdata,
+					SI5351_CLK0_CTRL + hwdata->num,
+					SI5351_CLK_POWERDOWN,
+					SI5351_CLK_POWERDOWN);
+			return ret;
+		}
+	}
 
 	si5351_set_bits(hwdata->drvdata, SI5351_OUTPUT_ENABLE_CTRL,
 			(1 << hwdata->num), 0);
@@ -1183,7 +1195,7 @@ static int si5351_dt_parse(struct i2c_client *client,
 	if (np == NULL)
 		return 0;
 
-	pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(&client->dev, *pdata);
 	if (!pdata)
 		return -ENOMEM;
 
@@ -1452,7 +1464,7 @@ static int si5351_i2c_probe(struct i2c_client *client)
 	if (!pdata)
 		return -EINVAL;
 
-	drvdata = devm_kzalloc(&client->dev, sizeof(*drvdata), GFP_KERNEL);
+	drvdata = devm_kzalloc_obj(&client->dev, *drvdata);
 	if (!drvdata)
 		return -ENOMEM;
 
@@ -1627,10 +1639,10 @@ static int si5351_i2c_probe(struct i2c_client *client)
 	else
 		parent_names[1] = si5351_pll_names[1];
 
-	drvdata->msynth = devm_kcalloc(&client->dev, num_clocks,
-				       sizeof(*drvdata->msynth), GFP_KERNEL);
-	drvdata->clkout = devm_kcalloc(&client->dev, num_clocks,
-				       sizeof(*drvdata->clkout), GFP_KERNEL);
+	drvdata->msynth = devm_kzalloc_objs(&client->dev, *drvdata->msynth,
+					    num_clocks);
+	drvdata->clkout = devm_kzalloc_objs(&client->dev, *drvdata->clkout,
+					    num_clocks);
 	drvdata->num_clkout = num_clocks;
 
 	if (WARN_ON(!drvdata->msynth || !drvdata->clkout)) {

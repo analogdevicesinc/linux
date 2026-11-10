@@ -146,6 +146,7 @@ static const struct v4l2_subdev_video_ops video_mux_subdev_video_ops = {
 };
 
 static int video_mux_set_format(struct v4l2_subdev *sd,
+			    const struct v4l2_subdev_client_info *ci,
 			    struct v4l2_subdev_state *sd_state,
 			    struct v4l2_subdev_format *sdformat)
 {
@@ -396,7 +397,7 @@ static int video_mux_probe(struct platform_device *pdev)
 	unsigned int i;
 	int ret;
 
-	vmux = devm_kzalloc(dev, sizeof(*vmux), GFP_KERNEL);
+	vmux = devm_kzalloc_obj(dev, *vmux);
 	if (!vmux)
 		return -ENOMEM;
 
@@ -432,8 +433,7 @@ static int video_mux_probe(struct platform_device *pdev)
 
 	mutex_init(&vmux->lock);
 	vmux->active = -1;
-	vmux->pads = devm_kcalloc(dev, num_pads, sizeof(*vmux->pads),
-				  GFP_KERNEL);
+	vmux->pads = devm_kzalloc_objs(dev, *vmux->pads, num_pads);
 	if (!vmux->pads)
 		return -ENOMEM;
 

@@ -98,7 +98,7 @@ static int ar1021_i2c_probe(struct i2c_client *client)
 		return -ENXIO;
 	}
 
-	ar1021 = devm_kzalloc(&client->dev, sizeof(*ar1021), GFP_KERNEL);
+	ar1021 = devm_kzalloc_obj(&client->dev, *ar1021);
 	if (!ar1021)
 		return -ENOMEM;
 
@@ -111,7 +111,6 @@ static int ar1021_i2c_probe(struct i2c_client *client)
 
 	input->name = "ar1021 I2C Touchscreen";
 	input->id.bustype = BUS_I2C;
-	input->dev.parent = &client->dev;
 	input->open = ar1021_i2c_open;
 	input->close = ar1021_i2c_close;
 

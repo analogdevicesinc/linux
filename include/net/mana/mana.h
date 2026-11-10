@@ -47,8 +47,8 @@ enum mana_priv_flag_bits {
 #define COMP_ENTRY_SIZE 64
 
 /* This Max value for RX buffers is derived from __alloc_page()'s max page
- * allocation calculation. It allows maximum 2^(MAX_ORDER -1) pages. RX buffer
- * size beyond this value gets rejected by __alloc_page() call.
+ * allocation calculation. It allows maximum 2^MAX_PAGE_ORDER pages. RX
+ * buffer size beyond this value gets rejected by __alloc_page() call.
  */
 #define MAX_RX_BUFFERS_PER_QUEUE 8192
 #define DEF_RX_BUFFERS_PER_QUEUE 1024
@@ -90,6 +90,7 @@ enum mana_priv_flag_bits {
 /* Update this count whenever the respective structures are changed */
 #define MANA_STATS_RX_COUNT (6 + MANA_CQE_COAL_PKTS_8 - 1)
 #define MANA_STATS_TX_COUNT 11
+#define MANA_STATS_EQ_COUNT 1
 
 #define MANA_RX_FRAG_ALIGNMENT 64
 
@@ -672,6 +673,8 @@ struct mana_port_context {
 	u32 steer_cqe_coalescing;
 };
 
+netdev_tx_t __mana_start_xmit(struct sk_buff *skb, struct net_device *ndev,
+			      bool xdp);
 netdev_tx_t mana_start_xmit(struct sk_buff *skb, struct net_device *ndev);
 int mana_config_rss(struct mana_port_context *ac, enum TRI_STATE rx,
 		    bool update_hash, bool update_tab);

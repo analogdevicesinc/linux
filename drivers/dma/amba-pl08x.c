@@ -2500,8 +2500,8 @@ DEFINE_SHOW_ATTRIBUTE(pl08x_debugfs);
 static void init_pl08x_debugfs(struct pl08x_driver_data *pl08x)
 {
 	/* Expose a simple debugfs interface to view all clocks */
-	debugfs_create_file(dev_name(&pl08x->adev->dev), S_IFREG | S_IRUGO,
-			    NULL, pl08x, &pl08x_debugfs_fops);
+	debugfs_create_file("stats", 0444, pl08x->memcpy.dbg_dev_root,
+			    pl08x, &pl08x_debugfs_fops);
 }
 
 #else
@@ -2571,7 +2571,7 @@ static int pl08x_of_probe(struct amba_device *adev,
 	int ret;
 	int i;
 
-	pd = devm_kzalloc(&adev->dev, sizeof(*pd), GFP_KERNEL);
+	pd = devm_kzalloc_obj(&adev->dev, *pd);
 	if (!pd)
 		return -ENOMEM;
 
@@ -2658,10 +2658,8 @@ static int pl08x_of_probe(struct amba_device *adev,
 	 * translation time.
 	 */
 	if (pl08x->vd->signals) {
-		chanp = devm_kcalloc(&adev->dev,
-				     pl08x->vd->signals,
-				     sizeof(struct pl08x_channel_data),
-				     GFP_KERNEL);
+		chanp = devm_kzalloc_objs(&adev->dev, struct pl08x_channel_data,
+					  pl08x->vd->signals);
 		if (!chanp)
 			return -ENOMEM;
 

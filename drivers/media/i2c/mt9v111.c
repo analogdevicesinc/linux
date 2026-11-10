@@ -886,6 +886,7 @@ static int mt9v111_get_format(struct v4l2_subdev *subdev,
 }
 
 static int mt9v111_set_format(struct v4l2_subdev *subdev,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *format)
 {
@@ -1120,7 +1121,7 @@ static int mt9v111_probe(struct i2c_client *client)
 	struct v4l2_fract tpf;
 	int ret;
 
-	mt9v111 = devm_kzalloc(&client->dev, sizeof(*mt9v111), GFP_KERNEL);
+	mt9v111 = devm_kzalloc_obj(&client->dev, *mt9v111);
 	if (!mt9v111)
 		return -ENOMEM;
 

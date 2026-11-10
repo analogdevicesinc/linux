@@ -327,7 +327,7 @@ static int dw_mci_rk3288_execute_tuning(struct dw_mci *host, u32 opcode)
 						i,
 						priv->num_phases));
 
-		v = !mmc_send_tuning(mmc, opcode, NULL);
+		v = !mmc_send_tuning_timeout(mmc, opcode, NULL, 5);
 
 		if (i == 0)
 			first_v = v;
@@ -424,7 +424,7 @@ static int dw_mci_common_parse_dt(struct dw_mci *host)
 	struct device_node *np = host->dev->of_node;
 	struct dw_mci_rockchip_priv_data *priv;
 
-	priv = devm_kzalloc(host->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(host->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

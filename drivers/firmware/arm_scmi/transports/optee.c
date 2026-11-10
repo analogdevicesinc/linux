@@ -314,9 +314,14 @@ static int invoke_process_msg_channel(struct scmi_optee_channel *channel, size_t
 	return 0;
 }
 
-static bool scmi_optee_chan_available(struct device_node *of_node, int idx)
+static bool
+scmi_optee_chan_available(struct fwnode_handle *fwnode, int prot_id, int idx)
 {
 	u32 channel_id;
+	struct device_node *of_node = to_of_node(fwnode);
+
+	if (!of_node)
+		return false;
 
 	return !of_property_read_u32_index(of_node, "linaro,optee-channel-id",
 					   idx, &channel_id);
@@ -378,7 +383,7 @@ static int scmi_optee_chan_setup(struct scmi_chan_info *cinfo, struct device *de
 	if (!tx)
 		return -ENODEV;
 
-	channel = devm_kzalloc(dev, sizeof(*channel), GFP_KERNEL);
+	channel = devm_kzalloc_obj(dev, *channel);
 	if (!channel)
 		return -ENOMEM;
 
@@ -548,7 +553,7 @@ static int scmi_optee_service_probe(struct tee_client_device *scmi_pta)
 	if (IS_ERR(tee_ctx))
 		return -ENODEV;
 
-	agent = devm_kzalloc(dev, sizeof(*agent), GFP_KERNEL);
+	agent = devm_kzalloc_obj(dev, *agent);
 	if (!agent) {
 		ret = -ENOMEM;
 		goto err;

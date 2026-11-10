@@ -21,6 +21,8 @@
 #include <uapi/linux/nfsd_netlink.h>
 
 #include "nfsd.h"
+#include "nfserr.h"
+#include "nfs4ctl.h"
 #include "nfsfh.h"
 #include "netns.h"
 #include "pnfs.h"
@@ -359,7 +361,7 @@ int nfsd_nl_expkey_get_reqs_dumpit(struct sk_buff *skb,
 	}
 
 	items = kzalloc_objs(*items, cnt);
-	seqnos = kcalloc(cnt, sizeof(*seqnos), GFP_KERNEL);
+	seqnos = kzalloc_objs(*seqnos, cnt);
 	if (!items || !seqnos) {
 		ret = -ENOMEM;
 		goto out_alloc;
@@ -686,7 +688,7 @@ int nfsd_nl_svc_export_get_reqs_dumpit(struct sk_buff *skb,
 	}
 
 	items = kzalloc_objs(*items, cnt);
-	seqnos = kcalloc(cnt, sizeof(*seqnos), GFP_KERNEL);
+	seqnos = kzalloc_objs(*seqnos, cnt);
 	pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
 	if (!items || !seqnos || !pathbuf) {
 		ret = -ENOMEM;
@@ -1890,21 +1892,19 @@ __be32 check_security_flavor(struct svc_export *exp, struct svc_rqst *rqstp,
  * check_nfsd_access - check if access to export is allowed.
  * @exp: svc_export that is being accessed.
  * @rqstp: svc_rqst attempting to access @exp.
- * @may_bypass_gss: reduce strictness of authorization check
  *
  * Return values:
  *   %nfs_ok if access is granted, or
  *   %nfserr_wrongsec if access is denied
  */
-__be32 check_nfsd_access(struct svc_export *exp, struct svc_rqst *rqstp,
-			 bool may_bypass_gss)
+__be32 check_nfsd_access(struct svc_export *exp, struct svc_rqst *rqstp)
 {
 	__be32 status;
 
 	status = check_xprtsec_policy(exp, rqstp);
 	if (status != nfs_ok)
 		return status;
-	return check_security_flavor(exp, rqstp, may_bypass_gss);
+	return check_security_flavor(exp, rqstp, false);
 }
 
 /*

@@ -270,7 +270,7 @@ static void altera_mbox_shutdown(struct mbox_chan *chan)
 		writel_relaxed(~0, mbox->mbox_base + MAILBOX_INTMASK_REG);
 		free_irq(mbox->irq, chan);
 	} else if (!mbox->is_sender) {
-		timer_delete_sync(&mbox->rxpoll_timer);
+		timer_shutdown_sync(&mbox->rxpoll_timer);
 	}
 }
 
@@ -288,13 +288,12 @@ static int altera_mbox_probe(struct platform_device *pdev)
 	struct mbox_chan *chans;
 	int ret;
 
-	mbox = devm_kzalloc(&pdev->dev, sizeof(*mbox),
-			    GFP_KERNEL);
+	mbox = devm_kzalloc_obj(&pdev->dev, *mbox);
 	if (!mbox)
 		return -ENOMEM;
 
 	/* Allocated one channel */
-	chans = devm_kzalloc(&pdev->dev, sizeof(*chans), GFP_KERNEL);
+	chans = devm_kzalloc_obj(&pdev->dev, *chans);
 	if (!chans)
 		return -ENOMEM;
 

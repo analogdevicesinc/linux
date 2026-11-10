@@ -698,23 +698,16 @@ static const struct phy_ops noop_ops = {
 static u8 cdns_sierra_pll_mux_get_parent(struct clk_hw *hw)
 {
 	struct cdns_sierra_pll_mux *mux = to_cdns_sierra_pll_mux(hw);
-	struct regmap_field *plllc1en_field = mux->plllc1en_field;
-	struct regmap_field *termen_field = mux->termen_field;
 	struct regmap_field *field = mux->pfdclk_sel_preg;
 	unsigned int val;
 	int index;
 
 	regmap_field_read(field, &val);
 
-	if (strstr(clk_hw_get_name(hw), clk_names[CDNS_SIERRA_PLL_CMNLC1])) {
+	if (strstr(clk_hw_get_name(hw), clk_names[CDNS_SIERRA_PLL_CMNLC1]))
 		index = clk_mux_val_to_index(hw, cdns_sierra_pll_mux_table[CMN_PLLLC1], 0, val);
-		if (index == 1) {
-			regmap_field_write(plllc1en_field, 1);
-			regmap_field_write(termen_field, 1);
-		}
-	} else {
+	else
 		index = clk_mux_val_to_index(hw, cdns_sierra_pll_mux_table[CMN_PLLLC], 0, val);
-	}
 
 	return index;
 }
@@ -762,7 +755,7 @@ static int cdns_sierra_pll_mux_register(struct cdns_sierra_phy *sp,
 	char clk_name[100];
 	int ret;
 
-	mux = devm_kzalloc(dev, sizeof(*mux), GFP_KERNEL);
+	mux = devm_kzalloc_obj(dev, *mux);
 	if (!mux)
 		return -ENOMEM;
 
@@ -863,7 +856,7 @@ static int cdns_sierra_derived_refclk_register(struct cdns_sierra_phy *sp)
 	char clk_name[100];
 	int ret;
 
-	derived_refclk = devm_kzalloc(dev, sizeof(*derived_refclk), GFP_KERNEL);
+	derived_refclk = devm_kzalloc_obj(dev, *derived_refclk);
 	if (!derived_refclk)
 		return -ENOMEM;
 
@@ -981,7 +974,7 @@ static struct regmap *cdns_regmap_init(struct device *dev, void __iomem *base,
 {
 	struct cdns_regmap_cdb_context *ctx;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc_obj(dev, *ctx);
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
 
@@ -1380,9 +1373,8 @@ static int cdns_sierra_phy_probe(struct platform_device *pdev)
 	if (!data)
 		return -EINVAL;
 
-	sp = devm_kzalloc(dev, struct_size(sp, clk_data.hws,
-					   CDNS_SIERRA_OUTPUT_CLOCKS),
-			  GFP_KERNEL);
+	sp = devm_kzalloc_flex(dev, *sp, clk_data.hws,
+			       CDNS_SIERRA_OUTPUT_CLOCKS);
 	if (!sp)
 		return -ENOMEM;
 	dev_set_drvdata(dev, sp);

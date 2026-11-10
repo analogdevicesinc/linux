@@ -376,7 +376,7 @@ static void xilinxfb_release(struct device *dev)
 	struct xilinxfb_drvdata *drvdata = dev_get_drvdata(dev);
 
 #if !defined(CONFIG_FRAMEBUFFER_CONSOLE) && defined(CONFIG_LOGO)
-	xilinx_fb_blank(VESA_POWERDOWN, &drvdata->info);
+	xilinx_fb_blank(FB_BLANK_POWERDOWN, &drvdata->info);
 #endif
 
 	unregister_framebuffer(&drvdata->info);
@@ -415,7 +415,7 @@ static int xilinxfb_of_probe(struct platform_device *pdev)
 	pdata = xilinx_fb_default_pdata;
 
 	/* Allocate the driver data region */
-	drvdata = devm_kzalloc(&pdev->dev, sizeof(*drvdata), GFP_KERNEL);
+	drvdata = devm_kzalloc_obj(&pdev->dev, *drvdata);
 	if (!drvdata)
 		return -ENOMEM;
 

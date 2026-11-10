@@ -321,8 +321,7 @@ static int mt2701_cs42448_machine_probe(struct platform_device *pdev)
 	struct device_node *platform_node, *codec_node, *codec_node_bt_mrg;
 	struct device *dev = &pdev->dev;
 	struct mt2701_cs42448_private *priv =
-		devm_kzalloc(dev, sizeof(struct mt2701_cs42448_private),
-			     GFP_KERNEL);
+		devm_kzalloc_obj(dev, struct mt2701_cs42448_private);
 	struct snd_soc_dai_link *dai_link;
 
 	if (!priv)
@@ -366,10 +365,8 @@ static int mt2701_cs42448_machine_probe(struct platform_device *pdev)
 							= codec_node_bt_mrg;
 
 	ret = snd_soc_of_parse_audio_routing(card, "audio-routing");
-	if (ret) {
-		dev_err(dev, "failed to parse audio-routing: %d\n", ret);
+	if (ret)
 		return ret;
-	}
 
 	priv->i2s1_in_mux_sel_1 = devm_gpiod_get_optional(dev, "i2s1-in-sel-gpio1",
 							  GPIOD_OUT_LOW);

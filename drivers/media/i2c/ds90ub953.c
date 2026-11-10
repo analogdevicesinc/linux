@@ -426,6 +426,7 @@ static int ub953_set_routing(struct v4l2_subdev *sd,
 
 
 static int ub953_set_fmt(struct v4l2_subdev *sd,
+			 const struct v4l2_subdev_client_info *ci,
 			 struct v4l2_subdev_state *state,
 			 struct v4l2_subdev_format *format)
 {
@@ -1248,7 +1249,7 @@ static int ub953_probe(struct i2c_client *client)
 	struct ub953_data *priv;
 	int ret;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

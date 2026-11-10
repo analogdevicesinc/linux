@@ -132,7 +132,7 @@ static int stm32_rproc_of_memory_translations(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	p_mems = devm_kcalloc(dev, cnt, sizeof(*p_mems), GFP_KERNEL);
+	p_mems = devm_kzalloc_objs(dev, *p_mems, cnt);
 	if (!p_mems)
 		return -ENOMEM;
 	mem_range = kzalloc_objs(*mem_range, cnt);
@@ -675,7 +675,7 @@ static int stm32_rproc_parse_dt(struct platform_device *pdev,
 	int err, irq;
 
 	irq = platform_get_irq_optional(pdev, 0);
-	if (irq == -EPROBE_DEFER)
+	if (irq < 0 && irq != -ENXIO)
 		return irq;
 
 	if (irq > 0) {

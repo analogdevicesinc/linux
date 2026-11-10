@@ -309,7 +309,7 @@ static int bcm_kp_probe(struct platform_device *pdev)
 	struct input_dev *input_dev;
 	int error;
 
-	kp = devm_kzalloc(&pdev->dev, sizeof(*kp), GFP_KERNEL);
+	kp = devm_kzalloc_obj(&pdev->dev, *kp);
 	if (!kp)
 		return -ENOMEM;
 
@@ -327,7 +327,6 @@ static int bcm_kp_probe(struct platform_device *pdev)
 
 	input_dev->name = pdev->name;
 	input_dev->phys = "keypad/input0";
-	input_dev->dev.parent = &pdev->dev;
 	input_dev->open = bcm_kp_open;
 	input_dev->close = bcm_kp_close;
 

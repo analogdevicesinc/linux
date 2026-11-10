@@ -23,6 +23,7 @@ enum bpf_diag_mod_reason {
 	BPF_DIAG_MOD_VAR_WRITE,
 	BPF_DIAG_MOD_REF_RELEASE,
 	BPF_DIAG_MOD_PKT_DATA_CHANGE,
+	BPF_DIAG_MOD_SLICE_BUF,
 	BPF_DIAG_MOD_NON_OWN_REF,
 	BPF_DIAG_MOD_CALLER_SAVED,
 };
@@ -51,6 +52,7 @@ const char *bpf_diag_vfmt(struct bpf_verifier_env *env, const char *fmt, va_list
 const char *bpf_diag_fmt(struct bpf_verifier_env *env, const char *fmt, ...) __printf(2, 3);
 const char *bpf_diag_fmt_btf_type(struct bpf_verifier_env *env, const struct btf *btf, u32 type_id);
 const char *bpf_diag_reg_type_plain(struct bpf_verifier_env *env, enum bpf_reg_type type);
+const char *bpf_diag_arg_type_plain(enum bpf_arg_type type);
 u64 bpf_diag_event_log_save(struct bpf_verifier_env *env);
 void bpf_diag_event_log_restore(struct bpf_verifier_env *env, u64 log_pos);
 u32 bpf_diag_irq_depth(const struct bpf_verifier_state *state);

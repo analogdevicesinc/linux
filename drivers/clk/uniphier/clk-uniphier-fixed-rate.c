@@ -13,12 +13,12 @@ struct clk_hw *uniphier_clk_register_fixed_rate(struct device *dev,
 						const char *name,
 				const struct uniphier_clk_fixed_rate_data *data)
 {
+	struct clk_init_data init = {};
 	struct clk_fixed_rate *fixed;
-	struct clk_init_data init;
 	int ret;
 
 	/* allocate fixed-rate clock */
-	fixed = devm_kzalloc(dev, sizeof(*fixed), GFP_KERNEL);
+	fixed = devm_kzalloc_obj(dev, *fixed);
 	if (!fixed)
 		return ERR_PTR(-ENOMEM);
 

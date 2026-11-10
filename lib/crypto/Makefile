@@ -51,8 +51,22 @@ endif # !CONFIG_SPE
 endif # CONFIG_PPC
 
 libaes-$(CONFIG_RISCV) += riscv/aes-riscv64-zvkned.o
+ifneq ($(CONFIG_CRYPTO_LIB_AES_CTR),)
+libaes-$(CONFIG_RISCV) += riscv/aes-riscv64-zvkned-zvkb.o
+endif
+ifneq ($(CONFIG_CRYPTO_LIB_AES_XTS),)
+libaes-$(CONFIG_RISCV) += riscv/aes-riscv64-zvkned-zvbb-zvkg.o
+endif
+
 libaes-$(CONFIG_SPARC) += sparc/aes_asm.o
+
 libaes-$(CONFIG_X86) += x86/aes-aesni.o
+ifneq ($(CONFIG_CRYPTO_LIB_AES_CTR),)
+libaes-$(CONFIG_X86_64) += x86/aes-ctr-avx-x86_64.o
+endif
+ifneq ($(CONFIG_CRYPTO_LIB_AES_XTS),)
+libaes-$(CONFIG_X86_64) += x86/aes-xts-avx-x86_64.o
+endif
 endif # CONFIG_CRYPTO_LIB_AES_ARCH
 
 # clean-files must be defined unconditionally
@@ -242,8 +256,6 @@ $(obj)/mips/poly1305-core.S: $(src)/mips/poly1305-mips.pl FORCE
 targets += mips/poly1305-core.S
 endif
 
-libpoly1305-$(CONFIG_PPC) += powerpc/poly1305-p10le_64.o
-
 ifeq ($(CONFIG_RISCV),y)
 libpoly1305-y += riscv/poly1305-core.o
 poly1305-perlasm-flavour-$(CONFIG_32BIT) := 32
@@ -359,6 +371,12 @@ ifeq ($(CONFIG_CRYPTO_LIB_SHA3_ARCH),y)
 CFLAGS_sha3.o += -I$(src)/$(SRCARCH)
 libsha3-$(CONFIG_ARM64) += arm64/sha3-ce-core.o
 endif # CONFIG_CRYPTO_LIB_SHA3_ARCH
+
+################################################################################
+
+# SipHash support is always built-in because it's used by core components such
+# as printk (for pointer hashing) and networking.
+obj-y += siphash.o
 
 ################################################################################
 

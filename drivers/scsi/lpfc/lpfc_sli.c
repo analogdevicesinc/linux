@@ -2886,9 +2886,9 @@ lpfc_sli_def_mbox_cmpl(struct lpfc_hba *phba, LPFC_MBOXQ_t *pmb)
 		!test_bit(FC_UNLOADING, &phba->pport->load_flag) &&
 		!pmb->u.mb.mbxStatus) {
 		shost = lpfc_shost_from_vport(vport);
-		spin_lock_irq(shost->host_lock);
+		spin_lock_irq(&shost->host_lock);
 		vport->vpi_state |= LPFC_VPI_REGISTERED;
-		spin_unlock_irq(shost->host_lock);
+		spin_unlock_irq(&shost->host_lock);
 		clear_bit(FC_VPORT_NEEDS_REG_VPI, &vport->fc_flag);
 	}
 
@@ -3722,6 +3722,7 @@ lpfc_sli_iocbq_lookup_by_tag(struct lpfc_hba *phba,
 static int
 lpfc_sli_process_sol_iocb(struct lpfc_hba *phba, struct lpfc_sli_ring *pring,
 			  struct lpfc_iocbq *saveq)
+	__context_unsafe(/*conditional locking*/)
 {
 	struct lpfc_iocbq *cmdiocbp;
 	unsigned long iflag;
@@ -5726,17 +5727,14 @@ lpfc_sli_hba_setup(struct lpfc_hba *phba)
 		 */
 		if ((phba->vpi_bmask == NULL) && (phba->vpi_ids == NULL)) {
 			longs = (phba->max_vpi + BITS_PER_LONG) / BITS_PER_LONG;
-			phba->vpi_bmask = kcalloc(longs,
-						  sizeof(unsigned long),
-						  GFP_KERNEL);
+			phba->vpi_bmask = kzalloc_objs(unsigned long, longs);
 			if (!phba->vpi_bmask) {
 				rc = -ENOMEM;
 				goto lpfc_sli_hba_setup_error;
 			}
 
-			phba->vpi_ids = kcalloc(phba->max_vpi + 1,
-						sizeof(uint16_t),
-						GFP_KERNEL);
+			phba->vpi_ids = kzalloc_objs(uint16_t,
+						     phba->max_vpi + 1);
 			if (!phba->vpi_ids) {
 				kfree(phba->vpi_bmask);
 				rc = -ENOMEM;
@@ -6466,16 +6464,12 @@ lpfc_sli4_alloc_extent(struct lpfc_hba *phba, uint16_t type)
 	length = sizeof(struct lpfc_rsrc_blks);
 	switch (type) {
 	case LPFC_RSC_TYPE_FCOE_RPI:
-		phba->sli4_hba.rpi_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.rpi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.rpi_bmask)) {
 			rc = -ENOMEM;
 			goto err_exit;
 		}
-		phba->sli4_hba.rpi_ids = kcalloc(rsrc_id_cnt,
-						 sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.rpi_ids = kzalloc_objs(uint16_t, rsrc_id_cnt);
 		if (unlikely(!phba->sli4_hba.rpi_ids)) {
 			kfree(phba->sli4_hba.rpi_bmask);
 			rc = -ENOMEM;
@@ -6495,14 +6489,12 @@ lpfc_sli4_alloc_extent(struct lpfc_hba *phba, uint16_t type)
 		ext_blk_list = &phba->sli4_hba.lpfc_rpi_blk_list;
 		break;
 	case LPFC_RSC_TYPE_FCOE_VPI:
-		phba->vpi_bmask = kcalloc(longs, sizeof(unsigned long),
-					  GFP_KERNEL);
+		phba->vpi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->vpi_bmask)) {
 			rc = -ENOMEM;
 			goto err_exit;
 		}
-		phba->vpi_ids = kcalloc(rsrc_id_cnt, sizeof(uint16_t),
-					 GFP_KERNEL);
+		phba->vpi_ids = kzalloc_objs(uint16_t, rsrc_id_cnt);
 		if (unlikely(!phba->vpi_ids)) {
 			kfree(phba->vpi_bmask);
 			rc = -ENOMEM;
@@ -6515,17 +6507,13 @@ lpfc_sli4_alloc_extent(struct lpfc_hba *phba, uint16_t type)
 		ext_blk_list = &phba->lpfc_vpi_blk_list;
 		break;
 	case LPFC_RSC_TYPE_FCOE_XRI:
-		phba->sli4_hba.xri_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.xri_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.xri_bmask)) {
 			rc = -ENOMEM;
 			goto err_exit;
 		}
 		phba->sli4_hba.max_cfg_param.xri_used = 0;
-		phba->sli4_hba.xri_ids = kcalloc(rsrc_id_cnt,
-						 sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.xri_ids = kzalloc_objs(uint16_t, rsrc_id_cnt);
 		if (unlikely(!phba->sli4_hba.xri_ids)) {
 			kfree(phba->sli4_hba.xri_bmask);
 			rc = -ENOMEM;
@@ -6538,16 +6526,12 @@ lpfc_sli4_alloc_extent(struct lpfc_hba *phba, uint16_t type)
 		ext_blk_list = &phba->sli4_hba.lpfc_xri_blk_list;
 		break;
 	case LPFC_RSC_TYPE_FCOE_VFI:
-		phba->sli4_hba.vfi_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.vfi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.vfi_bmask)) {
 			rc = -ENOMEM;
 			goto err_exit;
 		}
-		phba->sli4_hba.vfi_ids = kcalloc(rsrc_id_cnt,
-						 sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.vfi_ids = kzalloc_objs(uint16_t, rsrc_id_cnt);
 		if (unlikely(!phba->sli4_hba.vfi_ids)) {
 			kfree(phba->sli4_hba.vfi_bmask);
 			rc = -ENOMEM;
@@ -7231,15 +7215,12 @@ lpfc_sli4_alloc_resource_identifiers(struct lpfc_hba *phba)
 		}
 		base = phba->sli4_hba.max_cfg_param.rpi_base;
 		longs = (count + BITS_PER_LONG - 1) / BITS_PER_LONG;
-		phba->sli4_hba.rpi_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.rpi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.rpi_bmask)) {
 			rc = -ENOMEM;
 			goto err_exit;
 		}
-		phba->sli4_hba.rpi_ids = kcalloc(count, sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.rpi_ids = kzalloc_objs(uint16_t, count);
 		if (unlikely(!phba->sli4_hba.rpi_ids)) {
 			rc = -ENOMEM;
 			goto free_rpi_bmask;
@@ -7259,14 +7240,12 @@ lpfc_sli4_alloc_resource_identifiers(struct lpfc_hba *phba)
 		}
 		base = phba->sli4_hba.max_cfg_param.vpi_base;
 		longs = (count + BITS_PER_LONG - 1) / BITS_PER_LONG;
-		phba->vpi_bmask = kcalloc(longs, sizeof(unsigned long),
-					  GFP_KERNEL);
+		phba->vpi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->vpi_bmask)) {
 			rc = -ENOMEM;
 			goto free_rpi_ids;
 		}
-		phba->vpi_ids = kcalloc(count, sizeof(uint16_t),
-					GFP_KERNEL);
+		phba->vpi_ids = kzalloc_objs(uint16_t, count);
 		if (unlikely(!phba->vpi_ids)) {
 			rc = -ENOMEM;
 			goto free_vpi_bmask;
@@ -7286,16 +7265,13 @@ lpfc_sli4_alloc_resource_identifiers(struct lpfc_hba *phba)
 		}
 		base = phba->sli4_hba.max_cfg_param.xri_base;
 		longs = (count + BITS_PER_LONG - 1) / BITS_PER_LONG;
-		phba->sli4_hba.xri_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.xri_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.xri_bmask)) {
 			rc = -ENOMEM;
 			goto free_vpi_ids;
 		}
 		phba->sli4_hba.max_cfg_param.xri_used = 0;
-		phba->sli4_hba.xri_ids = kcalloc(count, sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.xri_ids = kzalloc_objs(uint16_t, count);
 		if (unlikely(!phba->sli4_hba.xri_ids)) {
 			rc = -ENOMEM;
 			goto free_xri_bmask;
@@ -7315,15 +7291,12 @@ lpfc_sli4_alloc_resource_identifiers(struct lpfc_hba *phba)
 		}
 		base = phba->sli4_hba.max_cfg_param.vfi_base;
 		longs = (count + BITS_PER_LONG - 1) / BITS_PER_LONG;
-		phba->sli4_hba.vfi_bmask = kcalloc(longs,
-						   sizeof(unsigned long),
-						   GFP_KERNEL);
+		phba->sli4_hba.vfi_bmask = kzalloc_objs(unsigned long, longs);
 		if (unlikely(!phba->sli4_hba.vfi_bmask)) {
 			rc = -ENOMEM;
 			goto free_xri_ids;
 		}
-		phba->sli4_hba.vfi_ids = kcalloc(count, sizeof(uint16_t),
-						 GFP_KERNEL);
+		phba->sli4_hba.vfi_ids = kzalloc_objs(uint16_t, count);
 		if (unlikely(!phba->sli4_hba.vfi_ids)) {
 			rc = -ENOMEM;
 			goto free_vfi_bmask;
@@ -8108,7 +8081,6 @@ u32 lpfc_rx_monitor_report(struct lpfc_hba *phba,
 	spinlock_t *ring_lock = &rx_monitor->lock;
 	u32 ring_size = rx_monitor->entries;
 	u32 cnt = 0;
-	char tmp[DBG_LOG_STR_SZ] = {0};
 	bool log_to_kmsg = (!buf || !buf_len) ? true : false;
 	struct seq_buf s;
 
@@ -8133,27 +8105,37 @@ u32 lpfc_rx_monitor_report(struct lpfc_hba *phba,
 
 		/* Read out this entry's data. */
 		if (!log_to_kmsg) {
+			unsigned int len;
+
+			/* A header that did not fit leaves no room. */
+			if (seq_buf_has_overflowed(&s))
+				break;
+			len = seq_buf_used(&s);
+
+			seq_buf_printf(&s,
+				       "%03d:\t%-16llu%-16llu%-16llu%-16llu%-8llu%-8llu%-8llu%-8u%-8u%-8u%u(%u)\n",
+				       *head_idx,
+				       entry->max_bytes_per_interval,
+				       entry->cmf_bytes,
+				       entry->total_bytes,
+				       entry->rcv_bytes,
+				       entry->avg_io_latency,
+				       entry->avg_io_size,
+				       entry->max_read_cnt,
+				       entry->cmf_busy, entry->io_cnt,
+				       entry->cmf_info,
+				       entry->timer_utilization,
+				       entry->timer_interval);
+
 			/*
 			 * Drop a record whole if it does not fit, without
-			 * consuming its ring entry.
+			 * consuming its ring entry: the reader takes the
+			 * string up to its NUL.
 			 */
-			scnprintf(tmp, sizeof(tmp),
-				  "%03d:\t%-16llu%-16llu%-16llu%-16llu%-8llu%-8llu%-8llu%-8u%-8u%-8u%u(%u)\n",
-				  *head_idx,
-				  entry->max_bytes_per_interval,
-				  entry->cmf_bytes,
-				  entry->total_bytes,
-				  entry->rcv_bytes,
-				  entry->avg_io_latency,
-				  entry->avg_io_size,
-				  entry->max_read_cnt,
-				  entry->cmf_busy, entry->io_cnt,
-				  entry->cmf_info,
-				  entry->timer_utilization,
-				  entry->timer_interval);
-
-			if (seq_buf_puts(&s, tmp) < 0)
+			if (seq_buf_has_overflowed(&s)) {
+				buf[len] = '\0';
 				break;
+			}
 		} else {
 			lpfc_printf_log(phba, KERN_INFO, LOG_CGN_MGMT,
 					"4410 %02u: MBPI %llu Xmit %llu "
@@ -12730,8 +12712,12 @@ lpfc_sli_sum_iocb(struct lpfc_vport *vport, uint16_t tgt_id, uint64_t lun_id,
 
 		if (!iocbq || iocbq->vport != vport)
 			continue;
-		if (!(iocbq->cmd_flag & LPFC_IO_FCP) ||
-		    !(iocbq->cmd_flag & LPFC_IO_ON_TXCMPLQ))
+		/* Only count FCP i/o */
+		if (!(iocbq->cmd_flag & LPFC_IO_FCP))
+			continue;
+		/* Count i/o whilst LLDD retains an interest in the scsi_cmnd */
+		if (!(iocbq->cmd_flag &
+				(LPFC_IO_ON_TXCMPLQ | LPFC_DRIVER_ABORTED)))
 			continue;
 
 		/* Include counting outstanding aborts */
@@ -12876,6 +12862,7 @@ lpfc_sli_abort_iocb(struct lpfc_vport *vport, u16 tgt_id, u64 lun_id,
 int
 lpfc_sli_abort_taskmgmt(struct lpfc_vport *vport, struct lpfc_sli_ring *pring,
 			uint16_t tgt_id, uint64_t lun_id, lpfc_ctx_cmd cmd)
+	__context_unsafe(/*conditional locking*/)
 {
 	struct lpfc_hba *phba = vport->phba;
 	struct lpfc_io_buf *lpfc_cmd;

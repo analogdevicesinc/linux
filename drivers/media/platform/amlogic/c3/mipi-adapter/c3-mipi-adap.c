@@ -521,6 +521,7 @@ static int c3_mipi_adap_enum_mbus_code(struct v4l2_subdev *sd,
 }
 
 static int c3_mipi_adap_set_fmt(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_format *format)
 {
@@ -765,7 +766,7 @@ static int c3_mipi_adap_probe(struct platform_device *pdev)
 	struct c3_adap_device *adap;
 	int ret;
 
-	adap = devm_kzalloc(dev, sizeof(*adap), GFP_KERNEL);
+	adap = devm_kzalloc_obj(dev, *adap);
 	if (!adap)
 		return -ENOMEM;
 

@@ -163,7 +163,7 @@ static void dw_pcie_ep_clear_ib_maps(struct dw_pcie_ep *ep, u8 func_no, enum pci
 	/* Tear down the BAR Match Mode mapping, if any. */
 	if (ep_func->bar_to_atu[bar]) {
 		atu_index = ep_func->bar_to_atu[bar] - 1;
-		dw_pcie_disable_atu(pci, PCIE_ATU_REGION_DIR_IB, atu_index);
+		dw_pcie_disable_atu(pci, ATU_REGION_DIR_IB, atu_index);
 		clear_bit(atu_index, ep->ib_window_map);
 		ep_func->bar_to_atu[bar] = 0;
 		return;
@@ -177,7 +177,7 @@ static void dw_pcie_ep_clear_ib_maps(struct dw_pcie_ep *ep, u8 func_no, enum pci
 	if (!indexes)
 		return;
 	for (i = 0; i < num; i++) {
-		dw_pcie_disable_atu(pci, PCIE_ATU_REGION_DIR_IB, indexes[i]);
+		dw_pcie_disable_atu(pci, ATU_REGION_DIR_IB, indexes[i]);
 		clear_bit(indexes[i], ep->ib_window_map);
 	}
 	devm_kfree(dev, indexes);
@@ -285,8 +285,7 @@ static int dw_pcie_ep_ib_atu_addr(struct dw_pcie_ep *ep, u8 func_no, int type,
 		return -EINVAL;
 	}
 
-	indexes = devm_kcalloc(dev, epf_bar->num_submap, sizeof(*indexes),
-			       GFP_KERNEL);
+	indexes = devm_kzalloc_objs(dev, *indexes, epf_bar->num_submap);
 	if (!indexes)
 		return -ENOMEM;
 
@@ -647,7 +646,7 @@ static void dw_pcie_ep_unmap_addr(struct pci_epc *epc, u8 func_no, u8 vfunc_no,
 		return;
 
 	ep->outbound_addr[atu_index] = 0;
-	dw_pcie_disable_atu(pci, PCIE_ATU_REGION_DIR_OB, atu_index);
+	dw_pcie_disable_atu(pci, ATU_REGION_DIR_OB, atu_index);
 	clear_bit(atu_index, ep->ob_window_map);
 }
 
@@ -1077,10 +1076,10 @@ int dw_pcie_ep_raise_msix_irq_doorbell(struct dw_pcie_ep *ep, u8 func_no,
 	if (!ep_func || !ep_func->msix_cap)
 		return -EINVAL;
 
-	msg_data = (func_no << PCIE_MSIX_DOORBELL_PF_SHIFT) |
+	msg_data = FIELD_PREP(MSIX_DOORBELL_PF_MASK, func_no) |
 		   (interrupt_num - 1);
 
-	dw_pcie_writel_dbi(pci, PCIE_MSIX_DOORBELL, msg_data);
+	dw_pcie_writel_dbi(pci, MSIX_DOORBELL, msg_data);
 
 	return 0;
 }
@@ -1194,6 +1193,9 @@ void dw_pcie_ep_deinit(struct dw_pcie_ep *ep)
 			      epc->mem->window.page_size);
 
 	pci_epc_mem_exit(epc);
+
+	if (ep->ops->post_deinit)
+		ep->ops->post_deinit(ep);
 }
 EXPORT_SYMBOL_GPL(dw_pcie_ep_deinit);
 
@@ -1360,8 +1362,7 @@ int dw_pcie_ep_init_registers(struct dw_pcie_ep *ep)
 	}
 
 	if (!ep->outbound_addr) {
-		addr = devm_kcalloc(dev, pci->num_ob_windows, sizeof(phys_addr_t),
-				    GFP_KERNEL);
+		addr = devm_kzalloc_objs(dev, phys_addr_t, pci->num_ob_windows);
 		if (!addr)
 			goto err_remove_edma;
 		ep->outbound_addr = addr;
@@ -1373,7 +1374,7 @@ int dw_pcie_ep_init_registers(struct dw_pcie_ep *ep)
 		if (ep_func)
 			continue;
 
-		ep_func = devm_kzalloc(dev, sizeof(*ep_func), GFP_KERNEL);
+		ep_func = devm_kzalloc_obj(dev, *ep_func);
 		if (!ep_func)
 			goto err_remove_edma;
 
@@ -1553,7 +1554,7 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 			       ep->page_size);
 	if (ret < 0) {
 		dev_err(dev, "Failed to initialize address space\n");
-		return ret;
+		goto err_deinit;
 	}
 
 	ep->msi_mem = pci_epc_mem_alloc_addr(epc, &ep->msi_mem_phys,
@@ -1568,6 +1569,9 @@ int dw_pcie_ep_init(struct dw_pcie_ep *ep)
 
 err_exit_epc_mem:
 	pci_epc_mem_exit(epc);
+err_deinit:
+	if (ep->ops->post_deinit)
+		ep->ops->post_deinit(ep);
 
 	return ret;
 }

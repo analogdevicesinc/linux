@@ -140,7 +140,6 @@ static int qepic_probe(struct platform_device *pdev)
 	};
 	struct irq_domain_info d_info = {
 		.fwnode = of_fwnode_handle(pdev->dev.of_node),
-		.domain_flags = IRQ_DOMAIN_FLAG_DESTROY_GC,
 		.size = 32,
 		.hwirq_max = 32,
 		.ops = &irq_generic_chip_ops,
@@ -152,7 +151,7 @@ static int qepic_probe(struct platform_device *pdev)
 	struct irq_domain *domain;
 	struct qepic_data *data;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, *data);
 	if (!data)
 		return -ENOMEM;
 	d_info.host_data = data;

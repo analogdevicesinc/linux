@@ -210,12 +210,13 @@ int msm_dp_debug_init(struct device *dev, struct msm_dp_panel *panel,
 		return -EINVAL;
 	}
 
-	debug = devm_kzalloc(dev, sizeof(*debug), GFP_KERNEL);
+	debug = devm_kzalloc_obj(dev, *debug);
 	if (!debug)
 		return -ENOMEM;
 
 	debug->link = link;
 	debug->panel = panel;
+	debug->connector = connector;
 
 	debugfs_create_file("dp_debug", 0444, root,
 			debug, &msm_dp_debug_fops);

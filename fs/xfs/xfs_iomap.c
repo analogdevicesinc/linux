@@ -285,6 +285,14 @@ xfs_iomap_write_direct(
 
 	ASSERT(count_fsb > 0);
 
+	/*
+	 * xfs_bmapi_write() maps at most XFS_MAX_BMBT_EXTLEN blocks in one
+	 * mapping, so don't reserve blocks for more. A pNFS layout range
+	 * comes from a client, and its block count may not even fit the
+	 * 32-bit reservation. The caller maps the rest with a later call.
+	 */
+	count_fsb = min_t(xfs_filblks_t, count_fsb, XFS_MAX_BMBT_EXTLEN);
+
 	resaligned = xfs_aligned_fsb_count(offset_fsb, count_fsb,
 					   xfs_get_extsz_hint(ip));
 	if (unlikely(XFS_IS_REALTIME_INODE(ip))) {
@@ -358,7 +366,7 @@ out_unlock:
 	return error;
 
 out_trans_cancel:
-	xfs_trans_cancel(tp);
+	xfs_trans_cancel_error(tp, error);
 	goto out_unlock;
 }
 
@@ -614,7 +622,8 @@ xfs_iomap_write_unwritten(
 	xfs_inode_t	*ip,
 	xfs_off_t	offset,
 	xfs_off_t	count,
-	bool		update_isize)
+	bool		update_isize,
+	uint32_t	bmapi_flags)
 {
 	xfs_mount_t	*mp = ip->i_mount;
 	xfs_fileoff_t	offset_fsb;
@@ -676,8 +685,21 @@ xfs_iomap_write_unwritten(
 		 */
 		nimaps = 1;
 		error = xfs_bmapi_write(tp, ip, offset_fsb, count_fsb,
-					XFS_BMAPI_CONVERT, resblks, &imap,
-					&nimaps);
+					XFS_BMAPI_CONVERT | bmapi_flags,
+					resblks, &imap, &nimaps);
+		if (error == -ENOSR && (bmapi_flags & XFS_BMAPI_CONVERT_ONLY)) {
+			/*
+			 * Nothing was mapped: the rest of the range starts
+			 * with a hole or a delalloc extent. Nothing was
+			 * changed either, but xfs_iext_count_extend() may
+			 * have logged the inode, and cancelling a dirty
+			 * transaction shuts the filesystem down. Commit it,
+			 * as xfs_alloc_file_space() does on -ENOSR.
+			 */
+			error = xfs_trans_commit(tp);
+			xfs_iunlock(ip, XFS_ILOCK_EXCL);
+			return error ? error : -EIO;
+		}
 		if (error)
 			goto error_on_bmapi_transaction;
 
@@ -1589,6 +1611,37 @@ out:
 }
 
 static int
+xfs_zoned_fill_srcmap(
+	struct xfs_inode	*ip,
+	xfs_fileoff_t		offset_fsb,
+	xfs_fileoff_t		*end_fsb,
+	unsigned		flags,
+	struct iomap		*srcmap)
+{
+	struct xfs_bmbt_irec	smap;
+	struct xfs_iext_cursor	scur;
+
+	if (!xfs_iext_lookup_extent(ip, &ip->i_df, offset_fsb, &scur, &smap))
+		smap.br_startoff = *end_fsb; /* fake hole until EOF */
+	if (smap.br_startoff > offset_fsb) {
+		/*
+		 * There is a hole at @offset_fsb.  Only map until the end of
+		 * the of it.
+		 */
+		*end_fsb = min(*end_fsb, smap.br_startoff);
+		return 0;
+	}
+
+	/*
+	 * There is a data fork mapping, only map until the end of it.
+	 */
+	xfs_trim_extent(&smap, offset_fsb, *end_fsb - offset_fsb);
+	*end_fsb = min(*end_fsb, smap.br_startoff + smap.br_blockcount);
+	return xfs_bmbt_to_iomap(ip, srcmap, &smap, flags, 0,
+			xfs_iomap_inode_sequence(ip, 0));
+}
+
+static int
 xfs_zoned_buffered_write_iomap_begin(
 	struct inode		*inode,
 	loff_t			offset,
@@ -1655,24 +1708,10 @@ restart:
 	if (!IS_ALIGNED(offset, mp->m_sb.sb_blocksize) ||
 	    !IS_ALIGNED(offset + count, mp->m_sb.sb_blocksize) ||
 	    (flags & IOMAP_ZERO)) {
-		struct xfs_bmbt_irec	smap;
-		struct xfs_iext_cursor	scur;
-
-		if (!xfs_iext_lookup_extent(ip, &ip->i_df, offset_fsb, &scur,
-				&smap))
-			smap.br_startoff = end_fsb; /* fake hole until EOF */
-		if (smap.br_startoff > offset_fsb) {
-			end_fsb = min(end_fsb, smap.br_startoff);
-		} else {
-			end_fsb = min(end_fsb,
-				smap.br_startoff + smap.br_blockcount);
-			xfs_trim_extent(&smap, offset_fsb,
-					end_fsb - offset_fsb);
-			error = xfs_bmbt_to_iomap(ip, srcmap, &smap, flags, 0,
-					xfs_iomap_inode_sequence(ip, 0));
-			if (error)
-				goto out_unlock;
-		}
+		error = xfs_zoned_fill_srcmap(ip, offset_fsb, &end_fsb, flags,
+				srcmap);
+		if (error)
+			goto out_unlock;
 	}
 
 	if (!ip->i_cowfp)

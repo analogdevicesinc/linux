@@ -382,7 +382,7 @@ static int mvpp2_prs_flow_find(struct mvpp2 *priv, int flow)
 	struct mvpp2_prs_entry pe;
 	int tid;
 
-	/* Go through the all entires with MVPP2_PRS_LU_FLOWS */
+	/* Go through the all entries with MVPP2_PRS_LU_FLOWS */
 	for (tid = MVPP2_PRS_TCAM_SRAM_SIZE - 1; tid >= 0; tid--) {
 		u8 bits;
 
@@ -1212,7 +1212,7 @@ static void mvpp2_prs_mh_init(struct mvpp2 *priv)
 	mvpp2_prs_hw_write(priv, &pe);
 }
 
-/* Set default entires (place holder) for promiscuous, non-promiscuous and
+/* Set default entries (place holder) for promiscuous, non-promiscuous and
  * multicast MAC addresses
  */
 static void mvpp2_prs_mac_init(struct mvpp2 *priv)
@@ -2157,15 +2157,13 @@ int mvpp2_prs_default_init(struct platform_device *pdev, struct mvpp2 *priv)
 {
 	int err, index, i;
 
-	priv->prs_shadow = devm_kcalloc(&pdev->dev, MVPP2_PRS_TCAM_SRAM_SIZE,
-					sizeof(*priv->prs_shadow),
-					GFP_KERNEL);
+	priv->prs_shadow = devm_kzalloc_objs(&pdev->dev, *priv->prs_shadow,
+					     MVPP2_PRS_TCAM_SRAM_SIZE);
 	if (!priv->prs_shadow)
 		return -ENOMEM;
 
-	priv->prs_double_vlans = devm_kcalloc(&pdev->dev, sizeof(bool),
-					      MVPP2_PRS_DBL_VLANS_MAX,
-					      GFP_KERNEL);
+	priv->prs_double_vlans = devm_kzalloc_objs(&pdev->dev, bool,
+						   MVPP2_PRS_DBL_VLANS_MAX);
 	if (!priv->prs_double_vlans)
 		return -ENOMEM;
 
@@ -2241,7 +2239,7 @@ mvpp2_prs_mac_da_range_find(struct mvpp2 *priv, int pmap, const u8 *da,
 	struct mvpp2_prs_entry pe;
 	int tid;
 
-	/* Go through the all entires with MVPP2_PRS_LU_MAC */
+	/* Go through the all entries with MVPP2_PRS_LU_MAC */
 	for (tid = MVPP2_PE_MAC_RANGE_START;
 	     tid <= MVPP2_PE_MAC_RANGE_END; tid++) {
 		unsigned int entry_pmap;
@@ -2539,7 +2537,7 @@ int mvpp2_prs_def_flow(struct mvpp2_port *port)
 
 	/* Such entry not exist */
 	if (tid < 0) {
-		/* Go through the all entires from last to first */
+		/* Go through the all entries from last to first */
 		tid = mvpp2_prs_tcam_first_free(port->priv,
 						MVPP2_PE_LAST_FREE_TID,
 					       MVPP2_PE_FIRST_FREE_TID);

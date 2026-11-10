@@ -583,9 +583,9 @@ static int mtk_pcie_init_irq_domain(struct mtk_pcie_port *port,
 	int ret;
 
 	/* Setup INTx */
-	pcie_intc_node = of_get_next_child(node, NULL);
+	pcie_intc_node = of_get_child_by_name(node, "interrupt-controller");
 	if (!pcie_intc_node) {
-		dev_err(dev, "no PCIe Intc node found\n");
+		dev_err(dev, "no PCIe INTx interrupt-controller node found\n");
 		return -ENODEV;
 	}
 
@@ -1103,7 +1103,7 @@ static int mtk_pcie_parse_port(struct mtk_pcie *pcie,
 	char name[20];
 	int err;
 
-	port = devm_kzalloc(dev, sizeof(*port), GFP_KERNEL);
+	port = devm_kzalloc_obj(dev, *port);
 	if (!port)
 		return -ENOMEM;
 

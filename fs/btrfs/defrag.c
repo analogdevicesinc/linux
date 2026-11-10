@@ -242,13 +242,22 @@ again:
 		goto cleanup;
 	}
 
+	/*
+	 * Clear the flag right away. On the first iteration (cur == 0) if the
+	 * inode happened to have been truncated to 0 after it was added to
+	 * autodefrag and before we were called, then we need to clear the flag,
+	 * otherwise if writes are done to the inode we won't be able to add it
+	 * to autodefrag again (unless the inode is evicted, loaded again, and
+	 * small writes to it happen again).
+	 */
+	clear_bit(BTRFS_INODE_IN_DEFRAG, &inode->runtime_flags);
+
 	if (cur >= i_size_read(&inode->vfs_inode)) {
 		iput(&inode->vfs_inode);
 		goto cleanup;
 	}
 
 	/* Do a chunk of defrag */
-	clear_bit(BTRFS_INODE_IN_DEFRAG, &inode->runtime_flags);
 	memset(&range, 0, sizeof(range));
 	range.len = (u64)-1;
 	range.start = cur;
@@ -530,11 +539,7 @@ static int btrfs_defrag_leaves(struct btrfs_trans_handle *trans,
 out:
 	btrfs_free_path(path);
 	if (ret == -EAGAIN) {
-		if (root->defrag_max.objectid > root->defrag_progress.objectid)
-			goto done;
-		if (root->defrag_max.type > root->defrag_progress.type)
-			goto done;
-		if (root->defrag_max.offset > root->defrag_progress.offset)
+		if (btrfs_comp_cpu_keys(&root->defrag_max, &root->defrag_progress) > 0)
 			goto done;
 		ret = 0;
 	}
@@ -815,7 +820,7 @@ static bool defrag_check_next_extent(struct inode *inode, struct extent_map *em,
 	 * If the next extent is at its max capacity, defragging current extent
 	 * makes no sense, as the total number of extents won't change.
 	 */
-	if (next->len >= get_extent_max_capacity(fs_info, em))
+	if (next->len >= get_extent_max_capacity(fs_info, next))
 		goto out;
 	/* Skip older extent */
 	if (next->generation < newer_than)

@@ -580,6 +580,7 @@ static int mt9p031_get_format(struct v4l2_subdev *subdev,
 }
 
 static int mt9p031_set_format(struct v4l2_subdev *subdev,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *format)
 {
@@ -618,6 +619,7 @@ static int mt9p031_set_format(struct v4l2_subdev *subdev,
 }
 
 static int mt9p031_get_selection(struct v4l2_subdev *subdev,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -642,6 +644,7 @@ static int mt9p031_get_selection(struct v4l2_subdev *subdev,
 }
 
 static int mt9p031_set_selection(struct v4l2_subdev *subdev,
+				 const struct v4l2_subdev_client_info *ci,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_selection *sel)
 {
@@ -1100,7 +1103,7 @@ static int mt9p031_probe(struct i2c_client *client)
 		return -EIO;
 	}
 
-	mt9p031 = devm_kzalloc(&client->dev, sizeof(*mt9p031), GFP_KERNEL);
+	mt9p031 = devm_kzalloc_obj(&client->dev, *mt9p031);
 	if (mt9p031 == NULL)
 		return -ENOMEM;
 

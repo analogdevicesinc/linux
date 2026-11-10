@@ -1465,7 +1465,7 @@ static int bq25890_probe(struct i2c_client *client)
 	struct bq25890_device *bq;
 	int ret;
 
-	bq = devm_kzalloc(dev, sizeof(*bq), GFP_KERNEL);
+	bq = devm_kzalloc_obj(dev, *bq);
 	if (!bq)
 		return -ENOMEM;
 
@@ -1590,7 +1590,7 @@ static int bq25890_suspend(struct device *dev)
 	struct bq25890_device *bq = dev_get_drvdata(dev);
 
 	/*
-	 * If charger is removed, while in suspend, make sure ADC is diabled
+	 * If charger is removed, while in suspend, make sure ADC is disabled
 	 * since it consumes slightly more power.
 	 */
 	return bq25890_field_write(bq, F_CONV_RATE, 0);

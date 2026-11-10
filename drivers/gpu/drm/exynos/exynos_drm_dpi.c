@@ -173,7 +173,7 @@ static int exynos_dpi_parse_dt(struct exynos_dpi *ctx)
 
 		of_node_put(np);
 
-		vm = devm_kzalloc(dev, sizeof(*ctx->vm), GFP_KERNEL);
+		vm = devm_kzalloc_obj(dev, *ctx->vm);
 		if (!vm)
 			return -ENOMEM;
 
@@ -201,8 +201,7 @@ int exynos_dpi_bind(struct drm_device *dev, struct drm_encoder *encoder)
 	ret = drm_encoder_init(dev, encoder, &exynos_dpi_encoder_funcs,
 			       DRM_MODE_ENCODER_TMDS, NULL);
 	if (ret) {
-		DRM_DEV_ERROR(encoder_to_dpi(encoder)->dev,
-			      "failed to create encoder ret = %d\n", ret);
+		drm_err(dev, "failed to create encoder ret = %d\n", ret);
 		return ret;
 	}
 
@@ -228,7 +227,7 @@ struct drm_encoder *exynos_dpi_probe(struct device *dev)
 	struct exynos_dpi *ctx;
 	int ret;
 
-	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	ctx = devm_kzalloc_obj(dev, *ctx);
 	if (!ctx)
 		return ERR_PTR(-ENOMEM);
 

@@ -103,7 +103,7 @@ static int dw_spi_mscc_init(struct platform_device *pdev,
 {
 	struct dw_spi_mscc *dwsmscc;
 
-	dwsmscc = devm_kzalloc(&pdev->dev, sizeof(*dwsmscc), GFP_KERNEL);
+	dwsmscc = devm_kzalloc_obj(&pdev->dev, *dwsmscc);
 	if (!dwsmscc)
 		return -ENOMEM;
 
@@ -187,7 +187,7 @@ static int dw_spi_mscc_sparx5_init(struct platform_device *pdev,
 		return -EOPNOTSUPP;
 	}
 
-	dwsmscc = devm_kzalloc(dev, sizeof(*dwsmscc), GFP_KERNEL);
+	dwsmscc = devm_kzalloc_obj(dev, *dwsmscc);
 	if (!dwsmscc)
 		return -ENOMEM;
 
@@ -363,6 +363,8 @@ static int dw_spi_jhb100_init(struct platform_device *pdev,
 
 	dw_spi_jhb100_mask_intr(&dwsmmio->dws, 0xff);
 
+	dw_spi_dma_setup_generic(&dwsmmio->dws);
+
 	return 0;
 }
 
@@ -375,8 +377,7 @@ static int dw_spi_mmio_probe(struct platform_device *pdev)
 	struct dw_spi *dws;
 	int ret;
 
-	dwsmmio = devm_kzalloc(&pdev->dev, sizeof(struct dw_spi_mmio),
-			GFP_KERNEL);
+	dwsmmio = devm_kzalloc_obj(&pdev->dev, struct dw_spi_mmio);
 	if (!dwsmmio)
 		return -ENOMEM;
 

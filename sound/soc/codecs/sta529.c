@@ -286,10 +286,17 @@ static int sta529_set_dai_fmt(struct snd_soc_dai *codec_dai, u32 fmt)
 	return 0;
 }
 
+static const u64 sta529_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J;
+
 static const struct snd_soc_dai_ops sta529_dai_ops = {
 	.hw_params	=	sta529_hw_params,
 	.set_fmt	=	sta529_set_dai_fmt,
 	.mute_stream	=	sta529_mute,
+	.auto_selectable_formats	= &sta529_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 	.no_capture_mute = 1,
 };
 
@@ -339,7 +346,7 @@ static int sta529_i2c_probe(struct i2c_client *i2c)
 	struct sta529 *sta529;
 	int ret;
 
-	sta529 = devm_kzalloc(&i2c->dev, sizeof(struct sta529), GFP_KERNEL);
+	sta529 = devm_kzalloc_obj(&i2c->dev, struct sta529);
 	if (!sta529)
 		return -ENOMEM;
 

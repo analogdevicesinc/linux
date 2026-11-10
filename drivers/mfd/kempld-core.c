@@ -37,7 +37,7 @@ static void kempld_get_hardware_mutex(struct kempld_device_data *pld)
 
 static void kempld_release_hardware_mutex(struct kempld_device_data *pld)
 {
-	/* The harware mutex is released when 1 is written to the mutex bit. */
+	/* The hardware mutex is released when 1 is written to the mutex bit. */
 	iowrite8(KEMPLD_MUTEX_KEY, pld->io_index);
 }
 
@@ -436,7 +436,7 @@ static int kempld_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	pld = devm_kzalloc(dev, sizeof(*pld), GFP_KERNEL);
+	pld = devm_kzalloc_obj(dev, *pld);
 	if (!pld)
 		return -ENOMEM;
 

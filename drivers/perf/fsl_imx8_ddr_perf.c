@@ -214,7 +214,7 @@ static ssize_t ddr_perf_filter_cap_show(struct device *dev,
 
 #define PERF_EXT_ATTR_ENTRY(_name, _func, _var)				\
 	(&((struct dev_ext_attribute) {					\
-		__ATTR(_name, 0444, _func, NULL), (void *)_var		\
+		__DEVICE_ATTR(_name, 0444, _func, NULL), (void *)_var	\
 	}).attr.attr)
 
 #define PERF_FILTER_EXT_ATTR_ENTRY(_name, _var)				\
@@ -794,7 +794,7 @@ static int ddr_perf_probe(struct platform_device *pdev)
 
 	np = pdev->dev.of_node;
 
-	pmu = devm_kzalloc(&pdev->dev, sizeof(*pmu), GFP_KERNEL);
+	pmu = devm_kzalloc_obj(&pdev->dev, *pmu);
 	if (!pmu)
 		return -ENOMEM;
 

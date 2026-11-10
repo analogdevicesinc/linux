@@ -2712,6 +2712,11 @@ static int lm90_probe_channel(struct i2c_client *client,
 		return -EINVAL;
 	}
 
+	if (id == 2 && !(data->flags & LM90_HAVE_TEMP3)) {
+		dev_err(dev, "channel %d is not supported for this chip in %pfw\n", id, child);
+		return -EINVAL;
+	}
+
 	err = fwnode_property_read_string(child, "label", &data->channel_label[id]);
 	if (err == -ENODATA || err == -EILSEQ) {
 		dev_err(dev, "invalid label property in %pfw\n", child);
@@ -2782,7 +2787,7 @@ static int lm90_probe(struct i2c_client *client)
 	if (err)
 		return dev_err_probe(dev, err, "Failed to enable regulator\n");
 
-	data = devm_kzalloc(dev, sizeof(struct lm90_data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, struct lm90_data);
 	if (!data)
 		return -ENOMEM;
 

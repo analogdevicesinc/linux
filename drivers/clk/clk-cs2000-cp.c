@@ -461,7 +461,7 @@ static int cs2000_clk_register(struct cs2000_priv *priv)
 {
 	struct device *dev = priv_to_dev(priv);
 	struct device_node *np = dev->of_node;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	const char *name = np->name;
 	static const char *parent_names[CLK_MAX];
 	u32 aux_out = 0;
@@ -574,7 +574,7 @@ static int cs2000_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	int ret;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

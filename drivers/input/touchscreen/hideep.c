@@ -1017,7 +1017,7 @@ static int hideep_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	ts = devm_kzalloc(&client->dev, sizeof(*ts), GFP_KERNEL);
+	ts = devm_kzalloc_obj(&client->dev, *ts);
 	if (!ts)
 		return -ENOMEM;
 
@@ -1088,7 +1088,7 @@ MODULE_DEVICE_TABLE(i2c, hideep_i2c_id);
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id hideep_acpi_id[] = {
-	{ "HIDP0001", 0 },
+	{ .id = "HIDP0001" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, hideep_acpi_id);

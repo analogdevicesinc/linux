@@ -53,7 +53,7 @@ static int ktd253_backlight_stepdown(struct ktd253_backlight *ktd253)
 	 *
 	 * Architectures do not always support ndelay() and we will get a few us
 	 * instead. If we get to a critical time limit an interrupt has likely
-	 * occured in the low part of the loop and we need to restart from the
+	 * occurred in the low part of the loop and we need to restart from the
 	 * top so we have the backlight in a known state.
 	 */
 	u64 ns;
@@ -148,7 +148,7 @@ static int ktd253_backlight_probe(struct platform_device *pdev)
 	u32 brightness;
 	int ret;
 
-	ktd253 = devm_kzalloc(dev, sizeof(*ktd253), GFP_KERNEL);
+	ktd253 = devm_kzalloc_obj(dev, *ktd253);
 	if (!ktd253)
 		return -ENOMEM;
 	ktd253->dev = dev;

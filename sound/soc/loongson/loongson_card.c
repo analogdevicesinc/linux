@@ -196,7 +196,6 @@ static int loongson_card_parse_acpi(struct loongson_card_data *data)
 	struct snd_soc_card *card = &data->snd_card;
 	const char *codec_dai_name;
 	struct acpi_device *adev;
-	struct device *phy_dev;
 	int i, ret;
 
 	/* fixup platform name based on reference node */
@@ -204,7 +203,7 @@ static int loongson_card_parse_acpi(struct loongson_card_data *data)
 	if (!adev)
 		return -ENOENT;
 
-	phy_dev = acpi_get_first_physical_node(adev);
+	struct device *phy_dev __free(put_device) = acpi_bus_get_primary_device(adev);
 	if (!phy_dev)
 		return -EPROBE_DEFER;
 
@@ -298,7 +297,7 @@ static int loongson_asoc_card_probe(struct platform_device *pdev)
 	struct snd_soc_card *card;
 	int ret;
 
-	ls_priv = devm_kzalloc(dev, sizeof(*ls_priv), GFP_KERNEL);
+	ls_priv = devm_kzalloc_obj(dev, *ls_priv);
 	if (!ls_priv)
 		return -ENOMEM;
 

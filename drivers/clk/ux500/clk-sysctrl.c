@@ -127,8 +127,8 @@ static struct clk *clk_reg_sysctrl(struct device *dev,
 				unsigned long flags,
 				const struct clk_ops *clk_sysctrl_ops)
 {
+	struct clk_init_data clk_sysctrl_init = {};
 	struct clk_sysctrl *clk;
-	struct clk_init_data clk_sysctrl_init;
 	struct clk *clk_reg;
 	int i;
 
@@ -140,7 +140,7 @@ static struct clk *clk_reg_sysctrl(struct device *dev,
 		return ERR_PTR(-EINVAL);
 	}
 
-	clk = devm_kzalloc(dev, sizeof(*clk), GFP_KERNEL);
+	clk = devm_kzalloc_obj(dev, *clk);
 	if (!clk)
 		return ERR_PTR(-ENOMEM);
 

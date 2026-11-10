@@ -75,8 +75,7 @@ static int wm831x_on_probe(struct platform_device *pdev)
 	int irq = wm831x_irq(wm831x, platform_get_irq(pdev, 0));
 	int ret;
 
-	wm831x_on = devm_kzalloc(&pdev->dev, sizeof(struct wm831x_on),
-				 GFP_KERNEL);
+	wm831x_on = devm_kzalloc_obj(&pdev->dev, struct wm831x_on);
 	if (!wm831x_on) {
 		dev_err(&pdev->dev, "Can't allocate data\n");
 		return -ENOMEM;
@@ -96,7 +95,6 @@ static int wm831x_on_probe(struct platform_device *pdev)
 	wm831x_on->dev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 	wm831x_on->dev->name = "wm831x_on";
 	wm831x_on->dev->phys = "wm831x_on/input0";
-	wm831x_on->dev->dev.parent = &pdev->dev;
 
 	ret = request_threaded_irq(irq, NULL, wm831x_on_irq,
 				   IRQF_TRIGGER_RISING | IRQF_ONESHOT,

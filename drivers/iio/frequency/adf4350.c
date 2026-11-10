@@ -461,7 +461,7 @@ static const struct clk_ops adf4350_clk_ops = {
 static int adf4350_clk_register(struct adf4350_state *st)
 {
 	struct spi_device *spi = st->spi;
-	struct clk_init_data init;
+	struct clk_init_data init = { };
 	struct clk *clk;
 	const char *parent_name;
 	int ret;
@@ -504,7 +504,7 @@ static struct adf4350_platform_data *adf4350_parse_dt(struct device *dev)
 	struct adf4350_platform_data *pdata;
 	unsigned int tmp;
 
-	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	pdata = devm_kzalloc_obj(dev, *pdata);
 	if (!pdata)
 		return NULL;
 

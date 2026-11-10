@@ -91,7 +91,7 @@ static int clps711x_keypad_probe(struct platform_device *pdev)
 	u32 poll_interval;
 	int i, err;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -103,9 +103,8 @@ static int clps711x_keypad_probe(struct platform_device *pdev)
 	if (priv->row_count < 1)
 		return -EINVAL;
 
-	priv->gpio_data = devm_kcalloc(dev,
-				priv->row_count, sizeof(*priv->gpio_data),
-				GFP_KERNEL);
+	priv->gpio_data = devm_kzalloc_objs(dev, *priv->gpio_data,
+					    priv->row_count);
 	if (!priv->gpio_data)
 		return -ENOMEM;
 
@@ -130,7 +129,6 @@ static int clps711x_keypad_probe(struct platform_device *pdev)
 	input_set_drvdata(input, priv);
 
 	input->name		= pdev->name;
-	input->dev.parent	= dev;
 	input->id.bustype	= BUS_HOST;
 	input->id.vendor	= 0x0001;
 	input->id.product	= 0x0001;

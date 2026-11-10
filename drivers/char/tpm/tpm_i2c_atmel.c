@@ -170,7 +170,7 @@ static int i2c_atmel_probe(struct i2c_client *client)
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 
-	priv = devm_kzalloc(dev, sizeof(struct priv_data), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, struct priv_data);
 	if (!priv)
 		return -ENOMEM;
 
@@ -212,7 +212,7 @@ static const struct of_device_id i2c_atmel_of_match[] = {
 MODULE_DEVICE_TABLE(of, i2c_atmel_of_match);
 #endif
 
-static SIMPLE_DEV_PM_OPS(i2c_atmel_pm_ops, tpm_pm_suspend, tpm_pm_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(i2c_atmel_pm_ops, tpm_pm_suspend, tpm_pm_resume);
 
 static struct i2c_driver i2c_atmel_driver = {
 	.id_table = i2c_atmel_id,
@@ -220,7 +220,7 @@ static struct i2c_driver i2c_atmel_driver = {
 	.remove = i2c_atmel_remove,
 	.driver = {
 		.name = I2C_DRIVER_NAME,
-		.pm = &i2c_atmel_pm_ops,
+		.pm = pm_sleep_ptr(&i2c_atmel_pm_ops),
 		.of_match_table = of_match_ptr(i2c_atmel_of_match),
 	},
 };

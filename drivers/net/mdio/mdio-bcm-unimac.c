@@ -245,7 +245,7 @@ static int unimac_mdio_probe(struct platform_device *pdev)
 
 	np = pdev->dev.of_node;
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&pdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -345,7 +345,7 @@ static const struct of_device_id unimac_mdio_ids[] = {
 	{ .compatible = "brcm,genet-mdio-v2", },
 	{ .compatible = "brcm,genet-mdio-v1", },
 	{ .compatible = "brcm,unimac-mdio", },
-	{ /* sentinel */ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, unimac_mdio_ids);
 

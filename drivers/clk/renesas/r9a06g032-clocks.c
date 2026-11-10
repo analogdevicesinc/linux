@@ -805,7 +805,7 @@ static int r9a06g032_add_clk_domain(struct device *dev)
 	struct device_node *np = dev->of_node;
 	struct generic_pm_domain *pd;
 
-	pd = devm_kzalloc(dev, sizeof(*pd), GFP_KERNEL);
+	pd = devm_kzalloc_obj(dev, *pd);
 	if (!pd)
 		return -ENOMEM;
 
@@ -1014,7 +1014,7 @@ r9a06g032_div_determine_rate(struct clk_hw *hw, struct clk_rate_request *req)
 	if (clk->index == R9A06G032_DIV_UART ||
 	    clk->index == R9A06G032_DIV_P2_PG) {
 		pr_devel("%s div uart hack!\n", __func__);
-		req->rate = clk_get_rate(hw->clk);
+		req->rate = clk_hw_get_rate(hw);
 		return 0;
 	}
 	req->rate = DIV_ROUND_UP(req->best_parent_rate, div);
@@ -1318,9 +1318,8 @@ static int __init r9a06g032_clocks_probe(struct platform_device *pdev)
 	struct regbit uart_group_sel[2];
 	int error;
 
-	clocks = devm_kzalloc(dev, sizeof(*clocks), GFP_KERNEL);
-	clks = devm_kcalloc(dev, R9A06G032_CLOCK_COUNT, sizeof(struct clk *),
-			    GFP_KERNEL);
+	clocks = devm_kzalloc_obj(dev, *clocks);
+	clks = devm_kzalloc_objs(dev, struct clk *, R9A06G032_CLOCK_COUNT);
 	if (!clocks || !clks)
 		return -ENOMEM;
 
@@ -1419,10 +1418,4 @@ static struct platform_driver r9a06g032_clock_driver = {
 	},
 };
 
-static int __init r9a06g032_clocks_init(void)
-{
-	return platform_driver_probe(&r9a06g032_clock_driver,
-			r9a06g032_clocks_probe);
-}
-
-subsys_initcall(r9a06g032_clocks_init);
+subsys_platform_driver_probe(r9a06g032_clock_driver, r9a06g032_clocks_probe);

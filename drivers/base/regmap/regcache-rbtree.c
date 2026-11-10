@@ -141,7 +141,7 @@ static int rbtree_show(struct seq_file *s, void *ignored)
 	int registers = 0;
 	int this_registers, average;
 
-	map->lock(map->lock_arg);
+	guard(regmap)(map);
 
 	mem_size = sizeof(*rbtree_ctx);
 
@@ -167,8 +167,6 @@ static int rbtree_show(struct seq_file *s, void *ignored)
 
 	seq_printf(s, "%d nodes, %d registers, average %d registers, used %zu bytes\n",
 		   nodes, registers, average, mem_size);
-
-	map->unlock(map->lock_arg);
 
 	return 0;
 }
@@ -348,9 +346,9 @@ regcache_rbtree_node_alloc(struct regmap *map, unsigned int reg)
 	if (!rbnode->block)
 		goto err_free;
 
-	rbnode->cache_present = kcalloc(BITS_TO_LONGS(rbnode->blklen),
-					sizeof(*rbnode->cache_present),
-					map->alloc_flags);
+	rbnode->cache_present = kzalloc_objs(*rbnode->cache_present,
+					     BITS_TO_LONGS(rbnode->blklen),
+					     map->alloc_flags);
 	if (!rbnode->cache_present)
 		goto err_free_block;
 

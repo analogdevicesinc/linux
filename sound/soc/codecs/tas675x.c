@@ -1379,10 +1379,7 @@ static int tas675x_mute_stream(struct snd_soc_dai *dai, int mute, int direction)
 	int ret;
 
 	if (direction == SNDRV_PCM_STREAM_CAPTURE) {
-		if (mute)
-			clear_bit(dai->id, &tas->active_capture_dais);
-		else
-			set_bit(dai->id, &tas->active_capture_dais);
+		assign_bit(dai->id, &tas->active_capture_dais, !mute);
 		return 0;
 	}
 
@@ -1391,10 +1388,7 @@ static int tas675x_mute_stream(struct snd_soc_dai *dai, int mute, int direction)
 	 * The TAS675x has two playback DAIs (main audio and LLP).
 	 * Only transition to SLEEP when ALL are muted.
 	 */
-	if (mute)
-		clear_bit(dai->id, &tas->active_playback_dais);
-	else
-		set_bit(dai->id, &tas->active_playback_dais);
+	assign_bit(dai->id, &tas->active_playback_dais, !mute);
 
 	/* Last playback stream */
 	if (mute && !READ_ONCE(tas->active_playback_dais)) {
@@ -2041,7 +2035,7 @@ static int tas675x_i2c_probe(struct i2c_client *client)
 	u32 val;
 	int i, ret;
 
-	tas = devm_kzalloc(&client->dev, sizeof(*tas), GFP_KERNEL);
+	tas = devm_kzalloc_obj(&client->dev, *tas);
 	if (!tas)
 		return -ENOMEM;
 

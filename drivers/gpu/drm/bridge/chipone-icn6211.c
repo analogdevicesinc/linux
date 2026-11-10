@@ -531,7 +531,7 @@ static int chipone_dsi_attach(struct chipone *icn)
 	dsi->hs_rate = 500000000;
 	dsi->lp_rate = 16000000;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(dev, dsi);
 	if (ret < 0)
 		dev_err(icn->dev, "failed to attach dsi\n");
 
@@ -603,8 +603,7 @@ chipone_atomic_get_input_bus_fmts(struct drm_bridge *bridge,
 
 	*num_input_fmts = 0;
 
-	input_fmts = kcalloc(MAX_INPUT_SEL_FORMATS, sizeof(*input_fmts),
-			     GFP_KERNEL);
+	input_fmts = kzalloc_objs(*input_fmts, MAX_INPUT_SEL_FORMATS);
 	if (!input_fmts)
 		return NULL;
 
@@ -763,11 +762,6 @@ static int chipone_i2c_probe(struct i2c_client *client)
 	return chipone_dsi_host_attach(icn);
 }
 
-static void chipone_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	mipi_dsi_detach(dsi);
-}
-
 static const struct of_device_id chipone_of_match[] = {
 	{ .compatible = "chipone,icn6211", },
 	{ /* sentinel */ }
@@ -776,7 +770,6 @@ MODULE_DEVICE_TABLE(of, chipone_of_match);
 
 static struct mipi_dsi_driver chipone_dsi_driver = {
 	.probe = chipone_dsi_probe,
-	.remove = chipone_dsi_remove,
 	.driver = {
 		.name = "chipone-icn6211",
 		.of_match_table = chipone_of_match,

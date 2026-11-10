@@ -172,8 +172,7 @@ int otx2_alloc_mcam_entries(struct otx2_nic *pfvf, u16 count)
 	if (!count)
 		return 0;
 
-	flow_cfg->flow_ent = devm_kmalloc_array(pfvf->dev, count,
-						sizeof(u16), GFP_KERNEL);
+	flow_cfg->flow_ent = devm_kmalloc_objs(pfvf->dev, u16, count);
 	if (!flow_cfg->flow_ent) {
 		netdev_err(pfvf->netdev,
 			   "%s: Unable to allocate memory for flow entries\n",
@@ -281,7 +280,6 @@ exit:
 			    count, allocated);
 	return allocated;
 }
-EXPORT_SYMBOL(otx2_alloc_mcam_entries);
 
 int otx2_mcam_entry_init(struct otx2_nic *pfvf)
 {
@@ -315,8 +313,7 @@ int otx2_mcam_entry_init(struct otx2_nic *pfvf)
 	count = flow_cfg->ucast_flt_cnt +
 			OTX2_MAX_VLAN_FLOWS + vf_vlan_max_flows;
 
-	flow_cfg->def_ent = devm_kmalloc_array(pfvf->dev, count,
-					       sizeof(u16), GFP_KERNEL);
+	flow_cfg->def_ent = devm_kmalloc_objs(pfvf->dev, u16, count);
 	if (!flow_cfg->def_ent)
 		return -ENOMEM;
 
@@ -420,7 +417,6 @@ int otx2_mcam_entry_init(struct otx2_nic *pfvf)
 	refcount_set(&flow_cfg->mark_flows, 1);
 	return 0;
 }
-EXPORT_SYMBOL(otx2_mcam_entry_init);
 
 /* TODO : revisit on size */
 #define OTX2_DMAC_FLTR_BITMAP_SZ (4 * 2048 + 32)
@@ -429,9 +425,7 @@ int otx2vf_mcam_flow_init(struct otx2_nic *pfvf)
 {
 	struct otx2_flow_config *flow_cfg;
 
-	pfvf->flow_cfg = devm_kzalloc(pfvf->dev,
-				      sizeof(struct otx2_flow_config),
-				      GFP_KERNEL);
+	pfvf->flow_cfg = devm_kzalloc_obj(pfvf->dev, struct otx2_flow_config);
 	if (!pfvf->flow_cfg)
 		return -ENOMEM;
 
@@ -454,8 +448,7 @@ int otx2_mcam_flow_init(struct otx2_nic *pf)
 {
 	int err;
 
-	pf->flow_cfg = devm_kzalloc(pf->dev, sizeof(struct otx2_flow_config),
-				    GFP_KERNEL);
+	pf->flow_cfg = devm_kzalloc_obj(pf->dev, struct otx2_flow_config);
 	if (!pf->flow_cfg)
 		return -ENOMEM;
 
@@ -654,7 +647,6 @@ int otx2_get_maxflows(struct otx2_flow_config *flow_cfg)
 	else
 		return flow_cfg->max_flows;
 }
-EXPORT_SYMBOL(otx2_get_maxflows);
 
 int otx2_get_flow(struct otx2_nic *pfvf, struct ethtool_rxnfc *nfc,
 		  u32 location)

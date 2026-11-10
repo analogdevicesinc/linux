@@ -578,7 +578,7 @@ static int tegra_kbc_probe(struct platform_device *pdev)
 	unsigned int scan_time_rows;
 	unsigned int keymap_rows;
 
-	kbc = devm_kzalloc(&pdev->dev, sizeof(*kbc), GFP_KERNEL);
+	kbc = devm_kzalloc_obj(&pdev->dev, *kbc);
 	if (!kbc) {
 		dev_err(&pdev->dev, "failed to alloc memory for kbc\n");
 		return -ENOMEM;
@@ -641,7 +641,6 @@ static int tegra_kbc_probe(struct platform_device *pdev)
 
 	kbc->idev->name = pdev->name;
 	kbc->idev->id.bustype = BUS_HOST;
-	kbc->idev->dev.parent = &pdev->dev;
 	kbc->idev->open = tegra_kbc_open;
 	kbc->idev->close = tegra_kbc_close;
 

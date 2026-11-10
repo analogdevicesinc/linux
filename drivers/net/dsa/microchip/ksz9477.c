@@ -1678,8 +1678,8 @@ static int ksz9477_setup(struct dsa_switch *ds)
 
 	regs = dev->info->regs;
 
-	dev->vlan_cache = devm_kcalloc(dev->dev, sizeof(struct vlan_table),
-				       dev->info->num_vlans, GFP_KERNEL);
+	dev->vlan_cache = devm_kzalloc_objs(dev->dev, struct vlan_table,
+					    dev->info->num_vlans);
 	if (!dev->vlan_cache)
 		return -ENOMEM;
 
@@ -1781,6 +1781,7 @@ static int ksz9477_setup(struct dsa_switch *ds)
 	}
 
 	if (dev->info->ptp_capable) {
+		ksz_ptp_set_caps(ds);
 		ret = ksz_ptp_clock_register(ds);
 		if (ret) {
 			dev_err(dev->dev, "Failed to register PTP clock: %d\n",

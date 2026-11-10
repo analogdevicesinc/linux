@@ -2136,7 +2136,7 @@ static int renesas_eth_sw_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&pdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -2162,17 +2162,14 @@ static int renesas_eth_sw_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(40));
-	if (ret < 0) {
-		ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-		if (ret < 0)
-			return ret;
-	}
+	if (ret)
+		return ret;
 
 	priv->gwca.index = AGENT_INDEX_GWCA;
 	priv->gwca.num_queues = min(RSWITCH_NUM_PORTS * NUM_QUEUES_PER_NDEV,
 				    RSWITCH_MAX_NUM_QUEUES);
-	priv->gwca.queues = devm_kcalloc(&pdev->dev, priv->gwca.num_queues,
-					 sizeof(*priv->gwca.queues), GFP_KERNEL);
+	priv->gwca.queues = devm_kzalloc_objs(&pdev->dev, *priv->gwca.queues,
+					      priv->gwca.num_queues);
 	if (!priv->gwca.queues)
 		return -ENOMEM;
 

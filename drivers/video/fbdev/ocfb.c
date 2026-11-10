@@ -115,7 +115,7 @@ static int ocfb_setupfb(struct ocfb_dev *fbdev)
 	fbdev->little_endian = 0;
 	ocfb_writereg(fbdev, OCFB_VBARA, fbdev->fb_phys);
 
-	/* Detect endianess */
+	/* Detect endianness */
 	if (ocfb_readreg(fbdev, OCFB_VBARA) != fbdev->fb_phys) {
 		fbdev->little_endian = 1;
 		ocfb_writereg(fbdev, OCFB_VBARA, fbdev->fb_phys);
@@ -297,7 +297,7 @@ static int ocfb_probe(struct platform_device *pdev)
 	struct ocfb_dev *fbdev;
 	int fbsize;
 
-	fbdev = devm_kzalloc(&pdev->dev, sizeof(*fbdev), GFP_KERNEL);
+	fbdev = devm_kzalloc_obj(&pdev->dev, *fbdev);
 	if (!fbdev)
 		return -ENOMEM;
 

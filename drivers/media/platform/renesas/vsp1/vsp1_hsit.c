@@ -109,6 +109,7 @@ static int hsit_enum_frame_size(struct v4l2_subdev *subdev,
 }
 
 static int hsit_set_format(struct v4l2_subdev *subdev,
+			   const struct v4l2_subdev_client_info *ci,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *fmt)
 {
@@ -203,7 +204,7 @@ struct vsp1_hsit *vsp1_hsit_create(struct vsp1_device *vsp1, bool inverse)
 	struct vsp1_hsit *hsit;
 	int ret;
 
-	hsit = devm_kzalloc(vsp1->dev, sizeof(*hsit), GFP_KERNEL);
+	hsit = devm_kzalloc_obj(vsp1->dev, *hsit);
 	if (hsit == NULL)
 		return ERR_PTR(-ENOMEM);
 

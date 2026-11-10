@@ -545,7 +545,7 @@ static struct attribute_group nv_c2c_pmu_peer_attr_group = {
 #define NV_C2C_PMU_EXT_ATTR(_name, _func, _config)			\
 	(&((struct dev_ext_attribute[]){				\
 		{							\
-			.attr = __ATTR(_name, 0444, _func, NULL),	\
+			.attr = __DEVICE_ATTR(_name, 0444, _func, NULL),\
 			.var = (void *)_config				\
 		}							\
 	})[0].attr.attr)
@@ -878,7 +878,7 @@ static void *nv_c2c_pmu_init_pmu(struct platform_device *pdev)
 	if (!acpi_dev)
 		return ERR_PTR(-ENODEV);
 
-	c2c_pmu = devm_kzalloc(dev, sizeof(*c2c_pmu), GFP_KERNEL);
+	c2c_pmu = devm_kzalloc_obj(dev, *c2c_pmu);
 	if (!c2c_pmu)
 		return ERR_PTR(-ENOMEM);
 

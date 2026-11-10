@@ -284,7 +284,7 @@ static ssize_t lirc_transmit(struct file *file, const char __user *buf,
 		else
 			count = ret;
 
-		txbuf = kmalloc_array(count, sizeof(unsigned int), GFP_KERNEL);
+		txbuf = kmalloc_objs(unsigned int, count);
 		if (!txbuf) {
 			ret = -ENOMEM;
 			goto out_kfree_raw;
@@ -491,6 +491,8 @@ static long lirc_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		if (!dev->s_rx_carrier_range)
 			ret = -ENOTTY;
 		else if (val <= 0)
+			ret = -EINVAL;
+		else if (fh->carrier_low && fh->carrier_low > val)
 			ret = -EINVAL;
 		else
 			ret = dev->s_rx_carrier_range(dev, fh->carrier_low,
@@ -774,6 +776,9 @@ void lirc_unregister(struct rc_dev *dev)
 {
 	unsigned long flags;
 	struct lirc_fh *fh;
+
+	if (!device_is_registered(&dev->lirc_dev))
+		return;
 
 	dev_dbg(&dev->dev, "lirc_dev: driver %s unregistered from minor = %d\n",
 		dev->driver_name, MINOR(dev->lirc_dev.devt));

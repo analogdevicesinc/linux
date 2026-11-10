@@ -215,7 +215,7 @@ static int rpmi_sysmsi_probe(struct platform_device *pdev)
 	u32 id;
 	int rc;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 	priv->dev = dev;
@@ -313,8 +313,8 @@ static const struct of_device_id rpmi_sysmsi_match[] = {
 };
 
 static const struct acpi_device_id acpi_rpmi_sysmsi_match[] = {
-	{ "RSCV0006" },
-	{}
+	{ .id = "RSCV0006" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, acpi_rpmi_sysmsi_match);
 

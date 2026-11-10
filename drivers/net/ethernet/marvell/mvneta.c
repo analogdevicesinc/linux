@@ -2403,7 +2403,7 @@ mvneta_swbm_build_skb(struct mvneta_port *pp, struct page_pool *pool,
 	if (unlikely(xdp_buff_has_frags(xdp)))
 		num_frags = sinfo->nr_frags;
 
-	skb = build_skb(xdp->data_hard_start, PAGE_SIZE);
+	skb = napi_build_skb(xdp->data_hard_start, PAGE_SIZE);
 	if (!skb)
 		return ERR_PTR(-ENOMEM);
 
@@ -5371,7 +5371,7 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
 	/* Set port default values */
 	mvneta_defaults_set(pp);
 
-	pp->txqs = devm_kcalloc(dev, txq_number, sizeof(*pp->txqs), GFP_KERNEL);
+	pp->txqs = devm_kzalloc_objs(dev, *pp->txqs, txq_number);
 	if (!pp->txqs)
 		return -ENOMEM;
 
@@ -5383,7 +5383,7 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
 		txq->done_pkts_coal = MVNETA_TXDONE_COAL_PKTS;
 	}
 
-	pp->rxqs = devm_kcalloc(dev, rxq_number, sizeof(*pp->rxqs), GFP_KERNEL);
+	pp->rxqs = devm_kzalloc_objs(dev, *pp->rxqs, rxq_number);
 	if (!pp->rxqs)
 		return -ENOMEM;
 
@@ -5395,10 +5395,8 @@ static int mvneta_init(struct device *dev, struct mvneta_port *pp)
 		rxq->pkts_coal = MVNETA_RX_COAL_PKTS;
 		rxq->time_coal = MVNETA_RX_COAL_USEC;
 		rxq->buf_virt_addr
-			= devm_kmalloc_array(pp->dev->dev.parent,
-					     rxq->size,
-					     sizeof(*rxq->buf_virt_addr),
-					     GFP_KERNEL);
+			= devm_kmalloc_objs(pp->dev->dev.parent,
+					    *rxq->buf_virt_addr, rxq->size);
 		if (!rxq->buf_virt_addr)
 			return -ENOMEM;
 	}

@@ -1285,14 +1285,16 @@ static int lan887x_phy_init(struct phy_device *phydev)
 		if (IS_ERR(priv->clock))
 			return PTR_ERR(priv->clock);
 
-		/* Enable pin mux for EVT */
-		phy_modify_mmd(phydev, MDIO_MMD_VEND1,
-			       LAN887X_MX_CHIP_TOP_REG_CONTROL1,
-			       LAN887X_MX_CHIP_TOP_REG_CONTROL1_EVT_EN,
-			       LAN887X_MX_CHIP_TOP_REG_CONTROL1_EVT_EN);
+		if (priv->clock) {
+			/* Enable pin mux for EVT */
+			phy_modify_mmd(phydev, MDIO_MMD_VEND1,
+				       LAN887X_MX_CHIP_TOP_REG_CONTROL1,
+				       LAN887X_MX_CHIP_TOP_REG_CONTROL1_EVT_EN,
+				       LAN887X_MX_CHIP_TOP_REG_CONTROL1_EVT_EN);
 
-		/* Initialize pin numbers specific to PEROUT */
-		priv->clock->event_pin = 3;
+			/* Initialize pin numbers specific to PEROUT */
+			priv->clock->event_pin = 3;
+		}
 
 		priv->init_done = true;
 	}
@@ -1492,7 +1494,7 @@ static int lan887x_probe(struct phy_device *phydev)
 {
 	struct lan887x_priv *priv;
 
-	priv = devm_kzalloc(&phydev->mdio.dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&phydev->mdio.dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

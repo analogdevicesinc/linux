@@ -506,7 +506,7 @@ static int set_ccsidr(struct kvm_vcpu *vcpu, u32 csselr, u32 val)
 		if (val == get_ccsidr(vcpu, csselr))
 			return 0;
 
-		ccsidr = kmalloc_array(CSSELR_MAX, sizeof(u32), GFP_KERNEL_ACCOUNT);
+		ccsidr = kmalloc_objs(u32, CSSELR_MAX, GFP_KERNEL_ACCOUNT);
 		if (!ccsidr)
 			return -ENOMEM;
 
@@ -2159,6 +2159,8 @@ static u64 sanitise_id_aa64pfr0_el1(const struct kvm_vcpu *vcpu, u64 val)
 	 * older kernels let the guest see the ID bit.
 	 */
 	val &= ~ID_AA64PFR0_EL1_MPAM_MASK;
+
+	val &= ~ID_AA64PFR0_EL1_RME_MASK;
 
 	return val;
 }

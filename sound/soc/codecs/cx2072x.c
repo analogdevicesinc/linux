@@ -1521,6 +1521,16 @@ static const struct snd_soc_component_driver soc_codec_driver_cx2072x = {
 	.endianness = 1,
 };
 
+
+static const u64 cx2072x_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 /*
  * DAI ops
  */
@@ -1529,6 +1539,8 @@ static const struct snd_soc_dai_ops cx2072x_dai_ops = {
 	.set_fmt = cx2072x_set_dai_fmt,
 	.hw_params = cx2072x_hw_params,
 	.set_bclk_ratio = cx2072x_set_dai_bclk_ratio,
+	.auto_selectable_formats        = &cx2072x_selectable_formats,
+	.num_auto_selectable_formats    = 1,
 };
 
 static int cx2072x_dsp_dai_probe(struct snd_soc_dai *dai)
@@ -1631,8 +1643,7 @@ static int cx2072x_i2c_probe(struct i2c_client *i2c)
 	unsigned int ven_id, rev_id;
 	int ret;
 
-	cx2072x = devm_kzalloc(&i2c->dev, sizeof(struct cx2072x_priv),
-			       GFP_KERNEL);
+	cx2072x = devm_kzalloc_obj(&i2c->dev, struct cx2072x_priv);
 	if (!cx2072x)
 		return -ENOMEM;
 

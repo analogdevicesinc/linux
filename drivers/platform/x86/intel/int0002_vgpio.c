@@ -182,7 +182,7 @@ static int int0002_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return irq;
 
-	int0002 = devm_kzalloc(dev, sizeof(*int0002), GFP_KERNEL);
+	int0002 = devm_kzalloc_obj(dev, *int0002);
 	if (!int0002)
 		return -ENOMEM;
 
@@ -208,10 +208,8 @@ static int int0002_probe(struct platform_device *pdev)
 	 */
 	ret = devm_request_irq(dev, irq, int0002_irq, IRQF_SHARED, "INT0002",
 			       chip);
-	if (ret) {
-		dev_err(dev, "Error requesting IRQ %d: %d\n", irq, ret);
+	if (ret)
 		return ret;
-	}
 
 	girq = &chip->irq;
 	gpio_irq_chip_set_chip(girq, &int0002_irqchip);

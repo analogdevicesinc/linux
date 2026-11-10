@@ -11,11 +11,11 @@
 #include <linux/types.h>
 
 struct amd_iommu;
+struct pci_dev;
 
 #ifdef CONFIG_AMD_IOMMU
 
 struct task_struct;
-struct pci_dev;
 
 extern void amd_iommu_detect(void);
 

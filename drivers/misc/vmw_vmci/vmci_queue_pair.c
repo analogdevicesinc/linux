@@ -443,14 +443,12 @@ static int qp_alloc_ppn_set(void *prod_q,
 		return VMCI_ERROR_ALREADY_EXISTS;
 
 	produce_ppns =
-	    kmalloc_array(num_produce_pages, sizeof(*produce_ppns),
-			  GFP_KERNEL);
+	    kmalloc_objs(*produce_ppns, num_produce_pages);
 	if (!produce_ppns)
 		return VMCI_ERROR_NO_MEM;
 
 	consume_ppns =
-	    kmalloc_array(num_consume_pages, sizeof(*consume_ppns),
-			  GFP_KERNEL);
+	    kmalloc_objs(*consume_ppns, num_consume_pages);
 	if (!consume_ppns) {
 		kfree(produce_ppns);
 		return VMCI_ERROR_NO_MEM;
@@ -2668,7 +2666,7 @@ static ssize_t qp_dequeue_locked(struct vmci_queue *produce_q,
  * @consume_qsize:      Desired size of the consumer queue.
  * @peer:       ContextID of the peer.
  * @flags:      VMCI flags.
- * @priv_flags: VMCI priviledge flags.
+ * @priv_flags: VMCI privilege flags.
  *
  * This is the client interface for allocating the memory for a
  * vmci_qp structure and then attaching to the underlying

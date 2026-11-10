@@ -97,6 +97,8 @@ struct bcm74110_mbox_chan {
 	int				type;
 };
 
+#define BCM74110_INIT_MSG_MAX		16
+
 struct bcm74110_mbox {
 	struct platform_device		*pdev;
 	void __iomem			*base;
@@ -105,6 +107,7 @@ struct bcm74110_mbox {
 	int				rx_chan;
 	int				rx_irq;
 	struct list_head		rx_svc_init_list;
+	unsigned int			rx_svc_init_count;
 	spinlock_t			rx_svc_list_lock;
 
 	struct mbox_controller		controller;
@@ -148,7 +151,15 @@ static void bcm74110_rx_push_init_msg(struct bcm74110_mbox *mbox, u32 val)
 	msg->msg = val;
 
 	spin_lock(&mbox->rx_svc_list_lock);
+	if (mbox->rx_svc_init_count >= BCM74110_INIT_MSG_MAX) {
+		spin_unlock(&mbox->rx_svc_list_lock);
+		kfree(msg);
+		dev_warn_ratelimited(&mbox->pdev->dev,
+				     "PMC INIT msg list full, dropping message\n");
+		return;
+	}
 	list_add_tail(&msg->list_entry, &mbox->rx_svc_init_list);
+	mbox->rx_svc_init_count++;
 	spin_unlock(&mbox->rx_svc_list_lock);
 }
 
@@ -225,6 +236,7 @@ static int bcm74110_rx_pop_init_msg(struct bcm74110_mbox *mbox, u32 func_type,
 				 list_entry) {
 		if (BCM_MSG_GET_FIELD(msg->msg, FUNC) == func_type) {
 			list_del(&msg->list_entry);
+			mbox->rx_svc_init_count--;
 			found = true;
 			break;
 		}
@@ -248,6 +260,7 @@ static void bcm74110_rx_flush_msg(struct bcm74110_mbox *mbox)
 
 	spin_lock_irqsave(&mbox->rx_svc_list_lock, flags);
 	list_splice_init(&mbox->rx_svc_init_list, &list_temp);
+	mbox->rx_svc_init_count = 0;
 	spin_unlock_irqrestore(&mbox->rx_svc_list_lock, flags);
 
 	list_for_each_entry_safe(msg, msg_tmp, &list_temp, list_entry) {
@@ -571,7 +584,7 @@ static int bcm74110_mbox_probe(struct platform_device *pdev)
 	struct bcm74110_mbox *mbox;
 	int i, ret;
 
-	mbox = devm_kzalloc(dev, sizeof(*mbox), GFP_KERNEL);
+	mbox = devm_kzalloc_obj(dev, *mbox);
 	if (!mbox)
 		return -ENOMEM;
 
@@ -607,15 +620,13 @@ static int bcm74110_mbox_probe(struct platform_device *pdev)
 	mbox->controller.dev = dev;
 	mbox->controller.num_chans = BCM_MSG_SVC_MAX;
 	mbox->controller.of_xlate = &bcm74110_mbox_of_xlate;
-	mbox->controller.chans = devm_kcalloc(dev, BCM_MSG_SVC_MAX,
-					      sizeof(*mbox->controller.chans),
-					      GFP_KERNEL);
+	mbox->controller.chans = devm_kzalloc_objs(dev, *mbox->controller.chans,
+						   BCM_MSG_SVC_MAX);
 	if (!mbox->controller.chans)
 		return -ENOMEM;
 
-	mbox->mbox_chan = devm_kcalloc(dev, BCM_MSG_SVC_MAX,
-				       sizeof(*mbox->mbox_chan),
-				       GFP_KERNEL);
+	mbox->mbox_chan = devm_kzalloc_objs(dev, *mbox->mbox_chan,
+					    BCM_MSG_SVC_MAX);
 	if (!mbox->mbox_chan)
 		return -ENOMEM;
 

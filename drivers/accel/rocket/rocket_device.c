@@ -31,7 +31,9 @@ struct rocket_device *rocket_device_init(struct platform_device *pdev,
 		if (of_device_is_available(core_node))
 			num_cores++;
 
-	rdev->cores = devm_kcalloc(dev, num_cores, sizeof(*rdev->cores), GFP_KERNEL);
+	rdev->max_cores = num_cores;
+
+	rdev->cores = devm_kzalloc_objs(dev, *rdev->cores, num_cores);
 	if (!rdev->cores)
 		return ERR_PTR(-ENOMEM);
 

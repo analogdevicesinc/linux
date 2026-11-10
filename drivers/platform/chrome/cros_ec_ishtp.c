@@ -369,7 +369,7 @@ static void ish_event_cb(struct ishtp_cl_device *cl_device)
  * @cros_ish_cl: ISHTP client instance
  * @reset: true if called from reset handler
  *
- * This function complete the initializtion of the client.
+ * This function complete the initialization of the client.
  *
  * Return: 0 for success, negative error code for failure.
  */
@@ -600,9 +600,8 @@ static int cros_ec_ishtp_probe(struct ishtp_cl_device *cl_device)
 {
 	int rv;
 	struct ishtp_cl *cros_ish_cl;
-	struct ishtp_cl_data *client_data =
-		devm_kzalloc(ishtp_device(cl_device),
-			     sizeof(*client_data), GFP_KERNEL);
+	struct ishtp_cl_data *client_data = devm_kzalloc_obj(ishtp_device(cl_device),
+							     *client_data);
 	if (!client_data)
 		return -ENOMEM;
 

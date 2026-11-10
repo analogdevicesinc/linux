@@ -25,8 +25,8 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 		       node);
 
 	for (index = 0; index < num_parents; index++) {
-		rc = of_parse_phandle_with_args(node, "assigned-clock-parents",
-					"#clock-cells",	index, &clkspec);
+		rc = of_parse_phandle_with_args_map(node, "assigned-clock-parents",
+						    "clock", index, &clkspec);
 		if (rc < 0) {
 			/* skip empty (null) phandles */
 			if (rc == -ENOENT)
@@ -47,8 +47,8 @@ static int __set_clk_parents(struct device_node *node, bool clk_supplier)
 			return PTR_ERR(pclk);
 		}
 
-		rc = of_parse_phandle_with_args(node, "assigned-clocks",
-					"#clock-cells", index, &clkspec);
+		rc = of_parse_phandle_with_args_map(node, "assigned-clocks",
+						    "clock", index, &clkspec);
 		if (rc < 0)
 			goto err;
 		if (clkspec.np == node && !clk_supplier) {
@@ -91,7 +91,7 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 	count_64 = of_property_count_u64_elems(node, "assigned-clock-rates-u64");
 	if (count_64 > 0) {
 		count = count_64;
-		rates_64 = kcalloc(count, sizeof(*rates_64), GFP_KERNEL);
+		rates_64 = kzalloc_objs(*rates_64, count);
 		if (!rates_64)
 			return -ENOMEM;
 
@@ -99,7 +99,7 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 						"assigned-clock-rates-u64",
 						rates_64, count);
 	} else if (count > 0) {
-		rates = kcalloc(count, sizeof(*rates), GFP_KERNEL);
+		rates = kzalloc_objs(*rates, count);
 		if (!rates)
 			return -ENOMEM;
 
@@ -121,8 +121,8 @@ static int __set_clk_rates(struct device_node *node, bool clk_supplier)
 			rate = rates[index];
 
 		if (rate) {
-			rc = of_parse_phandle_with_args(node, "assigned-clocks",
-					"#clock-cells",	index, &clkspec);
+			rc = of_parse_phandle_with_args_map(node, "assigned-clocks",
+							    "clock", index, &clkspec);
 			if (rc < 0) {
 				/* skip empty (null) phandles */
 				if (rc == -ENOENT)

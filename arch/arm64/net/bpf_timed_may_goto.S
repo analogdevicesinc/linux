@@ -5,25 +5,22 @@
 
 SYM_FUNC_START(arch_bpf_timed_may_goto)
 	/* Allocate stack space and emit frame record */
-	stp     x29, x30, [sp, #-64]!
+	stp     x29, x30, [sp, #-96]!
 	mov     x29, sp
 
 	/* Save BPF registers R0 - R5 (x8, x0-x4)*/
 	stp	x8, x0, [sp, #16]
 	stp	x1, x2, [sp, #32]
 	stp	x3, x4, [sp, #48]
+	/* Save stack arguments 6 - 8 (x5-x7) */
+	stp	x5, x6, [sp, #64]
+	str	x7, [sp, #80]
 
 	/*
-	 * Stack depth was passed in BPF_REG_AX (x9), add it to the BPF_FP
-	 * (x25) to get the pointer to count and timestamp and pass it as the
-	 * first argument in x0.
-	 *
-	 * Before generating the call to arch_bpf_timed_may_goto, the verifier
-	 * generates a load instruction using FP, i.e. REG_AX = *(u64 *)(FP -
-	 * stack_off_cnt), so BPF_REG_FP (x25) is always set up by the arm64
-	 * jit in this case.
+	 * The pointer to count and timestamp was passed in BPF_REG_AX (x9),
+	 * pass it as the first argument in x0.
 	 */
-	add	x0, x9, x25
+	mov	x0, x9
 	bl	bpf_check_timed_may_goto
 	/* BPF_REG_AX(x9) will be stored into count, so move return value to it. */
 	mov	x9, x0
@@ -32,9 +29,12 @@ SYM_FUNC_START(arch_bpf_timed_may_goto)
 	ldp	x8, x0, [sp, #16]
 	ldp	x1, x2, [sp, #32]
 	ldp	x3, x4, [sp, #48]
+	/* Restore stack arguments 6 - 8 (x5-x7) */
+	ldp	x5, x6, [sp, #64]
+	ldr	x7, [sp, #80]
 
 	/* Restore FP and LR */
-	ldp     x29, x30, [sp], #64
+	ldp     x29, x30, [sp], #96
 
 	ret
 SYM_FUNC_END(arch_bpf_timed_may_goto)

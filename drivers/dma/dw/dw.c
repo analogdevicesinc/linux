@@ -9,6 +9,7 @@
 #include <linux/slab.h>
 #include <linux/types.h>
 
+#include "../dmaengine.h"
 #include "internal.h"
 
 static void dw_dma_initialize_chan(struct dw_dma_chan *dwc)
@@ -116,7 +117,7 @@ int dw_dma_probe(struct dw_dma_chip *chip)
 {
 	struct dw_dma *dw;
 
-	dw = devm_kzalloc(chip->dev, sizeof(*dw), GFP_KERNEL);
+	dw = devm_kzalloc_obj(chip->dev, *dw);
 	if (!dw)
 		return -ENOMEM;
 

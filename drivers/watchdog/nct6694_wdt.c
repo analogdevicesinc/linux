@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 #define DEVICE_NAME "nct6694-wdt"
@@ -50,7 +51,7 @@ MODULE_PARM_DESC(pretimeout, "Watchdog pre-timeout in seconds");
 static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
-			   __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+			   __stringify(WATCHDOG_NOWAYOUT) ")");
 
 enum {
 	NCT6694_ACTION_NONE = 0,
@@ -249,12 +250,11 @@ static int nct6694_wdt_probe(struct platform_device *pdev)
 	struct watchdog_device *wdev;
 	int ret;
 
-	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, *data);
 	if (!data)
 		return -ENOMEM;
 
-	data->msg = devm_kzalloc(dev, sizeof(union nct6694_wdt_msg),
-				 GFP_KERNEL);
+	data->msg = devm_kzalloc_obj(dev, union nct6694_wdt_msg);
 	if (!data->msg)
 		return -ENOMEM;
 

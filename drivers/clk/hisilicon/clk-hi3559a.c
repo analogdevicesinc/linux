@@ -456,11 +456,11 @@ static void hisi_clk_register_pll(struct hi3559av100_pll_clock *clks,
 {
 	void __iomem *base = data->base;
 	struct hi3559av100_clk_pll *p_clk = NULL;
+	struct clk_init_data init = {};
 	struct clk *clk = NULL;
-	struct clk_init_data init;
 	int i;
 
-	p_clk = devm_kcalloc(dev, nums, sizeof(*p_clk), GFP_KERNEL);
+	p_clk = devm_kzalloc_objs(dev, *p_clk, nums);
 	if (!p_clk)
 		return;
 
@@ -785,7 +785,7 @@ static int hi3559av100_crg_probe(struct platform_device *pdev)
 {
 	struct hisi_crg_dev *crg;
 
-	crg = devm_kmalloc(&pdev->dev, sizeof(*crg), GFP_KERNEL);
+	crg = devm_kmalloc_obj(&pdev->dev, *crg);
 	if (!crg)
 		return -ENOMEM;
 

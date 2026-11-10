@@ -174,7 +174,7 @@ static int altera_gpio_probe(struct platform_device *pdev)
 	struct gpio_irq_chip *girq;
 	int mapped_irq;
 
-	altera_gc = devm_kzalloc(&pdev->dev, sizeof(*altera_gc), GFP_KERNEL);
+	altera_gc = devm_kzalloc_obj(&pdev->dev, *altera_gc);
 	if (!altera_gc)
 		return -ENOMEM;
 
@@ -220,8 +220,11 @@ static int altera_gpio_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	mapped_irq = platform_get_irq_optional(pdev, 0);
-	if (mapped_irq < 0)
+	if (mapped_irq < 0) {
+		if (mapped_irq != -ENXIO)
+			return mapped_irq;
 		goto skip_irq;
+	}
 
 	if (device_property_read_u32(dev, "altr,interrupt-type", &reg)) {
 		dev_err(&pdev->dev,
@@ -238,8 +241,7 @@ static int altera_gpio_probe(struct platform_device *pdev)
 	else
 		girq->parent_handler = altera_gpio_irq_edge_handler;
 	girq->num_parents = 1;
-	girq->parents = devm_kcalloc(&pdev->dev, 1, sizeof(*girq->parents),
-				     GFP_KERNEL);
+	girq->parents = devm_kzalloc_objs(&pdev->dev, *girq->parents, 1);
 	if (!girq->parents)
 		return -ENOMEM;
 	girq->default_type = IRQ_TYPE_NONE;

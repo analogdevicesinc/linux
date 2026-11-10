@@ -568,7 +568,7 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	const struct axi_clkgen_limits *dflt_limits;
 	struct axi_clkgen *axi_clkgen;
 	unsigned int pcore_version;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	const char *parent_names[2];
 	const char *clk_name;
 	struct clk *axi_clk;
@@ -579,7 +579,7 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (!dflt_limits)
 		return -ENODEV;
 
-	axi_clkgen = devm_kzalloc(&pdev->dev, sizeof(*axi_clkgen), GFP_KERNEL);
+	axi_clkgen = devm_kzalloc_obj(&pdev->dev, *axi_clkgen);
 	if (!axi_clkgen)
 		return -ENOMEM;
 

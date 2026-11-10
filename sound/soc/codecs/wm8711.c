@@ -325,6 +325,17 @@ static int wm8711_set_bias_level(struct snd_soc_component *component,
 #define WM8711_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 	SNDRV_PCM_FMTBIT_S24_LE)
 
+static const u64 wm8711_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF;
+
 static const struct snd_soc_dai_ops wm8711_ops = {
 	.prepare = wm8711_pcm_prepare,
 	.hw_params = wm8711_hw_params,
@@ -333,6 +344,8 @@ static const struct snd_soc_dai_ops wm8711_ops = {
 	.set_sysclk = wm8711_set_dai_sysclk,
 	.set_fmt = wm8711_set_dai_fmt,
 	.no_capture_mute = 1,
+	.auto_selectable_formats	= &wm8711_selectable_formats,
+	.num_auto_selectable_formats	= 1,
 };
 
 static struct snd_soc_dai_driver wm8711_dai = {
@@ -404,8 +417,7 @@ static int wm8711_spi_probe(struct spi_device *spi)
 	struct wm8711_priv *wm8711;
 	int ret;
 
-	wm8711 = devm_kzalloc(&spi->dev, sizeof(struct wm8711_priv),
-			      GFP_KERNEL);
+	wm8711 = devm_kzalloc_obj(&spi->dev, struct wm8711_priv);
 	if (wm8711 == NULL)
 		return -ENOMEM;
 
@@ -436,8 +448,7 @@ static int wm8711_i2c_probe(struct i2c_client *client)
 	struct wm8711_priv *wm8711;
 	int ret;
 
-	wm8711 = devm_kzalloc(&client->dev, sizeof(struct wm8711_priv),
-			      GFP_KERNEL);
+	wm8711 = devm_kzalloc_obj(&client->dev, struct wm8711_priv);
 	if (wm8711 == NULL)
 		return -ENOMEM;
 

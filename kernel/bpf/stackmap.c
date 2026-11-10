@@ -272,13 +272,10 @@ struct stack_map_vma_lock {
 /*
  * Acquire a stable read-side reference on the VMA covering @ip.
  *
- * With CONFIG_PER_VMA_LOCK=y this returns a VMA with its per-VMA read
- * lock held and mmap_lock dropped, so the caller may sleep.
- *
- * With CONFIG_PER_VMA_LOCK=n it returns a VMA with mmap_lock still
- * held; the caller must snapshot any fields it needs and pin vm_file
- * with get_file() before stack_map_unlock_vma() drops mmap_lock, as
- * the VMA may be split, merged, or freed after that.
+ * On NOMMU configurations, returns with the mmap_lock held.  If the MMU
+ * is enabled, the per-VMA lock will be held instead.  The lock
+ * should be released with stack_map_unlock_vma() which will release the
+ * appropriate lock.  Once the lock is released, the VMA may be freed.
  *
  * Returns NULL on failure, in which case no lock is held.
  */
@@ -288,7 +285,6 @@ stack_map_lock_vma(struct stack_map_vma_lock *lock, unsigned long ip)
 	struct mm_struct *mm = lock->mm;
 	struct vm_area_struct *vma;
 
-	/* noop under !CONFIG_PER_VMA_LOCK */
 	vma = lock_vma_under_rcu(mm, ip);
 	if (vma) {
 		lock->vma = vma;
@@ -308,21 +304,20 @@ stack_map_lock_vma(struct stack_map_vma_lock *lock, unsigned long ip)
 		return NULL;
 	}
 
-#ifdef CONFIG_PER_VMA_LOCK
+#ifdef CONFIG_MMU
 	if (!vma_start_read_locked(vma)) {
 		mmap_read_unlock(mm);
 		return NULL;
 	}
 	mmap_read_unlock(mm);
 #endif
-
 	lock->vma = vma;
 	return vma;
 }
 
 static void stack_map_unlock_vma(struct stack_map_vma_lock *lock)
 {
-#ifdef CONFIG_PER_VMA_LOCK
+#ifdef CONFIG_MMU
 	vma_end_read(lock->vma);
 #else
 	mmap_read_unlock(lock->mm);
@@ -527,12 +522,14 @@ static int stackid_init(struct stackid *stackid, struct bpf_map *map,
 	u32 skip = flags & BPF_F_SKIP_FIELD_MASK;
 	u32 max_depth;
 
+	max_depth = stack_map_calculate_max_depth(map->value_size, stack_map_data_size(map), flags);
+	/* trace_nr can be above max_depth and max_depth below skip: clamp first */
+	trace_nr = min_t(u32, trace_nr, max_depth);
 	if (trace_nr <= skip)
 		/* skipping more than usable stack trace */
 		return -EFAULT;
 
-	max_depth = stack_map_calculate_max_depth(map->value_size, stack_map_data_size(map), flags);
-	stackid->nr = min_t(u32, trace_nr - skip, max_depth - skip);
+	stackid->nr = trace_nr - skip;
 	stackid->len = stackid->nr * sizeof(u64);
 	stackid->ips = trace->ip + skip;
 	stackid->hash = jhash2((const u32 *)stackid->ips, stackid->len / sizeof(u32), 0);
@@ -647,7 +644,8 @@ BPF_CALL_3(bpf_get_stackid, struct pt_regs *, regs, struct bpf_map *, map,
 			/* couldn't fetch the stack trace */
 			return -EFAULT;
 
-		err = stackid_fastpath(&stackid, map, trace, trace->nr, flags);
+		/* the entry is released already, an NMI can change trace->nr */
+		err = stackid_fastpath(&stackid, map, trace, READ_ONCE(trace->nr), flags);
 		if (err != -ENOENT)
 			return err;
 
@@ -827,14 +825,20 @@ static long __bpf_get_stack(struct pt_regs *regs, struct task_struct *task,
 					   crosstask, false, 0);
 	}
 
-	if (unlikely(!trace) || trace->nr < skip) {
-		if (may_fault)
-			rcu_read_unlock();
-		preempt_enable();
-		goto err_fault;
-	}
+	if (unlikely(!trace))
+		goto err_unlock;
 
-	trace_nr = callchain_store(trace, trace->nr, buf, elem_size, flags);
+	/*
+	 * trace->nr can be above max_depth. The per-CPU entry is released
+	 * already: a tracing program or an NMI which takes a callchain in the
+	 * same context before the copy below reuses it. And the unwinders of
+	 * PowerPC store context markers on top of max_depth.
+	 */
+	trace_nr = min_t(u32, READ_ONCE(trace->nr), max_depth);
+	if (trace_nr < skip)
+		goto err_unlock;
+
+	trace_nr = callchain_store(trace, trace_nr, buf, elem_size, flags);
 
 	/* trace should not be dereferenced after this point */
 	if (may_fault)
@@ -843,6 +847,10 @@ static long __bpf_get_stack(struct pt_regs *regs, struct task_struct *task,
 
 	return callchain_finalize(buf, size, trace_nr, elem_size, flags, may_fault);
 
+err_unlock:
+	if (may_fault)
+		rcu_read_unlock();
+	preempt_enable();
 err_fault:
 	err = -EFAULT;
 clear:

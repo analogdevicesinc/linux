@@ -285,13 +285,11 @@ static int owl_emac_ring_alloc(struct device *dev, struct owl_emac_ring *ring,
 	if (!ring->descs)
 		return -ENOMEM;
 
-	ring->skbs = devm_kcalloc(dev, size, sizeof(struct sk_buff *),
-				  GFP_KERNEL);
+	ring->skbs = devm_kzalloc_objs(dev, struct sk_buff *, size);
 	if (!ring->skbs)
 		return -ENOMEM;
 
-	ring->skbs_dma = devm_kcalloc(dev, size, sizeof(dma_addr_t),
-				      GFP_KERNEL);
+	ring->skbs_dma = devm_kzalloc_objs(dev, dma_addr_t, size);
 	if (!ring->skbs_dma)
 		return -ENOMEM;
 
@@ -1552,6 +1550,8 @@ static int owl_emac_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	netdev->netdev_ops = &owl_emac_netdev_ops;
+
 	ret = owl_emac_phy_init(netdev);
 	if (ret) {
 		dev_err(dev, "failed to initialize PHY\n");
@@ -1563,7 +1563,6 @@ static int owl_emac_probe(struct platform_device *pdev)
 	netdev->min_mtu = OWL_EMAC_MTU_MIN;
 	netdev->max_mtu = OWL_EMAC_MTU_MAX;
 	netdev->watchdog_timeo = OWL_EMAC_TX_TIMEOUT;
-	netdev->netdev_ops = &owl_emac_netdev_ops;
 	netdev->ethtool_ops = &owl_emac_ethtool_ops;
 	netif_napi_add(netdev, &priv->napi, owl_emac_poll);
 

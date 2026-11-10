@@ -1705,8 +1705,9 @@ static void dce_v10_0_afmt_setmode(struct drm_encoder *encoder,
 	WREG32(mmAFMT_RAMP_CONTROL2 + dig->afmt->offset, 0x00000001);
 	WREG32(mmAFMT_RAMP_CONTROL3 + dig->afmt->offset, 0x00000001);
 
-	/* enable audio after to setting up hw */
-	dce_v10_0_audio_enable(adev, dig->afmt->pin, true);
+	/* Only enable audio if the display supports it */
+	if (connector->display_info.has_audio)
+		dce_v10_0_audio_enable(adev, dig->afmt->pin, true);
 }
 
 static void dce_v10_0_afmt_enable(struct drm_encoder *encoder, bool enable)
@@ -2921,11 +2922,6 @@ static int dce_v10_0_resume(struct amdgpu_ip_block *ip_block)
 	return amdgpu_display_resume_helper(adev);
 }
 
-static bool dce_v10_0_is_idle(struct amdgpu_ip_block *ip_block)
-{
-	return true;
-}
-
 static void dce_v10_0_set_crtc_vblank_interrupt_state(struct amdgpu_device *adev,
 						     int crtc,
 						     enum amdgpu_interrupt_state state)
@@ -3267,7 +3263,6 @@ static const struct amd_ip_funcs dce_v10_0_ip_funcs = {
 	.hw_fini = dce_v10_0_hw_fini,
 	.suspend = dce_v10_0_suspend,
 	.resume = dce_v10_0_resume,
-	.is_idle = dce_v10_0_is_idle,
 	.set_clockgating_state = dce_v10_0_set_clockgating_state,
 	.set_powergating_state = dce_v10_0_set_powergating_state,
 };

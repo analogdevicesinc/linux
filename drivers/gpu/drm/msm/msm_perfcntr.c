@@ -418,9 +418,9 @@ msm_ioctl_perfcntr_config(struct drm_device *dev, void *data, struct drm_file *f
 	 * kept in the end.
 	 */
 
-	struct msm_perfcntr_context_state *perfctx __free(kfree) = kzalloc(
-		struct_size(perfctx, reserved_counters, gpu->num_perfcntr_groups),
-		GFP_KERNEL);
+	struct msm_perfcntr_context_state *perfctx __free(kfree) = kzalloc_flex(*perfctx,
+										reserved_counters,
+										gpu->num_perfcntr_groups);
 	if (!perfctx)
 		return -ENOMEM;
 
@@ -543,8 +543,8 @@ msm_ioctl_perfcntr_config(struct drm_device *dev, void *data, struct drm_file *f
 
 		FD_PREPARE(fdf, O_CLOEXEC,
 			   anon_inode_getfile("[msm_perfcntrs]", &stream_fops, stream, 0));
-		if (fdf.err)
-			return fdf.err;
+		if (fdf->fd < 0)
+			return fdf->fd;
 
 		INIT_WORK(&stream->sel_work, sel_worker);
 		kthread_init_work(&stream->sample_work, sample_worker);

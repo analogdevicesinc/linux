@@ -144,7 +144,7 @@ static struct ti_thermal_data
 {
 	struct ti_thermal_data *data;
 
-	data = devm_kzalloc(bgp->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(bgp->dev, *data);
 	if (!data) {
 		dev_err(bgp->dev, "kzalloc fail\n");
 		return NULL;
@@ -194,6 +194,10 @@ int ti_thermal_remove_sensor(struct ti_bandgap *bgp, int id)
 	struct ti_thermal_data *data;
 
 	data = ti_bandgap_get_sensor_data(bgp, id);
+
+	/* Work queued by the talert IRQ must not outlive the data */
+	if (!IS_ERR_OR_NULL(data))
+		cancel_work_sync(&data->thermal_wq);
 
 	if (!IS_ERR_OR_NULL(data) && data->ti_thermal) {
 		if (data->our_zone)

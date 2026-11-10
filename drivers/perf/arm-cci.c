@@ -132,7 +132,7 @@ static ssize_t __maybe_unused cci_pmu_event_show(struct device *dev,
 
 #define CCI_EXT_ATTR_ENTRY(_name, _func, _config) 				\
 	&((struct dev_ext_attribute[]) {					\
-		{ __ATTR(_name, S_IRUGO, _func, NULL), (void *)_config }	\
+		{ __DEVICE_ATTR(_name, S_IRUGO, _func, NULL), (void *)_config }	\
 	})[0].attr.attr
 
 #define CCI_FORMAT_EXT_ATTR_ENTRY(_name, _config) \
@@ -1589,7 +1589,7 @@ static struct cci_pmu *cci_pmu_alloc(struct device *dev)
 	 * them explicitly on an error, as it would end up in driver
 	 * detach.
 	 */
-	cci_pmu = devm_kzalloc(dev, sizeof(*cci_pmu), GFP_KERNEL);
+	cci_pmu = devm_kzalloc_obj(dev, *cci_pmu);
 	if (!cci_pmu)
 		return ERR_PTR(-ENOMEM);
 
@@ -1607,14 +1607,13 @@ static struct cci_pmu *cci_pmu_alloc(struct device *dev)
 	}
 
 	cci_pmu->model = model;
-	cci_pmu->irqs = devm_kcalloc(dev, CCI_PMU_MAX_HW_CNTRS(model),
-					sizeof(*cci_pmu->irqs), GFP_KERNEL);
+	cci_pmu->irqs = devm_kzalloc_objs(dev, *cci_pmu->irqs,
+					  CCI_PMU_MAX_HW_CNTRS(model));
 	if (!cci_pmu->irqs)
 		return ERR_PTR(-ENOMEM);
-	cci_pmu->hw_events.events = devm_kcalloc(dev,
-					     CCI_PMU_MAX_HW_CNTRS(model),
-					     sizeof(*cci_pmu->hw_events.events),
-					     GFP_KERNEL);
+	cci_pmu->hw_events.events = devm_kzalloc_objs(dev,
+						      *cci_pmu->hw_events.events,
+						      CCI_PMU_MAX_HW_CNTRS(model));
 	if (!cci_pmu->hw_events.events)
 		return ERR_PTR(-ENOMEM);
 	cci_pmu->hw_events.used_mask = devm_bitmap_zalloc(dev,

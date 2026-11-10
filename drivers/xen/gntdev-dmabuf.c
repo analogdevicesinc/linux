@@ -96,8 +96,10 @@ dmabuf_exp_wait_obj_new(struct gntdev_dmabuf_priv *priv,
 	struct gntdev_dmabuf_wait_obj *obj;
 
 	obj = kzalloc_obj(*obj);
-	if (!obj)
+	if (!obj) {
+		kref_put(&gntdev_dmabuf->u.exp.refcount, dmabuf_exp_release);
 		return ERR_PTR(-ENOMEM);
+	}
 
 	init_completion(&obj->completion);
 	obj->gntdev_dmabuf = gntdev_dmabuf;
@@ -609,7 +611,7 @@ dmabuf_imp_to_refs(struct gntdev_dmabuf_priv *priv, struct device *dev,
 
 	gntdev_dmabuf->u.imp.sgt = sgt;
 
-	gfns = kcalloc(count, sizeof(*gfns), GFP_KERNEL);
+	gfns = kzalloc_objs(*gfns, count);
 	if (!gfns) {
 		ret = ERR_PTR(-ENOMEM);
 		goto fail_unmap;
@@ -736,7 +738,7 @@ long gntdev_ioctl_dmabuf_exp_from_refs(struct gntdev_priv *priv,
 	if (unlikely(gntdev_test_page_count(op.count)))
 		return -EINVAL;
 
-	refs = kcalloc(op.count, sizeof(*refs), GFP_KERNEL);
+	refs = kzalloc_objs(*refs, op.count);
 	if (!refs)
 		return -ENOMEM;
 

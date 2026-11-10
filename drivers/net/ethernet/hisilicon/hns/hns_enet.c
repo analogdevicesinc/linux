@@ -1230,7 +1230,7 @@ static void hns_nic_update_stats(struct net_device *netdev)
 	h->dev->ops->update_stats(h, &netdev->stats);
 }
 
-/* set mac addr if it is configed. or leave it to the AE driver */
+/* set mac addr if it is configured. or leave it to the AE driver */
 static void hns_init_mac_addr(struct net_device *ndev)
 {
 	struct hns_nic_priv *priv = netdev_priv(ndev);
@@ -1992,7 +1992,7 @@ static void hns_nic_dump(struct hns_nic_priv *priv)
 	if (ops->get_regs_len && ops->get_regs) {
 		reg_num = ops->get_regs_len(priv->ae_handle);
 		reg_num = (reg_num + 3ul) & ~3ul;
-		data = kcalloc(reg_num, sizeof(u32), GFP_KERNEL);
+		data = kzalloc_objs(u32, reg_num);
 		if (data) {
 			ops->get_regs(priv->ae_handle, data);
 			for (i = 0; i < reg_num; i += 4)
@@ -2317,7 +2317,7 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
 		ret = device_property_read_u32(dev, "port-id", &port_id);
 		if (ret)
 			goto out_read_prop_fail;
-		/* for old dts, we need to caculate the port offset */
+		/* for old dts, we need to calculate the port offset */
 		port_id = port_id < HNS_SRV_OFFSET ? port_id + HNS_DEBUG_OFFSET
 			: port_id - HNS_SRV_OFFSET;
 	}

@@ -508,7 +508,7 @@ static int xlp9xx_i2c_probe(struct platform_device *pdev)
 	struct xlp9xx_i2c_dev *priv;
 	int err = 0;
 
-	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&pdev->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -570,9 +570,9 @@ static void xlp9xx_i2c_remove(struct platform_device *pdev)
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id xlp9xx_i2c_acpi_ids[] = {
-	{"BRCM9007", 0},
-	{"CAV9007",  0},
-	{}
+	{ .id = "BRCM9007" },
+	{ .id = "CAV9007" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, xlp9xx_i2c_acpi_ids);
 #endif

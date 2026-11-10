@@ -306,10 +306,17 @@ static int ntp8918_digital_mute(struct snd_soc_dai *dai, int mute, int stream)
 					     mute_mask, mute ? mute_mask : 0);
 }
 
+static const u64 ntp8918_selectable_formats =
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J;
+
 static const struct snd_soc_dai_ops ntp8918_dai_ops = {
 	.hw_params = ntp8918_hw_params,
 	.set_fmt = ntp8918_set_fmt,
 	.mute_stream = ntp8918_digital_mute,
+	.auto_selectable_formats = &ntp8918_selectable_formats,
+	.num_auto_selectable_formats = 1,
 };
 
 static struct snd_soc_dai_driver ntp8918_dai = {
@@ -337,7 +344,7 @@ static int ntp8918_i2c_probe(struct i2c_client *i2c)
 	int ret;
 	struct regmap *regmap;
 
-	ntp8918 = devm_kzalloc(&i2c->dev, sizeof(*ntp8918), GFP_KERNEL);
+	ntp8918 = devm_kzalloc_obj(&i2c->dev, *ntp8918);
 	if (!ntp8918)
 		return -ENOMEM;
 

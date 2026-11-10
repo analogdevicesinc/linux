@@ -183,7 +183,7 @@ static const struct drm_crtc_funcs sun4i_crtc_funcs = {
 	.atomic_duplicate_state	= drm_atomic_helper_crtc_duplicate_state,
 	.destroy		= drm_crtc_cleanup,
 	.page_flip		= drm_atomic_helper_page_flip,
-	.reset			= drm_atomic_helper_crtc_reset,
+	.atomic_create_state = drm_atomic_helper_crtc_create_state,
 	.set_config		= drm_atomic_helper_set_config,
 	.enable_vblank		= sun4i_crtc_enable_vblank,
 	.disable_vblank		= sun4i_crtc_disable_vblank,
@@ -198,7 +198,7 @@ struct sun4i_crtc *sun4i_crtc_init(struct drm_device *drm,
 	struct drm_plane *primary = NULL, *cursor = NULL;
 	int ret, i;
 
-	scrtc = devm_kzalloc(drm->dev, sizeof(*scrtc), GFP_KERNEL);
+	scrtc = devm_kzalloc_obj(drm->dev, *scrtc);
 	if (!scrtc)
 		return ERR_PTR(-ENOMEM);
 	scrtc->engine = engine;

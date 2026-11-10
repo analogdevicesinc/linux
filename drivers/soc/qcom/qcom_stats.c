@@ -311,8 +311,7 @@ static int qcom_stats_probe(struct platform_device *pdev)
 	if (IS_ERR(reg))
 		return -ENOMEM;
 
-	d = devm_kcalloc(&pdev->dev, config->num_records,
-			 sizeof(*d), GFP_KERNEL);
+	d = devm_kzalloc_objs(&pdev->dev, *d, config->num_records);
 	if (!d)
 		return -ENOMEM;
 
@@ -371,6 +370,14 @@ static const struct stats_config rpm_data_dba0 = {
 	.subsystem_stats_in_smem = false,
 };
 
+static const struct stats_config rpm_data_shikra = {
+	.stats_offset = 0,
+	.num_records = 2,
+	.appended_stats_avail = true,
+	.dynamic_offset = true,
+	.subsystem_stats_in_smem = true,
+};
+
 static const struct stats_config rpmh_data_sdm845 = {
 	.stats_offset = 0x48,
 	.num_records = 2,
@@ -396,6 +403,7 @@ static const struct of_device_id qcom_stats_table[] = {
 	{ .compatible = "qcom,rpm-stats", .data = &rpm_data },
 	{ .compatible = "qcom,rpmh-stats", .data = &rpmh_data },
 	{ .compatible = "qcom,sdm845-rpmh-stats", .data = &rpmh_data_sdm845 },
+	{ .compatible = "qcom,shikra-rpm-stats", .data = &rpm_data_shikra },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, qcom_stats_table);

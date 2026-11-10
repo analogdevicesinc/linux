@@ -191,14 +191,17 @@ struct gendisk {
 #ifdef CONFIG_BLK_DEV_ZONED
 	/*
 	 * Zoned block device information. Reads of this information must be
-	 * protected with blk_queue_enter() / blk_queue_exit(). Modifying this
-	 * information is only allowed while no requests are being processed.
-	 * See also blk_mq_freeze_queue() and blk_mq_unfreeze_queue().
+	 * protected with blk_queue_enter() / blk_queue_exit() or by holding a
+	 * lock on zone_revalidate_mutex. blk_revalidate_disk_zones() may modify
+	 * this information while no requests are being processed (disk queue
+	 * frozen with blk_mq_freeze_queue()) and while holding a lock on
+	 * zone_revalidate_mutex.
 	 */
+	struct mutex		zone_revalidate_mutex;
 	unsigned int		nr_zones;
 	unsigned int		zone_capacity;
 	unsigned int		last_zone_capacity;
-	u8 __rcu		*zones_cond;
+	u8 __rcu		*zones_state;
 	unsigned int		zone_wplugs_hash_bits;
 	atomic_t		nr_zone_wplugs;
 	spinlock_t		zone_wplugs_hash_lock;
@@ -675,7 +678,7 @@ enum {
 	QUEUE_FLAG_HCTX_ACTIVE,		/* at least one blk-mq hctx is active */
 	QUEUE_FLAG_SQ_SCHED,		/* single queue style io dispatch */
 	QUEUE_FLAG_DISABLE_WBT_DEF,	/* for sched to disable/enable wbt */
-	QUEUE_FLAG_NO_ELV_SWITCH,	/* can't switch elevator any more */
+	QUEUE_FLAG_NO_ELV_SWITCH,	/* a switch is running or disk is going away */
 	QUEUE_FLAG_QOS_ENABLED,		/* qos is enabled */
 	QUEUE_FLAG_BIO_ISSUE_TIME,	/* record bio->issue_time_ns */
 	QUEUE_FLAG_ZONED_QD1_WRITES,	/* Limit zoned devices writes to QD=1 */
@@ -716,8 +719,6 @@ void blk_queue_flag_clear(unsigned int flag, struct request_queue *q);
 	((q)->limits.features & BLK_FEAT_SKIP_TAGSET_QUIESCE)
 #define blk_queue_disable_wbt(q)	\
 	test_bit(QUEUE_FLAG_DISABLE_WBT_DEF, &(q)->queue_flags)
-#define blk_queue_no_elv_switch(q)	\
-	test_bit(QUEUE_FLAG_NO_ELV_SWITCH, &(q)->queue_flags)
 #define blk_queue_zoned_qd1_writes(q)	\
 	test_bit(QUEUE_FLAG_ZONED_QD1_WRITES, &(q)->queue_flags)
 
@@ -1596,6 +1597,8 @@ struct block_device_operations {
 	/* returns the length of the identifier or a negative errno: */
 	int (*get_unique_id)(struct gendisk *disk, u8 id[16],
 			enum blk_unique_id id_type);
+	int (*init_dma_buf_io_ctx)(struct block_device *,
+				   struct dma_buf_io_ctx *);
 	struct module *owner;
 	const struct pr_ops *pr_ops;
 
@@ -1816,8 +1819,11 @@ static inline int bio_split_rw_at(struct bio *bio,
  */
 static inline unsigned int max_integrity_io_size(struct queue_limits *lim)
 {
-	return min_t(unsigned int, lim->max_segment_size,
-		(BLK_INTEGRITY_MAX_SIZE / lim->integrity.metadata_size) <<
+	unsigned int buf_size = min_t(unsigned int, lim->max_segment_size,
+				      BLK_INTEGRITY_MAX_SIZE);
+
+	return min_t(u64, UINT_MAX,
+		(u64)(buf_size / lim->integrity.metadata_size) <<
 			lim->integrity.interval_exp);
 }
 

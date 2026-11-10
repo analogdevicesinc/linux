@@ -16,22 +16,17 @@
 #include "sun4i_layer.h"
 #include "sunxi_engine.h"
 
-static void sun4i_backend_layer_reset(struct drm_plane *plane)
+static struct drm_plane_state *sun4i_backend_layer_create_state(struct drm_plane *plane)
 {
 	struct sun4i_layer_state *state;
 
-	if (plane->state) {
-		state = state_to_sun4i_layer_state(plane->state);
-
-		__drm_atomic_helper_plane_destroy_state(&state->state);
-
-		kfree(state);
-		plane->state = NULL;
-	}
-
 	state = kzalloc_obj(*state);
-	if (state)
-		__drm_atomic_helper_plane_reset(plane, &state->state);
+	if (!state)
+		return ERR_PTR(-ENOMEM);
+
+	__drm_atomic_helper_plane_state_init(&state->state, plane);
+
+	return &state->state;
 }
 
 static struct drm_plane_state *
@@ -133,7 +128,7 @@ static const struct drm_plane_funcs sun4i_backend_layer_funcs = {
 	.atomic_duplicate_state	= sun4i_backend_layer_duplicate_state,
 	.destroy		= drm_plane_cleanup,
 	.disable_plane		= drm_atomic_helper_disable_plane,
-	.reset			= sun4i_backend_layer_reset,
+	.atomic_create_state	= sun4i_backend_layer_create_state,
 	.update_plane		= drm_atomic_helper_update_plane,
 	.format_mod_supported	= sun4i_layer_format_mod_supported,
 };
@@ -198,7 +193,7 @@ static struct sun4i_layer *sun4i_layer_init_one(struct drm_device *drm,
 	struct sun4i_layer *layer;
 	int ret;
 
-	layer = devm_kzalloc(drm->dev, sizeof(*layer), GFP_KERNEL);
+	layer = devm_kzalloc_obj(drm->dev, *layer);
 	if (!layer)
 		return ERR_PTR(-ENOMEM);
 
@@ -239,8 +234,8 @@ struct drm_plane **sun4i_layers_init(struct drm_device *drm,
 	int i;
 
 	/* We need to have a sentinel at the need, hence the overallocation */
-	planes = devm_kcalloc(drm->dev, SUN4I_BACKEND_NUM_LAYERS + 1,
-			      sizeof(*planes), GFP_KERNEL);
+	planes = devm_kzalloc_objs(drm->dev, *planes,
+				   SUN4I_BACKEND_NUM_LAYERS + 1);
 	if (!planes)
 		return ERR_PTR(-ENOMEM);
 

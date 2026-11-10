@@ -232,8 +232,7 @@ static int pm860x_touch_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	touch = devm_kzalloc(&pdev->dev, sizeof(struct pm860x_touch),
-			     GFP_KERNEL);
+	touch = devm_kzalloc_obj(&pdev->dev, struct pm860x_touch);
 	if (!touch)
 		return -ENOMEM;
 
@@ -246,7 +245,6 @@ static int pm860x_touch_probe(struct platform_device *pdev)
 	touch->idev->name = "88pm860x-touch";
 	touch->idev->phys = "88pm860x/input0";
 	touch->idev->id.bustype = BUS_I2C;
-	touch->idev->dev.parent = &pdev->dev;
 	touch->idev->open = pm860x_touch_open;
 	touch->idev->close = pm860x_touch_close;
 	touch->chip = chip;

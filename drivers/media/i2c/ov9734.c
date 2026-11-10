@@ -681,6 +681,7 @@ static int ov9734_set_stream(struct v4l2_subdev *sd, int enable)
 }
 
 static int ov9734_set_format(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *sd_state,
 			     struct v4l2_subdev_format *fmt)
 {
@@ -898,7 +899,7 @@ static int ov9734_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	ov9734 = devm_kzalloc(&client->dev, sizeof(*ov9734), GFP_KERNEL);
+	ov9734 = devm_kzalloc_obj(&client->dev, *ov9734);
 	if (!ov9734)
 		return -ENOMEM;
 

@@ -521,7 +521,7 @@ int ad7879_probe(struct device *dev, struct regmap *regmap,
 		return -EINVAL;
 	}
 
-	ts = devm_kzalloc(dev, sizeof(*ts), GFP_KERNEL);
+	ts = devm_kzalloc_obj(dev, *ts);
 	if (!ts)
 		return -ENOMEM;
 
@@ -545,7 +545,6 @@ int ad7879_probe(struct device *dev, struct regmap *regmap,
 
 	input_dev->name = "AD7879 Touchscreen";
 	input_dev->phys = ts->phys;
-	input_dev->dev.parent = dev;
 	input_dev->id.bustype = bustype;
 
 	input_dev->open = ad7879_open;

@@ -260,7 +260,7 @@ static loff_t dma_buf_llseek(struct file *file, loff_t offset, int whence)
 
 	/* only support discovering the end of the buffer,
 	 * but also allow SEEK_SET to maintain the idiomatic
-	 * SEEK_END(0), SEEK_CUR(0) pattern.
+	 * SEEK_END(0), SEEK_SET(0) pattern.
 	 */
 	if (whence == SEEK_END)
 		base = dmabuf->size;
@@ -904,6 +904,10 @@ static int dma_buf_wrap_sg_table(struct sg_table **sg_table)
 		sg_assign_page(to_sg, NULL);
 		sg_dma_address(to_sg) = sg_dma_address(from_sg);
 		sg_dma_len(to_sg) = sg_dma_len(from_sg);
+#ifdef CONFIG_NEED_SG_DMA_FLAGS
+		/* the flags describe the DMA side, e.g. SG_DMA_BUS_ADDRESS */
+		to_sg->dma_flags = from_sg->dma_flags;
+#endif
 		to_sg = sg_next(to_sg);
 	}
 

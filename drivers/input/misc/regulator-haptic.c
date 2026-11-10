@@ -146,7 +146,7 @@ static int regulator_haptic_probe(struct platform_device *pdev)
 	struct input_dev *input_dev;
 	int error;
 
-	haptic = devm_kzalloc(&pdev->dev, sizeof(*haptic), GFP_KERNEL);
+	haptic = devm_kzalloc_obj(&pdev->dev, *haptic);
 	if (!haptic)
 		return -ENOMEM;
 
@@ -179,7 +179,6 @@ static int regulator_haptic_probe(struct platform_device *pdev)
 
 	haptic->input_dev = input_dev;
 	haptic->input_dev->name = "regulator-haptic";
-	haptic->input_dev->dev.parent = &pdev->dev;
 	haptic->input_dev->close = regulator_haptic_close;
 	input_set_drvdata(haptic->input_dev, haptic);
 	input_set_capability(haptic->input_dev, EV_FF, FF_RUMBLE);

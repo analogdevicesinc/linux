@@ -690,7 +690,7 @@ static int ad7877_probe(struct spi_device *spi)
 		return err;
 	}
 
-	ts = devm_kzalloc(&spi->dev, sizeof(struct ad7877), GFP_KERNEL);
+	ts = devm_kzalloc_obj(&spi->dev, struct ad7877);
 	if (!ts)
 		return -ENOMEM;
 
@@ -725,7 +725,6 @@ static int ad7877_probe(struct spi_device *spi)
 
 	input_dev->name = "AD7877 Touchscreen";
 	input_dev->phys = ts->phys;
-	input_dev->dev.parent = &spi->dev;
 
 	__set_bit(EV_KEY, input_dev->evbit);
 	__set_bit(BTN_TOUCH, input_dev->keybit);

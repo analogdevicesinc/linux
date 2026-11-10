@@ -420,7 +420,7 @@ imx_scu_add_pm_domain(struct device *dev, int idx,
 	if (!imx_sc_rm_is_resource_owned(pm_ipc_handle, pd_ranges->rsrc + idx))
 		return NULL;
 
-	sc_pd = devm_kzalloc(dev, sizeof(*sc_pd), GFP_KERNEL);
+	sc_pd = devm_kzalloc_obj(dev, *sc_pd);
 	if (!sc_pd)
 		return ERR_PTR(-ENOMEM);
 
@@ -474,16 +474,16 @@ static int imx_scu_init_pm_domains(struct device *dev,
 	struct genpd_onecell_data *pd_data;
 	struct imx_sc_pm_domain *sc_pd;
 	u32 count = 0;
-	int i, j;
+	int i, j, ret;
 
 	for (i = 0; i < pd_soc->num_ranges; i++)
 		count += pd_ranges[i].num;
 
-	domains = devm_kcalloc(dev, count, sizeof(*domains), GFP_KERNEL);
+	domains = devm_kzalloc_objs(dev, *domains, count);
 	if (!domains)
 		return -ENOMEM;
 
-	pd_data = devm_kzalloc(dev, sizeof(*pd_data), GFP_KERNEL);
+	pd_data = devm_kzalloc_obj(dev, *pd_data);
 	if (!pd_data)
 		return -ENOMEM;
 
@@ -503,7 +503,13 @@ static int imx_scu_init_pm_domains(struct device *dev,
 	pd_data->num_domains = count;
 	pd_data->xlate = imx_scu_pd_xlate;
 
-	of_genpd_add_provider_onecell(dev->of_node, pd_data);
+	ret = of_genpd_add_provider_onecell(dev->of_node, pd_data);
+	if (ret) {
+		while (count)
+			pm_genpd_remove(domains[--count]);
+
+		return ret;
+	}
 
 	return 0;
 }

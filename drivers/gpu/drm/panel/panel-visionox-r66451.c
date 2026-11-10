@@ -36,7 +36,7 @@ static void visionox_r66451_reset(struct visionox_r66451 *ctx)
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	usleep_range(10000, 10100);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(10000, 10100);
+	usleep_range(20000, 21000);
 }
 
 static int visionox_r66451_on(struct visionox_r66451 *ctx)
@@ -227,7 +227,7 @@ static int visionox_r66451_bl_update_status(struct backlight_device *bl)
 	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	u16 brightness = backlight_get_brightness(bl);
 
-	return mipi_dsi_dcs_set_display_brightness(dsi, brightness);
+	return mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
 }
 
 static const struct backlight_ops visionox_r66451_bl_ops = {
@@ -261,7 +261,7 @@ static int visionox_r66451_probe(struct mipi_dsi_device *dsi)
 	if (IS_ERR(ctx))
 		return PTR_ERR(ctx);
 
-	dsc = devm_kzalloc(dev, sizeof(*dsc), GFP_KERNEL);
+	dsc = devm_kzalloc_obj(dev, *dsc);
 	if (!dsc)
 		return -ENOMEM;
 
@@ -304,27 +304,15 @@ static int visionox_r66451_probe(struct mipi_dsi_device *dsi)
 		return dev_err_probe(dev, PTR_ERR(ctx->panel.backlight),
 				"Failed to create backlight\n");
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
+	ret = devm_mipi_dsi_attach(dev, dsi);
+	if (ret < 0)
 		dev_err(dev, "Failed to attach to DSI host: %d\n", ret);
-		drm_panel_remove(&ctx->panel);
-	}
 
 	return ret;
-}
-
-static void visionox_r66451_remove(struct mipi_dsi_device *dsi)
-{
-	struct visionox_r66451 *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id visionox_r66451_of_match[] = {
@@ -335,7 +323,6 @@ MODULE_DEVICE_TABLE(of, visionox_r66451_of_match);
 
 static struct mipi_dsi_driver visionox_r66451_driver = {
 	.probe = visionox_r66451_probe,
-	.remove = visionox_r66451_remove,
 	.driver = {
 		.name = "panel-visionox-r66451",
 		.of_match_table = visionox_r66451_of_match,

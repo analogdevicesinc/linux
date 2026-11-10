@@ -139,8 +139,8 @@ int node_affinity_init(void)
 	 */
 	init_real_cpu_mask();
 
-	hfi1_per_node_cntr = kcalloc(node_affinity.num_possible_nodes,
-				     sizeof(*hfi1_per_node_cntr), GFP_KERNEL);
+	hfi1_per_node_cntr = kzalloc_objs(*hfi1_per_node_cntr,
+					  node_affinity.num_possible_nodes);
 	if (!hfi1_per_node_cntr)
 		return -ENOMEM;
 
@@ -386,7 +386,7 @@ static void _dev_comp_vect_mappings_destroy(struct hfi1_devdata *dd)
 
 /*
  * This function creates the table for looking up CPUs for completion vectors.
- * num_comp_vectors needs to have been initilized before calling this function.
+ * num_comp_vectors needs to have been initialized before calling this function.
  */
 static int _dev_comp_vect_mappings_create(struct hfi1_devdata *dd,
 					  struct hfi1_affinity_node *entry)

@@ -992,6 +992,22 @@ static int wm8900_mute(struct snd_soc_dai *codec_dai, int mute, int direction)
 	(SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE | \
 	 SNDRV_PCM_FMTBIT_S24_LE)
 
+static const u64 wm8900_selectable_formats[] = {
+	/* 1st priority */
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF,
+	/* 2nd priority */
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF,
+};
+
 static const struct snd_soc_dai_ops wm8900_dai_ops = {
 	.hw_params	= wm8900_hw_params,
 	.set_clkdiv	= wm8900_set_dai_clkdiv,
@@ -999,6 +1015,8 @@ static const struct snd_soc_dai_ops wm8900_dai_ops = {
 	.set_fmt	= wm8900_set_dai_fmt,
 	.mute_stream	= wm8900_mute,
 	.no_capture_mute = 1,
+	.auto_selectable_formats	= wm8900_selectable_formats,
+	.num_auto_selectable_formats	= ARRAY_SIZE(wm8900_selectable_formats),
 };
 
 static struct snd_soc_dai_driver wm8900_dai = {
@@ -1238,8 +1256,7 @@ static int wm8900_spi_probe(struct spi_device *spi)
 	struct wm8900_priv *wm8900;
 	int ret;
 
-	wm8900 = devm_kzalloc(&spi->dev, sizeof(struct wm8900_priv),
-			      GFP_KERNEL);
+	wm8900 = devm_kzalloc_obj(&spi->dev, struct wm8900_priv);
 	if (wm8900 == NULL)
 		return -ENOMEM;
 
@@ -1269,8 +1286,7 @@ static int wm8900_i2c_probe(struct i2c_client *i2c)
 	struct wm8900_priv *wm8900;
 	int ret;
 
-	wm8900 = devm_kzalloc(&i2c->dev, sizeof(struct wm8900_priv),
-			      GFP_KERNEL);
+	wm8900 = devm_kzalloc_obj(&i2c->dev, struct wm8900_priv);
 	if (wm8900 == NULL)
 		return -ENOMEM;
 

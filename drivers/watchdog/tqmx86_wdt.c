@@ -14,6 +14,7 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/timer.h>
+#include <linux/stringify.h>
 #include <linux/watchdog.h>
 
 /* default timeout (secs) */
@@ -23,7 +24,7 @@ static unsigned int timeout;
 module_param(timeout, uint, 0);
 MODULE_PARM_DESC(timeout,
 	"Watchdog timeout in seconds. (1<=timeout<=4096, default="
-				__MODULE_STRING(WDT_TIMEOUT) ")");
+				__stringify(WDT_TIMEOUT) ")");
 struct tqmx86_wdt {
 	struct watchdog_device wdd;
 	void __iomem *io_base;
@@ -75,7 +76,7 @@ static int tqmx86_wdt_probe(struct platform_device *pdev)
 	struct resource *res;
 	int err;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 

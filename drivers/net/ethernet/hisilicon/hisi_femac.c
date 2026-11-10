@@ -348,13 +348,11 @@ static int hisi_femac_init_queue(struct device *dev,
 				 struct hisi_femac_queue *queue,
 				 unsigned int num)
 {
-	queue->skb = devm_kcalloc(dev, num, sizeof(struct sk_buff *),
-				  GFP_KERNEL);
+	queue->skb = devm_kzalloc_objs(dev, struct sk_buff *, num);
 	if (!queue->skb)
 		return -ENOMEM;
 
-	queue->dma_phys = devm_kcalloc(dev, num, sizeof(dma_addr_t),
-				       GFP_KERNEL);
+	queue->dma_phys = devm_kzalloc_objs(dev, dma_addr_t, num);
 	if (!queue->dma_phys)
 		return -ENOMEM;
 
@@ -491,6 +489,7 @@ static int hisi_femac_net_close(struct net_device *dev)
 	netif_stop_queue(dev);
 	napi_disable(&priv->napi);
 
+	hisi_femac_port_reset(priv);
 	hisi_femac_free_skb_rings(priv);
 
 	return 0;
@@ -830,6 +829,8 @@ static int hisi_femac_drv_probe(struct platform_device *pdev)
 		hisi_femac_phy_reset(priv);
 	}
 
+	ndev->netdev_ops = &hisi_femac_netdev_ops;
+
 	phy = of_phy_get_and_connect(ndev, node, hisi_femac_adjust_link);
 	if (!phy) {
 		dev_err(dev, "connect to PHY failed!\n");
@@ -850,7 +851,6 @@ static int hisi_femac_drv_probe(struct platform_device *pdev)
 
 	ndev->watchdog_timeo = 6 * HZ;
 	ndev->priv_flags |= IFF_UNICAST_FLT;
-	ndev->netdev_ops = &hisi_femac_netdev_ops;
 	ndev->ethtool_ops = &hisi_femac_ethtools_ops;
 	netif_napi_add_weight(ndev, &priv->napi, hisi_femac_poll,
 			      FEMAC_POLL_WEIGHT);

@@ -105,7 +105,7 @@ static int adm1177_read(struct device *dev, enum hwmon_sensor_types type,
 			return ret;
 		dummy = (data[0] << 4) | (data[2] >> 4);
 		/*
-		 * convert to millivolts based on resistor devision
+		 * convert to millivolts based on resistor division
 		 * (V_fullscale / 4096) * raw
 		 */
 		if (st->vrange_high)
@@ -199,7 +199,7 @@ static int adm1177_probe(struct i2c_client *client)
 	u32 prop;
 	int ret;
 
-	st = devm_kzalloc(dev, sizeof(*st), GFP_KERNEL);
+	st = devm_kzalloc_obj(dev, *st);
 	if (!st)
 		return -ENOMEM;
 

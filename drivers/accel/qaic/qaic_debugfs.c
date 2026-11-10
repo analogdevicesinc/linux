@@ -5,6 +5,7 @@
 
 #include <linux/debugfs.h>
 #include <linux/device.h>
+#include <linux/device-id/mhi.h>
 #include <linux/fs.h>
 #include <linux/list.h>
 #include <linux/mhi.h>
@@ -220,7 +221,7 @@ static int qaic_bootlog_mhi_probe(struct mhi_device *mhi_dev, const struct mhi_d
 	qdev->bootlog_ch = mhi_dev;
 
 	for (i = 0; i < BOOTLOG_POOL_SIZE; i++) {
-		msg = devm_kzalloc(&qdev->pdev->dev, sizeof(*msg), GFP_KERNEL);
+		msg = devm_kzalloc_obj(&qdev->pdev->dev, *msg);
 		if (!msg) {
 			ret = -ENOMEM;
 			goto mhi_unprepare;

@@ -221,7 +221,7 @@ static struct mbox_chan *mhu_db_mbox_xlate(struct mbox_controller *mbox,
 
 	chan = &mbox->chans[i];
 
-	chan_info = devm_kzalloc(mbox->dev, sizeof(*chan_info), GFP_KERNEL);
+	chan_info = devm_kzalloc_obj(mbox->dev, *chan_info);
 	if (!chan_info)
 		return ERR_PTR(-ENOMEM);
 
@@ -272,7 +272,7 @@ static int mhu_db_probe(struct amba_device *adev, const struct amba_id *id)
 		return -EINVAL;
 	}
 
-	mhu = devm_kzalloc(dev, sizeof(*mhu), GFP_KERNEL);
+	mhu = devm_kzalloc_obj(dev, *mhu);
 	if (!mhu)
 		return -ENOMEM;
 
@@ -280,7 +280,7 @@ static int mhu_db_probe(struct amba_device *adev, const struct amba_id *id)
 	if (IS_ERR(mhu->base))
 		return PTR_ERR(mhu->base);
 
-	chans = devm_kcalloc(dev, max_chans, sizeof(*chans), GFP_KERNEL);
+	chans = devm_kzalloc_objs(dev, *chans, max_chans);
 	if (!chans)
 		return -ENOMEM;
 
@@ -317,10 +317,8 @@ static int mhu_db_probe(struct amba_device *adev, const struct amba_id *id)
 		err = devm_request_threaded_irq(dev, irq, NULL,
 						mhu_db_mbox_rx_handler,
 						IRQF_ONESHOT, "mhu_db_link", mhu);
-		if (err) {
-			mbox_controller_unregister(&mhu->mbox);
+		if (err)
 			return err;
-		}
 	}
 
 	dev_info(dev, "ARM MHU Doorbell mailbox registered\n");

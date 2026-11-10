@@ -595,7 +595,7 @@ static void nic_config_rss(struct nicpf *nic, struct rss_cfg_msg *cfg)
 	nic_reg_write(nic, idx_addr | (cpi_base << 3), cpi_cfg);
 }
 
-/* 4 level transmit side scheduler configutation
+/* 4 level transmit side scheduler configuration
  * for TNS bypass mode
  *
  * Sample configuration for SQ0 on 88xx
@@ -1297,11 +1297,11 @@ static int nic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	BUILD_BUG_ON(sizeof(union nic_mbx) > 16);
 
-	nic = devm_kzalloc(dev, sizeof(*nic), GFP_KERNEL);
+	nic = devm_kzalloc_obj(dev, *nic);
 	if (!nic)
 		return -ENOMEM;
 
-	nic->hw = devm_kzalloc(dev, sizeof(struct hw_info), GFP_KERNEL);
+	nic->hw = devm_kzalloc_obj(dev, struct hw_info);
 	if (!nic->hw)
 		return -ENOMEM;
 

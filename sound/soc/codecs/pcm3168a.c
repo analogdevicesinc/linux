@@ -103,7 +103,7 @@ static SOC_ENUM_SINGLE_DECL(pcm3168a_dac_zf_func, PCM3168A_DAC_ATT_DEMP_ZF,
 static const char *const pcm3168a_pol[] = { "Active High", "Active Low" };
 
 static SOC_ENUM_SINGLE_DECL(pcm3168a_dac_zf_pol, PCM3168A_DAC_ATT_DEMP_ZF,
-		PCM3168A_DAC_ATSPDA_SHIFT, pcm3168a_pol);
+		PCM3168A_DAC_ZREV_SHIFT, pcm3168a_pol);
 
 static const char *const pcm3168a_con[] = { "Differential", "Single-Ended" };
 
@@ -718,7 +718,7 @@ int pcm3168a_probe(struct device *dev, struct regmap *regmap)
 	struct pcm3168a_priv *pcm3168a;
 	int ret, i;
 
-	pcm3168a = devm_kzalloc(dev, sizeof(*pcm3168a), GFP_KERNEL);
+	pcm3168a = devm_kzalloc_obj(dev, *pcm3168a);
 	if (pcm3168a == NULL)
 		return -ENOMEM;
 

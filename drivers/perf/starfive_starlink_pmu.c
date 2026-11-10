@@ -51,7 +51,7 @@
 
 #define STARLINK_FORMAT_ATTR(_name, _config)				      \
 	(&((struct dev_ext_attribute[]) {				      \
-		{ .attr = __ATTR(_name, 0444, starlink_pmu_sysfs_format_show, NULL), \
+		{ .attr = __DEVICE_ATTR(_name, 0444, starlink_pmu_sysfs_format_show, NULL), \
 		  .var = (void *)_config, }				      \
 	})[0].attr.attr)
 
@@ -510,7 +510,7 @@ static int starlink_pmu_probe(struct platform_device *pdev)
 	struct resource *res;
 	int cpuid, i, ret;
 
-	starlink_pmu = devm_kzalloc(&pdev->dev, sizeof(*starlink_pmu), GFP_KERNEL);
+	starlink_pmu = devm_kzalloc_obj(&pdev->dev, *starlink_pmu);
 	if (!starlink_pmu)
 		return -ENOMEM;
 

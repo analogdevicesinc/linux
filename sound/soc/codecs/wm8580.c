@@ -852,13 +852,40 @@ static int wm8580_playback_startup(struct snd_pcm_substream *substream,
 {
 	struct snd_soc_component *component = dai->component;
 	struct wm8580_priv *wm8580 = snd_soc_component_get_drvdata(component);
+	int ret;
 
-	return snd_pcm_hw_constraint_minmax(substream->runtime,
-		SNDRV_PCM_HW_PARAM_CHANNELS, 1, wm8580->drvdata->num_dacs * 2);
+	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+					   SNDRV_PCM_HW_PARAM_CHANNELS, 1,
+					   wm8580->drvdata->num_dacs * 2);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI as started when .startup() returns 0.
+	 * Since snd_pcm_hw_constraint_minmax() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked as started.
+	 */
+	return 0;
 }
 
 #define WM8580_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S20_3LE |\
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S32_LE)
+
+static const u64 wm8580_selectable_formats[] = {
+	/* 1st priority */
+	SND_SOC_POSSIBLE_DAIFMT_I2S	|
+	SND_SOC_POSSIBLE_DAIFMT_RIGHT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_LEFT_J	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_IF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_IF,
+	/* 2nd priority */
+	SND_SOC_POSSIBLE_DAIFMT_DSP_A	|
+	SND_SOC_POSSIBLE_DAIFMT_DSP_B	|
+	SND_SOC_POSSIBLE_DAIFMT_NB_NF	|
+	SND_SOC_POSSIBLE_DAIFMT_IB_NF,
+};
 
 static const struct snd_soc_dai_ops wm8580_dai_ops_playback = {
 	.startup	= wm8580_playback_startup,
@@ -869,6 +896,8 @@ static const struct snd_soc_dai_ops wm8580_dai_ops_playback = {
 	.set_pll	= wm8580_set_dai_pll,
 	.mute_stream	= wm8580_mute,
 	.no_capture_mute = 1,
+	.auto_selectable_formats	= wm8580_selectable_formats,
+	.num_auto_selectable_formats	= ARRAY_SIZE(wm8580_selectable_formats),
 };
 
 static const struct snd_soc_dai_ops wm8580_dai_ops_capture = {
@@ -877,6 +906,8 @@ static const struct snd_soc_dai_ops wm8580_dai_ops_capture = {
 	.set_fmt	= wm8580_set_paif_dai_fmt,
 	.set_clkdiv	= wm8580_set_dai_clkdiv,
 	.set_pll	= wm8580_set_dai_pll,
+	.auto_selectable_formats	= wm8580_selectable_formats,
+	.num_auto_selectable_formats	= ARRAY_SIZE(wm8580_selectable_formats),
 };
 
 static struct snd_soc_dai_driver wm8580_dai[] = {
@@ -994,8 +1025,7 @@ static int wm8580_i2c_probe(struct i2c_client *i2c)
 	struct wm8580_priv *wm8580;
 	int ret, i;
 
-	wm8580 = devm_kzalloc(&i2c->dev, sizeof(struct wm8580_priv),
-			      GFP_KERNEL);
+	wm8580 = devm_kzalloc_obj(&i2c->dev, struct wm8580_priv);
 	if (wm8580 == NULL)
 		return -ENOMEM;
 

@@ -148,11 +148,11 @@ static int gpio_siox_get(struct gpio_chip *chip, unsigned int offset)
 	if (offset >= 12) {
 		unsigned int bitpos = 19 - offset;
 
-		ret = ddata->setdata[0] & (1 << bitpos);
+		ret = !!(ddata->setdata[0] & (1 << bitpos));
 	} else {
 		unsigned int bitpos = 11 - offset;
 
-		ret = ddata->getdata[bitpos / 8] & (1 << (bitpos % 8));
+		ret = !!(ddata->getdata[bitpos / 8] & (1 << (bitpos % 8)));
 	}
 
 	mutex_unlock(&ddata->lock);
@@ -222,7 +222,7 @@ static int gpio_siox_probe(struct siox_device *sdevice)
 	struct gpio_chip *gc;
 	int ret;
 
-	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
+	ddata = devm_kzalloc_obj(dev, *ddata);
 	if (!ddata)
 		return -ENOMEM;
 

@@ -430,7 +430,7 @@ static int adsp_start(struct rproc *rproc)
 		goto disable_adsp_clks;
 	}
 
-	ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5 * HZ));
+	ret = qcom_q6v5_wait_for_start(&adsp->q6v5, msecs_to_jiffies(5000));
 	if (ret == -ETIMEDOUT) {
 		dev_err(adsp->dev, "start timed out\n");
 		goto disable_adsp_clks;
@@ -545,8 +545,7 @@ static int adsp_init_clock(struct qcom_adsp *adsp, const char **clk_ids)
 		num_clks++;
 
 	adsp->num_clks = num_clks;
-	adsp->clks = devm_kcalloc(adsp->dev, adsp->num_clks,
-				sizeof(*adsp->clks), GFP_KERNEL);
+	adsp->clks = devm_kzalloc_objs(adsp->dev, *adsp->clks, adsp->num_clks);
 	if (!adsp->clks)
 		return -ENOMEM;
 

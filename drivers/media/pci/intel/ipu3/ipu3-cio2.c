@@ -1229,6 +1229,7 @@ static int cio2_subdev_init_state(struct v4l2_subdev *sd,
 }
 
 static int cio2_subdev_set_fmt(struct v4l2_subdev *sd,
+			       const struct v4l2_subdev_client_info *ci,
 			       struct v4l2_subdev_state *sd_state,
 			       struct v4l2_subdev_format *fmt)
 {
@@ -1670,7 +1671,7 @@ static int cio2_pci_probe(struct pci_dev *pci_dev,
 	if (r)
 		return r;
 
-	cio2 = devm_kzalloc(dev, sizeof(*cio2), GFP_KERNEL);
+	cio2 = devm_kzalloc_obj(dev, *cio2);
 	if (!cio2)
 		return -ENOMEM;
 	cio2->pci_dev = pci_dev;

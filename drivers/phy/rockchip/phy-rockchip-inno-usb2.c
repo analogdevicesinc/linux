@@ -400,7 +400,7 @@ static int
 rockchip_usb2phy_clk480m_register(struct rockchip_usb2phy *rphy)
 {
 	struct device_node *node = rphy->dev->of_node;
-	struct clk_init_data init;
+	struct clk_init_data init = {};
 	struct clk *refclk = NULL;
 	const char *clk_name;
 	int i;
@@ -1356,7 +1356,7 @@ static int rockchip_usb2phy_probe(struct platform_device *pdev)
 	unsigned int reg;
 	int index = 0, ret;
 
-	rphy = devm_kzalloc(dev, sizeof(*rphy), GFP_KERNEL);
+	rphy = devm_kzalloc_obj(dev, *rphy);
 	if (!rphy)
 		return -ENOMEM;
 

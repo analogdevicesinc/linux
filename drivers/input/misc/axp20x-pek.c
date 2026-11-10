@@ -241,7 +241,6 @@ static int axp20x_pek_probe_input_device(struct axp20x_pek *axp20x_pek,
 
 	idev->name = "axp20x-pek";
 	idev->phys = "m1kbd/input2";
-	idev->dev.parent = &pdev->dev;
 
 	input_set_capability(idev, EV_KEY, KEY_POWER);
 
@@ -307,8 +306,7 @@ static int axp20x_pek_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	axp20x_pek = devm_kzalloc(&pdev->dev, sizeof(struct axp20x_pek),
-				  GFP_KERNEL);
+	axp20x_pek = devm_kzalloc_obj(&pdev->dev, struct axp20x_pek);
 	if (!axp20x_pek)
 		return -ENOMEM;
 

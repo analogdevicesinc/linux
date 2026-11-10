@@ -587,8 +587,8 @@ static const struct clk_ops lmk04832_vco_ops = {
  */
 static int lmk04832_register_vco(struct lmk04832 *lmk)
 {
+	struct clk_init_data init = {};
 	const char *parent_names[1];
-	struct clk_init_data init;
 	int ret;
 
 	init.name = "lmk-vco";
@@ -947,8 +947,8 @@ static const struct clk_ops lmk04832_sclk_ops = {
 
 static int lmk04832_register_sclk(struct lmk04832 *lmk)
 {
+	struct clk_init_data init = {};
 	const char *parent_names[1];
-	struct clk_init_data init;
 	int ret;
 
 	init.name = "lmk-sclk";
@@ -1292,8 +1292,8 @@ static int lmk04832_register_clkout(struct lmk04832 *lmk, const int num)
 {
 	char name[] = "lmk-clkoutXX";
 	char dclk_name[] = "lmk-dclkXX_YY";
+	struct clk_init_data init = {};
 	const char *parent_names[2];
-	struct clk_init_data init;
 	int dclk_num = num / 2;
 	int ret;
 
@@ -1396,7 +1396,7 @@ static int lmk04832_probe(struct spi_device *spi)
 
 	info = &lmk04832_device_info;
 
-	lmk = devm_kzalloc(&spi->dev, sizeof(struct lmk04832), GFP_KERNEL);
+	lmk = devm_kzalloc_obj(&spi->dev, struct lmk04832);
 	if (!lmk)
 		return -ENOMEM;
 
@@ -1410,24 +1410,26 @@ static int lmk04832_probe(struct spi_device *spi)
 
 	lmk->reset_gpio = devm_gpiod_get_optional(&spi->dev, "reset",
 						  GPIOD_OUT_LOW);
+	if (IS_ERR(lmk->reset_gpio))
+		return dev_err_probe(lmk->dev, PTR_ERR(lmk->reset_gpio),
+				     "failed to get reset GPIO\n");
 
-	lmk->dclk = devm_kcalloc(lmk->dev, info->num_channels >> 1,
-				 sizeof(struct lmk_dclk), GFP_KERNEL);
+	lmk->dclk = devm_kzalloc_objs(lmk->dev, struct lmk_dclk,
+				      info->num_channels >> 1);
 	if (!lmk->dclk) {
 		ret = -ENOMEM;
 		return ret;
 	}
 
-	lmk->clkout = devm_kcalloc(lmk->dev, info->num_channels,
-				   sizeof(*lmk->clkout), GFP_KERNEL);
+	lmk->clkout = devm_kzalloc_objs(lmk->dev, *lmk->clkout,
+					info->num_channels);
 	if (!lmk->clkout) {
 		ret = -ENOMEM;
 		return ret;
 	}
 
-	lmk->clk_data = devm_kzalloc(lmk->dev, struct_size(lmk->clk_data, hws,
-							   info->num_channels),
-				     GFP_KERNEL);
+	lmk->clk_data = devm_kzalloc_flex(lmk->dev, *lmk->clk_data, hws,
+					  info->num_channels);
 	if (!lmk->clk_data) {
 		ret = -ENOMEM;
 		return ret;

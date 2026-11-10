@@ -849,6 +849,7 @@ static int imx678_enum_frame_size(struct v4l2_subdev *sd,
 }
 
 static int imx678_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1130,7 +1131,6 @@ static const struct v4l2_subdev_video_ops imx678_video_ops = {
 static const struct v4l2_subdev_pad_ops imx678_pad_ops = {
 	.enum_mbus_code = imx678_enum_mbus_code,
 	.get_fmt = v4l2_subdev_get_fmt,
-	.set_fmt = v4l2_subdev_get_fmt,
 	.get_selection = imx678_get_selection,
 	.enum_frame_size = imx678_enum_frame_size,
 	.enable_streams = imx678_enable_streams,
@@ -1286,7 +1286,7 @@ static int imx678_probe(struct i2c_client *client)
 	struct imx678 *imx678;
 	int ret, i;
 
-	imx678 = devm_kzalloc(&client->dev, sizeof(*imx678), GFP_KERNEL);
+	imx678 = devm_kzalloc_obj(&client->dev, *imx678);
 	if (!imx678)
 		return -ENOMEM;
 

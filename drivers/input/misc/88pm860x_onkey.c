@@ -67,8 +67,7 @@ static int pm860x_onkey_probe(struct platform_device *pdev)
 	if (irq < 0)
 		return -EINVAL;
 
-	info = devm_kzalloc(&pdev->dev, sizeof(struct pm860x_onkey_info),
-			    GFP_KERNEL);
+	info = devm_kzalloc_obj(&pdev->dev, struct pm860x_onkey_info);
 	if (!info)
 		return -ENOMEM;
 	info->chip = chip;
@@ -85,7 +84,6 @@ static int pm860x_onkey_probe(struct platform_device *pdev)
 	info->idev->name = "88pm860x_on";
 	info->idev->phys = "88pm860x_on/input0";
 	info->idev->id.bustype = BUS_I2C;
-	info->idev->dev.parent = &pdev->dev;
 	info->idev->evbit[0] = BIT_MASK(EV_KEY);
 	info->idev->keybit[BIT_WORD(KEY_POWER)] = BIT_MASK(KEY_POWER);
 

@@ -294,7 +294,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
 		if (size < 16)
 			size = 16;
 	}
-	hinfo = kvmalloc_flex(*hinfo, hash, size);
+	hinfo = kvmalloc_flex(*hinfo, hash, size, GFP_KERNEL_ACCOUNT);
 	if (hinfo == NULL)
 		return -ENOMEM;
 	*out_hinfo = hinfo;
@@ -319,7 +319,7 @@ static int htable_create(struct net *net, struct hashlimit_cfg3 *cfg,
 	hinfo->count = 0;
 	hinfo->family = family;
 	hinfo->rnd_initialized = false;
-	hinfo->name = kstrdup(name, GFP_KERNEL);
+	hinfo->name = kstrdup(name, GFP_KERNEL_ACCOUNT);
 	if (!hinfo->name) {
 		kvfree(hinfo);
 		return -ENOMEM;
@@ -1077,7 +1077,7 @@ static void *dl_seq_start(struct seq_file *s, loff_t *pos)
 	if (*pos >= htable->cfg.size)
 		return NULL;
 
-	bucket = kmalloc(sizeof(unsigned int), GFP_ATOMIC);
+	bucket = kmalloc_obj(unsigned int, GFP_ATOMIC);
 	if (!bucket)
 		return ERR_PTR(-ENOMEM);
 

@@ -1372,7 +1372,7 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 	svm->msrpm = svm_vcpu_alloc_msrpm();
 	if (!svm->msrpm) {
 		err = -ENOMEM;
-		goto error_free_sev;
+		goto error_free_avic;
 	}
 
 	svm->x2avic_msrs_intercepted = true;
@@ -1386,6 +1386,8 @@ static int svm_vcpu_create(struct kvm_vcpu *vcpu)
 
 	return 0;
 
+error_free_avic:
+	avic_vcpu_free(vcpu);
 error_free_sev:
 	sev_free_vcpu(vcpu);
 error_free_pml_page:
@@ -1402,6 +1404,8 @@ static void svm_vcpu_free(struct kvm_vcpu *vcpu)
 	struct vcpu_svm *svm = to_svm(vcpu);
 
 	WARN_ON_ONCE(!list_empty(&svm->ir_list));
+
+	avic_vcpu_free(vcpu);
 
 	svm_leave_nested(vcpu);
 	svm_free_nested(svm);
@@ -2209,18 +2213,31 @@ static int shutdown_interception(struct kvm_vcpu *vcpu)
 
 
 	/*
-	 * VMCB is undefined after a SHUTDOWN intercept.  INIT the vCPU to put
-	 * the VMCB in a known good state.  Unfortuately, KVM doesn't have
-	 * KVM_MP_STATE_SHUTDOWN and can't add it without potentially breaking
-	 * userspace.  At a platform view, INIT is acceptable behavior as
-	 * there exist bare metal platforms that automatically INIT the CPU
-	 * in response to shutdown.
+	 * The VMCB save area is undefined after a SHUTDOWN intercept, as are
+	 * control area offsets 60h, 61h, and 68h (int_ctl[15:0] and int_state).
+	 * INIT the vCPU to put the VMCB in a known good state.  Unfortunately,
+	 * KVM doesn't have KVM_MP_STATE_SHUTDOWN and can't add it without
+	 * potentially breaking userspace.  At a platform view, INIT is
+	 * acceptable behavior as there exist bare metal platforms that
+	 * automatically INIT the CPU in response to shutdown.
 	 *
 	 * The VM save area for SEV-ES guests has already been encrypted so it
 	 * cannot be reinitialized, i.e. synthesizing INIT is futile.
 	 */
 	if (!is_sev_es_guest(vcpu)) {
-		clear_page(svm->vmcb);
+		struct vmcb_control_area *control = &svm->vmcb->control;
+
+		memset(&svm->vmcb->save, 0, sizeof(svm->vmcb->save));
+		control->int_ctl &= ~GENMASK(15, 0);
+		control->int_state = 0;
+
+		/*
+		 * EVENTINJ is cleared on #VMEXIT, but only if VMRUN fully
+		 * entered the guest.  Manually clear the fields even though it
+		 * should be redundant, as there is no downside to doing so.
+		 */
+		control->event_inj = 0;
+		control->event_inj_err = 0;
 #ifdef CONFIG_KVM_SMM
 		if (is_smm(vcpu))
 			kvm_smm_changed(vcpu, false);
@@ -3876,7 +3893,8 @@ static int pre_svm_run(struct kvm_vcpu *vcpu)
 
 	/*
 	 * If the previous VMRUN of the VMCB occurred on a different physical
-	 * cpu, then mark the VMCB dirty as hardware's clean bits are per pCPU.
+	 * cpu, mark the VMCB dirty and reset the ASID generation, as hardware's
+	 * clean bits and ASIDs are per pCPU.
 	 *
 	 * Reset the ASID generation in both VMCBs. This will lead to assigning
 	 * a new ASID now, and then again when switching to the other VMCB.
@@ -3890,11 +3908,16 @@ static int pre_svm_run(struct kvm_vcpu *vcpu)
 	 *   another vCPU/VM.
 	 */
 	if (unlikely(svm->current_vmcb->cpu != vcpu->cpu)) {
-		vmcb_mark_all_dirty(svm->vmcb);
-		svm->current_vmcb->cpu = vcpu->cpu;
+		vmcb_mark_all_dirty(svm->vmcb01.ptr);
+		svm->vmcb01.cpu = vcpu->cpu;
 		svm->vmcb01.asid_generation = 0;
-		svm->nested.vmcb02.asid_generation = 0;
-        }
+
+		if (svm->nested.initialized) {
+			svm->nested.vmcb02.cpu = vcpu->cpu;
+			svm->nested.vmcb02.asid_generation = 0;
+			vmcb_mark_all_dirty(svm->nested.vmcb02.ptr);
+		}
+	}
 
 	if (is_sev_guest(vcpu))
 		return pre_sev_run(svm, vcpu->cpu);

@@ -248,7 +248,7 @@ static int s2mu005_fg_i2c_probe(struct i2c_client *client)
 	const struct power_supply_desc *psy_desc;
 	int ret;
 
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -262,7 +262,7 @@ static int s2mu005_fg_i2c_probe(struct i2c_client *client)
 
 	ret = devm_mutex_init(dev, &priv->monout_mutex);
 	if (ret)
-		dev_err_probe(dev, ret, "failed to initialize MONOUT mutex\n");
+		return dev_err_probe(dev, ret, "failed to initialize MONOUT mutex\n");
 
 	psy_desc = device_get_match_data(dev);
 
@@ -277,7 +277,7 @@ static int s2mu005_fg_i2c_probe(struct i2c_client *client)
 					s2mu005_handle_irq, IRQF_ONESHOT,
 					psy_desc->name, priv);
 	if (ret)
-		dev_err_probe(dev, ret, "failed to request IRQ\n");
+		return dev_err_probe(dev, ret, "failed to request IRQ\n");
 
 	return 0;
 }

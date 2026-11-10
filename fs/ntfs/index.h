@@ -37,7 +37,7 @@
  *		(maximum is MAX_PARENT_VCN)
  * @ib_dirty:	true if the current index block (@ia/@ib) was modified
  * @block_size:	size of index blocks in bytes (from $INDEX_ROOT or $Boot)
- * @vcn_size_bits: log2(cluster size)
+ * @vcn_size_bits: log2 of the VCN unit size
  * @sync_write:	true if synchronous writeback is requested for this context
  *
  * @idx_ni is the index inode this context belongs to.
@@ -98,6 +98,7 @@ int ntfs_index_block_inconsistent(struct ntfs_volume *vol,
 				  __le32 cr, u64 inum);
 int ntfs_index_entries_inconsistent(const struct ntfs_volume *vol,
 				    const struct index_header *ih,
+				    u32 block_size,
 				    __le32 collation_rule, u64 inum);
 struct ntfs_index_context *ntfs_index_ctx_get(struct ntfs_inode *ni, __le16 *name,
 		u32 name_len);

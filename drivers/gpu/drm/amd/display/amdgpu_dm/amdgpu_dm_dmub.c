@@ -65,6 +65,31 @@ MODULE_FIRMWARE(FIRMWARE_DCN_42_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_42B_DMUB);
 MODULE_FIRMWARE(FIRMWARE_DCN_60_DMUB);
 
+#if IS_ENABLED(CONFIG_DRM_AMD_DC_KUNIT_TEST)
+static const struct amdgpu_dm_dmub_kunit_ops amdgpu_dm_dmub_default_ops = {
+	.bo_create_kernel = amdgpu_bo_create_kernel,
+	.ucode_request = amdgpu_ucode_request,
+};
+
+static const struct amdgpu_dm_dmub_kunit_ops *amdgpu_dm_dmub_ops =
+	&amdgpu_dm_dmub_default_ops;
+
+void amdgpu_dm_dmub_kunit_set_ops(const struct amdgpu_dm_dmub_kunit_ops *ops)
+{
+	amdgpu_dm_dmub_ops = ops ? ops : &amdgpu_dm_dmub_default_ops;
+}
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_kunit_set_ops);
+
+#define dmub_bo_create_kernel	amdgpu_dm_dmub_ops->bo_create_kernel
+#define dmub_ucode_request	amdgpu_dm_dmub_ops->ucode_request
+
+#else
+
+#define dmub_bo_create_kernel	amdgpu_bo_create_kernel
+#define dmub_ucode_request	amdgpu_ucode_request
+
+#endif
+
 /**
  * dm_dmub_aux_setconfig_callback - Callback for AUX or SET_CONFIG command.
  * @adev: amdgpu_device pointer
@@ -468,20 +493,22 @@ enum dmub_ips_disable_type dm_get_default_ips_mode(
 }
 EXPORT_IF_KUNIT(dm_get_default_ips_mode);
 
-static uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address)
+STATIC_IFN_KUNIT uint32_t amdgpu_dm_dmub_reg_read(void *ctx, uint32_t address)
 {
 	struct amdgpu_device *adev = ctx;
 
 	return dm_read_reg(adev->dm.dc->ctx, address);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_reg_read);
 
-static void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address,
-				     uint32_t value)
+STATIC_IFN_KUNIT void amdgpu_dm_dmub_reg_write(void *ctx, uint32_t address,
+					       uint32_t value)
 {
 	struct amdgpu_device *adev = ctx;
 
 	return dm_write_reg(adev->dm.dc->ctx, address, value);
 }
+EXPORT_IF_KUNIT(amdgpu_dm_dmub_reg_write);
 
 int dm_dmub_sw_init(struct amdgpu_device *adev)
 {
@@ -511,7 +538,6 @@ int dm_dmub_sw_init(struct amdgpu_device *adev)
 		DMUB_WINDOW_MEMORY_TYPE_FB,		/* DMUB_WINDOW_CURSOR_OFFLOAD */
 	};
 	int r;
-	int mem_domain = AMDGPU_GEM_DOMAIN_GTT;
 
 	switch (amdgpu_ip_version(adev, DCE_HWIP, 0)) {
 	case IP_VERSION(2, 1, 0):
@@ -648,22 +674,16 @@ int dm_dmub_sw_init(struct amdgpu_device *adev)
 		return -EINVAL;
 	}
 
-	/* Limit to allocate dmub to GTT on DCN32/1
-	 * TODO: Other asics with GDDR7 may have worse latency
-	 */
-	if (dmub_asic != DMUB_ASIC_DCN32 &&
-	    dmub_asic != DMUB_ASIC_DCN321)
-		mem_domain |= AMDGPU_GEM_DOMAIN_VRAM;
-
 	/*
 	 * Allocate a framebuffer based on the total size of all the regions.
 	 * TODO: Move this into GART.
 	 */
-	r = amdgpu_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
-				    mem_domain,
-				    &adev->dm.dmub_bo,
-				    &adev->dm.dmub_bo_gpu_addr,
-				    &adev->dm.dmub_bo_cpu_addr);
+	r = dmub_bo_create_kernel(adev, region_info.fb_size, PAGE_SIZE,
+				  AMDGPU_GEM_DOMAIN_VRAM |
+				  AMDGPU_GEM_DOMAIN_GTT,
+				  &adev->dm.dmub_bo,
+				  &adev->dm.dmub_bo_gpu_addr,
+				  &adev->dm.dmub_bo_cpu_addr);
 	if (r)
 		return r;
 
@@ -766,8 +786,8 @@ int dm_init_microcode(struct amdgpu_device *adev)
 		/* ASIC doesn't support DMUB. */
 		return 0;
 	}
-	r = amdgpu_ucode_request(adev, &adev->dm.dmub_fw, AMDGPU_UCODE_REQUIRED,
-				 "%s", fw_name_dmub);
+	r = dmub_ucode_request(adev, &adev->dm.dmub_fw, AMDGPU_UCODE_REQUIRED,
+			       "%s", fw_name_dmub);
 	return r;
 }
 EXPORT_IF_KUNIT(dm_init_microcode);

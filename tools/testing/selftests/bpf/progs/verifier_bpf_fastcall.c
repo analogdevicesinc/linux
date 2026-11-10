@@ -502,6 +502,175 @@ __naked void bad_helper_write(void)
 	: __clobber_all);
 }
 
+/*
+ * A helper buffer or a callee's pointer that reaches a fastcall spill slot
+ * must keep the spill/fill pair and the stack that covers it. Only load
+ * these programs: without the fix, they access kernel stack outside their
+ * frame.
+ *
+ * Uninitialized outputs without CAP_PERFMON have no explicit stack accesses.
+ */
+SEC("tc")
+__log_level(4)
+__msg_unpriv("subprog 0 (helper_uninit_stack) main {{.*}} stack 64")
+__xlated_unpriv("*(u64 *)(r10 -8) = r1")
+__xlated_unpriv("...")
+__xlated_unpriv("r1 = *(u64 *)(r10 -8)")
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void helper_uninit_stack(void)
+{
+	asm volatile (
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r2 = 0;"
+	"r3 = r10;"
+	"r3 += -64;"
+	"r4 = 8;"
+	"call %[bpf_skb_load_bytes];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_skb_load_bytes)
+	: __clobber_all);
+}
+
+/* Same output in the caller's stack, passed to the helper by a callee. */
+static __used __naked void helper_uninit_stack_callee(void)
+{
+	asm volatile (
+	"r3 = r2;"
+	"r2 = 0;"
+	"r4 = 8;"
+	"call %[bpf_skb_load_bytes];"
+	"exit;"
+	:
+	: __imm(bpf_skb_load_bytes)
+	: __clobber_all);
+}
+
+SEC("tc")
+__log_level(4)
+__msg_unpriv("subprog 0 (helper_uninit_stack_caller) main {{.*}} stack 64")
+__xlated_unpriv("*(u64 *)(r10 -8) = r1")
+__xlated_unpriv("...")
+__xlated_unpriv("r1 = *(u64 *)(r10 -8)")
+__caps_unpriv(CAP_BPF | CAP_NET_ADMIN)
+__success_unpriv
+__naked void helper_uninit_stack_caller(void)
+{
+	asm volatile (
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r2 = r10;"
+	"r2 += -64;"
+	"call helper_uninit_stack_callee;"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A helper input whose only initialization is the fastcall spill. */
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, __u32);
+	__type(value, __u64);
+} fastcall_map SEC(".maps");
+
+SEC("tc")
+__log_level(4)
+__msg("subprog 0 (helper_reads_fastcall_spill) main {{.*}} stack 8")
+__xlated("*(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("r1 = *(u64 *)(r10 -8)")
+__success
+__naked void helper_reads_fastcall_spill(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = %[fastcall_map] ll;"
+	"r2 = r10;"
+	"r2 += -8;"
+	"call %[bpf_map_lookup_elem];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(fastcall_map)
+	: __clobber_all);
+}
+
+/* A callee load from the caller's fastcall spill slot. */
+static __used __naked void read_caller_stack_callee(void)
+{
+	asm volatile (
+	"r0 = *(u64 *)(r1 + 0);"
+	"exit;"
+	::: __clobber_all);
+}
+
+SEC("raw_tp")
+__log_level(4)
+__msg("subprog 0 (callee_reads_fastcall_spill) main {{.*}} stack 8")
+__xlated("*(u64 *)(r10 -8) = r1")
+__xlated("...")
+__xlated("r1 = *(u64 *)(r10 -8)")
+__success
+__naked void callee_reads_fastcall_spill(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = r10;"
+	"r1 += -8;"
+	"call read_caller_stack_callee;"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id)
+	: __clobber_all);
+}
+
+/* A zero-sized buffer touches no stack, the rewrite is still applied. */
+SEC("raw_tp")
+__arch_x86_64
+__log_level(4)
+__msg("subprog 0 (helper_zero_size_buffer) main {{.*}} stack 0")
+__xlated("0: r1 = 1")
+__xlated("1: r0 =")
+__success
+__naked void helper_zero_size_buffer(void)
+{
+	asm volatile (
+	"r1 = 1;"
+	"*(u64 *)(r10 - 8) = r1;"
+	"call %[bpf_get_smp_processor_id];"
+	"r1 = *(u64 *)(r10 - 8);"
+	"r1 = r10;"
+	"r1 += -64;"
+	"r2 = 0;"
+	"r3 = 0;"
+	"call %[bpf_probe_read_kernel];"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_smp_processor_id),
+	  __imm(bpf_probe_read_kernel)
+	: __clobber_all);
+}
+
 SEC("raw_tp")
 __arch_x86_64
 /* main, not patched */
@@ -734,26 +903,28 @@ __naked void unconditional_jump_to_fill(void)
 SEC("raw_tp")
 __arch_x86_64
 __log_level(4)
-__msg("subprog 0 (may_goto_interaction_x86_64) main {{.*}} stack 24")
-/* may_goto counter at -24 */
-__xlated("0: *(u64 *)(r10 -24) =")
-/* may_goto timestamp at -16 */
-__xlated("1: *(u64 *)(r10 -16) =")
-__xlated("2: r1 = 1")
+__msg("subprog 0 (may_goto_interaction_x86_64) main {{.*}} stack 8")
+/* may_goto counter and timestamp */
+__xlated("0: r0 = ")
+__xlated("2: r0 = &(void __percpu *)(r0)")
 __xlated("...")
-__xlated("4: r0 = &(void __percpu *)(r0)")
+__xlated("6: r1 = 1")
 __xlated("...")
-/* may_goto expansion starts */
-__xlated("6: r12 = *(u64 *)(r10 -24)")
-__xlated("7: if r12 == 0x0 goto pc+6")
-__xlated("8: r12 -= 1")
-__xlated("9: if r12 != 0x0 goto pc+2")
-__xlated("10: r12 = -24")
-__xlated("11: call unknown")
-__xlated("12: *(u64 *)(r10 -24) = r12")
+__xlated("8: r0 = &(void __percpu *)(r0)")
+__xlated("...")
+/* may_goto expansion starts, r0 and r1 are live */
+__xlated("10: r2 = ")
+__xlated("12: r2 = &(void __percpu *)(r2)")
+__xlated("13: r12 = *(u64 *)(r2 +0)")
+__xlated("14: if r12 == 0x0 goto pc+6")
+__xlated("15: r12 -= 1")
+__xlated("16: if r12 != 0x0 goto pc+2")
+__xlated("17: r12 = r2")
+__xlated("18: call unknown")
+__xlated("19: *(u64 *)(r2 +0) = r12")
 /* may_goto expansion ends */
-__xlated("13: *(u64 *)(r10 -8) = r1")
-__xlated("14: exit")
+__xlated("20: *(u64 *)(r10 -8) = r1")
+__xlated("21: exit")
 __success
 __naked void may_goto_interaction_x86_64(void)
 {
@@ -777,24 +948,26 @@ __arch_arm64
 __arch_riscv64
 __arch_loongarch
 __log_level(4)
-__msg("subprog 0 (may_goto_interaction) main {{.*}} stack 24")
-/* may_goto counter at -24 */
-__xlated("0: *(u64 *)(r10 -24) =")
-/* may_goto timestamp at -16 */
-__xlated("1: *(u64 *)(r10 -16) =")
-__xlated("2: r1 = 1")
-__xlated("3: call bpf_get_smp_processor_id")
-/* may_goto expansion starts */
-__xlated("4: r12 = *(u64 *)(r10 -24)")
-__xlated("5: if r12 == 0x0 goto pc+6")
-__xlated("6: r12 -= 1")
-__xlated("7: if r12 != 0x0 goto pc+2")
-__xlated("8: r12 = -24")
-__xlated("9: call unknown")
-__xlated("10: *(u64 *)(r10 -24) = r12")
+__msg("subprog 0 (may_goto_interaction) main {{.*}} stack 8")
+/* may_goto counter and timestamp */
+__xlated("0: r0 = ")
+__xlated("2: r0 = &(void __percpu *)(r0)")
+__xlated("...")
+__xlated("6: r1 = 1")
+__xlated("7: call bpf_get_smp_processor_id")
+/* may_goto expansion starts, r0 and r1 are live */
+__xlated("8: r2 = ")
+__xlated("10: r2 = &(void __percpu *)(r2)")
+__xlated("11: r12 = *(u64 *)(r2 +0)")
+__xlated("12: if r12 == 0x0 goto pc+6")
+__xlated("13: r12 -= 1")
+__xlated("14: if r12 != 0x0 goto pc+2")
+__xlated("15: r12 = r2")
+__xlated("16: call unknown")
+__xlated("17: *(u64 *)(r2 +0) = r12")
 /* may_goto expansion ends */
-__xlated("11: *(u64 *)(r10 -8) = r1")
-__xlated("12: exit")
+__xlated("18: *(u64 *)(r10 -8) = r1")
+__xlated("19: exit")
 __success
 __naked void may_goto_interaction(void)
 {

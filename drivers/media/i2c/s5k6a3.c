@@ -131,6 +131,7 @@ static struct v4l2_mbus_framefmt *__s5k6a3_get_format(
 }
 
 static int s5k6a3_set_fmt(struct v4l2_subdev *sd,
+				  const struct v4l2_subdev_client_info *ci,
 				  struct v4l2_subdev_state *sd_state,
 				  struct v4l2_subdev_format *fmt)
 {
@@ -279,7 +280,7 @@ static int s5k6a3_probe(struct i2c_client *client)
 	struct v4l2_subdev *sd;
 	int i, ret;
 
-	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kzalloc_obj(dev, *sensor);
 	if (!sensor)
 		return -ENOMEM;
 

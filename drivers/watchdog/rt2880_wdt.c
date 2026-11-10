@@ -15,6 +15,7 @@
 #include <linux/watchdog.h>
 #include <linux/moduleparam.h>
 #include <linux/platform_device.h>
+#include <linux/stringify.h>
 
 #include <asm/mach-ralink/ralink_regs.h>
 
@@ -51,7 +52,7 @@ static bool nowayout = WATCHDOG_NOWAYOUT;
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
-		__MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+		__stringify(WATCHDOG_NOWAYOUT) ")");
 
 static inline void rt_wdt_w32(void __iomem *base, unsigned int reg, u32 val)
 {
@@ -143,7 +144,7 @@ static int rt288x_wdt_probe(struct platform_device *pdev)
 	struct rt2880_wdt_data *drvdata;
 	int ret;
 
-	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	drvdata = devm_kzalloc_obj(dev, *drvdata);
 	if (!drvdata)
 		return -ENOMEM;
 

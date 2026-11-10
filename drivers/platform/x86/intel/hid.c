@@ -165,6 +165,13 @@ static const struct dmi_system_id button_array_table[] = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "HP ProBook x360 440 G1"),
 		},
 	},
+	{
+		.ident = "HP EliteBook x360 1030 G2",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "HP"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "HP EliteBook x360 1030 G2"),
+		},
+	},
 	{ }
 };
 
@@ -727,7 +734,7 @@ static int intel_hid_probe(struct platform_device *device)
 		return -ENODEV;
 	}
 
-	priv = devm_kzalloc(&device->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(&device->dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 	dev_set_drvdata(&device->dev, priv);

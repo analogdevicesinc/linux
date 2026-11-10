@@ -239,6 +239,8 @@
 					 SDHCI_TRNS_BLK_CNT_EN | \
 					 SDHCI_TRNS_DMA)
 
+#define CQHCI_SW_ERR_HALT_REQ_DISABLE	BIT(1)
+
 #define to_pltfm_data(priv, name) \
 	container_of((priv)->dwcmshc_pdata, struct name##_pltfm_data, dwcmshc_pdata)
 
@@ -702,6 +704,8 @@ static void rk35xx_sdhci_cqe_pre_enable(struct mmc_host *mmc)
 static void rk35xx_sdhci_cqe_enable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct dwcmshc_priv *dwc_priv = sdhci_pltfm_priv(pltfm_host);
 	u32 reg;
 
 	reg = sdhci_readl(host, SDHCI_PRESENT_STATE);
@@ -711,6 +715,15 @@ static void rk35xx_sdhci_cqe_enable(struct mmc_host *mmc)
 	}
 
 	sdhci_writew(host, DWCMSHC_SDHCI_CQE_TRNS_MODE, SDHCI_TRANSFER_MODE);
+
+	/*
+	 * Disable the halt request raised on an I/O error, otherwise a
+	 * doorbell write gets a slave response error while the halt request
+	 * is pending and hangs the CPU. This bit is reserved on older SoCs,
+	 * so the write is a no-op there.
+	 */
+	sdhci_writel(host, CQHCI_SW_ERR_HALT_REQ_DISABLE,
+		     dwc_priv->vendor_specific_area2 + CQHCI_CTL);
 
 	sdhci_cqe_enable(mmc);
 }
@@ -913,7 +926,7 @@ static int dwcmshc_rk35xx_init(struct device *dev, struct sdhci_host *host,
 	struct rk35xx_priv *priv;
 	int err;
 
-	priv = devm_kzalloc(dev, sizeof(struct rk35xx_priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, struct rk35xx_priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -1770,7 +1783,7 @@ static int eic7700_init(struct device *dev, struct sdhci_host *host, struct dwcm
 	struct regmap *hsp_regmap;
 	int ret;
 
-	priv = devm_kzalloc(dev, sizeof(struct eic7700_priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, struct eic7700_priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -1954,7 +1967,7 @@ static int dwcmshc_k230_init(struct device *dev, struct sdhci_host *host,
 	u32 data;
 	int ret;
 
-	k230_priv = devm_kzalloc(dev, sizeof(struct k230_priv), GFP_KERNEL);
+	k230_priv = devm_kzalloc_obj(dev, struct k230_priv);
 	if (!k230_priv)
 		return -ENOMEM;
 
@@ -2275,7 +2288,7 @@ static void dwcmshc_cqhci_init(struct sdhci_host *host, struct platform_device *
 	int err;
 
 	host->mmc->caps2 |= MMC_CAP2_CQE | MMC_CAP2_CQE_DCMD;
-	cq_host = devm_kzalloc(&pdev->dev, sizeof(*cq_host), GFP_KERNEL);
+	cq_host = devm_kzalloc_obj(&pdev->dev, *cq_host);
 	if (!cq_host) {
 		dev_err(mmc_dev(host->mmc), "Unable to setup CQE: not enough memory\n");
 		goto dsbl_cqe_caps;

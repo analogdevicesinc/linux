@@ -210,7 +210,7 @@ static int hda_acpi_probe(struct platform_device *pdev)
 	struct hda_acpi *hda;
 	int err;
 
-	hda = devm_kzalloc(&pdev->dev, sizeof(*hda), GFP_KERNEL);
+	hda = devm_kzalloc_obj(&pdev->dev, *hda);
 	if (!hda)
 		return -ENOMEM;
 
@@ -219,8 +219,7 @@ static int hda_acpi_probe(struct platform_device *pdev)
 
 	/* Fall back to defaults if the table didn't have a *struct hda_data */
 	if (!hda->data)
-		hda->data = devm_kzalloc(&pdev->dev, sizeof(*hda->data),
-					 GFP_KERNEL);
+		hda->data = devm_kzalloc_obj(&pdev->dev, *hda->data);
 	if (!hda->data)
 		return -ENOMEM;
 
@@ -266,6 +265,38 @@ static void hda_acpi_shutdown(struct platform_device *pdev)
 		azx_stop_chip(chip);
 }
 
+static int hda_acpi_runtime_suspend(struct device *dev)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	struct azx *chip = card->private_data;
+
+	if (chip && chip->running) {
+		/* enable controller wake up event */
+		azx_writew(chip, WAKEEN, azx_readw(chip, WAKEEN) |
+			   STATESTS_INT_MASK);
+
+		azx_stop_chip(chip);
+		azx_enter_link_reset(chip);
+	}
+
+	return 0;
+}
+
+static int hda_acpi_runtime_resume(struct device *dev)
+{
+	struct snd_card *card = dev_get_drvdata(dev);
+	struct azx *chip = card->private_data;
+
+	if (chip && chip->running) {
+		azx_init_chip(chip, 1);
+		/* disable controller wake up event */
+		azx_writew(chip, WAKEEN, azx_readw(chip, WAKEEN) &
+			   ~STATESTS_INT_MASK);
+	}
+
+	return 0;
+}
+
 static int hda_acpi_suspend(struct device *dev)
 {
 	struct snd_card *card = dev_get_drvdata(dev);
@@ -274,6 +305,12 @@ static int hda_acpi_suspend(struct device *dev)
 	rc = pm_runtime_force_suspend(dev);
 	if (rc < 0)
 		return rc;
+	/*
+	 * Runtime PM is never enabled for this device, so the force_suspend
+	 * above does not reach the runtime callback; stop the controller
+	 * explicitly.
+	 */
+	hda_acpi_runtime_suspend(dev);
 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
 
 	return 0;
@@ -287,6 +324,8 @@ static int hda_acpi_resume(struct device *dev)
 	rc = pm_runtime_force_resume(dev);
 	if (rc < 0)
 		return rc;
+	/* See hda_acpi_suspend(): re-init the controller explicitly. */
+	hda_acpi_runtime_resume(dev);
 	snd_power_change_state(card, SNDRV_CTL_POWER_D0);
 
 	return 0;
@@ -294,6 +333,7 @@ static int hda_acpi_resume(struct device *dev)
 
 static const struct dev_pm_ops hda_acpi_pm = {
 	SYSTEM_SLEEP_PM_OPS(hda_acpi_suspend, hda_acpi_resume)
+	RUNTIME_PM_OPS(hda_acpi_runtime_suspend, hda_acpi_runtime_resume, NULL)
 };
 
 static const struct hda_data nvidia_hda_data = {

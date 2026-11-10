@@ -248,7 +248,7 @@ static int sof_machine_check(struct snd_sof_dev *sdev)
 nocodec:
 	/* select nocodec mode */
 	dev_warn(sdev->dev, "Using nocodec machine driver\n");
-	mach = devm_kzalloc(sdev->dev, sizeof(*mach), GFP_KERNEL);
+	mach = devm_kzalloc_obj(sdev->dev, *mach);
 	if (!mach)
 		return -ENOMEM;
 
@@ -463,11 +463,12 @@ static int sof_probe_continue(struct snd_sof_dev *sdev)
 
 	sof_set_fw_state(sdev, SOF_FW_BOOT_PREPARE);
 
-	/* set up platform component driver */
-	snd_sof_new_platform_drv(sdev);
-
 	if (sdev->dspless_mode_selected) {
 		sof_set_fw_state(sdev, SOF_DSPLESS_MODE);
+
+		/* set up platform component driver */
+		snd_sof_new_platform_drv(sdev);
+
 		goto skip_dsp_init;
 	}
 
@@ -491,6 +492,9 @@ static int sof_probe_continue(struct snd_sof_dev *sdev)
 		dev_err(sdev->dev, "error: failed to init DSP IPC %d\n", ret);
 		goto ipc_err;
 	}
+
+	/* set up platform component driver after initializing the IPC ops */
+	snd_sof_new_platform_drv(sdev);
 
 	/* load the firmware */
 	ret = snd_sof_load_firmware(sdev);
@@ -632,7 +636,7 @@ int snd_sof_device_probe(struct device *dev, struct snd_sof_pdata *plat_data)
 	struct snd_sof_dev *sdev;
 	int ret;
 
-	sdev = devm_kzalloc(dev, sizeof(*sdev), GFP_KERNEL);
+	sdev = devm_kzalloc_obj(dev, *sdev);
 	if (!sdev)
 		return -ENOMEM;
 

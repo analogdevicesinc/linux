@@ -823,6 +823,7 @@ static void vd56g3_update_img_pad_format(struct vd56g3 *sensor,
 }
 
 static int vd56g3_set_pad_fmt(struct v4l2_subdev *sd,
+			      const struct v4l2_subdev_client_info *ci,
 			      struct v4l2_subdev_state *sd_state,
 			      struct v4l2_subdev_format *sd_fmt)
 {
@@ -858,6 +859,7 @@ static int vd56g3_set_pad_fmt(struct v4l2_subdev *sd,
 }
 
 static int vd56g3_get_selection(struct v4l2_subdev *sd,
+				const struct v4l2_subdev_client_info *ci,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
 {
@@ -1038,7 +1040,7 @@ static int vd56g3_init_state(struct v4l2_subdev *sd,
 		},
 	};
 
-	return vd56g3_set_pad_fmt(sd, sd_state, &fmt);
+	return vd56g3_set_pad_fmt(sd, NULL, sd_state, &fmt);
 }
 
 static const struct v4l2_subdev_video_ops vd56g3_video_ops = {
@@ -1455,7 +1457,7 @@ static int vd56g3_probe(struct i2c_client *client)
 	struct vd56g3 *sensor;
 	int ret;
 
-	sensor = devm_kzalloc(dev, sizeof(*sensor), GFP_KERNEL);
+	sensor = devm_kzalloc_obj(dev, *sensor);
 	if (!sensor)
 		return -ENOMEM;
 

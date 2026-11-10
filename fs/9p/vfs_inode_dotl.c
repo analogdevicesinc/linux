@@ -29,7 +29,7 @@
 #include "acl.h"
 
 static int
-v9fs_vfs_mknod_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_mknod_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		    struct dentry *dentry, umode_t omode, dev_t rdev);
 
 /**
@@ -216,7 +216,7 @@ int v9fs_open_to_dotl_flags(int flags)
  *
  */
 static int
-v9fs_vfs_create_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_create_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		     struct dentry *dentry, umode_t omode)
 {
 	return v9fs_vfs_mknod_dotl(idmap, dir, dentry, omode, 0);
@@ -312,20 +312,40 @@ v9fs_vfs_atomic_open_dotl(struct inode *dir, struct dentry *dentry,
 	v9fs_fid_add(dentry, &fid);
 	d_instantiate(dentry, inode);
 
+	if (!S_ISREG(inode->i_mode)) {
+		/*
+		 * Not a regular file.  The unopened fid is already on the
+		 * dentry.  Clunk the opened create fid and let the VFS call
+		 * ->open.
+		 */
+		p9_fid_put(ofid);
+		ofid = NULL;
+		file->f_mode |= FMODE_CREATED;
+		err = finish_no_open(file, NULL);
+		goto out;
+	}
 	/* Since we are opening a file, assign the open fid to the file */
 	err = finish_open(file, dentry, generic_file_open);
 	if (err)
 		goto out;
-	file->private_data = ofid;
+	/*
+	 * Special files have type-specific fops that own
+	 * file->private_data.  The create fid is unused
+	 * there: leave it for p9_fid_put() on the out
+	 * path so it is clunked before we return.
+	 */
+	if (S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode)) {
+		file->private_data = ofid;
 #ifdef CONFIG_9P_FSCACHE
-	if (v9ses->cache & CACHE_FSCACHE) {
-		struct v9fs_inode *v9inode = V9FS_I(inode);
-		fscache_use_cookie(v9fs_inode_cookie(v9inode),
-				   file->f_mode & FMODE_WRITE);
-	}
+		if (v9ses->cache & CACHE_FSCACHE) {
+			struct v9fs_inode *v9inode = V9FS_I(inode);
+			fscache_use_cookie(v9fs_inode_cookie(v9inode),
+					   file->f_mode & FMODE_WRITE);
+		}
 #endif
-	v9fs_fid_add_modes(ofid, v9ses->flags, v9ses->cache, flags);
-	v9fs_open_fid_add(inode, &ofid);
+		v9fs_fid_add_modes(ofid, v9ses->flags, v9ses->cache, flags);
+		v9fs_open_fid_add(inode, &ofid);
+	}
 	file->f_mode |= FMODE_CREATED;
 out:
 	p9_fid_put(dfid);
@@ -344,7 +364,7 @@ out:
  *
  */
 
-static struct dentry *v9fs_vfs_mkdir_dotl(struct mnt_idmap *idmap,
+static struct dentry *v9fs_vfs_mkdir_dotl(const struct mnt_idmap *idmap,
 					  struct inode *dir, struct dentry *dentry,
 					  umode_t omode)
 {
@@ -414,7 +434,7 @@ error:
 }
 
 static int
-v9fs_vfs_getattr_dotl(struct mnt_idmap *idmap,
+v9fs_vfs_getattr_dotl(const struct mnt_idmap *idmap,
 		      const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int flags)
 {
@@ -508,7 +528,7 @@ static int v9fs_mapped_iattr_valid(int iattr_valid)
  *
  */
 
-int v9fs_vfs_setattr_dotl(struct mnt_idmap *idmap,
+int v9fs_vfs_setattr_dotl(const struct mnt_idmap *idmap,
 			  struct dentry *dentry, struct iattr *iattr)
 {
 	int retval, use_dentry = 0;
@@ -519,6 +539,9 @@ int v9fs_vfs_setattr_dotl(struct mnt_idmap *idmap,
 		.uid = INVALID_UID,
 		.gid = INVALID_GID,
 	};
+#ifdef CONFIG_9P_FSCACHE
+	uoff_t old_size = i_size_read(inode);
+#endif
 
 	p9_debug(P9_DEBUG_VFS, "\n");
 
@@ -580,7 +603,7 @@ int v9fs_vfs_setattr_dotl(struct mnt_idmap *idmap,
 #ifdef CONFIG_9P_FSCACHE
 		if (v9ses->cache & CACHE_FSCACHE)
 			fscache_resize_cookie(v9fs_inode_cookie(V9FS_I(inode)),
-				iattr->ia_size);
+					      iattr->ia_size, iattr->ia_size < old_size);
 #endif
 	}
 
@@ -682,7 +705,7 @@ v9fs_stat2inode_dotl(struct p9_stat_dotl *stat, struct inode *inode,
 }
 
 static int
-v9fs_vfs_symlink_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_symlink_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		      struct dentry *dentry, const char *symname)
 {
 	int err;
@@ -809,7 +832,7 @@ v9fs_vfs_link_dotl(struct dentry *old_dentry, struct inode *dir,
  *
  */
 static int
-v9fs_vfs_mknod_dotl(struct mnt_idmap *idmap, struct inode *dir,
+v9fs_vfs_mknod_dotl(const struct mnt_idmap *idmap, struct inode *dir,
 		    struct dentry *dentry, umode_t omode, dev_t rdev)
 {
 	int err;

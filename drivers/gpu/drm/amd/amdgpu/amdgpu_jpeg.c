@@ -25,6 +25,7 @@
  */
 
 #include "amdgpu.h"
+#include "amdgpu_ip.h"
 #include "amdgpu_jpeg.h"
 #include "amdgpu_pm.h"
 #include "soc15d.h"
@@ -94,11 +95,25 @@ int amdgpu_jpeg_sw_fini(struct amdgpu_device *adev)
 	return 0;
 }
 
-int amdgpu_jpeg_suspend(struct amdgpu_device *adev)
+int amdgpu_jpeg_early_fini(struct amdgpu_ip_block *ip_block)
 {
-	cancel_delayed_work_sync(&adev->jpeg.idle_work);
+	/* Called on teardown even if sw_init never ran */
+	if (!ip_block->status.sw)
+		return 0;
+
+	/* hw_fini may not wait while a peer in the reset domain resets */
+	cancel_delayed_work_sync(&ip_block->adev->jpeg.idle_work);
 
 	return 0;
+}
+
+void amdgpu_jpeg_cancel_idle_work(struct amdgpu_device *adev)
+{
+	/* The reset mustn't wait for the idle work, which waits for the reset */
+	if (amdgpu_in_reset(adev))
+		cancel_delayed_work(&adev->jpeg.idle_work);
+	else
+		cancel_delayed_work_sync(&adev->jpeg.idle_work);
 }
 
 int amdgpu_jpeg_resume(struct amdgpu_device *adev)
@@ -112,6 +127,9 @@ static void amdgpu_jpeg_idle_work_handler(struct work_struct *work)
 		container_of(work, struct amdgpu_device, jpeg.idle_work.work);
 	unsigned int fences = 0;
 	unsigned int i, j;
+
+	/* Nothing holding the reset semaphore waits for this work */
+	down_read(&adev->reset_domain->sem);
 
 	for (i = 0; i < adev->jpeg.num_jpeg_inst; ++i) {
 		if (adev->jpeg.harvest_config & (1U << i))
@@ -128,6 +146,8 @@ static void amdgpu_jpeg_idle_work_handler(struct work_struct *work)
 		mutex_unlock(&adev->jpeg.jpeg_pg_lock);
 	} else
 		schedule_delayed_work(&adev->jpeg.idle_work, JPEG_IDLE_TIMEOUT);
+
+	up_read(&adev->reset_domain->sem);
 }
 
 void amdgpu_jpeg_ring_begin_use(struct amdgpu_ring *ring)
@@ -135,7 +155,7 @@ void amdgpu_jpeg_ring_begin_use(struct amdgpu_ring *ring)
 	struct amdgpu_device *adev = ring->adev;
 
 	if (!atomic_fetch_inc(&adev->jpeg.total_submission_cnt))
-		cancel_delayed_work_sync(&adev->jpeg.idle_work);
+		amdgpu_jpeg_cancel_idle_work(adev);
 
 	mutex_lock(&adev->jpeg.jpeg_pg_lock);
 	amdgpu_device_ip_set_powergating_state(adev, AMD_IP_BLOCK_TYPE_JPEG,
@@ -465,8 +485,8 @@ void amdgpu_jpeg_sysfs_reset_mask_fini(struct amdgpu_device *adev)
 int amdgpu_jpeg_reg_dump_init(struct amdgpu_device *adev,
 			       const struct amdgpu_hwip_reg_entry *reg, u32 count)
 {
-	adev->jpeg.ip_dump = kcalloc(adev->jpeg.num_jpeg_inst * count,
-				     sizeof(uint32_t), GFP_KERNEL);
+	adev->jpeg.ip_dump = kzalloc_objs(*adev->jpeg.ip_dump,
+					  adev->jpeg.num_jpeg_inst * count);
 	if (!adev->jpeg.ip_dump) {
 		dev_err(adev->dev,
 			"Failed to allocate memory for JPEG IP Dump\n");
@@ -606,4 +626,42 @@ int amdgpu_jpeg_dec_parse_cs(struct amdgpu_cs_parser *parser,
 	}
 
 	return 0;
+}
+
+/**
+ * amdgpu_jpeg_is_shared_inv_eng - Check if a ring is a JPEG ring that shares a VM invalidation
+ * engine
+ * @adev: Pointer to the AMDGPU device structure
+ * @ring: Pointer to the ring structure to check
+ *
+ * All decode rings within one JPEG instance share a single VM invalidation
+ * engine (see amdgpu_jpeg_set_shared_inv_eng()). This returns true for every
+ * ring in the instance except the first (ring->pipe == 0), which owns the
+ * engine allocated by amdgpu_gmc_allocate_vm_inv_eng().
+ */
+bool amdgpu_jpeg_is_shared_inv_eng(struct amdgpu_device *adev, struct amdgpu_ring *ring)
+{
+	return ring->funcs->type == AMDGPU_RING_TYPE_VCN_JPEG && ring->pipe != 0;
+}
+
+/**
+ * amdgpu_jpeg_set_shared_inv_eng - Propagate a VM invalidation engine to the rest of a JPEG
+ * instance
+ * @adev: Pointer to the AMDGPU device structure
+ * @ring: Pointer to the ring that just had a VM invalidation engine allocated
+ *
+ * No-op unless @ring is the owner (ring->pipe == 0) of a JPEG instance.
+ * When it is, mirrors its freshly allocated vm_inv_eng onto the rest of the
+ * rings in that instance, so the whole instance shares one engine instead of
+ * consuming one per ring.
+ */
+void amdgpu_jpeg_set_shared_inv_eng(struct amdgpu_device *adev, struct amdgpu_ring *ring)
+{
+	int j;
+
+	if (ring->funcs->type != AMDGPU_RING_TYPE_VCN_JPEG || ring->pipe != 0)
+		return;
+
+	for (j = 1; j < adev->jpeg.num_jpeg_rings; j++)
+		adev->jpeg.inst[ring->me].ring_dec[j].vm_inv_eng = ring->vm_inv_eng;
 }

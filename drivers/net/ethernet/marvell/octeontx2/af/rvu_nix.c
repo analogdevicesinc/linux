@@ -324,15 +324,23 @@ static bool is_valid_txschq(struct rvu *rvu, int blkaddr,
 	if (lvl >= hw->cap.nix_tx_aggr_lvl) {
 		if ((nix_get_tx_link(rvu, map_func) !=
 		     nix_get_tx_link(rvu, pcifunc)) &&
-		     (rvu_get_pf(rvu->pdev, map_func) !=
-				rvu_get_pf(rvu->pdev, pcifunc)))
+		    (rvu_get_pf(rvu->pdev, map_func) !=
+		     rvu_get_pf(rvu->pdev, pcifunc))) {
+			dev_err_ratelimited(rvu->dev,
+					    "NIX TX schq %u lvl %d: pcifunc %x PF/link mismatch\n",
+					    schq, lvl, pcifunc);
 			return false;
-		else
+		} else {
 			return true;
+		}
 	}
 
-	if (map_func != pcifunc)
+	if (map_func != pcifunc) {
+		dev_err_ratelimited(rvu->dev,
+				    "NIX TX schq %u lvl %d: not owned by pcifunc %x\n",
+				    schq, lvl, pcifunc);
 		return false;
+	}
 
 	return true;
 }
@@ -533,8 +541,7 @@ static int nix_setup_bpids(struct rvu *rvu, struct nix_hw *hw, int blkaddr)
 	if (err)
 		return err;
 
-	bp->fn_map = devm_kcalloc(rvu->dev, bp->bpids.max,
-				  sizeof(u16), GFP_KERNEL);
+	bp->fn_map = devm_kzalloc_objs(rvu->dev, u16, bp->bpids.max);
 	if (!bp->fn_map)
 		goto free_bpids;
 
@@ -1233,28 +1240,19 @@ static int rvu_nix_blk_aq_enq_inst(struct rvu *rvu, struct nix_hw *nix_hw,
 			ena = (req->rq.ena & req->rq_mask.ena) |
 				(test_bit(req->qidx, pfvf->rq_bmap) &
 				~req->rq_mask.ena);
-			if (ena)
-				__set_bit(req->qidx, pfvf->rq_bmap);
-			else
-				__clear_bit(req->qidx, pfvf->rq_bmap);
+			__assign_bit(req->qidx, pfvf->rq_bmap, ena);
 		}
 		if (req->ctype == NIX_AQ_CTYPE_SQ) {
-			ena = (req->rq.ena & req->sq_mask.ena) |
+			ena = (req->sq.ena & req->sq_mask.ena) |
 				(test_bit(req->qidx, pfvf->sq_bmap) &
 				~req->sq_mask.ena);
-			if (ena)
-				__set_bit(req->qidx, pfvf->sq_bmap);
-			else
-				__clear_bit(req->qidx, pfvf->sq_bmap);
+			__assign_bit(req->qidx, pfvf->sq_bmap, ena);
 		}
 		if (req->ctype == NIX_AQ_CTYPE_CQ) {
-			ena = (req->rq.ena & req->cq_mask.ena) |
+			ena = (req->cq.ena & req->cq_mask.ena) |
 				(test_bit(req->qidx, pfvf->cq_bmap) &
 				~req->cq_mask.ena);
-			if (ena)
-				__set_bit(req->qidx, pfvf->cq_bmap);
-			else
-				__clear_bit(req->qidx, pfvf->cq_bmap);
+			__assign_bit(req->qidx, pfvf->cq_bmap, ena);
 		}
 	}
 
@@ -3797,8 +3795,7 @@ static int nix_setup_txvlan(struct rvu *rvu, struct nix_hw *nix_hw)
 		return -ENOMEM;
 
 	/* Alloc memory for saving entry to RVU PFFUNC allocation mapping */
-	vlan->entry2pfvf_map = devm_kcalloc(rvu->dev, vlan->rsrc.max,
-					    sizeof(u16), GFP_KERNEL);
+	vlan->entry2pfvf_map = devm_kzalloc_objs(rvu->dev, u16, vlan->rsrc.max);
 	if (!vlan->entry2pfvf_map)
 		goto free_mem;
 
@@ -3848,8 +3845,8 @@ static int nix_setup_txschq(struct rvu *rvu, struct nix_hw *nix_hw, int blkaddr)
 		/* Allocate memory for scheduler queues to
 		 * PF/VF pcifunc mapping info.
 		 */
-		txsch->pfvf_map = devm_kcalloc(rvu->dev, txsch->schq.max,
-					       sizeof(u32), GFP_KERNEL);
+		txsch->pfvf_map = devm_kzalloc_objs(rvu->dev, u32,
+						    txsch->schq.max);
 		if (!txsch->pfvf_map)
 			return -ENOMEM;
 		for (schq = 0; schq < txsch->schq.max; schq++)
@@ -3910,8 +3907,7 @@ static int nix_af_mark_format_setup(struct rvu *rvu, struct nix_hw *nix_hw,
 
 	total = (rvu_read64(rvu, blkaddr, NIX_AF_PSE_CONST) & 0xFF00) >> 8;
 	nix_hw->mark_format.total = (u8)total;
-	nix_hw->mark_format.cfg = devm_kcalloc(rvu->dev, total, sizeof(u32),
-					       GFP_KERNEL);
+	nix_hw->mark_format.cfg = devm_kzalloc_objs(rvu->dev, u32, total);
 	if (!nix_hw->mark_format.cfg)
 		return -ENOMEM;
 	for (i = 0; i < NIX_MARK_CFG_MAX; i++) {
@@ -4112,9 +4108,12 @@ static int set_flowkey_fields(struct nix_rx_flowkey_alg *alg, u32 flow_cfg)
 		case NIX_FLOW_KEY_TYPE_INNR_IPV4:
 			field->lid = NPC_LID_LC;
 			field->ltype_match = NPC_LT_LC_IP;
+			field->ltype_mask = NPC_LT_LC_IP_MATCH_MSK;
+
 			if (key_type == NIX_FLOW_KEY_TYPE_INNR_IPV4) {
 				field->lid = NPC_LID_LG;
 				field->ltype_match = NPC_LT_LG_TU_IP;
+				field->ltype_mask = 0xF;
 			}
 			field->hdr_offset = 12; /* SIP offset */
 			field->bytesm1 = 7; /* SIP + DIP, 8 bytes */
@@ -4133,16 +4132,18 @@ static int set_flowkey_fields(struct nix_rx_flowkey_alg *alg, u32 flow_cfg)
 					field->bytesm1 = 3; /* DIP, 4 bytes */
 				}
 			}
-			field->ltype_mask = NPC_LT_LC_IP_MATCH_MSK;
 			keyoff_marker = false;
 			break;
 		case NIX_FLOW_KEY_TYPE_IPV6:
 		case NIX_FLOW_KEY_TYPE_INNR_IPV6:
 			field->lid = NPC_LID_LC;
 			field->ltype_match = NPC_LT_LC_IP6;
+			field->ltype_mask = NPC_LT_LC_IP6_MATCH_MSK;
+
 			if (key_type == NIX_FLOW_KEY_TYPE_INNR_IPV6) {
 				field->lid = NPC_LID_LG;
 				field->ltype_match = NPC_LT_LG_TU_IP6;
+				field->ltype_mask = 0xF;
 			}
 			field->hdr_offset = 8; /* SIP offset */
 			field->bytesm1 = 31; /* SIP + DIP, 32 bytes */
@@ -4162,7 +4163,6 @@ static int set_flowkey_fields(struct nix_rx_flowkey_alg *alg, u32 flow_cfg)
 					field->bytesm1 = 15; /* DIP,16 bytes */
 				}
 			}
-			field->ltype_mask = NPC_LT_LC_IP6_MATCH_MSK;
 			break;
 		case NIX_FLOW_KEY_TYPE_TCP:
 		case NIX_FLOW_KEY_TYPE_UDP:
@@ -4974,7 +4974,7 @@ static void rvu_nix_setup_capabilities(struct rvu *rvu, int blkaddr)
 
 	/* On OcteonTx2 DWRR quantum is directly configured into each of
 	 * the transmit scheduler queues. And PF/VF drivers were free to
-	 * config any value upto 2^24.
+	 * config any value up to 2^24.
 	 * On CN10K, HW is modified, the quantum configuration at scheduler
 	 * queues is in terms of weight. And SW needs to setup a base DWRR MTU
 	 * at NIX_AF_DWRR_RPM_MTU / NIX_AF_DWRR_SDP_MTU. HW will do
@@ -5160,8 +5160,8 @@ static int rvu_nix_block_init(struct rvu *rvu, struct nix_hw *nix_hw)
 		if (err)
 			return err;
 
-		nix_hw->tx_credits = kcalloc(hw->cgx_links + hw->lbk_links,
-					     sizeof(u64), GFP_KERNEL);
+		nix_hw->tx_credits = kzalloc_objs(u64,
+						  hw->cgx_links + hw->lbk_links);
 		if (!nix_hw->tx_credits)
 			return -ENOMEM;
 
@@ -5181,8 +5181,7 @@ int rvu_nix_init(struct rvu *rvu)
 	int blkaddr = 0, err;
 	int i = 0;
 
-	hw->nix = devm_kcalloc(rvu->dev, MAX_NIX_BLKS, sizeof(struct nix_hw),
-			       GFP_KERNEL);
+	hw->nix = devm_kzalloc_objs(rvu->dev, struct nix_hw, MAX_NIX_BLKS);
 	if (!hw->nix)
 		return -ENOMEM;
 
@@ -5802,8 +5801,8 @@ static int nix_setup_ipolicers(struct rvu *rvu,
 	}
 
 	hw->cap.ipolicer = true;
-	nix_hw->ipolicer = devm_kcalloc(rvu->dev, BAND_PROF_NUM_LAYERS,
-					sizeof(*ipolicer), GFP_KERNEL);
+	nix_hw->ipolicer = devm_kzalloc_objs(rvu->dev, *ipolicer,
+					     BAND_PROF_NUM_LAYERS);
 	if (!nix_hw->ipolicer)
 		return -ENOMEM;
 
@@ -5830,15 +5829,13 @@ static int nix_setup_ipolicers(struct rvu *rvu,
 		if (err)
 			return err;
 
-		ipolicer->pfvf_map = devm_kcalloc(rvu->dev,
-						  ipolicer->band_prof.max,
-						  sizeof(u16), GFP_KERNEL);
+		ipolicer->pfvf_map = devm_kzalloc_objs(rvu->dev, u16,
+						       ipolicer->band_prof.max);
 		if (!ipolicer->pfvf_map)
 			return -ENOMEM;
 
-		ipolicer->match_id = devm_kcalloc(rvu->dev,
-						  ipolicer->band_prof.max,
-						  sizeof(u16), GFP_KERNEL);
+		ipolicer->match_id = devm_kzalloc_objs(rvu->dev, u16,
+						       ipolicer->band_prof.max);
 		if (!ipolicer->match_id)
 			return -ENOMEM;
 
@@ -5865,9 +5862,8 @@ static int nix_setup_ipolicers(struct rvu *rvu,
 		if (layer != BAND_PROF_MID_LAYER)
 			continue;
 
-		ipolicer->ref_count = devm_kcalloc(rvu->dev,
-						   ipolicer->band_prof.max,
-						   sizeof(u16), GFP_KERNEL);
+		ipolicer->ref_count = devm_kzalloc_objs(rvu->dev, u16,
+							ipolicer->band_prof.max);
 		if (!ipolicer->ref_count)
 			return -ENOMEM;
 	}

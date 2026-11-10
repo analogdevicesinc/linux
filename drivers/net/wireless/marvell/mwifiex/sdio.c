@@ -556,7 +556,7 @@ mwifiex_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 	pr_debug("info: vendor=0x%4.04X device=0x%4.04X class=%d function=%d\n",
 		 func->vendor, func->device, func->class, func->num);
 
-	card = devm_kzalloc(&func->dev, sizeof(*card), GFP_KERNEL);
+	card = devm_kzalloc_obj(&func->dev, *card);
 	if (!card)
 		return -ENOMEM;
 
@@ -2586,9 +2586,8 @@ static int mwifiex_init_sdio(struct mwifiex_adapter *adapter)
 	if (!card->mp_regs)
 		return -ENOMEM;
 
-	card->mpa_rx.len_arr = kcalloc(card->mp_agg_pkt_limit,
-				       sizeof(*card->mpa_rx.len_arr),
-				       GFP_KERNEL);
+	card->mpa_rx.len_arr = kzalloc_objs(*card->mpa_rx.len_arr,
+					    card->mp_agg_pkt_limit);
 	if (!card->mpa_rx.len_arr) {
 		kfree(card->mp_regs);
 		return -ENOMEM;
@@ -2795,6 +2794,9 @@ static void mwifiex_sdio_fw_dump(struct mwifiex_adapter *adapter)
 		mwifiex_dbg(adapter, ERROR, "SDIO read memory length err\n");
 		goto done;
 	}
+	/* Limit the dump count to the memory table size */
+	if (dump_num > ARRAY_SIZE(mem_type_mapping_tbl))
+		dump_num = ARRAY_SIZE(mem_type_mapping_tbl);
 
 	/* Read the length of every memory which will dump */
 	for (idx = 0; idx < dump_num; idx++) {

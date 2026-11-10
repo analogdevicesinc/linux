@@ -573,9 +573,9 @@ void ata_scsi_error(struct Scsi_Host *host)
 	int nr_timedout;
 	LIST_HEAD(eh_work_q);
 
-	spin_lock_irqsave(host->host_lock, flags);
+	spin_lock_irqsave(&host->host_lock, flags);
 	list_splice_init(&host->eh_cmd_q, &eh_work_q);
-	spin_unlock_irqrestore(host->host_lock, flags);
+	spin_unlock_irqrestore(&host->host_lock, flags);
 
 	/*
 	 * First check what errors we got with ata_scsi_cmd_error_handler().
@@ -1516,11 +1516,13 @@ static bool ata_eh_request_sense(struct ata_queued_cmd *qc)
 	err_mask = ata_exec_internal(dev, &tf, NULL, DMA_NONE, NULL, 0, 0);
 	/* Ignore err_mask; ATA_ERR might be set */
 	if (tf.status & ATA_SENSE) {
-		if (ata_scsi_sense_is_valid(tf.lbah, tf.lbam, tf.lbal)) {
+		u16 sense_code = scsi_sense_code(tf.lbam, tf.lbal);
+
+		if (ata_scsi_sense_is_valid(tf.lbah, sense_code)) {
 			/* Set sense without also setting scsicmd->result */
-			scsi_build_sense_buffer(dev->flags & ATA_DFLAG_D_SENSE,
-						cmd->sense_buffer, tf.lbah,
-						tf.lbam, tf.lbal);
+			scsi_set_sense_buffer(dev->flags & ATA_DFLAG_D_SENSE,
+					      cmd->sense_buffer, tf.lbah,
+					      sense_code);
 			qc->flags |= ATA_QCFLAG_SENSE_VALID;
 			return true;
 		}
@@ -2094,7 +2096,8 @@ out:
 			continue;
 
 		/* This success command had sense data, but we failed to get. */
-		ata_scsi_set_sense(dev, qc->scsicmd, ABORTED_COMMAND, 0, 0);
+		ata_scsi_set_sense(dev, qc->scsicmd, ABORTED_COMMAND,
+				   NO_ADDITIONAL_SENSE_INFORMATION);
 		qc->flags |= ATA_QCFLAG_SENSE_VALID;
 	}
 	ata_eh_done(link, dev, ATA_EH_GET_SUCCESS_SENSE);
@@ -4077,8 +4080,20 @@ void ata_eh_finish(struct ata_port *ap)
 				ata_eh_qc_complete(qc);
 			}
 		} else {
-			if (qc->flags & ATA_QCFLAG_SENSE_VALID ||
-			    qc->flags & ATA_QCFLAG_EH_SUCCESS_CMD) {
+			if (qc->flags & ATA_QCFLAG_SENSE_VALID &&
+			    qc->flags & ATA_QCFLAG_RETRY) {
+				/*
+				 * The sense data asks for a retry, see
+				 * ata_eh_analyze_tf(). ata_eh_link_autopsy()
+				 * cleared qc->err_mask, so ata_eh_qc_retry()
+				 * would increment scmd->allowed. Leave
+				 * scmd->allowed alone, so that upper layer
+				 * only retries the command if it has not
+				 * already been retried too many times.
+				 */
+				__ata_eh_qc_complete(qc);
+			} else if (qc->flags & ATA_QCFLAG_SENSE_VALID ||
+				   qc->flags & ATA_QCFLAG_EH_SUCCESS_CMD) {
 				ata_eh_qc_complete(qc);
 			} else {
 				/* feed zero TF to sense generation */

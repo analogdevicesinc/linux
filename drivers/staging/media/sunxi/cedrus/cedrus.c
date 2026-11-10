@@ -456,7 +456,7 @@ static int cedrus_probe(struct platform_device *pdev)
 	struct video_device *vfd;
 	int ret;
 
-	dev = devm_kzalloc(&pdev->dev, sizeof(*dev), GFP_KERNEL);
+	dev = devm_kzalloc_obj(&pdev->dev, *dev);
 	if (!dev)
 		return -ENOMEM;
 
@@ -696,6 +696,10 @@ static const struct of_device_id cedrus_dt_match[] = {
 	},
 	{
 		.compatible = "allwinner,sun50i-h6-video-engine",
+		.data = &sun50i_h6_cedrus_variant,
+	},
+	{
+		.compatible = "allwinner,sun50i-h616-video-engine",
 		.data = &sun50i_h6_cedrus_variant,
 	},
 	{ /* sentinel */ }

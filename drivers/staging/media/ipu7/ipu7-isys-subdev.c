@@ -99,6 +99,7 @@ u32 ipu7_isys_convert_bayer_order(u32 code, int x, int y)
 }
 
 int ipu7_isys_subdev_set_fmt(struct v4l2_subdev *sd,
+			     const struct v4l2_subdev_client_info *ci,
 			     struct v4l2_subdev_state *state,
 			     struct v4l2_subdev_format *format)
 {
@@ -281,8 +282,8 @@ int ipu7_isys_subdev_init(struct ipu7_isys_subdev *asd,
 	asd->sd.entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	asd->sd.internal_ops = &ipu7_isys_subdev_internal_ops;
 
-	asd->pad = devm_kcalloc(&asd->isys->adev->auxdev.dev, num_pads,
-				sizeof(*asd->pad), GFP_KERNEL);
+	asd->pad = devm_kzalloc_objs(&asd->isys->adev->auxdev.dev, *asd->pad,
+				     num_pads);
 	if (!asd->pad)
 		return -ENOMEM;
 

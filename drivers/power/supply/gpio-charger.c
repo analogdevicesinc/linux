@@ -101,7 +101,10 @@ static int gpio_charger_get_property(struct power_supply *psy,
 		val->intval = gpiod_get_value_cansleep(gpio_charger->gpiod);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
-		if (gpiod_get_value_cansleep(gpio_charger->charge_status))
+		/* Without input power the battery discharges, whatever the status pin says */
+		if (gpio_charger->gpiod && !gpiod_get_value_cansleep(gpio_charger->gpiod))
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		else if (gpiod_get_value_cansleep(gpio_charger->charge_status))
 			val->intval = POWER_SUPPLY_STATUS_CHARGING;
 		else
 			val->intval = POWER_SUPPLY_STATUS_NOT_CHARGING;
@@ -219,8 +222,9 @@ static int init_charge_current_limit(struct device *dev,
 		return -EINVAL;
 	}
 
-	gpio_charger->current_limit_map = devm_kmalloc_array(dev,
-		len / 2, sizeof(*gpio_charger->current_limit_map), GFP_KERNEL);
+	gpio_charger->current_limit_map = devm_kmalloc_objs(dev,
+							    *gpio_charger->current_limit_map,
+							    len / 2);
 	if (!gpio_charger->current_limit_map)
 		return -ENOMEM;
 
@@ -287,7 +291,7 @@ static int gpio_charger_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	gpio_charger = devm_kzalloc(dev, sizeof(*gpio_charger), GFP_KERNEL);
+	gpio_charger = devm_kzalloc_obj(dev, *gpio_charger);
 	if (!gpio_charger)
 		return -ENOMEM;
 	gpio_charger->dev = dev;
