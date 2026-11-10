@@ -19,7 +19,7 @@
 #include <linux/i2c.h>
 #include <linux/hwmon.h>
 #include <linux/jiffies.h>
-#include <linux/platform_data/ltc4245.h>
+#include <linux/of.h>
 
 /* Here are names of the chip's registers (a.k.a. commands) */
 enum ltc4245_cmd {
@@ -418,22 +418,6 @@ static const struct hwmon_chip_info ltc4245_chip_info = {
 	.info = ltc4245_info,
 };
 
-static bool ltc4245_use_extra_gpios(struct i2c_client *client)
-{
-	struct ltc4245_platform_data *pdata = dev_get_platdata(&client->dev);
-	struct device_node *np = client->dev.of_node;
-
-	/* prefer platform data */
-	if (pdata)
-		return pdata->use_extra_gpios;
-
-	/* fallback on OF */
-	if (of_property_read_bool(np, "ltc4245,use-extra-gpios"))
-		return true;
-
-	return false;
-}
-
 static int ltc4245_probe(struct i2c_client *client)
 {
 	struct i2c_adapter *adapter = client->adapter;
@@ -448,7 +432,8 @@ static int ltc4245_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	data->client = client;
-	data->use_extra_gpios = ltc4245_use_extra_gpios(client);
+	data->use_extra_gpios = of_property_read_bool(client->dev.of_node,
+						      "ltc4245,use-extra-gpios");
 
 	/* Initialize the LTC4245 chip */
 	i2c_smbus_write_byte_data(client, LTC4245_FAULT1, 0x00);
