@@ -2605,8 +2605,23 @@ static void ahci_port_stop(struct ata_port *ap)
 {
 	const char *emsg = NULL;
 	struct ahci_host_priv *hpriv = ap->host->private_data;
+	struct ahci_port_priv *pp = ap->private_data;
 	void __iomem *host_mmio = hpriv->mmio;
+	struct ahci_em_priv *emp;
 	int rc;
+	int i;
+
+	/*
+	 * Stop the SW activity blink timers before devres frees pp, skipping
+	 * the slots that ahci_init_sw_activity() never set up.  Iterate all
+	 * em_priv slots rather than the current links, so a timer armed on a
+	 * fan-out link whose PMP was detached before port stop is not missed.
+	 */
+	for (i = 0; i < EM_MAX_SLOTS; i++) {
+		emp = &pp->em_priv[i];
+		if (emp->timer.function)
+			timer_shutdown_sync(&emp->timer);
+	}
 
 	/* de-initialize port */
 	rc = ahci_deinit_port(ap, &emsg);
