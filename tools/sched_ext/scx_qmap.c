@@ -47,7 +47,7 @@ const char help_fmt[] =
 "\n"
 "Usage: %s [-s SLICE_US] [-e COUNT] [-t COUNT] [-T COUNT] [-l COUNT] [-b COUNT]\n"
 "       [-N COUNT] [-P] [-M] [-H] [-c CG_PATH] [-d PID] [-D LEN] [-S] [-p] [-I] [-X]\n"
-"       [-F COUNT] [-i SEC] [-R MS] [-J MODE] [-v]\n"
+"       [-F COUNT] [-i SEC] [-R MS] [-C MODE] [-B PPT] [-q US] [-J MODE] [-v]\n"
 "\n"
 "  -s SLICE_US   Override slice duration\n"
 "  -e COUNT      Trigger scx_bpf_error() after COUNT enqueues\n"
@@ -292,6 +292,7 @@ int main(int argc, char **argv)
 	}
 restart:
 	optind = 1;
+	memset(&hprev, 0, sizeof(hprev));
 	skel = SCX_OPS_CID_OPEN(qmap_ops, scx_qmap);
 
 	skel->rodata->slice_ns = skel->rodata->__SCX_SLICE_DFL;
