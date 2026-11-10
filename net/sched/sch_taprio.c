@@ -90,6 +90,13 @@ struct sched_gate_list {
 	s64 cycle_time;
 	s64 cycle_time_extension;
 	s64 base_time;
+	/* The software schedule starts at start_time and repeats every period,
+	 * which is the cycle time, or the sum of the intervals when the
+	 * entries end before the cycle does, because advance_sched() then
+	 * starts the list again right after the last entry.
+	 */
+	ktime_t start_time;
+	s64 period;
 };
 
 struct taprio_sched {
@@ -239,6 +246,18 @@ static s32 get_cycle_time_elapsed(struct sched_gate_list *sched, ktime_t time)
 	return time_elapsed;
 }
 
+/*
+ * Netlink accepts any s64 cycle_time_extension. Saturate positive overflow
+ * so comparisons remain monotonic in end_time.
+ */
+static ktime_t taprio_cycle_ext_end(ktime_t end_time, s64 extension)
+{
+	if (extension > 0 && end_time > KTIME_MAX - extension)
+		return KTIME_MAX;
+
+	return ktime_add_ns(end_time, extension);
+}
+
 static ktime_t get_interval_end_time(struct sched_gate_list *sched,
 				     struct sched_gate_list *admin,
 				     struct sched_entry *entry,
@@ -249,7 +268,8 @@ static ktime_t get_interval_end_time(struct sched_gate_list *sched,
 
 	cycle_end = ktime_add_ns(intv_start, sched->cycle_time - cycle_elapsed);
 	intv_end = ktime_add_ns(intv_start, entry->interval);
-	cycle_ext_end = ktime_add(cycle_end, sched->cycle_time_extension);
+	cycle_ext_end =
+		taprio_cycle_ext_end(cycle_end, sched->cycle_time_extension);
 
 	if (ktime_before(intv_end, cycle_end))
 		return intv_end;
@@ -916,7 +936,8 @@ static bool should_change_schedules(const struct sched_gate_list *admin,
 	 * next schedule base_time, we can extend the current schedule
 	 * for that amount.
 	 */
-	extension_time = ktime_add_ns(end_time, oper->cycle_time_extension);
+	extension_time = taprio_cycle_ext_end(end_time,
+					      oper->cycle_time_extension);
 
 	/* FIXME: the IEEE 802.1Q-2018 Specification isn't clear about
 	 * how precisely the extension should be made. So after
@@ -928,16 +949,61 @@ static bool should_change_schedules(const struct sched_gate_list *admin,
 	return false;
 }
 
+/* Return the entry of @sched which is in progress at @now, the one that
+ * advance_sched() reaches by moving one entry per expiry from the start of
+ * the schedule. Set @start and @end to the times at which it started and
+ * ends, and @cycle_end to the end of the cycle which contains it.
+ */
+static struct sched_entry *
+taprio_entry_at(const struct sched_gate_list *sched, ktime_t now,
+		ktime_t *start, ktime_t *end, ktime_t *cycle_end)
+{
+	struct sched_entry *entry, *found = NULL;
+	ktime_t cycle_start = sched->start_time;
+	s64 offset, entry_end = 0, elapsed = 0;
+
+	if (ktime_after(now, cycle_start)) {
+		s64 periods = div64_s64(ktime_sub(now, cycle_start),
+					sched->period);
+
+		cycle_start = ktime_add_ns(cycle_start,
+					   periods * sched->period);
+	}
+	offset = ktime_sub(now, cycle_start);
+
+	/* The offset is less than one period, so an entry which ends after
+	 * @now is found at the latest at the entry which reaches the end of
+	 * the cycle, or at the last entry. A schedule has at least one entry,
+	 * so the loop always sets found.
+	 */
+	list_for_each_entry(entry, &sched->entries, list) {
+		entry_end = min_t(s64, elapsed + entry->interval,
+				  sched->cycle_time);
+		if (offset < entry_end ||
+		    list_is_last(&entry->list, &sched->entries)) {
+			found = entry;
+			break;
+		}
+		elapsed = entry_end;
+	}
+
+	*start = ktime_add_ns(cycle_start, elapsed);
+	*end = ktime_add_ns(cycle_start, entry_end);
+	*cycle_end = ktime_add_ns(cycle_start, sched->cycle_time);
+
+	return found;
+}
+
 static enum hrtimer_restart advance_sched(struct hrtimer *timer)
 {
 	struct taprio_sched *q = container_of(timer, struct taprio_sched,
 					      advance_timer);
 	struct net_device *dev = qdisc_dev(q->root);
+	ktime_t cycle_end, end_time, start, now;
 	struct sched_gate_list *oper, *admin;
 	int num_tc = netdev_get_num_tc(dev);
 	struct sched_entry *entry, *next;
 	struct Qdisc *sch = q->root;
-	ktime_t end_time;
 	int tc;
 
 	spin_lock(&q->current_entry_lock);
@@ -951,6 +1017,15 @@ static enum hrtimer_restart advance_sched(struct hrtimer *timer)
 	if (!oper)
 		switch_schedules(q, &admin, &oper);
 
+	/* The entry selected below can be over already, after a clock step,
+	 * a long time with interrupts disabled, or because the intervals are
+	 * shorter than one expiry takes. Moving on by one entry and arming the
+	 * timer in the past would run this function again for every missed
+	 * entry without leaving the timer interrupt. Take the entry which is in
+	 * progress now instead, so that the timer is always armed after now.
+	 */
+	now = taprio_get_time(q);
+
 	/* This can happen in two cases: 1. this is the very first run
 	 * of this function (i.e. we weren't running any schedule
 	 * previously); 2. The previous schedule just ended. The first
@@ -961,27 +1036,31 @@ static enum hrtimer_restart advance_sched(struct hrtimer *timer)
 		next = list_first_entry(&oper->entries, struct sched_entry,
 					list);
 		end_time = next->end_time;
-		goto first_run;
-	}
-
-	if (should_restart_cycle(oper, entry)) {
-		next = list_first_entry(&oper->entries, struct sched_entry,
-					list);
-		oper->cycle_end_time = ktime_add_ns(oper->cycle_end_time,
-						    oper->cycle_time);
+		if (likely(ktime_after(end_time, now)))
+			goto first_run;
+		/* Also after taprio_change() while the schedule runs */
+		next = taprio_entry_at(oper, now, &start, &end_time,
+				       &cycle_end);
+		oper->cycle_end_time = cycle_end;
 	} else {
-		next = list_next_entry(entry, list);
-	}
+		if (should_restart_cycle(oper, entry)) {
+			next = list_first_entry(&oper->entries,
+						struct sched_entry, list);
+			oper->cycle_end_time =
+				ktime_add_ns(oper->cycle_end_time,
+					     oper->cycle_time);
+		} else {
+			next = list_next_entry(entry, list);
+		}
 
-	end_time = ktime_add_ns(entry->end_time, next->interval);
-	end_time = min_t(ktime_t, end_time, oper->cycle_end_time);
-
-	for (tc = 0; tc < num_tc; tc++) {
-		if (next->gate_duration[tc] == oper->cycle_time)
-			next->gate_close_time[tc] = KTIME_MAX;
-		else
-			next->gate_close_time[tc] = ktime_add_ns(entry->end_time,
-								 next->gate_duration[tc]);
+		start = entry->end_time;
+		end_time = ktime_add_ns(start, next->interval);
+		end_time = min_t(ktime_t, end_time, oper->cycle_end_time);
+		if (unlikely(!ktime_after(end_time, now))) {
+			next = taprio_entry_at(oper, now, &start, &end_time,
+					       &cycle_end);
+			oper->cycle_end_time = cycle_end;
+		}
 	}
 
 	if (should_change_schedules(admin, oper, end_time)) {
@@ -991,8 +1070,22 @@ static enum hrtimer_restart advance_sched(struct hrtimer *timer)
 		 */
 		next = list_first_entry(&oper->entries, struct sched_entry, list);
 		end_time = next->end_time;
+		if (likely(ktime_after(end_time, now)))
+			goto set_budgets;
+		next = taprio_entry_at(oper, now, &start, &end_time,
+				       &cycle_end);
+		oper->cycle_end_time = cycle_end;
 	}
 
+	for (tc = 0; tc < num_tc; tc++) {
+		if (next->gate_duration[tc] == oper->cycle_time)
+			next->gate_close_time[tc] = KTIME_MAX;
+		else
+			next->gate_close_time[tc] =
+				ktime_add_ns(start, next->gate_duration[tc]);
+	}
+
+set_budgets:
 	next->end_time = end_time;
 	taprio_set_budgets(q, oper, next);
 
@@ -1258,12 +1351,55 @@ static int taprio_get_start_time(struct Qdisc *sch,
 	return 0;
 }
 
+static int taprio_validate_start_time(struct taprio_sched *q,
+				      const struct sched_gate_list *sched,
+				      ktime_t start,
+				      struct netlink_ext_ack *extack)
+{
+	int num_tc = netdev_get_num_tc(qdisc_dev(q->root));
+	const struct sched_entry *first, *entry;
+	u64 offset = 0, span;
+	int tc;
+
+	if (TXTIME_ASSIST_IS_ENABLED(q->flags) ||
+	    FULL_OFFLOAD_IS_ENABLED(q->flags))
+		return 0;
+
+	first = list_first_entry(&sched->entries, struct sched_entry, list);
+
+	/* The software timer adds the cycle time, the first interval and
+	 * the finite gate durations of the first entry to the start. Entry
+	 * offsets are also calculated from that start. None of these sums
+	 * may overflow.
+	 */
+	span = max_t(u64, sched->cycle_time, first->interval);
+	list_for_each_entry(entry, &sched->entries, list) {
+		span = max(span, offset);
+		offset += entry->interval;
+	}
+
+	for (tc = 0; tc < num_tc; tc++) {
+		if (first->gate_duration[tc] == sched->cycle_time)
+			continue;
+		span = max(span, first->gate_duration[tc]);
+	}
+
+	if (start < 0 || span > KTIME_MAX ||
+	    (u64)start > KTIME_MAX - span) {
+		NL_SET_ERR_MSG(extack, "Schedule timing is out of range");
+		return -ERANGE;
+	}
+
+	return 0;
+}
+
 static void setup_first_end_time(struct taprio_sched *q,
 				 struct sched_gate_list *sched, ktime_t base)
 {
 	struct net_device *dev = qdisc_dev(q->root);
 	int num_tc = netdev_get_num_tc(dev);
-	struct sched_entry *first;
+	struct sched_entry *first, *entry;
+	s64 intervals = 0;
 	ktime_t cycle;
 	int tc;
 
@@ -1274,6 +1410,11 @@ static void setup_first_end_time(struct taprio_sched *q,
 
 	/* FIXME: find a better place to do this */
 	sched->cycle_end_time = ktime_add_ns(base, cycle);
+
+	list_for_each_entry(entry, &sched->entries, list)
+		intervals += entry->interval;
+	sched->start_time = base;
+	sched->period = min_t(s64, intervals, cycle);
 
 	first->end_time = ktime_add_ns(base, first->interval);
 	taprio_set_budgets(q, sched, first);
@@ -1981,6 +2122,10 @@ static int taprio_change(struct Qdisc *sch, struct nlattr *opt,
 		NL_SET_ERR_MSG(extack, "Internal error: failed get start time");
 		goto unlock;
 	}
+
+	err = taprio_validate_start_time(q, new_admin, start, extack);
+	if (err)
+		goto unlock;
 
 	setup_txtime(q, new_admin, start);
 
