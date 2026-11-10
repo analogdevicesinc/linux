@@ -88,17 +88,11 @@ static int summit_probe(struct mipi_dsi_device *dsi)
 	if (IS_ERR(s_data->bl))
 		return PTR_ERR(s_data->bl);
 
-	drm_panel_add(&s_data->panel);
+	ret = devm_drm_panel_add(dev, &s_data->panel);
+	if (ret)
+		return ret;
 
-	return mipi_dsi_attach(dsi);
-}
-
-static void summit_remove(struct mipi_dsi_device *dsi)
-{
-	struct summit_data *s_data = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&s_data->panel);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static int summit_suspend(struct device *dev)
@@ -120,7 +114,6 @@ MODULE_DEVICE_TABLE(of, summit_of_match);
 
 static struct mipi_dsi_driver summit_driver = {
 	.probe = summit_probe,
-	.remove = summit_remove,
 	.driver = {
 		.name = "panel-summit",
 		.of_match_table = summit_of_match,

@@ -359,19 +359,6 @@ int ivpu_hw_boot_fw(struct ivpu_device *vdev)
 	return ret;
 }
 
-void ivpu_hw_profiling_freq_drive(struct ivpu_device *vdev, bool enable)
-{
-	if (ivpu_hw_ip_gen(vdev) == IVPU_HW_IP_37XX) {
-		vdev->hw->pll.profiling_freq = PLL_PROFILING_FREQ_DEFAULT;
-		return;
-	}
-
-	if (enable)
-		vdev->hw->pll.profiling_freq = PLL_PROFILING_FREQ_HIGH;
-	else
-		vdev->hw->pll.profiling_freq = PLL_PROFILING_FREQ_DEFAULT;
-}
-
 void ivpu_irq_handlers_init(struct ivpu_device *vdev)
 {
 	if (ivpu_hw_btrs_gen(vdev) == IVPU_HW_BTRS_MTL)

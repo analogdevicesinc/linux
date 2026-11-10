@@ -227,33 +227,6 @@ static const struct file_operations fw_log_fops = {
 };
 
 static ssize_t
-fw_profiling_freq_fops_write(struct file *file, const char __user *user_buf,
-			     size_t size, loff_t *pos)
-{
-	struct ivpu_device *vdev = file->private_data;
-	bool enable;
-	int ret;
-
-	ret = kstrtobool_from_user(user_buf, size, &enable);
-	if (ret < 0)
-		return ret;
-
-	ivpu_hw_profiling_freq_drive(vdev, enable);
-
-	ret = pci_try_reset_function(to_pci_dev(vdev->drm.dev));
-	if (ret)
-		return ret;
-
-	return size;
-}
-
-static const struct file_operations fw_profiling_freq_fops = {
-	.owner = THIS_MODULE,
-	.open = simple_open,
-	.write = fw_profiling_freq_fops_write,
-};
-
-static ssize_t
 fw_trace_destination_mask_fops_write(struct file *file, const char __user *user_buf,
 				     size_t size, loff_t *pos)
 {
@@ -513,8 +486,6 @@ void ivpu_debugfs_init(struct ivpu_device *vdev)
 			    &ivpu_resume_engine_fops);
 
 	if (ivpu_hw_ip_gen(vdev) >= IVPU_HW_IP_40XX) {
-		debugfs_create_file("fw_profiling_freq_drive", 0200,
-				    debugfs_root, vdev, &fw_profiling_freq_fops);
 		debugfs_create_file("dct", 0644, debugfs_root, vdev, &ivpu_dct_fops);
 	}
 

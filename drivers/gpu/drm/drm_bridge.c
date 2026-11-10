@@ -68,8 +68,9 @@
  *
  * Display drivers are responsible for linking encoders with the first bridge
  * in the chains. This is done by acquiring the appropriate bridge with
- * devm_drm_of_get_bridge(). Once acquired, the bridge shall be attached to the
- * encoder with a call to drm_bridge_attach().
+ * of_drm_get_bridge_by_endpoint() or of_drm_find_and_get_bridge(). Once
+ * acquired, the bridge shall be attached to the encoder with a call to
+ * drm_bridge_attach().
  *
  * Bridges are responsible for linking themselves with the next bridge in the
  * chain, if any. This is done the same way as for encoders, with the call to

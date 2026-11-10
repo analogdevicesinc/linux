@@ -685,6 +685,14 @@ err_alloc_file:
  *
  * For the detailed semantics exporters are expected to implement see
  * &dma_buf_ops.
+ *
+ * It is explicitly forbidden for exporters to expose buffers they don't "own"
+ * as DMA-buf. This includes pages acquired by get_user_pages() or other import
+ * mechanism. Not following this rule can create numerous security problems.
+ *
+ * It is also strongly discouraged to expose the same backing store through
+ * multiple DMA-bufs at the same time. This eventually creates aliasing and
+ * cache coherency problems which are extremely hard to debug and fix.
  */
 
 /**

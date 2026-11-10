@@ -1111,6 +1111,8 @@ patternProperties:
     description: Changzhou Milianke Electronic Technology Co., Ltd
   "^milkv,.*":
     description: MilkV Technology Co., Ltd
+  "^mingjun,.*":
+    description: Shenzhen Mingjun Optoelectronics Co., Ltd
   "^miniand,.*":
     description: Miniand Tech
   "^minix,.*":
@@ -1525,6 +1527,8 @@ patternProperties:
     description: SGX Sensortech
   "^sharp,.*":
     description: Sharp Corporation
+  "^shenchao,.*":
+    description: Shen Chao Optoelectronics (Shenzhen) Co., Ltd.
   "^shift,.*":
     description: SHIFT GmbH
   "^shimafuji,.*":
@@ -1793,6 +1797,8 @@ patternProperties:
     description: Turing Machines, Inc.
   "^tuxedo,.*":
     description: TUXEDO Computers GmbH
+  "^txdkj,.*":
+    description: Shenzhen TXD Technology Co., Ltd.
   "^tyan,.*":
     description: Tyan Computer Corporation
   "^tyhx,.*":

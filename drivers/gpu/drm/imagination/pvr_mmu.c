@@ -1413,7 +1413,7 @@ struct pvr_mmu_op_context {
 		 */
 		struct sg_table *sgt;
 
-		/** @sgt_offset: Start address of the device-virtual mapping. */
+		/** @sgt_offset: Offset into @sgt of the start of the mapping. */
 		u64 sgt_offset;
 
 		/**

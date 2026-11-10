@@ -469,17 +469,17 @@ static const struct drm_connector_helper_funcs ast_astdp_connector_helper_funcs 
 	.detect_ctx = ast_astdp_connector_helper_detect_ctx,
 };
 
-static void ast_astdp_connector_reset(struct drm_connector *connector)
+static struct drm_connector_state *ast_astdp_connector_create_state(struct drm_connector *connector)
 {
-	struct ast_astdp_connector_state *astdp_state = kzalloc_obj(*astdp_state);
+	struct ast_astdp_connector_state *astdp_state;
 
-	if (connector->state)
-		connector->funcs->atomic_destroy_state(connector, connector->state);
+	astdp_state = kzalloc_obj(*astdp_state);
+	if (!astdp_state)
+		return ERR_PTR(-ENOMEM);
 
-	if (astdp_state)
-		__drm_atomic_helper_connector_reset(connector, &astdp_state->base);
-	else
-		__drm_atomic_helper_connector_reset(connector, NULL);
+	__drm_atomic_helper_connector_state_init(&astdp_state->base, connector);
+
+	return &astdp_state->base;
 }
 
 static struct drm_connector_state *
@@ -513,9 +513,9 @@ static void ast_astdp_connector_atomic_destroy_state(struct drm_connector *conne
 }
 
 static const struct drm_connector_funcs ast_astdp_connector_funcs = {
-	.reset = ast_astdp_connector_reset,
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,
+	.atomic_create_state = ast_astdp_connector_create_state,
 	.atomic_duplicate_state = ast_astdp_connector_atomic_duplicate_state,
 	.atomic_destroy_state = ast_astdp_connector_atomic_destroy_state,
 };

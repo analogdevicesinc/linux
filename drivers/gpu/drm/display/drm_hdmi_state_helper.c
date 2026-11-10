@@ -309,8 +309,8 @@
 
 /**
  * __drm_atomic_helper_connector_hdmi_state_init() - Initialize all HDMI @drm_connector_state resources
- * @connector: DRM connector
  * @new_conn_state: connector state to initialize
+ * @connector: DRM connector
  *
  * Initializes all HDMI resources from a @drm_connector_state without
  * actually allocating it. This is useful for HDMI drivers, in
@@ -318,8 +318,8 @@
  * drm_atomic_helper_connector_reset(), or
  * drm_atomic_helper_connector_create_state().
  */
-void __drm_atomic_helper_connector_hdmi_state_init(struct drm_connector *connector,
-						   struct drm_connector_state *new_conn_state)
+void __drm_atomic_helper_connector_hdmi_state_init(struct drm_connector_state *new_conn_state,
+						   struct drm_connector *connector)
 {
 	unsigned int max_bpc = connector->max_bpc;
 

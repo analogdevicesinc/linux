@@ -489,16 +489,13 @@ static int ltk500hd1829_unprepare(struct drm_panel *panel)
 {
 	struct ltk500hd1829 *ctx = panel_to_ltk500hd1829(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	int ret;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = dsi };
 
-	ret = mipi_dsi_dcs_set_display_off(dsi);
-	if (ret < 0)
-		dev_err(panel->dev, "failed to set display off: %d\n", ret);
-
-	ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(panel->dev, "failed to enter sleep mode: %d\n", ret);
-	}
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+	/* Reset error to continue power-down sequence even if display off failed */
+	dsi_ctx.accum_err = 0;
+	/* Enter sleep mode; error does not prevent power-off */
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 
 	/* 120ms to enter sleep mode */
 	msleep(120);
@@ -513,6 +510,7 @@ static int ltk500hd1829_prepare(struct drm_panel *panel)
 {
 	struct ltk500hd1829 *ctx = panel_to_ltk500hd1829(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = dsi };
 	unsigned int i;
 	int ret;
 
@@ -535,27 +533,17 @@ static int ltk500hd1829_prepare(struct drm_panel *panel)
 	/* tRT: >= 5ms */
 	usleep_range(5000, 6000);
 
-	for (i = 0; i < ctx->panel_desc->num_init; i++) {
-		ret = mipi_dsi_generic_write(dsi, &ctx->panel_desc->init[i],
+	for (i = 0; i < ctx->panel_desc->num_init; i++)
+		mipi_dsi_generic_write_multi(&dsi_ctx, &ctx->panel_desc->init[i],
 					     sizeof(struct ltk500hd1829_cmd));
-		if (ret < 0) {
-			dev_err(panel->dev, "failed to write init cmds: %d\n", ret);
-			goto disable_iovcc;
-		}
-	}
 
-	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(panel->dev, "failed to exit sleep mode: %d\n", ret);
-		goto disable_iovcc;
-	}
-
+	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
 	/* 120ms to exit sleep mode */
-	msleep(120);
+	mipi_dsi_msleep(&dsi_ctx, 120);
+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
 
-	ret = mipi_dsi_dcs_set_display_on(dsi);
-	if (ret < 0) {
-		dev_err(panel->dev, "failed to set display on: %d\n", ret);
+	if (dsi_ctx.accum_err) {
+		ret = dsi_ctx.accum_err;
 		goto disable_iovcc;
 	}
 

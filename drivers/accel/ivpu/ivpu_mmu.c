@@ -65,7 +65,7 @@
 #define IVPU_MMU_IDR5_REF_FPGA		0x00800075
 
 #define IVPU_MMU_CDTAB_ENT_SIZE		64
-#define IVPU_MMU_CDTAB_ENT_COUNT_LOG2	8 /* 256 entries */
+#define IVPU_MMU_CDTAB_ENT_COUNT_LOG2	7 /* 128 entries */
 #define IVPU_MMU_CDTAB_ENT_COUNT	((u32)1 << IVPU_MMU_CDTAB_ENT_COUNT_LOG2)
 
 #define IVPU_MMU_STREAM_ID0		0
@@ -700,7 +700,7 @@ static int ivpu_mmu_cdtab_entry_set(struct ivpu_device *vdev, u32 ssid, u64 cd_d
 	u64 cd[4];
 	int ret = 0;
 
-	if (ssid > IVPU_MMU_CDTAB_ENT_COUNT)
+	if (ssid >= IVPU_MMU_CDTAB_ENT_COUNT)
 		return -EINVAL;
 
 	entry = cdtab->base + (ssid * IVPU_MMU_CDTAB_ENT_SIZE);
@@ -918,7 +918,7 @@ int ivpu_mmu_disable_ssid_events(struct ivpu_device *vdev, u32 ssid)
 	u64 *entry;
 	u64 val;
 
-	if (ssid > IVPU_MMU_CDTAB_ENT_COUNT)
+	if (ssid >= IVPU_MMU_CDTAB_ENT_COUNT)
 		return -EINVAL;
 
 	mutex_lock(&mmu->lock);

@@ -200,28 +200,15 @@ static int lxd_m9189_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to get backlight\n");
 
-	drm_panel_add(&m9189->panel);
-
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		dev_err_probe(dev, ret, "Failed to attach to DSI host\n");
-		drm_panel_remove(&m9189->panel);
+	ret = devm_drm_panel_add(dev, &m9189->panel);
+	if (ret)
 		return ret;
-	}
+
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to attach to DSI host\n");
 
 	return 0;
-}
-
-static void lxd_m9189_remove(struct mipi_dsi_device *dsi)
-{
-	struct m9189_panel *m9189 = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&m9189->panel);
 }
 
 static const struct of_device_id lxd_m9189_of_match[] = {
@@ -232,7 +219,6 @@ MODULE_DEVICE_TABLE(of, lxd_m9189_of_match);
 
 static struct mipi_dsi_driver lxd_m9189_driver = {
 	.probe = lxd_m9189_probe,
-	.remove = lxd_m9189_remove,
 	.driver = {
 		.name = "panel-lxd-m9189a",
 		.of_match_table = lxd_m9189_of_match,

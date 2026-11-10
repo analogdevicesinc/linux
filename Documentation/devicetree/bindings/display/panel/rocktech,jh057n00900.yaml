@@ -24,6 +24,8 @@ properties:
       - anbernic,rg353v-panel-v2
       # AYANEO Pocket DS lower 5.0" 1024x768 IPS LCD panel
       - ayaneo,pocket-ds-lower-panel
+      # DCLTek DT300248 10.25" 440x1920 LCD panel
+      - dcltek,dt300248
       # GameForce Chi 3.5" 640x480 TFT LCD panel
       - gameforce,chi-panel
       # Powkiddy RGB10MAX3 5.0" 720x1280 TFT LCD panel

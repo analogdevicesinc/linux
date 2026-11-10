@@ -695,10 +695,10 @@ static void drm_fs_inode_free(struct inode *inode)
  *
  *  - The component helper fills the niche where further standardization of
  *    interfaces is not practical. When there already is, or will be, a
- *    standardized interface like &drm_bridge or &drm_panel, providing its own
- *    functions to find such components at driver load time, like
- *    drm_of_find_panel_or_bridge(), then the component helper should not be
- *    used.
+ *    standardized interface like &drm_bridge providing its own functions
+ *    to find such components at driver load time, like
+ *    of_drm_get_bridge_by_endpoint() and of_drm_find_and_get_bridge(),
+ *    then the component helper should not be used.
  */
 
 static void drm_dev_init_release(struct drm_device *dev, void *res)

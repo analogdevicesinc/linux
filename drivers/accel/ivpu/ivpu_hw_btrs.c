@@ -153,7 +153,12 @@ static int info_init_lnl(struct ivpu_device *vdev)
 		return ret;
 
 	hw->tile_fuse = tile_fuse_config;
-	hw->pll.profiling_freq = PLL_PROFILING_FREQ_DEFAULT;
+
+	if (ivpu_test_mode & IVPU_TEST_MODE_PROF_FREQ_HIGH)
+		hw->pll.profiling_freq = PLL_PROFILING_FREQ_HIGH;
+	else
+		hw->pll.profiling_freq = PLL_PROFILING_FREQ_DEFAULT;
+
 	hw->btrs_irq_mask = BTRS_LNL_IRQ_MASK;
 
 	if (ivpu_test_mode & IVPU_TEST_MODE_FREQ_CHANGE_ENABLE)

@@ -61,7 +61,6 @@ int ivpu_hw_power_up(struct ivpu_device *vdev);
 int ivpu_hw_power_down(struct ivpu_device *vdev);
 int ivpu_hw_reset(struct ivpu_device *vdev);
 int ivpu_hw_boot_fw(struct ivpu_device *vdev);
-void ivpu_hw_profiling_freq_drive(struct ivpu_device *vdev, bool enable);
 void ivpu_irq_handlers_init(struct ivpu_device *vdev);
 void ivpu_hw_irq_enable(struct ivpu_device *vdev);
 void ivpu_hw_irq_disable(struct ivpu_device *vdev);

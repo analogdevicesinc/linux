@@ -3245,25 +3245,15 @@ static int jadard_dsi_probe(struct mipi_dsi_device *dsi)
 
 	jadard->panel.prepare_prev_first = true;
 
-	drm_panel_add(&jadard->panel);
+	ret = devm_drm_panel_add(dev, &jadard->panel);
+	if (ret)
+		return ret;
 
 	mipi_dsi_set_drvdata(dsi, jadard);
 	jadard->dsi = dsi;
 	jadard->desc = desc;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0)
-		drm_panel_remove(&jadard->panel);
-
-	return ret;
-}
-
-static void jadard_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	struct jadard *jadard = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&jadard->panel);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static const struct of_device_id jadard_of_match[] = {
@@ -3333,7 +3323,6 @@ MODULE_DEVICE_TABLE(of, jadard_of_match);
 
 static struct mipi_dsi_driver jadard_driver = {
 	.probe = jadard_dsi_probe,
-	.remove = jadard_dsi_remove,
 	.driver = {
 		.name = "jadard-jd9365da",
 		.of_match_table = jadard_of_match,

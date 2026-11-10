@@ -293,7 +293,8 @@ sun4i_hdmi_connector_detect(struct drm_connector *connector, bool force)
 static void sun4i_hdmi_connector_reset(struct drm_connector *connector)
 {
 	drm_atomic_helper_connector_reset(connector);
-	__drm_atomic_helper_connector_hdmi_state_init(connector, connector->state);
+	__drm_atomic_helper_connector_hdmi_state_init(connector->state,
+						      connector);
 }
 
 static const struct drm_connector_funcs sun4i_hdmi_connector_funcs = {

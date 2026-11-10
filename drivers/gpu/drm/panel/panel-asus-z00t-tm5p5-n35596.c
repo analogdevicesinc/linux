@@ -262,28 +262,17 @@ static int tm5p5_nt35596_probe(struct mipi_dsi_device *dsi)
 		return ret;
 	}
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to attach to DSI host: %d\n", ret);
 		return ret;
 	}
 
 	return 0;
-}
-
-static void tm5p5_nt35596_remove(struct mipi_dsi_device *dsi)
-{
-	struct tm5p5_nt35596 *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev,
-			"Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id tm5p5_nt35596_of_match[] = {
@@ -294,7 +283,6 @@ MODULE_DEVICE_TABLE(of, tm5p5_nt35596_of_match);
 
 static struct mipi_dsi_driver tm5p5_nt35596_driver = {
 	.probe = tm5p5_nt35596_probe,
-	.remove = tm5p5_nt35596_remove,
 	.driver = {
 		.name = "panel-tm5p5-nt35596",
 		.of_match_table = tm5p5_nt35596_of_match,
