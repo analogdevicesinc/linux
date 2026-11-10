@@ -124,6 +124,8 @@ struct __guc_capture_parsed_output {
 	{ RING_ACTHD_UDW(0),		REG_64BIT_HI_DW, 0,	0,	0,	"ACTHD"}, \
 	{ RING_BBADDR(0),		REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
 	{ RING_BBADDR_UDW(0),		REG_64BIT_HI_DW, 0,	0,	0,	"RING_BBADDR"}, \
+	{ BB_START_ADDR(0),		REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
+	{ BB_START_ADDR_UDW(0),		REG_64BIT_HI_DW, 0,	0,	0,	"BB_START_ADDR_UDW"}, \
 	{ RING_START(0),		REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
 	{ RING_START_UDW(0),		REG_64BIT_HI_DW, 0,	0,	0,	"RING_START"}, \
 	{ RING_DMA_FADD(0),		REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
@@ -131,7 +133,9 @@ struct __guc_capture_parsed_output {
 	{ RING_EXECLIST_STATUS_LO(0),	REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
 	{ RING_EXECLIST_STATUS_HI(0),	REG_64BIT_HI_DW, 0,	0,	0,	"RING_EXECLIST_STATUS"}, \
 	{ RING_EXECLIST_SQ_CONTENTS_LO(0), REG_64BIT_LOW_DW, 0,	0,	0,	NULL}, \
-	{ RING_EXECLIST_SQ_CONTENTS_HI(0), REG_64BIT_HI_DW, 0,	0,	0,	"RING_EXECLIST_SQ_CONTENTS"}
+	{ RING_EXECLIST_SQ_CONTENTS_HI(0), REG_64BIT_HI_DW, 0,	0,	0,	"RING_EXECLIST_SQ_CONTENTS"}, \
+	{ RING_BUFFER_HEAD_PREEMPT_REG(0),		REG_32BIT, 0,	0,	0,	"RING_BUFFER_HEAD_PREEMPT_REG"}, \
+	{ RING_BB_ADDR_DIFF(0),		REG_32BIT, 0,	0,	0,	"RING_BB_ADDR_DIFF"} \
 
 #define COMMON_XELP_RC_CLASS \
 	{ RCU_MODE,			REG_32BIT,	0,	0,	0,	"RCU_MODE"}
@@ -149,6 +153,36 @@ struct __guc_capture_parsed_output {
 
 #define XE3P_BASE_ENGINE_INSTANCE \
 	{ RING_CSMQDEBUG(0),		REG_32BIT,	0,	0,	0,	"CSMQDEBUG"}
+
+#define XE3P_RC_SLICE_INSTANCE \
+	{ FF_SLICE_CS_CHICKEN1(0), REG_32BIT, 0, 0, 0, "FF_SLICE_CS_CHICKEN1"}, \
+	{ FF_SLICE_CS_CHICKEN2(0), REG_32BIT, 0, 0, 0, "FF_SLICE_CS_CHICKEN2"}
+
+#define XE3P_CS_DEBUG_INSTANCE \
+	{ RESET_CTRL(0),		REG_32BIT,	0,	0,	0,	"RESET_CTRL"}, \
+	{ RING_CSBEFSM3(0),		REG_32BIT,	0,	0,	0,	"RING_CSBEFSM3"}, \
+	{ RING_CSFESM(0),		REG_32BIT,	0,	0,	0,	"RING_CSFESM"}, \
+	{ RING_CSFESM2(0),		REG_32BIT,	0,	0,	0,	"RING_CSFESM2"}, \
+	{ RING_CSFESM3(0),		REG_32BIT,	0,	0,	0,	"RING_CSFESM3"}, \
+	{ RING_CSPWRFSM(0),		REG_32BIT,	0,	0,	0,	"RING_CSPWRFSM"}, \
+	{ RING_CSBEFSM(0),		REG_32BIT,	0,	0,	0,	"RING_CSBEFSM"}, \
+	{ RING_CSFE_GLB_CHICKEN3(0),	REG_32BIT,	0,	0,	0,	"RING_CSFE_GLB_CHICKEN3"}, \
+	{ RING_PSMI_CTL(0),		REG_32BIT,	0,	0,	0,	"RING_PSMI_CTL"}, \
+	{ RING_INSTPS(0),		REG_32BIT,	0,	0,	0,	"RING_INSTPS"}, \
+	{ RING_BB_STATE(0),		REG_32BIT,	0,	0,	0,	"RING_BB_STATE"}
+
+/*
+ * CS_CHICKEN1 has GPGPU/3D preempt bits; keep with RCS/CCS only.
+ * RCS+CCS share GUC_CAPTURE_LIST_CLASS_RENDER_COMPUTE, so these cannot
+ * be RCS-only.
+ */
+#define XE3P_RC_CS_PREEMPT_INSTANCE \
+	{ CS_DEBUG_MODE1(0),		REG_32BIT,	0,	0,	0,	"CS_DEBUG_MODE1"}, \
+	{ CS_CHICKEN1(0),		REG_32BIT,	0,	0,	0,	"CS_CHICKEN1"}, \
+	{ CS_PREEMPTION_STATUS(0),	REG_32BIT,	0,	0,	0,	"CS_PREEMPTION_STATUS"}
+
+#define XE3P_BCS_ONLY_INSTANCE \
+	{ BCS_SWCTRL(0),		REG_32BIT,	0,	0,	0,	"BCS_SWCTRL"}
 
 /* XE_LP Global */
 static const struct __guc_mmio_reg_descr xe_lp_global_regs[] = {
@@ -186,9 +220,12 @@ static const struct __guc_mmio_reg_descr xe_vec_inst_regs[] = {
 	COMMON_BASE_ENGINE_INSTANCE,
 };
 
+#define XE_BLT_INST_REGS \
+	COMMON_BASE_ENGINE_INSTANCE
+
 /* Blitter Per-Engine-Instance */
 static const struct __guc_mmio_reg_descr xe_blt_inst_regs[] = {
-	COMMON_BASE_ENGINE_INSTANCE,
+	XE_BLT_INST_REGS,
 };
 
 /* XE_LP - GSC Per-Engine-Instance */
@@ -200,6 +237,16 @@ static const struct __guc_mmio_reg_descr xe_lp_gsc_inst_regs[] = {
 static const struct __guc_mmio_reg_descr xe3p_rc_inst_regs[] = {
 	COMMON_BASE_ENGINE_INSTANCE,
 	XE3P_BASE_ENGINE_INSTANCE,
+	XE3P_CS_DEBUG_INSTANCE,
+	XE3P_RC_CS_PREEMPT_INSTANCE,
+	XE3P_RC_SLICE_INSTANCE,
+};
+
+/* Xe3p Blitter Per-Engine-Instance */
+static const struct __guc_mmio_reg_descr xe3p_blt_inst_regs[] = {
+	XE_BLT_INST_REGS,
+	XE3P_CS_DEBUG_INSTANCE,
+	XE3P_BCS_ONLY_INSTANCE,
 };
 
 /*
@@ -264,7 +311,7 @@ static const struct __guc_mmio_reg_descr_group xe3p_lists[] = {
 	MAKE_REGLIST(xe_vec_class_regs, PF, ENGINE_CLASS, GUC_CAPTURE_LIST_CLASS_VIDEOENHANCE),
 	MAKE_REGLIST(xe_vec_inst_regs, PF, ENGINE_INSTANCE, GUC_CAPTURE_LIST_CLASS_VIDEOENHANCE),
 	MAKE_REGLIST(empty_regs_list, PF, ENGINE_CLASS, GUC_CAPTURE_LIST_CLASS_BLITTER),
-	MAKE_REGLIST(xe_blt_inst_regs, PF, ENGINE_INSTANCE, GUC_CAPTURE_LIST_CLASS_BLITTER),
+	MAKE_REGLIST(xe3p_blt_inst_regs, PF, ENGINE_INSTANCE, GUC_CAPTURE_LIST_CLASS_BLITTER),
 	MAKE_REGLIST(empty_regs_list, PF, ENGINE_CLASS, GUC_CAPTURE_LIST_CLASS_GSC_OTHER),
 	MAKE_REGLIST(xe_lp_gsc_inst_regs, PF, ENGINE_INSTANCE, GUC_CAPTURE_LIST_CLASS_GSC_OTHER),
 	MAKE_REGLIST(empty_regs_list, PF, ENGINE_CLASS, GUC_CAPTURE_LIST_CLASS_PAGING),
@@ -376,7 +423,13 @@ static const struct __ext_steer_reg xehpg_extregs[] = {
 	{"SC_INSTDONE",			XEHPG_SC_INSTDONE},
 	{"SC_INSTDONE_EXTRA",		XEHPG_SC_INSTDONE_EXTRA},
 	{"SC_INSTDONE_EXTRA2",		XEHPG_SC_INSTDONE_EXTRA2},
-	{"INSTDONE_GEOM_SVGUNIT",	XEHPG_INSTDONE_GEOM_SVGUNIT}
+	{"INSTDONE_GEOM_SVGUNIT",	XEHPG_INSTDONE_GEOM_SVGUNIT},
+};
+
+static const struct __ext_steer_reg xe2_extregs[] = {
+	{"ROW_INSTDONE_TDL_GFX",	ROW_INSTDONE_TDL_GFX},
+	{"SS_LSC_HDC_IDLE_TDL_GFX",	SS_LSC_HDC_IDLE_TDL_GFX},
+	{"SLICE_ARB_STATUS",		SLICE_ARB_STATUS},
 };
 
 static void __fill_ext_reg(struct __guc_mmio_reg_descr *ext,
@@ -419,6 +472,8 @@ static int guc_capture_get_steer_reg_num(struct xe_device *xe)
 
 	if (GRAPHICS_VERx100(xe) >= 1255)
 		num += ARRAY_SIZE(xehpg_extregs);
+	if (GRAPHICS_VER(xe) >= 20)
+		num += ARRAY_SIZE(xe2_extregs);
 
 	return num;
 }
@@ -431,6 +486,7 @@ static void guc_capture_alloc_steered_lists(struct xe_guc *guc)
 	const struct __guc_mmio_reg_descr_group *lists = guc->capture->reglists;
 	const struct __guc_mmio_reg_descr_group *list;
 	struct __guc_mmio_reg_descr_group *extlists;
+	bool has_xe2_extregs = GRAPHICS_VER(gt_to_xe(gt)) >= 20;
 	struct __guc_mmio_reg_descr *extarray;
 	bool has_xehpg_extregs = GRAPHICS_VERx100(gt_to_xe(gt)) >= 1255;
 	struct drm_device *drm = &gt_to_xe(gt)->drm;
@@ -499,6 +555,12 @@ static void guc_capture_alloc_steered_lists(struct xe_guc *guc)
 		if (has_xehpg_extregs)
 			for (i = 0; i < ARRAY_SIZE(xehpg_extregs); ++i) {
 				__fill_ext_reg(extarray, &xehpg_extregs[i], dss, slice, subslice);
+				++extarray;
+			}
+
+		if (has_xe2_extregs)
+			for (i = 0; i < ARRAY_SIZE(xe2_extregs); ++i) {
+				__fill_ext_reg(extarray, &xe2_extregs[i], dss, slice, subslice);
 				++extarray;
 			}
 	}
@@ -1716,6 +1778,7 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 	struct xe_devcoredump_snapshot *devcore_snapshot = &devcoredump->snapshot;
 	struct gcap_reg_list_info *reginfo = NULL;
 	u32 i, last_value = 0;
+	u32 last_address = 0;
 	bool low32_ready = false;
 
 	if (!list || !list->list || list->num_regs == 0)
@@ -1743,6 +1806,7 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 		switch (reg_desc->data_type) {
 		case REG_64BIT_LOW_DW:
 			last_value = value;
+			last_address = reg_desc->reg.addr;
 
 			/*
 			 * A 64 bit register define requires 2 consecutive
@@ -1774,7 +1838,10 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 			XE_WARN_ON(!low32_ready);
 			low32_ready = false;
 
-			drm_printf(p, "\t%s: 0x%016llx\n", reg_desc->regname, value_qw);
+			drm_printf(p, "\t%s: 0x%016llx [addr=0x%x]\n",
+				   reg_desc->regname,
+				   value_qw,
+				   last_address);
 			break;
 		}
 
@@ -1788,11 +1855,12 @@ snapshot_print_by_list_order(struct xe_hw_engine_snapshot *snapshot, struct drm_
 			XE_WARN_ON(low32_ready);
 
 			if (FIELD_GET(GUC_REGSET_STEERING_NEEDED, reg_desc->flags))
-				drm_printf(p, "\t%s[%u]: 0x%08x\n", reg_desc->regname,
-					   reg_desc->dss_id, value);
+				drm_printf(p, "\t%s[%u]: 0x%08x [addr=0x%x]\n",
+					   reg_desc->regname,
+					   reg_desc->dss_id, value, reg_desc->reg.addr);
 			else
-				drm_printf(p, "\t%s: 0x%08x\n", reg_desc->regname, value);
-
+				drm_printf(p, "\t%s: 0x%08x [addr=0x%x]\n",
+					   reg_desc->regname, value, reg_desc->reg.addr);
 			break;
 		}
 	}

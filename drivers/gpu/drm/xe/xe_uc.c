@@ -12,6 +12,7 @@
 #include "xe_gt_printk.h"
 #include "xe_gt_sriov_vf.h"
 #include "xe_guc.h"
+#include "xe_guc_ct.h"
 #include "xe_guc_pc.h"
 #include "xe_guc_rc.h"
 #include "xe_guc_engine_activity.h"
@@ -298,6 +299,20 @@ int xe_uc_suspend(struct xe_uc *uc)
 }
 
 /**
+ * xe_uc_resume_early() - Early init for UC resume
+ * @uc: the UC object
+ *
+ * UC init before a GT restart during resume.
+ */
+void xe_uc_resume_early(struct xe_uc *uc)
+{
+	if (!xe_device_uc_enabled(uc_to_xe(uc)))
+		return;
+
+	xe_guc_resume_early(&uc->guc);
+}
+
+/**
  * xe_uc_runtime_suspend() - UC runtime suspend
  * @uc: the UC object
  *
@@ -326,15 +341,15 @@ void xe_uc_runtime_resume(struct xe_uc *uc)
 }
 
 /**
- * xe_uc_declare_wedged() - Declare UC wedged
+ * xe_uc_wedge_declare() - Declare UC wedged
  * @uc: the UC object
  *
  * Wedge the UC which stops all submission, saves desired debug state, and
  * cleans up anything which could timeout.
  */
-void xe_uc_declare_wedged(struct xe_uc *uc)
+void xe_uc_wedge_declare(struct xe_uc *uc)
 {
 	xe_gt_assert(uc_to_gt(uc), uc_to_xe(uc)->wedged.mode);
 
-	xe_guc_declare_wedged(&uc->guc);
+	xe_guc_wedge_declare(&uc->guc);
 }

@@ -19,6 +19,7 @@
 #include "xe_sriov_pf_service.h"
 #include "xe_sriov_pf_sysfs.h"
 #include "xe_sriov_printk.h"
+#include "xe_wedge.h"
 
 static unsigned int wanted_max_vfs(struct xe_device *xe)
 {
@@ -157,7 +158,7 @@ int xe_sriov_pf_wait_ready(struct xe_device *xe)
 	unsigned int id;
 	int err;
 
-	if (xe_device_wedged(xe))
+	if (xe_wedged(xe))
 		return -ECANCELED;
 
 	for_each_gt(gt, xe, id) {

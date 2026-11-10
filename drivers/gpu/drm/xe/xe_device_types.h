@@ -12,6 +12,7 @@
 #include <drm/drm_file.h>
 #include <drm/ttm/ttm_device.h>
 
+#include "xe_cper_types.h"
 #include "xe_devcoredump_types.h"
 #include "xe_drm_ras_types.h"
 #include "xe_heci_gsc.h"
@@ -21,6 +22,7 @@
 #include "xe_platform_types.h"
 #include "xe_pmu_types.h"
 #include "xe_pt_types.h"
+#include "xe_ras_types.h"
 #include "xe_sriov_pf_types.h"
 #include "xe_sriov_types.h"
 #include "xe_sriov_vf_types.h"
@@ -30,6 +32,7 @@
 #include "xe_sysctrl_types.h"
 #include "xe_tile_types.h"
 #include "xe_validation.h"
+#include "xe_wedge_types.h"
 
 #if IS_ENABLED(CONFIG_DRM_XE_DEBUG)
 #define TEST_VM_OPS_ERROR
@@ -46,22 +49,6 @@ struct xe_pat_ops;
 struct xe_pxp;
 struct xe_ttm_stolen_mgr;
 struct xe_vram_region;
-
-/**
- * enum xe_wedged_mode - possible wedged modes
- * @XE_WEDGED_MODE_NEVER: Device will never be declared wedged.
- * @XE_WEDGED_MODE_UPON_CRITICAL_ERROR: Device will be declared wedged only
- *	when critical error occurs like GT reset failure or firmware failure.
- *	This is the default mode.
- * @XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET: Device will be declared wedged on
- *	any hang. In this mode, engine resets are disabled to avoid automatic
- *	recovery attempts. This mode is primarily intended for debugging hangs.
- */
-enum xe_wedged_mode {
-	XE_WEDGED_MODE_NEVER = 0,
-	XE_WEDGED_MODE_UPON_CRITICAL_ERROR = 1,
-	XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET = 2,
-};
 
 #ifdef CONFIG_DRM_XE_DEBUG_PAGE_SIZE
 /**
@@ -164,6 +151,8 @@ struct xe_device {
 		u8 vm_max_level;
 		/** @info.va_bits: Maximum bits of a virtual address */
 		u8 va_bits;
+		/** @info.late_bind_mask: Indicates supported late binding firmwares */
+		u8 late_bind_mask;
 
 		/*
 		 * Keep all flags below alphabetically sorted
@@ -185,6 +174,8 @@ struct xe_device {
 		u8 has_drm_ras:1;
 		/** @info.has_fan_control: Device supports fan control */
 		u8 has_fan_control:1;
+		/** @info.has_fixed_vram_channels: Device has fixed VRAM temperature channels */
+		u8 has_fixed_vram_channels:1;
 		/** @info.has_flat_ccs: Whether flat CCS metadata is used */
 		u8 has_flat_ccs:1;
 		/** @info.has_gsc_nvm: Device has gsc non-volatile memory */
@@ -195,8 +186,6 @@ struct xe_device {
 		u8 has_heci_gscfi:1;
 		/** @info.has_i2c: Device has I2C controller */
 		u8 has_i2c:1;
-		/** @info.has_late_bind: Device has firmware late binding support */
-		u8 has_late_bind:1;
 		/** @info.has_llc: Device has a shared CPU+GPU last level cache */
 		u8 has_llc:1;
 		/** @info.has_mbx_power_limits: Device has support to manage power limits using
@@ -227,6 +216,8 @@ struct xe_device {
 		u8 has_sriov:1;
 		/** @info.has_sysctrl: Supports System Controller */
 		u8 has_sysctrl:1;
+		/** @info.has_temp_sentinel: Device has temperature-unavailable sentinels */
+		u8 has_temp_sentinel:1;
 		/** @info.has_usm: Device has unified shared memory support */
 		u8 has_usm:1;
 		/** @info.has_64bit_timestamp: Device supports 64-bit timestamps */
@@ -551,16 +542,7 @@ struct xe_device {
 	atomic_t in_reset;
 
 	/** @wedged: Struct to control Wedged States and mode */
-	struct {
-		/** @wedged.flag: Xe device faced a critical error and is now blocked. */
-		atomic_t flag;
-		/** @wedged.mode: Mode controlled by kernel parameter and debugfs */
-		enum xe_wedged_mode mode;
-		/** @wedged.method: Recovery method to be sent in the drm device wedged uevent */
-		unsigned long method;
-		/** @wedged.inconsistent_reset: Inconsistent reset policy state between GTs */
-		bool inconsistent_reset;
-	} wedged;
+	struct xe_wedge wedged;
 
 	/** @devres_group: devres group */
 	void *devres_group;
@@ -576,8 +558,17 @@ struct xe_device {
 	/** @pmu: performance monitoring unit */
 	struct xe_pmu pmu;
 
-	/** @ras: RAS structure for device */
-	struct xe_drm_ras ras;
+	/** @ras: RAS (Reliability, Availability, Serviceability) structures */
+	struct {
+		/** @ras.nl_data: drm-ras netlink data */
+		struct xe_drm_ras nl_data;
+
+		/** @ras.state: RAS device and firmware state */
+		struct xe_ras_state state;
+	} ras;
+
+	/** @cper: CPER state */
+	struct xe_cper cper;
 
 	/** @i2c: I2C host controller */
 	struct xe_i2c *i2c;
