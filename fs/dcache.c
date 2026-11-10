@@ -898,8 +898,9 @@ static inline bool retain_dentry(struct dentry *dentry, bool locked)
 	smp_rmb();
 	d_flags = READ_ONCE(dentry->d_flags);
 
-	// Unreachable? Nobody would be able to look it up, no point retaining
-	if (unlikely(d_unhashed(dentry)))
+	// Unreachable? Nobody would be able to look it up, no point retaining.
+	// Racy when !locked: a stale answer only costs a recheck under ->d_lock.
+	if (unlikely(data_race(d_unhashed(dentry))))
 		return false;
 
 	// Same if it's disconnected

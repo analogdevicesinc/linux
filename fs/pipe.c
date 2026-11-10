@@ -586,6 +586,7 @@ anon_pipe_write(struct kiocb *iocb, struct iov_iter *from)
 		if (!pipe_full(head, pipe->tail, pipe->max_usage)) {
 			struct pipe_buffer *buf;
 			struct page *page;
+			size_t len;
 			int copied;
 
 			page = anon_pipe_get_page(pipe);
@@ -595,8 +596,9 @@ anon_pipe_write(struct kiocb *iocb, struct iov_iter *from)
 				break;
 			}
 
-			copied = copy_page_from_iter(page, 0, PAGE_SIZE, from);
-			if (unlikely(copied < PAGE_SIZE && iov_iter_count(from))) {
+			len = min(PAGE_SIZE, iov_iter_count(from));
+			copied = copy_page_from_iter(page, 0, len, from);
+			if (unlikely(copied < len)) {
 				anon_pipe_put_page(pipe, page);
 				if (!ret)
 					ret = -EFAULT;
@@ -1566,6 +1568,9 @@ static struct file_system_type pipe_fs_type = {
 
 static ulong round_pipe_size_ul(ulong size)
 {
+	if (size > UINT_MAX)
+		return 0;
+
 	return round_pipe_size(size);
 }
 

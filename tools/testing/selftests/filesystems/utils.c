@@ -103,16 +103,6 @@ static inline void list_add_tail(struct list *head, struct list *list)
 	__list_add(list, head->prev, head);
 }
 
-static inline void list_del(struct list *list)
-{
-	struct list *next, *prev;
-
-	next = list->next;
-	prev = list->prev;
-	next->prev = prev;
-	prev->next = next;
-}
-
 static ssize_t read_nointr(int fd, void *buf, size_t count)
 {
 	ssize_t ret;

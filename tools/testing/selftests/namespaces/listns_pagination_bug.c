@@ -46,7 +46,7 @@ TEST(pagination_with_type_filter)
 		ASSERT_GE(pids[i], 0);
 
 		if (pids[i] == 0) {
-			char c;
+			char c = 'X';
 			close(sv[0]);
 
 			if (setup_userns() < 0) {

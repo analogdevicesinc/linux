@@ -465,11 +465,10 @@ static void __init initramfs_test_fname_path_max(struct kunit *test)
 	char *err;
 	size_t len;
 	struct kstat st0 = {}, st1 = {};
-	char fdata[] = "this file data will not be unpacked";
 	struct test_fname_path_max {
 		char fname_oversize[PATH_MAX + 1];
 		char fname_ok[PATH_MAX];
-		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3 + sizeof(fdata)) * 2];
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * 2];
 	} *tbufs = kzalloc_obj(struct test_fname_path_max);
 	struct initramfs_test_cpio c[] = { {
 		.magic = "070701",
@@ -478,8 +477,6 @@ static void __init initramfs_test_fname_path_max(struct kunit *test)
 		.nlink = 1,
 		.namesize = sizeof(tbufs->fname_oversize),
 		.fname = tbufs->fname_oversize,
-		.filesize = sizeof(fdata),
-		.data = fdata,
 	}, {
 		.magic = "070701",
 		.ino = 2,
@@ -546,6 +543,218 @@ static void __init initramfs_test_hdr_hex(struct kunit *test)
 	kfree(tbufs);
 }
 
+static void __init initramfs_test_dir_dataseg(struct kunit *test)
+{
+	char *err;
+	size_t len;
+	struct kstat st0 = {};
+	char fdata[] = "dir with data segment will not be unpacked";
+	struct initramfs_test_bufs {
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * 2 + sizeof(fdata)];
+	} *tbufs = kzalloc_obj(struct initramfs_test_bufs);
+	struct initramfs_test_cpio c[] = { {
+		.magic = "070701",
+		.ino = 1,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("initramfs_test_dir_dataseg"),
+		.fname = "initramfs_test_dir_dataseg",
+		.filesize = sizeof(fdata),
+		.data = fdata,
+	}, {
+		.magic = "070701",
+		.ino = 2,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("initramfs_test_dir_no_dataseg"),
+		.fname = "initramfs_test_dir_no_dataseg",
+	} };
+
+	len = fill_cpio(c, ARRAY_SIZE(c), false, tbufs->cpio_src);
+
+	/* no error: unpack skips non-file/symlink entries with data segment */
+	err = unpack_to_rootfs(tbufs->cpio_src, len);
+	KUNIT_EXPECT_NULL(test, err);
+
+	KUNIT_EXPECT_EQ(test, init_stat("initramfs_test_dir_dataseg", &st0, 0),
+			-ENOENT);
+	KUNIT_EXPECT_EQ(test,
+			init_stat("initramfs_test_dir_no_dataseg", &st0, 0), 0);
+	KUNIT_EXPECT_EQ(test, init_rmdir("initramfs_test_dir_no_dataseg"), 0);
+
+	kfree(tbufs);
+}
+
+static void __init initramfs_test_overwrite(struct kunit *test)
+{
+	char *err;
+	size_t len;
+	struct kstat st = {};
+	struct initramfs_test_cpio c[] = { {
+		.magic = "070701",
+		.ino = 1,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("dir_to_file"),
+		.fname = "dir_to_file",
+	}, {
+		.magic = "070701",
+		.ino = 2,
+		/* S_IFDIR->S_IFREG: rmdir(existing) and replace */
+		.mode = S_IFREG | 0766,
+		.nlink = 1,
+		.namesize = sizeof("dir_to_file"),
+		.fname = "dir_to_file",
+	}, {
+		.magic = "070701",
+		.ino = 3,
+		.mode = S_IFREG | 0777,
+		.nlink = 1,
+		.namesize = sizeof("file_to_dir"),
+		.fname = "file_to_dir",
+	}, {
+		.magic = "070701",
+		.ino = 4,
+		/* S_IFREG->S_IFDIR: unlink(existing) and replace */
+		.mode = S_IFDIR | 0766,
+		.nlink = 1,
+		.namesize = sizeof("file_to_dir"),
+		.fname = "file_to_dir",
+	} };
+	struct initramfs_test_bufs {
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * ARRAY_SIZE(c)];
+	} *tbufs = kzalloc_obj(struct initramfs_test_bufs);
+
+	len = fill_cpio(c, ARRAY_SIZE(c), false, tbufs->cpio_src);
+
+	err = unpack_to_rootfs(tbufs->cpio_src, len);
+	KUNIT_EXPECT_NULL(test, err);
+
+	KUNIT_EXPECT_EQ(test, init_stat("dir_to_file", &st, 0), 0);
+	KUNIT_EXPECT_EQ(test, st.mode, S_IFREG | 0766);
+	KUNIT_EXPECT_EQ(test, init_unlink("dir_to_file"), 0);
+	KUNIT_EXPECT_EQ(test, init_stat("file_to_dir", &st, 0), 0);
+	KUNIT_EXPECT_EQ(test, st.mode, S_IFDIR | 0766);
+	KUNIT_EXPECT_EQ(test, init_rmdir("file_to_dir"), 0);
+	kfree(tbufs);
+}
+
+static void __init initramfs_test_overwrite_trunc(struct kunit *test)
+{
+	char *err;
+	size_t len;
+	struct kstat st = {};
+	struct file *file;
+	char fdata_long[] = "loooooooooooooooong";
+	char fdata_short[] = "short";
+	struct initramfs_test_cpio c[] = { {
+		.magic = "070701",
+		.ino = 1,
+		.mode = S_IFREG | 0766,
+		.nlink = 1,
+		.namesize = sizeof("file_to_file"),
+		.fname = "file_to_file",
+		.filesize = sizeof(fdata_long),
+		.data = fdata_long,
+	}, {
+		.magic = "070701",
+		.ino = 2,
+		/* S_IFREG->S_IFREG: chmod/truncate/fill */
+		.mode = S_IFREG | 0755,
+		.nlink = 1,
+		.namesize = sizeof("file_to_file"),
+		.fname = "file_to_file",
+		.filesize = sizeof(fdata_short),
+		.data = fdata_short,
+	} };
+	struct initramfs_test_bufs {
+		char iobuf[sizeof(fdata_short)];
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * ARRAY_SIZE(c)];
+	} *tbufs = kzalloc_obj(struct initramfs_test_bufs);
+
+	len = fill_cpio(c, ARRAY_SIZE(c), false, tbufs->cpio_src);
+
+	err = unpack_to_rootfs(tbufs->cpio_src, len);
+	KUNIT_EXPECT_NULL(test, err);
+
+	KUNIT_EXPECT_EQ(test, init_stat("file_to_file", &st, 0), 0);
+	KUNIT_EXPECT_EQ(test, st.mode, S_IFREG | 0755);
+	if (st.size != sizeof(fdata_short)) {
+		KUNIT_FAIL(test, "unexpected st.size");
+		goto out;
+	}
+
+	file = filp_open("file_to_file", O_RDONLY, 0);
+	if (IS_ERR(file)) {
+		KUNIT_FAIL(test, "open failed");
+		goto out;
+	}
+	len = kernel_read(file, tbufs->iobuf, st.size, NULL);
+	KUNIT_EXPECT_EQ(test, len, st.size);
+	KUNIT_EXPECT_MEMEQ(test, tbufs->iobuf, fdata_short, len);
+	fput(file);
+	KUNIT_EXPECT_EQ(test, init_unlink("file_to_file"), 0);
+out:
+	kfree(tbufs);
+}
+
+static void __init initramfs_test_overwrite_parent(struct kunit *test)
+{
+	char *err;
+	size_t len;
+	struct kstat st = {};
+	struct initramfs_test_cpio c[] = { {
+		.magic = "070701",
+		.ino = 5,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("parent_dir_to_file"),
+		.fname = "parent_dir_to_file",
+	}, {
+		.magic = "070701",
+		.ino = 6,
+		.mode = S_IFDIR | 0777,
+		.nlink = 1,
+		.namesize = sizeof("parent_dir_to_file/child"),
+		.fname = "parent_dir_to_file/child",
+	}, {
+		.magic = "070701",
+		.ino = 7,
+		/* S_IFDIR->S_IFREG ignored: rmdir(parent) fails */
+		.mode = S_IFREG | 0666,
+		.nlink = 1,
+		.namesize = sizeof("parent_dir_to_file"),
+		.fname = "parent_dir_to_file",
+	}, {
+		.magic = "070701",
+		.ino = 8,
+		.mode = S_IFREG | 0777,
+		.nlink = 1,
+		.namesize = sizeof("last"),
+		.fname = "last",
+	} };
+	struct initramfs_test_bufs {
+		char cpio_src[(CPIO_HDRLEN + PATH_MAX + 3) * ARRAY_SIZE(c)];
+	} *tbufs = kzalloc_obj(struct initramfs_test_bufs);
+
+	len = fill_cpio(c, ARRAY_SIZE(c), false, tbufs->cpio_src);
+
+	err = unpack_to_rootfs(tbufs->cpio_src, len);
+	KUNIT_EXPECT_NULL(test, err);
+
+	KUNIT_EXPECT_EQ(test, init_stat("parent_dir_to_file", &st, 0), 0);
+	KUNIT_EXPECT_EQ(test, st.mode, S_IFDIR | 0777);
+	KUNIT_EXPECT_EQ(test, init_stat("parent_dir_to_file/child", &st, 0), 0);
+	KUNIT_EXPECT_TRUE(test, S_ISDIR(st.mode));
+	KUNIT_EXPECT_EQ(test, init_rmdir("parent_dir_to_file/child"), 0);
+	KUNIT_EXPECT_EQ(test, init_rmdir("parent_dir_to_file"), 0);
+	KUNIT_EXPECT_EQ(test, init_stat("last", &st, 0), 0);
+	KUNIT_EXPECT_TRUE(test, S_ISREG(st.mode));
+	KUNIT_EXPECT_EQ(test, init_unlink("last"), 0);
+
+	kfree(tbufs);
+}
+
 /*
  * The kunit_case/_suite struct cannot be marked as __initdata as this will be
  * used in debugfs to retrieve results after test has run.
@@ -560,6 +769,10 @@ static struct kunit_case __refdata initramfs_test_cases[] = {
 	KUNIT_CASE(initramfs_test_fname_pad),
 	KUNIT_CASE(initramfs_test_fname_path_max),
 	KUNIT_CASE(initramfs_test_hdr_hex),
+	KUNIT_CASE(initramfs_test_dir_dataseg),
+	KUNIT_CASE(initramfs_test_overwrite),
+	KUNIT_CASE(initramfs_test_overwrite_trunc),
+	KUNIT_CASE(initramfs_test_overwrite_parent),
 	{},
 };
 

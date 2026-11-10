@@ -276,7 +276,7 @@ static int validate_external_listmount(pid_t pid, uint64_t child_nr_mounts)
 static void test_listmount_ns(void)
 {
 	uint64_t nr_mounts;
-	char pval;
+	char pval = 0;
 	int child_ready_pipe[2];
 	int parent_ready_pipe[2];
 	pid_t pid;

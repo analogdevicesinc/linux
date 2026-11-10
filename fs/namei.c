@@ -4924,7 +4924,7 @@ static int do_open(struct nameidata *nd,
 		/*
 		 * A dedicated reference is needed because after the call to
 		 * vfs_open_consume() we no longer own the reference in nd->path.mnt
-		 * while we need to undo write acess below.
+		 * while we need to undo write access below.
 		 */
 		mnt = mntget(nd->path.mnt);
 		do_truncate = true;
