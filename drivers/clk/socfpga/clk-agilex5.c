@@ -6,6 +6,7 @@
 #include <linux/slab.h>
 #include <linux/clk-provider.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include  <dt-bindings/clock/intel,agilex5-clkmgr.h>
 #include "stratix10-clk.h"
@@ -233,7 +234,29 @@ static const struct agilex5_pll_clock agilex5_pll_clks[] = {
 	},
 };
 
-/* Main PLL C0, C1, C2, C3 and Peri PLL C0, C1, C2, C3. With ping-pong counter. */
+/*
+ * The SP timers are probed from time_init() and cannot defer, so their
+ * l4_sp_clk and its parents are registered from of_clk_init(). Everything
+ * else is registered when the platform driver probes.
+ */
+static const struct stratix10_perip_c_clock agilex5_early_perip_c_clks[] = {
+	{ AGILEX5_MAIN_PLL_C3_CLK, "main_pll_c3", "main_pll", NULL, 1, 0,
+	  0x68 },
+	{ AGILEX5_PERIPH_PLL_C1_CLK, "peri_pll_c1", "periph_pll", NULL, 1, 0,
+	  0xB4 },
+};
+
+static const struct agilex5_perip_cnt_clock agilex5_early_perip_cnt_clks[] = {
+	{ AGILEX5_NOC_FREE_CLK, "noc_free_clk", noc_free_mux,
+	ARRAY_SIZE(noc_free_mux), 0, 0x40, 0, 0, 0 },
+};
+
+static const struct agilex5_gate_clock agilex5_early_gate_clks[] = {
+	{ AGILEX5_L4_SP_CLK, "l4_sp_clk", noc_mux, ARRAY_SIZE(noc_mux),
+	  CLK_IS_CRITICAL, 0x24, 3, 0x44, 6, 2, 0x30, 1, 0 },
+};
+
+/* Main PLL C0, C1, C2 and Peri PLL C0, C2, C3. With ping-pong counter. */
 static const struct stratix10_perip_c_clock agilex5_main_perip_c_clks[] = {
 	{ AGILEX5_MAIN_PLL_C0_CLK, "main_pll_c0", "main_pll", NULL, 1, 0,
 	  0x5C },
@@ -241,12 +264,8 @@ static const struct stratix10_perip_c_clock agilex5_main_perip_c_clks[] = {
 	  0x60 },
 	{ AGILEX5_MAIN_PLL_C2_CLK, "main_pll_c2", "main_pll", NULL, 1, 0,
 	  0x64 },
-	{ AGILEX5_MAIN_PLL_C3_CLK, "main_pll_c3", "main_pll", NULL, 1, 0,
-	  0x68 },
 	{ AGILEX5_PERIPH_PLL_C0_CLK, "peri_pll_c0", "periph_pll", NULL, 1, 0,
 	  0xB0 },
-	{ AGILEX5_PERIPH_PLL_C1_CLK, "peri_pll_c1", "periph_pll", NULL, 1, 0,
-	  0xB4 },
 	{ AGILEX5_PERIPH_PLL_C2_CLK, "peri_pll_c2", "periph_pll", NULL, 1, 0,
 	  0xB8 },
 	{ AGILEX5_PERIPH_PLL_C3_CLK, "peri_pll_c3", "periph_pll", NULL, 1, 0,
@@ -265,8 +284,6 @@ static const struct agilex5_perip_cnt_clock agilex5_main_perip_cnt_clks[] = {
 	ARRAY_SIZE(core3_free_mux), 0, 0x0110, 0, 0, 0},
 	{ AGILEX5_DSU_FREE_CLK, "dsu_free_clk", dsu_free_mux,
 	ARRAY_SIZE(dsu_free_mux), 0, 0xfc, 0, 0, 0},
-	{ AGILEX5_NOC_FREE_CLK, "noc_free_clk", noc_free_mux,
-	ARRAY_SIZE(noc_free_mux), 0, 0x40, 0, 0, 0 },
 	{ AGILEX5_EMAC_A_FREE_CLK, "emaca_free_clk", emaca_free_mux,
 	ARRAY_SIZE(emaca_free_mux), 0, 0xD4, 0, 0x88, 0 },
 	{ AGILEX5_EMAC_B_FREE_CLK, "emacb_free_clk", emacb_free_mux,
@@ -313,8 +330,6 @@ static const struct agilex5_gate_clock agilex5_gate_clks[] = {
 	  0x24, 2, 0x44, 4, 2, 0x30, 1, 0 },
 	{ AGILEX5_L4_SYS_FREE_CLK, "l4_sys_free_clk", noc_mux,
 	  ARRAY_SIZE(noc_mux), 0, 0, 0, 0x44, 2, 2, 0x30, 1, 0 },
-	{ AGILEX5_L4_SP_CLK, "l4_sp_clk", noc_mux, ARRAY_SIZE(noc_mux),
-	  CLK_IS_CRITICAL, 0x24, 3, 0x44, 6, 2, 0x30, 1, 0 },
 
 	/* Core sight clocks*/
 	{ AGILEX5_CS_AT_CLK, "cs_at_clk", noc_mux, ARRAY_SIZE(noc_mux), 0,
@@ -486,35 +501,114 @@ static int agilex5_clk_register_pll(const struct agilex5_pll_clock *clks,
 	return 0;
 }
 
-static int agilex5_clkmgr_init(struct platform_device *pdev)
+static struct stratix10_clock_data *agilex5_clk_data;
+
+static struct stratix10_clock_data *agilex5_clk_data_alloc(void __iomem *base)
 {
-	struct device_node *np = pdev->dev.of_node;
-	struct device *dev = &pdev->dev;
 	struct stratix10_clock_data *clk_data;
-	void __iomem *base;
-	int i, num_clks;
+	int i;
 
-	base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(base))
-		return PTR_ERR(base);
-
-	num_clks = AGILEX5_NUM_CLKS;
-
-	clk_data = devm_kzalloc(dev, struct_size(clk_data, clk_data.hws,
-				num_clks), GFP_KERNEL);
+	clk_data = kzalloc(struct_size(clk_data, clk_data.hws, AGILEX5_NUM_CLKS),
+			   GFP_KERNEL);
 	if (!clk_data)
-		return -ENOMEM;
+		return NULL;
 
 	clk_data->base = base;
-	clk_data->clk_data.num = num_clks;
+	clk_data->clk_data.num = AGILEX5_NUM_CLKS;
 
-	for (i = 0; i < num_clks; i++)
-		clk_data->clk_data.hws[i] = ERR_PTR(-ENOENT);
+	for (i = 0; i < AGILEX5_NUM_CLKS; i++)
+		clk_data->clk_data.hws[i] = ERR_PTR(-EPROBE_DEFER);
 
+	return clk_data;
+}
+
+static void agilex5_clk_register_early(struct stratix10_clock_data *clk_data)
+{
 	agilex5_clk_register_pll(agilex5_pll_clks, ARRAY_SIZE(agilex5_pll_clks),
 				 clk_data);
 
-	/* mainPLL C0, C1, C2, C3 and periph PLL C0, C1, C2, C3*/
+	agilex5_clk_register_c_perip(agilex5_early_perip_c_clks,
+				     ARRAY_SIZE(agilex5_early_perip_c_clks),
+				     clk_data);
+
+	agilex5_clk_register_cnt_perip(agilex5_early_perip_cnt_clks,
+				       ARRAY_SIZE(agilex5_early_perip_cnt_clks),
+				       clk_data);
+
+	agilex5_clk_register_gate(agilex5_early_gate_clks,
+				  ARRAY_SIZE(agilex5_early_gate_clks), clk_data);
+}
+
+/*
+ * The registered clocks keep using the mapping and clk_data, so neither is
+ * released once the early clocks have been registered.
+ */
+static int agilex5_clkmgr_setup(struct device_node *np)
+{
+	struct stratix10_clock_data *clk_data;
+	void __iomem *base;
+
+	base = of_iomap(np, 0);
+	if (!base) {
+		pr_err("%s: failed to map clock registers\n", __func__);
+		return -ENOMEM;
+	}
+
+	clk_data = agilex5_clk_data_alloc(base);
+	if (!clk_data) {
+		iounmap(base);
+		return -ENOMEM;
+	}
+
+	agilex5_clk_register_early(clk_data);
+	agilex5_clk_data = clk_data;
+
+	return 0;
+}
+
+static int agilex5_clkmgr_add_provider(struct device_node *np)
+{
+	static bool added;
+	int ret;
+
+	if (added)
+		return 0;
+
+	ret = of_clk_add_hw_provider(np, of_clk_hw_onecell_get,
+				     &agilex5_clk_data->clk_data);
+	if (ret)
+		return ret;
+
+	added = true;
+
+	return 0;
+}
+
+static void __init agilex5_clkmgr_early_init(struct device_node *np)
+{
+	if (agilex5_clkmgr_setup(np))
+		return;
+
+	if (agilex5_clkmgr_add_provider(np))
+		pr_err("%s: failed to add clock provider\n", __func__);
+}
+
+CLK_OF_DECLARE_DRIVER(agilex5_clkmgr, "intel,agilex5-clkmgr",
+		      agilex5_clkmgr_early_init);
+
+static int agilex5_clkmgr_init(struct platform_device *pdev)
+{
+	struct stratix10_clock_data *clk_data;
+	int i, ret;
+
+	if (!agilex5_clk_data) {
+		ret = agilex5_clkmgr_setup(pdev->dev.of_node);
+		if (ret)
+			return ret;
+	}
+
+	clk_data = agilex5_clk_data;
+
 	agilex5_clk_register_c_perip(agilex5_main_perip_c_clks,
 				     ARRAY_SIZE(agilex5_main_perip_c_clks),
 				     clk_data);
@@ -526,8 +620,11 @@ static int agilex5_clkmgr_init(struct platform_device *pdev)
 	agilex5_clk_register_gate(agilex5_gate_clks,
 				  ARRAY_SIZE(agilex5_gate_clks), clk_data);
 
-	of_clk_add_hw_provider(np, of_clk_hw_onecell_get, &clk_data->clk_data);
-	return 0;
+	for (i = 0; i < AGILEX5_NUM_CLKS; i++)
+		if (clk_data->clk_data.hws[i] == ERR_PTR(-EPROBE_DEFER))
+			clk_data->clk_data.hws[i] = ERR_PTR(-ENOENT);
+
+	return agilex5_clkmgr_add_provider(pdev->dev.of_node);
 }
 
 static int agilex5_clkmgr_probe(struct platform_device *pdev)
