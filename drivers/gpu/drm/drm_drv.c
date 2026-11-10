@@ -603,8 +603,8 @@ int drm_dev_wedged_event(struct drm_device *dev, unsigned long method,
 		/* No complete entry written, do the best we can at this point. */
 		snprintf(event_string.buffer, event_string.size, "%s", "WEDGED=unknown");
 
-	drm_info(dev, "device wedged, %s\n", method == DRM_WEDGE_RECOVERY_NONE ?
-		 "but no recovery needed" : "needs recovery");
+	drm_info(dev, "device wedged with method %#lx, %s\n", method,
+		 method == DRM_WEDGE_RECOVERY_NONE ? "no recovery needed" : "needs recovery");
 
 	if (info && (info->comm[0] != '\0') && (info->pid >= 0)) {
 		snprintf(pid_string, sizeof(pid_string), "PID=%u", info->pid);

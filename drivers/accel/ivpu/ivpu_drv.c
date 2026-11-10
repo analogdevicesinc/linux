@@ -506,11 +506,12 @@ static int ivpu_hw_sched_init(struct ivpu_device *vdev)
 /**
  * ivpu_boot() - Start VPU firmware
  * @vdev: VPU device
+ * @device_init: Indicates if this is the initial boot during device initialization
  *
  * This function is paired with ivpu_shutdown() but it doesn't power up the
  * VPU because power up has to be called very early in ivpu_probe().
  */
-int ivpu_boot(struct ivpu_device *vdev)
+int ivpu_boot(struct ivpu_device *vdev, bool device_init)
 {
 	int ret;
 
@@ -546,6 +547,12 @@ int ivpu_boot(struct ivpu_device *vdev)
 
 	if (ivpu_test_mode & IVPU_TEST_MODE_FW_TEST)
 		return 0;
+
+	if (device_init) {
+		ret = ivpu_fw_postboot_init(vdev);
+		if (ret)
+			goto err_disable_ipc;
+	}
 
 	if (!ivpu_fw_is_warm_boot(vdev)) {
 		ret = ivpu_pm_dct_init(vdev);
@@ -842,7 +849,7 @@ static int ivpu_dev_init(struct ivpu_device *vdev)
 
 	ivpu_pm_init(vdev);
 
-	ret = ivpu_boot(vdev);
+	ret = ivpu_boot(vdev, true);
 	if (ret)
 		goto err_ipc_fini;
 

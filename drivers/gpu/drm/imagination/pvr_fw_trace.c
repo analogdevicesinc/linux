@@ -240,9 +240,6 @@ err_up_read:
 }
 
 struct pvr_fw_trace_seq_data {
-	/** @buffer: Pointer to copy of trace data. */
-	u32 *buffer;
-
 	/** @start_offset: Starting offset in trace data, as reported by FW. */
 	u32 start_offset;
 
@@ -251,6 +248,9 @@ struct pvr_fw_trace_seq_data {
 
 	/** @assert_buf: Trace assert buffer, as reported by FW. */
 	struct rogue_fwif_file_info_buf assert_buf;
+
+	/** @buffer: Copy of trace data. */
+	u32 buffer[ROGUE_FW_TRACE_BUF_DEFAULT_SIZE_IN_DWORDS];
 };
 
 static u32 find_sfid(u32 id)
@@ -454,16 +454,9 @@ static int fw_trace_open(struct inode *inode, struct file *file)
 	struct pvr_fw_trace_seq_data *trace_seq_data;
 	int err;
 
-	trace_seq_data = kzalloc_obj(*trace_seq_data);
+	trace_seq_data = kvzalloc_obj(*trace_seq_data);
 	if (!trace_seq_data)
 		return -ENOMEM;
-
-	trace_seq_data->buffer = kzalloc_objs(*trace_seq_data->buffer,
-					      ROGUE_FW_TRACE_BUF_DEFAULT_SIZE_IN_DWORDS);
-	if (!trace_seq_data->buffer) {
-		err = -ENOMEM;
-		goto err_free_data;
-	}
 
 	/*
 	 * Take a local copy of the trace buffer, as firmware may still be
@@ -477,17 +470,14 @@ static int fw_trace_open(struct inode *inode, struct file *file)
 
 	err = seq_open(file, &pvr_fw_trace_seq_ops);
 	if (err)
-		goto err_free_buffer;
+		goto err_free_data;
 
 	((struct seq_file *)file->private_data)->private = trace_seq_data;
 
 	return 0;
 
-err_free_buffer:
-	kfree(trace_seq_data->buffer);
-
 err_free_data:
-	kfree(trace_seq_data);
+	kvfree(trace_seq_data);
 
 	return err;
 }
@@ -498,8 +488,7 @@ static int fw_trace_release(struct inode *inode, struct file *file)
 		((struct seq_file *)file->private_data)->private;
 
 	seq_release(inode, file);
-	kfree(trace_seq_data->buffer);
-	kfree(trace_seq_data);
+	kvfree(trace_seq_data);
 
 	return 0;
 }

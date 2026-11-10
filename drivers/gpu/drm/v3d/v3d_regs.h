@@ -120,6 +120,14 @@
 #define V3D_TFU_ICFG(ver) ((ver >= 71) ? 0x00708 : 0x00408)
 /* Interrupt when the conversion is complete. */
 # define V3D_TFU_ICFG_IOC                              BIT(0)
+/* V3D 7.x IFORMAT field */
+# define V3D_V7_TFU_ICFG_IFORMAT_MASK                  V3D_MASK(25, 23)
+# define V3D_V7_TFU_ICFG_IFORMAT_SHIFT                 23
+# define V3D_V7_TFU_ICFG_IFORMAT_CONSTANT_COLOUR       2
+/* V3D 7.x YVCS_RGBP field */
+# define V3D_V7_TFU_ICFG_YVCS_RGBP_MASK                V3D_MASK(15, 13)
+# define V3D_V7_TFU_ICFG_YVCS_RGBP_SHIFT               13
+# define V3D_V7_TFU_ICFG_YVCS_RGBP_USER_INPUT          2
 
 /* Input Image Address */
 #define V3D_TFU_IIA(ver) ((ver >= 71) ? 0x0070c : 0x0040c)
@@ -129,7 +137,7 @@
 #define V3D_TFU_IIS(ver) ((ver >= 71) ? 0x00714 : 0x00414)
 /* Input Image U-Plane Address */
 #define V3D_TFU_IUA(ver) ((ver >= 71) ? 0x00718 : 0x00418)
-/* Image output config (VD 7.x only) */
+/* Image output config (V3D 7.x only) */
 #define V3D_V7_TFU_IOC                                 0x0071c
 /* Output Image Address */
 #define V3D_TFU_IOA(ver) ((ver >= 71) ? 0x00720 : 0x0041c)
@@ -145,6 +153,15 @@
 #define V3D_TFU_COEF2(ver) ((ver >= 71) ? 0x00730 : 0x0042c)
 /* TFU YUV Coefficient 3 */
 #define V3D_TFU_COEF3(ver) ((ver >= 71) ? 0x00734 : 0x00430)
+/* TFU YUV Coefficient 0-3 */
+#define V3D_TFU_COEFX(ver, x)                          (V3D_TFU_COEF0(ver) + 4 * (x))
+
+/* V3D 7.x IFC Constant Colour registers (V3D 7.1+ only) */
+#define V3D_TFU_CCOL0                                  0x00738
+#define V3D_TFU_CCOL1                                  0x0073c
+#define V3D_TFU_CCOL2                                  0x00740
+#define V3D_TFU_CCOL3                                  0x00744
+#define V3D_TFU_CCOLX(x)                               (V3D_TFU_CCOL0 + 4 * (x))
 
 /* V3D 4.x only */
 #define V3D_TFU_CRC                                    0x00434

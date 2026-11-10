@@ -57,6 +57,7 @@ int ivpu_fw_init(struct ivpu_device *vdev);
 void ivpu_fw_fini(struct ivpu_device *vdev);
 int ivpu_fw_load(struct ivpu_device *vdev);
 void ivpu_fw_boot_params_setup(struct ivpu_device *vdev, struct vpu_boot_params *boot_params);
+int ivpu_fw_postboot_init(struct ivpu_device *vdev);
 
 static inline bool ivpu_fw_is_warm_boot(struct ivpu_device *vdev)
 {

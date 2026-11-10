@@ -296,6 +296,7 @@ enum drm_v3d_param {
 	DRM_V3D_PARAM_SUPPORTS_SUPER_PAGES,
 	DRM_V3D_PARAM_GLOBAL_RESET_COUNTER,
 	DRM_V3D_PARAM_CONTEXT_RESET_COUNTER,
+	DRM_V3D_PARAM_SUPPORTS_TFU_CCOL,
 };
 
 struct drm_v3d_get_param {
@@ -342,6 +343,10 @@ struct drm_v3d_submit_tfu {
 
 	struct {
 		__u32 ioc;
+
+		/* Constant Colour Data */
+		__u32 ccol[4];
+
 		__u32 pad;
 	} v71;
 };

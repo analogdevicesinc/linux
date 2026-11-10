@@ -596,18 +596,12 @@ static u64 pack_region_range(struct panthor_device *ptdev, u64 *region_start, u6
 	return region_width | *region_start;
 }
 
-static u32 panthor_mmu_as_fault_mask(struct panthor_device *ptdev, u32 as)
-{
-	return BIT(as);
-}
-
 static int panthor_mmu_as_enable(struct panthor_device *ptdev, u32 as_nr,
 				 u64 transtab, u64 transcfg, u64 memattr)
 {
 	struct panthor_mmu *mmu = ptdev->mmu;
 
-	panthor_irq_enable_events(&ptdev->mmu->irq,
-				  panthor_mmu_as_fault_mask(ptdev, as_nr));
+	panthor_irq_enable_events(&ptdev->mmu->irq, MMU_INT_AS_FAULT(as_nr));
 
 	gpu_write64(mmu->iomem, AS_TRANSTAB(as_nr), transtab);
 	gpu_write64(mmu->iomem, AS_MEMATTR(as_nr), memattr);
@@ -624,8 +618,7 @@ static int panthor_mmu_as_disable(struct panthor_device *ptdev, u32 as_nr)
 
 	lockdep_assert_held(&ptdev->mmu->as.slots_lock);
 
-	panthor_irq_disable_events(&ptdev->mmu->irq,
-				   panthor_mmu_as_fault_mask(ptdev, as_nr));
+	panthor_irq_disable_events(&ptdev->mmu->irq, MMU_INT_AS_FAULT(as_nr));
 
 	if (vm && vm->locked_region.size) {
 		/* Unlock the region if there's a lock pending. */
@@ -743,7 +736,7 @@ int panthor_vm_active(struct panthor_vm *vm)
 		/* Unhandled pagefault on this AS, the MMU was disabled. We need to
 		 * re-enable the MMU after clearing+unmasking the AS interrupts.
 		 */
-		if (ptdev->mmu->as.faulty_mask & panthor_mmu_as_fault_mask(ptdev, as))
+		if (ptdev->mmu->as.faulty_mask & MMU_INT_AS_FAULT(as))
 			goto out_enable_as;
 
 		goto out_make_active;
@@ -798,7 +791,7 @@ out_enable_as:
 	/* Unhandled pagefault on this AS, clear the fault and enable the AS,
 	 * which re-enables interrupts.
 	 */
-	fault_mask = panthor_mmu_as_fault_mask(ptdev, as);
+	fault_mask = MMU_INT_AS_FAULT(as);
 	if (ptdev->mmu->as.faulty_mask & fault_mask) {
 		gpu_write(ptdev->mmu->irq.iomem, INT_CLEAR, fault_mask);
 		ptdev->mmu->as.faulty_mask &= ~fault_mask;
@@ -1861,7 +1854,7 @@ static void panthor_mmu_irq_handler(struct panthor_irq *pirq, u32 status)
 	status = panthor_mmu_fault_mask(ptdev, status);
 	while (status) {
 		u32 as = ffs(status | (status >> 16)) - 1;
-		u32 mask = panthor_mmu_as_fault_mask(ptdev, as);
+		u32 mask = MMU_INT_AS_FAULT(as);
 		u64 addr;
 		u32 fault_status;
 		u32 exception_type;

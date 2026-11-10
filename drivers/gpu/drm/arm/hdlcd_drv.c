@@ -13,17 +13,17 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
-#include <linux/component.h>
 #include <linux/console.h>
 #include <linux/dma-mapping.h>
 #include <linux/list.h>
-#include <linux/of_graph.h>
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 
 #include <drm/clients/drm_client_setup.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_bridge.h>
+#include <drm/drm_bridge_connector.h>
 #include <drm/drm_crtc.h>
 #include <drm/drm_debugfs.h>
 #include <drm/drm_drv.h>
@@ -238,11 +238,42 @@ static const struct drm_driver hdlcd_driver = {
 	.minor = 0,
 };
 
-static int hdlcd_drm_bind(struct device *dev)
+static int hdlcd_attach_bridge(struct drm_device *drm, struct drm_bridge *bridge)
 {
+	struct hdlcd_drm_private *hdlcd = drm_to_hdlcd_priv(drm);
+	struct drm_connector *connector;
+	int ret;
+
+	ret = drmm_encoder_init(drm, &hdlcd->encoder, NULL,
+				DRM_MODE_ENCODER_NONE, NULL);
+	if (ret)
+		return ret;
+
+	hdlcd->encoder.possible_crtcs = drm_crtc_mask(&hdlcd->crtc);
+
+	ret = drm_bridge_attach(&hdlcd->encoder, bridge, NULL,
+				DRM_BRIDGE_ATTACH_NO_CONNECTOR);
+	if (ret)
+		return ret;
+
+	connector = drm_bridge_connector_init(drm, &hdlcd->encoder);
+
+	return PTR_ERR_OR_ZERO(connector);
+}
+
+static int hdlcd_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
 	struct drm_device *drm;
 	struct hdlcd_drm_private *hdlcd;
+	struct drm_bridge *bridge;
 	int ret;
+
+	/* there is only one output port inside each device, find its bridge */
+	bridge = devm_drm_of_get_bridge(dev, dev->of_node, 0, 0);
+	if (IS_ERR(bridge))
+		return dev_err_probe(dev, PTR_ERR(bridge),
+				     "failed to find output bridge\n");
 
 	hdlcd = devm_drm_dev_alloc(dev, &hdlcd_driver, typeof(*hdlcd), base);
 	if (IS_ERR(hdlcd))
@@ -260,12 +291,9 @@ static int hdlcd_drm_bind(struct device *dev)
 	if (ret)
 		goto err_free;
 
-	/* Set the CRTC's port so that the encoder component can find it */
-	hdlcd->crtc.port = of_graph_get_port_by_id(dev->of_node, 0);
-
-	ret = component_bind_all(dev, drm);
+	ret = hdlcd_attach_bridge(drm, bridge);
 	if (ret) {
-		DRM_ERROR("Failed to bind all components\n");
+		DRM_ERROR("failed to attach bridge\n");
 		goto err_unload;
 	}
 
@@ -311,10 +339,7 @@ err_vblank:
 	pm_runtime_disable(drm->dev);
 err_pm_active:
 	drm_atomic_helper_shutdown(drm);
-	component_unbind_all(dev, drm);
 err_unload:
-	of_node_put(hdlcd->crtc.port);
-	hdlcd->crtc.port = NULL;
 	hdlcd_irq_uninstall(hdlcd);
 	of_reserved_mem_device_release(drm->dev);
 err_free:
@@ -322,16 +347,14 @@ err_free:
 	return ret;
 }
 
-static void hdlcd_drm_unbind(struct device *dev)
+static void hdlcd_remove(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct drm_device *drm = dev_get_drvdata(dev);
 	struct hdlcd_drm_private *hdlcd = drm_to_hdlcd_priv(drm);
 
 	drm_dev_unregister(drm);
 	drm_kms_helper_poll_fini(drm);
-	component_unbind_all(dev, drm);
-	of_node_put(hdlcd->crtc.port);
-	hdlcd->crtc.port = NULL;
 	pm_runtime_get_sync(dev);
 	drm_atomic_helper_shutdown(drm);
 	hdlcd_irq_uninstall(hdlcd);
@@ -340,38 +363,6 @@ static void hdlcd_drm_unbind(struct device *dev)
 		pm_runtime_disable(dev);
 	of_reserved_mem_device_release(dev);
 	dev_set_drvdata(dev, NULL);
-}
-
-static const struct component_master_ops hdlcd_master_ops = {
-	.bind		= hdlcd_drm_bind,
-	.unbind		= hdlcd_drm_unbind,
-};
-
-static int compare_dev(struct device *dev, void *data)
-{
-	return dev->of_node == data;
-}
-
-static int hdlcd_probe(struct platform_device *pdev)
-{
-	struct device_node *port;
-	struct component_match *match = NULL;
-
-	/* there is only one output port inside each device, find it */
-	port = of_graph_get_remote_node(pdev->dev.of_node, 0, 0);
-	if (!port)
-		return -ENODEV;
-
-	drm_of_component_match_add(&pdev->dev, &match, compare_dev, port);
-	of_node_put(port);
-
-	return component_master_add_with_match(&pdev->dev, &hdlcd_master_ops,
-					       match);
-}
-
-static void hdlcd_remove(struct platform_device *pdev)
-{
-	component_master_del(&pdev->dev, &hdlcd_master_ops);
 }
 
 static void hdlcd_shutdown(struct platform_device *pdev)

@@ -7,6 +7,7 @@
 /* MMU regs */
 
 #define MMU_INT_BASE					0x2000
+#define   MMU_INT_AS_FAULT(as)				BIT(as)
 
 /* AS_COMMAND register commands */
 

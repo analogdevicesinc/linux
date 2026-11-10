@@ -100,7 +100,7 @@ retry:
 		goto err_power_down;
 	}
 
-	ret = ivpu_boot(vdev);
+	ret = ivpu_boot(vdev, false);
 	if (ret)
 		goto err_mmu_disable;
 

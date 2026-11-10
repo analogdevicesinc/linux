@@ -2,6 +2,7 @@
 /* Copyright 2018 Marty E. Plummer <hanetzer@startmail.com> */
 /* Copyright 2019 Linaro, Ltd., Rob Herring <robh@kernel.org> */
 /* Copyright 2019 Collabora ltd. */
+/* Copyright 2026 NXP */
 
 #include <linux/bitfield.h>
 #include <linux/bitmap.h>
@@ -470,6 +471,9 @@ void panthor_gpu_resume(struct panthor_device *ptdev)
 
 u64 panthor_gpu_get_timestamp(struct panthor_device *ptdev)
 {
+	/* Dummy read to avoid stale values. */
+	gpu_read64_counter(ptdev->gpu->iomem, GPU_TIMESTAMP);
+
 	return gpu_read64_counter(ptdev->gpu->iomem, GPU_TIMESTAMP);
 }
 

@@ -45,6 +45,9 @@ static int ivpu_preemption_buffers_create(struct ivpu_device *vdev,
 		return -ENOMEM;
 	}
 
+	if (vdev->fw->secondary_preempt_buf_size == 0)
+		return 0;
+
 	cmdq->secondary_preempt_buf = ivpu_bo_create(vdev, &file_priv->ctx, &vdev->hw->ranges.dma,
 						     vdev->fw->secondary_preempt_buf_size,
 						     DRM_IVPU_BO_WC);

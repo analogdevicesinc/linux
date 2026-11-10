@@ -129,6 +129,9 @@ static int v3d_get_param_ioctl(struct drm_device *dev, void *data,
 		for (enum v3d_queue q = 0; q < V3D_MAX_QUEUES; q++)
 			args->value += atomic_read(&v3d_priv->stats[q]->reset_counter);
 		return 0;
+	case DRM_V3D_PARAM_SUPPORTS_TFU_CCOL:
+		args->value = (v3d->ver >= V3D_GEN_71);
+		return 0;
 	default:
 		drm_dbg(dev, "Unknown parameter %d\n", args->param);
 		return -EINVAL;

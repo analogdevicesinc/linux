@@ -146,6 +146,8 @@ static const char *get_domain_name(u8 domain)
 		return "Base";
 	case PWR_COMMAND_DOMAIN_STACK:
 		return "Stack";
+	case PWR_COMMAND_DOMAIN_NEURAL:
+		return "Neural";
 	}
 	return "Unknown";
 }
@@ -163,6 +165,8 @@ static u32 get_domain_base(u8 domain)
 		return PWR_BASE_PRESENT;
 	case PWR_COMMAND_DOMAIN_STACK:
 		return PWR_STACK_PRESENT;
+	case PWR_COMMAND_DOMAIN_NEURAL:
+		return PWR_NEURAL_PRESENT;
 	}
 	return 0;
 }
@@ -229,6 +233,15 @@ static void panthor_pwr_debug_info_show(struct panthor_device *ptdev)
 	drm_info(&ptdev->base, "SHADER_PRESENT:  0x%016llx", gpu_read64(pwr->iomem, PWR_SHADER_PRESENT));
 	drm_info(&ptdev->base, "SHADER_PWRTRANS: 0x%016llx", gpu_read64(pwr->iomem, PWR_SHADER_PWRTRANS));
 	drm_info(&ptdev->base, "SHADER_READY:    0x%016llx", gpu_read64(pwr->iomem, PWR_SHADER_READY));
+
+	if (panthor_hw_has_neural(ptdev)) {
+		drm_info(&ptdev->base, "NEURAL_PRESENT:  0x%016llx",
+			 gpu_read64(pwr->iomem, PWR_NEURAL_PRESENT));
+		drm_info(&ptdev->base, "NEURAL_PWRTRANS: 0x%016llx",
+			 gpu_read64(pwr->iomem, PWR_NEURAL_PWRTRANS));
+		drm_info(&ptdev->base, "NEURAL_READY:    0x%016llx",
+			 gpu_read64(pwr->iomem, PWR_NEURAL_READY));
+	}
 }
 
 static int panthor_pwr_domain_transition(struct panthor_device *ptdev, u32 cmd, u32 domain,
@@ -405,9 +418,15 @@ static int panthor_pwr_delegate_domains(struct panthor_device *ptdev)
 	if (!ptdev->pwr)
 		return 0;
 
+	if (panthor_hw_has_neural(ptdev)) {
+		ret = delegate_domain(ptdev, PWR_COMMAND_DOMAIN_NEURAL);
+		if (ret)
+			return ret;
+	}
+
 	ret = delegate_domain(ptdev, PWR_COMMAND_DOMAIN_SHADER);
 	if (ret)
-		return ret;
+		goto err_retract_neural;
 
 	ret = delegate_domain(ptdev, PWR_COMMAND_DOMAIN_TILER);
 	if (ret)
@@ -417,6 +436,9 @@ static int panthor_pwr_delegate_domains(struct panthor_device *ptdev)
 
 err_retract_shader:
 	retract_domain(ptdev, PWR_COMMAND_DOMAIN_SHADER);
+err_retract_neural:
+	if (panthor_hw_has_neural(ptdev))
+		retract_domain(ptdev, PWR_COMMAND_DOMAIN_NEURAL);
 
 	return ret;
 }
@@ -517,6 +539,7 @@ void panthor_pwr_l2_power_off(struct panthor_device *ptdev)
 	struct panthor_pwr *pwr = ptdev->pwr;
 	const u64 l2_allow_mask = PWR_STATUS_DOMAIN_ALLOWED(PWR_COMMAND_DOMAIN_L2);
 	const u64 pwr_status = gpu_read64(pwr->iomem, PWR_STATUS);
+	const bool has_neural = panthor_hw_has_neural(ptdev);
 
 	/* Abort if L2 power off constraints are not satisfied */
 	if (!(pwr_status & l2_allow_mask)) {
@@ -530,6 +553,10 @@ void panthor_pwr_l2_power_off(struct panthor_device *ptdev)
 	 * host control to be powered down in the right order before powering
 	 * down the L2.
 	 */
+	if (has_neural &&
+	    panthor_pwr_domain_force_off(ptdev, PWR_COMMAND_DOMAIN_NEURAL))
+		return;
+
 	if (panthor_pwr_domain_force_off(ptdev, PWR_COMMAND_DOMAIN_TILER))
 		return;
 

@@ -61,4 +61,10 @@ static inline bool panthor_hw_has_pwr_ctrl(struct panthor_device *ptdev)
 	return GPU_ARCH_MAJOR(ptdev->gpu_info.gpu_id) >= 14;
 }
 
+static inline bool panthor_hw_has_neural(struct panthor_device *ptdev)
+{
+	return (GPU_ARCH_MAJOR(ptdev->gpu_info.gpu_id) >= 14 &&
+		ptdev->gpu_info.gpu_features & GPU_FEATURES_NEURAL_ENGINE);
+}
+
 #endif /* __PANTHOR_HW_H__ */

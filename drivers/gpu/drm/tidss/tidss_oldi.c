@@ -164,7 +164,8 @@ static void tidss_oldi_tx_power(struct tidss_oldi *oldi, bool enable)
 	regmap_update_bits(oldi->io_ctrl, OLDI_PD_CTRL, mask, enable ? 0 : mask);
 }
 
-static int tidss_oldi_config(struct tidss_oldi *oldi)
+static int tidss_oldi_config(struct tidss_oldi *oldi,
+			     struct drm_bridge_state *bridge_state)
 {
 	const struct oldi_bus_format *bus_fmt = NULL;
 	u32 oldi_cfg = 0;
@@ -183,7 +184,8 @@ static int tidss_oldi_config(struct tidss_oldi *oldi)
 			 "OLDI%u: DSS port width %d not supported\n",
 			 oldi->oldi_instance, bus_fmt->data_width);
 
-	oldi_cfg |= OLDI_DEPOL;
+	if (bridge_state->input_bus_cfg.flags & DRM_BUS_FLAG_DE_LOW)
+		oldi_cfg |= OLDI_DEPOL; /* 1 = active low */
 
 	oldi_cfg = (oldi_cfg & (~OLDI_MAP)) | (bus_fmt->oldi_mode_reg_val << 1);
 
@@ -220,6 +222,22 @@ static int tidss_oldi_config(struct tidss_oldi *oldi)
 	return ret;
 }
 
+static int tidss_oldi_atomic_check(struct drm_bridge *bridge,
+				   struct drm_bridge_state *bridge_state,
+				   struct drm_crtc_state *crtc_state,
+				   struct drm_connector_state *conn_state)
+{
+	bridge_state->input_bus_cfg.flags &=
+		~(DRM_BUS_FLAG_PIXDATA_SAMPLE_NEGEDGE |
+		  DRM_BUS_FLAG_SYNC_SAMPLE_NEGEDGE);
+
+	bridge_state->input_bus_cfg.flags |=
+		DRM_BUS_FLAG_PIXDATA_SAMPLE_POSEDGE |
+		DRM_BUS_FLAG_SYNC_SAMPLE_POSEDGE;
+
+	return 0;
+}
+
 static void tidss_oldi_atomic_pre_enable(struct drm_bridge *bridge,
 					 struct drm_atomic_commit *state)
 {
@@ -228,6 +246,7 @@ static void tidss_oldi_atomic_pre_enable(struct drm_bridge *bridge,
 	struct drm_connector_state *conn_state;
 	struct drm_crtc_state *crtc_state;
 	struct drm_display_mode *mode;
+	struct drm_bridge_state *bridge_state;
 
 	if (oldi->link_type == OLDI_MODE_SECONDARY_CLONE_SINGLE_LINK)
 		return;
@@ -245,10 +264,14 @@ static void tidss_oldi_atomic_pre_enable(struct drm_bridge *bridge,
 	if (WARN_ON(!crtc_state))
 		return;
 
+	bridge_state = drm_atomic_get_new_bridge_state(state, bridge);
+	if (WARN_ON(!bridge_state))
+		return;
+
 	mode = &crtc_state->adjusted_mode;
 
 	/* Configure the OLDI params*/
-	tidss_oldi_config(oldi);
+	tidss_oldi_config(oldi, bridge_state);
 
 	/* Set the OLDI serial clock (7 times the pixel clock) */
 	tidss_oldi_set_serial_clk(oldi, mode->clock * 7 * 1000);
@@ -328,7 +351,8 @@ tidss_oldi_mode_valid(struct drm_bridge *bridge,
 }
 
 static const struct drm_bridge_funcs tidss_oldi_bridge_funcs = {
-	.attach	= tidss_oldi_bridge_attach,
+	.attach = tidss_oldi_bridge_attach,
+	.atomic_check = tidss_oldi_atomic_check,
 	.atomic_pre_enable = tidss_oldi_atomic_pre_enable,
 	.atomic_post_disable = tidss_oldi_atomic_post_disable,
 	.atomic_get_input_bus_fmts = tidss_oldi_atomic_get_input_bus_fmts,
@@ -358,12 +382,16 @@ static int get_oldi_mode(struct device_node *oldi_tx, int *companion_instance)
 		 */
 		return OLDI_MODE_SINGLE_LINK;
 
-	if (of_property_read_u32(companion, "reg", &companion_reg))
+	if (of_property_read_u32(companion, "reg", &companion_reg)) {
+		of_node_put(companion);
 		return OLDI_MODE_UNSUPPORTED;
+	}
 
-	if (companion_reg > (TIDSS_MAX_OLDI_TXES - 1))
+	if (companion_reg > (TIDSS_MAX_OLDI_TXES - 1)) {
 		/* Invalid companion OLDI reg value. */
+		of_node_put(companion);
 		return OLDI_MODE_UNSUPPORTED;
+	}
 
 	*companion_instance = (int)companion_reg;
 
@@ -438,11 +466,6 @@ err_return_ep_port:
 
 	return -ENODEV;
 }
-
-static const struct drm_bridge_timings default_tidss_oldi_timings = {
-	.input_bus_flags = DRM_BUS_FLAG_SYNC_SAMPLE_NEGEDGE
-			 | DRM_BUS_FLAG_DE_HIGH,
-};
 
 void tidss_oldi_deinit(struct tidss_device *tidss)
 {
@@ -597,7 +620,6 @@ int tidss_oldi_init(struct tidss_device *tidss)
 		/* Register the bridge. */
 		oldi->bridge.of_node = child;
 		oldi->bridge.driver_private = oldi;
-		oldi->bridge.timings = &default_tidss_oldi_timings;
 
 		tidss->oldis[tidss->num_oldis++] = oldi;
 		tidss->is_ext_vp_clk[oldi->parent_vp] = true;

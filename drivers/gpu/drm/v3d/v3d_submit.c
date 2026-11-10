@@ -1261,11 +1261,20 @@ v3d_submit_tfu_ioctl(struct drm_device *dev, void *data,
 	struct v3d_submit submit = { .v3d = to_v3d_dev(dev), .file_priv = file_priv };
 	struct drm_v3d_submit_tfu *args = data;
 	struct drm_syncobj *sync_out = NULL;
+	struct v3d_dev *v3d = submit.v3d;
 	struct v3d_submit_ext se = {0};
 	struct v3d_tfu_job *job;
 	int ret = 0;
 
 	trace_v3d_submit_tfu_ioctl(dev, args->iia);
+
+	if (v3d->ver < V3D_GEN_71 && !mem_is_zero(&args->v71, sizeof(args->v71))) {
+		drm_dbg(dev, "v71 fields set on V3D %d\n", v3d->ver);
+		return -EINVAL;
+	}
+
+	if (args->v71.pad)
+		return -EINVAL;
 
 	if (args->flags && !(args->flags & DRM_V3D_SUBMIT_EXTENSION)) {
 		drm_dbg(dev, "invalid flags: %d\n", args->flags);

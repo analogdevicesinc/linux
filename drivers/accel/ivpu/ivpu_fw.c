@@ -19,8 +19,13 @@
 
 #define FW_SHAVE_NN_MAX_SIZE	SZ_2M
 #define FW_FILE_IMAGE_OFFSET	(VPU_FW_HEADER_SIZE + FW_VERSION_HEADER_SIZE)
-#define FW_PREEMPT_BUF_MIN_SIZE SZ_4K
-#define FW_PREEMPT_BUF_MAX_SIZE SZ_32M
+
+/* Size limits for preemption buffer sizes from image header */
+#define FW_PREEMPT_BUF_MIN_SIZE		SZ_4K
+#define FW_PREEMPT_BUF_MAX_SIZE		SZ_32M
+/* Size limits for preemption buffer size from boot parameters */
+#define FW_PREEMPT_BUF_BP_MIN_SIZE	SZ_2M
+#define FW_PREEMPT_BUF_BP_MAX_SIZE	SZ_32M
 
 #define WATCHDOG_MSS_REDIRECT	32
 #define WATCHDOG_NCE_REDIRECT	33
@@ -160,35 +165,31 @@ ivpu_fw_sched_mode_select(struct ivpu_device *vdev)
 static void
 ivpu_preemption_config_parse(struct ivpu_device *vdev, const struct vpu_firmware_header *fw_hdr)
 {
-	struct ivpu_fw_info *fw = vdev->fw;
 	u32 primary_preempt_buf_size, secondary_preempt_buf_size;
 
-	if (fw_hdr->preemption_buffer_1_max_size)
+	if (fw_hdr->preemption_buffer_1_max_size) {
 		primary_preempt_buf_size = fw_hdr->preemption_buffer_1_max_size;
-	else
-		primary_preempt_buf_size = fw_hdr->preemption_buffer_1_size;
-
-	if (fw_hdr->preemption_buffer_2_max_size)
 		secondary_preempt_buf_size = fw_hdr->preemption_buffer_2_max_size;
-	else
+	} else {
+		primary_preempt_buf_size = fw_hdr->preemption_buffer_1_size;
 		secondary_preempt_buf_size = fw_hdr->preemption_buffer_2_size;
-
-	ivpu_dbg(vdev, FW_BOOT, "Preemption buffer size, primary: %u, secondary: %u\n",
-		 primary_preempt_buf_size, secondary_preempt_buf_size);
+	}
 
 	if (primary_preempt_buf_size < FW_PREEMPT_BUF_MIN_SIZE ||
 	    secondary_preempt_buf_size < FW_PREEMPT_BUF_MIN_SIZE) {
-		ivpu_warn(vdev, "Preemption buffers size too small\n");
+		ivpu_warn(vdev, "Preemption buffers size too small, primary %u, secondary %u\n",
+			  primary_preempt_buf_size, secondary_preempt_buf_size);
 		return;
 	}
 
 	if (primary_preempt_buf_size > FW_PREEMPT_BUF_MAX_SIZE ||
 	    secondary_preempt_buf_size > FW_PREEMPT_BUF_MAX_SIZE) {
-		ivpu_warn(vdev, "Preemption buffers size too big\n");
+		ivpu_warn(vdev, "Preemption buffers size too big, primary %u, secondary %u\n",
+			  primary_preempt_buf_size, secondary_preempt_buf_size);
 		return;
 	}
 
-	if (fw->sched_mode != VPU_SCHEDULING_MODE_HW)
+	if (vdev->fw->sched_mode != VPU_SCHEDULING_MODE_HW)
 		return;
 
 	if (ivpu_test_mode & IVPU_TEST_MODE_MIP_DISABLE)
@@ -196,6 +197,9 @@ ivpu_preemption_config_parse(struct ivpu_device *vdev, const struct vpu_firmware
 
 	vdev->fw->primary_preempt_buf_size = ALIGN(primary_preempt_buf_size, PAGE_SIZE);
 	vdev->fw->secondary_preempt_buf_size = ALIGN(secondary_preempt_buf_size, PAGE_SIZE);
+
+	ivpu_dbg(vdev, FW_BOOT, "Preemption buffer size, primary: %u, secondary: %u\n",
+		 vdev->fw->primary_preempt_buf_size, vdev->fw->secondary_preempt_buf_size);
 }
 
 static int ivpu_fw_parse(struct ivpu_device *vdev)
@@ -318,18 +322,10 @@ static int ivpu_fw_parse(struct ivpu_device *vdev)
 	fw->shave_nn_size = PAGE_ALIGN(fw_hdr->shave_nn_fw_size);
 	fw->cold_boot_entry_point = fw_hdr->entry_point;
 
-	fw->trace_level = min(ivpu_fw_log_level, IVPU_FW_LOG_FATAL);
-	fw->trace_destination_mask = VPU_TRACE_DESTINATION_VERBOSE_TRACING;
-	fw->trace_hw_component_mask = -1;
-
-	fw->dvfs_mode = 0;
-
 	fw->sched_mode = ivpu_fw_sched_mode_select(vdev);
 	ivpu_info(vdev, "Scheduler mode: %s\n", fw->sched_mode ? "HW" : "OS");
 
 	ivpu_preemption_config_parse(vdev, fw_hdr);
-	ivpu_dbg(vdev, FW_BOOT, "Mid-inference preemption %s supported\n",
-		 ivpu_fw_preempt_buf_size(vdev) ? "is" : "is not");
 
 	if (fw_hdr->ro_section_start_address &&
 	    !ivpu_is_within_range(fw_hdr->ro_section_start_address, fw_hdr->ro_section_size,
@@ -363,6 +359,16 @@ static void ivpu_fw_release(struct ivpu_device *vdev)
 	release_firmware(vdev->fw->file);
 }
 
+static void ivpu_fw_preboot_init(struct ivpu_device *vdev)
+{
+	struct ivpu_fw_info *fw = vdev->fw;
+
+	/* Let the firmware decide optimal DVFS mode */
+	fw->dvfs_mode = 0;
+	fw->trace_level = min(ivpu_fw_log_level, IVPU_FW_LOG_FATAL);
+	fw->trace_destination_mask = VPU_TRACE_DESTINATION_VERBOSE_TRACING;
+	fw->trace_hw_component_mask = -1;
+}
 
 static void ivpu_fw_mem_fini(struct ivpu_device *vdev)
 {
@@ -468,6 +474,8 @@ int ivpu_fw_init(struct ivpu_device *vdev)
 	ret = ivpu_fw_parse(vdev);
 	if (ret)
 		goto err_fw_release;
+
+	ivpu_fw_preboot_init(vdev);
 
 	ret = ivpu_fw_mem_init(vdev);
 	if (ret)
@@ -709,4 +717,41 @@ void ivpu_fw_boot_params_setup(struct ivpu_device *vdev, struct vpu_boot_params 
 	wmb(); /* Flush WC buffers after writing bootparams */
 
 	ivpu_fw_boot_params_print(vdev, boot_params);
+}
+
+int ivpu_fw_postboot_init(struct ivpu_device *vdev)
+{
+	struct vpu_boot_params *boot_params = ivpu_bo_vaddr(vdev->fw->mem_bp);
+	u32 preempt_buf_size = boot_params->preemption_buffer_size;
+
+	ivpu_dbg(vdev, FW_BOOT, "Post boot init\n");
+
+	if (vdev->fw->sched_mode == VPU_SCHEDULING_MODE_OS ||
+	    ivpu_test_mode & IVPU_TEST_MODE_MIP_DISABLE) {
+		drm_WARN_ON(&vdev->drm, ivpu_fw_preempt_buf_size(vdev));
+		ivpu_dbg(vdev, FW_BOOT, "Preemption disabled!\n");
+		return 0;
+	}
+
+	if (preempt_buf_size) {
+		/* Preemption buffer size provided in boot parameters */
+		if (preempt_buf_size < FW_PREEMPT_BUF_BP_MIN_SIZE ||
+		    preempt_buf_size > FW_PREEMPT_BUF_BP_MAX_SIZE) {
+			ivpu_err(vdev, "Invalid preemption buffer size in boot params: %u, expected range [%u, %u]\n",
+				 preempt_buf_size,
+				 FW_PREEMPT_BUF_BP_MIN_SIZE,
+				 FW_PREEMPT_BUF_BP_MAX_SIZE);
+			/* Be strict about invalid preemption buffer size in boot params */
+			return -EINVAL;
+		}
+		vdev->fw->primary_preempt_buf_size = ALIGN(preempt_buf_size, PAGE_SIZE);
+		vdev->fw->secondary_preempt_buf_size = 0;
+	}
+
+	ivpu_dbg(vdev, FW_BOOT, "Preemption buffer size: %u\n", ivpu_fw_preempt_buf_size(vdev));
+
+	if (!ivpu_fw_preempt_buf_size(vdev))
+		ivpu_warn(vdev, "Hardware scheduling without preemption buffer!\n");
+
+	return 0;
 }
