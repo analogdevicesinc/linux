@@ -1186,10 +1186,10 @@ static inline unsigned imajor(const struct inode *inode)
 
 struct fown_struct {
 	struct file *file;	/* backpointer for security modules */
-	rwlock_t lock;          /* protects pid, uid, euid fields */
+	rwlock_t lock;          /* protects pid, cred fields */
 	struct pid *pid;	/* pid or -pgrp where SIGIO should be sent */
 	enum pid_type pid_type;	/* Kind of process group SIGIO should be sent to */
-	kuid_t uid, euid;	/* uid/euid of process setting the owner */
+	const struct cred *cred; /* of the process setting the owner */
 	int signum;		/* posix.1b rt signal to be delivered on IO */
 };
 
