@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/hisilicon,hi3519-crg.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: HiSilicon HI3519/HI3798CV200 Clock and Reset Generator (CRG)
+
+maintainers:
+  - Wei Xu <xuwei5@hisilicon.com>
+
+description:
+  The CRG module provides clock and reset signals to various modules within the
+  SoC.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: hisilicon,hi3798cv200-crg
+          - const: syscon
+          - const: simple-mfd
+      - items:
+          - const: hisilicon,hi3798cv200-sysctrl
+          - const: syscon
+      - items:
+          - const: hisilicon,hi3519-crg
+
+  reg:
+    maxItems: 1
+
+  '#clock-cells':
+    description: >
+      The identifiers for the cells can be found in:
+
+        dt-bindings/clock/hi3519-clock.h
+        dt-bindings/clock/histb-clock.h
+    const: 1
+
+  '#reset-cells':
+    description:
+      A reset signal can be controlled by writing a bit register in the CRG
+      module. The reset specifier consists of two cells. The first cell
+      represents the register offset relative to the base address. The second
+      cell represents the bit index in the register.
+    const: 2
+
+  reset-controller:
+    type: object
+    properties:
+      compatible:
+        const: ti,syscon-reset
+
+    additionalProperties: true
+
+required:
+  - compatible
+  - reg
+  - '#clock-cells'
+  - '#reset-cells'
+
+additionalProperties: false
