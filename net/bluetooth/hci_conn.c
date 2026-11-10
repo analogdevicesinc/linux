@@ -1166,6 +1166,9 @@ static struct hci_conn *__hci_conn_add(struct hci_dev *hdev, int type,
 
 	hci_dev_hold(hdev);
 
+	/* Initialize the device before publishing it to RCU readers. */
+	hci_conn_init_sysfs(conn);
+
 	hci_conn_hash_add(hdev, conn);
 
 	/* The SCO and eSCO connections will only be notified when their
@@ -1177,7 +1180,6 @@ static struct hci_conn *__hci_conn_add(struct hci_dev *hdev, int type,
 			hdev->notify(hdev, HCI_NOTIFY_CONN_ADD);
 	}
 
-	hci_conn_init_sysfs(conn);
 	return conn;
 }
 

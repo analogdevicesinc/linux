@@ -1747,10 +1747,40 @@ static void l2cap_le_conn_ready(struct l2cap_conn *conn)
 	}
 }
 
-static void l2cap_conn_ready(struct l2cap_conn *conn)
+static bool l2cap_is_blocked(struct hci_conn *hcon)
+	__must_hold(&hcon->hdev->lock)
 {
+	/* Since we can't actively block incoming LE connections we must
+	 * at least ensure that we ignore incoming data from them.
+	 */
+	return hcon->type == LE_LINK &&
+	       hci_bdaddr_list_lookup(&hcon->hdev->reject_list, &hcon->dst,
+				      bdaddr_dst_type(hcon));
+}
+
+static void l2cap_queue_pending_rx(struct hci_conn *hcon)
+	__must_hold(&hcon->hdev->lock)
+{
+	struct l2cap_conn *conn = hcon->l2cap_data;
+
+	mutex_lock(&conn->lock);
+
+	if (!skb_queue_empty(&conn->pending_rx)) {
+		/* Teardown holds hdev->lock while cancelling the worker.
+		 * Pass the decision under conn->lock to avoid that lock.
+		 */
+		conn->pending_rx_blocked = l2cap_is_blocked(hcon);
+		queue_work(hcon->hdev->workqueue, &conn->pending_rx_work);
+	}
+
+	mutex_unlock(&conn->lock);
+}
+
+static void l2cap_conn_ready(struct hci_conn *hcon)
+	__must_hold(&hcon->hdev->lock)
+{
+	struct l2cap_conn *conn = hcon->l2cap_data;
 	struct l2cap_chan *chan;
-	struct hci_conn *hcon = conn->hcon;
 
 	BT_DBG("conn %p", conn);
 
@@ -1782,7 +1812,7 @@ static void l2cap_conn_ready(struct l2cap_conn *conn)
 	if (hcon->type == LE_LINK)
 		l2cap_le_conn_ready(conn);
 
-	queue_work(hcon->hdev->workqueue, &conn->pending_rx_work);
+	l2cap_queue_pending_rx(hcon);
 }
 
 /* Notify sockets that we cannot guaranty reliability anymore */
@@ -5701,6 +5731,16 @@ static inline int l2cap_ecred_conn_rsp(struct l2cap_conn *conn,
 				break;
 			}
 
+			/*
+			 * Validate MPS and MTU per BT Core Spec
+			 * Vol 3 Part A Sec 10.2
+			 */
+			if (mtu < L2CAP_ECRED_MIN_MTU ||
+			    mps < L2CAP_ECRED_MIN_MPS) {
+				l2cap_chan_del(chan, ECONNREFUSED);
+				break;
+			}
+
 			chan->ident = 0;
 			chan->dcid = dcid;
 			chan->omtu = mtu;
@@ -7381,7 +7421,8 @@ free_skb:
 	kfree_skb(skb);
 }
 
-static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
+static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb,
+			     bool blocked)
 	__must_hold(&conn->lock)
 {
 	struct l2cap_hdr *lh = (void *) skb->data;
@@ -7408,12 +7449,7 @@ static void l2cap_recv_frame(struct l2cap_conn *conn, struct sk_buff *skb)
 		return;
 	}
 
-	/* Since we can't actively block incoming LE connections we must
-	 * at least ensure that we ignore incoming data from them.
-	 */
-	if (hcon->type == LE_LINK &&
-	    hci_bdaddr_list_lookup(&hcon->hdev->reject_list, &hcon->dst,
-				   bdaddr_dst_type(hcon))) {
+	if (blocked) {
 		kfree_skb(skb);
 		return;
 	}
@@ -7461,7 +7497,7 @@ static void process_pending_rx(struct work_struct *work)
 	 */
 	while (!test_bit(HCI_CONN_ENC_KEY_SIZE_PEND, conn->hcon->flags) &&
 	       (skb = skb_dequeue(&conn->pending_rx)))
-		l2cap_recv_frame(conn, skb);
+		l2cap_recv_frame(conn, skb, conn->pending_rx_blocked);
 
 	mutex_unlock(&conn->lock);
 }
@@ -7913,7 +7949,7 @@ next:
 
 	mutex_unlock(&conn->lock);
 
-	l2cap_conn_ready(conn);
+	l2cap_conn_ready(hcon);
 }
 
 int l2cap_disconn_ind(struct hci_conn *hcon)
@@ -8052,8 +8088,7 @@ static void l2cap_security_cfm(struct hci_conn *hcon, u8 status, u8 encrypt)
 	mutex_unlock(&conn->lock);
 
 	/* Process data held back while the encryption key size was read */
-	if (!skb_queue_empty(&conn->pending_rx))
-		queue_work(hcon->hdev->workqueue, &conn->pending_rx_work);
+	l2cap_queue_pending_rx(hcon);
 }
 
 /* Append fragment into frame respecting the maximum len of rx_skb */
@@ -8142,6 +8177,7 @@ int l2cap_recv_acldata(struct hci_dev *hdev, u16 handle,
 {
 	struct hci_conn *hcon;
 	struct l2cap_conn *conn;
+	bool blocked;
 	int len;
 
 	/* Lock hdev for hci_conn, and race on l2cap_data vs. l2cap_conn_del */
@@ -8164,6 +8200,7 @@ int l2cap_recv_acldata(struct hci_dev *hdev, u16 handle,
 		conn = l2cap_conn_add(hcon);
 
 	conn = l2cap_conn_hold_unless_zero(conn);
+	blocked = l2cap_is_blocked(hcon);
 	hcon = NULL;
 
 	hci_dev_unlock(hdev);
@@ -8200,7 +8237,7 @@ int l2cap_recv_acldata(struct hci_dev *hdev, u16 handle,
 
 		if (len == skb->len) {
 			/* Complete frame received */
-			l2cap_recv_frame(conn, skb);
+			l2cap_recv_frame(conn, skb, blocked);
 			goto unlock;
 		}
 
@@ -8224,7 +8261,7 @@ int l2cap_recv_acldata(struct hci_dev *hdev, u16 handle,
 			 * setting the socket unreliable.
 			 */
 			skb->len = len;
-			l2cap_recv_frame(conn, skb);
+			l2cap_recv_frame(conn, skb, blocked);
 			l2cap_conn_unreliable(conn, ECOMM);
 			goto unlock;
 		}
@@ -8274,7 +8311,7 @@ int l2cap_recv_acldata(struct hci_dev *hdev, u16 handle,
 			 */
 			struct sk_buff *rx_skb = conn->rx_skb;
 			conn->rx_skb = NULL;
-			l2cap_recv_frame(conn, rx_skb);
+			l2cap_recv_frame(conn, rx_skb, blocked);
 		}
 		break;
 	}
