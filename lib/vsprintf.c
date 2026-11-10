@@ -1027,6 +1027,13 @@ static const struct printf_spec default_dec_spec = {
 	.precision = -1,
 };
 
+static const struct printf_spec default_signed_dec_spec = {
+	.base = 10,
+	.field_width = -1,
+	.precision = -1,
+	.flags = SIGN,
+};
+
 static const struct printf_spec default_dec02_spec = {
 	.base = 10,
 	.field_width = 2,
@@ -1997,7 +2004,7 @@ char *timespec64_str(char *buf, char *end, const struct timespec64 *ts,
 	};
 
 	if (fmt[2] == 'p')
-		buf = number(buf, end, ts->tv_sec, default_dec_spec);
+		buf = number(buf, end, ts->tv_sec, default_signed_dec_spec);
 	else
 		buf = time64_str(buf, end, ts->tv_sec, spec, fmt);
 	if (buf < end)
