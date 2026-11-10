@@ -21,6 +21,20 @@ struct walk_rcec_data {
 	void *user_data;
 };
 
+bool pci_rcec_associated(struct pci_dev *rcec, u16 id)
+{
+	if (!rcec->rcec_ea)
+		return false;
+
+	if (rcec->bus->number == PCI_BUS_NUM(id)) {
+		unsigned long bitmap = rcec->rcec_ea->bitmap;
+		return test_bit(PCI_SLOT(id), &bitmap);
+	}
+
+	return rcec->rcec_ea->nextbusn <= PCI_BUS_NUM(id) &&
+	       PCI_BUS_NUM(id) <= rcec->rcec_ea->lastbusn;
+}
+
 static bool rcec_assoc_rciep(struct pci_dev *rcec, struct pci_dev *rciep)
 {
 	unsigned long bitmap = rcec->rcec_ea->bitmap;
