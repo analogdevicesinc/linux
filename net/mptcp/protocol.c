@@ -2189,7 +2189,8 @@ static int __mptcp_recvmsg_mskq(struct sock *sk, struct msghdr *msg,
 			}
 		}
 
-		if (MPTCP_SKB_CB(skb)->has_rxtstamp) {
+		if (MPTCP_SKB_CB(skb)->has_rxtstamp &&
+		    tcp_want_rx_tstamp_cmsg(sk)) {
 			tcp_update_recv_tstamps(skb, tss);
 			*cmsg_flags |= MPTCP_CMSG_TS;
 		}
