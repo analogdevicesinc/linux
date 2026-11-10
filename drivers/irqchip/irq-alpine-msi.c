@@ -1,13 +1,10 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Annapurna Labs MSIX support services
  *
  * Copyright (C) 2016, Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Antoine Tenart <antoine.tenart@free-electrons.com>
- *
- * This file is licensed under the terms of the GNU General Public
- * License version 2. This program is licensed "as is" without any
- * warranty of any kind, whether express or implied.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
@@ -24,7 +21,6 @@
 #include <linux/slab.h>
 
 #include <asm/irq.h>
-#include <asm/msi.h>
 
 /* MSIX message address format: local GIC target */
 #define ALPINE_MSIX_SPI_TARGET_CLUSTER0		BIT(16)
@@ -108,6 +104,8 @@ static int alpine_msix_middle_domain_alloc(struct irq_domain *domain, unsigned i
 	struct alpine_msix_data *priv = domain->host_data;
 	int sgi, err, i;
 
+	pr_debug("trying to allocate %u MSIs starting from %u\n", nr_irqs, virq);
+
 	sgi = alpine_msix_allocate_sgi(priv, nr_irqs);
 	if (sgi < 0)
 		return sgi;
@@ -120,6 +118,9 @@ static int alpine_msix_middle_domain_alloc(struct irq_domain *domain, unsigned i
 		irq_domain_set_hwirq_and_chip(domain, virq + i, sgi + i,
 					      &middle_irq_chip, priv);
 	}
+
+	pr_debug("allocated %u MSIs starting from %u\n", nr_irqs, virq);
+
 	return 0;
 
 err_sgi:
@@ -136,6 +137,8 @@ static void alpine_msix_middle_domain_free(struct irq_domain *domain, unsigned i
 
 	irq_domain_free_irqs_parent(domain, virq, nr_irqs);
 	alpine_msix_free_sgi(priv, d->hwirq, nr_irqs);
+
+	pr_debug("freed %u MSIs starting from %u\n", nr_irqs, virq);
 }
 
 static const struct irq_domain_ops alpine_msix_middle_domain_ops = {
@@ -214,7 +217,7 @@ static int alpine_msix_init(struct device_node *node, struct device_node *parent
 	 * To select the primary GIC as the target GIC, bits [18:17] must be set
 	 * to 0x0. In this case, bit 16 (SPI_TARGET_CLUSTER0) must be set.
 	 */
-	priv->addr = res.start & GENMASK_ULL(63,20);
+	priv->addr = res.start & GENMASK_ULL(63, 20);
 	priv->addr |= ALPINE_MSIX_SPI_TARGET_CLUSTER0;
 
 	if (of_property_read_u32(node, "al,msi-base-spi", &priv->spi_first)) {
@@ -233,11 +236,14 @@ static int alpine_msix_init(struct device_node *node, struct device_node *parent
 		return -ENOMEM;
 	priv->msi_map = msi_map;
 
-	pr_debug("Registering %d msixs, starting at %d\n", priv->num_spis, priv->spi_first);
+	pr_debug("Registering %u MSIs, starting at SPI %u\n", priv->num_spis, priv->spi_first);
 
 	ret = alpine_msix_init_domains(priv, node);
 	if (ret)
 		return ret;
+
+	pr_info("initialized successfully, SPI %u to %u\n",
+		priv->spi_first, priv->spi_first + priv->num_spis - 1);
 
 	retain_and_null_ptr(priv);
 	retain_and_null_ptr(msi_map);

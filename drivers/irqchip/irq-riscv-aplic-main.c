@@ -116,7 +116,12 @@ static struct syscore aplic_syscore = {
 	.ops = &aplic_syscore_ops,
 };
 
-static bool aplic_syscore_registered __ro_after_init;
+/*
+ * Not __ro_after_init: probe can be deferred (e.g. MSI mode waiting for the
+ * IMSIC) and complete after the init memory is made read-only. Probing is
+ * synchronous (see aplic_driver), so no further serialization is needed.
+ */
+static bool aplic_syscore_registered;
 
 static void aplic_syscore_init(void)
 {
@@ -409,6 +414,12 @@ static struct platform_driver aplic_driver = {
 		.name		= "riscv-aplic",
 		.of_match_table	= aplic_match,
 		.acpi_match_table = ACPI_PTR(aplic_acpi_match),
+		/*
+		 * Probes of multiple APLIC instances share global state (the
+		 * syscore registration and the parent interrupt of the
+		 * direct mode) and must not run concurrently.
+		 */
+		.probe_type	= PROBE_FORCE_SYNCHRONOUS,
 	},
 	.probe = aplic_probe,
 };
