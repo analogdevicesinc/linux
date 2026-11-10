@@ -29,6 +29,20 @@ void *memcpy(void *dest, const void *src, size_t count)
 	return dest;
 }
 
+void *memmove(void *dest, const void *src, size_t count)
+{
+	const unsigned char *s = src;
+	unsigned char *d = dest;
+
+	if (d <= s || d - s >= count)
+		return memcpy(dest, src, count);
+
+	while (count-- > 0)
+		d[count] = s[count];
+
+	return dest;
+}
+
 void *memset(void *s, int c, size_t count)
 {
 	char *xs = s;
