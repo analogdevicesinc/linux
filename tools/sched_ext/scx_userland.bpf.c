@@ -233,6 +233,14 @@ void BPF_STRUCT_OPS(userland_dispatch, s32 cpu, struct task_struct *prev)
 		s32 pid;
 		struct task_struct *p;
 
+		/*
+		 * The dispatch buffer is limited. When it runs out, leave the
+		 * remaining tasks queued for the next dispatch round instead
+		 * of inserting past the limit and aborting the scheduler.
+		 */
+		if (!scx_bpf_dispatch_nr_slots())
+			break;
+
 		if (bpf_map_pop_elem(&dispatched, &pid))
 			break;
 
