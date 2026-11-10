@@ -22,19 +22,27 @@
 
 static int seq_show(struct seq_file *m, void *v)
 {
+	struct inode *inode = file_inode(m->file);
 	struct files_struct *files = NULL;
-	int f_flags = 0, ret = -ENOENT;
+	int f_flags = 0, ret;
 	struct file *file = NULL;
 	struct task_struct *task;
 
-	task = get_proc_task(m->private);
+	task = get_proc_task(inode);
 	if (!task)
 		return -ENOENT;
 
+	ret = proc_exec_id_lock(m->file, task, m->private);
+	if (ret) {
+		put_task_struct(task);
+		return ret;
+	}
+
+	ret = -ENOENT;
 	task_lock(task);
 	files = task->files;
 	if (files) {
-		unsigned int fd = proc_fd(m->private);
+		unsigned int fd = proc_fd(inode);
 
 		spin_lock(&files->file_lock);
 		file = files_lookup_fd_locked(files, fd);
@@ -49,6 +57,7 @@ static int seq_show(struct seq_file *m, void *v)
 		spin_unlock(&files->file_lock);
 	}
 	task_unlock(task);
+	proc_exec_id_unlock(task);
 	put_task_struct(task);
 
 	if (ret)
@@ -74,7 +83,7 @@ out:
 
 static int seq_fdinfo_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, seq_show, inode);
+	return proc_exec_id_single_open(inode, file, seq_show);
 }
 
 /*
@@ -109,7 +118,7 @@ static const struct file_operations proc_fdinfo_file_operations = {
 	.open		= seq_fdinfo_open,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
-	.release	= single_release,
+	.release	= proc_exec_id_single_release,
 };
 
 static bool tid_fd_mode(struct task_struct *task, unsigned fd, fmode_t *mode)
@@ -240,17 +249,33 @@ out_no_task:
 	return result;
 }
 
+/* fget_task_next(), unless the task now runs a program the opener can't see */
+static struct file *proc_fd_next(struct file *file, struct task_struct *task,
+				 unsigned int *fd)
+{
+	struct file *f;
+	int err;
+
+	err = proc_exec_id_lock(file, task, file->private_data);
+	if (err)
+		return ERR_PTR(err);
+	f = fget_task_next(task, fd);
+	proc_exec_id_unlock(task);
+	return f;
+}
+
 static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 			      instantiate_t instantiate)
 {
-	struct task_struct *p = get_proc_task(file_inode(file));
+	struct task_struct *p __free(put_task) = NULL;
 	unsigned int fd;
 
+	p = get_proc_task(file_inode(file));
 	if (!p)
 		return -ENOENT;
 
 	if (!dir_emit_dots(file, ctx))
-		goto out;
+		return 0;
 
 	for (fd = ctx->pos - 2;; fd++) {
 		struct file *f;
@@ -258,10 +283,13 @@ static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 		char name[10 + 1];
 		unsigned int len;
 
-		f = fget_task_next(p, &fd);
+		/* Don't hold off execve() across the copy to userspace. */
+		f = proc_fd_next(file, p, &fd);
+		if (IS_ERR(f))
+			return PTR_ERR(f);
 		ctx->pos = fd + 2LL;
 		if (!f)
-			break;
+			return 0;
 		data.mode = f->f_mode;
 		fput(f);
 		data.fd = fd;
@@ -270,12 +298,9 @@ static int proc_readfd_common(struct file *file, struct dir_context *ctx,
 		if (!proc_fill_cache(file, ctx,
 				     name, len, instantiate, p,
 				     &data))
-			break;
+			return 0;
 		cond_resched();
 	}
-out:
-	put_task_struct(p);
-	return 0;
 }
 
 static int proc_readfd_count(struct inode *inode, loff_t *count)
@@ -308,6 +333,8 @@ static int proc_fd_iterate(struct file *file, struct dir_context *ctx)
 }
 
 const struct file_operations proc_fd_operations = {
+	.open		= proc_exec_id_dir_open,
+	.release	= proc_exec_id_dir_release,
 	.read		= generic_read_dir,
 	.iterate_shared	= proc_fd_iterate,
 	.llseek		= generic_file_llseek,
@@ -321,25 +348,25 @@ static struct dentry *proc_lookupfd(struct inode *dir, struct dentry *dentry,
 
 /*
  * /proc/pid/fd needs a special permission handler so that a process can still
- * access /proc/self/fd after it has executed a setuid().
+ * access /proc/self/fd after it has executed a setuid(). A lookup that starts
+ * at a descriptor for the directory skips pid_revalidate(), so refresh the
+ * owner here.
  */
 int proc_fd_permission(const struct mnt_idmap *idmap,
 		       struct inode *inode, int mask)
 {
 	struct task_struct *p;
-	int rv;
 
-	rv = generic_permission(&nop_mnt_idmap, inode, mask);
-	if (rv == 0)
-		return rv;
+	scoped_guard(rcu) {
+		p = pid_task(proc_pid(inode), PIDTYPE_PID);
+		if (p) {
+			if (same_thread_group(p, current))
+				return 0;
+			pid_update_inode(p, inode);
+		}
+	}
 
-	rcu_read_lock();
-	p = pid_task(proc_pid(inode), PIDTYPE_PID);
-	if (p && same_thread_group(p, current))
-		rv = 0;
-	rcu_read_unlock();
-
-	return rv;
+	return generic_permission(&nop_mnt_idmap, inode, mask);
 }
 
 static int proc_fd_getattr(const struct mnt_idmap *idmap,
@@ -401,6 +428,8 @@ const struct inode_operations proc_fdinfo_inode_operations = {
 };
 
 const struct file_operations proc_fdinfo_operations = {
+	.open		= proc_exec_id_dir_open,
+	.release	= proc_exec_id_dir_release,
 	.read		= generic_read_dir,
 	.iterate_shared	= proc_fdinfo_iterate,
 	.llseek		= generic_file_llseek,
