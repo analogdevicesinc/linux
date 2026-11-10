@@ -1,0 +1,62 @@
+C mnt-holder-get-before-put-nomb
+
+(*
+ * Result: Sometimes
+ *
+ * mnt-holder-get-before-put.litmus without the smp_mb() between the
+ * puts pass and the gets pass of mnt_get_count().  The smp_mb() ahead
+ * of the puts pass is still there and does not help: the barrier that
+ * pairs with the holder's smp_wmb() has to sit between the two loads.
+ *)
+
+{
+	mnt_ns=1;
+	gets_h=1;
+	puts_h=0;
+	gets_u=1;
+	puts_u=0;
+}
+
+P0(int *mnt_ns, int *gets_h, int *puts_h)
+{
+	int r0;
+
+	WRITE_ONCE(*gets_h, 2);
+	rcu_read_lock();
+	r0 = READ_ONCE(*mnt_ns);
+	if (r0) {
+		smp_wmb();
+		WRITE_ONCE(*puts_h, 1);
+	}
+	rcu_read_unlock();
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *gets_h, int *puts_h, int *gets_u, int *puts_u)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	smp_mb();
+	r1 = READ_ONCE(*puts_h);
+	r2 = READ_ONCE(*puts_u);
+	r3 = READ_ONCE(*gets_h);
+	r4 = READ_ONCE(*gets_u);
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+exists (0:r0=1 /\ 1:r1=1 /\ 1:r3=1)

@@ -20,6 +20,7 @@
 /proc-uptime-001
 /proc-uptime-002
 /proc-pidns
+/proc-unmountable
 /read
 /self
 /setns-dcache

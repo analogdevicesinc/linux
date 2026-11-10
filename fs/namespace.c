@@ -221,7 +221,10 @@ struct mnt_cover {
 	struct hlist_node pin;		/* mp->m_covers, keeps the mountpoint */
 	struct dentry *dentry;
 	struct mountpoint *mp;
-	struct rcu_head rcu;
+	union {
+		bool root;		/* mount sat on its parent's root */
+		struct rcu_head rcu;	/* valid once the cover is dropped */
+	};
 };
 
 static int mnt_alloc_id(struct mount *mnt)
@@ -970,13 +973,18 @@ mountpoint:
 /*
  * vfsmount lock must be held.  Additionally, the caller is responsible
  * for serializing calls for given disposal list.
+ *
+ * A removed name keeps DCACHE_MOUNTED so that a walk which found the
+ * name earlier continues walking mounts and fails. The bit dies with the
+ * dentry or in d_delete().
  */
 static void maybe_free_mountpoint(struct mountpoint *mp, struct list_head *list)
 {
 	if (hlist_empty(&mp->m_list) && hlist_empty(&mp->m_covers)) {
 		struct dentry *dentry = mp->m_dentry;
 		spin_lock(&dentry->d_lock);
-		dentry->d_flags &= ~DCACHE_MOUNTED;
+		if (!cant_mount(dentry))
+			dentry->d_flags &= ~DCACHE_MOUNTED;
 		spin_unlock(&dentry->d_lock);
 		dput_to_list(dentry, list);
 		hlist_del(&mp->m_hash);
@@ -1061,6 +1069,15 @@ static void umount_mnt(struct mount *mnt)
 }
 
 /*
+ * Is @m reached through the name of its mountpoint? A mount on the root
+ * of its parent isn't: the walk gets there by crossing onto the parent.
+ */
+static bool reached_by_name(const struct mount *m)
+{
+	return m->mnt_mountpoint != m->mnt_parent->mnt.mnt_root;
+}
+
+/*
  * @mnt is unmounted together with its parent and would have stayed attached
  * to it. Leave its cover behind before it is detached so that a lookup on the
  * parent at the mountpoint keeps finding a mount instead of what @mnt covered.
@@ -1074,6 +1091,7 @@ static void leave_cover(struct mount *mnt)
 	mnt->mnt_cover = NULL;
 	cover->dentry = mnt->mnt_mountpoint;
 	cover->mp = mnt->mnt_mp;
+	cover->root = !reached_by_name(mnt);
 	/* keeps the mountpoint once @mnt has let go of it */
 	hlist_add_head(&cover->pin, &cover->mp->m_covers);
 	hlist_add_head_rcu(&cover->node, &mnt->mnt_parent->mnt_covers);
@@ -1414,10 +1432,47 @@ static void delayed_mntput(struct work_struct *unused)
 }
 static DECLARE_DELAYED_WORK(delayed_mntput_work, delayed_mntput);
 
-static void noinline mntput_no_expire_slowpath(struct mount *mnt)
+/*
+ * The count reached zero under mount_lock so we doom the mount and
+ * cleanup everything.
+ */
+static void mntput_final_locked(struct mount *mnt, struct list_head *shrink)
 {
 	struct mnt_cover *cover;
 	struct hlist_node *n;
+
+	VFS_WARN_ON_ONCE(mnt->mnt.mnt_flags & MNT_DOOMED);
+	mnt->mnt.mnt_flags |= MNT_DOOMED;
+
+	mnt_del_instance(mnt);
+	if (unlikely(!list_empty(&mnt->mnt_expire)))
+		list_del(&mnt->mnt_expire);
+
+	/* nothing stays attached to an unmounted mount */
+	VFS_WARN_ON_ONCE(!list_empty(&mnt->mnt_mounts));
+	hlist_for_each_entry_safe(cover, n, &mnt->mnt_covers, node)
+		drop_cover(cover, shrink);
+}
+
+/* cleanup_mnt() sleeps: from task work, or the workqueue for kernel threads */
+static void mntput_queue_cleanup(struct mount *mnt)
+{
+	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
+		struct task_struct *task = current;
+		if (likely(!(task->flags & PF_KTHREAD))) {
+			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
+			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
+				return;
+		}
+		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
+			schedule_delayed_work(&delayed_mntput_work, 1);
+		return;
+	}
+	cleanup_mnt(mnt);
+}
+
+static void noinline mntput_no_expire_slowpath(struct mount *mnt)
+{
 	LIST_HEAD(list);
 	int count;
 
@@ -1436,32 +1491,11 @@ static void noinline mntput_no_expire_slowpath(struct mount *mnt)
 		unlock_mount_hash();
 		return;
 	}
-	mnt->mnt.mnt_flags |= MNT_DOOMED;
+	mntput_final_locked(mnt, &list);
 	rcu_read_unlock();
-
-	mnt_del_instance(mnt);
-	if (unlikely(!list_empty(&mnt->mnt_expire)))
-		list_del(&mnt->mnt_expire);
-
-	/* nothing stays attached to an unmounted mount */
-	VFS_WARN_ON_ONCE(!list_empty(&mnt->mnt_mounts));
-	hlist_for_each_entry_safe(cover, n, &mnt->mnt_covers, node)
-		drop_cover(cover, &list);
 	unlock_mount_hash();
 	shrink_dentry_list(&list);
-
-	if (likely(!(mnt->mnt.mnt_flags & MNT_INTERNAL))) {
-		struct task_struct *task = current;
-		if (likely(!(task->flags & PF_KTHREAD))) {
-			init_task_work(&mnt->mnt_rcu, __cleanup_mnt);
-			if (!task_work_add(task, &mnt->mnt_rcu, TWA_RESUME))
-				return;
-		}
-		if (llist_add(&mnt->mnt_llist, &delayed_mntput_list))
-			schedule_delayed_work(&delayed_mntput_work, 1);
-		return;
-	}
-	cleanup_mnt(mnt);
+	mntput_queue_cleanup(mnt);
 }
 
 static void mntput_no_expire(struct mount *mnt)
@@ -1472,10 +1506,12 @@ static void mntput_no_expire(struct mount *mnt)
 		 * Since we don't do lock_mount_hash() here,
 		 * ->mnt_ns can change under us.  However, if it's
 		 * non-NULL, then there's a reference that won't
-		 * be dropped until after an RCU delay done after
-		 * turning ->mnt_ns NULL.  So if we observe it
-		 * non-NULL under rcu_read_lock(), the reference
-		 * we are dropping is not the final one.
+		 * be dropped until after turning ->mnt_ns NULL and
+		 * either an RCU delay or a look under mount_lock
+		 * that found it to be the only one left, which it
+		 * isn't while ours is counted (mntput_unheld()).
+		 * So if we observe it non-NULL under rcu_read_lock(),
+		 * the reference we are dropping is not the final one.
 		 */
 		smp_wmb();	/* pairs with the smp_mb() in mnt_get_count() */
 		mnt_dec_count(mnt);
@@ -1483,6 +1519,77 @@ static void mntput_no_expire(struct mount *mnt)
 		return;
 	}
 	mntput_no_expire_slowpath(mnt);
+}
+
+DEFINE_FREE(mntput_no_expire, struct mount *, if (_T) mntput_no_expire(_T))
+
+/*
+ * Drop the own reference of a mount that has left its namespace without
+ * waiting for a grace period. mnt_get_count() is biased towards gets,
+ * i.e., it overcounts rather than undercounts. So if the count under
+ * mount_lock is one we know its ours and we're going to drop it.
+ *
+ * Called under mount_lock, the cleanup of the mount is left to the caller.
+ * Returns false if somebody else still references the mount.
+ */
+static bool mntput_unheld(struct mount *mnt, struct list_head *shrink)
+{
+	VFS_BUG_ON(mnt->mnt_ns);
+	if (mnt_get_count(mnt) != 1)
+		return false;
+	mnt_dec_count(mnt);
+	mntput_final_locked(mnt, shrink);
+	return true;
+}
+
+/* peeks per mount_lock hold, pathwalks spin while it is held */
+#define MNTPUT_UNMOUNTED_BATCH 16
+
+/*
+ * Put the mounts umount_tree() collected. Ideally, every mount just has a
+ * single reference count which means that we can elide the grace period.
+ * We batch mntput_unheld() as mnt_get_count() needs to sum over every cpu.
+ * On big machines it's not that fast. If there are mounts with held references
+ * we need the grace period.
+ */
+static void mntput_unmounted(struct hlist_head *head)
+{
+	struct hlist_node *p;
+	struct mount *m;
+	HLIST_HEAD(held);
+
+	while (!hlist_empty(head)) {
+		unsigned int n = 0;
+		HLIST_HEAD(unheld);
+		LIST_HEAD(shrink);
+
+		lock_mount_hash();
+		hlist_for_each_entry_safe(m, p, head, mnt_umount) {
+			hlist_del(&m->mnt_umount);
+			if (mntput_unheld(m, &shrink))
+				hlist_add_head(&m->mnt_umount, &unheld);
+			else
+				hlist_add_head(&m->mnt_umount, &held);
+			if (++n == MNTPUT_UNMOUNTED_BATCH)
+				break;
+		}
+		unlock_mount_hash();
+		shrink_dentry_list(&shrink);
+
+		hlist_for_each_entry_safe(m, p, &unheld, mnt_umount) {
+			hlist_del(&m->mnt_umount);
+			mntput_queue_cleanup(m);
+		}
+	}
+
+	if (hlist_empty(&held))
+		return;
+
+	synchronize_rcu_expedited();
+	hlist_for_each_entry_safe(m, p, &held, mnt_umount) {
+		hlist_del(&m->mnt_umount);
+		mntput(&m->mnt);
+	}
 }
 
 void mntput(struct vfsmount *mnt)
@@ -1508,9 +1615,11 @@ EXPORT_SYMBOL(mntget);
 /*
  * Make a mount point inaccessible to new lookups.
  * Because there may still be current users, the caller MUST WAIT
- * for an RCU grace period before destroying the mount point.
+ * for an RCU grace period before destroying the mount point, unless
+ * it finds under mount_lock that it holds the only reference left,
+ * see mntput_unheld().
  */
-void mnt_make_shortterm(struct vfsmount *mnt)
+static void mnt_make_shortterm(struct vfsmount *mnt)
 {
 	if (mnt)
 		WRITE_ONCE(real_mount(mnt)->mnt_ns, NULL);
@@ -1763,8 +1872,6 @@ static void free_mnt_ns(struct mnt_namespace *);
 static void namespace_unlock(void)
 {
 	struct hlist_head head;
-	struct hlist_node *p;
-	struct mount *m;
 	struct mnt_namespace *ns = emptied_ns;
 	LIST_HEAD(list);
 
@@ -1795,12 +1902,7 @@ static void namespace_unlock(void)
 	if (likely(hlist_empty(&head)))
 		return;
 
-	synchronize_rcu_expedited();
-
-	hlist_for_each_entry_safe(m, p, &head, mnt_umount) {
-		hlist_del(&m->mnt_umount);
-		mntput(&m->mnt);
-	}
+	mntput_unmounted(&head);
 }
 
 static inline void namespace_lock(void)
@@ -1918,8 +2020,10 @@ static int do_umount_root(struct super_block *sb)
 	return ret;
 }
 
+/* Unmount @mnt, dropping the reference the caller holds to it on every path. */
 static int do_umount(struct mount *mnt, int flags)
 {
+	struct mount *ref __free(mntput_no_expire) = mnt;
 	struct super_block *sb = mnt->mnt.mnt_sb;
 	int retval;
 
@@ -1986,56 +2090,56 @@ static int do_umount(struct mount *mnt, int flags)
 		return do_umount_root(sb);
 	}
 
-	namespace_lock();
-	lock_mount_hash();
+	guard(namespace_excl)();
+	guard(mount_writer)();
 
 	/* Repeat the earlier racy checks, now that we are holding the locks */
-	retval = -EINVAL;
 	if (!check_mnt(mnt))
-		goto out;
+		return -EINVAL;
 
 	if (mnt->mnt.mnt_flags & MNT_LOCKED)
-		goto out;
+		return -EINVAL;
 
 	if (!mnt_has_parent(mnt)) /* not the absolute root */
-		goto out;
+		return -EINVAL;
 
 	event++;
 	if (flags & MNT_DETACH) {
 		umount_tree(mnt, UMOUNT_PROPAGATE);
-		retval = 0;
 	} else {
 		shrink_submounts(mnt);
-		retval = -EBUSY;
-		if (!propagate_mount_busy(mnt, 2)) {
-			umount_tree(mnt, UMOUNT_PROPAGATE|UMOUNT_SYNC);
-			retval = 0;
-		}
+		if (propagate_mount_busy(mnt, 2))
+			return -EBUSY;
+		umount_tree(mnt, UMOUNT_PROPAGATE|UMOUNT_SYNC);
 	}
-out:
-	unlock_mount_hash();
-	namespace_unlock();
-	return retval;
+	/*
+	 * By definition the caller's reference isn't the last
+	 * one, so drop it.
+	 */
+	mnt_dec_count(mnt);
+	retain_and_null_ptr(ref);
+	return 0;
 }
 
 /*
- * __detach_mounts - lazily unmount all mounts on the specified dentry
+ * __detach_mounts - lazily unmount the mounts on the specified dentry
  *
  * During unlink, rmdir, and d_drop it is possible to loose the path
  * to an existing mountpoint, and wind up leaking the mount.
  * detach_mounts allows lazily unmounting those mounts instead of
  * leaking them.
  *
- * The dentry is unhashed before the mounts go so that no lookup finds
- * what they covered. The caller removes it for good afterwards.
+ * A cover on the root of its parent dies with the parent like an fd
+ * would for regular mounts.
  *
  * The caller may hold dentry->d_inode->i_rwsem.
  */
 void __detach_mounts(struct dentry *dentry)
 {
 	struct pinned_mountpoint mp = {};
+	bool removed = cant_mount(dentry);
+	struct hlist_node *node, *n;
 	struct mnt_cover *cover;
-	struct hlist_node *n;
 	struct mount *mnt;
 
 	guard(namespace_excl)();
@@ -2047,13 +2151,24 @@ void __detach_mounts(struct dentry *dentry)
 	/* the name goes first, what covered it goes second */
 	d_drop(dentry);
 	event++;
-	while (mp.node.next) {
-		mnt = hlist_entry(mp.node.next, struct mount, mnt_mp_list);
+	/* the mounts after the pin still need a look */
+	while ((node = mp.node.next)) {
+		mnt = hlist_entry(node, struct mount, mnt_mp_list);
+		if (removed && !reached_by_name(mnt)) {
+			/* it stays, move the pin past it */
+			hlist_del(&mp.node);
+			hlist_add_behind(&mp.node, node);
+			continue;
+		}
+		/* goes, umount_tree() takes it and its children off the list */
 		umount_tree(mnt, UMOUNT_COVER);
 	}
-	/* the dentry goes away, so do the covers left behind on it */
-	hlist_for_each_entry_safe(cover, n, &mp.mp->m_covers, pin)
+	hlist_for_each_entry_safe(cover, n, &mp.mp->m_covers, pin) {
+		/* same rule as for the mounts above */
+		if (removed && cover->root)
+			continue;
 		drop_cover(cover, &ex_mountpoints);
+	}
 	unpin_mountpoint(&mp);
 }
 
@@ -2099,12 +2214,12 @@ int path_umount(const struct path *path, int flags)
 	int ret;
 
 	ret = can_umount(path, flags);
-	if (!ret)
-		ret = do_umount(mnt, flags);
-
 	/* we mustn't call path_put() as that would clear mnt_expiry_mark */
 	dput(path->dentry);
-	mntput_no_expire(mnt);
+	if (ret)
+		mntput_no_expire(mnt);
+	else
+		ret = do_umount(mnt, flags);
 	return ret;
 }
 
@@ -6538,23 +6653,23 @@ EXPORT_SYMBOL_GPL(kern_mount);
 void kern_unmount(struct vfsmount *mnt)
 {
 	/* release long term mount so mount point can be released */
-	if (!IS_ERR(mnt)) {
-		mnt_make_shortterm(mnt);
-		synchronize_rcu();	/* yecchhh... */
-		mntput(mnt);
-	}
+	if (!IS_ERR(mnt))
+		kern_unmount_array(&mnt, 1);
 }
 EXPORT_SYMBOL(kern_unmount);
 
 void kern_unmount_array(struct vfsmount *mnt[], unsigned int num)
 {
+	HLIST_HEAD(head);
 	unsigned int i;
 
-	for (i = 0; i < num; i++)
+	for (i = 0; i < num; i++) {
+		if (!mnt[i])
+			continue;
 		mnt_make_shortterm(mnt[i]);
-	synchronize_rcu_expedited();
-	for (i = 0; i < num; i++)
-		mntput(mnt[i]);
+		hlist_add_head(&real_mount(mnt[i])->mnt_umount, &head);
+	}
+	mntput_unmounted(&head);
 }
 EXPORT_SYMBOL(kern_unmount_array);
 

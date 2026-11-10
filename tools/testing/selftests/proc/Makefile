@@ -30,5 +30,6 @@ TEST_GEN_PROGS += thread-self
 TEST_GEN_PROGS += proc-multiple-procfs
 TEST_GEN_PROGS += proc-fsconfig-hidepid
 TEST_GEN_PROGS += proc-pidns
+TEST_GEN_PROGS += proc-unmountable
 
 include ../lib.mk

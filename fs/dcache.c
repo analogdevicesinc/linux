@@ -1900,7 +1900,8 @@ void shrink_dcache_for_umount(struct super_block *sb)
 static enum d_walk_ret find_submount(void *_data, struct dentry *dentry)
 {
 	struct dentry **victim = _data;
-	if (d_mountpoint(dentry)) {
+	/* Skip mounted and removed but still mounted dentries. */
+	if (d_mountpoint(dentry) && !cant_mount(dentry)) {
 		*victim = dget_dlock(dentry);
 		return D_WALK_QUIT;
 	}
@@ -2782,6 +2783,13 @@ struct dentry *d_hash_and_lookup(struct dentry *dir, struct qstr *name)
 	return d_lookup(dir, name);
 }
 
+static __always_inline bool d_delete_drop(struct dentry *dentry)
+{
+	return dentry_negative_policy ||
+	       (IS_ENABLED(CONFIG_UNICODE) &&
+		IS_CASEFOLDED(d_inode(dentry->d_parent)));
+}
+
 /*
  * When a file is deleted, we have two options:
  * - turn this dentry into a negative dentry
@@ -2813,9 +2821,9 @@ void d_delete(struct dentry * dentry)
 	 * Are we the only user?
 	 */
 	if (dentry->d_lockref.count == 1) {
-		if (dentry_negative_policy)
+		if (d_delete_drop(dentry))
 			__d_drop(dentry);
-		dentry->d_flags &= ~DCACHE_CANT_MOUNT;
+		dentry->d_flags &= ~(DCACHE_CANT_MOUNT | DCACHE_MOUNTED);
 		dentry_unlink_inode(dentry);
 	} else {
 		__d_drop(dentry);

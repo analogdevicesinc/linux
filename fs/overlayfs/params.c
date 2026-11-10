@@ -840,6 +840,26 @@ out_err:
 
 }
 
+/*
+ * ovl_permission() and ovl_dentry_revalidate_common() run in rcu pathwalk
+ * mode and read ->layers[].mnt, ->fs and ->creator_cred through the
+ * superblock, so those go only after a grace period. The mounts themselves
+ * are rcu-freed by kern_unmount_array().
+ */
+static void ovl_free_fs_rcu(struct rcu_head *head)
+{
+	struct ovl_fs *ofs = container_of(head, struct ovl_fs, rcu);
+
+	kfree(ofs->layers);
+	kfree(ofs->fs);
+	kfree(ofs->config.lowerdirs);
+	kfree(ofs->config.upperdir);
+	kfree(ofs->config.workdir);
+	if (ofs->creator_cred)
+		put_cred(ofs->creator_cred);
+	kfree(ofs);
+}
+
 void ovl_free_fs(struct ovl_fs *ofs)
 {
 	struct vfsmount **mounts;
@@ -863,17 +883,10 @@ void ovl_free_fs(struct ovl_fs *ofs)
 		mounts[i] = ofs->layers[i].mnt;
 	}
 	kern_unmount_array(mounts, ofs->numlayer);
-	kfree(ofs->layers);
 	for (i = 0; i < ofs->numfs; i++)
 		free_anon_bdev(ofs->fs[i].pseudo_dev);
-	kfree(ofs->fs);
 
-	kfree(ofs->config.lowerdirs);
-	kfree(ofs->config.upperdir);
-	kfree(ofs->config.workdir);
-	if (ofs->creator_cred)
-		put_cred(ofs->creator_cred);
-	kfree(ofs);
+	call_rcu(&ofs->rcu, ovl_free_fs_rcu);
 }
 
 int ovl_fs_params_verify(const struct ovl_fs_context *ctx,

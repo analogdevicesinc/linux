@@ -29,6 +29,7 @@ enum {
 	PROC_ENTRY_proc_compat_ioctl	= 1U << 2,
 	PROC_ENTRY_proc_lseek		= 1U << 3,
 
+	PROC_ENTRY_CANT_MOUNT		= 1U << 6,
 	PROC_ENTRY_FORCE_LOOKUP		= 1U << 7,
 };
 
@@ -87,6 +88,8 @@ extern void proc_flush_pid(struct pid *);
 
 extern struct proc_dir_entry *proc_symlink(const char *,
 		struct proc_dir_entry *, const char *);
+struct proc_dir_entry *proc_self_symlink(const char *, struct proc_dir_entry *,
+					 const char *);
 struct proc_dir_entry *_proc_mkdir(const char *, umode_t, struct proc_dir_entry *, void *, bool);
 extern struct proc_dir_entry *proc_mkdir(const char *, struct proc_dir_entry *);
 extern struct proc_dir_entry *proc_mkdir_data(const char *, umode_t,
@@ -179,6 +182,8 @@ static inline void proc_flush_pid(struct pid *pid)
 
 static inline struct proc_dir_entry *proc_symlink(const char *name,
 		struct proc_dir_entry *parent,const char *dest) { return NULL;}
+static inline struct proc_dir_entry *proc_self_symlink(const char *name,
+		struct proc_dir_entry *parent, const char *dest) { return NULL; }
 static inline struct proc_dir_entry *proc_mkdir(const char *name,
 	struct proc_dir_entry *parent) {return NULL;}
 static inline struct proc_dir_entry *proc_create_mount_point(const char *name) { return NULL; }

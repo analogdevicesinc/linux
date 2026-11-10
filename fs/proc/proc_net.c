@@ -420,7 +420,7 @@ static struct pernet_operations __net_initdata proc_net_ns_ops = {
 
 int __init proc_net_init(void)
 {
-	proc_symlink("net", NULL, "self/net");
+	proc_self_symlink("net", NULL, "self/net");
 
 	return register_pernet_subsys(&proc_net_ns_ops);
 }

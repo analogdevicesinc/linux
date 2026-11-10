@@ -1,0 +1,102 @@
+C mnt-walker-get-vs-seqcount
+
+(*
+ * Result: Never
+ *
+ * A walker in __legitimize_mnt() increments its gets counter, does
+ * smp_mb() and re-reads the seqcount of mount_lock with
+ * read_seqretry(); if it changed, the walker takes mount_lock and
+ * drops the reference again when it finds MNT_SYNC_UMOUNT or
+ * MNT_DOOMED.  umount_tree() stores the seqcount when it takes
+ * write_seqlock(), clears ->mnt_ns and sets MNT_SYNC_UMOUNT;
+ * mntput_unheld() takes the lock again and sums with mnt_get_count():
+ * the puts pass, smp_mb(), the gets pass.  Store buffering between the
+ * walker's increment and the unmounter's seqcount store: not both the
+ * walker seeing the seqcount unchanged (0:r1=0, 0:r2=0, it keeps the
+ * reference) and the sum missing the increment (freed=1, the mount is
+ * finished off).  The walker's smp_mb() and the smp_mb() of
+ * mnt_get_count() are the two full barriers that takes.  The sum is
+ * modelled with a further smp_mb() ahead of the puts pass, which the
+ * -no-outer-mb variant drops.
+ *)
+
+{
+	mnt_ns=1;
+	gets_w=0;
+	puts_w=0;
+	gets_u=1;
+	puts_u=0;
+	flags=0;
+	seq=0;
+	freed=0;
+}
+
+P0(spinlock_t *mlock, int *seq, int *gets_w, int *puts_w, int *flags)
+{
+	int r0;
+	int r1;
+	int r2;
+	int r3;
+
+	r0 = READ_ONCE(*seq);
+	smp_rmb();
+	smp_rmb();
+	r1 = READ_ONCE(*seq);
+	if (r1 == 0) {
+		WRITE_ONCE(*gets_w, 1);
+		smp_mb();
+		smp_rmb();
+		r2 = READ_ONCE(*seq);
+		if (r2 != 0) {
+			spin_lock(mlock);
+			r3 = READ_ONCE(*flags);
+			if (r3 != 0) {
+				WRITE_ONCE(*puts_w, 1);
+			}
+			spin_unlock(mlock);
+		}
+	}
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *flags, int *gets_w, int *puts_w, int *gets_u, int *puts_u, int *freed)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	WRITE_ONCE(*flags, 1);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	smp_mb();
+	r1 = READ_ONCE(*puts_w);
+	r2 = READ_ONCE(*puts_u);
+	smp_mb();
+	r3 = READ_ONCE(*gets_w);
+	r4 = READ_ONCE(*gets_u);
+	if (r3 == 0) {
+		WRITE_ONCE(*flags, 3);
+		WRITE_ONCE(*freed, 1);
+	}
+	if (r3 == 1) {
+		if (r1 == 1) {
+			WRITE_ONCE(*flags, 3);
+			WRITE_ONCE(*freed, 1);
+		}
+	}
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+filter (0:r0=0)
+exists (0:r1=0 /\ 0:r2=0 /\ freed=1)

@@ -1,0 +1,79 @@
+C mnt-gp-sees-fastpath-put
+
+(*
+ * Result: Never
+ *
+ * The sum of mntput_unheld() can miss the put of a holder on the fast
+ * path of mntput_no_expire(), see mnt-sum-misses-fastpath-put.litmus.
+ * mntput_unmounted() then waits in synchronize_rcu_expedited() and
+ * drops the own reference with a plain mntput(), which sums again in
+ * mntput_no_expire_slowpath() under mount_lock.  The holder read
+ * ->mnt_ns non-NULL inside rcu_read_lock() before umount_tree() stored
+ * NULL, so its read-side critical section, and the put inside it, ends
+ * before the grace period does.  The first sum may miss the put
+ * (1:r1), the second one never does (1:r5=1).
+ *)
+
+{
+	mnt_ns=1;
+	gets_h=1;
+	puts_h=0;
+	gets_u=1;
+	puts_u=0;
+}
+
+P0(int *mnt_ns, int *gets_h, int *puts_h)
+{
+	int r0;
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*mnt_ns);
+	if (r0) {
+		smp_wmb();
+		WRITE_ONCE(*puts_h, 1);
+	}
+	rcu_read_unlock();
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *gets_h, int *puts_h, int *gets_u, int *puts_u)
+{
+	int r1;
+	int r3;
+	int r5;
+	int r6;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	smp_mb();
+	r1 = READ_ONCE(*puts_h);
+	smp_mb();
+	r3 = READ_ONCE(*gets_h);
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+
+	synchronize_rcu_expedited();
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 5);
+	smp_wmb();
+	smp_mb();
+	WRITE_ONCE(*puts_u, 1);
+	r5 = READ_ONCE(*puts_h);
+	smp_mb();
+	r6 = READ_ONCE(*gets_h);
+	smp_wmb();
+	WRITE_ONCE(*seq, 6);
+	spin_unlock(mlock);
+}
+
+exists (0:r0=1 /\ 1:r5=0)
