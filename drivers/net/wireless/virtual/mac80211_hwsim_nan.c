@@ -278,7 +278,7 @@ void mac80211_hwsim_nan_rx(struct ieee80211_hw *hw,
 
 	/* And deal with the lack of mac time stamp */
 	if ((rx_status.flag & RX_FLAG_MACTIME) != RX_FLAG_MACTIME_START) {
-		u64 tsf = mac80211_hwsim_get_tsf(hw, data->nan.device_vif);;
+		u64 tsf = mac80211_hwsim_get_tsf(hw, data->nan.device_vif);
 
 		/* In that case there should be no timestamp */
 		WARN_ON_ONCE(rx_status.flag & RX_FLAG_MACTIME);
