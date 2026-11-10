@@ -6538,10 +6538,10 @@ static DEFINE_SPINLOCK(resource_alignment_lock);
 static resource_size_t pci_specified_resource_alignment(struct pci_dev *dev,
 							bool *resize)
 {
-	int align_order, count;
+	unsigned int align_order;
 	resource_size_t align = pcibios_default_alignment();
 	const char *p;
-	int ret;
+	int ret, count;
 
 	spin_lock(&resource_alignment_lock);
 	p = resource_alignment_param;
@@ -6555,11 +6555,11 @@ static resource_size_t pci_specified_resource_alignment(struct pci_dev *dev,
 
 	while (*p) {
 		count = 0;
-		if (sscanf(p, "%d%n", &align_order, &count) == 1 &&
+		if (sscanf(p, "%u%n", &align_order, &count) == 1 &&
 		    p[count] == '@') {
 			p += count + 1;
 			if (align_order > 63) {
-				pr_err("PCI: Invalid requested alignment (order %d)\n",
+				pr_err("PCI: Invalid requested alignment (order %u)\n",
 				       align_order);
 				align_order = PAGE_SHIFT;
 			}
