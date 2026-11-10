@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 
 use kernel::{
-    bits,
     io::poll::read_poll_timeout,
     prelude::*,
     time::Delta,
@@ -98,10 +97,9 @@ impl<'gsp> super::Gsp<'gsp> {
         cmdq.send_rpc_command(commands::rpc::UnloadingGuestDriver::new(mode))?;
 
         // Wait until GSP signals it is suspended.
-        const LIBOS_INTERRUPT_PROCESSOR_SUSPENDED: u32 = bits::bit_u32(31);
         read_poll_timeout(
-            || Ok(gsp_falcon.read_mailbox0()),
-            |&mb0| mb0 & LIBOS_INTERRUPT_PROCESSOR_SUSPENDED != 0,
+            || Ok(gsp_falcon.is_processor_suspended()),
+            |suspended| *suspended,
             Delta::from_millis(10),
             Delta::from_secs(5),
         )

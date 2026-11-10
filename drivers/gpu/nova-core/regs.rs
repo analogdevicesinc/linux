@@ -147,6 +147,11 @@ register! {
         31:0    value => u32;
     }
 
+    /// `MAILBOX0` as LibOS, the kernel that GSP-RM runs on, writes it.
+    pub(crate) NV_PFALCON_FALCON_MAILBOX0_LIBOS(u32) => NV_PFALCON_FALCON_MAILBOX0 {
+        31:31   processor_suspended => bool;
+    }
+
     pub(crate) NV_PFALCON_FALCON_MAILBOX1(u32) @ 0x00000044 {
         31:0    value => u32;
     }
