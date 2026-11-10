@@ -1640,8 +1640,8 @@ static int fs_super_thaw(struct super_block *sb)
 	if (sb->s_op->thaw_super) {
 		error = sb->s_op->thaw_super(sb,
 				FREEZE_MAY_NEST | FREEZE_HOLDER_USERSPACE, NULL);
-		/* -EINVAL means the freeze is gone already. */
-		if (error == -EINVAL)
+		/* The freeze is gone already. */
+		if (error == -EALREADY)
 			return 0;
 		return error;
 	}
@@ -2587,8 +2587,11 @@ static int thaw_super_locked(struct super_block *sb, enum freeze_holder who,
 {
 	int error = -EINVAL;
 
-	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE)
+	/* There's no freeze to drop. */
+	if (sb->s_writers.frozen != SB_FREEZE_COMPLETE) {
+		error = -EALREADY;
 		goto out_unlock;
+	}
 
 	if (!may_unfreeze(sb, who, freeze_owner))
 		goto out_unlock;
@@ -2652,6 +2655,8 @@ out_unlock:
  * A filesystem may hold multiple devices and thus a filesystems may
  * have been frozen through the block layer via multiple block devices.
  * The filesystem remains frozen until all block devices are unfrozen.
+ *
+ * Returns -EALREADY if the filesystem isn't frozen.
  */
 int thaw_super(struct super_block *sb, enum freeze_holder who,
 	       const void *freeze_owner)
