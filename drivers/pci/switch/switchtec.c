@@ -1698,6 +1698,7 @@ err_exit_pci:
 	switchtec_exit_pci(stdev);
 err_put:
 	ida_free(&switchtec_minor_ida, MINOR(stdev->dev.devt));
+	pci_dev_put(stdev->pdev);
 	put_device(&stdev->dev);
 	return rc;
 }
