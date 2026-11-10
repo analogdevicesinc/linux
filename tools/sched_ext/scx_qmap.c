@@ -292,6 +292,7 @@ int main(int argc, char **argv)
 	}
 restart:
 	optind = 1;
+	memset(&hprev, 0, sizeof(hprev));
 	skel = SCX_OPS_CID_OPEN(qmap_ops, scx_qmap);
 
 	skel->rodata->slice_ns = skel->rodata->__SCX_SLICE_DFL;
