@@ -294,7 +294,9 @@ or bottom half).
 
 ``thaw_super``
 	called when VFS is unlocking a filesystem and making it writable
-	again after ->freeze_super. Optional.
+	again after ->freeze_super. Optional. Return -EALREADY if there is
+	no freeze to drop. The VFS relies on that when it thaws the
+	filesystems of a block device.
 
 ``unfreeze_fs``
 	called when VFS is unlocking a filesystem and making it writable

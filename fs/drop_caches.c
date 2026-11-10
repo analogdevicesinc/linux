@@ -61,7 +61,7 @@ static int drop_caches_sysctl_handler(const struct ctl_table *table, int write,
 
 		if (sysctl_drop_caches & 1) {
 			lru_add_drain_all();
-			iterate_supers(drop_pagecache_sb, NULL);
+			iterate_supers_born(drop_pagecache_sb, NULL);
 			count_vm_event(DROP_PAGECACHE);
 		}
 		if (sysctl_drop_caches & 2) {

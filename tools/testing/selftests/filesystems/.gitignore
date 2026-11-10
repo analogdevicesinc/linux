@@ -8,3 +8,4 @@ kernfs_test
 idmapped_tmpfile
 ustat_test
 rw_hint_test
+fspick_reconfigure_test

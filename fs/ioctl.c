@@ -403,14 +403,20 @@ static int ioctl_fsfreeze(struct file *filp)
 static int ioctl_fsthaw(struct file *filp)
 {
 	struct super_block *sb = file_inode(filp)->i_sb;
+	int error;
 
 	if (!ns_capable(sb->s_user_ns, CAP_SYS_ADMIN))
 		return -EPERM;
 
 	/* Thaw */
 	if (sb->s_op->thaw_super)
-		return sb->s_op->thaw_super(sb, FREEZE_HOLDER_USERSPACE, NULL);
-	return thaw_super(sb, FREEZE_HOLDER_USERSPACE, NULL);
+		error = sb->s_op->thaw_super(sb, FREEZE_HOLDER_USERSPACE, NULL);
+	else
+		error = thaw_super(sb, FREEZE_HOLDER_USERSPACE, NULL);
+	/* FITHAW has always reported an unfrozen filesystem as -EINVAL. */
+	if (error == -EALREADY)
+		error = -EINVAL;
+	return error;
 }
 
 static int ioctl_file_dedupe_range(struct file *file,

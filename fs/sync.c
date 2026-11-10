@@ -99,9 +99,10 @@ void ksys_sync(void)
 	int nowait = 0, wait = 1;
 
 	wakeup_flusher_threads(WB_REASON_SYNC);
-	iterate_supers(sync_inodes_one_sb, NULL);
-	iterate_supers(sync_fs_one_sb, &nowait);
-	iterate_supers(sync_fs_one_sb, &wait);
+	if (iterate_supers_sync(sync_inodes_one_sb, NULL) ||
+	    iterate_supers_sync(sync_fs_one_sb, &nowait) ||
+	    iterate_supers_sync(sync_fs_one_sb, &wait))
+		return;
 	sync_bdevs(false);
 	sync_bdevs(true);
 }
@@ -121,11 +122,11 @@ static void do_sync_work(struct work_struct *work)
 	 * Sync twice to reduce the possibility we skipped some inodes / pages
 	 * because they were temporarily locked
 	 */
-	iterate_supers(sync_inodes_one_sb, NULL);
-	iterate_supers(sync_fs_one_sb, &nowait);
+	iterate_supers_sync(sync_inodes_one_sb, NULL);
+	iterate_supers_sync(sync_fs_one_sb, &nowait);
 	sync_bdevs(false);
-	iterate_supers(sync_inodes_one_sb, NULL);
-	iterate_supers(sync_fs_one_sb, &wait);
+	iterate_supers_sync(sync_inodes_one_sb, NULL);
+	iterate_supers_sync(sync_fs_one_sb, &wait);
 	sync_bdevs(false);
 	printk("Emergency Sync complete\n");
 	kfree(work);
@@ -155,7 +156,9 @@ SYSCALL_DEFINE1(syncfs, int, fd)
 		return -EBADF;
 	sb = fd_file(f)->f_path.dentry->d_sb;
 
-	down_read(&sb->s_umount);
+	ret = down_read_killable(&sb->s_umount);
+	if (ret)
+		return ret;
 	ret = sync_filesystem(sb);
 	up_read(&sb->s_umount);
 
