@@ -6,6 +6,14 @@
 #ifndef SELFTEST_KVM_PROCESSOR_H
 #define SELFTEST_KVM_PROCESSOR_H
 
+/*
+ * Explicitly include the system's limit.h and undefine PAGE_SIZE to workaround
+ * an incompatibility where musl defines PAGE_SIZE as a signed integer, whereas
+ * KVM selftests expect it to be a 64-bit unsigned value.
+ */
+#include <limits.h>
+#undef PAGE_SIZE
+
 #include <assert.h>
 #include <stdint.h>
 #include <syscall.h>
