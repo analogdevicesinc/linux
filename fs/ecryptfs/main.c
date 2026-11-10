@@ -477,6 +477,7 @@ static int ecryptfs_get_tree(struct fs_context *fc)
 	/* ->kill_sb() will take care of sbi after that point */
 	sbi = NULL;
 	s->s_op = &ecryptfs_sops;
+	s->s_iflags |= SB_I_NO_ATOMIC_MKDIR;
 	s->s_xattr = ecryptfs_xattr_handlers;
 	set_default_d_op(s, &ecryptfs_dops);
 

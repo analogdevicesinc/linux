@@ -1895,12 +1895,34 @@ static struct dentry *lookup_fast(struct nameidata *nd)
 	return dentry;
 }
 
+/*
+ * If @dentry is in-lookup, look it up in @dir through ->lookup().  Returns
+ * the dentry to use from now on: @dentry itself, or the dentry or ERR_PTR()
+ * that ->lookup() returned instead, in which case @dentry is dropped.
+ */
+static struct dentry *finish_lookup(struct inode *dir, struct dentry *dentry,
+				unsigned int flags)
+{
+	struct dentry *res;
+
+	if (!d_in_lookup(dentry))
+		return dentry;
+
+	res = dir->i_op->lookup(dir, dentry, flags);
+	d_lookup_done(dentry);
+	if (unlikely(res)) {
+		dput(dentry);
+		return res;
+	}
+	return dentry;
+}
+
 /* Fast lookup failed, do it the slow way */
 static struct dentry *__lookup_slow(const struct qstr *name,
 				    struct dentry *dir,
 				    unsigned int flags)
 {
-	struct dentry *dentry, *old;
+	struct dentry *dentry;
 	struct inode *inode = dir->d_inode;
 
 	/* Don't go there if it's already dead */
@@ -1919,17 +1941,10 @@ again:
 				goto again;
 			}
 			dput(dentry);
-			dentry = ERR_PTR(error);
-		}
-	} else {
-		old = inode->i_op->lookup(inode, dentry, flags);
-		d_lookup_done(dentry);
-		if (unlikely(old)) {
-			dput(dentry);
-			dentry = old;
+			return ERR_PTR(error);
 		}
 	}
-	return dentry;
+	return finish_lookup(inode, dentry, flags);
 }
 
 static noinline struct dentry *lookup_slow(const struct qstr *name,
@@ -2787,9 +2802,16 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
 	return s;
 }
 
+static inline bool trailing_slashes(const struct qstr *last)
+{
+	/* last->len is set by hash_name() to the length of the current
+	 * component ->name, terminating with '/' or a NUL character. */
+	return (bool)last->name[last->len];
+}
+
 static inline const char *lookup_last(struct nameidata *nd)
 {
-	if (nd->last_type == LAST_NORM && nd->last.name[nd->last.len])
+	if (nd->last_type == LAST_NORM && trailing_slashes(&nd->last))
 		nd->flags |= LOOKUP_FOLLOW | LOOKUP_DIRECTORY;
 
 	return walk_component(nd, WALK_TRAILING);
@@ -4165,6 +4187,57 @@ static inline umode_t vfs_prepare_mode(const struct mnt_idmap *idmap,
 	return mode;
 }
 
+static inline
+int vfs_create_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
+		       struct dentry *dentry, umode_t mode,
+		       struct delegated_inode *di)
+{
+	int error;
+
+	if (!dir->i_op->create)
+		return -EOPNOTSUPP;
+
+	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
+	if (error)
+		return error;
+
+	error = dir->i_op->create(idmap, dir, dentry, mode);
+	if (!error)
+		fsnotify_create(dir, dentry);
+
+	return error;
+}
+
+static inline
+struct dentry *vfs_mkdir_no_perm(const struct mnt_idmap *idmap, struct inode *dir,
+				 struct dentry *dentry, umode_t mode,
+				 struct delegated_inode *di)
+{
+	unsigned int max_links = dir->i_sb->s_max_links;
+	struct dentry *de;
+	int error;
+
+	if (!dir->i_op->mkdir)
+		return ERR_PTR(-EOPNOTSUPP);
+
+	if (max_links && dir->i_nlink >= max_links)
+		return ERR_PTR(-EMLINK);
+
+	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
+	if (error)
+		return ERR_PTR(error);
+
+	de = dir->i_op->mkdir(idmap, dir, dentry, mode);
+	if (IS_ERR(de))
+		return de;
+	if (de) {
+		dput(dentry);
+		dentry = de;
+	}
+	fsnotify_mkdir(dir, dentry);
+	return dentry;
+}
+
 /**
  * vfs_create - create new file
  * @idmap:	idmap of the mount the inode was found from
@@ -4190,20 +4263,12 @@ int vfs_create(const struct mnt_idmap *idmap, struct dentry *dentry, umode_t mod
 	if (error)
 		return error;
 
-	if (!dir->i_op->create)
-		return -EACCES;	/* shouldn't it be ENOSYS? */
-
 	mode = vfs_prepare_mode(idmap, dir, mode, S_IALLUGO, S_IFREG);
 	error = security_inode_create(idmap, dir, dentry, mode);
 	if (error)
 		return error;
-	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, di);
-	if (error)
-		return error;
-	error = dir->i_op->create(idmap, dir, dentry, mode);
-	if (!error)
-		fsnotify_create(dir, dentry);
-	return error;
+
+	return vfs_create_no_perm(idmap, dir, dentry, mode, di);
 }
 EXPORT_SYMBOL(vfs_create);
 
@@ -4320,21 +4385,32 @@ static inline int open_to_namei_flags(int flag)
 
 static int may_o_create(const struct mnt_idmap *idmap,
 			const struct path *dir, struct dentry *dentry,
-			umode_t mode)
+			int open_flag, umode_t mode)
 {
-	int error = security_path_mknod(dir, dentry, mode, 0);
+	struct inode *dir_inode = dir->dentry->d_inode;
+	bool create_dir = O_IS_MKDIR(open_flag);
+	int error;
+
+	if (create_dir)
+		error = security_path_mkdir(dir, dentry, mode);
+	else
+		error = security_path_mknod(dir, dentry, mode, 0);
 	if (error)
 		return error;
 
 	if (!fsuidgid_has_mapping(dir->dentry->d_sb, idmap))
 		return -EOVERFLOW;
 
-	error = inode_permission(idmap, dir->dentry->d_inode,
-				 MAY_WRITE | MAY_EXEC);
+	error = inode_permission(idmap, dir_inode, MAY_WRITE | MAY_EXEC);
 	if (error)
 		return error;
 
-	return security_inode_create(idmap, dir->dentry->d_inode, dentry, mode);
+	if (create_dir)
+		error = security_inode_mkdir(idmap, dir_inode, dentry, mode);
+	else
+		error = security_inode_create(idmap, dir_inode, dentry, mode);
+
+	return error;
 }
 
 /**
@@ -4370,8 +4446,10 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 
 	file->__f_path.dentry = DENTRY_NOT_SET;
 	file->__f_path.mnt = path->mnt;
+
 	error = dir_inode->i_op->atomic_open(dir_inode, dentry, file,
-				       open_to_namei_flags(open_flag), mode);
+					     open_to_namei_flags(open_flag), mode);
+
 	d_lookup_done(dentry);
 
 	if (!error) {
@@ -4415,8 +4493,14 @@ static struct dentry *atomic_open(const struct path *path, struct dentry *dentry
 			error = create_error;
 		}
 		dput(dentry);
-		dentry = ERR_PTR(error);
+		return ERR_PTR(error);
 	}
+
+	if (file->f_mode & FMODE_CREATED)
+		fsnotify_create(dir_inode, dentry);
+	if (file->f_mode & FMODE_OPENED)
+		fsnotify_open(file);
+
 	return dentry;
 }
 
@@ -4441,6 +4525,7 @@ static struct dentry *lookup_open(struct nameidata *nd, struct file *file,
 	const struct mnt_idmap *idmap;
 	struct dentry *dir = nd->path.dentry;
 	struct inode *dir_inode = dir->d_inode;
+	bool create_dir = O_IS_MKDIR(op->open_flag);
 	int open_flag;
 	struct dentry *dentry;
 	int error, create_error;
@@ -4462,10 +4547,11 @@ retry:
 		 * a different error; we'll be dropping this one anyway.
 		 */
 	}
+
 	if (shared_flag)
-		inode_lock_shared(dir_inode);
+		inode_lock_shared_nested(dir_inode, I_MUTEX_PARENT);
 	else
-		inode_lock(dir_inode);
+		inode_lock_nested(dir_inode, I_MUTEX_PARENT);
 
 	if (unlikely(IS_DEADDIR(dir_inode))) {
 		dentry = ERR_PTR(-ENOENT);
@@ -4518,7 +4604,7 @@ retry:
 		mode = vfs_prepare_mode(idmap, dir_inode, mode, mode, mode);
 		if (likely(got_write))
 			create_error = may_o_create(idmap, &nd->path,
-						    dentry, mode);
+						    dentry, open_flag, mode);
 		else
 			create_error = -EROFS;
 	}
@@ -4532,19 +4618,10 @@ retry:
 		goto out;
 	}
 
-	if (d_in_lookup(dentry)) {
-		struct dentry *res = dir_inode->i_op->lookup(dir_inode, dentry,
-							     nd->flags | shared_flag);
-		d_lookup_done(dentry);
-		if (unlikely(res)) {
-			if (IS_ERR(res)) {
-				error = PTR_ERR(res);
-				goto out_dput;
-			}
-			dput(dentry);
-			dentry = res;
-		}
-	}
+	dentry = finish_lookup(dir_inode, dentry, nd->flags | shared_flag);
+	if (IS_ERR(dentry))
+		goto out;
+
 	if (dentry->d_inode || !(op->open_flag & O_CREAT)) {
 		/*
 		 * No need to create a file.  If lookup returned a positive
@@ -4562,26 +4639,28 @@ retry:
 		goto out_dput;
 	}
 
-	error = try_break_deleg(dir_inode, LEASE_BREAK_DIR_CREATE, &delegated_inode);
+	if (create_dir) {
+		struct dentry *res = vfs_mkdir_no_perm(idmap, dir_inode, dentry, mode,
+						       &delegated_inode);
+		error = PTR_ERR_OR_ZERO(res);
+		if (!error) {
+			dentry = res;
+			/*
+			 * Filesystems whose ->mkdir() may leave the dentry
+			 * negative must set SB_I_NO_ATOMIC_MKDIR.
+			 */
+			if (WARN_ON_ONCE(d_is_negative(dentry)))
+				error = -EIO;
+		}
+	} else {
+		error = vfs_create_no_perm(idmap, dir_inode, dentry, mode,
+					   &delegated_inode);
+	}
 	if (error)
 		goto out_dput;
 
 	file->f_mode |= FMODE_CREATED;
-	if (!dir_inode->i_op->create) {
-		error = -EACCES;
-		goto out_dput;
-	}
-
-	error = dir_inode->i_op->create(idmap, dir_inode, dentry, mode);
-	if (error)
-		goto out_dput;
 out:
-	if (!IS_ERR(dentry)) {
-		if (file->f_mode & FMODE_CREATED)
-			fsnotify_create(dir_inode, dentry);
-		if (file->f_mode & FMODE_OPENED)
-			fsnotify_open(file);
-	}
 	if (shared_flag)
 		inode_unlock_shared(dir_inode);
 	else
@@ -4703,17 +4782,12 @@ struct file *vfs_lookup_open(struct path *parent, struct qstr *last,
 }
 EXPORT_SYMBOL_FOR_MODULES(vfs_lookup_open, "nfsd");
 
-static inline bool trailing_slashes(struct nameidata *nd)
-{
-	return (bool)nd->last.name[nd->last.len];
-}
-
 static struct dentry *lookup_fast_for_open(struct nameidata *nd, int open_flag)
 {
 	struct dentry *dentry;
 
 	if (open_flag & O_CREAT) {
-		if (trailing_slashes(nd))
+		if (trailing_slashes(&nd->last) && !(open_flag & O_DIRECTORY))
 			return ERR_PTR(-EISDIR);
 
 		/* Don't bother on an O_EXCL create */
@@ -4721,7 +4795,7 @@ static struct dentry *lookup_fast_for_open(struct nameidata *nd, int open_flag)
 			return NULL;
 	}
 
-	if (trailing_slashes(nd))
+	if (trailing_slashes(&nd->last))
 		nd->flags |= LOOKUP_FOLLOW | LOOKUP_DIRECTORY;
 
 	dentry = lookup_fast(nd);
@@ -4746,6 +4820,15 @@ static const char *open_last_lookups(struct nameidata *nd,
 	const char *res;
 
 	nd->flags |= op->intent;
+
+	/*
+	 * Filesystems that cannot create and open a directory atomically
+	 * refuse O_CREAT|O_DIRECTORY before any lookup, whether or not
+	 * the name exists.
+	 */
+	if (O_IS_MKDIR(open_flag) &&
+	    unlikely(nd->path.dentry->d_sb->s_iflags & SB_I_NO_ATOMIC_MKDIR))
+		return ERR_PTR(-EOPNOTSUPP);
 
 	if (nd->last_type != LAST_NORM) {
 		if (nd->depth)
@@ -4814,7 +4897,7 @@ static int do_open(struct nameidata *nd,
 	if (open_flag & O_CREAT) {
 		if ((open_flag & O_EXCL) && !(file->f_mode & FMODE_CREATED))
 			return -EEXIST;
-		if (d_is_dir(nd->path.dentry))
+		if (!(open_flag & O_DIRECTORY) && d_is_dir(nd->path.dentry))
 			return -EISDIR;
 		error = may_create_in_sticky(idmap, nd,
 					     d_backing_inode(nd->path.dentry));
@@ -5103,7 +5186,7 @@ static struct dentry *filename_create(int dfd, struct filename *name,
 	 * Do the final lookup.  Suppress 'create' if there is a trailing
 	 * '/', and a directory wasn't requested.
 	 */
-	if (last.name[last.len] && !want_dir)
+	if (trailing_slashes(&last) && !want_dir)
 		create_flags &= ~LOOKUP_CREATE;
 	dentry = start_dirop(path->dentry, &last, reval_flag | create_flags);
 	if (IS_ERR(dentry))
@@ -5161,7 +5244,7 @@ inline struct dentry *start_creating_user_path(
 EXPORT_SYMBOL(start_creating_user_path);
 
 /**
- * dentry_create - Create and open a file
+ * dentry_create - Create and open a regular file
  * @path: path to create
  * @flags: O\_ flags
  * @mode: mode bits for new file
@@ -5198,7 +5281,7 @@ struct file *dentry_create(struct path *path, int flags, umode_t mode,
 		path->dentry = dir;
 		mode = vfs_prepare_mode(idmap, dir_inode, mode, S_IALLUGO, S_IFREG);
 
-		create_error = may_o_create(idmap, path, dentry, mode);
+		create_error = may_o_create(idmap, path, dentry, flags, mode);
 		if (create_error)
 			flags &= ~O_CREAT;
 
@@ -5213,13 +5296,6 @@ struct file *dentry_create(struct path *path, int flags, umode_t mode,
 		else
 			/* Drop the extra reference */
 			dput(orig_dentry);
-
-		if (!error) {
-			if (file->f_mode & FMODE_CREATED)
-				fsnotify_create(dir->d_inode, dentry);
-			if (file->f_mode & FMODE_OPENED)
-				fsnotify_open(file);
-		}
 
 		path->dentry = dentry;
 
@@ -5401,15 +5477,10 @@ struct dentry *vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 			 struct delegated_inode *delegated_inode)
 {
 	int error;
-	unsigned max_links = dir->i_sb->s_max_links;
 	struct dentry *de;
 
 	error = may_create_dentry(idmap, dir, dentry);
 	if (error)
-		goto err;
-
-	error = -EPERM;
-	if (!dir->i_op->mkdir)
 		goto err;
 
 	mode = vfs_prepare_mode(idmap, dir, mode, S_IRWXUGO | S_ISVTX, S_IFDIR);
@@ -5417,24 +5488,12 @@ struct dentry *vfs_mkdir(const struct mnt_idmap *idmap, struct inode *dir,
 	if (error)
 		goto err;
 
-	error = -EMLINK;
-	if (max_links && dir->i_nlink >= max_links)
+	de = vfs_mkdir_no_perm(idmap, dir, dentry, mode, delegated_inode);
+	if (IS_ERR(de)) {
+		error = PTR_ERR(de);
 		goto err;
-
-	error = try_break_deleg(dir, LEASE_BREAK_DIR_CREATE, delegated_inode);
-	if (error)
-		goto err;
-
-	de = dir->i_op->mkdir(idmap, dir, dentry, mode);
-	error = PTR_ERR(de);
-	if (IS_ERR(de))
-		goto err;
-	if (de) {
-		dput(dentry);
-		dentry = de;
 	}
-	fsnotify_mkdir(dir, dentry);
-	return dentry;
+	return de;
 
 err:
 	end_creating(dentry);
@@ -5721,7 +5780,7 @@ retry_deleg:
 		goto exit_drop_write;
 
 	/* Why not before? Because we want correct error value */
-	if (unlikely(last.name[last.len])) {
+	if (unlikely(trailing_slashes(&last))) {
 		if (d_is_dir(dentry))
 			error = -EISDIR;
 		else
@@ -6323,16 +6382,16 @@ retry_deleg:
 	if (flags & RENAME_EXCHANGE) {
 		if (!d_is_dir(rd.new_dentry)) {
 			error = -ENOTDIR;
-			if (new_last.name[new_last.len])
+			if (trailing_slashes(&new_last))
 				goto exit_unlock;
 		}
 	}
 	/* unless the source is a directory trailing slashes give -ENOTDIR */
 	if (!d_is_dir(rd.old_dentry)) {
 		error = -ENOTDIR;
-		if (old_last.name[old_last.len])
+		if (trailing_slashes(&old_last))
 			goto exit_unlock;
-		if (!(flags & RENAME_EXCHANGE) && new_last.name[new_last.len])
+		if (!(flags & RENAME_EXCHANGE) && trailing_slashes(&new_last))
 			goto exit_unlock;
 	}
 

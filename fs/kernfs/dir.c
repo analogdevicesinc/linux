@@ -37,7 +37,7 @@ static bool __kernfs_active(struct kernfs_node *kn)
 	return atomic_read(&kn->active) >= 0;
 }
 
-static bool kernfs_active(struct kernfs_node *kn)
+bool kernfs_active(struct kernfs_node *kn)
 {
 	lockdep_assert_held(&kernfs_root(kn)->kernfs_rwsem);
 	return __kernfs_active(kn);
@@ -1292,19 +1292,62 @@ static struct dentry *kernfs_iop_mkdir(const struct mnt_idmap *idmap,
 				       umode_t mode)
 {
 	struct kernfs_node *parent = dir->i_private;
-	struct kernfs_syscall_ops *scops = kernfs_root(parent)->syscall_ops;
+	struct kernfs_root *root = kernfs_root(parent);
+	struct kernfs_syscall_ops *scops = root->syscall_ops;
+	const struct ns_common *ns = NULL;
+	struct kernfs_node *kn;
+	struct inode *inode;
 	int ret;
 
 	if (!scops || !scops->mkdir)
-		return ERR_PTR(-EPERM);
+		return ERR_PTR(-EOPNOTSUPP);
 
-	if (!kernfs_get_active(parent))
+	/* allocated up front so that we never fail after creating the node */
+	inode = new_inode(dir->i_sb);
+	if (!inode)
+		return ERR_PTR(-ENOMEM);
+
+	if (!kernfs_get_active(parent)) {
+		iput(inode);
 		return ERR_PTR(-ENODEV);
+	}
 
 	ret = scops->mkdir(parent, dentry->d_name.name, mode);
 
 	kernfs_put_active(parent);
-	return ERR_PTR(ret);
+	if (ret) {
+		iput(inode);
+		return ERR_PTR(ret);
+	}
+
+	/*
+	 * Find the node that ->mkdir() created.  The parent's i_rwsem is
+	 * held, so only a removal from inside the kernel can make it go
+	 * away again, and then the open fails like one of a removed
+	 * directory.
+	 */
+	scoped_guard(rwsem_read, &root->kernfs_rwsem) {
+		if (kernfs_ns_enabled(parent))
+			ns = kernfs_info(dir->i_sb)->ns;
+		kn = kernfs_find_ns(parent, dentry->d_name.name, ns);
+		if (kn) {
+			inode = kernfs_get_inode_locked(inode, kn);
+		} else {
+			iput(inode);
+			inode = NULL;
+		}
+	}
+	if (!inode)
+		return ERR_PTR(-ESTALE);
+
+	/*
+	 * We may race with kernfs_fh_to_dentry() which calls d_obtain_alias(),
+	 * so the inode may already have a disconnected alias. Use
+	 * d_splice_alias() to move it into place, which does not accept
+	 * hashed dentries, so drop the negative dentry first.
+	 */
+	d_drop(dentry);
+	return d_splice_alias(inode, dentry);
 }
 
 static int kernfs_iop_rmdir(struct inode *dir, struct dentry *dentry)

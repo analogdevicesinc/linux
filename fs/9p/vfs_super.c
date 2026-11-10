@@ -40,6 +40,7 @@ static int v9fs_fill_super(struct super_block *sb)
 	sb->s_blocksize_bits = fls(v9ses->maxdata - 1);
 	sb->s_blocksize = 1 << sb->s_blocksize_bits;
 	sb->s_magic = V9FS_MAGIC;
+	sb->s_iflags |= SB_I_NO_ATOMIC_MKDIR;
 	if (v9fs_proto_dotl(v9ses)) {
 		sb->s_op = &v9fs_super_ops_dotl;
 		if (!(v9ses->flags & V9FS_NO_XATTR))
