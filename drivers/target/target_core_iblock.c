@@ -461,8 +461,6 @@ iblock_execute_zero_out(struct block_device *bdev, struct se_cmd *cmd)
 	int ret;
 
 	buf = kmap(sg_page(sg)) + sg->offset;
-	if (!buf)
-		return TCM_LOGICAL_UNIT_COMMUNICATION_FAILURE;
 	/*
 	 * Fall back to block_execute_write_same() slow-path if
 	 * incoming WRITE_SAME payload does not contain zeros.

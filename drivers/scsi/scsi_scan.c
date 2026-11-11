@@ -862,6 +862,98 @@ static int scsi_probe_lun(struct scsi_device *sdev, unsigned char *inq_result,
 }
 
 /**
+ * scsi_read_access_state - Read the ALUA state of a device
+ * @sdev: SCSI device that supports target port groups
+ *
+ * Send REPORT TARGET PORT GROUPS and set sdev->access_state to the
+ * asymmetric access state that the device reports for the target port
+ * group of this path, as identified in VPD page 0x83. If the command
+ * fails, e.g. with LOGICAL UNIT NOT SUPPORTED because no LU is mapped at
+ * this LUN for this I_T nexus, sdev->access_state is left unchanged. The
+ * ALUA device handler, if attached, keeps the state up to date later.
+ *
+ * Returns true if the state was read.
+ */
+static bool scsi_read_access_state(struct scsi_device *sdev)
+{
+	/*
+	 * Each UNIT ATTENTION reports a different condition queued for this
+	 * I_T nexus, e.g. a power on or reset after login followed by ALUA
+	 * state and INQUIRY data changes, so retry until the target answers
+	 * the command itself.
+	 */
+	struct scsi_failure failure_defs[] = {
+		{
+			.sense_key = UNIT_ATTENTION,
+			.sense_code = SCMD_FAILURE_SENSE_CODE_ANY,
+			.allowed = 5,
+			.result = SAM_STAT_CHECK_CONDITION,
+		},
+		{}
+	};
+	struct scsi_failures failures = {
+		.failure_definitions = failure_defs,
+	};
+	struct scsi_sense_hdr sshdr;
+	const struct scsi_exec_args exec_args = {
+		.sshdr = &sshdr,
+		.failures = &failures,
+	};
+	/* scsi_report_tpgs() replaces the buffer if this is too small */
+	int bufflen = 128;
+	int group_id, len, k, off;
+	unsigned char *buff, *desc;
+	bool ext_hdr = true;
+	bool found = false;
+	int ret;
+
+	group_id = scsi_vpd_tpg_id(sdev, NULL);
+	if (group_id < 0)
+		return false;
+
+	buff = kzalloc(bufflen, GFP_KERNEL);
+	if (!buff)
+		return false;
+
+ retry:
+	ret = scsi_report_tpgs(sdev, &buff, &bufflen, ext_hdr,
+			       HZ / 2 + HZ * scsi_inq_timeout, 3, &exec_args);
+	if (ret) {
+		/*
+		 * Some targets reject the extended header format with
+		 * ILLEGAL REQUEST (see alua_rtpg()), so retry without it,
+		 * unless the reason is that no LU is mapped at this LUN.
+		 */
+		if (ret > 0 && ext_hdr && scsi_sense_valid(&sshdr) &&
+		    sshdr.sense_key == ILLEGAL_REQUEST &&
+		    sshdr.sense_code != LU_NOT_SUPPORTED) {
+			ext_hdr = false;
+			goto retry;
+		}
+		goto out;
+	}
+
+	len = get_unaligned_be32(&buff[0]) + 4;
+	if ((buff[4] & RTPG_FMT_MASK) == RTPG_FMT_EXT_HDR)
+		k = 8;
+	else
+		k = 4;
+
+	for (desc = buff + k; k + 8 <= len; k += off, desc += off) {
+		off = 8 + (desc[7] * 4);
+		if (get_unaligned_be16(&desc[2]) == group_id) {
+			sdev->access_state = desc[0];
+			found = true;
+			break;
+		}
+	}
+
+ out:
+	kfree(buff);
+	return found;
+}
+
+/**
  * scsi_add_lun - allocate and fully initialize a scsi_device
  * @sdev:	holds information to be stored in the new scsi_device
  * @inq_result:	holds the result of a previous INQUIRY to the LUN
@@ -1125,6 +1217,24 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 		scsi_attach_vpd(sdev);
 
 	scsi_cdl_check(sdev);
+
+	/*
+	 * Read the ALUA state before the device is registered, so that
+	 * scsi_bus_match() can use it. This needs VPD page 0x83.
+	 */
+	if (scsi_device_tpgs(sdev)) {
+		bool read = scsi_read_access_state(sdev);
+
+		/*
+		 * SPC-4 requires PQ 001b in the ALUA unavailable state, and
+		 * an unmapped LUN fails the command, so take this to be a
+		 * mapped LU that is unavailable. Decide once, like the
+		 * peripheral qualifier itself: access_state changes when the
+		 * ALUA state does.
+		 */
+		sdev->match_unavailable =
+			read && sdev->inq_periph_qual == SCSI_INQ_PQ_NOT_CON;
+	}
 
 	sdev->max_queue_depth = sdev->queue_depth;
 	WARN_ON_ONCE(sdev->max_queue_depth > sdev->budget_map.depth);

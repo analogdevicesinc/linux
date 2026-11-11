@@ -3084,6 +3084,15 @@ int scsi_internal_device_unblock_nowait(struct scsi_device *sdev,
 		else
 			sdev->sdev_state = SDEV_CREATED;
 		break;
+	case SDEV_RUNNING:
+		/*
+		 * The device was set running through sysfs while it was
+		 * blocked, so its queue is still stopped. Finish the unblock.
+		 */
+		if (!sdev->queue_stopped)
+			return -EINVAL;
+		sdev->sdev_state = new_state;
+		break;
 	case SDEV_CANCEL:
 	case SDEV_OFFLINE:
 		break;
@@ -3599,6 +3608,58 @@ int scsi_vpd_tpg_id(struct scsi_device *sdev, int *rel_id)
 	return group_id;
 }
 EXPORT_SYMBOL(scsi_vpd_tpg_id);
+
+/**
+ * scsi_report_tpgs - Issue a REPORT TARGET PORT GROUPS command
+ * @sdev: SCSI device to send the command to
+ * @buff: buffer for the parameter data, replaced if it is too small
+ * @bufflen: length of @buff
+ * @ext_hdr: request the extended header parameter data format
+ * @timeout: command timeout in jiffies
+ * @retries: number of times to retry the command in the midlayer
+ * @args: optional arguments for scsi_execute_cmd()
+ *
+ * Resend the command with a larger buffer if the parameter data does not
+ * fit.
+ *
+ * Return: the result of the last command, or -ENOMEM with *@buff set to
+ * NULL if a larger buffer could not be allocated.
+ */
+int scsi_report_tpgs(struct scsi_device *sdev, unsigned char **buff,
+		     int *bufflen, bool ext_hdr, int timeout, int retries,
+		     const struct scsi_exec_args *args)
+{
+	blk_opf_t opf = REQ_OP_DRV_IN | REQ_FAILFAST_DEV |
+			REQ_FAILFAST_TRANSPORT | REQ_FAILFAST_DRIVER;
+	u8 cdb[MAX_COMMAND_SIZE] = { };
+	int ret, len;
+
+	cdb[0] = MAINTENANCE_IN;
+	cdb[1] = MI_REPORT_TARGET_PGS;
+	if (ext_hdr)
+		cdb[1] |= MI_EXT_HDR_PARAM_FMT;
+
+ retry:
+	put_unaligned_be32(*bufflen, &cdb[6]);
+	ret = scsi_execute_cmd(sdev, cdb, opf, *buff, *bufflen, timeout,
+			       retries, args);
+	if (ret)
+		return ret;
+
+	len = get_unaligned_be32(&(*buff)[0]) + 4;
+	if (len > *bufflen) {
+		/* Resubmit with the correct length */
+		kfree(*buff);
+		*bufflen = len;
+		*buff = kmalloc(len, GFP_KERNEL);
+		if (!*buff)
+			return -ENOMEM;
+		goto retry;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(scsi_report_tpgs);
 
 /**
  * scsi_set_sense - build sense data for a command

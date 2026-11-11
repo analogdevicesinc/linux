@@ -1646,10 +1646,8 @@ static int __target_submit(struct se_cmd *cmd)
 			BUG_ON(!sgl);
 
 			buf = kmap_local_page(sg_page(sgl));
-			if (buf) {
-				memset(buf + sgl->offset, 0, sgl->length);
-				kunmap_local(buf);
-			}
+			memset(buf + sgl->offset, 0, sgl->length);
+			kunmap_local(buf);
 		}
 	}
 
