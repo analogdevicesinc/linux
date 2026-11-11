@@ -232,15 +232,17 @@ no_context:
 		const struct exception_table_entry *entry;
 
 		entry = search_exception_tables(regs->pc);
+		if (entry) {
 #ifdef DEBUG_EXCEPTIONS
-		printk("Exception: PC<%08lx> faddr<%08lx>\n",
-		       regs->pc, address);
-		printk("EX_TABLE: insn<%08lx> fixup<%08x>\n",
-			regs->pc, entry->fixup);
+			printk("Exception: PC<%08lx> faddr<%08lx>\n",
+			       regs->pc, address);
+			printk("EX_TABLE: insn<%08lx> fixup<%08x>\n",
+				regs->pc, entry->fixup);
 #endif
-		regs->pc = entry->fixup;
-		regs->npc = regs->pc + 4;
-		return;
+			regs->pc = entry->fixup;
+			regs->npc = regs->pc + 4;
+			return;
+		}
 	}
 
 	unhandled_fault(address, tsk, regs);
@@ -276,21 +278,21 @@ vmalloc_fault:
 		pmd_t *pmd, *pmd_k;
 
 		pgd = tsk->active_mm->pgd + offset;
-		pgd_k = init_mm.pgd + offset;
+		p4d = p4d_offset(pgd, address);
+		pud = pud_offset(p4d, address);
 
-		if (!pgd_present(*pgd)) {
-			if (!pgd_present(*pgd_k))
+		pgd_k = init_mm.pgd + offset;
+		p4d_k = p4d_offset(pgd_k, address);
+		pud_k = pud_offset(p4d_k, address);
+
+		if (!pud_present(*pud)) {
+			if (!pud_present(*pud_k))
 				goto bad_area_nosemaphore;
-			pgd_val(*pgd) = pgd_val(*pgd_k);
+			pud_val(*pud) = pud_val(*pud_k);
 			return;
 		}
 
-		p4d = p4d_offset(pgd, address);
-		pud = pud_offset(p4d, address);
 		pmd = pmd_offset(pud, address);
-
-		p4d_k = p4d_offset(pgd_k, address);
-		pud_k = pud_offset(p4d_k, address);
 		pmd_k = pmd_offset(pud_k, address);
 
 		if (pmd_present(*pmd) || !pmd_present(*pmd_k))

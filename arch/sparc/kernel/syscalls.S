@@ -159,11 +159,13 @@ linux_sparc_ni_syscall:
 linux_syscall_trace32:
 	call	syscall_trace_enter
 	 add	%sp, PTREGS_OFF, %o0
-	brnz,pn	%o0, 3f
-	 mov	-ENOSYS, %o0
 
+	/* A negative return means the syscall was denied and the
+	 * return value is already set in pt_regs.
+	 */
+	brlz,pn	%o0, linux_syscall_skip
 	/* Syscall tracing can modify the registers.  */
-	ldx	[%sp + PTREGS_OFF + PT_V9_G1], %g1
+	 ldx	[%sp + PTREGS_OFF + PT_V9_G1], %g1
 	sethi	%hi(sys_call_table32), %l7
 	ldx	[%sp + PTREGS_OFF + PT_V9_I0], %i0
 	or	%l7, %lo(sys_call_table32), %l7
@@ -189,11 +191,13 @@ linux_syscall_trace32:
 linux_syscall_trace:
 	call	syscall_trace_enter
 	 add	%sp, PTREGS_OFF, %o0
-	brnz,pn	%o0, 3f
-	 mov	-ENOSYS, %o0
 
+	/* A negative return means the syscall was denied and the
+	 * return value is already set in pt_regs.
+	 */
+	brlz,pn	%o0, linux_syscall_skip
 	/* Syscall tracing can modify the registers.  */
-	ldx	[%sp + PTREGS_OFF + PT_V9_G1], %g1
+	 ldx	[%sp + PTREGS_OFF + PT_V9_G1], %g1
 	sethi	%hi(sys_call_table64), %l7
 	ldx	[%sp + PTREGS_OFF + PT_V9_I0], %i0
 	or	%l7, %lo(sys_call_table64), %l7
@@ -307,3 +311,15 @@ linux_syscall_trace2:
 	stx	%l1, [%sp + PTREGS_OFF + PT_V9_TPC]
 	ba,pt	%xcc, rtrap
 	 stx	%l2, [%sp + PTREGS_OFF + PT_V9_TNPC]
+
+	/* The syscall was denied at entry by ptrace or seccomp.  The
+	 * return value and the carry bit are already set in pt_regs;
+	 * advance past the trap instruction and run the syscall exit
+	 * work without storing a new return value.  We can only get
+	 * here from the entry trace stubs, so the thread flags in %l0
+	 * are known to be non-zero.
+	 */
+linux_syscall_skip:
+	ldx	[%sp + PTREGS_OFF + PT_V9_TNPC], %l1	! pc = npc
+	ba,pt	%xcc, linux_syscall_trace2
+	 add	%l1, 0x4, %l2				! npc = npc+4
