@@ -569,7 +569,8 @@ config SCSI_MYRS
 
 config VMWARE_PVSCSI
 	tristate "VMware PVSCSI driver support"
-	depends on PCI && SCSI && X86
+	depends on PCI && SCSI
+	depends on X86 || (ARM64 && !CPU_BIG_ENDIAN && PAGE_SIZE_4KB)
 	help
 	  This driver supports VMware's para virtualized SCSI HBA.
 	  To compile this driver as a module, choose M here: the
