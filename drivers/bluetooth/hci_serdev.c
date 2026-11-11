@@ -101,11 +101,13 @@ static int hci_uart_flush(struct hci_dev *hdev)
 		kfree_skb(hu->tx_skb); hu->tx_skb = NULL;
 	}
 
+	if (!test_bit(HCI_UART_PROTO_READY, &hu->flags))
+		return 0;
+
 	/* Flush any pending characters in the driver and discipline. */
 	serdev_device_write_flush(hu->serdev);
 
-	if (test_bit(HCI_UART_PROTO_READY, &hu->flags))
-		hu->proto->flush(hu);
+	hu->proto->flush(hu);
 
 	return 0;
 }
