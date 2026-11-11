@@ -31,7 +31,6 @@
 #include <linux/pci.h>
 #include <linux/init.h>
 #include <linux/slab.h>
-#include <linux/pagemap.h>
 #include <linux/miscdevice.h>
 #include <linux/pm.h>
 #include <linux/agp_backend.h>

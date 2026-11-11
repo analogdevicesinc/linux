@@ -4,7 +4,6 @@
 
 #include <linux/threads.h>
 #include <linux/mm.h>		/* for struct page */
-#include <linux/pagemap.h>
 
 #include <asm/cpufeature.h>
 

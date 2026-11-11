@@ -34,6 +34,7 @@
 #include <linux/init.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
+#include <linux/pagemap.h>
 #include <linux/bio.h>		/* struct bio */
 #include <linux/prefetch.h>
 

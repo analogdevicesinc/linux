@@ -13,7 +13,6 @@
 #include <linux/err.h>
 #include <linux/idr.h>
 #include <linux/of.h>
-#include <linux/pagemap.h>
 #include <linux/export.h>
 #include <linux/leds.h>
 #include <linux/slab.h>

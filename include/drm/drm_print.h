@@ -28,6 +28,7 @@
 
 #include <linux/compiler.h>
 #include <linux/printk.h>
+#include <linux/string_choices.h>
 #include <linux/device.h>
 #include <linux/dynamic_debug.h>
 
