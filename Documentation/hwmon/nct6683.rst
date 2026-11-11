@@ -57,6 +57,10 @@ Fan control is supported on MSI boards with an NCT6687D-R (customer ID
 pwm16 control the system fan headers that are present. pwmN controls the
 fan reported by fanN_input.
 
+It is also supported on the ASRock B850 Steel Legend WiFi (NCT6686D,
+customer ID 0x164a), where pwm1 to pwm6 control the fan headers reported
+by fan1 to fan6, and on the ASRock BC-250 (NCT6686D, customer ID 0x162b).
+
 pwmN_enable selects the fan control mode:
 
   * 1: manual mode, the duty cycle is set with pwmN

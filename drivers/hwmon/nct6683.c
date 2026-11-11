@@ -1753,6 +1753,9 @@ nct6683_setup_fans(struct nct6683_data *data)
 				data->curve_writable |= BIT(i);
 		}
 	}
+
+	if (data->customer_id == NCT6683_CUSTOMER_ID_ASROCK8)
+		data->have_fan_ctrl = data->have_pwm & GENMASK(7, 0);
 }
 
 /*
