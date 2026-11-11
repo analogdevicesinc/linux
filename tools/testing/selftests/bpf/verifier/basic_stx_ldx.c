@@ -28,10 +28,10 @@
 {
 	"invalid src register in LDX",
 	.insns = {
-	BPF_LDX_MEM(BPF_B, BPF_REG_0, 12, 0),
+	BPF_LDX_MEM(BPF_B, BPF_REG_0, 13, 0),
 	BPF_EXIT_INSN(),
 	},
-	.errstr = "R12 is invalid",
+	.errstr = "R13 is invalid",
 	.result = REJECT,
 },
 {

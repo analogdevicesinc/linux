@@ -673,6 +673,31 @@ void bpf_rb_root_free(const struct btf_field *field, void *rb_root,
 		      struct bpf_spin_lock *spin_lock);
 u64 bpf_arena_get_kern_vm_start(struct bpf_arena *arena);
 u64 bpf_arena_get_user_vm_start(struct bpf_arena *arena);
+/*
+ * The stack in arena of a cpu. The invocation of a program that finds it free
+ * takes it. The others, that interrupt or preempt that one, take a stack from
+ * bpf_arena_stack_get(). bpf_insert_arena_stack() emits the code.
+ */
+struct bpf_arena_cpu_stack {
+	/*
+	 * Every invocation increments it. The one that finds 0 has the stack
+	 * and sets it to 0 when it exits.
+	 */
+	u64 busy;
+	u32 base;	/* r12 when the main program starts, the low 32 bits of the address */
+	u32 size;
+};
+
+/*
+ * r12 is a multiple of 32 when the main program starts in the stack of the cpu.
+ * It has this bit set in all other stacks. They go back with bpf_arena_stack_put().
+ */
+#define BPF_ARENA_STACK_SLOW 16
+
+int bpf_arena_stack_init(struct bpf_arena *arena);
+void __percpu *bpf_arena_stack_percpu(struct bpf_arena *arena);
+u64 bpf_arena_stack_get(struct bpf_prog_aux *aux, u64 busy);
+void bpf_arena_stack_put(struct bpf_prog_aux *aux, u32 base);
 u64 bpf_arena_map_kern_vm_start(struct bpf_map *map);
 struct bpf_map *bpf_prog_arena(struct bpf_prog *prog);
 int bpf_obj_name_cpy(char *dst, const char *src, unsigned int size);
@@ -1008,12 +1033,19 @@ static_assert(__BPF_RET_TYPE_MAX <= BPF_BASE_TYPE_LIMIT);
 /* The longest tracepoint has 12 args.
  * See include/trace/bpf_probe.h
  *
- * Also reuse this macro for maximum number of arguments a BPF function
- * or a kfunc can have. Args 1-5 are passed in registers, args 6-12 via
- * stack arg slots. The JIT may map some stack arg slots to registers based
- * on the native calling convention (e.g., arg 6 to R9 on x86-64).
+ * Also reuse this macro for maximum number of arguments a kfunc can have and
+ * BTF of a BPF function can describe. Args 1-5 are passed in registers, args
+ * 6-12 via stack arg slots. The JIT may map some stack arg slots to registers
+ * based on the native calling convention (e.g., arg 6 to R9 on x86-64).
  */
 #define MAX_BPF_FUNC_ARGS 12
+
+/*
+ * A static BPF function is called by BPF code only, with what the compiler
+ * makes of its arguments. A slice or a trait object of Rust takes two slots. The
+ * function that derive(Debug) calls for a struct with five fields takes 23.
+ */
+#define MAX_BPF_STATIC_FUNC_ARGS 24
 
 /* The maximum number of arguments passed through registers
  * a single function may have.
@@ -1763,6 +1795,10 @@ struct bpf_subprog_arg_info {
 struct bpf_func_info_aux {
 	u16 linkage;
 	bool unreliable;
+	/* The function returns in R0:R2 */
+	bool ret_reg_pair;
+	/* The code of a static function loads stack arguments */
+	bool stack_args;
 	bool called[BPF_FUNC_CTX_CNT];
 	bool verified[BPF_FUNC_CTX_CNT];
 	bool called_with_pkt_ptrs;
@@ -1908,6 +1944,8 @@ struct bpf_prog_aux {
 	bool has_prologue;
 	bool might_sleep;
 	bool can_unwind;
+	/* frames of recursive subprogs can be on the stack when it is called */
+	bool in_recursion;
 	bool kprobe_write_ctx;
 	/* has insns that work with the arena base, see bpf_prog_has_arena_insns() */
 	bool uses_arena_insns;
@@ -1919,6 +1957,13 @@ struct bpf_prog_aux {
 	u64 prog_array_member_cnt; /* counts how many times as member of prog_array */
 	struct mutex ext_mutex; /* mutex for freplace_link_cnt and prog_array_member_cnt */
 	struct bpf_arena *arena;
+	/*
+	 * The size of the stack in arena that the program needs, a multiple of
+	 * the page size. 0 when r12 is not used.
+	 */
+	u32 arena_stack_size;
+	/* a callback that takes a stack in arena, like the main program does */
+	bool arena_stack_entry;
 	void (*recursion_detected)(struct bpf_prog *prog); /* callback if recursion is detected */
 	/* BTF_KIND_FUNC_PROTO for valid attach_btf_id */
 	const struct btf_type *attach_func_proto;
@@ -1975,6 +2020,12 @@ struct bpf_prog_aux {
 	 * using the linfo_idx.
 	 */
 	void **jited_linfo;
+	/*
+	 * linfo->insn_off of the prog before constant blinding, while the
+	 * blinded clone is JITed. The kernel puts it back when it falls back
+	 * to the prog that isn't blinded.
+	 */
+	u32 *linfo_unblinded;
 	u32 func_info_cnt;
 	u32 nr_linfo;
 	/* subprog can use linfo_idx to access its first linfo and
@@ -2582,6 +2633,10 @@ struct bpf_array {
  */
 int bpf_array_get_next_key(struct bpf_map *map, void *key, void *next_key);
 
+/*
+ * the longest program. The verifier limits the number of states, not of
+ * processed insns, see BPF_FLOW_MAX_STATES.
+ */
 #define BPF_COMPLEXITY_LIMIT_INSNS      1000000 /* yes. 1M insns */
 #define MAX_TAIL_CALL_CNT 33
 
@@ -4392,8 +4447,8 @@ struct bpf_prog *bpf_prog_find_from_stack(void);
 int bpf_insn_array_init(struct bpf_map *map, const struct bpf_prog *prog);
 int bpf_insn_array_ready(struct bpf_map *map);
 void bpf_insn_array_release(struct bpf_map *map);
-void bpf_insn_array_adjust(struct bpf_map *map, u32 first, u32 len);
-void bpf_insn_array_adjust_after_remove(struct bpf_map *map, u32 off, u32 len);
+void bpf_insn_array_remap(struct bpf_map *map, const u32 *new_off, const u32 *new_tgt,
+			  u32 cnt, s32 grow);
 
 #ifdef CONFIG_BPF_SYSCALL
 void bpf_prog_update_insn_ptrs(struct bpf_prog *prog, u32 *offsets, void *image);

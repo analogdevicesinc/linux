@@ -177,6 +177,53 @@ void bpf_vlog_reset(struct bpf_verifier_log *log, u64 new_pos)
 		log->ubuf = NULL;
 }
 
+/*
+ * Take what was written since @pos out of the log. bpf_vlog_unstash() appends it to what is
+ * written in between. The text is in the buffer of the user and nowhere else. What the buffer
+ * doesn't hold, the start of the text if it's rolling and the end if it's fixed, is counted.
+ */
+int bpf_vlog_stash(struct bpf_verifier_log *log, u64 pos, struct bpf_vlog_stash *stash)
+{
+	u64 from = max(pos, log->start_pos), to = log->end_pos, i;
+	u32 off, n;
+
+	if (!log->ubuf)
+		from = to;
+	else if (log->level & BPF_LOG_FIXED)
+		to = clamp(log->len_total - 1ULL, from, to);
+	stash->lost_start = from - pos;
+	stash->lost_end = log->end_pos - to;
+	stash->len = to - from;
+	/* as large as the buffer at worst: fail before the OOM killer is called */
+	stash->buf = kvzalloc(stash->len, GFP_KERNEL_ACCOUNT | __GFP_NOWARN | __GFP_RETRY_MAYFAIL);
+	if (!stash->buf)
+		return -ENOMEM;
+	/* two pieces if it wraps around */
+	for (i = from; i < to && log->ubuf; i += n) {
+		div_u64_rem(i, log->len_total, &off);
+		n = min(to - i, log->len_total - off);
+		if (copy_from_user(stash->buf + (i - from), log->ubuf + off, n))
+			log->ubuf = NULL;
+	}
+	bpf_vlog_reset(log, pos);
+	return 0;
+}
+
+void bpf_vlog_unstash(struct bpf_verifier_log *log, struct bpf_vlog_stash *stash)
+{
+	u64 i, n;
+
+	log->end_pos += stash->lost_start;
+	for (i = 0; i < stash->len; i += n) {
+		n = min(stash->len - i, sizeof(log->kbuf) - 1);
+		bpf_log(log, "%.*s", (int)n, stash->buf + i);
+		cond_resched();
+	}
+	log->end_pos += stash->lost_end;
+	bpf_vlog_update_len_max(log, 1);
+	kvfree(stash->buf);
+}
+
 static void bpf_vlog_reverse_kbuf(char *buf, int len)
 {
 	int i, j;
@@ -637,8 +684,6 @@ static void print_reg_state(struct bpf_verifier_env *env,
 	const char *sep = "";
 
 	t = reg->type;
-	if (t == SCALAR_VALUE && reg->precise)
-		verbose(env, "P");
 	if (t == SCALAR_VALUE && tnum_is_const(reg->var_off)) {
 		bpf_verbose_snum(env, reg->var_off.value);
 		return;
@@ -666,6 +711,8 @@ static void print_reg_state(struct bpf_verifier_env *env,
 		verbose_a("parent_id=%d", reg->parent_id);
 	if (type_is_non_owning_ref(reg->type))
 		verbose_a("%s", "non_own_ref");
+	if (t == PTR_TO_FUNC && reg->func_set)
+		verbose_a("one_of=%d", env->func_sets[reg->func_set - 1]->cnt);
 	if (type_is_map_ptr(t)) {
 		if (reg->map_ptr->name[0])
 			verbose_a("map=%s", reg->map_ptr->name);
@@ -779,11 +826,10 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 			if (!reg->id)
 				continue;
 
-			verbose(env, " fp%d=iter_%s(id=%d,state=%s,depth=%u)",
+			verbose(env, " fp%d=iter_%s(id=%d,state=%s)",
 				(-i - 1) * BPF_REG_SIZE,
 				iter_type_str(reg->iter.btf, reg->iter.btf_id),
-				reg->id, iter_state_str(reg->iter.state),
-				reg->iter.depth);
+				reg->id, iter_state_str(reg->iter.state));
 			break;
 		case STACK_MISC:
 		case STACK_ZERO:
@@ -802,6 +848,11 @@ void print_verifier_state(struct bpf_verifier_env *env, const struct bpf_verifie
 		verbose(env, " cb");
 	if (state->in_async_callback_fn)
 		verbose(env, " async_cb");
+	/* the iterations of the loops in which they are kept apart */
+	for (i = 0; i < state->loop_stack_cnt; i++)
+		if (state->loop_stack[i].apart)
+			verbose(env, " iter(%d)=%u", state->loop_stack[i].loop_id,
+				state->loop_stack[i].trip);
 	if (state->loop_stack_cnt) {
 		verbose(env, " loop_stack=");
 		for (i = 0; i < state->loop_stack_cnt; i++)

@@ -96,7 +96,7 @@ l1_%=:	exit;						\
 SEC("socket")
 __description("varlen_map_value_access pruning")
 __failure __msg("R0 unbounded memory access")
-__failure_unpriv __msg_unpriv("R0 leaks addr")
+__failure_unpriv __msg_unpriv("R0 unbounded memory access")
 __flag(BPF_F_ANY_ALIGNMENT)
 __naked void varlen_map_value_access_pruning(void)
 {
@@ -110,8 +110,9 @@ __naked void varlen_map_value_access_pruning(void)
 	if r0 == 0 goto l0_%=;				\
 	r1 = *(u64*)(r0 + 0);				\
 	w2 = %[max_entries];				\
-	if r2 s> r1 goto l1_%=;				\
-	w1 = 0;						\
+	if r2 s<= r1 goto l3_%=;			\
+	goto l1_%=;					\
+l3_%=:	w1 = 0;						\
 l1_%=:	w1 <<= 2;					\
 	r0 += r1;					\
 	goto l2_%=;					\
@@ -193,7 +194,7 @@ l0_%=:	exit;						\
 
 SEC("tracepoint")
 __description("precision tracking for u32 spill/fill")
-__failure __msg("R0 min value is outside of the allowed memory range")
+__failure __msg("invalid access to map value, value_size=8 off=32 size=4")
 __naked void tracking_for_u32_spill_fill(void)
 {
 	asm volatile ("					\
@@ -202,7 +203,7 @@ __naked void tracking_for_u32_spill_fill(void)
 	w6 = 32;					\
 	if r0 == 0 goto l0_%=;				\
 	w6 = 4;						\
-l0_%=:	/* Additional insns to introduce a pruning point. */\
+l0_%=:	/* Additional insns to have one more place where paths meet. */\
 	call %[bpf_get_prandom_u32];			\
 	r3 = 0;						\
 	r3 = 0;						\
@@ -239,28 +240,21 @@ __naked void for_u32_spills_u64_fill(void)
 	call %[bpf_get_prandom_u32];			\
 	r6 = r0;					\
 	w7 = 0xffffffff;				\
-	/* Additional insns to introduce a pruning point. */\
-	r3 = 1;						\
-	r3 = 1;						\
-	r3 = 1;						\
-	r3 = 1;						\
+	r9 = 0xffffffff ll;				\
+	/* Additional insns to have a place where paths meet. */\
 	call %[bpf_get_prandom_u32];			\
 	if r0 == 0 goto l0_%=;				\
 	r3 = 1;						\
-l0_%=:	w3 /= 0;					\
+l0_%=:	r3 = 1;						\
 	/* u32 spills, u64 fill */			\
 	*(u32*)(r10 - 4) = r6;				\
 	*(u32*)(r10 - 8) = r7;				\
 	r8 = *(u64*)(r10 - 8);				\
 	/* if r8 != X goto pc+1  r8 known in fallthrough branch */\
-	if r8 != 0xffffffff goto l1_%=;			\
+	if r8 != r9 goto l1_%=;				\
 	r3 = 1;						\
-l1_%=:	/* if r8 == X goto pc+1  condition always true on first\
-	 * traversal, so starts backtracking to mark r8 as requiring\
-	 * precision. r7 marked as needing precision. r6 not marked\
-	 * since it's not tracked.			\
-	 */						\
-	if r8 == 0xffffffff goto l2_%=;			\
+l1_%=:	/* if r8 == X goto pc+1 */			\
+	if r8 == r9 goto l2_%=;				\
 	/* fails if r8 correctly marked unknown after fill. */\
 	w3 /= 0;					\
 l2_%=:	r0 = 0;						\
@@ -272,7 +266,8 @@ l2_%=:	r0 = 0;						\
 
 SEC("socket")
 __description("allocated_stack")
-__success __msg("processed 15 insns")
+/* every insn once: the state that wrote to the stack is within the state that did not */
+__success __msg("processed 14 insns")
 __success_unpriv __msg_unpriv("") __log_level(1) __retval(0)
 __naked void allocated_stack(void)
 {
@@ -337,12 +332,9 @@ l0_%=:	r1 = 42;					\
 	: __clobber_all);
 }
 
-/* Without checkpoint forcibly inserted at the back-edge a loop this
- * test would take a very long time to verify.
- */
+/* The number of trips is not known */
 SEC("kprobe")
-__failure __log_level(4)
-__msg("BPF program is too large.")
+__success
 __naked void short_loop1(void)
 {
 	asm volatile (

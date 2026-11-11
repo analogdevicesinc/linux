@@ -1648,7 +1648,7 @@ l0_%=:	r0 = 0;				\
  */
 SEC("socket")
 __description("bounds deduction cross sign boundary, two overlaps")
-__failure
+__failure __log_level(2)
 __msg("3: (2d) if r0 > r1 {{.*}} R0=scalar(smin=smin32=-128,smax=smax32=127)")
 /* smin=-128 includes point 0xffffffffffffff80 */
 __msg("frame pointer is read only")
@@ -1797,8 +1797,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 1")
-__msg("3: (b7) r0 = 0 {{.*}} R0=0")
 __msg("5: (b7) r0 = 1 {{.*}} R0=1")
+__msg("3: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_3(void *ctx)
 {
@@ -1818,8 +1818,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 2")
-__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __msg("6: (b7) r0 = 1 {{.*}} R0=1")
+__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_4(void *ctx)
 {
@@ -1840,8 +1840,8 @@ l1_%=:	r0 = 1;				\
 
 SEC("socket")
 __description("jset on same register, scalar value unknown branch 3")
-__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __msg("6: (b7) r0 = 1 {{.*}} R0=1")
+__msg("4: (b7) r0 = 0 {{.*}} R0=0")
 __success __log_level(2)
 __naked void jset_on_same_register_5(void *ctx)
 {
@@ -2160,6 +2160,74 @@ l0_%=:	r0 = 0;						\
 }
 
 /*
+ * -1 and 0 meet at the insn that forks. The state with [-1, 0] is kept there. The
+ * pushed state is within it, so it's not there that it is pushed to.
+ */
+SEC("socket")
+__description("maybe_fork_scalars: AND where paths meet rejects OOB")
+__failure __msg("invalid access to map value")
+__naked void and_scalar_fork_at_join_rejects_oob(void)
+{
+	asm volatile ("					\
+	r1 = 0;						\
+	*(u64*)(r10 - 8) = r1;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_hash_8b] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l0_%=;				\
+	r9 = r0;					\
+	r1 = *(u64*)(r9 + 0);				\
+	r6 = -1;					\
+	if r1 == 0 goto l1_%=;				\
+	r6 = 0;						\
+l1_%=:	r6 &= 8;					\
+	/* r6 is 8 (current) or 0 (pushed) */		\
+	r6 ^= 8;					\
+	/* pushed path: r6 = 8, OOB for value_size=8 */	\
+	r9 += r6;					\
+	r0 = *(u8*)(r9 + 0);				\
+l0_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_8b)
+	: __clobber_all);
+}
+
+SEC("socket")
+__description("maybe_fork_scalars: 32-bit AND of a 32-bit range where paths meet rejects OOB")
+__failure __msg("invalid access to map value")
+__naked void and32_scalar32_fork_at_join_rejects_oob(void)
+{
+	asm volatile ("					\
+	r1 = 0;						\
+	*(u64*)(r10 - 8) = r1;				\
+	r2 = r10;					\
+	r2 += -8;					\
+	r1 = %[map_hash_8b] ll;				\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l0_%=;				\
+	r9 = r0;					\
+	r1 = *(u64*)(r9 + 0);				\
+	w6 = -1;					\
+	if r1 == 0 goto l1_%=;				\
+	r6 = 0;						\
+l1_%=:	w6 &= 8;					\
+	/* r6 is 8 (current) or 0 (pushed) */		\
+	r6 ^= 8;					\
+	/* pushed path: r6 = 8, OOB for value_size=8 */	\
+	r9 += r6;					\
+	r0 = *(u8*)(r9 + 0);				\
+l0_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_8b)
+	: __clobber_all);
+}
+
+/*
  * The insn that forks is the head of a loop that scalar evolution counted. The state with
  * [-1, 0] is kept there, and the state with 0 that is split off is within it.
  */
@@ -2199,6 +2267,46 @@ l0_%=:	r0 = 0;						\
 	  __imm_addr(map_hash_8b)
 	: __clobber_all);
 }
+
+#define FORK						\
+	"r6 = *(u64*)(r9 + 0);"				\
+	"r6 s>>= 63;"					\
+	"r6 &= 4;"					\
+	"*(u64*)(r9 + 0) = r6;"
+#define FORK4 FORK FORK FORK FORK
+
+/*
+ * The pushed states of one block that don't differ in what is live are one state: 16 forks
+ * are not 2^16 states.
+ */
+SEC("socket")
+__description("maybe_fork_scalars: 16 forks in a block")
+__success __retval(0)
+__log_level(4)
+__msg("processed {{[0-9][0-9]?[0-9]?}} insns")
+__naked void and_scalar_16_forks_in_a_block(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64*)(r10 - 8) = r1;"
+	"r2 = r10;"
+	"r2 += -8;"
+	"r1 = %[map_hash_8b] ll;"
+	"call %[bpf_map_lookup_elem];"
+	"if r0 == 0 goto l0_%=;"
+	"r9 = r0;"
+	FORK4 FORK4 FORK4 FORK4
+"l0_%=:"
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_hash_8b)
+	: __clobber_all);
+}
+
+#undef FORK4
+#undef FORK
 
 /*
  * Last jump can be detected as always taken because the intersection of R5 and

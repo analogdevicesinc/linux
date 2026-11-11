@@ -10,7 +10,7 @@
  * The immediate dominator is printed by log_program() as the numeric column
  * immediately before the "<insn#>:" field of every "Program dump" line:
  *
- *   Program dump (scc? loop_header? idom insn#: live_regs_before):
+ *   Program dump (loop_header? idom insn#: live_regs_before):
  *            -1   0: ....... (b7) r0 = 0     <- idom(0) = -1 (subprog entry)
  *             0   1: ....... (07) r0 += 1    <- idom(1) = 0
  *             ^^^^^^
@@ -307,17 +307,16 @@ __naked void entry_is_loop_header(void)
 /*
  * Self-loop: insn 1 is its own predecessor. idom(1) must be the pre-header
  * (insn 0); the self-edge is ignored (idoms[pred] == -1 on the first pass, then
- * idoms_intersect(a == b) short-circuits). Program is rejected later for an
- * infinite loop, but the dump (and idoms) are printed before that.
+ * idoms_intersect(a == b) short-circuits). The loop can spin forever: the
+ * verifier adds may_goto to it.
  */
 SEC("socket")
-__failure
+__success
 __log_level(2)
 __msg("Program dump")
 __msg("{{.*}} -1   0: {{.*}} (85) call bpf_get_prandom_u32#7")
 __msg("{{.*}}  0   1: {{.*}} (a5) if r0 < 0xa goto pc-1")
 __msg("{{.*}}  1   2: {{.*}} (95) exit")
-__msg("infinite loop detected")
 __naked void self_loop(void)
 {
 	asm volatile ("					\

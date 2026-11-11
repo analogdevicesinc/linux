@@ -138,8 +138,8 @@ l0_%=:	r1 = r0;					\
 
 SEC("socket")
 __description("conditional loop")
-__failure __msg("infinite loop detected")
-__msg_unpriv("back-edge")
+__success
+__failure_unpriv __msg_unpriv("back-edge")
 __naked void conditional_loop(void)
 {
 	asm volatile ("					\
@@ -175,7 +175,7 @@ l1_%=:	r8 += r4;					\
 
 SEC("socket")
 __description("unconditional loop after conditional jump")
-__failure __msg("infinite loop detected")
+__failure __msg("loop at insn 2 never exits")
 __failure_unpriv __msg_unpriv("back-edge from insn 3 to 2")
 __naked void uncond_loop_after_cond_jmp(void)
 {
@@ -201,7 +201,7 @@ static unsigned long never_ending_subprog()
 SEC("socket")
 __description("unconditional loop after conditional jump")
 /* infinite loop is detected *after* check_cfg() */
-__failure __msg("infinite loop detected")
+__failure __msg("loop at insn 6 never exits")
 __naked void uncond_loop_in_subprog_after_cond_jmp(void)
 {
 	asm volatile ("					\

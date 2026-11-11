@@ -390,6 +390,17 @@ LIBBPF_API void bpf_program__set_ifindex(struct bpf_program *prog,
 LIBBPF_API const char *bpf_program__name(const struct bpf_program *prog);
 LIBBPF_API const char *bpf_program__section_name(const struct bpf_program *prog);
 LIBBPF_API bool bpf_program__autoload(const struct bpf_program *prog);
+
+/**
+ * @brief **bpf_program__set_autoload()** sets whether a BPF program is
+ * loaded automatically when its bpf_object is loaded.
+ *
+ * @param prog BPF program to update
+ * @param autoload true to load the program automatically, false to disable
+ * its loading
+ * @return 0 on success; -EINVAL if the object was already prepared or if the
+ * program is a subprogram
+ */
 LIBBPF_API int bpf_program__set_autoload(struct bpf_program *prog, bool autoload);
 LIBBPF_API bool bpf_program__autoattach(const struct bpf_program *prog);
 LIBBPF_API void bpf_program__set_autoattach(struct bpf_program *prog, bool autoattach);
@@ -473,6 +484,12 @@ LIBBPF_API int bpf_program__pin(struct bpf_program *prog, const char *path);
  * @return 0, on success; negative error code, otherwise
  */
 LIBBPF_API int bpf_program__unpin(struct bpf_program *prog, const char *path);
+
+/**
+ * @brief **bpf_program__unload()** unloads a BPF program, closing its fd.
+ *
+ * @param prog BPF program to unload
+ */
 LIBBPF_API void bpf_program__unload(struct bpf_program *prog);
 
 struct bpf_link;
@@ -1055,8 +1072,39 @@ LIBBPF_API int bpf_program__clear_flags(struct bpf_program *prog, __u32 flags);
  * interactions.
  */
 LIBBPF_API __u32 bpf_program__log_level(const struct bpf_program *prog);
+
+/**
+ * @brief **bpf_program__set_log_level()** sets the verifier log level used
+ * when the BPF program is loaded.
+ *
+ * Fails with -EBUSY once the enclosing bpf_object is loaded, unless the
+ * program's load strategy is BPF_PROG_LOAD_STRATEGY_MANUAL, as such a program
+ * can still be loaded afterwards with bpf_program__load().
+ *
+ * @param prog BPF program to set the log level for
+ * @param log_level verifier log level, 0 requests no logging on the first
+ * load attempt
+ * @return 0, on success; negative error code, otherwise
+ */
 LIBBPF_API int bpf_program__set_log_level(struct bpf_program *prog, __u32 log_level);
 LIBBPF_API const char *bpf_program__log_buf(const struct bpf_program *prog, size_t *log_size);
+
+/**
+ * @brief **bpf_program__set_log_buf()** sets the buffer the verifier log of
+ * the BPF program is written to when it is loaded.
+ *
+ * Fails with -EBUSY once the enclosing bpf_object is loaded, unless the
+ * program's load strategy is BPF_PROG_LOAD_STRATEGY_MANUAL, as such a program
+ * can still be loaded afterwards with bpf_program__load().
+ *
+ * @param prog BPF program to set the log buffer for
+ * @param log_buf buffer for the verifier log, or NULL to use the object's
+ * kernel_log_buf
+ * @param log_size size of @log_buf in bytes; must be 0 if @log_buf is NULL and
+ * non-zero otherwise
+ * @return 0, on success; -EINVAL if @log_buf and @log_size are inconsistent or
+ * @log_size exceeds UINT_MAX; -EBUSY as described above
+ */
 LIBBPF_API int bpf_program__set_log_buf(struct bpf_program *prog, char *log_buf, size_t log_size);
 
 LIBBPF_API struct bpf_func_info *bpf_program__func_info(const struct bpf_program *prog);
@@ -1493,6 +1541,7 @@ struct ring_buffer;
 struct ring;
 struct user_ring_buffer;
 
+/* Callback-based consumption is unsupported for BPF_F_RB_OVERWRITE maps. */
 typedef int (*ring_buffer_sample_fn)(void *ctx, void *data, size_t size);
 
 struct ring_buffer_opts {
@@ -1580,18 +1629,17 @@ LIBBPF_API int ring__map_fd(const struct ring *r);
  *
  * @param r A ringbuffer object.
  * @return The number of records consumed (or INT_MAX, whichever is less), or
- * a negative number if any of the callbacks return an error.
+ * a negative error code on failure.
  */
 LIBBPF_API int ring__consume(struct ring *r);
 
 /**
- * @brief **ring__consume_n()** consumes up to a requested amount of items from
- * a ringbuffer without event polling.
+ * @brief **ring__consume_n()** consumes up to a requested number of records
+ * from a ringbuffer without event polling.
  *
  * @param r A ringbuffer object.
- * @param n Maximum amount of items to consume.
- * @return The number of items consumed, or a negative number if any of the
- * callbacks return an error.
+ * @param n Maximum number of records to consume.
+ * @return The number of records consumed, or a negative error code on failure.
  */
 LIBBPF_API int ring__consume_n(struct ring *r, size_t n);
 
@@ -2116,6 +2164,54 @@ LIBBPF_API int libbpf_unregister_prog_handler(int handler_id);
  * @return program FD (>= 0) on success; negative error code on failure
  */
 LIBBPF_API int bpf_program__clone(struct bpf_program *prog, const struct bpf_prog_load_opts *opts);
+
+/**
+ * The program load strategy:
+ *
+ * - BPF_PROG_LOAD_STRATEGY_DISABLED: the program is not loaded.
+ * - BPF_PROG_LOAD_STRATEGY_AUTO: the program is autoloaded when the bpf_object is loaded.
+ * - BPF_PROG_LOAD_STRATEGY_MANUAL: the program is loaded and attached manually.
+ *   It is skipped by the skeleton's auto-attach, whatever its autoattach
+ *   setting is.
+ */
+enum bpf_prog_load_strategy {
+	BPF_PROG_LOAD_STRATEGY_DISABLED = 0,
+	BPF_PROG_LOAD_STRATEGY_AUTO,
+	BPF_PROG_LOAD_STRATEGY_MANUAL,
+};
+
+/**
+ * @brief **bpf_program__set_load_strategy()** sets the load strategy of a
+ * BPF program, controlling whether and when it gets loaded into the kernel.
+ *
+ * Can only be called before the enclosing bpf_object is prepared.
+ *
+ * @param prog BPF program to update
+ * @param strategy new load strategy for the program
+ * @return 0 on success; -EINVAL if the object was already prepared, if the
+ * strategy is not a valid one, or if the program is a subprogram
+ */
+LIBBPF_API int bpf_program__set_load_strategy(struct bpf_program *prog,
+					      enum bpf_prog_load_strategy strategy);
+
+/**
+ * @brief **bpf_program__load_strategy()** returns the current load strategy
+ * of a BPF program.
+ *
+ * @param prog BPF program to query
+ * @return current load strategy of the program
+ */
+LIBBPF_API enum bpf_prog_load_strategy bpf_program__load_strategy(const struct bpf_program *prog);
+
+/**
+ * @brief **bpf_program__load()** loads a MANUAL BPF program. The enclosing
+ * bpf_object must already be prepared.
+ *
+ * @param prog BPF program to load; non MANUAL programs, already loaded
+ * programs and subprograms are rejected.
+ * @return 0 on success; negative error code otherwise
+ */
+LIBBPF_API int bpf_program__load(struct bpf_program *prog);
 
 #ifdef __cplusplus
 } /* extern "C" */

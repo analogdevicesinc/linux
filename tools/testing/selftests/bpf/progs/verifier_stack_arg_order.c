@@ -127,8 +127,8 @@ __naked void stack_arg_pruning_load_after_call(void)
 /*
  * "bad_ptr": the first arg is 'long *', which is not a recognized pointer
  * type for static subprogs (not ctx, dynptr, or tagged).  btf_prepare_func_args()
- * sets arg_slot_cnt = 7 / stack_arg_cnt = 2, then fails with -EINVAL.  The
- * subprog is marked unreliable but the call still proceeds for static subprogs.
+ * fails with -EINVAL.  The subprog is marked unreliable but the call still
+ * proceeds for static subprogs.  The two loads through r11 make 2 stack arguments.
  */
 __noinline __used __naked
 static void subprog_bad_ptr_7args(long *a, int b, int c, int d, int e, int f, int g)
@@ -182,7 +182,7 @@ __naked void stack_arg_read_without_write_1(void)
 SEC("tc")
 __description("stack_arg: read with not-initialized caller write")
 __failure
-__msg("invalid read from uninitialized stack arg off 8")
+__msg("callee expects 7 args, stack arg1 is not initialized")
 __btf_func_path("btf__verifier_stack_arg_order.bpf.o")
 __naked void stack_arg_read_without_write_2(void)
 {
@@ -204,7 +204,7 @@ __naked void stack_arg_read_without_write_2(void)
 SEC("tc")
 __description("stack_arg: unreliable callee with too few stack args")
 __failure
-__msg("invalid read from uninitialized stack arg off 16")
+__msg("callee expects 7 args, stack arg2 is not initialized")
 __btf_func_path("btf__verifier_stack_arg_order.bpf.o")
 __naked void stack_arg_read_with_short_bridge_write(void)
 {

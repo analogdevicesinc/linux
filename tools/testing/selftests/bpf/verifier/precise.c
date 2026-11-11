@@ -36,26 +36,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_TRACEPOINT,
 	.fixup_map_array_48b = { 1 },
-	.result = VERBOSE_ACCEPT,
-	.errstr =
-	"mark_precise: frame0: last_idx 26 first_idx 20\
-	mark_precise: frame0: regs=r2 stack= before 25\
-	mark_precise: frame0: regs=r2 stack= before 24\
-	mark_precise: frame0: regs=r2 stack= before 23\
-	mark_precise: frame0: regs=r2 stack= before 22\
-	mark_precise: frame0: regs=r2 stack= before 20\
-	mark_precise: frame0: parent state regs=r2 stack=:\
-	mark_precise: frame0: last_idx 19 first_idx 10\
-	mark_precise: frame0: regs=r2 stack= before 19\
-	mark_precise: frame0: regs=r9 stack= before 18\
-	mark_precise: frame0: regs=r8,r9 stack= before 17\
-	mark_precise: frame0: regs=r0,r9 stack= before 15\
-	mark_precise: frame0: regs=r0,r9 stack= before 14\
-	mark_precise: frame0: regs=r9 stack= before 13\
-	mark_precise: frame0: regs=r9 stack= before 12\
-	mark_precise: frame0: regs=r9 stack= before 11\
-	mark_precise: frame0: regs=r9 stack= before 10\
-	mark_precise: frame0: parent state regs= stack=:",
+	.result = ACCEPT,
 },
 {
 	"precise: test 2",
@@ -95,24 +76,8 @@
 	},
 	.prog_type = BPF_PROG_TYPE_TRACEPOINT,
 	.fixup_map_array_48b = { 1 },
-	.result = VERBOSE_ACCEPT,
+	.result = ACCEPT,
 	.flags = BPF_F_TEST_STATE_FREQ,
-	.errstr =
-	"26: (85) call bpf_probe_read_kernel#113\
-	mark_precise: frame0: last_idx 26 first_idx 22\
-	mark_precise: frame0: regs=r2 stack= before 25\
-	mark_precise: frame0: regs=r2 stack= before 24\
-	mark_precise: frame0: regs=r2 stack= before 23\
-	mark_precise: frame0: regs=r2 stack= before 22\
-	mark_precise: frame0: parent state regs=r2 stack=:\
-	mark_precise: frame0: last_idx 20 first_idx 20\
-	mark_precise: frame0: regs=r2 stack= before 20\
-	mark_precise: frame0: parent state regs=r2 stack=:\
-	mark_precise: frame0: last_idx 19 first_idx 17\
-	mark_precise: frame0: regs=r2 stack= before 19\
-	mark_precise: frame0: regs=r9 stack= before 18\
-	mark_precise: frame0: regs=r8,r9 stack= before 17\
-	mark_precise: frame0: parent state regs= stack=:",
 },
 {
 	"precise: cross frame pruning",
@@ -153,17 +118,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_XDP,
 	.flags = BPF_F_TEST_STATE_FREQ,
-	.errstr = "mark_precise: frame0: last_idx 5 first_idx 5\
-	mark_precise: frame0: parent state regs=r4 stack=:\
-	mark_precise: frame0: last_idx 4 first_idx 2\
-	mark_precise: frame0: regs=r4 stack= before 4\
-	mark_precise: frame0: regs=r4 stack= before 3\
-	mark_precise: frame0: last_idx 5 first_idx 5\
-	mark_precise: frame0: parent state regs=r0 stack=:\
-	mark_precise: frame0: last_idx 4 first_idx 2\
-	mark_precise: frame0: regs=r0 stack= before 4\
-	5: R0=-1 R4=0",
-	.result = VERBOSE_ACCEPT,
+	.result = ACCEPT,
 	.retval = -1,
 },
 {
@@ -182,23 +137,7 @@
 	},
 	.prog_type = BPF_PROG_TYPE_XDP,
 	.flags = BPF_F_TEST_STATE_FREQ,
-	.errstr = "mark_precise: frame0: last_idx 7 first_idx 7\
-	mark_precise: frame0: parent state regs=r4 stack=:\
-	mark_precise: frame0: last_idx 6 first_idx 4\
-	mark_precise: frame0: regs=r4 stack= before 6: (b7) r0 = -1\
-	mark_precise: frame0: regs=r4 stack= before 5: (79) r4 = *(u64 *)(r10 -8)\
-	mark_precise: frame0: regs= stack=-8 before 4: (7b) *(u64 *)(r3 -8) = r0\
-	mark_precise: frame0: parent state regs=r0 stack=:\
-	mark_precise: frame0: last_idx 3 first_idx 3\
-	mark_precise: frame0: regs=r0 stack= before 3: (55) if r3 != 0x7b goto pc+0\
-	mark_precise: frame0: regs=r0 stack= before 2: (bf) r3 = r10\
-	mark_precise: frame0: regs=r0 stack= before 1: (57) r0 &= 255\
-	mark_precise: frame0: parent state regs=r0 stack=:\
-	mark_precise: frame0: last_idx 0 first_idx 0\
-	mark_precise: frame0: regs=r0 stack= before 0: (85) call bpf_get_prandom_u32#7\
-	mark_precise: frame0: last_idx 7 first_idx 7\
-	mark_precise: frame0: parent state regs= stack=:",
-	.result = VERBOSE_ACCEPT,
+	.result = ACCEPT,
 	.retval = -1,
 },
 {

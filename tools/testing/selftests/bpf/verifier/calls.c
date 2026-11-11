@@ -455,8 +455,47 @@
 	BPF_EXIT_INSN(),
 	},
 	.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-	.errstr = "recursive call",
+	.errstr = "calls itself",
 	.result = REJECT,
+},
+{
+	"calls: a timer callback calls the main prog",
+	.insns = {
+	/* bpf_timer_set_callback(bpf_map_lookup_elem(&timer_map, &(int){0}), cb); */
+	BPF_ST_MEM(BPF_W, BPF_REG_10, -4, 0),
+	BPF_MOV64_REG(BPF_REG_2, BPF_REG_10),
+	BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, -4),
+	BPF_LD_MAP_FD(BPF_REG_1, 0),
+	BPF_EMIT_CALL(BPF_FUNC_map_lookup_elem),
+	BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 4),
+	BPF_MOV64_REG(BPF_REG_1, BPF_REG_0),
+	BPF_RAW_INSN(BPF_LD | BPF_IMM | BPF_DW, BPF_REG_2, BPF_PSEUDO_FUNC, 0, 4),
+	BPF_RAW_INSN(0, 0, 0, 0, 0),
+	BPF_EMIT_CALL(BPF_FUNC_timer_set_callback),
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_EXIT_INSN(),
+	/* cb */
+	BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 1, 0, -14),
+	BPF_MOV64_IMM(BPF_REG_0, 0),
+	BPF_EXIT_INSN(),
+	},
+	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
+	.fixup_map_timer = { 3 },
+	.errstr = "recursive call of the main program",
+	.result = REJECT,
+	/* libbpf makes the main prog global, and then the arguments of the call do not match */
+	.func_info = { { 0, 4 /* main_prog */ }, { 13, 5 /* cb */ } },
+	.func_info_cnt = 2,
+	.btf_strings = "\0int\0ctx\0main_prog\0cb",
+	.btf_types = {
+	/* 1: int            */ BTF_TYPE_INT_ENC(1, BTF_INT_SIGNED, 0, 32, 4),
+	/* 2: void*          */ BTF_PTR_ENC(0),
+	/* 3: int __(void *) */ BTF_FUNC_PROTO_ENC(1, 1),
+				BTF_FUNC_PROTO_ARG_ENC(5, 2),
+	/* 4: main_prog      */ BTF_FUNC_ENC(9, 3),
+	/* 5: cb             */ BTF_FUNC_ENC(19, 3),
+	BTF_END_RAW
+	}
 },
 {
 	"calls: conditional call",
@@ -559,8 +598,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.prog_type = BPF_PROG_TYPE_SCHED_CLS,
-	.errstr = "infinite loop detected",
-	.result = REJECT,
+	.result = ACCEPT,
 },
 {
 	"calls: using r0 returned by callee",
@@ -812,7 +850,7 @@
 	BPF_EXIT_INSN(),
 	},
 	.prog_type = BPF_PROG_TYPE_TRACEPOINT,
-	.errstr = "recursive call",
+	.errstr = "calls itself",
 	.result = REJECT,
 },
 {
@@ -1325,6 +1363,54 @@
 	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P */
 	BPF_EXIT_INSN(),
 	/* P */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P1 */
+	BPF_EXIT_INSN(),
+	/* P1 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P2 */
+	BPF_EXIT_INSN(),
+	/* P2 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P3 */
+	BPF_EXIT_INSN(),
+	/* P3 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P4 */
+	BPF_EXIT_INSN(),
+	/* P4 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P5 */
+	BPF_EXIT_INSN(),
+	/* P5 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P6 */
+	BPF_EXIT_INSN(),
+	/* P6 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P7 */
+	BPF_EXIT_INSN(),
+	/* P7 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P8 */
+	BPF_EXIT_INSN(),
+	/* P8 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P9 */
+	BPF_EXIT_INSN(),
+	/* P9 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P10 */
+	BPF_EXIT_INSN(),
+	/* P10 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P11 */
+	BPF_EXIT_INSN(),
+	/* P11 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P12 */
+	BPF_EXIT_INSN(),
+	/* P12 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P13 */
+	BPF_EXIT_INSN(),
+	/* P13 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P14 */
+	BPF_EXIT_INSN(),
+	/* P14 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P15 */
+	BPF_EXIT_INSN(),
+	/* P15 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P16 */
+	BPF_EXIT_INSN(),
+	/* P16 */
 	BPF_MOV64_IMM(BPF_REG_0, 0),
 	BPF_EXIT_INSN(),
 	},
@@ -1387,10 +1473,59 @@
 	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P */
 	BPF_EXIT_INSN(),
 	/* P */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P1 */
+	BPF_EXIT_INSN(),
+	/* P1 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P2 */
+	BPF_EXIT_INSN(),
+	/* P2 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P3 */
+	BPF_EXIT_INSN(),
+	/* P3 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P4 */
+	BPF_EXIT_INSN(),
+	/* P4 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P5 */
+	BPF_EXIT_INSN(),
+	/* P5 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P6 */
+	BPF_EXIT_INSN(),
+	/* P6 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P7 */
+	BPF_EXIT_INSN(),
+	/* P7 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P8 */
+	BPF_EXIT_INSN(),
+	/* P8 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P9 */
+	BPF_EXIT_INSN(),
+	/* P9 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P10 */
+	BPF_EXIT_INSN(),
+	/* P10 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P11 */
+	BPF_EXIT_INSN(),
+	/* P11 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P12 */
+	BPF_EXIT_INSN(),
+	/* P12 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P13 */
+	BPF_EXIT_INSN(),
+	/* P13 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P14 */
+	BPF_EXIT_INSN(),
+	/* P14 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P15 */
+	BPF_EXIT_INSN(),
+	/* P15 */
+	BPF_RAW_INSN(BPF_JMP|BPF_CALL, 0, 1, 0, 1), /* call P16 */
+	BPF_EXIT_INSN(),
+	/* P16 */
 	BPF_MOV64_IMM(BPF_REG_0, 0),
 	BPF_EXIT_INSN(),
 	},
 	.prog_type = BPF_PROG_TYPE_XDP,
+	.flags = F_NEEDS_JIT_ENABLED,
 	.errstr = "call stack",
 	.result = REJECT,
 },

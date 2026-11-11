@@ -26,8 +26,10 @@ int BPF_PROG(invalid_dynptr_cross_frame, struct sk_buff *skb, struct Qdisc *sch,
 	bpf_dynptr_from_skb((struct __sk_buff *)skb, 0, &ptr);
 
 	hdr = bpf_dynptr_slice(&ptr, 0, NULL, sizeof(*hdr));
-	if (!hdr)
+	if (!hdr) {
+		bpf_kfree_skb(skb);
 		return NET_XMIT_DROP;
+	}
 
 	free_skb(skb);
 

@@ -1032,6 +1032,106 @@ l0_%=:	r0 = 0;						\
 	: __clobber_all);
 }
 
+/* r2 = pkt, r3 = pkt_end, r4 = unknown. 54 bytes from r2 are in the packet. */
+#define PKT_54_BYTES(insns)						\
+	asm volatile ("							\
+	r2 = *(u32*)(r1 + %[__sk_buff_data]);				\
+	r3 = *(u32*)(r1 + %[__sk_buff_data_end]);			\
+	r4 = *(u32*)(r1 + %[__sk_buff_mark]);				\
+	r5 = r2;							\
+	r5 += 54;							\
+	if r5 > r3 goto l0_%=;						\
+	" insns "							\
+l0_%=:	r0 = 0;								\
+	exit;								\
+"	:								\
+	: __imm_const(__sk_buff_data, offsetof(struct __sk_buff, data)),	\
+	  __imm_const(__sk_buff_data_end, offsetof(struct __sk_buff, data_end)), \
+	  __imm_const(__sk_buff_mark, offsetof(struct __sk_buff, mark))	\
+	: __clobber_all)
+
+SEC("tc")
+__description("direct packet access: checked pointer plus non-negative unknown keeps range")
+__success __retval(0) __flag(BPF_F_ANY_ALIGNMENT)
+__naked void pkt_add_unknown_keeps_range(void)
+{
+	PKT_54_BYTES("if r4 > 38 goto l0_%=;"
+		     "r2 += r4;"
+		     "r0 = *(u64*)(r2 + 8);");
+}
+
+SEC("tc")
+__description("direct packet access: checked pointer plus unknown that may be negative")
+__failure __msg("invalid access to packet, off=16 size=1, R2(id={{[0-9]+}},off=16,r=0)")
+__naked void pkt_add_negative_clears_range(void)
+{
+	PKT_54_BYTES("if r4 > 8 goto l0_%=;"
+		     "r4 += -4;"
+		     "r2 += 20;"
+		     "r2 += r4;"
+		     "r0 = *(u8*)(r2 + 0);");
+}
+
+/* The byte is in the packet, but a range that umax gets to is not kept */
+SEC("tc")
+__description("direct packet access: checked pointer plus unknown that can get to the range")
+__failure __msg("invalid access to packet, off=0 size=1, R2(id={{[0-9]+}},off=0,r=0)")
+__naked void pkt_add_up_to_range_clears_range(void)
+{
+	PKT_54_BYTES("if r4 < 1 goto l0_%=;"
+		     "if r4 > 54 goto l0_%=;"
+		     "r2 += r4;"
+		     "r0 = *(u8*)(r2 - 1);");
+}
+
+/* If r2 kept the id of r6, the check of r2 + 100 would give 107 bytes to r6 */
+SEC("tc")
+__description("direct packet access: sum that keeps range is checked, old pointer is used")
+__failure __msg("invalid access to packet, off=106 size=1, R6(id=0,off=106,r=54)")
+__naked void pkt_add_unknown_gets_new_id(void)
+{
+	PKT_54_BYTES("r6 = r2;"
+		     "r4 &= 7;"
+		     "r2 += r4;"
+		     "r5 = r2; r5 += 100;"
+		     "if r5 > r3 goto l0_%=;"
+		     "r0 = *(u8*)(r6 + 106);");
+}
+
+/*
+ * r4 is 0, 8 .. 48, but its umax is 50. 16 bytes from r2 = pkt + r4 are in the packet: r=66.
+ * Then 0 or 8 is added: 8 bytes are left. var_off makes umax 56, not 58, so r=64, not 66.
+ */
+SEC("tc")
+__description("direct packet access: var_off lowers umax of a sum that keeps range")
+__failure __msg("invalid access to packet, off=64 size=1, R2(id={{[0-9]+}},off=64,r=64)")
+__naked void pkt_add_unknown_var_off(void)
+{
+	PKT_54_BYTES("r4 &= 0x38;"
+		     "if r4 > 50 goto l0_%=;"
+		     "r2 += r4;"
+		     "r5 = r2; r5 += 16;"
+		     "if r5 > r3 goto l0_%=;"
+		     "r4 &= 8;"
+		     "r2 += r4;"
+		     "r0 = *(u8*)(r2 + 7);"
+		     "r0 = *(u8*)(r2 + 8);");
+}
+
+/* r4 is 4, 12 .. 36. Only its step says that pkt + 4 + r4 is a multiple of 8. */
+SEC("tc")
+__description("direct packet access: checked pointer plus loop counter, alignment")
+__success __retval(0) __flag(BPF_F_STRICT_ALIGNMENT)
+__naked void pkt_add_counter_alignment(void)
+{
+	PKT_54_BYTES("r4 = 4;"
+		     "l1_%=: r5 = r2; r5 += 4;"
+		     "r5 += r4;"
+		     "r0 = *(u64*)(r5 + 6);"
+		     "r4 += 8;"
+		     "if r4 < 40 goto l1_%=;");
+}
+
 SEC("tc")
 __description("direct packet access: no pruning of a path whose checks prove fewer bytes")
 __failure __msg("invalid access to packet, off=255 size=8")

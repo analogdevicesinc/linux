@@ -1023,7 +1023,7 @@ static void btf_dump_emit_decl_tag(struct btf_dump *d, const struct btf_type *t)
 	const char *name = btf_name_of(d, t->name_off);
 
 	if (btf_kflag(t))
-		btf_dump_printf(d, " __attribute__((%s))", name);
+		btf_dump_printf(d, " %s", name);
 	else
 		btf_dump_printf(d, " __attribute__((btf_decl_tag(\"%s\")))", name);
 }
@@ -1033,10 +1033,11 @@ static void btf_dump_emit_decl_tag(struct btf_dump *d, const struct btf_type *t)
  * tags of one type form a run that binary search finds the start of, in a
  * fixed order so that the same BTF always renders the same C.
  */
-static void btf_dump_emit_decl_tags(struct btf_dump *d, __u32 id, int comp_idx)
+static int btf_dump_emit_decl_tags(struct btf_dump *d, __u32 id, int comp_idx)
 {
 	size_t i, lo = 0, hi = d->decl_tag_cnt, mid;
 	const struct btf_type *t;
+	int cnt = 0;
 
 	/* lower bound on target_id */
 	while (lo < hi) {
@@ -1051,9 +1052,13 @@ static void btf_dump_emit_decl_tags(struct btf_dump *d, __u32 id, int comp_idx)
 	for (i = lo; i < d->decl_tag_cnt && d->decl_tags[i].target_id == id; i++) {
 		t = btf__type_by_id(d->btf, d->decl_tags[i].tag_id);
 
-		if (btf_decl_tag(t)->component_idx == comp_idx)
+		if (btf_decl_tag(t)->component_idx == comp_idx) {
 			btf_dump_emit_decl_tag(d, t);
+			cnt++;
+		}
 	}
+
+	return cnt;
 }
 
 static void btf_dump_emit_struct_def(struct btf_dump *d,
@@ -1592,12 +1597,12 @@ static void btf_dump_emit_type_chain(struct btf_dump *d,
 			break;
 		case BTF_KIND_TYPE_TAG:
 			btf_dump_emit_mods(d, decls);
+			/* decl tags on the type tag are printed in its place */
+			if (btf_dump_emit_decl_tags(d, id, -1))
+				break;
 			name = btf_name_of(d, t->name_off);
 			if (btf_kflag(t))
-				btf_dump_printf(d, " __attribute__((%s))", name);
-			else if (strcmp(name, "arena") == 0)
-				/* the tag denotes a pointer into the BPF arena address space */
-				btf_dump_printf(d, " __attribute__((address_space(1))) __attribute__((btf_type_tag(\"arena\")))");
+				btf_dump_printf(d, " %s", name);
 			else
 				btf_dump_printf(d, " __attribute__((btf_type_tag(\"%s\")))", name);
 			break;
@@ -2567,7 +2572,7 @@ static int btf_dump_type_data_check_zero(struct btf_dump *d,
 			bit_sz = btf_member_bitfield_size(t, i);
 			err = btf_dump_type_data_check_zero(d, mtype, m->type, data + moffset / 8,
 							    moffset % 8, bit_sz);
-			if (err != ENODATA)
+			if (err != -ENODATA)
 				return err;
 		}
 		return -ENODATA;

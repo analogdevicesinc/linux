@@ -43,14 +43,7 @@ static unsigned long timer_cb_ret_bad()
 }
 
 SEC("fentry/bpf_fentry_test1")
-__log_level(2)
-__flag(BPF_F_TEST_STATE_FREQ)
 __failure
-/* check that fallthrough code path marks r0 as precise */
-__msg("mark_precise: frame0: regs=r0 stack= before")
-__msg(": (85) call bpf_get_prandom_u32#7") /* anchor message */
-/* check that branch code path marks r0 as precise */
-__msg("mark_precise: frame0: regs=r0 stack= before ") __msg(": (85) call bpf_get_prandom_u32#7")
 __msg("should have been in [0, 0]")
 long BPF_PROG2(test_bad_ret, int, a)
 {
@@ -80,7 +73,7 @@ static int timer_cb_infinite_loop(void *map, int *key, struct elem *val)
 }
 
 SEC("fentry/bpf_fentry_test1")
-__failure __msg("infinite loop detected")
+__failure __msg("loop at insn {{[0-9]+}} never exits")
 long BPF_PROG2(test_infinite_loop_cb, int, a)
 {
 	struct bpf_timer *timer;

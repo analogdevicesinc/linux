@@ -227,11 +227,11 @@ int fetch_r0(const void *ctx)
 #if defined(ENABLE_ATOMICS_TESTS) && defined(__BPF_FEATURE_ADDR_SPACE_CAST)
 	asm volatile (
 	"r1 = %[fetch_src_r0_value] ll;"
-	"r1 = addr_space_cast(r1, 0x0, 0x1);"
+	"r1 = addr_space_cast(r1, 0, 1);"
 	"r0 = 0x1100000011 ll;"
 	".8byte %[fetch_src_r0_insn];"
 	"r2 = %[fetch_src_r0_result] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r0;"
 	:
 	: __imm_addr(fetch_src_r0_value),
@@ -242,16 +242,16 @@ int fetch_r0(const void *ctx)
 
 	asm volatile (
 	"r0 = %[fetch_dst_r0_value] ll;"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 0x1100000011 ll;"
 	".8byte %[fetch_dst_r0_insn];"
 	"r2 = %[fetch_dst_r0_result] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r1;"
 	/* r0 is only read by the atomic, so it must still be the pointer. */
 	"r3 = *(u64 *)(r0 + 0);"
 	"r2 = %[fetch_dst_r0_readback] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r3;"
 	:
 	: __imm_addr(fetch_dst_r0_value),
@@ -363,17 +363,17 @@ int uaf(const void *ctx)
 	asm volatile (
 	"r0 = %[page];"
 	"r0 += 4096;"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 1;"
 	"r2 = %[uaf_r0_before_dst_r0] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r0;"
 	".8byte %[fetch_dst_r0];"
 	"r2 = %[uaf_r0_after_dst_r0] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r0;"
 	"r2 = %[uaf_r1_after_dst_r0] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r1;"
 	: : [page]"r"(page64),
 	    __imm_insn(fetch_dst_r0,
@@ -387,11 +387,11 @@ int uaf(const void *ctx)
 	asm volatile (
 	"r1 = %[page];"
 	"r1 += 4096;"
-	"r1 = addr_space_cast(r1, 0x0, 0x1);"
+	"r1 = addr_space_cast(r1, 0, 1);"
 	"r0 = 1;"
 	".8byte %[fetch_src_r0];"
 	"r2 = %[uaf_r0_after_src_r0] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r0;"
 	: : [page]"r"(page64),
 	    __imm_insn(fetch_src_r0,
@@ -409,10 +409,10 @@ int uaf(const void *ctx)
 	asm volatile (
 	"r1 = %[page];"
 	"r1 += 4096;"
-	"r1 = addr_space_cast(r1, 0x0, 0x1);"
+	"r1 = addr_space_cast(r1, 0, 1);"
 	"r3 = *(u64 *)(r1 + 0);"
 	"r2 = %[uaf_reread] ll;"
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"
+	"r2 = addr_space_cast(r2, 0, 1);"
 	"*(u64 *)(r2 + 0) = r3;"
 	: : [page]"r"(page64),
 	    __imm_addr(uaf_reread)
@@ -460,10 +460,10 @@ int load_acquire(const void *ctx)
 #define LOAD_ACQUIRE_ARENA(SIZEOP, SIZE, SRC, DST)	\
 	{ asm volatile (				\
 	"r1 = %[" #SRC "] ll;"				\
-	"r1 = addr_space_cast(r1, 0x0, 0x1);"		\
+	"r1 = addr_space_cast(r1, 0, 1);"		\
 	".8byte %[load_acquire_insn];"			\
 	"r3 = %[" #DST "] ll;"				\
-	"r3 = addr_space_cast(r3, 0x0, 0x1);"		\
+	"r3 = addr_space_cast(r3, 0, 1);"		\
 	"*(" #SIZE " *)(r3 + 0) = r2;"			\
 	:						\
 	: __imm_addr(SRC),				\
@@ -515,7 +515,7 @@ int store_release(const void *ctx)
 	{ asm volatile (			\
 	"r1 = " VAL ";"				\
 	"r2 = %[" #DST "] ll;"			\
-	"r2 = addr_space_cast(r2, 0x0, 0x1);"	\
+	"r2 = addr_space_cast(r2, 0, 1);"	\
 	".8byte %[store_release_insn];"		\
 	:					\
 	: __imm_addr(DST),			\

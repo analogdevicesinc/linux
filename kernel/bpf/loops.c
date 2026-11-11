@@ -306,36 +306,100 @@ int bpf_loop_at_index(struct bpf_verifier_env *env, u32 idx)
 }
 
 /*
- * Collect conditional jumps within n's loop that dominate 'n' and have
- * a successor outside the loop, nearest first.
+ * Collect conditional jumps within n's loop that dominate 'n' and leave
+ * the loop on one edge, see bpf_edge_leaves_loop(), nearest first.
+ * A jump that cannot count the iterations takes no place, see bpf_scev_jump_counts().
  */
-static void find_dominating_conditions(struct bpf_verifier_env *env, int n,
-				       struct bpf_backedge *backedge)
+static int find_dominating_conditions(struct bpf_verifier_env *env, int n,
+				      struct bpf_backedge *backedge)
 {
 	struct bpf_insn *insns = env->prog->insnsi;
 	bool t_exits_loop, f_exits_loop;
-	int n_loop, t_loop, f_loop;
 	int *idoms = env->idoms;
+	int n_loop, counts;
 
 	n_loop = bpf_loop_at_index(env, n);
 	if (idoms_intersect(env, n, n_loop) != n_loop)
-		return;
+		return 0;
 	while (n >= 0) {
 		if (is_cond_jmp_insn(&insns[n]) && bpf_loop_at_index(env, n) == n_loop) {
-			t_loop = bpf_loop_at_index(env, n + insns[n].off + 1);
-			f_loop = bpf_loop_at_index(env, n + 1);
-			t_exits_loop = t_loop != n_loop && !bpf_is_nested_loop(env, t_loop, n_loop);
-			f_exits_loop = f_loop != n_loop && !bpf_is_nested_loop(env, f_loop, n_loop);
-			if (t_exits_loop || f_exits_loop) {
+			t_exits_loop = bpf_edge_leaves_loop(env, n_loop, n, n + insns[n].off + 1);
+			f_exits_loop = bpf_edge_leaves_loop(env, n_loop, n, n + 1);
+			/* latches[0] is the latch: it has to leave the loop itself */
+			if ((t_exits_loop || f_exits_loop) &&
+			    (backedge->latches_cnt || bpf_jump_leaves_loop(env, n_loop, n))) {
+				counts = !backedge->latches_cnt ? 1 :
+					 bpf_scev_jump_counts(env, n_loop, n, t_exits_loop);
+				if (counts < 0)
+					return counts;
+				if (!counts)
+					goto next;
 				if (backedge->latches_cnt == MAX_LATCHES)
-					return;
+					return 0;
+				if (t_exits_loop)
+					backedge->taken_leaves |= BIT(backedge->latches_cnt);
 				backedge->latches[backedge->latches_cnt++] = n;
 			}
 		}
+next:
 		if (n == n_loop)
 			break;
 		n = idoms[n];
 	}
+	return 0;
+}
+
+/*
+ * Without @flags: the jumps that leave a loop themselves. That tells where the verifier may add
+ * may_goto. It takes the constants that hold with these edges to follow a flag.
+ * Once more after scalar evolution, which knows the jumps that count. The flags that were found
+ * are remembered.
+ */
+int bpf_find_latches(struct bpf_verifier_env *env, bool flags)
+{
+	struct bpf_insn_aux_data *aux = env->insn_aux_data;
+	struct bpf_backedge *backedge;
+	struct bpf_loop *loop;
+	int i, j, k, err;
+
+	if (flags) {
+		err = bpf_compute_leave_conds(env);
+		if (err)
+			return err;
+	}
+	for (i = 0; i < env->prog->len; i++) {
+		loop = aux[i].loop;
+		if (!loop)
+			continue;
+		for (j = 0; j < loop->backedges_cnt; j++) {
+			backedge = &loop->backedges[j];
+			backedge->latches_cnt = 0;
+			backedge->taken_leaves = 0;
+			/*
+			 * In theory, the backedge->from and it's latch can reside in
+			 * an inner loop of `i`, e.g.:
+			 *
+			 *  1:  r7 += 1;
+			 *  2:  r6 += 1;
+			 *      if r7 == 2 goto 1b;
+			 *      if r6 < 2 goto 2b;
+			 *
+			 * For now, let's assume that latches are unknown for such cases.
+			 * (GCC/LLVM handle this by inserting artificial cfg nodes).
+			 */
+			if (bpf_loop_at_index(env, backedge->from) != i)
+				continue;
+			err = find_dominating_conditions(env, backedge->from, backedge);
+			if (err)
+				return err;
+			for (k = 1; flags && k < backedge->latches_cnt; k++)
+				if ((env->log.level & BPF_LOG_LEVEL2) &&
+				    !bpf_jump_leaves_loop(env, i, backedge->latches[k]))
+					bpf_log(&env->log, "loop at %d, exit by way of a flag at %d\n",
+						i, backedge->latches[k]);
+		}
+	}
+	return 0;
 }
 
 /*
@@ -458,6 +522,30 @@ bool bpf_is_nested_loop(struct bpf_verifier_env *env, int inner_header, int oute
 	return false;
 }
 
+/* Whether the conditional jump at @n, in the loop @h or in a loop nested in it, leaves @h */
+bool bpf_jump_leaves_loop(struct bpf_verifier_env *env, int h, int n)
+{
+	struct bpf_insn *insn = &env->prog->insnsi[n];
+	u8 class = BPF_CLASS(insn->code), op = BPF_OP(insn->code);
+	int t, f;
+
+	if ((class != BPF_JMP && class != BPF_JMP32) || op == BPF_JA || op == BPF_CALL ||
+	    op == BPF_EXIT || op == BPF_JCOND)
+		return false;
+	t = bpf_loop_at_index(env, n + insn->off + 1);
+	f = bpf_loop_at_index(env, n + 1);
+	return (t != h && !bpf_is_nested_loop(env, t, h)) ||
+	       (f != h && !bpf_is_nested_loop(env, f, h));
+}
+
+/* The same for an insn that is in the loop @h itself */
+bool bpf_insn_leaves_loop(struct bpf_verifier_env *env, int h, int n)
+{
+	if (bpf_loop_at_index(env, n) != h)
+		return false;
+	return bpf_jump_leaves_loop(env, h, n);
+}
+
 int bpf_compute_loops(struct bpf_verifier_env *env)
 {
 	int i, j, k, s, t, iloop, sloop, err = 0, len = env->prog->len;
@@ -482,30 +570,9 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 		if (err)
 			goto out;
 	}
-	/* find latches */
-	for (i = 0; i < len; i++) {
-		loop = aux[i].loop;
-		if (!loop)
-			continue;
-		for (j = 0; j < loop->backedges_cnt; j++) {
-			backedge = &loop->backedges[j];
-			/*
-			 * In theory, the backedge->from and it's latch can reside in
-			 * an inner loop of `i`, e.g.:
-			 *
-			 *  1:  r7 += 1;
-			 *  2:  r6 += 1;
-			 *      if r7 == 2 goto 1b;
-			 *      if r6 < 2 goto 2b;
-			 *
-			 * For now, let's assume that latches are unknown for such cases.
-			 * (GCC/LLVM handle this by inserting artificial cfg nodes).
-			 */
-			if (bpf_loop_at_index(env, backedge->from) != i)
-				continue;
-			find_dominating_conditions(env, backedge->from, backedge);
-		}
-	}
+	err = bpf_find_latches(env, false);
+	if (err)
+		goto out;
 	/* find exits */
 	for (i = 0; i < len; i++) {
 		iloop = aux[i].loop ? i : aux[i].loop_header;
@@ -556,7 +623,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				 *  s: ...
 				 *   }
 				 */
-				/* Enclosing loops inherit the overflow, see below */
+				/* Enclosing loops get nested_exits_overflow, see below */
 				if (aux[t].loop->exits_overflow)
 					break;
 				err = add_exit(aux[t].loop, i, s);
@@ -573,7 +640,7 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 		if (!loop || !loop->exits_overflow)
 			continue;
 		for (t = aux[i].loop_header; t >= 0; t = aux[t].loop_header)
-			aux[t].loop->exits_overflow = true;
+			aux[t].loop->nested_exits_overflow = true;
 	}
 
 	if (env->log.level & BPF_LOG_LEVEL2) {
@@ -588,6 +655,8 @@ int bpf_compute_loops(struct bpf_verifier_env *env)
 				bpf_log(log, ", irreducible");
 			if (loop->exits_overflow)
 				bpf_log(log, ", too many exits");
+			if (loop->nested_exits_overflow)
+				bpf_log(log, ", too many exits of a nested loop");
 			bpf_log(log, "\n");
 			for (j = 0; j < loop->backedges_cnt; j++) {
 				backedge = &loop->backedges[j];

@@ -11,6 +11,8 @@
 
 struct bpf_ksock *bpf_ksock_create(const struct bpf_ksock_create_opts *opts,
 				   u32 opts__sz, int *err__uninit) __ksym;
+int bpf_ksock_bind(struct bpf_ksock *ks, const union bpf_ksock_addr *addr,
+		   u32 addr__sz) __ksym;
 int bpf_ksock_connect(struct bpf_ksock *ks, const union bpf_ksock_addr *addr,
 		      u32 addr__sz) __ksym;
 struct bpf_ksock *bpf_ksock_acquire(struct bpf_ksock *ks) __ksym;

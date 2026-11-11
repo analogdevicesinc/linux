@@ -257,8 +257,6 @@ __naked void ldsx_ctx_8(void)
 	: __clobber_all);
 }
 
-#ifdef __BPF_FEATURE_ADDR_SPACE_CAST
-
 struct {
 	__uint(type, BPF_MAP_TYPE_ARENA);
 	__uint(map_flags, BPF_F_MMAPABLE);
@@ -276,18 +274,18 @@ __jited("movslq	0x10(%rdi,%r12), %r15")
 __jited("movswq	0x18(%rdi,%r12), %r15")
 __jited("movsbq	0x20(%rdi,%r12), %r15")
 __arch_arm64
-__jited("add	x11, x8, x28")
-__jited("ldrsw	x21, [x11, #0x10]")
-__jited("add	x11, x8, x28")
-__jited("ldrsh	x21, [x11, #0x18]")
-__jited("add	x11, x8, x28")
-__jited("ldrsb	x21, [x11, #0x20]")
-__jited("add	x11, x0, x28")
-__jited("ldrsw	x22, [x11, #0x10]")
-__jited("add	x11, x0, x28")
-__jited("ldrsh	x22, [x11, #0x18]")
-__jited("add	x11, x0, x28")
-__jited("ldrsb	x22, [x11, #0x20]")
+__jited("add	x11, x28, #0x10")
+__jited("ldrsw	x21, [x11, w8, uxtw]")
+__jited("add	x11, x28, #0x18")
+__jited("ldrsh	x21, [x11, w8, uxtw]")
+__jited("add	x11, x28, #0x20")
+__jited("ldrsb	x21, [x11, w8, uxtw]")
+__jited("add	x11, x28, #0x10")
+__jited("ldrsw	x22, [x11, w0, uxtw]")
+__jited("add	x11, x28, #0x18")
+__jited("ldrsh	x22, [x11, w0, uxtw]")
+__jited("add	x11, x28, #0x20")
+__jited("ldrsb	x22, [x11, w0, uxtw]")
 __arch_riscv64
 __jited("add	t2, t6, s7")
 __jited("lw	s3, 0x10(t2)")
@@ -310,7 +308,7 @@ __naked void arena_ldsx_disasm(void *ctx)
 	"r4 = %[numa_no_node];"
 	"r5 = 0;"
 	"call %[bpf_arena_alloc_pages];"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = r0;"
 	"r8 = *(s32 *)(r0 + 16);"
 	"r8 = *(s16 *)(r0 + 24);"
@@ -338,7 +336,7 @@ __naked void arena_ldsx_exception(void *ctx)
 	asm volatile (
 	"r1 = %[arena] ll;"
 	"r0 = 0xdeadbeef;"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 0x3fe;"
 	"*(u64 *)(r0 + 0) = r1;"
 	"r0 = *(s8 *)(r0 + 0);"
@@ -364,7 +362,7 @@ __naked void arena_ldsx_s8(void *ctx)
 	"r4 = %[numa_no_node];"
 	"r5 = 0;"
 	"call %[bpf_arena_alloc_pages];"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 0x3fe;"
 	"*(u64 *)(r0 + 0) = r1;"
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -396,7 +394,7 @@ __naked void arena_ldsx_s16(void *ctx)
 	"r4 = %[numa_no_node];"
 	"r5 = 0;"
 	"call %[bpf_arena_alloc_pages];"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 0x3fffe;"
 	"*(u64 *)(r0 + 0) = r1;"
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -428,7 +426,7 @@ __naked void arena_ldsx_s32(void *ctx)
 	"r4 = %[numa_no_node];"
 	"r5 = 0;"
 	"call %[bpf_arena_alloc_pages];"
-	"r0 = addr_space_cast(r0, 0x0, 0x1);"
+	"r0 = addr_space_cast(r0, 0, 1);"
 	"r1 = 0xfffffffe;"
 	"*(u64 *)(r0 + 0) = r1;"
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
@@ -450,8 +448,6 @@ void kfunc_root(void)
 {
 	bpf_arena_alloc_pages(0, 0, 0, 0, 0);
 }
-
-#endif /* __BPF_FEATURE_ADDR_SPACE_CAST */
 
 #else
 

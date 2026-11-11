@@ -112,6 +112,23 @@ __naked void five_frames_of_512(void)
 "	::: __clobber_all);
 }
 
+/* libbpf puts frame_512_leaf() in front of frame_512_depth_2(), which goes over the budget */
+SEC("socket")
+__description("the frame that exceeds the 2 KiB budget is reported, not its callee")
+__load_if_large_stack()
+__failure __msg("combined stack size of 3 calls is 2064. Too large")
+__naked void callee_in_front_of_caller(void)
+{
+	asm volatile ("					\
+	r1 = 5;						\
+	*(u64 *)(r10 - 1040) = r1;			\
+	call frame_512_leaf;				\
+	call frame_512_depth_3;				\
+	r0 = 0;						\
+	exit;						\
+"	::: __clobber_all);
+}
+
 __used __naked
 static void frame_1536_leaf(void)
 {
@@ -226,7 +243,7 @@ static void priv_stack_frame_2048(void)
 "	::: __clobber_all);
 }
 
-SEC("kprobe")
+SEC("kprobe.multi")
 __description("private stack: two frames of 2048 bytes")
 __load_if_large_stack()
 __arch_x86_64

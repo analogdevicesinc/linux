@@ -6,9 +6,7 @@
 #include "bpf_misc.h"
 #include "../../../include/linux/filter.h"
 
-/* gcc doesn't support indirect calls */
-#if defined(__clang__) && (defined(__TARGET_ARCH_x86) || defined(__TARGET_ARCH_arm64) || \
-    (defined(__TARGET_ARCH_riscv) && __riscv_xlen == 64))
+#ifdef CAN_USE_CALLX
 
 /*
  * Read-only data with pointers to functions, where the compiler puts tables
@@ -173,6 +171,118 @@ __naked void callx_rodata_array_of_structs(void)
 		: __clobber_all);
 }
 
+/* one state with one of two functions, and not two states */
+SEC("socket")
+__success __retval(11)
+__log_level(2)
+__msg("r2 = *(u64 *)(r2 +0)          ; R2=func(one_of=2)")
+__naked void callx_rodata_one_of_two(void)
+{
+	asm volatile (
+		FUNC_TABLE2(tbl, add1, add2)
+		"call %[bpf_get_prandom_u32];"
+		"r6 = r0;"
+		"r6 &= 1;"
+		"r3 = r6;"
+		"r3 <<= 3;"
+		"r2 = tbl_%= ll;"
+		"r2 += r3;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 10;"
+		"callx r2;"
+		"r0 -= r6;"
+		"exit;"
+		:
+		: __imm(bpf_get_prandom_u32)
+		: __clobber_all);
+}
+
+__naked __noinline __used
+static unsigned long loop_cb_stop(void)
+{
+	asm volatile (
+		"r0 = 1;"
+		"exit;"
+	);
+}
+
+__naked __noinline __used
+static unsigned long loop_cb_go_on(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"exit;"
+	);
+}
+
+/* a helper needs to know the callback */
+SEC("socket")
+__success __retval(0)
+__naked void callx_rodata_callback_one_of_two(void)
+{
+	asm volatile (
+		FUNC_TABLE2(cbs, loop_cb_stop, loop_cb_go_on)
+		"call %[bpf_get_prandom_u32];"
+		"r0 &= 1;"
+		"r0 <<= 3;"
+		"r2 = cbs_%= ll;"
+		"r2 += r0;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r6 = r2;"
+		"r1 = 2;"
+		"r3 = 0;"
+		"r4 = 0;"
+		"call %[bpf_loop];"
+		/* libbpf resolves the pointers for progs that have callx */
+		"callx r6;"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_get_prandom_u32), __imm(bpf_loop)
+		: __clobber_all);
+}
+
+__naked __noinline __used
+static unsigned long not_three(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"if r1 != 3 goto +1;"
+		"r10 = 0;"
+		"exit;"
+	);
+}
+
+/*
+ * callx is the head of a loop whose iterations are looked at one by one, because of r1.
+ * The states with one function each are in the iteration of the state with both.
+ */
+SEC("socket")
+__failure __msg("frame pointer is read only")
+__naked void callx_rodata_one_of_two_at_loop_head(void)
+{
+	asm volatile (
+		FUNC_TABLE2(tbl, add1, not_three)
+		"call %[bpf_get_prandom_u32];"
+		"r0 &= 1;"
+		"r0 <<= 3;"
+		"r6 = tbl_%= ll;"
+		"r6 += r0;"
+		"r6 = *(u64 *)(r6 + 0);"
+		"r7 = 0;"
+		"r1 = 0;"
+	"l_%=:"
+		"callx r6;"
+		"r7 += 1;"
+		"r1 = r7;"
+		"if r7 < 4 goto l_%=;"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_get_prandom_u32)
+		: __clobber_all);
+}
+
 /* and the data of the element that the index selects can be read */
 SEC("socket")
 __success __retval(16)
@@ -198,6 +308,57 @@ __naked void callx_rodata_array_of_structs_data(void)
 		:
 		: __imm(bpf_get_prandom_u32)
 		: __clobber_all);
+}
+
+int calls_what_calls_it(void);
+
+__naked __noinline __used
+static unsigned long calls_global(void)
+{
+	asm volatile (
+		"call calls_what_calls_it;"
+		"r0 = 0;"
+		"exit;"
+		::: __clobber_all);
+}
+
+__naked __noinline __used
+int calls_what_calls_it(void)
+{
+	asm volatile (
+		RODATA(cb, ".quad calls_global;")
+		"r2 = cb_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 1;"
+		"r3 = 0;"
+		"r4 = 0;"
+		"call %[bpf_loop];"
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm(bpf_loop)
+		: __clobber_all);
+}
+
+/*
+ * No subprog takes the address of the callback, and calls of global functions are not
+ * followed. It's a recursion all the same, and nothing checks the stack.
+ */
+SEC("socket")
+__failure __msg("recursive call from calls_global() to calls_what_calls_it()")
+__naked void callx_rodata_callback_recursion(void)
+{
+	asm volatile (
+		FUNC_TABLE2(tbl, add1, add2)
+		"call calls_what_calls_it;"
+		/* libbpf resolves the pointers for progs that have callx */
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 1;"
+		"callx r2;"
+		"r0 = 0;"
+		"exit;"
+		::: __clobber_all);
 }
 
 /* but not the data and the pointer with the same load */
@@ -320,6 +481,106 @@ __naked void callx_rodata_func_starts_with_nop(void)
 		"r2 = tbl_%= ll;"
 		"r2 = *(u64 *)(r2 + 0);"
 		"r1 = 10;"
+		"callx r2;"
+		"exit;"
+		::: __clobber_all);
+}
+
+/*
+ * The program loses more instructions than the function has, so the offset
+ * that the function had is behind the end of the program that is left.
+ */
+SEC("socket")
+__success __retval(11)
+__naked void callx_rodata_prog_shrinks_below_func(void)
+{
+	asm volatile (
+		RODATA(tbl, ".quad nop_add1; .quad 0;")
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"goto +0;"
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 10;"
+		"callx r2;"
+		"exit;"
+		::: __clobber_all);
+}
+
+int ops_arg = 10;
+
+/* the argument is never NULL, so the verifier removes the check and its branch */
+#define OP(name, n)						\
+static __noinline int name(int *arg)				\
+{								\
+	if (!arg)						\
+		return bpf_get_prandom_u32();			\
+	return *arg + n;					\
+}
+
+OP(op_a, 2) OP(op_b, 3) OP(op_c, 4) OP(op_d, 5) OP(op_e, 6) OP(op_f, 7) OP(op_g, 8) OP(op_h, 9)
+
+/* volatile, so that the compiler doesn't replace the table with direct calls */
+static int (* const volatile ops_table[])(int *) = {
+	op_a, op_b, op_c, op_d, op_e, op_f, op_g, op_h
+};
+
+/* the same in C: each function of the table loses its first instructions */
+SEC("socket")
+__success __retval(124)
+int callx_rodata_table_of_ops(void *ctx)
+{
+	int i, sum = 0;
+
+	for (i = 0; i < 8; i++)
+		sum += ops_table[i](&ops_arg);
+	return sum;
+}
+
+/* leave zeros where the function that is called next has its stack */
+__naked __noinline __used
+static unsigned long zero_stack(void)
+{
+	asm volatile (
+		"r0 = 0;"
+		"*(u64 *)(r10 - 8) = r0;"
+		"*(u64 *)(r10 - 16) = r0;"
+		"exit;"
+	);
+}
+
+/* count to r1, or to 0 when nothing set the count of may_goto */
+__naked __noinline __used
+static unsigned long may_goto_count(void)
+{
+	asm volatile (
+		"r0 = 0;"
+	"l0_%=:"
+		".8byte %[may_goto];"
+		"r0 += 1;"
+		"if r0 < r1 goto l0_%=;"
+		"exit;"
+		:
+		: __imm_insn(may_goto, BPF_RAW_INSN(BPF_JMP | BPF_JCOND, 0, 0, 2 /* offset */, 0))
+		: __clobber_all);
+}
+
+/* the pointer names the instructions that the verifier puts in front of the function */
+SEC("socket")
+__success __retval(5)
+__naked void callx_rodata_func_with_may_goto(void)
+{
+	asm volatile (
+		RODATA(tbl, ".quad may_goto_count; .quad 0;")
+		"call zero_stack;"
+		"r2 = tbl_%= ll;"
+		"r2 = *(u64 *)(r2 + 0);"
+		"r1 = 5;"
 		"callx r2;"
 		"exit;"
 		::: __clobber_all);
@@ -571,7 +832,9 @@ static unsigned long selfcall(void)
 }
 
 SEC("socket")
-__failure __msg("recursive call from selfcall() to selfcall()")
+__arch_x86_64
+__arch_arm64
+__success
 __naked void callx_rodata_recursion(void)
 {
 	asm volatile (
@@ -892,6 +1155,7 @@ int callx_c_packed_struct(void *ctx)
 #else
 
 SEC("socket")
+__skip("callx needs arch JIT and compiler support")
 __success
 int dummy(void *ctx)
 {

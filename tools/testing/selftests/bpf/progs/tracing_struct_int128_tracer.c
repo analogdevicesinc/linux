@@ -67,10 +67,14 @@ int split_exit(unsigned long long *ctx)
 	return 0;
 }
 
-/* Refused: the trampoline would lose the stack argument. */
+long unreliable_r5;
+
+/* For static functions with unreliable BTF: the arguments are r1-r5. It clobbers them. */
 SEC("?fentry/callee_unreliable")
 int unreliable_entry(unsigned long long *ctx)
 {
+	unreliable_r5 = ctx[4];
+	asm volatile ("r1 = 0; r2 = 0; r3 = 0; r4 = 0; r5 = 0;" ::: "r1", "r2", "r3", "r4", "r5");
 	return 0;
 }
 

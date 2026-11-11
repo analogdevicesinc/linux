@@ -17,8 +17,8 @@ __naked void fill_of_different_pointers_ldx(void)
 	r2 = r10;					\
 	r2 += %[__imm_0];				\
 	*(u64*)(r6 + 0) = r2;				\
-l0_%=:	if r1 != 0 goto l1_%=;				\
-	*(u64*)(r6 + 0) = r1;				\
+	goto l1_%=;					\
+l0_%=:	*(u64*)(r6 + 0) = r1;				\
 l1_%=:	r1 = *(u64*)(r6 + 0);				\
 	r1 = *(u64*)(r1 + %[sample_period]);		\
 	r0 = 0;						\

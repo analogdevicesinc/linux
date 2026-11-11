@@ -13,8 +13,6 @@
 #include <bpf/bpf.h>
 #include "security_bpf_map.skel.h"
 
-#define PROTECTED_MAP_NAME	"prot_map"
-#define UNPROTECTED_MAP_NAME	"not_prot_map"
 #define BPF_ITER_FILE		"bpf_iter_map_elem.bpf.o"
 #define BPFFS_PIN_DIR		"/sys/fs/bpf/test_bpftool_map"
 #define INNER_MAP_NAME		"inner_map_tt"
@@ -32,7 +30,6 @@ struct test_desc {
 	char *name;
 	enum map_protection protection;
 	struct bpf_map *map;
-	char *map_name;
 	bool pinned;
 	char pin_path[PATH_MAX_LEN];
 	bool write_must_fail;
@@ -93,13 +90,10 @@ static void update_test_desc(struct security_bpf_map *skel,
 	/* Now that the skeleton is loaded, update all missing fields to
 	 * have the subtest properly configured
 	 */
-	if (test->protection == PROTECTED) {
+	if (test->protection == PROTECTED)
 		test->map = skel->maps.prot_map;
-		test->map_name = PROTECTED_MAP_NAME;
-	} else {
+	else
 		test->map = skel->maps.not_prot_map;
-		test->map_name = UNPROTECTED_MAP_NAME;
-	}
 }
 
 static int test_setup(struct security_bpf_map *skel, struct test_desc *desc)
@@ -253,16 +247,25 @@ static int add_outer_map_entry(int key)
 
 static void test_basic_access(struct test_desc *desc)
 {
+	struct bpf_map_info info = {};
+	__u32 len = sizeof(info);
 	char map_handle[MAP_NAME_MAX_LEN];
 	char iter_pin_path[PATH_MAX_LEN];
 	int ret;
 
-	if (desc->pinned)
+	if (desc->pinned) {
 		ret = snprintf(map_handle, MAP_NAME_MAX_LEN, "pinned %s",
 			       desc->pin_path);
-	else
-		ret = snprintf(map_handle, MAP_NAME_MAX_LEN, "name %s",
-			       desc->map_name);
+	} else {
+		/*
+		 * Maps from an earlier run stay visible until its trampoline
+		 * programs are freed, so a name can match more than one map.
+		 */
+		ret = bpf_map_get_info_by_fd(bpf_map__fd(desc->map), &info, &len);
+		if (!ASSERT_OK(ret, "get map info"))
+			return;
+		ret = snprintf(map_handle, MAP_NAME_MAX_LEN, "id %u", info.id);
+	}
 	if (!ASSERT_GT(ret, 0, "format map handle"))
 		return;
 
@@ -312,28 +315,24 @@ static struct test_desc tests[] = {
 	{
 		.name = "unprotected_unpinned",
 		.protection = UNPROTECTED,
-		.map_name = UNPROTECTED_MAP_NAME,
 		.pinned = false,
 		.write_must_fail = false,
 	},
 	{
 		.name = "unprotected_pinned",
 		.protection = UNPROTECTED,
-		.map_name = UNPROTECTED_MAP_NAME,
 		.pinned = true,
 		.write_must_fail = false,
 	},
 	{
 		.name = "protected_unpinned",
 		.protection = PROTECTED,
-		.map_name = UNPROTECTED_MAP_NAME,
 		.pinned = false,
 		.write_must_fail = true,
 	},
 	{
 		.name = "protected_pinned",
 		.protection = PROTECTED,
-		.map_name = UNPROTECTED_MAP_NAME,
 		.pinned = true,
 		.write_must_fail = true,
 	}

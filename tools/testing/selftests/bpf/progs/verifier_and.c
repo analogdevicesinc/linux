@@ -38,9 +38,9 @@ __naked void invalid_and_of_negative_number(void)
 	r1 &= -4;					\
 	r1 <<= 2;					\
 	r0 += r1;					\
-l0_%=:	r1 = %[test_val_foo];				\
+	r1 = %[test_val_foo];				\
 	*(u64*)(r0 + 0) = r1;				\
-	exit;						\
+l0_%=:	exit;						\
 "	:
 	: __imm(bpf_map_lookup_elem),
 	  __imm_addr(map_hash_48b),

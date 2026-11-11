@@ -23,6 +23,7 @@
 #include <linux/sockptr.h>
 #include <linux/static_call.h>
 #include <linux/u64_stats_sync.h>
+#include <linux/math64.h>
 
 #include <net/sch_generic.h>
 
@@ -60,8 +61,9 @@ struct ctl_table_header;
 
 /* Kernel hidden auxiliary/helper register. */
 #define BPF_REG_PARAMS		MAX_BPF_REG
-#define BPF_REG_AX		(MAX_BPF_REG + 1)
-#define MAX_BPF_EXT_REG		(MAX_BPF_REG + 2)
+#define BPF_REG_ARENA_SP	(MAX_BPF_REG + 1)
+#define BPF_REG_AX		(MAX_BPF_REG + 2)
+#define MAX_BPF_EXT_REG		(MAX_BPF_REG + 3)
 #define MAX_BPF_JIT_REG		MAX_BPF_EXT_REG
 
 /* unused opcode to mark special call to bpf_tail_call() helper */
@@ -78,6 +80,13 @@ struct ctl_table_header;
 
 /* unused opcode to mark special atomic instruction */
 #define BPF_PROBE_ATOMIC 0xe0
+
+/*
+ * Flag in imm of BPF_ATOMIC fetch_add: atomic for what runs on this cpu only,
+ * an interrupt or another task. The memory is per-cpu and the program
+ * doesn't migrate. It's cheaper where one insn without a lock does it.
+ */
+#define BPF_ATOMIC_LOCAL 0x1000
 
 /* unused opcode to mark special ldsx instruction. Same as BPF_NOSPEC */
 #define BPF_PROBE_MEM32SX 0xc0
@@ -151,6 +160,38 @@ struct ctl_table_header;
 		.imm   = IMM })
 #define BPF_ALU32_IMM(OP, DST, IMM)				\
 	BPF_ALU32_IMM_OFF(OP, DST, IMM, 0)
+
+static inline u64 bpf_uhmul64(u64 a, u64 b)
+{
+	return mul_u64_u64_shr(a, b, 64);
+}
+
+static inline u64 bpf_shmul64(s64 a, s64 b)
+{
+	u64 ua = a, ub = b;
+	u64 hi = bpf_uhmul64(ua, ub);
+
+	/*
+	 * Let M = 2^64, sa = (a < 0), and sb = (b < 0). Then:
+	 *
+	 * a * b = (ua - sa * M) * (ub - sb * M)
+	 *       = ua * ub - sa * M * ub - sb * M * ua + sa * sb * M^2
+	 *
+	 * Therefore, signed_hi = unsigned_hi - sa * ub - sb * ua (mod M).
+	 */
+	if (a < 0)
+		hi -= ub;
+	if (b < 0)
+		hi -= ua;
+	return hi;
+}
+
+static inline bool bpf_insn_is_hmul(const struct bpf_insn *insn)
+{
+	return BPF_CLASS(insn->code) == BPF_ALU64 &&
+	       BPF_OP(insn->code) == BPF_MUL &&
+	       (insn->off == BPF_UHMUL || insn->off == BPF_SHMUL);
+}
 
 /* Endianess conversion, cpu_to_{l,b}e(), {l,b}e_to_cpu() */
 
@@ -558,6 +599,21 @@ static inline int bpf_atomic_load_reg(const struct bpf_insn *insn)
 		.off   = 0,					\
 		.imm   = BPF_CALL_IMM(FUNC) })
 
+/*
+ * The same in code that the verifier emits before bpf_do_misc_fixups(). That pass
+ * takes imm of a call for the id of a helper. This value in off, which is 0 in the
+ * call of a helper, says that imm is final. The pass clears it.
+ */
+#define BPF_KERNEL_CALL	1
+
+#define BPF_EMIT_KERNEL_CALL(FUNC)				\
+	((struct bpf_insn) {					\
+		.code  = BPF_JMP | BPF_CALL,			\
+		.dst_reg = 0,					\
+		.src_reg = 0,					\
+		.off   = BPF_KERNEL_CALL,			\
+		.imm   = BPF_CALL_IMM(FUNC) })
+
 /* Kfunc call */
 
 #define BPF_CALL_KFUNC(OFF, IMM)				\
@@ -858,6 +914,49 @@ static inline bool is_stack_arg_stx(const struct bpf_insn *insn)
 	return insn->code == (BPF_STX | BPF_MEM | BPF_DW) &&
 	       insn->dst_reg == BPF_REG_PARAMS &&
 	       insn->off < 0 && insn->off % 8 == 0;
+}
+
+/*
+ * BPF_REG_ARENA_SP, r12, points to the end of the frame of the function in
+ * the stack in arena, like r10 does in the stack of the program. The stack
+ * in arena grows up. r12 is used in four insns:
+ *   r12 += N                          the first insn of the function
+ *                                     N is a multiple of 16, so is r12
+ *   rX = r12
+ *   rX = *(size *)(r12 - off)
+ *   *(size *)(r12 - off) = rX or imm
+ */
+static inline bool is_arena_sp_adj(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_ALU64 | BPF_ADD | BPF_K) &&
+	       insn->dst_reg == BPF_REG_ARENA_SP;
+}
+
+static inline bool is_arena_sp_mov(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_ALU64 | BPF_MOV | BPF_X) &&
+	       insn->src_reg == BPF_REG_ARENA_SP && !insn->off && !insn->imm;
+}
+
+static inline bool is_arena_sp_ldx(const struct bpf_insn *insn)
+{
+	return BPF_CLASS(insn->code) == BPF_LDX &&
+	       (BPF_MODE(insn->code) == BPF_MEM || BPF_MODE(insn->code) == BPF_MEMSX) &&
+	       insn->src_reg == BPF_REG_ARENA_SP;
+}
+
+/* st and stx */
+static inline bool is_arena_sp_st(const struct bpf_insn *insn)
+{
+	return (BPF_CLASS(insn->code) == BPF_ST || BPF_CLASS(insn->code) == BPF_STX) &&
+	       BPF_MODE(insn->code) == BPF_MEM &&
+	       insn->dst_reg == BPF_REG_ARENA_SP;
+}
+
+static inline bool is_arena_sp_insn(const struct bpf_insn *insn)
+{
+	return is_arena_sp_adj(insn) || is_arena_sp_mov(insn) ||
+	       is_arena_sp_ldx(insn) || is_arena_sp_st(insn);
 }
 
 #define BPF_SKB_CB_LEN QDISC_CB_PRIV_LEN
@@ -1287,6 +1386,7 @@ bool bpf_jit_supports_kfunc_call(void);
 bool bpf_jit_supports_callx(void);
 bool bpf_jit_supports_kfunc_ret_reg_pair(void);
 bool bpf_jit_supports_unwind(void);
+bool bpf_jit_supports_hmul(void);
 bool bpf_jit_supports_stack_args(void);
 bool bpf_jit_supports_arena_args(void);
 bool bpf_jit_supports_far_kfunc_call(void);
@@ -1295,9 +1395,26 @@ bool bpf_jit_supports_ptr_xchg(void);
 bool bpf_jit_supports_arena(void);
 bool bpf_jit_supports_insn(struct bpf_insn *insn, bool in_arena);
 bool bpf_jit_supports_private_stack(void);
+bool bpf_jit_supports_arena_stack(void);
+bool bpf_jit_supports_local_atomics(void);
 bool bpf_jit_supports_large_stack(void);
 bool bpf_jit_supports_timed_may_goto(void);
 bool bpf_jit_supports_fsession(void);
+
+/*
+ * Whether a recursion in @prog can be limited at run time:
+ *  - r10 tells how much of the kernel stack is used, on the architectures whose stacks
+ *    emit_stack_check() knows.
+ *  - All may_goto of the prog share one time slice. That is the timed form, which only JITed
+ *    progs get, see bpf_do_misc_fixups(). The other form counts in each frame.
+ *  - A walk of the stack finds the prog when there is no room, to tell user space, see
+ *    bpf_prog_report_recursion().
+ */
+static inline bool bpf_prog_has_invocation_budget(const struct bpf_prog *prog)
+{
+	return (IS_ENABLED(CONFIG_X86_64) || IS_ENABLED(CONFIG_ARM64)) && prog->jit_requested &&
+	       bpf_jit_supports_timed_may_goto() && bpf_jit_supports_exceptions();
+}
 
 struct bpf_jit_arg_abi {
 	/* Argument registers of the kernel convention. */
@@ -1336,6 +1453,7 @@ u64 arch_bpf_timed_may_goto(void);
 u64 bpf_check_timed_may_goto(struct bpf_timed_may_goto *);
 void bpf_timed_may_goto_save(const struct bpf_prog *prog, struct bpf_timed_may_goto *saved);
 void bpf_timed_may_goto_restore(const struct bpf_prog *prog, struct bpf_timed_may_goto *saved);
+u64 bpf_prog_report_recursion(void);
 bool bpf_helper_changes_pkt_data(enum bpf_func_id func_id);
 
 static inline bool bpf_dump_raw_ok(const struct cred *cred)
@@ -1345,22 +1463,6 @@ static inline bool bpf_dump_raw_ok(const struct cred *cred)
 	 */
 	return kallsyms_show_value(cred);
 }
-
-struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
-				       const struct bpf_insn *patch, u32 len);
-
-#ifdef CONFIG_BPF_SYSCALL
-struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-				     const struct bpf_insn *patch, u32 len);
-#else
-static inline struct bpf_prog *bpf_patch_insn_data(struct bpf_verifier_env *env, u32 off,
-						   const struct bpf_insn *patch, u32 len)
-{
-	return ERR_PTR(-ENOTSUPP);
-}
-#endif /* CONFIG_BPF_SYSCALL */
-
-int bpf_remove_insns(struct bpf_prog *prog, u32 off, u32 cnt);
 
 static inline bool xdp_return_frame_no_direct(void)
 {

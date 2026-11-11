@@ -10,6 +10,7 @@
 
 #define NS_TEST "ksock_lsm_ns"
 #define RECV_PORT 7777
+#define LOCAL_KSOCK_PORT 6666
 #define RECV_TIMEOUT_SEC 5
 
 struct ksock_test_env {
@@ -63,6 +64,8 @@ void test_ksock_lsm(void)
 		.sin_family = AF_INET,
 		.sin_addr.s_addr = htonl(INADDR_LOOPBACK),
 	};
+	struct sockaddr_in src_addr;
+	socklen_t src_addrlen = sizeof(src_addr);
 	struct ksock_lsm *skel;
 	char recv_data[sizeof(skel->data->send_data)] = {};
 	ssize_t n;
@@ -76,9 +79,10 @@ void test_ksock_lsm(void)
 	if (!ksock_test_env_setup(&env))
 		goto fail;
 
-	/* Step 1: Run the setup SYSCALL prog to create the ksock */
+	/* Step 1: Create, bind, and connect the ksock from the SYSCALL prog. */
 	skel->bss->ipv4_remote = htonl(INADDR_LOOPBACK);
 	skel->bss->remote_port = RECV_PORT;
+	skel->bss->local_port = LOCAL_KSOCK_PORT;
 	err = bpf_prog_test_run_opts(bpf_program__fd(skel->progs.ksock_setup),
 				     &opts);
 	if (!ASSERT_OK(err, "ksock_setup run"))
@@ -108,10 +112,18 @@ void test_ksock_lsm(void)
 		       "LSM send bytes"))
 		goto fail;
 
-	n = recvfrom(env.rfd, recv_data, sizeof(recv_data), 0, NULL, NULL);
-	if (ASSERT_EQ(n, sizeof(recv_data), "recvfrom len"))
-		ASSERT_MEMEQ(recv_data, skel->data->send_data, sizeof(recv_data),
-			     "payload match");
+	n = recvfrom(env.rfd, recv_data, sizeof(recv_data), MSG_TRUNC,
+		     (struct sockaddr *)&src_addr, &src_addrlen);
+	if (!ASSERT_EQ(n, sizeof(recv_data), "recvfrom len"))
+		goto fail;
+	if (!ASSERT_EQ(ntohs(src_addr.sin_port), LOCAL_KSOCK_PORT,
+		       "source address port"))
+		goto fail;
+	if (!ASSERT_EQ(ntohl(src_addr.sin_addr.s_addr), INADDR_LOOPBACK + 1,
+		       "source address ip"))
+		goto fail;
+	ASSERT_MEMEQ(recv_data, skel->data->send_data, sizeof(recv_data),
+		     "payload match");
 
 fail:
 	if (tfd >= 0)

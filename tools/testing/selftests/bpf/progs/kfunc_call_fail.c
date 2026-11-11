@@ -4,6 +4,8 @@
 #include <bpf/bpf_helpers.h>
 #include "../test_kmods/bpf_testmod_kfunc.h"
 
+static const char kfunc_mem_rodata[] = "read-only data";
+
 static struct bpf_spin_lock kfunc_call_lock SEC(".data.A");
 
 SEC("?tc")
@@ -44,6 +46,14 @@ int kfunc_syscall_test_null_fail(struct syscall_test_args *args)
 
 	bpf_kfunc_call_test_mem_len_pass1(args, sizeof(*args));
 
+	return 0;
+}
+
+SEC("?tc")
+int kfunc_call_test_mem_len_fail_readonly(struct __sk_buff *skb)
+{
+	bpf_kfunc_call_test_mem_len_pass1((void *)kfunc_mem_rodata,
+					  sizeof(kfunc_mem_rodata));
 	return 0;
 }
 

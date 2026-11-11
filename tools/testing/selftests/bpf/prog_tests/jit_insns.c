@@ -582,23 +582,20 @@ static void test_alu_imm_regs(void)
 }
 
 /*
- * Division and modulo by constants for every width, signedness and
- * destination register with a set of divisors and dividends around the
- * multiple boundaries and the extremes of each range. This covers a JIT
- * replacing the division with a multiplication by a magic number in all
- * of its forms: magic numbers needing the extra add step, zero shifts,
- * both signed corrections, and the divisors like 1, -1 and the ones
- * above 2^63 that are still emitted as a real division. The dividends
- * of the 32-bit operations carry garbage in the upper 32 bits.
+ * Division and modulo by constants for every width, signedness and register,
+ * with dividends at the multiple boundaries and the extremes: every form of
+ * the verifier's multiplication by the magic number and the divisors it keeps.
+ * The dividends of the 32-bit operations carry garbage in the upper half.
  */
 static const __s32 unsigned_divisors[] = {
-	2, 3, 7, 10, 25, 641, 1000, 4096, 65536, 1000000007, 0x7fffffff,
-	-2, -10, -0x7fffffff - 1, -1, 1,
+	2, 3, 7, 10, 14, 25, 56, 641, 1000, 4096, 65536, 0x40000000, 1000000007,
+	0x7fffffff, -2, -10, -0x7fffffff - 1, -1, 1,
 };
 
 static const __s32 signed_divisors[] = {
-	2, 3, 7, 25, 1000, 0x40000000, 0x7fffffff,
-	-2, -3, -5, -7, -1000, -0x7fffffff, -0x7fffffff - 1, 1, -1,
+	2, 3, 4, 7, 8, 25, 1000, 0x80000, 0x40000000, 0x7fffffff,
+	-2, -3, -4, -5, -7, -8, -1000, -0x40000000, -0x7fffffff, -0x7fffffff - 1,
+	1, -1,
 };
 
 static int dividends(__u32 flags, __s32 imm, __u64 *n)
@@ -1123,7 +1120,8 @@ static void test_ld_imm64(void)
 	static const __u64 imms[] = {
 		0, 1, 0x7fffffff, 0x80000000, 0xffffffff, 0x100000000ULL,
 		0xffffffffffffffffULL, 0xffffffff80000000ULL, 0xffffffff7fffffffULL,
-		0x0123456789abcdefULL,
+		0x0123456789abcdefULL, 0xcccccccccccccccdULL, 0x5a5a12345a5a5a5aULL,
+		0x5a5a00005a5affffULL, 0x00ff00ff00ff00ffULL, 0x1234567812345678ULL,
 	};
 	int block = 64, bit, adj, sign, p, pattern, index, rd, i;
 	struct batch b;
@@ -1471,6 +1469,10 @@ static void test_staggered_jumps(void)
 		  BPF_JMP32_IMM(BPF_JLT, BPF_REG_1, 0x80000000, 0), 1234, 0 },
 		{ "staggered jmp32_jsge_x",
 		  BPF_JMP32_REG(BPF_JSGE, BPF_REG_1, BPF_REG_2, 0), -2, -2 },
+		{ "staggered jmp_jeq_k zero",
+		  BPF_JMP_IMM(BPF_JEQ, BPF_REG_1, 0, 0), 0, 0 },
+		{ "staggered jmp_jslt_k zero",
+		  BPF_JMP_IMM(BPF_JSLT, BPF_REG_1, 0, 0), -1, 0 },
 	};
 	char desc[64];
 	int i, d;
@@ -1519,7 +1521,7 @@ static const __u64 inputs[] = {
 };
 
 struct prog {
-	struct bpf_insn insns[16];
+	struct bpf_insn insns[32];
 	int cnt;
 };
 
@@ -1572,7 +1574,7 @@ static void test_ldst_zero_off(void)
 	static const int aops[] = {
 		BPF_ADD, BPF_ADD | BPF_FETCH, BPF_OR, BPF_XCHG, BPF_CMPXCHG,
 	};
-	static const __s32 imms[] = { 0x5a, -1 };
+	static const __s32 imms[] = { 0x5a, -1, 0 };
 	struct prog p;
 	char desc[64];
 	int b, k, s, j, fd;
@@ -1649,12 +1651,13 @@ static void test_ldst_zero_off(void)
 				close(fd);
 			}
 
-			/* Store an immediate with a zero offset into a zeroed stack slot */
+			/* Store an immediate with a zero offset over in0 in a stack slot */
 			for (k = 0; k < ARRAY_SIZE(imms); k++) {
 				int rd = pair_reg(b, 1);
 
 				prog_start(&p);
-				EMIT(&p, BPF_ST_MEM(BPF_DW, BPF_REG_10, -8, 0));
+				EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN0));
+				EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rd, -8));
 				EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
 				EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8));
 				EMIT(&p, BPF_ST_MEM(size, rb, 0, imms[k]));
@@ -1665,8 +1668,10 @@ static void test_ldst_zero_off(void)
 				fd = prog_load(&p, desc);
 				if (fd < 0)
 					return;
-				prog_run(fd, 0, 0,
-					 head_merge(0, (__u64)(__s64)imms[k], size), desc);
+				for (j = 0; j < ARRAY_SIZE(inputs); j++)
+					prog_run(fd, inputs[j], 0,
+						 head_merge(inputs[j], (__u64)(__s64)imms[k], size),
+						 desc);
 				close(fd);
 			}
 
@@ -1759,11 +1764,20 @@ static int offsets_for(int size, bool unaligned, int *off)
 	off[cnt++] = -128;
 	off[cnt++] = -128 - n;
 	off[cnt++] = -256;
+	off[cnt++] = -256 - n;
 	off[cnt++] = -4096;
 	off[cnt++] = -MEM_BASE;
+	/* The last offset of the scaled form and the first past it, 4095 to 16384 */
+	if (n < 8)
+		off[cnt++] = 0xfff * n;
+	if (n > 1 && n < 8)
+		off[cnt++] = 0x1000 * n;
 	if (n > 1 && unaligned) {
 		off[cnt++] = 13;
 		off[cnt++] = 127;
+		off[cnt++] = 255;
+		off[cnt++] = 257;
+		off[cnt++] = -257;
 		off[cnt++] = -13;
 		off[cnt++] = -129;
 	}
@@ -1975,7 +1989,7 @@ static void store_offsets(struct off_mem *m, int size, int rb, int rd, __s32 imm
 static void test_ldst_offsets(void)
 {
 	static const int sizes[] = { BPF_B, BPF_H, BPF_W, BPF_DW };
-	static const __s32 imms[] = { -1, 0x7fffffff, -0x7fffffff - 1 };
+	static const __s32 imms[] = { 0, -1, 0x7fffffff, -0x7fffffff - 1 };
 	int b, k, s, i, nr, off[32];
 	struct off_mem m = {};
 	bool unaligned;
@@ -2088,7 +2102,8 @@ static void jmp_prog(struct prog *p, bool is64, int op, int d, __s32 imm, int of
 static void test_jset_imm(void)
 {
 	static const __s32 masks[] = {
-		0x1, 0x40, 0x80, 0xff, 0x100, 0x7fff, 0x7fffffff, -1, -0x7fffffff - 1,
+		0x1, 0x2, 0x40, 0x80, 0xff, 0x100, 0x7fff, 0x8000, 0x10000, 0x7fffffff,
+		0x40000000, -1, -0x7fffffff - 1,
 	};
 	struct prog p;
 	char desc[64];
@@ -2100,14 +2115,19 @@ static void test_jset_imm(void)
 
 		for (is64 = false; ; is64 = true) {
 			for (m = 0; m < ARRAY_SIZE(masks); m++) {
+				__u64 mk = is64 ? (__u64)(__s64)masks[m] : (__u32)masks[m];
+				/* The mask, its complement and its neighbors pin a single bit */
+				__u64 vals[ARRAY_SIZE(inputs) + 4] = { mk, ~mk, mk << 1, mk >> 1 };
+
+				memcpy(vals + 4, inputs, sizeof(inputs));
 				jmp_prog(&p, is64, BPF_JSET, d, masks[m], 1);
 				snprintf(desc, sizeof(desc), "jset%d dst=r%d mask=0x%x",
 					 is64 ? 64 : 32, rd, masks[m]);
 				fd = prog_load(&p, desc);
 				if (fd < 0)
 					return;
-				for (j = 0; j < ARRAY_SIZE(inputs); j++) {
-					__u64 v = inputs[j];
+				for (j = 0; j < ARRAY_SIZE(vals); j++) {
+					__u64 v = vals[j];
 					bool taken;
 
 					if (is64)
@@ -2155,7 +2175,11 @@ static bool cmp_taken(int op, bool is64, __u64 v, __u64 c)
 static void test_cmp_imm(void)
 {
 	static const __s32 imms[] = {
-		1, -1, 0x7f, 0x80, -0x80, -0x81, 0x1000, 0x7fffffff,
+		0, 1, -1, 0x7f, 0x80, -0x80, -0x81, 0x1000, 0x7fffffff,
+		0xfff, 0x1001, 0xffff, 0x10000, 0x10001, -0x1000, -0x1001,
+		-0x7fffffff - 1, 0x7ffffffe, 0x12345, -0x12345, 0xfff001,
+		0xffffff, -0xffffff, 0x1000000, -0x1000000, 0x3ffc, -0x10001,
+		0xfff000, -0xfff, -0xfff000, -0xfff001, 0x1000001,
 	};
 	static const int ops[] = {
 		BPF_JEQ, BPF_JNE, BPF_JGT, BPF_JGE, BPF_JLT, BPF_JLE,
@@ -2186,8 +2210,18 @@ static void test_cmp_imm(void)
 
 						prog_run(fd, inputs[j], 0, taken, desc);
 					}
+					/* The operands at the immediate and right next to it */
+					for (j = -1; j <= 1; j++) {
+						__s64 near = (__s64)imms[m] + j;
+						__u64 v = is64 ? (__u64)near : (__u32)near;
+						__u64 c = is64 ? (__u64)(__s64)imms[m] :
+							  (__u32)imms[m];
+						__u64 taken = cmp_taken(ops[o], is64, v, c);
+
+						prog_run(fd, v, 0, taken, desc);
+					}
 					close(fd);
-					if (m)
+					if (imms[m] < -1 || imms[m] > 1)
 						continue;
 					/* A jump over nothing lands on the same path either way */
 					jmp_prog(&p, is64, ops[o], d, imms[m], 0);
@@ -2234,12 +2268,31 @@ static void test_alu_consts(void)
 		{ BPF_ADD, 1 }, { BPF_ADD, -1 }, { BPF_SUB, 1 }, { BPF_SUB, -1 },
 		{ BPF_ADD, 128 }, { BPF_SUB, 128 }, { BPF_ADD, -128 },
 		{ BPF_AND, 0xff }, { BPF_AND, 0xffff }, { BPF_AND, 0x7f },
-		{ BPF_AND, 0x3ff }, { BPF_AND, 0x7fffffff },
-		{ BPF_OR, 0xff }, { BPF_XOR, -1 }, { BPF_XOR, 0x80 },
+		{ BPF_AND, 0x3ff }, { BPF_AND, 0x7fffffff }, { BPF_AND, -1 },
+		{ BPF_OR, 0xff }, { BPF_OR, -1 }, { BPF_XOR, -1 }, { BPF_XOR, 0x80 },
 		{ BPF_MUL, 2 }, { BPF_MUL, 3 }, { BPF_MUL, 4 }, { BPF_MUL, 5 },
 		{ BPF_MUL, 7 }, { BPF_MUL, 8 }, { BPF_MUL, 9 }, { BPF_MUL, 16 },
+		{ BPF_MUL, 17 }, { BPF_MUL, 33 }, { BPF_MUL, 0x40000001 },
 		{ BPF_MUL, 0x40000000 }, { BPF_MUL, -3 }, { BPF_MUL, -0x7fffffff - 1 },
 		{ BPF_MUL, 0 }, { BPF_MUL, 1 }, { BPF_MUL, -1 },
+		{ BPF_ADD, 0 }, { BPF_SUB, 0 }, { BPF_OR, 0 }, { BPF_XOR, 0 }, { BPF_AND, 0 },
+		{ BPF_MUL, 6 }, { BPF_MUL, 10 }, { BPF_MUL, 12 }, { BPF_MUL, 14 },
+		{ BPF_MUL, 15 }, { BPF_MUL, 24 }, { BPF_MUL, 31 }, { BPF_MUL, 48 },
+		{ BPF_MUL, 0x3fffffff }, { BPF_MUL, 0x7fffffff }, { BPF_MUL, -2 },
+		{ BPF_MUL, -4 }, { BPF_MUL, -6 }, { BPF_MUL, -7 }, { BPF_MUL, -8 },
+		{ BPF_MUL, -9 }, { BPF_MUL, -14 }, { BPF_MUL, -15 }, { BPF_MUL, -16 },
+		{ BPF_MUL, -0x40000000 }, { BPF_MUL, -0x7fffffff },
+		{ BPF_ADD, 0x10000 }, { BPF_ADD, 0x10001 }, { BPF_SUB, 0x10001 },
+		{ BPF_ADD, 0x12345 }, { BPF_ADD, -0x12345 }, { BPF_SUB, 0x12345 },
+		{ BPF_SUB, -0x12345 }, { BPF_ADD, 0xffffff }, { BPF_ADD, -0xffffff },
+		{ BPF_SUB, 0xffffff }, { BPF_ADD, 0x1000000 }, { BPF_SUB, -0x1000000 },
+		{ BPF_ADD, 0x123000 }, { BPF_ADD, 0xfff001 }, { BPF_SUB, 0x1001 },
+		{ BPF_ADD, -0x7fffffff - 1 }, { BPF_SUB, -0x7fffffff - 1 },
+		{ BPF_MUL, 66 }, { BPF_MUL, 272 }, { BPF_MUL, 240 }, { BPF_MUL, 992 },
+		{ BPF_MUL, -17 }, { BPF_MUL, -33 }, { BPF_MUL, -48 }, { BPF_MUL, -96 },
+		{ BPF_MUL, -12 }, { BPF_MUL, -24 }, { BPF_MUL, -28 },
+		{ BPF_ADD, 0x3ffc }, { BPF_ADD, -0x10001 }, { BPF_SUB, 0x3ffc },
+		{ BPF_SUB, -0x10001 },
 	};
 	struct prog p;
 	char desc[64];
@@ -2338,6 +2391,21 @@ static void test_probe_mem(void)
 		{ BPF_B, false }, { BPF_H, false }, { BPF_W, false }, { BPF_DW, false },
 		{ BPF_B, true }, { BPF_H, true }, { BPF_W, true },
 	};
+	/*
+	 * Offsets that take an add, a sub, both shifted, or a mov and an add,
+	 * into the ctx from a base moved by -base, and off NULL or user memory
+	 */
+	static const struct {
+		int size;
+		__s16 off;
+		__s16 base;
+	} probes_in[] = {
+		{ BPF_DW, 8 }, { BPF_W, 4 }, { BPF_H, 2 }, { BPF_B, 13 },
+		{ BPF_DW, 0x1008, 0x1008 }, { BPF_W, -0x1004, -0x1004 },
+	}, probes_out[] = {
+		{ BPF_DW, 0 }, { BPF_B, 13 }, { BPF_DW, -8 }, { BPF_W, 4096 }, { BPF_H, -4096 },
+		{ BPF_W, 0x1004 }, { BPF_W, -0x1004 },
+	};
 	int kfunc_id, type_id, b, k, l, j, fd;
 	struct bpf_insn call;
 	struct btf *btf;
@@ -2396,23 +2464,61 @@ static void test_probe_mem(void)
 		}
 	}
 
-	/* NULL and a user address are not touched and read as zero */
-	for (j = 0; j < 2; j++) {
-		__u64 addr = j ? 0x00007ffffffff000ULL : 0;
+	/* The offset forms through the untrusted pointer of the cast to void */
+	for (l = 0; l < ARRAY_SIZE(probes_in); l++) {
+		int size = probes_in[l].size, off = probes_in[l].off;
+		int base = probes_in[l].base;
 
 		prog_start(&p);
-		EMIT(&p, BPF_RAW_INSN(BPF_LD | BPF_DW | BPF_IMM, BPF_REG_1, 0, 0, (__u32)addr));
-		EMIT(&p, BPF_RAW_INSN(0, 0, 0, 0, addr >> 32));
-		EMIT(&p, BPF_MOV32_IMM(BPF_REG_2, type_id));
+		EMIT(&p, BPF_MOV64_REG(BPF_REG_1, BPF_REG_6));
+		if (base)
+			EMIT(&p, BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, -base));
+		EMIT(&p, BPF_MOV32_IMM(BPF_REG_2, 0));
 		EMIT(&p, call);
-		EMIT(&p, BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_0, 0));
+		EMIT(&p, BPF_LDX_MEM(size, BPF_REG_3, BPF_REG_0, off));
 		prog_end(&p, BPF_REG_3);
-		snprintf(desc, sizeof(desc), "probe_mem addr=0x%llx", addr);
+		snprintf(desc, sizeof(desc), "probe_mem void size=%d off=%d base=%d",
+			 size, off, base);
 		fd = prog_load(&p, desc);
 		if (fd < 0)
 			return;
-		prog_run(fd, 0, 0, 0, desc);
+		for (j = 0; j < ARRAY_SIZE(inputs); j++) {
+			struct pat_ctx c = { .in0 = inputs[j], .in1 = ~inputs[j] };
+
+			prog_run(fd, c.in0, c.in1,
+				 load_bytes((__u8 *)&c + off - base, size), desc);
+		}
 		close(fd);
+	}
+
+	/*
+	 * NULL and a user address read as zero, skipped or fixed up after a
+	 * fault; no NULL plus a positive offset, as s390x has its lowcore there
+	 */
+	for (l = 0; l < ARRAY_SIZE(probes_out); l++) {
+		int size = probes_out[l].size, off = probes_out[l].off;
+
+		for (j = 0; j < 2; j++) {
+			__u64 addr = j ? 0x00007ffffffe0000ULL : 0;
+
+			if (!addr && off > 0)
+				continue;
+			prog_start(&p);
+			EMIT(&p, BPF_RAW_INSN(BPF_LD | BPF_DW | BPF_IMM, BPF_REG_1, 0, 0,
+					      (__u32)addr));
+			EMIT(&p, BPF_RAW_INSN(0, 0, 0, 0, addr >> 32));
+			EMIT(&p, BPF_MOV32_IMM(BPF_REG_2, l ? 0 : type_id));
+			EMIT(&p, call);
+			EMIT(&p, BPF_LDX_MEM(size, BPF_REG_3, BPF_REG_0, off));
+			prog_end(&p, BPF_REG_3);
+			snprintf(desc, sizeof(desc), "probe_mem addr=0x%llx size=%d off=%d",
+				 addr, size, off);
+			fd = prog_load(&p, desc);
+			if (fd < 0)
+				return;
+			prog_run(fd, 0, 0, 0, desc);
+			close(fd);
+		}
 	}
 }
 
@@ -2425,9 +2531,11 @@ static void test_probe_mem(void)
 static void test_acq_rel(void)
 {
 	static const int sizes[] = { BPF_B, BPF_H, BPF_W, BPF_DW };
+	/* The slot through the base at the slot, below it and above it */
+	static const int offs[] = { 0, 8, -8 };
 	struct prog p;
 	char desc[64];
-	int b, k, s, j, fd;
+	int b, k, s, o, j, fd;
 
 	for (b = 0; b < ARRAY_SIZE(pat_regs); b++) {
 		int rb = pat_regs[b];
@@ -2438,63 +2546,177 @@ static void test_acq_rel(void)
 			for (k = 0; k < NR_PAIRS; k++) {
 				int rd = pair_reg(b, k);
 
-				/* Load-acquire from the slot, also into the base */
-				prog_start(&p);
-				EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN0));
-				EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rd, -8));
-				EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
-				EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8));
-				EMIT(&p, BPF_ATOMIC_OP(size, BPF_LOAD_ACQ, rd, rb, 0));
-				prog_end(&p, rd);
-				snprintf(desc, sizeof(desc), "load_acq size=%d base=r%d dst=r%d",
-					 size, rb, rd);
-				fd = prog_load(&p, desc);
-				if (fd < 0)
-					return;
-				for (j = 0; j < ARRAY_SIZE(inputs); j++)
-					prog_run(fd, inputs[j], 0,
-						 head_bytes(inputs[j], size), desc);
-				close(fd);
+				for (o = 0; o < ARRAY_SIZE(offs); o++) {
+					int off = offs[o];
 
-				if (rd == rb)
-					continue;
-				/* Store-release of in1 over the slot holding in0 */
-				prog_start(&p);
-				EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN0));
-				EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rd, -8));
-				EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN1));
-				EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
-				EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8));
-				EMIT(&p, BPF_ATOMIC_OP(size, BPF_STORE_REL, rb, rd, 0));
-				EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_10, -8));
-				prog_end(&p, rd);
-				snprintf(desc, sizeof(desc), "store_rel size=%d base=r%d src=r%d",
-					 size, rb, rd);
-				fd = prog_load(&p, desc);
-				if (fd < 0)
-					return;
-				for (j = 0; j < ARRAY_SIZE(inputs); j++) {
-					__u64 in1 = inputs[(j + 1) % ARRAY_SIZE(inputs)];
+					/* Load-acquire from the slot, also into the base */
+					prog_start(&p);
+					EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN0));
+					EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rd, -8));
+					EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
+					EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8 - off));
+					EMIT(&p, BPF_ATOMIC_OP(size, BPF_LOAD_ACQ, rd, rb, off));
+					prog_end(&p, rd);
+					snprintf(desc, sizeof(desc),
+						 "load_acq size=%d base=r%d dst=r%d off=%d",
+						 size, rb, rd, off);
+					fd = prog_load(&p, desc);
+					if (fd < 0)
+						return;
+					for (j = 0; j < ARRAY_SIZE(inputs); j++)
+						prog_run(fd, inputs[j], 0,
+							 head_bytes(inputs[j], size), desc);
+					close(fd);
 
-					prog_run(fd, inputs[j], in1,
-						 head_merge(inputs[j], in1, size), desc);
+					if (rd == rb)
+						continue;
+					/* Store-release of in1 over the slot holding in0 */
+					prog_start(&p);
+					EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN0));
+					EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rd, -8));
+					EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_6, IN1));
+					EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
+					EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8 - off));
+					EMIT(&p, BPF_ATOMIC_OP(size, BPF_STORE_REL, rb, rd, off));
+					EMIT(&p, BPF_LDX_MEM(BPF_DW, rd, BPF_REG_10, -8));
+					prog_end(&p, rd);
+					snprintf(desc, sizeof(desc),
+						 "store_rel size=%d base=r%d src=r%d off=%d",
+						 size, rb, rd, off);
+					fd = prog_load(&p, desc);
+					if (fd < 0)
+						return;
+					for (j = 0; j < ARRAY_SIZE(inputs); j++) {
+						__u64 in1 = inputs[(j + 1) % ARRAY_SIZE(inputs)];
+
+						prog_run(fd, inputs[j], in1,
+							 head_merge(inputs[j], in1, size), desc);
+					}
+					close(fd);
 				}
-				close(fd);
 			}
 		}
 	}
 }
 
+/* The n-th register after pat_regs[b] that is neither it nor r0 */
+static int ptr_operand_reg(int b, int n)
+{
+	int i = b;
+
+	while (n--) {
+		do {
+			i = (i + 1) % ARRAY_SIZE(pat_regs);
+		} while (pat_regs[i] == BPF_REG_0);
+	}
+	return pat_regs[i];
+}
+
+/* rr |= bit unless ra == rb, compared in the width of size */
+static void check_eq(struct prog *p, int size, int ra, int rb, int rr, int bit)
+{
+	if (size == BPF_W)
+		EMIT(p, BPF_JMP32_REG(BPF_JEQ, ra, rb, 1));
+	else
+		EMIT(p, BPF_JMP_REG(BPF_JEQ, ra, rb, 1));
+	EMIT(p, BPF_ALU64_IMM(BPF_OR, rr, bit));
+}
+
 /*
- * A jump with the maximal offset over instructions which expand to several
- * native ones, so that the native offset outgrows the field of a short
- * branch and takes the JITs through their branch conversion. The region
- * must not grow in the verifier, or the jump could not reach over it any
- * more: the divisions are by constants, as a division by a register gets
- * a zero check in front, and the region sticks to one width, as a 32-bit
- * result read by a 64-bit instruction gets a zero extension on the JITs
- * which need one. The region is the not taken path and ends with a result
- * different from the taken one, so a jump landing inside it fails the run.
+ * Atomics with the pointer itself as the operand (src == dst, and cmpxchg
+ * with the pointer as the new value), the bytes written checked against the
+ * operation done on a copy of the pointer made a number by two negations.
+ */
+static void test_atomic_ptr_operand(void)
+{
+	static const int sizes[] = { BPF_DW, BPF_W };
+	static const int ops[] = { BPF_ADD, BPF_AND, BPF_OR, BPF_XOR };
+	struct prog p;
+	char desc[64];
+	int b, k, s, j, fd;
+
+	for (b = 0; b < ARRAY_SIZE(pat_regs); b++) {
+		/* The pointer, a copy of it, the expected value, the memory and the result */
+		int rb = pat_regs[b], rp = ptr_operand_reg(b, 1), rv = ptr_operand_reg(b, 2);
+		int rm = ptr_operand_reg(b, 3), rr = ptr_operand_reg(b, 4);
+
+		for (s = 0; s < ARRAY_SIZE(sizes); s++) {
+			int size = sizes[s];
+			bool w = size == BPF_W;
+
+			for (k = 0; k < ARRAY_SIZE(ops); k++) {
+				int op = ops[k];
+
+				prog_start(&p);
+				EMIT(&p, BPF_MOV64_IMM(rr, 0));
+				EMIT(&p, BPF_LDX_MEM(BPF_DW, rv, BPF_REG_6, IN0));
+				EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rv, -8));
+				EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
+				EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8));
+				EMIT(&p, BPF_MOV64_REG(rp, rb));
+				EMIT(&p, BPF_ALU64_IMM(BPF_NEG, rp, 0));
+				EMIT(&p, BPF_ALU64_IMM(BPF_NEG, rp, 0));
+				/* The bytes the atomic operates on, whichever the byte order */
+				EMIT(&p, BPF_LDX_MEM(size, rv, rb, 0));
+				EMIT(&p, BPF_ATOMIC_OP(size, op, rb, rb, 0));
+				/* The memory holds in0 <op> pointer, the register the pointer */
+				if (w)
+					EMIT(&p, BPF_ALU32_REG(op, rv, rp));
+				else
+					EMIT(&p, BPF_ALU64_REG(op, rv, rp));
+				/* Read back through fp, a clobbered pointer must not fault */
+				EMIT(&p, BPF_LDX_MEM(size, rm, BPF_REG_10, -8));
+				check_eq(&p, BPF_DW, rm, rv, rr, 1);
+				check_eq(&p, BPF_DW, rb, rp, rr, 2);
+				prog_end(&p, rr);
+				snprintf(desc, sizeof(desc), "atomic%d_%s ptr=r%d",
+					 w ? 32 : 64, alu_name(op), rb);
+				fd = prog_load(&p, desc);
+				if (fd < 0)
+					return;
+				for (j = 0; j < ARRAY_SIZE(inputs); j++)
+					prog_run(fd, inputs[j], 0, 0, desc);
+				close(fd);
+			}
+
+			/* The pointer as the new value, r0 holds in0 and matches */
+			if (rb == BPF_REG_0)
+				continue;
+			prog_start(&p);
+			EMIT(&p, BPF_MOV64_IMM(rr, 0));
+			EMIT(&p, BPF_LDX_MEM(BPF_DW, rv, BPF_REG_6, IN0));
+			EMIT(&p, BPF_STX_MEM(BPF_DW, BPF_REG_10, rv, -8));
+			EMIT(&p, BPF_MOV64_REG(rb, BPF_REG_10));
+			EMIT(&p, BPF_ALU64_IMM(BPF_ADD, rb, -8));
+			EMIT(&p, BPF_MOV64_REG(rp, rb));
+			EMIT(&p, BPF_ALU64_IMM(BPF_NEG, rp, 0));
+			EMIT(&p, BPF_ALU64_IMM(BPF_NEG, rp, 0));
+			/* r0 holds the bytes the atomic compares with and matches */
+			EMIT(&p, BPF_LDX_MEM(size, BPF_REG_0, rb, 0));
+			EMIT(&p, BPF_MOV64_REG(rv, BPF_REG_0));
+			EMIT(&p, BPF_ATOMIC_OP(size, BPF_CMPXCHG, rb, rb, 0));
+			/* The memory holds the pointer in the width, r0 the old value */
+			EMIT(&p, BPF_LDX_MEM(size, rm, BPF_REG_10, -8));
+			check_eq(&p, size, rm, rp, rr, 1);
+			check_eq(&p, BPF_DW, BPF_REG_0, rv, rr, 2);
+			check_eq(&p, BPF_DW, rb, rp, rr, 4);
+			prog_end(&p, rr);
+			snprintf(desc, sizeof(desc), "atomic%d_cmpxchg ptr=r%d new=r%d",
+				 w ? 32 : 64, rb, rb);
+			fd = prog_load(&p, desc);
+			if (fd < 0)
+				return;
+			for (j = 0; j < ARRAY_SIZE(inputs); j++)
+				prog_run(fd, inputs[j], 0, 0, desc);
+			close(fd);
+		}
+	}
+}
+
+/*
+ * A jump with the maximal offset over insns that expand natively, through the
+ * JITs' long branch forms. The region must not grow in the verifier: one width
+ * and divisions by constants it keeps. A jump landing inside it fails the run.
  */
 static void max_jmp(bool alu32, bool taken)
 {
@@ -2524,7 +2746,7 @@ static void max_jmp(bool alu32, bool taken)
 
 		if (op == BPF_DIV || op == BPF_MOD)
 			insns[i++] = alu32 ? BPF_ALU32_IMM(op, BPF_REG_3, 7) :
-					     BPF_ALU64_IMM(op, BPF_REG_3, 7);
+					     BPF_ALU64_IMM(op, BPF_REG_3, -7);
 		else
 			insns[i++] = alu32 ? BPF_ALU32_REG(op, BPF_REG_3, BPF_REG_2) :
 					     BPF_ALU64_REG(op, BPF_REG_3, BPF_REG_2);
@@ -2548,6 +2770,231 @@ static void test_max_jmp(void)
 	max_jmp(false, false);
 	max_jmp(true, true);
 	max_jmp(true, false);
+}
+
+/*
+ * A sign test forward or back over a region of n sign tests, which shrink it
+ * as they take the short branch; n sweeps the reach of the sizing pass.
+ */
+#define CHAIN_NO_CALL	0
+#define CHAIN_HELPER	1
+#define CHAIN_SUBPROG	2
+
+static void sign_jumps(int inner, bool back, int call, const char *desc)
+{
+	struct bpf_insn *insns;
+	int n = 0, top, sub = 0, i, fd;
+
+	insns = malloc((24 + 2 * inner) * sizeof(*insns));
+	if (!ASSERT_OK_PTR(insns, desc))
+		return;
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, IN0);
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_1, IN1);
+	insns[n++] = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_2, 1);
+	if (back)
+		insns[n++] = BPF_MOV64_IMM(BPF_REG_4, -2);
+	else
+		insns[n++] = BPF_JMP_IMM(BPF_JSLT, BPF_REG_0, 0, 0);
+	top = n;
+	for (i = 0; i < inner; i++) {
+		insns[n++] = BPF_JMP_IMM(BPF_JSGE, BPF_REG_3, 0, 1);
+		insns[n++] = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1);
+	}
+	if (call != CHAIN_NO_CALL) {
+		/* The call clobbers r0 to r5: the count, the sign and the loop go to r7 to r9 */
+		insns[n++] = BPF_MOV64_REG(BPF_REG_7, BPF_REG_2);
+		insns[n++] = BPF_MOV64_REG(BPF_REG_8, BPF_REG_3);
+		if (back)
+			insns[n++] = BPF_MOV64_REG(BPF_REG_9, BPF_REG_4);
+		sub = n++;
+		insns[n++] = BPF_MOV64_REG(BPF_REG_2, BPF_REG_7);
+		insns[n++] = BPF_MOV64_REG(BPF_REG_3, BPF_REG_8);
+		if (back)
+			insns[n++] = BPF_MOV64_REG(BPF_REG_4, BPF_REG_9);
+	}
+	if (back) {
+		insns[n++] = BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 1);
+		insns[n] = BPF_JMP_IMM(BPF_JSLT, BPF_REG_4, 0, top - n - 1);
+		n++;
+	} else {
+		insns[top - 1] = BPF_JMP_IMM(BPF_JSLT, BPF_REG_0, 0, n - top);
+	}
+	insns[n++] = BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_2, RES);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+	insns[n++] = BPF_EXIT_INSN();
+	if (call == CHAIN_SUBPROG) {
+		insns[sub] = BPF_CALL_REL(n - sub - 1);
+		insns[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+		insns[n++] = BPF_EXIT_INSN();
+	} else if (call == CHAIN_HELPER) {
+		insns[sub] = BPF_EMIT_CALL(BPF_FUNC_get_prandom_u32);
+	}
+
+	fd = load_prog(insns, n, desc);
+	free(insns);
+	if (fd < 0)
+		return;
+	/* One plus the adds with the inner sign set, none with the outer one */
+	prog_run(fd, 0, -1, back ? 2 * inner + 1 : inner + 1, desc);
+	prog_run(fd, 0, 0, 1, desc);
+	prog_run(fd, -1, -1, back ? 2 * inner + 1 : 1, desc);
+	prog_run(fd, 1ULL << 63, -1, back ? 2 * inner + 1 : 1, desc);
+	close(fd);
+}
+
+/*
+ * A chain of sign tests over the region, each an instruction further out than
+ * the next, so each would fit the short reach only once the next one shrank;
+ * a call in the region shrinks it.
+ */
+static void sign_jump_chain(int inner, int outer, int call, const char *desc)
+{
+	struct bpf_insn *insns;
+	int n = 0, top, off, sub = 0, i, fd;
+
+	insns = malloc((16 + 2 * outer + 2 * inner) * sizeof(*insns));
+	if (!ASSERT_OK_PTR(insns, desc))
+		return;
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, IN0);
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_1, IN1);
+	insns[n++] = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_2, 0);
+	top = n;
+	n += outer;
+	for (i = 0; i < inner; i++) {
+		insns[n++] = BPF_JMP_IMM(BPF_JSGE, BPF_REG_3, 0, 1);
+		insns[n++] = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1);
+	}
+	if (call != CHAIN_NO_CALL) {
+		insns[n++] = BPF_MOV64_REG(BPF_REG_7, BPF_REG_2);
+		sub = n++;
+		insns[n++] = BPF_MOV64_REG(BPF_REG_2, BPF_REG_7);
+	}
+	/* The i-th test jumps to the i-th add behind the region, the same offset for all */
+	off = n - top - 1;
+	for (i = 0; i < outer; i++) {
+		insns[top + i] = BPF_JMP_IMM(BPF_JSLT, BPF_REG_0, 0, off);
+		insns[n++] = BPF_ALU64_IMM(BPF_ADD, BPF_REG_2, 1);
+	}
+	insns[n++] = BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_2, RES);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+	insns[n++] = BPF_EXIT_INSN();
+	if (call == CHAIN_SUBPROG) {
+		insns[sub] = BPF_CALL_REL(n - sub - 1);
+		insns[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+		insns[n++] = BPF_EXIT_INSN();
+	} else if (call == CHAIN_HELPER) {
+		insns[sub] = BPF_EMIT_CALL(BPF_FUNC_get_prandom_u32);
+	}
+
+	fd = load_prog(insns, n, desc);
+	free(insns);
+	if (fd < 0)
+		return;
+	/* The adds of the region with the inner sign set, the ones behind it always */
+	prog_run(fd, 0, -1, inner + outer, desc);
+	prog_run(fd, 0, 0, outer, desc);
+	prog_run(fd, -1, -1, outer, desc);
+	prog_run(fd, 1ULL << 63, -1, outer, desc);
+	close(fd);
+}
+
+/*
+ * A sign test forward over n fillers that keep their size, so that the short
+ * branch gets exactly the offset the sizing pass measured: n = 8190 at most.
+ */
+static void sign_jump_fill(int fill, const char *desc)
+{
+	struct bpf_insn *insns;
+	int n = 0, top, i, fd;
+
+	insns = malloc((8 + fill) * sizeof(*insns));
+	if (!ASSERT_OK_PTR(insns, desc))
+		return;
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_0, BPF_REG_1, IN0);
+	insns[n++] = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_2, 2);
+	top = n++;
+	for (i = 1; i < fill; i++)
+		insns[n++] = BPF_MOV64_IMM(BPF_REG_3, 0);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_2, 1);
+	insns[top] = BPF_JMP_IMM(BPF_JSLT, BPF_REG_0, 0, n - top - 1);
+	insns[n++] = BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_2, RES);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_0, 0);
+	insns[n++] = BPF_EXIT_INSN();
+
+	fd = load_prog(insns, n, desc);
+	free(insns);
+	if (fd < 0)
+		return;
+	prog_run(fd, -1, 0, 2, desc);
+	prog_run(fd, 0, 0, 1, desc);
+	close(fd);
+}
+
+static void test_sign_jumps(void)
+{
+	/* 2729 to 2732: a region of 8187 to 8196 instructions as the sizing pass sees it */
+	static const int inners[] = { 16, 2000, 2729, 2730, 2731, 2732, 4200 };
+	static const int chain_inners[][2] = { { 2716, 2724 }, { 4080, 4098 } };
+	char desc[80];
+	int i, inner;
+
+	for (i = 0; i < ARRAY_SIZE(inners); i++) {
+		snprintf(desc, sizeof(desc), "sign jump over %d sign jumps", inners[i]);
+		sign_jumps(inners[i], false, CHAIN_NO_CALL, desc);
+		snprintf(desc, sizeof(desc), "sign jump back over %d sign jumps", inners[i]);
+		sign_jumps(inners[i], true, CHAIN_NO_CALL, desc);
+	}
+	/*
+	 * The reach of the sizing pass with a subprogram call in the region,
+	 * which the extra pass makes direct
+	 */
+	for (inner = 2722; inner <= 2733; inner++) {
+		snprintf(desc, sizeof(desc), "sign jump over %d sign jumps and a subprog call",
+			 inner);
+		sign_jumps(inner, false, CHAIN_SUBPROG, desc);
+		snprintf(desc, sizeof(desc), "sign jump back over %d sign jumps and a subprog call",
+			 inner);
+		sign_jumps(inner, true, CHAIN_SUBPROG, desc);
+	}
+	/* The exact reach of the short branch, 8190 fillers and no more */
+	for (inner = 8189; inner <= 8192; inner++) {
+		snprintf(desc, sizeof(desc), "sign jump over %d fillers", inner);
+		sign_jump_fill(inner, desc);
+	}
+	/*
+	 * Across the reach of the shrunk region, where the tests keep the
+	 * compare and branch, also with a subprogram call in the extra pass
+	 */
+	for (inner = 4086; inner <= 4100; inner++) {
+		snprintf(desc, sizeof(desc), "sign jump over %d sign jumps at the range", inner);
+		sign_jumps(inner, false, CHAIN_NO_CALL, desc);
+		snprintf(desc, sizeof(desc), "sign jump back over %d sign jumps at the range",
+			 inner);
+		sign_jumps(inner, true, CHAIN_NO_CALL, desc);
+		snprintf(desc, sizeof(desc), "sign jump back over %d sign jumps and a subprog call",
+			 inner);
+		sign_jumps(inner, true, CHAIN_SUBPROG, desc);
+	}
+	/*
+	 * Chains across the reach of the sizing pass over 2716 to 2724 inner
+	 * tests, where they are decided, and of the shrunk region over 4080 to
+	 * 4098.
+	 */
+	for (i = 0; i < ARRAY_SIZE(chain_inners); i++) {
+		for (inner = chain_inners[i][0]; inner <= chain_inners[i][1]; inner++) {
+			snprintf(desc, sizeof(desc), "sign jump chain over %d sign jumps", inner);
+			sign_jump_chain(inner, 20, CHAIN_NO_CALL, desc);
+			snprintf(desc, sizeof(desc),
+				 "sign jump chain over %d sign jumps and a call", inner);
+			sign_jump_chain(inner, 20, CHAIN_HELPER, desc);
+			snprintf(desc, sizeof(desc),
+				 "sign jump chain over %d sign jumps and a subprog call", inner);
+			sign_jump_chain(inner, 20, CHAIN_SUBPROG, desc);
+		}
+	}
 }
 
 /*
@@ -2939,6 +3386,54 @@ static void test_same_len_not_converged(void)
 }
 
 /*
+ * Short loops back with a compare, a zero test and a sign test, behind enough
+ * helper calls to put them beyond 1MB into the image of the sizing pass
+ */
+static void test_far_back_jump(void)
+{
+	const struct bpf_insn loops[] = {
+		BPF_MOV64_IMM(BPF_REG_1, 0),
+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_1, 1),
+		BPF_JMP_IMM(BPF_JSLT, BPF_REG_1, 3, -2),
+		BPF_MOV64_IMM(BPF_REG_2, 3),
+		BPF_ALU64_IMM(BPF_SUB, BPF_REG_2, 1),
+		BPF_JMP_IMM(BPF_JNE, BPF_REG_2, 0, -2),
+		BPF_MOV64_IMM(BPF_REG_3, -3),
+		BPF_ALU64_IMM(BPF_ADD, BPF_REG_3, 1),
+		BPF_JMP_IMM(BPF_JSLT, BPF_REG_3, 0, -2),
+		/* in0 + 3 + 0 + 0 */
+		BPF_ALU64_REG(BPF_ADD, BPF_REG_7, BPF_REG_1),
+		BPF_ALU64_REG(BPF_ADD, BPF_REG_7, BPF_REG_2),
+		BPF_ALU64_REG(BPF_ADD, BPF_REG_7, BPF_REG_3),
+		BPF_STX_MEM(BPF_DW, BPF_REG_6, BPF_REG_7, RES),
+		BPF_MOV64_IMM(BPF_REG_0, 0),
+		BPF_EXIT_INSN(),
+	};
+	const int calls = 52500;
+	struct bpf_insn *insns;
+	int n = 0, i, fd;
+
+	insns = malloc((2 + calls + ARRAY_SIZE(loops)) * sizeof(*insns));
+	if (!ASSERT_OK_PTR(insns, "far back jump"))
+		return;
+	insns[n++] = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_7, BPF_REG_1, IN0);
+	for (i = 0; i < calls; i++)
+		insns[n++] = BPF_EMIT_CALL(BPF_FUNC_get_prandom_u32);
+	memcpy(insns + n, loops, sizeof(loops));
+	n += ARRAY_SIZE(loops);
+
+	fd = load_prog(insns, n, "far back jump");
+	free(insns);
+	if (fd < 0)
+		return;
+	ASSERT_GT(jited_len(fd), 0, "far back jump jited");
+	prog_run(fd, 0, 0, 3, "far back jump");
+	prog_run(fd, -1, 0, 2, "far back jump");
+	close(fd);
+}
+
+/*
  * Calls into a subprogram with all five arguments, which clobbers a subset
  * of r6-r9 and uses the deepest stack slot the budget leaves, directly or
  * through another one clobbering the rest, so the JIT has to save and
@@ -3103,6 +3598,94 @@ out:
 	close(map_fd);
 }
 
+/*
+ * A tail call with the index from the packet, which the JIT scales and takes
+ * the low 32 bits of: the entries return their index plus one, an empty one
+ * and an index from the array size on TAIL_FALL, the upper 32 bits ignored.
+ */
+#define TAIL_ENTRIES	7
+#define TAIL_FALL	0xfa11
+
+static void test_tail_call(void)
+{
+	static const int filled[] = { 0, 1, 3, 5 };
+	static const struct {
+		__u64 index;
+		__u32 res;
+	} cases[] = {
+		{ 0, 1 }, { 1, 2 }, { 3, 4 }, { 5, 6 },
+		{ 2, TAIL_FALL }, { 4, TAIL_FALL }, { 6, TAIL_FALL },
+		{ TAIL_ENTRIES, TAIL_FALL }, { 0x7fffffff, TAIL_FALL }, { 0xffffffff, TAIL_FALL },
+		{ 1ULL << 32, 1 }, { (1ULL << 32) | 3, 4 }, { (~0ULL << 32) | 5, 6 },
+		{ (~0ULL << 32) | 2, TAIL_FALL }, { ~0ULL, TAIL_FALL },
+	};
+	LIBBPF_OPTS(bpf_prog_load_opts, lopts,
+		.log_buf = log,
+		.log_size = sizeof(log),
+	);
+	struct {
+		__u64 index;
+		__u64 pad;
+	} pkt = {};
+	LIBBPF_OPTS(bpf_test_run_opts, opts,
+		.data_in = &pkt,
+		.data_size_in = sizeof(pkt),
+	);
+	struct bpf_insn insns[16];
+	int map_fd, fd = -1, k, n, i;
+	char desc[64];
+
+	map_fd = bpf_map_create(BPF_MAP_TYPE_PROG_ARRAY, "tail_call", sizeof(__u32),
+				sizeof(__u32), TAIL_ENTRIES, NULL);
+	if (!ASSERT_GE(map_fd, 0, "prog array"))
+		return;
+	for (i = 0; i < ARRAY_SIZE(filled); i++) {
+		k = filled[i];
+		n = 0;
+		insns[n++] = BPF_MOV64_IMM(BPF_REG_0, k + 1);
+		insns[n++] = BPF_EXIT_INSN();
+		snprintf(desc, sizeof(desc), "tail call target %d", k);
+		fd = bpf_prog_load(BPF_PROG_TYPE_XDP, NULL, "GPL", insns, n, &lopts);
+		if (!ASSERT_GE(fd, 0, desc)) {
+			fprintf(stderr, "%s", log);
+			goto out;
+		}
+		ASSERT_OK(bpf_map_update_elem(map_fd, &k, &fd, BPF_ANY), desc);
+		close(fd);
+	}
+	/* The index from the packet, a call which comes back returns TAIL_FALL */
+	n = 0;
+	insns[n++] = BPF_MOV64_REG(BPF_REG_6, BPF_REG_1);
+	insns[n++] = BPF_LDX_MEM(BPF_W, BPF_REG_2, BPF_REG_1, offsetof(struct xdp_md, data));
+	insns[n++] = BPF_LDX_MEM(BPF_W, BPF_REG_3, BPF_REG_1, offsetof(struct xdp_md, data_end));
+	insns[n++] = BPF_MOV64_REG(BPF_REG_4, BPF_REG_2);
+	insns[n++] = BPF_ALU64_IMM(BPF_ADD, BPF_REG_4, 8);
+	insns[n++] = BPF_JMP_REG(BPF_JGT, BPF_REG_4, BPF_REG_3, 5);
+	insns[n++] = BPF_LDX_MEM(BPF_DW, BPF_REG_3, BPF_REG_2, 0);
+	insns[n++] = BPF_MOV64_REG(BPF_REG_1, BPF_REG_6);
+	insns[n++] = BPF_RAW_INSN(BPF_LD | BPF_DW | BPF_IMM, BPF_REG_2, BPF_PSEUDO_MAP_FD, 0,
+				  map_fd);
+	insns[n++] = BPF_RAW_INSN(0, 0, 0, 0, 0);
+	insns[n++] = BPF_RAW_INSN(BPF_JMP | BPF_CALL, 0, 0, 0, BPF_FUNC_tail_call);
+	insns[n++] = BPF_MOV64_IMM(BPF_REG_0, TAIL_FALL);
+	insns[n++] = BPF_EXIT_INSN();
+	fd = bpf_prog_load(BPF_PROG_TYPE_XDP, NULL, "GPL", insns, n, &lopts);
+	if (!ASSERT_GE(fd, 0, "tail call")) {
+		fprintf(stderr, "%s", log);
+		goto out;
+	}
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		snprintf(desc, sizeof(desc), "tail call index 0x%llx", cases[i].index);
+		pkt.index = cases[i].index;
+		if (ASSERT_OK(bpf_prog_test_run_opts(fd, &opts), desc))
+			ASSERT_EQ(opts.retval, cases[i].res, desc);
+	}
+out:
+	if (fd >= 0)
+		close(fd);
+	close(map_fd);
+}
+
 void test_jit_insns(void)
 {
 	RUN_TESTS(jit_insns_arena);
@@ -3142,20 +3725,28 @@ void test_jit_insns(void)
 		test_staggered_jumps();
 	if (test__start_subtest("max_jmp"))
 		test_max_jmp();
+	if (test__start_subtest("sign_jumps"))
+		test_sign_jumps();
 	if (test__start_subtest("convergence"))
 		test_convergence();
 	if (test__start_subtest("same_len_not_converged"))
 		test_same_len_not_converged();
+	if (test__start_subtest("far_back_jump"))
+		test_far_back_jump();
 	if (test__start_subtest("calls"))
 		test_calls();
 	if (test__start_subtest("helper_calls"))
 		test_helper_calls();
+	if (test__start_subtest("tail_call"))
+		test_tail_call();
 	if (test__start_subtest("ldst_zero_off"))
 		test_ldst_zero_off();
 	if (test__start_subtest("ldst_offsets"))
 		test_ldst_offsets();
 	if (test__start_subtest("acq_rel"))
 		test_acq_rel();
+	if (test__start_subtest("atomic_ptr_operand"))
+		test_atomic_ptr_operand();
 	if (test__start_subtest("movsx"))
 		test_movsx();
 	if (test__start_subtest("jset_imm"))

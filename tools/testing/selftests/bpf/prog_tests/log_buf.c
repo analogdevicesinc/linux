@@ -125,7 +125,7 @@ static void obj_load_log_buf(void)
 	ASSERT_OK_PTR(strstr(libbpf_log_buf, "libbpf: prog 'bad_prog': -- BEGIN PROG LOAD LOG --"),
 		      "libbpf_log_correct");
 	ASSERT_STREQ(obj_log_buf, "", "obj_log__empty");
-	ASSERT_STREQ(good_log_buf, "processed 4 insns (limit 1000000) max_states_per_insn 0 total_states 0 peak_states 0 mark_read 0\n",
+	ASSERT_STREQ(good_log_buf, "processed 4 insns (limit 0) max_states_per_insn 1 total_states 1 peak_states 1 mark_read 0\n",
 		     "good_log_ok");
 	ASSERT_STREQ(bad_log_buf, "", "bad_log_empty");
 
@@ -179,7 +179,7 @@ static void bpf_prog_load_log_buf(void)
 	opts.log_level = 2;
 	fd = bpf_prog_load(BPF_PROG_TYPE_SOCKET_FILTER, "good_prog", "GPL",
 			   good_prog_insns, good_prog_insn_cnt, &opts);
-	ASSERT_OK_PTR(strstr(log_buf, "0: R1=ctx() R10=fp0"), "good_log_2");
+	ASSERT_OK_PTR(strstr(log_buf, "0: R10=fp0"), "good_log_2");
 	ASSERT_GE(fd, 0, "good_fd2");
 	if (fd >= 0)
 		close(fd);

@@ -69,19 +69,19 @@ static struct test_case test_cases[] = {
 #if defined(__x86_64__) || defined(__aarch64__)
 	{
 		N(SCHED_CLS, struct __sk_buff, tstamp),
-		.read  = "r12 = *(u8 *)($ctx + sk_buff::__mono_tc_offset);"
-			 "if w12 & 0x4 goto pc+1;"
+		.read  = "r13 = *(u8 *)($ctx + sk_buff::__mono_tc_offset);"
+			 "if w13 & 0x4 goto pc+1;"
 			 "goto pc+4;"
-			 "if w12 & 0x3 goto pc+1;"
+			 "if w13 & 0x3 goto pc+1;"
 			 "goto pc+2;"
 			 "$dst = 0;"
 			 "goto pc+1;"
 			 "$dst = *(u64 *)($ctx + sk_buff::tstamp);",
-		.write = "r12 = *(u8 *)($ctx + sk_buff::__mono_tc_offset);"
-			 "if w12 & 0x4 goto pc+1;"
+		.write = "r13 = *(u8 *)($ctx + sk_buff::__mono_tc_offset);"
+			 "if w13 & 0x4 goto pc+1;"
 			 "goto pc+2;"
-			 "w12 &= -4;"
-			 "*(u8 *)($ctx + sk_buff::__mono_tc_offset) = r12;"
+			 "w13 &= -4;"
+			 "*(u8 *)($ctx + sk_buff::__mono_tc_offset) = r13;"
 			 "*(u64 *)($ctx + sk_buff::tstamp) = $src;",
 	},
 #endif

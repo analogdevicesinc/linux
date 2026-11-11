@@ -506,10 +506,9 @@ If ``info.kind_flag`` is 0, then this is a normal decl tag, and the
 ``name_off`` encodes btf_decl_tag attribute string.
 
 If ``info.kind_flag`` is 1, then the decl tag represents an arbitrary
-__attribute__. In this case, ``name_off`` encodes a string
-representing the attribute-list of the attribute specifier. For
-example, for an ``__attribute__((aligned(4)))`` the string's contents
-is ``aligned(4)``.
+annotation. ``name_off`` encodes the complete annotation string. For
+example, an attribute specifier is encoded as
+``__attribute__((aligned(4)))``, including the wrapper.
 
 2.2.18 BTF_KIND_TYPE_TAG
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -539,8 +538,8 @@ normal type tag, and the ``name_off`` encodes btf_type_tag attribute
 string.
 
 If ``info.kind_flag`` is 1, then the type tag represents an arbitrary
-__attribute__, and the ``name_off`` encodes a string representing the
-attribute-list of the attribute specifier.
+annotation. As with decl tags, ``name_off`` encodes the complete annotation
+string, for example ``__attribute__((address_space(1)))``.
 
 2.2.19 BTF_KIND_ENUM64
 ~~~~~~~~~~~~~~~~~~~~~~

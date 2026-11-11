@@ -92,6 +92,89 @@ int XCAT(f, n)(unsigned long a)                  \
 
 F(37)
 
+#define ASM_FUNC(linkage, name, insns)					\
+linkage __naked __noinline __used int name(void)			\
+{									\
+	asm volatile (insns "r0 = 0; exit;"				\
+		      :: __imm(bpf_get_prandom_u32) : __clobber_all);	\
+}
+
+/*
+ * Every function calls the next one in both branches of an 'if': 32 calls are
+ * executed, and there are 2^32 chains of calls.
+ */
+#undef F_0
+#undef FN
+#define F_0 ASM_FUNC(, either0, "")
+#define FN(n, prev)							\
+	ASM_FUNC(, either##n,						\
+		 "call %[bpf_get_prandom_u32];"				\
+		 "if r0 == 0 goto +2;"					\
+		 "call either" #prev ";"				\
+		 "goto +1;"						\
+		 "call either" #prev ";")
+F(32)
+
+SEC("syscall")
+__success
+__load_if_JITed()
+int global_func_many_chains(void *ctx)
+{
+	return either32();
+}
+
+/*
+ * r1 is the number of calls that follow, so main -> fs15 .. fs0 and main -> fs31 .. fs16
+ * are executed: 17 frames each. main -> fs31 .. fs0 is in the call graph: 33 frames.
+ * libbpf puts fs15() .. fs0() in front of their second caller fs16().
+ */
+#undef F_0
+#undef FN
+#define F_0 ASM_FUNC(static, fs0, "")
+#define FN(n, prev) ASM_FUNC(static, fs##n, "if r1 == 0 goto +2; r1 += -1; call fs" #prev ";")
+F(31)
+
+SEC("syscall")
+__failure __msg("the call stack of 32 frames is too deep !")
+__load_if_JITed()
+__naked int static_func_deep_stack_second_caller(void)
+{
+	asm volatile ("r1 = 15; call fs15; r1 = 15; call fs31; exit;" ::: __clobber_all);
+}
+
+/*
+ * fm0() is frame 31. On the path that is verified first fp-16 and r7 are linked, so 'r7 > 7'
+ * bounds fp-16. On the second path they are not. To see that, the verifier needs fp-16 live and
+ * fp-16 and r7 precise in the checkpoint at 'goto +0'. These marks go through all that holds
+ * a frame number: the mask of frames in the liveness pass, for which r1 can point to each of
+ * the 32 frames, the jump history, and the linked registers in it. The liveness pass counts
+ * the frames of a chain of calls that passes a pointer to the stack: here r10 of the main prog.
+ */
+#undef F_0
+#undef FN
+#define F_0								\
+	ASM_FUNC(static, fm0,						\
+		 "call %[bpf_get_prandom_u32]; r6 = r0; r6 &= 0xff;"	\
+		 "call %[bpf_get_prandom_u32]; r7 = r0; r7 &= 0xff;"	\
+		 "call %[bpf_get_prandom_u32];"				\
+		 "if r0 > 1 goto +1; r7 = r6;"				\
+		 "*(u64 *)(r10 - 16) = r6; r1 = r10; r1 += -16;"	\
+		 "r2 = -8; r3 = r10; r3 += r2;"				\
+		 "*(u64 *)(r3 + 0) = r1; r1 = *(u64 *)(r3 + 0);"	\
+		 "goto +0;"						\
+		 "if r7 > 7 goto +3; r2 = *(u64 *)(r1 + 0);"		\
+		 "if r2 <= 7 goto +1; r0 = *(u8 *)(r2 + 0);")
+#define FN(n, prev) ASM_FUNC(static, fm##n, "call fm" #prev ";")
+F(30)
+
+SEC("syscall")
+__failure __msg("R2 invalid mem access 'scalar'")
+__flag(BPF_F_TEST_STATE_FREQ)
+__naked int static_func_deep_stack_marks(void)
+{
+	asm volatile ("r1 = r10; call fm30; exit;" ::: __clobber_all);
+}
+
 /* Ensure that even 32 levels deep, the function verifies. */
 SEC("syscall")
 __success

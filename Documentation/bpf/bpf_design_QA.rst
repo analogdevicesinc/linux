@@ -92,11 +92,8 @@ Q: What are the verifier limits?
 A: The only limit known to the user space is BPF_MAXINSNS (4096).
 It's the maximum number of instructions that the unprivileged bpf
 program can have. The verifier has various internal limits.
-Like the maximum number of instructions that can be explored during
-program analysis. Currently, that limit is set to 1 million.
-Which essentially means that the largest program can consist
-of 1 million NOP instructions. There is a limit to the maximum number
-of subsequent branches, a limit to the number of nested bpf-to-bpf
+The largest program can consist of 1 million instructions.
+There is a limit to the number of nested bpf-to-bpf
 calls, a limit to the number of the verifier states per instruction,
 a limit to the number of maps used by the program.
 All these limits can be hit with a sufficiently complex program.

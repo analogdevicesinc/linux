@@ -747,8 +747,9 @@ static u64 buddy_alloc_from_new_chunk(struct buddy __arena *buddy, struct buddy_
 
 	return (u64)address;
 }
-__weak
-void __arena *buddy_alloc(struct buddy __arena *buddy, size_t size)
+
+static __always_inline
+void __arena *buddy_alloc_maygrow(struct buddy __arena *buddy, size_t size, bool grow)
 {
 	void __arena *address = NULL;
 	struct buddy_chunk __arena *chunk;
@@ -772,6 +773,9 @@ void __arena *buddy_alloc(struct buddy __arena *buddy, size_t size)
 	if (address)
 		goto done;
 
+	if (!grow)
+		return NULL;
+
 	/* Get a new chunk. */
 	chunk = buddy_chunk_get(buddy);
 	if (chunk)
@@ -794,6 +798,44 @@ done:
 	asan_unpoison(address, size);
 
 	return address;
+}
+
+__weak
+void __arena *buddy_alloc(struct buddy __arena *buddy, size_t size)
+{
+	return buddy_alloc_maygrow(buddy, size, true);
+}
+
+__weak
+void __arena *buddy_alloc_nogrow(struct buddy __arena *buddy, size_t size)
+{
+	return buddy_alloc_maygrow(buddy, size, false);
+}
+
+__weak
+int buddy_grow(struct buddy __arena *buddy, size_t nr_chunks)
+{
+	struct buddy_chunk __arena *chunk;
+	unsigned long flags;
+	size_t chunk_index;
+
+	for (chunk_index = zero; chunk_index < nr_chunks && can_loop; chunk_index++) {
+		chunk = buddy_chunk_get(buddy);
+		if (!chunk)
+			return -ENOMEM;
+
+		if (buddy_lock(buddy, flags)) {
+			bpf_arena_free_pages(&arena, chunk, BUDDY_CHUNK_PAGES);
+			return -ENOMEM;
+		}
+
+		chunk->next = buddy->first_chunk;
+		buddy->first_chunk = chunk;
+
+		buddy_unlock(buddy, flags);
+	}
+
+	return 0;
 }
 
 static __always_inline int buddy_free_unlocked(struct buddy __arena *buddy, u64 addr)
@@ -899,5 +941,3 @@ __weak int buddy_free(struct buddy __arena *buddy, void __arena *addr)
 
 	return ret;
 }
-
-__weak char _license[] SEC("license") = "GPL";

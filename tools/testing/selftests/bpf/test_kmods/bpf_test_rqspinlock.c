@@ -68,6 +68,11 @@ module_param(nmi_delay, int, 0644);
 MODULE_PARM_DESC(nmi_delay,
 		 "rqspinlock critical section length for NMI context (10ms default)");
 
+static int max_cpus = 8;
+module_param(max_cpus, int, 0444);
+MODULE_PARM_DESC(max_cpus,
+		 "maximum number of CPUs taking part in the test, 0 for all online CPUs (8 default)");
+
 static struct perf_event **rqsl_evts;
 static int rqsl_nevts;
 
@@ -216,7 +221,7 @@ static void free_rqsl_threads(void)
 	int i;
 
 	if (rqsl_threads) {
-		for_each_online_cpu(i) {
+		for (i = 0; i < rqsl_nthreads; i++) {
 			if (rqsl_threads[i])
 				kthread_stop(rqsl_threads[i]);
 		}
@@ -247,7 +252,17 @@ static int bpf_test_rqspinlock_init(void)
 		return -EINVAL;
 	}
 
-	pr_err("Mode = %s\n", rqsl_mode_names[test_mode]);
+	/*
+	 * Every worker holds its lock for normal_delay ms with interrupts
+	 * disabled, and a queued waiter does not time out until it reaches the
+	 * head of the queue, so the longest wait, spent with interrupts off,
+	 * grows with the number of contending CPUs. Limit the test to the first
+	 * max_cpus CPUs to keep it bounded on large machines.
+	 */
+	if (max_cpus > 0)
+		ncpus = min(ncpus, max_cpus);
+
+	pr_err("Mode = %s, CPUs = %d\n", rqsl_mode_names[test_mode], ncpus);
 
 	if (ncpus < test_mode + 2)
 		return -ENOTSUPP;
@@ -279,7 +294,7 @@ static int bpf_test_rqspinlock_init(void)
 	}
 	rqsl_nthreads = ncpus;
 
-	for_each_online_cpu(i) {
+	for (i = 0; i < ncpus; i++) {
 		struct task_struct *t;
 
 		t = kthread_create(rqspinlock_worker_fn, NULL, "rqsl_w/%d", i);

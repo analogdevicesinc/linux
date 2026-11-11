@@ -153,9 +153,10 @@ struct btf {
 	 */
 	int start_str_off;
 
-	/* only one of strs_data or strs_set can be non-NULL, depending on
-	 * whether BTF is in a modifiable state (strs_set is used) or not
-	 * (strs_data points inside raw_data)
+	/*
+	 * strs_data points inside raw_data until BTF becomes modifiable,
+	 * then strings live in strs_set. Before that, strs_set may exist
+	 * as a lookup index for btf__find_str().
 	 */
 	void *strs_data;
 	/* a set of unique strings */
@@ -1252,15 +1253,15 @@ void btf__free(struct btf *btf)
 
 	if (btf_is_modifiable(btf)) {
 		/* if BTF was modified after loading, it will have a split
-		 * in-memory representation for types, strings and layout
-		 * sections, so we need to free all of them individually. It
-		 * might still have a cached contiguous raw data present,
-		 * which will be unconditionally freed below.
+		 * in-memory representation for types and layout sections,
+		 * so we need to free both individually. It might still have
+		 * a cached contiguous raw data present, which will be
+		 * unconditionally freed below.
 		 */
 		free(btf->types_data);
-		strset__free(btf->strs_set);
 		free(btf->layout);
 	}
+	strset__free(btf->strs_set);
 	btf_free_raw_data(btf);
 	free(btf->raw_data_swapped);
 	free(btf->type_offs);
@@ -2033,13 +2034,29 @@ struct btf *btf__load_from_kernel_by_id(__u32 id)
 
 static void btf_invalidate_raw_data(struct btf *btf)
 {
-	if (btf->raw_data)
+	/* types_data and strs_data of read-only BTF point into raw_data */
+	if (btf->raw_data && btf_is_modifiable(btf))
 		btf_free_raw_data(btf);
 	if (btf->raw_data_swapped) {
 		free(btf->raw_data_swapped);
 		btf->raw_data_swapped = NULL;
 	}
 	btf->named_start_id = 0;
+}
+
+static int btf_ensure_strs_set(struct btf *btf)
+{
+	struct strset *set;
+
+	if (btf->strs_set)
+		return 0;
+
+	set = strset__new(BTF_MAX_STR_OFFSET, btf->strs_data, btf->hdr.str_len);
+	if (IS_ERR(set))
+		return PTR_ERR(set);
+
+	btf->strs_set = set;
+	return 0;
 }
 
 /* Ensure BTF is ready to be modified (by splitting into a three memory
@@ -2049,7 +2066,6 @@ static void btf_invalidate_raw_data(struct btf *btf)
 static int btf_ensure_modifiable(struct btf *btf)
 {
 	void *types, *layout = NULL;
-	struct strset *set = NULL;
 	int err = -ENOMEM;
 
 	if (btf_is_modifiable(btf)) {
@@ -2077,18 +2093,14 @@ static int btf_ensure_modifiable(struct btf *btf)
 		       btf->hdr.layout_len);
 	}
 
-	/* build lookup index for all strings */
-	set = strset__new(BTF_MAX_STR_OFFSET, btf->strs_data, btf->hdr.str_len);
-	if (IS_ERR(set)) {
-		err = PTR_ERR(set);
+	err = btf_ensure_strs_set(btf);
+	if (err)
 		goto err_out;
-	}
 
 	/* only when everything was successful, update internal state */
 	btf->types_data = types;
 	btf->types_data_cap = btf->hdr.type_len;
 	btf->strs_data = NULL;
-	btf->strs_set = set;
 	if (layout)
 		btf->layout = layout;
 	/* if BTF was created from scratch, all strings are guaranteed to be
@@ -2099,15 +2111,14 @@ static int btf_ensure_modifiable(struct btf *btf)
 	if (!btf->base_btf && btf->hdr.str_len == 1)
 		btf->strs_deduped = true;
 
+	btf->modifiable = true;
+
 	/* invalidate raw_data representation */
 	btf_invalidate_raw_data(btf);
-
-	btf->modifiable = true;
 
 	return 0;
 
 err_out:
-	strset__free(set);
 	free(types);
 	free(layout);
 	return err;
@@ -2130,8 +2141,7 @@ int btf__find_str(struct btf *btf, const char *s)
 			return off;
 	}
 
-	/* BTF needs to be in a modifiable state to build string lookup index */
-	err = btf_ensure_modifiable(btf);
+	err = btf_ensure_strs_set(btf);
 	if (err)
 		return libbpf_err(err);
 
@@ -2222,7 +2232,6 @@ struct btf_pipe {
 
 static int btf_rewrite_str(struct btf_pipe *p, __u32 *str_off)
 {
-	struct btf *base;
 	long mapped_off;
 	int off, err;
 
@@ -2233,19 +2242,6 @@ static int btf_rewrite_str(struct btf_pipe *p, __u32 *str_off)
 	    hashmap__find(p->str_off_map, *str_off, &mapped_off)) {
 		*str_off = mapped_off;
 		return 0;
-	}
-
-	/*
-	 * btf__add_str() first looks the string up in the base BTFs of dst,
-	 * which makes each of them modifiable and frees its raw data. If src
-	 * shares a base with dst and the string lives in that base, the
-	 * pointer taken below would be left dangling. So make the bases
-	 * modifiable before the pointer is taken.
-	 */
-	for (base = p->dst->base_btf; base; base = base->base_btf) {
-		err = btf_ensure_modifiable(base);
-		if (err)
-			return err;
 	}
 
 	off = btf__add_str(p->dst, btf__str_by_offset(p->src, *str_off));
@@ -3068,7 +3064,7 @@ int btf__add_type_tag(struct btf *btf, const char *value, int ref_type_id)
  * Append new BTF_KIND_TYPE_TAG type with:
  *   - *value*, non-empty/non-NULL tag value;
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * Set info->kflag to 1, indicating this tag is an arbitrary annotation
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.
@@ -3403,7 +3399,7 @@ int btf__add_decl_tag(struct btf *btf, const char *value, int ref_type_id,
  *   - *ref_type_id* - referenced type ID, it might not exist yet;
  *   - *component_idx* - -1 for tagging reference type, otherwise struct/union
  *     member or function argument index;
- * Set info->kflag to 1, indicating this tag is an __attribute__
+ * Set info->kflag to 1, indicating this tag is an arbitrary annotation
  * Returns:
  *   - >0, type ID of newly added BTF type;
  *   - <0, on error.
@@ -6656,8 +6652,12 @@ int btf__relocate(struct btf *btf, const struct btf *base_btf)
 {
 	int err = btf_relocate(btf, base_btf, NULL, NULL);
 
-	if (!err)
+	/* types are rewritten in place, some of them even on error */
+	btf_invalidate_raw_data(btf);
+	if (!err) {
 		btf->owns_base = false;
+		btf_check_sorted(btf);
+	}
 	return libbpf_err(err);
 }
 

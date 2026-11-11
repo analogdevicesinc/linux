@@ -204,7 +204,7 @@ struct btf_links {
 #define KF_ARENA_ARG2	(1 << 15)
 #define KF_IMPLICIT_ARGS (1 << 16)
 #define KF_IMPL_SUFFIX "_impl"
-#define TYPE_ATTR_ARENA "address_space(1)"
+#define TYPE_ATTR_ARENA "__attribute__((address_space(1)))"
 #define PARAM_SUFFIX_ARENA "__arena"
 #define PARAM_SUFFIX_ARENA_NULLABLE "__arena__nullable"
 

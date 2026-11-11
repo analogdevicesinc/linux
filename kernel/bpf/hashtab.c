@@ -196,10 +196,15 @@ static inline void htab_unlock_bucket(struct bucket *b, unsigned long flags)
 
 static bool htab_lru_map_delete_node(void *arg, struct bpf_lru_node *node);
 
+static bool htab_map_is_lru(const struct bpf_map *map)
+{
+	return map->map_type == BPF_MAP_TYPE_LRU_HASH ||
+		map->map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH;
+}
+
 static bool htab_is_lru(const struct bpf_htab *htab)
 {
-	return htab->map.map_type == BPF_MAP_TYPE_LRU_HASH ||
-		htab->map.map_type == BPF_MAP_TYPE_LRU_PERCPU_HASH;
+	return htab_map_is_lru(&htab->map);
 }
 
 static bool htab_is_percpu(const struct bpf_htab *htab)
@@ -222,6 +227,12 @@ static inline bool is_fd_htab(const struct bpf_htab *htab)
 static __always_inline bool htab_key_size_needs_hash(u32 key_size)
 {
 	return key_size > sizeof(unsigned long);
+}
+
+/* map can be the inner map template, which is not a struct bpf_htab */
+static bool htab_map_needs_hash(const struct bpf_map *map)
+{
+	return htab_map_is_lru(map) || htab_key_size_needs_hash(map->key_size);
 }
 
 /*
@@ -676,8 +687,7 @@ static struct bpf_map *htab_map_alloc(union bpf_attr *attr)
 	bpf_map_init_from_attr(&htab->map, attr);
 
 	/* Avoid hash memory use and comparisons where unnecessary. */
-	htab->has_hash = htab_is_lru(htab) ||
-			 htab_key_size_needs_hash(htab->map.key_size);
+	htab->has_hash = htab_map_needs_hash(&htab->map);
 
 	if (percpu_lru) {
 		/* ensure each CPU's lru list has >=1 elements.
@@ -892,13 +902,6 @@ static __always_inline void *__htab_lookup(struct bpf_map *map, void *key,
 	return l;
 }
 
-/*
- * Called from syscall or from eBPF program directly, so
- * arguments have to match bpf_map_lookup_elem() exactly.
- * The return value is adjusted by BPF instructions
- * in htab_map_gen_lookup(). u32/u64 specializations
- * allow utilizing compile-time key_size for optimization.
- */
 static void *__htab_map_lookup_elem(struct bpf_map *map, void *key)
 {
 	struct bpf_htab *htab = container_of(map, struct bpf_htab, map);
@@ -907,19 +910,58 @@ static void *__htab_map_lookup_elem(struct bpf_map *map, void *key)
 }
 
 /*
- * Specialized lookups for htab_map_gen_lookup(). These are only used for
- * BPF_MAP_TYPE_HASH (never LRU), so elem_has_hash depends only on key size.
+ * Called from eBPF program directly, so arguments have to match
+ * bpf_map_lookup_elem() exactly. The return value is adjusted by BPF
+ * instructions in the htab *_map_gen_lookup() callbacks. Constant key_size
+ * and elem_has_hash let the compiler specialize the hash and the compare.
  */
-static void *__htab_map_lookup_elem_u32(struct bpf_map *map, void *key)
+static void *__htab_map_lookup_elem_nohash(struct bpf_map *map, void *key)
 {
-	return __htab_lookup(map, key, sizeof(u32),
-			     htab_key_size_needs_hash(sizeof(u32)));
+	return __htab_lookup(map, key, map->key_size, false);
 }
 
-static void *__htab_map_lookup_elem_u64(struct bpf_map *map, void *key)
+static void *__htab_map_lookup_elem_hash(struct bpf_map *map, void *key)
 {
-	return __htab_lookup(map, key, sizeof(u64),
-			     htab_key_size_needs_hash(sizeof(u64)));
+	return __htab_lookup(map, key, map->key_size, true);
+}
+
+static void *__htab_map_lookup_elem_u32_nohash(struct bpf_map *map, void *key)
+{
+	return __htab_lookup(map, key, sizeof(u32), false);
+}
+
+static void *__htab_map_lookup_elem_u32_hash(struct bpf_map *map, void *key)
+{
+	return __htab_lookup(map, key, sizeof(u32), true);
+}
+
+static void *__htab_map_lookup_elem_u64_nohash(struct bpf_map *map, void *key)
+{
+	return __htab_lookup(map, key, sizeof(u64), false);
+}
+
+static void *__htab_map_lookup_elem_u64_hash(struct bpf_map *map, void *key)
+{
+	return __htab_lookup(map, key, sizeof(u64), true);
+}
+
+typedef void *(*htab_lookup_fn)(struct bpf_map *map, void *key);
+
+static htab_lookup_fn htab_gen_lookup_fn(struct bpf_map *map)
+{
+	bool hash = htab_map_needs_hash(map);
+
+	switch (map->key_size) {
+	case sizeof(u32):
+		return hash ? __htab_map_lookup_elem_u32_hash :
+			      __htab_map_lookup_elem_u32_nohash;
+	case sizeof(u64):
+		return hash ? __htab_map_lookup_elem_u64_hash :
+			      __htab_map_lookup_elem_u64_nohash;
+	default:
+		return hash ? __htab_map_lookup_elem_hash :
+			      __htab_map_lookup_elem_nohash;
+	}
 }
 
 static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
@@ -941,25 +983,14 @@ static void *htab_map_lookup_elem(struct bpf_map *map, void *key)
  *         __htab_map_lookup_elem
  * do:
  * bpf_prog
- *   __htab_map_lookup_elem
+ *   __htab_map_lookup_elem_*()
  */
 static int htab_map_gen_lookup(struct bpf_map *map, struct bpf_insn *insn_buf)
 {
 	struct bpf_insn *insn = insn_buf;
 	const int ret = BPF_REG_0;
 
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem,
-		     (void *(*)(struct bpf_map *map, void *key))NULL));
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem_u32,
-				  (void *(*)(struct bpf_map *map, void *key))NULL));
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem_u64,
-				  (void *(*)(struct bpf_map *map, void *key))NULL));
-	if (map->key_size == sizeof(u32))
-		*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem_u32);
-	else if (map->key_size == sizeof(u64))
-		*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem_u64);
-	else
-		*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem);
+	*insn++ = BPF_EMIT_CALL(htab_gen_lookup_fn(map));
 	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 1);
 	*insn++ = BPF_ALU64_IMM(BPF_ADD, ret,
 				offsetof(struct htab_elem, key) +
@@ -1001,9 +1032,7 @@ static int htab_lru_map_gen_lookup(struct bpf_map *map,
 			    (int)offsetof(struct bpf_lru_node, ref) -
 			    (int)offsetof(struct htab_elem_lru, elem);
 
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem,
-		     (void *(*)(struct bpf_map *map, void *key))NULL));
-	*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem);
+	*insn++ = BPF_EMIT_CALL(htab_gen_lookup_fn(map));
 	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 4);
 	*insn++ = BPF_LDX_MEM(BPF_B, ref_reg, ret, ref_off);
 	*insn++ = BPF_JMP_IMM(BPF_JNE, ref_reg, 0, 1);
@@ -2642,9 +2671,7 @@ static int htab_percpu_map_gen_lookup(struct bpf_map *map, struct bpf_insn *insn
 	if (!bpf_jit_supports_percpu_insn())
 		return -EOPNOTSUPP;
 
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem,
-		     (void *(*)(struct bpf_map *map, void *key))NULL));
-	*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem);
+	*insn++ = BPF_EMIT_CALL(htab_gen_lookup_fn(map));
 	*insn++ = BPF_JMP_IMM(BPF_JEQ, BPF_REG_0, 0, 3);
 	*insn++ = BPF_ALU64_IMM(BPF_ADD, BPF_REG_0,
 				offsetof(struct htab_elem, key) + roundup(map->key_size, 8));
@@ -2931,9 +2958,7 @@ static int htab_of_map_gen_lookup(struct bpf_map *map,
 	struct bpf_insn *insn = insn_buf;
 	const int ret = BPF_REG_0;
 
-	BUILD_BUG_ON(!__same_type(&__htab_map_lookup_elem,
-		     (void *(*)(struct bpf_map *map, void *key))NULL));
-	*insn++ = BPF_EMIT_CALL(__htab_map_lookup_elem);
+	*insn++ = BPF_EMIT_CALL(htab_gen_lookup_fn(map));
 	*insn++ = BPF_JMP_IMM(BPF_JEQ, ret, 0, 2);
 	*insn++ = BPF_ALU64_IMM(BPF_ADD, ret,
 				offsetof(struct htab_elem, key) +

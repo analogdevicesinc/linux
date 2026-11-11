@@ -68,7 +68,8 @@ bpftool btf dump *BTF_SRC* [format *FORMAT*] [root_id *ROOT_ID*]
     **format** option can be used to override default (raw) output format. Raw
     (**raw**) or C-syntax (**c**) output formats are supported. With C-style
     formatting, the output is sorted by default. Use the **unsorted** option
-    to avoid sorting the output.
+    to avoid sorting the output. See **GENERATED HEADERS** for the
+    annotations in C output.
 
     **root_id** option can be used to filter a dump to a single type and all
     its dependent types. It cannot be used with any other types of filtering
@@ -97,6 +98,36 @@ OPTIONS
     for the base object, and passing this option is optional. When the main
     BTF object is passed through other handles, this option becomes
     necessary.
+
+GENERATED HEADERS
+=================
+C output annotates struct and union definitions individually. Most records
+carry ``__bpf_relocatable``. The generated header defines it as
+``__attribute__((preserve_access_index))`` where supported, or as empty
+when **BPF_NO_PRESERVE_ACCESS_INDEX** is defined or the compiler lacks the
+attribute. GCC-BPF can apply CO-RE through these attributes.
+
+Context and socket types whose field accesses the verifier rewrites carry
+``__bpf_static_offset`` instead, and their nested anonymous records carry
+no attribute. Where supported (Clang 18 and later), ``__bpf_static_offset``
+expands to ``__attribute__((preserve_static_offset))``. It is empty
+otherwise. The attribute keeps static field offsets in load and store
+instruction immediates. **BPF_NO_PRESERVE_ACCESS_INDEX** does not affect
+``__bpf_static_offset``.
+
+Define either macro before including the header, as a complete annotation
+such as ``__attribute__((preserve_access_index))``, or as empty.
+
+Clang 18 through 23 crash when ``__builtin_preserve_field_info`` is used on
+a type marked ``__bpf_static_offset``, including through ``bpf_core_field_*``
+and the CO-RE bitfield helpers. Compile with ``-D__bpf_static_offset=`` to
+use these helpers with an affected compiler.
+
+Pointers carrying the ``arena`` type tag in kernel BTF are rendered with
+``__bpf_arena``. This macro expands to
+``__attribute__((address_space(1))) __attribute__((btf_type_tag("arena")))``,
+so programs can use the pointers without explicit casts. Define
+``__bpf_arena`` before including the header to override it.
 
 EXAMPLES
 ========
@@ -273,3 +304,43 @@ All the standard ways to specify map or program are supported:
   [104859] FUNC 'smbalert_work' type_id=9695 linkage=static
   [104860] FUNC 'smbus_alert' type_id=71367 linkage=static
   [104861] FUNC 'smbus_do_alert' type_id=84827 linkage=static
+
+**$ bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h**
+
+**$ cat vmlinux.h**
+
+::
+
+  #ifndef __VMLINUX_H__
+  #define __VMLINUX_H__
+
+  #ifndef __bpf_relocatable
+  #if !defined(BPF_NO_PRESERVE_ACCESS_INDEX) && __has_attribute(preserve_access_index)
+  #define __bpf_relocatable __attribute__((preserve_access_index))
+  #else
+  #define __bpf_relocatable
+  #endif
+  #endif
+
+  #ifndef __bpf_static_offset
+  #if __has_attribute(preserve_static_offset)
+  #define __bpf_static_offset __attribute__((preserve_static_offset))
+  #else
+  #define __bpf_static_offset
+  #endif
+  #endif
+  ...
+  struct list_head {
+          struct list_head *next;
+          struct list_head *prev;
+  } __bpf_relocatable;
+  ...
+  struct __sk_buff {
+          __u32 len;
+          ...
+          union {
+                  struct bpf_flow_keys *flow_keys;
+          };
+          ...
+  } __bpf_static_offset;
+  ...

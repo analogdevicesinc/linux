@@ -155,8 +155,9 @@ static int bpf_size_to_x86_bytes(int bpf_size)
  * register in load/store instructions, it always needs an
  * extra byte of encoding and is callee saved.
  *
- * x86-64 register R9 is not used by BPF programs, but can be used by BPF
- * trampoline. x86-64 register R10 is used for blinding (if enabled).
+ * x86-64 register R9 is the 6th argument, the frame pointer of the private
+ * stack, or BPF_REG_ARENA_SP. It can be used by BPF trampoline.
+ * x86-64 register R10 is used for blinding (if enabled).
  */
 static const int reg2hex[] = {
 	[BPF_REG_0] = 0,  /* RAX */
@@ -170,6 +171,7 @@ static const int reg2hex[] = {
 	[BPF_REG_8] = 6,  /* R14 callee saved */
 	[BPF_REG_9] = 7,  /* R15 callee saved */
 	[BPF_REG_FP] = 5, /* RBP readonly */
+	[BPF_REG_ARENA_SP] = 1, /* R9 */
 	[BPF_REG_AX] = 2, /* R10 temp register */
 	[AUX_REG] = 3,    /* R11 temp register */
 	[X86_REG_R9] = 1, /* R9 register, 6th function argument */
@@ -187,6 +189,7 @@ static const int reg2pt_regs[] = {
 	[BPF_REG_7] = offsetof(struct pt_regs, r13),
 	[BPF_REG_8] = offsetof(struct pt_regs, r14),
 	[BPF_REG_9] = offsetof(struct pt_regs, r15),
+	[BPF_REG_ARENA_SP] = offsetof(struct pt_regs, r9),
 	[BPF_REG_AX] = offsetof(struct pt_regs, r10),
 };
 
@@ -211,6 +214,7 @@ static bool is_ereg(u32 reg)
 			     BIT(BPF_REG_9) |
 			     BIT(X86_REG_R9) |
 			     BIT(X86_REG_R12) |
+			     BIT(BPF_REG_ARENA_SP) |
 			     BIT(BPF_REG_AX));
 }
 
@@ -1328,6 +1332,38 @@ static int emit_kasan_check(struct bpf_verifier_env *env, u8 **pprog,
 	return 0;
 }
 
+/*
+ * The one-operand x86 mul/imul forms use RAX as the implicit first
+ * operand and store the 128-bit product in RDX:RAX.
+ * The JIT uses AUX_REG as the explicit second operand.
+ */
+static void emit_hmul_aux(u8 **pprog, u32 dst_reg, bool is_signed)
+{
+	u8 *prog = *pprog;
+	bool save_rax = dst_reg != BPF_REG_0;
+	bool save_rdx = dst_reg != BPF_REG_3;
+	u8 mul_modrm_base = is_signed ? 0xE8 : 0xE0; /* imul /5 or mul /4 */
+
+	if (save_rax)
+		EMIT1(0x50); /* push rax */
+	if (save_rdx)
+		EMIT1(0x52); /* push rdx */
+
+	if (save_rax)
+		emit_mov_reg(&prog, true, BPF_REG_0, dst_reg);
+	maybe_emit_1mod(&prog, AUX_REG, true);
+	EMIT2(0xF7, add_1reg(mul_modrm_base, AUX_REG));
+	if (save_rdx)
+		emit_mov_reg(&prog, true, dst_reg, BPF_REG_3);
+
+	if (save_rdx)
+		EMIT1(0x5A); /* pop rdx */
+	if (save_rax)
+		EMIT1(0x58); /* pop rax */
+
+	*pprog = prog;
+}
+
 /* LDX: dst_reg = *(u8*)(src_reg + off) */
 static void emit_ldx(u8 **pprog, u32 size, u32 dst_reg, u32 src_reg, int off)
 {
@@ -1593,7 +1629,10 @@ static int emit_atomic_rmw(u8 **pprog, u32 atomic_op,
 {
 	u8 *prog = *pprog;
 
-	if (atomic_op != BPF_XCHG)
+	/* one insn is atomic for what runs on this cpu */
+	if (atomic_op & BPF_ATOMIC_LOCAL)
+		atomic_op &= ~BPF_ATOMIC_LOCAL;
+	else if (atomic_op != BPF_XCHG)
 		EMIT1(0xF0); /* lock prefix */
 
 	maybe_emit_mod(&prog, dst_reg, src_reg, bpf_size == BPF_DW);
@@ -1996,218 +2035,6 @@ static void emit_shiftx(u8 **pprog, u32 dst_reg, u8 src_reg, bool is64, u8 op)
 	*pprog = prog;
 }
 
-struct bpf_div_magic {
-	u64 m;		/* multiplier, sign extended for signed division */
-	int s;		/* shift of the high half of the product */
-	bool add;	/* multiplier has 65 bits, use the add sequence */
-};
-
-/*
- * Multiplier and shift for an unsigned division by the constant d, with
- * 2 <= d < 2^64 and a dividend below 2^(64 - lz): n / d == (mulhu(n, m)
- * >> s), or with the add sequence when m needs 65 bits, (((n - t) >> 1)
- * + t) >> (s - 1) with t = mulhu(n, m). Hacker's Delight, 2nd ed., figure
- * 10-2.
- */
-static void bpf_magic_udiv(u64 d, int lz, struct bpf_div_magic *mag)
-{
-	u64 mask = ~0ULL >> (lz & 63);
-	u64 nc, delta, q1, r1, q2, r2;
-	int p;
-
-	mag->add = false;
-	/* Largest value with nc mod d == d - 1 */
-	nc = mask - (mask % d + 1) % d;
-	p = 63;
-	q1 = (1ULL << 63) / nc;			/* 2^p / nc */
-	r1 = (1ULL << 63) - q1 * nc;		/* 2^p mod nc */
-	q2 = (~0ULL >> 1) / d;			/* (2^p - 1) / d */
-	r2 = (~0ULL >> 1) - q2 * d;		/* (2^p - 1) mod d */
-	do {
-		p++;
-		if (r1 >= nc - r1) {
-			q1 = 2 * q1 + 1;
-			r1 = 2 * r1 - nc;
-		} else {
-			q1 = 2 * q1;
-			r1 = 2 * r1;
-		}
-		if (r2 + 1 >= d - r2) {
-			if (q2 >= (~0ULL >> 1))
-				mag->add = true;
-			q2 = 2 * q2 + 1;
-			r2 = 2 * r2 + 1 - d;
-		} else {
-			if (q2 >= (1ULL << 63))
-				mag->add = true;
-			q2 = 2 * q2;
-			r2 = 2 * r2 + 1;
-		}
-		delta = d - 1 - r2;
-	} while (p < 128 && (q1 < delta || (q1 == delta && r1 == 0)));
-
-	mag->m = q2 + 1;
-	mag->s = p - 64;
-}
-
-/*
- * Multiplier and shift for a signed division by the constant d, with
- * 2 <= |d| < 2^63: q = mulhs(n, m), q += n if d > 0 and m < 0, q -= n
- * if d < 0 and m > 0, q >>= s (arithmetic), n / d == q + (q >>> 63).
- * Hacker's Delight, 2nd ed., figure 10-1.
- */
-static void bpf_magic_sdiv(s64 d, struct bpf_div_magic *mag)
-{
-	u64 ad = d < 0 ? -(u64)d : (u64)d;
-	u64 t, anc, delta, q1, r1, q2, r2;
-	int p;
-
-	t = (1ULL << 63) + (d < 0);
-	anc = t - 1 - t % ad;			/* |nc| */
-	p = 63;
-	q1 = (1ULL << 63) / anc;		/* 2^p / |nc| */
-	r1 = (1ULL << 63) - q1 * anc;		/* 2^p mod |nc| */
-	q2 = (1ULL << 63) / ad;			/* 2^p / |d| */
-	r2 = (1ULL << 63) - q2 * ad;		/* 2^p mod |d| */
-	do {
-		p++;
-		q1 = 2 * q1;
-		r1 = 2 * r1;
-		if (r1 >= anc) {
-			q1++;
-			r1 -= anc;
-		}
-		q2 = 2 * q2;
-		r2 = 2 * r2;
-		if (r2 >= ad) {
-			q2++;
-			r2 -= ad;
-		}
-		delta = ad - r2;
-	} while (q1 < delta || (q1 == delta && r1 == 0));
-
-	mag->m = q2 + 1;
-	if (d < 0)
-		mag->m = -mag->m;
-	mag->s = p - 64;
-	mag->add = false;
-}
-
-/*
- * Divide dst_reg by the constant in insn->imm of a 64-bit division through
- * a multiplication with the magic number from bpf_magic_udiv() or
- * bpf_magic_sdiv(). The dividend goes through rax and the multiplier
- * through r11, the caller saves rax and rdx unless they are dst_reg, and
- * r10 is scratch. Returns false for the divisors left to div/idiv.
- */
-static bool emit_div_const(u8 **pprog, const struct bpf_insn *insn, u32 dst_reg)
-{
-	bool is_mod = BPF_OP(insn->code) == BPF_MOD;
-	bool is_signed = insn->off == 1;
-	u32 n_reg = dst_reg, q_reg;
-	s32 imm32 = insn->imm;
-	struct bpf_div_magic mag;
-	u8 *prog = *pprog;
-	int corr = 0, pre = 0, s;
-
-	if (is_signed) {
-		/* |d| >= 2, the verifier already rewrote d == -1 */
-		if (imm32 >= -1 && imm32 <= 1)
-			return false;
-		bpf_magic_sdiv(imm32, &mag);
-		/* q += n for d > 0 and m < 0, q -= n for d < 0 and m > 0 */
-		if (imm32 > 0 && (s64)mag.m < 0)
-			corr = 1;
-		else if (imm32 < 0 && (s64)mag.m > 0)
-			corr = -1;
-	} else {
-		/* d >= 2, a negative imm32 is a divisor above 2^63 */
-		if (imm32 < 2)
-			return false;
-		bpf_magic_udiv(imm32, 0, &mag);
-		/*
-		 * Shift the dividend by the trailing zeros of an even divisor
-		 * first, the magic number of the odd part then fits without
-		 * the add sequence.
-		 */
-		if (mag.add && !(imm32 & 1)) {
-			pre = __ffs(imm32) & 31;
-			bpf_magic_udiv(imm32 >> pre, pre, &mag);
-			if (mag.add)
-				return false;
-		}
-	}
-	s = mag.s;
-	/*
-	 * The shift is at most 63, or 64 with the add sequence which shifts
-	 * by s - 1 and needs s >= 1. Never hit for d >= 2, kept as a guard
-	 * against an unencodable count.
-	 */
-	if (s > 64 - !mag.add || (mag.add && !s))
-		return false;
-
-	/* Keep the dividend when the multiplication clobbers it */
-	if ((is_mod || mag.add || corr) &&
-	    (dst_reg == BPF_REG_0 || dst_reg == BPF_REG_3)) {
-		emit_mov_reg(&prog, true, BPF_REG_AX, dst_reg);
-		n_reg = BPF_REG_AX;
-	}
-
-	/* mov rax, dst_reg; shr rax, pre; mov r11, m; mul r11 or imul r11 */
-	if (dst_reg != BPF_REG_0)
-		emit_mov_reg(&prog, true, BPF_REG_0, dst_reg);
-	if (pre)
-		emit_shift_imm(&prog, BPF_RSH, BPF_REG_0, pre, true);
-	emit_mov_imm64(&prog, AUX_REG, mag.m >> 32, (u32)mag.m);
-	EMIT3(0x49, 0xF7, is_signed ? 0xEB : 0xE3);
-	if (is_signed) {
-		/* add rdx, n_reg or sub rdx, n_reg */
-		if (corr)
-			emit_alu_reg(&prog, corr > 0 ? BPF_ADD : BPF_SUB,
-				     BPF_REG_3, n_reg, true);
-		/* sar rdx, s */
-		if (s)
-			emit_shift_imm(&prog, BPF_ARSH, BPF_REG_3, s, true);
-		/* mov rax, rdx; shr rax, 63; add rdx, rax */
-		emit_mov_reg(&prog, true, BPF_REG_0, BPF_REG_3);
-		emit_shift_imm(&prog, BPF_RSH, BPF_REG_0, 63, true);
-		emit_alu_reg(&prog, BPF_ADD, BPF_REG_3, BPF_REG_0, true);
-		q_reg = BPF_REG_3;
-	} else if (!mag.add) {
-		/* shr rdx, s */
-		if (s)
-			emit_shift_imm(&prog, BPF_RSH, BPF_REG_3, s, true);
-		q_reg = BPF_REG_3;
-	} else {
-		/* mov rax, n_reg; sub rax, rdx; shr rax, 1 */
-		emit_mov_reg(&prog, true, BPF_REG_0, n_reg);
-		emit_alu_reg(&prog, BPF_SUB, BPF_REG_0, BPF_REG_3, true);
-		emit_shift_imm(&prog, BPF_RSH, BPF_REG_0, 1, true);
-		/* add rax, rdx; shr rax, s - 1 */
-		emit_alu_reg(&prog, BPF_ADD, BPF_REG_0, BPF_REG_3, true);
-		if (s > 1)
-			emit_shift_imm(&prog, BPF_RSH, BPF_REG_0, s - 1, true);
-		q_reg = BPF_REG_0;
-	}
-
-	if (is_mod) {
-		/* imul q_reg, q_reg, imm32 */
-		maybe_emit_mod(&prog, q_reg, q_reg, true);
-		if (is_imm8(imm32))
-			EMIT3(0x6B, add_2reg(0xC0, q_reg, q_reg), imm32);
-		else
-			EMIT2_off32(0x69, add_2reg(0xC0, q_reg, q_reg), imm32);
-		/* sub n_reg, q_reg */
-		emit_alu_reg(&prog, BPF_SUB, n_reg, q_reg, true);
-		q_reg = n_reg;
-	}
-	if (q_reg != dst_reg)
-		emit_mov_reg(&prog, true, dst_reg, q_reg);
-
-	*pprog = prog;
-	return true;
-}
-
 static void emit_priv_frame_ptr(u8 **pprog, void __percpu *priv_frame_ptr)
 {
 	u8 *prog = *pprog;
@@ -2289,6 +2116,37 @@ static int emit_spectre_bhb_barrier(u8 **pprog, u8 *ip,
 	}
 	*pprog = prog;
 	return 0;
+}
+
+/*
+ * Helpers and kfuncs clobber R9, which is BPF_REG_ARENA_SP. It's set after
+ * bpf_arena_stack_get() and is not used after bpf_arena_stack_put().
+ */
+static bool call_clobbers_arena_sp(const struct bpf_insn *insn)
+{
+	return insn->code == (BPF_JMP | BPF_CALL) && insn->src_reg != BPF_PSEUDO_CALL &&
+	       insn->imm != BPF_CALL_IMM(bpf_arena_stack_get) &&
+	       insn->imm != BPF_CALL_IMM(bpf_arena_stack_put);
+}
+
+/* Does the kfunc take more arguments than R1-R5 hold? */
+static bool kfunc_has_stack_args(const struct btf_func_model *fm)
+{
+	u32 i, nslots = 0;
+
+	for (i = 0; i < fm->nr_args; i++)
+		nslots += btf_func_model_arg_slots(fm, i);
+	return nslots > MAX_BPF_FUNC_REG_ARGS;
+}
+
+static bool calls_clobber_arena_sp(const struct bpf_prog *prog)
+{
+	int i;
+
+	for (i = 0; i < prog->len; i++)
+		if (call_clobbers_arena_sp(&prog->insnsi[i]))
+			return true;
+	return false;
 }
 
 static const struct bpf_jit_arg_abi x86_arg_abi = {
@@ -2498,16 +2356,23 @@ static u64 bpf_unwind_target(u64 ret_addr)
 	return e ? ret_addr + e->fixup : ret_addr;
 }
 
-/* unwind_exit: fix the return address of this frame. r0 and r2 are returned. */
-static int emit_unwind_ret_addr(u8 **pprog, u8 *ip)
+/*
+ * unwind_exit: fix the return address of this frame. r0 and r2 are returned.
+ * So is BPF_REG_ARENA_SP, when it's used.
+ */
+static int emit_unwind_ret_addr(u8 **pprog, u8 *ip, bool arena_sp)
 {
 	u8 *prog = *pprog, *start = prog;
 
 	EMIT2(0x50, 0x56);			/* push rax; push rsi */
+	if (arena_sp)
+		push_r9(&prog);
 	EMIT4(0x48, 0x8B, 0x7D, 0x08);		/* mov rdi, [rbp + 8] */
 	if (emit_rsb_call(&prog, bpf_unwind_target, ip + (prog - start)))
 		return -EINVAL;
 	EMIT4(0x48, 0x89, 0x45, 0x08);		/* mov [rbp + 8], rax */
+	if (arena_sp)
+		pop_r9(&prog);
 	EMIT2(0x5E, 0x58);			/* pop rsi; pop rax */
 	*pprog = prog;
 	return 0;
@@ -2532,6 +2397,11 @@ static int do_jit(struct bpf_verifier_env *env, struct bpf_prog *bpf_prog, int *
 	u32 stack_depth;
 	int callee_saved_size;
 	s32 outgoing_arg_base;
+	/* the program uses BPF_REG_ARENA_SP, which is R9 */
+	bool arena_sp = bpf_prog->aux->arena_stack_size;
+	/* it has to be saved around calls of helpers and kfuncs */
+	bool arena_sp_save = arena_sp && calls_clobber_arena_sp(bpf_prog);
+	s32 arena_sp_off = 0;
 	int err;
 
 	stack_depth = bpf_prog->aux->stack_depth;
@@ -2556,12 +2426,21 @@ static int do_jit(struct bpf_verifier_env *env, struct bpf_prog *bpf_prog, int *
 	 * is disabled by the JIT when stack args exist, so R9 is always
 	 * available.
 	 *
+	 * Unless the program uses BPF_REG_ARENA_SP. Then for BPF-to-BPF calls
+	 * arg 6 is on the stack too: incoming args 6+ are at [rbp + 16], ...
+	 * and outgoing args 6+ are at [rsp], ... No trampoline is attached to
+	 * subprogs of such program. For a kfunc call arg 6 is moved to R9 and
+	 * rsp is moved to arg 7.
+	 * Helpers and kfuncs clobber R9. BPF_REG_ARENA_SP is stored in the frame
+	 * before the call and is loaded from there after it.
+	 *
 	 * Stack layout (high to low):
 	 *   [rbp + 16 + ...]    incoming stack args 7+ (from caller)
 	 *   [rbp + 8]           return address
 	 *   [rbp]               saved rbp
 	 *   [rbp - prog_stack]  program stack
 	 *   [below]             callee-saved regs
+	 *   [below]             BPF_REG_ARENA_SP, when it's used and there are calls
 	 *   [below]             outgoing args 7+ (= rsp)
 	 */
 	if (bpf_prog_uses_arena_insns(bpf_prog)) {
@@ -2620,19 +2499,29 @@ static int do_jit(struct bpf_verifier_env *env, struct bpf_prog *bpf_prog, int *
 	 * stack args exist, so tcc pushes need not be accounted for.
 	 */
 	outgoing_arg_base = -(round_up(stack_depth, 8) + callee_saved_size);
+	if (arena_sp_save) {
+		/* make the slot */
+		push_r9(&prog);
+		outgoing_arg_base -= 8;
+		arena_sp_off = outgoing_arg_base;
+	}
 
 	/*
 	 * Allocate outgoing stack arg area for args 7+ only.
 	 * Arg 6 goes into r9 register, not on stack.
 	 */
 	outgoing_rsp = out_stack_arg_cnt > 1 ? (out_stack_arg_cnt - 1) * 8 : 0;
+	if (arena_sp)
+		outgoing_rsp = out_stack_arg_cnt * 8;
 	/*
 	 * bpf_throw() sees rsp of this frame as it is at a call. The callee-saved
 	 * regs are above the outgoing args, or above r9, which is pushed around
-	 * every call when the stack is private.
+	 * every call when the stack is private. With BPF_REG_ARENA_SP the slot
+	 * that keeps r9 over calls is between the two.
 	 */
 	if (bpf_prog->aux->exception_boundary)
-		bpf_prog->aux->stack_arg_sp_adjust = outgoing_rsp + (priv_frame_ptr ? 8 : 0);
+		bpf_prog->aux->stack_arg_sp_adjust = outgoing_rsp +
+						     (priv_frame_ptr || arena_sp_save ? 8 : 0);
 	emit_sub_rsp(&prog, outgoing_rsp);
 
 	if (arena_vm_start)
@@ -2800,11 +2689,6 @@ static int do_jit(struct bpf_verifier_env *env, struct bpf_prog *bpf_prog, int *
 			if (dst_reg != BPF_REG_3)
 				EMIT1(0x52); /* push rdx */
 
-			/* LLVM strength-reduces the 32-bit ones itself */
-			if (is64 && BPF_SRC(insn->code) == BPF_K &&
-			    emit_div_const(&prog, insn, dst_reg))
-				goto div_done;
-
 			if (BPF_SRC(insn->code) == BPF_X) {
 				if (src_reg == BPF_REG_0 ||
 				    src_reg == BPF_REG_3) {
@@ -2851,7 +2735,7 @@ static int do_jit(struct bpf_verifier_env *env, struct bpf_prog *bpf_prog, int *
 				 dst_reg != BPF_REG_0)
 				/* mov dst_reg, rax */
 				emit_mov_reg(&prog, is64, dst_reg, BPF_REG_0);
-div_done:
+
 			if (dst_reg != BPF_REG_3)
 				EMIT1(0x5A); /* pop rdx */
 			if (dst_reg != BPF_REG_0)
@@ -2861,6 +2745,14 @@ div_done:
 
 		case BPF_ALU | BPF_MUL | BPF_K:
 		case BPF_ALU64 | BPF_MUL | BPF_K:
+			if (bpf_insn_is_hmul(insn)) {
+				/* imul/mul use AUX_REG as src. */
+				emit_mov_imm32(&prog, true, AUX_REG, imm32);
+				emit_hmul_aux(&prog, dst_reg,
+					      insn->off == BPF_SHMUL);
+				break;
+			}
+
 			/*
 			 * lea for 3, 5 and 9, which LLVM leaves as a
 			 * multiplication, but not for r13, which needs a
@@ -2896,6 +2788,14 @@ div_done:
 
 		case BPF_ALU | BPF_MUL | BPF_X:
 		case BPF_ALU64 | BPF_MUL | BPF_X:
+			if (bpf_insn_is_hmul(insn)) {
+				/* imul/mul use AUX_REG as src. */
+				emit_mov_reg(&prog, true, AUX_REG, src_reg);
+				emit_hmul_aux(&prog, dst_reg,
+					      insn->off == BPF_SHMUL);
+				break;
+			}
+
 			maybe_emit_mod(&prog, src_reg, dst_reg,
 				       BPF_CLASS(insn->code) == BPF_ALU64);
 
@@ -3038,7 +2938,7 @@ div_done:
 		case BPF_ST | BPF_MEM | BPF_H:
 		case BPF_ST | BPF_MEM | BPF_W:
 		case BPF_ST | BPF_MEM | BPF_DW:
-			if (dst_reg == BPF_REG_PARAMS && insn->off == -8) {
+			if (dst_reg == BPF_REG_PARAMS && insn->off == -8 && !arena_sp) {
 				/* Arg 6: store immediate in r9 register */
 				emit_mov_imm64(&prog, X86_REG_R9, imm32 >> 31,
 					       imm32);
@@ -3052,7 +2952,7 @@ div_done:
 				 * BPF off=-16 → [rsp+0], off=-24 → [rsp+8], ...
 				 */
 				insn_off = outgoing_arg_base - outgoing_rsp -
-					   insn_off - 16;
+					   insn_off - (arena_sp ? 8 : 16);
 				dst_reg = BPF_REG_FP;
 			}
 			if (!accesses_stack_only) {
@@ -3072,14 +2972,15 @@ div_done:
 		case BPF_STX | BPF_MEM | BPF_H:
 		case BPF_STX | BPF_MEM | BPF_W:
 		case BPF_STX | BPF_MEM | BPF_DW:
-			if (dst_reg == BPF_REG_PARAMS && insn->off == -8) {
+			if (dst_reg == BPF_REG_PARAMS && insn->off == -8 && !arena_sp) {
 				/* Arg 6: store register value in r9 */
 				EMIT_mov(X86_REG_R9, src_reg);
 				break;
 			}
 			insn_off = insn->off;
 			if (dst_reg == BPF_REG_PARAMS) {
-				insn_off = outgoing_arg_base - outgoing_rsp - insn_off - 16;
+				insn_off = outgoing_arg_base - outgoing_rsp - insn_off -
+					   (arena_sp ? 8 : 16);
 				dst_reg = BPF_REG_FP;
 			}
 			if (!accesses_stack_only) {
@@ -3188,11 +3089,13 @@ populate_extable:
 		case BPF_LDX | BPF_PROBE_MEMSX | BPF_W:
 			insn_off = insn->off;
 			if (src_reg == BPF_REG_PARAMS) {
-				if (insn_off == 8) {
+				if (insn_off == 8 && !arena_sp) {
 					/* Incoming arg 6: read from r9 */
 					EMIT_mov(dst_reg, X86_REG_R9);
 					break;
 				}
+				if (arena_sp)
+					insn_off += 8;
 				src_reg = BPF_REG_FP;
 				/*
 				 * Incoming args 7+: native_off == bpf_off
@@ -3420,6 +3323,7 @@ populate_extable:
 			/* call */
 		case BPF_JMP | BPF_CALL: {
 			const struct btf_func_model *fm = NULL;
+			bool arena_sp_args = false;
 
 			func = (u8 *) __bpf_call_base + imm32;
 			if (src_reg == BPF_PSEUDO_CALL && tail_call_reachable) {
@@ -3430,6 +3334,12 @@ populate_extable:
 			}
 			if (!imm32)
 				return -EINVAL;
+			if (arena_sp && call_clobbers_arena_sp(insn)) {
+				u8 *start = prog;
+
+				emit_stx(&prog, BPF_DW, BPF_REG_FP, BPF_REG_ARENA_SP, arena_sp_off);
+				ip += prog - start;
+			}
 			if (src_reg == BPF_PSEUDO_KFUNC_CALL) {
 				fm = bpf_jit_find_kfunc_model(bpf_prog, insn);
 				if (!fm)
@@ -3438,8 +3348,31 @@ populate_extable:
 				if (err < 0)
 					return err;
 				ip += err;
-				ip += emit_kfunc_arg_moves(fm, outgoing_arg_base -
-							   outgoing_rsp, &prog);
+				/*
+				 * Other kfuncs leave rsp alone. bpf_throw() is one of
+				 * them, see stack_arg_sp_adjust.
+				 */
+				arena_sp_args = arena_sp && kfunc_has_stack_args(fm);
+				if (arena_sp_args) {
+					u8 *start = prog;
+
+					/*
+					 * Args 6+ are at [rsp]. Put arg 6 where
+					 * emit_kfunc_arg_moves() expects it.
+					 */
+					emit_ldx(&prog, BPF_DW, X86_REG_R9, BPF_REG_FP,
+						 outgoing_arg_base - outgoing_rsp);
+					ip += prog - start;
+				}
+				ip += emit_kfunc_arg_moves(fm, outgoing_arg_base - outgoing_rsp +
+							   (arena_sp ? 8 : 0), &prog);
+				if (arena_sp_args) {
+					u8 *start = prog;
+
+					/* arg 7 is at [rsp] */
+					emit_add_rsp(&prog, 8);
+					ip += prog - start;
+				}
 			}
 			if (priv_frame_ptr) {
 				push_r9(&prog);
@@ -3450,6 +3383,10 @@ populate_extable:
 				return -EINVAL;
 			if (priv_frame_ptr)
 				pop_r9(&prog);
+			if (arena_sp_args)
+				emit_sub_rsp(&prog, 8);
+			if (arena_sp && call_clobbers_arena_sp(insn))
+				emit_ldx(&prog, BPF_DW, BPF_REG_ARENA_SP, BPF_REG_FP, arena_sp_off);
 			/*
 			 * A kfunc returning more than 8 bytes hands the second
 			 * half back in RDX (the native ABI's second return reg),
@@ -3776,7 +3713,7 @@ emit_jmp:
 
 		case BPF_JMP | BPF_EXIT:
 			if (src_reg == BPF_UNWIND_EXIT && bpf_prog_can_unwind(bpf_prog) &&
-			    emit_unwind_ret_addr(&prog, ip))
+			    emit_unwind_ret_addr(&prog, ip, arena_sp))
 				return -EINVAL;
 			if (seen_exit) {
 				jmp_offset = ctx->cleanup_addr - addrs[i] + moved;
@@ -3790,8 +3727,8 @@ emit_jmp:
 				if (emit_spectre_bhb_barrier(&prog, ip, bpf_prog))
 					return -EINVAL;
 			}
-			/* Deallocate outgoing args 7+ area. */
-			emit_add_rsp(&prog, outgoing_rsp);
+			/* Deallocate outgoing args 7+ area and the slot of BPF_REG_ARENA_SP. */
+			emit_add_rsp(&prog, outgoing_rsp + (arena_sp_save ? 8 : 0));
 			if (bpf_prog->aux->exception_boundary) {
 				pop_callee_regs(&prog, all_callee_regs_used);
 				pop_r12(&prog);
@@ -5040,6 +4977,11 @@ bool bpf_jit_supports_unwind(void)
 	return true;
 }
 
+bool bpf_jit_supports_hmul(void)
+{
+	return true;
+}
+
 const struct bpf_jit_arg_abi *bpf_jit_arg_abi(void)
 {
 	return &x86_arg_abi;
@@ -5130,6 +5072,16 @@ bool bpf_jit_supports_exceptions(void)
 }
 
 bool bpf_jit_supports_private_stack(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_arena_stack(void)
+{
+	return true;
+}
+
+bool bpf_jit_supports_local_atomics(void)
 {
 	return true;
 }

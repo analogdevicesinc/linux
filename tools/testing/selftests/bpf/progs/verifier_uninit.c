@@ -9,7 +9,7 @@
 SEC("socket")
 __description("read uninitialized register")
 __failure __msg("R2 !read_ok")
-__msg("R2 has never been initialized on this path")
+__msg("R2 is not readable here. It may never have been initialized")
 __failure_unpriv
 __naked void read_uninitialized_register(void)
 {

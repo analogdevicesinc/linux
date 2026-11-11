@@ -9,6 +9,7 @@
 
 /* Only defined by the non-UAPI linux/filter.h, which this file cannot use. */
 #define BPF_PROBE_ATOMIC 0xe0
+#define BPF_ATOMIC_LOCAL 0x1000
 
 #define __BPF_FUNC_STR_FN(x) [BPF_FUNC_ ## x] = __stringify(bpf_ ## x)
 static const char * const func_id_str[] = {
@@ -163,6 +164,22 @@ static bool is_sdiv_smod(const struct bpf_insn *insn)
 	       insn->off == 1;
 }
 
+/* Return the UHMUL or SHMUL operator string, or NULL for all other encodings. */
+static const char *hmul_op_string(const struct bpf_insn *insn)
+{
+	if (BPF_CLASS(insn->code) != BPF_ALU64 ||
+	    BPF_OP(insn->code) != BPF_MUL)
+		return NULL;
+	switch (insn->off) {
+	case BPF_UHMUL:
+		return "uh*=";
+	case BPF_SHMUL:
+		return "sh*=";
+	default:
+		return NULL;
+	}
+}
+
 static bool is_movsx(const struct bpf_insn *insn)
 {
 	return BPF_OP(insn->code) == BPF_MOV &&
@@ -215,6 +232,7 @@ void print_bpf_insn(const struct bpf_insn_cbs *cbs,
 			verbose(cbs->private_data, "(%02x) %c%d %s %s%c%d",
 				insn->code, class == BPF_ALU ? 'w' : 'r',
 				insn->dst_reg,
+				hmul_op_string(insn) ?:
 				is_sdiv_smod(insn) ? bpf_alu_sign_string[BPF_OP(insn->code) >> 4]
 						   : bpf_alu_string[BPF_OP(insn->code) >> 4],
 				is_movsx(insn) ? bpf_movsx_string[(insn->off >> 3) - 1] : "",
@@ -224,6 +242,7 @@ void print_bpf_insn(const struct bpf_insn_cbs *cbs,
 			verbose(cbs->private_data, "(%02x) %c%d %s %d",
 				insn->code, class == BPF_ALU ? 'w' : 'r',
 				insn->dst_reg,
+				hmul_op_string(insn) ?:
 				is_sdiv_smod(insn) ? bpf_alu_sign_string[BPF_OP(insn->code) >> 4]
 						   : bpf_alu_string[BPF_OP(insn->code) >> 4],
 				insn->imm);
@@ -239,6 +258,12 @@ void print_bpf_insn(const struct bpf_insn_cbs *cbs,
 				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
 				insn->dst_reg,
 				insn->off, insn->src_reg);
+		else if (atomic && insn->imm == (BPF_ADD | BPF_FETCH | BPF_ATOMIC_LOCAL))
+			verbose(cbs->private_data, "(%02x) r%d = local%s_fetch_add((%s *)(r%d %+d), r%d)",
+				insn->code, insn->src_reg,
+				BPF_SIZE(insn->code) == BPF_DW ? "64" : "",
+				bpf_ldst_string[BPF_SIZE(insn->code) >> 3],
+				insn->dst_reg, insn->off, insn->src_reg);
 		else if (atomic &&
 			 (insn->imm == BPF_ADD || insn->imm == BPF_AND ||
 			  insn->imm == BPF_OR || insn->imm == BPF_XOR)) {

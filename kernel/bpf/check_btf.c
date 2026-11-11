@@ -183,15 +183,19 @@ static int check_btf_func(struct bpf_verifier_env *env,
 		/* Already checked func_proto */
 		func_proto = btf_type_by_id(btf, type->type);
 
+		/*
+		 * LD_ABS that fails and a tail call that is taken return to the caller
+		 * with a number in r0, whatever the type is. 'void' says nothing about r0.
+		 */
 		ret_type = btf_type_skip_modifiers(btf, func_proto->type, NULL);
-		scalar_return =
+		scalar_return = btf_type_is_void(ret_type) ||
 			btf_type_is_small_int(ret_type) || btf_is_any_enum(ret_type);
 		if (i && !scalar_return && env->subprog_info[i].has_ld_abs) {
-			verbose(env, "LD_ABS is only allowed in functions that return 'int'.\n");
+			verbose(env, "LD_ABS is only allowed in functions that return 'int' or 'void'.\n");
 			goto err_free;
 		}
 		if (i && !scalar_return && env->subprog_info[i].has_tail_call) {
-			verbose(env, "tail_call is only allowed in functions that return 'int'.\n");
+			verbose(env, "tail_call is only allowed in functions that return 'int' or 'void'.\n");
 			goto err_free;
 		}
 

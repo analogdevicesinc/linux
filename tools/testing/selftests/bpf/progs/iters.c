@@ -47,7 +47,7 @@ int iter_err_unsafe_c_loop(const void *ctx)
 }
 
 SEC("?raw_tp")
-__failure __msg("unbounded memory access")
+__failure __msg("math between map_value pointer and register with unbounded min value is not allowed")
 int iter_err_unsafe_asm_loop(const void *ctx)
 {
 	struct bpf_iter_num it;
@@ -878,19 +878,15 @@ __naked int delayed_read_mark(void)
 
 SEC("?raw_tp")
 __failure
-__msg("math between fp pointer and register with unbounded")
+__msg("21: (79) r8 = *(u64 *)(r0 +0)")
+__msg("misaligned stack access off -33+0 size 8")
 __naked int delayed_precision_mark(void)
 {
 	/* This is equivalent to C program below.
-	 * The test is similar to delayed_iter_mark but verifies that incomplete
-	 * precision don't fool verifier.
-	 * The call to bpf_iter_num_next() is reachable with r7 values -16 and -32.
-	 * State with r7=-16 is visited first and follows r6 != 42 ... continue branch.
-	 * At this point iterator next() call is reached with r7 that has no read
-	 * and precision marks.
-	 * Loop body with r7=-32 would only be visited if verifier would decide to continue
-	 * with second loop iteration. Absence of precision mark on r7 might affect state
-	 * equivalent logic used for iterator convergence tracking.
+	 * The test is similar to delayed_read_mark.
+	 * The call to bpf_iter_num_next() is reachable with r7 values -16 and -33.
+	 * The loop body with r7=-33 is only looked at if the verifier goes on
+	 * with the second iteration of the loop.
 	 *
 	 * r8 = 0
 	 * fp[-16] = 0
@@ -899,7 +895,7 @@ __naked int delayed_precision_mark(void)
 	 * bpf_iter_num_new(&fp[-8], 0, 10)
 	 * while (bpf_iter_num_next(&fp[-8])) {
 	 *   if (r6 != 42) {
-	 *     r7 = -32
+	 *     r7 = -33
 	 *     r6 = bpf_get_prandom_u32()
 	 *     continue;
 	 *   }
@@ -957,22 +953,17 @@ __naked int delayed_precision_mark(void)
 
 SEC("?raw_tp")
 __failure
-__msg("math between fp pointer and register with unbounded")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("misaligned stack access off -25+0 size 8")
 __naked int loop_state_deps1(void)
 {
 	/* This is equivalent to C program below.
 	 *
 	 * The case turns out to be tricky in a sense that:
-	 * - states with c=-25 are explored only on a second iteration
-	 *   of the outer loop;
-	 * - states with read+precise mark on c are explored only on
-	 *   second iteration of the inner loop and in a state which
-	 *   is pushed to states stack first.
+	 * - c is -25 only on a second iteration of the outer loop;
+	 * - c is used only on a second iteration of the inner loop.
 	 *
-	 * Depending on the details of iterator convergence logic
-	 * verifier might stop states traversal too early and miss
-	 * unsafe c=-25 memory access.
+	 * The verifier might stop too early and miss unsafe c=-25
+	 * memory access.
 	 *
 	 *   j = iter_new();		 // fp[-16]
 	 *   a = 0;			 // r6
@@ -1082,23 +1073,18 @@ __naked int loop_state_deps1(void)
 
 SEC("?raw_tp")
 __failure
-__msg("math between fp pointer and register with unbounded")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("34: (0f) r0 += r8")
+__msg("misaligned stack access off -25+0 size 8")
 __naked int loop_state_deps2(void)
 {
 	/* This is equivalent to C program below.
 	 *
 	 * The case turns out to be tricky in a sense that:
-	 * - states with read+precise mark on c are explored only on a second
-	 *   iteration of the first inner loop and in a state which is pushed to
-	 *   states stack first.
-	 * - states with c=-25 are explored only on a second iteration of the
-	 *   second inner loop and in a state which is pushed to states stack
-	 *   first.
+	 * - c is used only on a second iteration of the first inner loop;
+	 * - c is -25 only on a second iteration of the second inner loop.
 	 *
-	 * Depending on the details of iterator convergence logic
-	 * verifier might stop states traversal too early and miss
-	 * unsafe c=-25 memory access.
+	 * The verifier might stop too early and miss unsafe c=-25
+	 * memory access.
 	 *
 	 *   j = iter_new();             // fp[-16]
 	 *   a = 0;                      // r6
@@ -1259,49 +1245,38 @@ __naked int loop_state_deps2(void)
 
 SEC("?raw_tp")
 __failure
-__msg("math between fp pointer and register with unbounded")
-__flag(BPF_F_TEST_STATE_FREQ)
+__msg("misaligned stack access off -25+0 size 8")
 __naked int loop_state_deps3(void)
 {
 	/* This is equivalent to a C program below.
 	 *
-	 *   if (random() != 24) {       // assume false branch is placed first
+	 *   if (random() != 24) {
 	 *     i = iter_new();           // fp[-8]
 	 *     while (iter_next(i));
 	 *     iter_destroy(i);
 	 *     return;
 	 *   }
 	 *
-	 *   for (i = 10; i > 0; i--);   // increase dfs_depth for child states
+	 *   for (i = 10; i > 0; i--);
 	 *
 	 *   i = iter_new();             // fp[-8]
 	 *   b = -24;                    // r8
-	 *   for (;;) {                  // checkpoint (L)
-	 *     if (iter_next(i))         // checkpoint (N)
+	 *   for (;;) {
+	 *     if (iter_next(i))
 	 *       break;
-	 *     if (random() == 77) {     // assume false branch is placed first
+	 *     if (random() == 77) {
 	 *       *(u64 *)(r10 + b) = 7;  // this is not safe when b == -25
 	 *       iter_destroy(i);
 	 *       return;
 	 *     }
-	 *     if (random() == 42) {     // assume false branch is placed first
+	 *     if (random() == 42) {
 	 *       b = -25;
 	 *     }
 	 *   }
 	 *   iter_destroy(i);
 	 *
-	 * In case of a buggy verifier first loop might poison
-	 * env->cur_state->loop_entry with a state having 0 branches
-	 * and small dfs_depth. This would trigger NOT_EXACT states
-	 * comparison for some states within second loop.
-	 * Specifically, checkpoint (L) might be problematic if:
-	 * - branch with '*(u64 *)(r10 + b) = 7' is not explored yet;
-	 * - checkpoint (L) is first reached in state {b=-24};
-	 * - traversal is pruned at checkpoint (N) setting checkpoint's (L)
-	 *   branch count to 0, thus making it eligible for use in pruning;
-	 * - checkpoint (L) is next reached in state {b=-25},
-	 *   this would cause NOT_EXACT comparison with a state {b=-24}
-	 *   while 'b' is not marked precise yet.
+	 * What the verifier learned in the first two loops must not make it
+	 * take {b=-25} at the head of the third one for {b=-24}.
 	 */
 	asm volatile (
 		"call %[bpf_get_prandom_u32];"
@@ -1884,7 +1859,6 @@ __naked int absent_mark_in_the_middle_state2(void)
 }
 
 SEC("?raw_tp")
-__flag(BPF_F_TEST_STATE_FREQ)
 __failure __msg("misaligned stack access off -31+0 size 8")
 __naked int absent_mark_in_the_middle_state3(void)
 {
@@ -2014,8 +1988,8 @@ static int loop1_wrapper(void)
  * but adapted for use with bpf_loop().
  */
 SEC("raw_tp")
-__flag(BPF_F_TEST_STATE_FREQ)
-__failure __msg("math between fp pointer and register with unbounded min value is not allowed")
+/* -32 or -31 */
+__failure __msg("misaligned stack access off (0xffffffffffffffe0; 0x1)+0 size 8")
 __naked void absent_mark_in_the_middle_state4(void)
 {
 	/*
@@ -2159,8 +2133,7 @@ static int loop_cb5(int i, __u64 *ctx)
 }
 
 SEC("raw_tp")
-__flag(BPF_F_TEST_STATE_FREQ)
-__failure __msg("memory access is {{.*}} and is outside of the object of size 64")
+__failure __msg("invalid access to map value, value_size=64 off=402000 size=4")
 __naked void loop_counter_precision_2nd_iter(void)
 {
 	asm volatile (
@@ -2174,9 +2147,8 @@ __naked void loop_counter_precision_2nd_iter(void)
 		"r3 += -8;"
 		"r4 = 0;"
 		/*
-		 * Explore with nr_loops=1 on a first path and nr_loops=2 on a second path.
-		 * Buggy verifier did not propagate r1 precision properly,
-		 * and thus checkpoints created for nr_loops=1 case matched nr_loops=2 case.
+		 * nr_loops is 1 on one path and 2 on the other.
+		 * The second call of the callback must not be lost.
 		 */
 		"call %[bpf_loop];"
 		"r0 = 0;"
@@ -2190,12 +2162,12 @@ __naked void loop_counter_precision_2nd_iter(void)
 
 /*
  * An iterator that is destroyed and created again inside its loop starts from
- * the beginning and the loop never ends. In the first four progs the first
- * prune point after bpf_iter_num_new() is the call of bpf_iter_num_next().
+ * the beginning and the loop never ends. bpf_iter_num_next() is not what stops such
+ * loop: the verifier adds may_goto. The progs spin until it's out of budget.
  */
 SEC("socket")
 __description("iter: remake in the loop, jump to next")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __naked void iter_remake_jmp(void)
 {
 	asm volatile (
@@ -2256,7 +2228,7 @@ __used __naked static void iter_remake(void)
 
 SEC("socket")
 __description("iter: remake in a callee, jump to next")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __naked void iter_remake_callee_jmp(void)
 {
 	asm volatile (
@@ -2295,7 +2267,7 @@ __naked void iter_remake_callee_jmp(void)
 
 SEC("socket")
 __description("iter: remake after next, jump to next")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __naked void iter_remake_after_next_jmp(void)
 {
 	asm volatile (
@@ -2336,7 +2308,7 @@ __naked void iter_remake_after_next_jmp(void)
 
 SEC("socket")
 __description("iter: two iterators, remake each after its next")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __naked void iter_remake_two_jmp(void)
 {
 	asm volatile (
@@ -2398,7 +2370,7 @@ __naked void iter_remake_two_jmp(void)
 /* Same loops with a prune point in front of bpf_iter_num_next() */
 SEC("socket")
 __description("iter: remake in the loop")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked void iter_remake_inline(void)
 {
@@ -2439,7 +2411,7 @@ __naked void iter_remake_inline(void)
 
 SEC("socket")
 __description("iter: remake in a callee")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked void iter_remake_callee(void)
 {
@@ -2475,7 +2447,7 @@ __naked void iter_remake_callee(void)
 
 SEC("socket")
 __description("iter: remake after next")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked void iter_remake_after_next(void)
 {
@@ -2515,7 +2487,7 @@ __naked void iter_remake_after_next(void)
 
 SEC("socket")
 __description("iter: remake when drained")
-__failure __msg("infinite loop detected")
+__success __retval(0)
 __flag(BPF_F_TEST_STATE_FREQ)
 __naked void iter_remake_drained(void)
 {

@@ -12,6 +12,13 @@ struct {
 	__type(value, long long);
 } map_hash_8b SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(max_entries, 1);
+	__type(key, int);
+	__type(value, long long);
+} map_array_8b SEC(".maps");
+
 SEC("lwt_in")
 __description("variable-offset ctx access")
 __failure __msg("variable ctx access var_off=(0x0; 0x4)")
@@ -63,7 +70,6 @@ SEC("cgroup/skb")
 __description("variable-offset stack read preserves spilled zero")
 __success
 __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8")
 __msg("R3=0")
 __retval(0)
 __naked void stack_read_var_off_preserves_spilled_zero(void)
@@ -89,7 +95,6 @@ SEC("cgroup/skb")
 __description("variable-offset stack read preserves spilled zero across slots")
 __success
 __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8,-16")
 __msg("R3=0")
 __retval(0)
 __naked void stack_read_var_off_preserves_spilled_zero_across_slots(void)
@@ -116,7 +121,6 @@ SEC("cgroup/skb")
 __description("variable-offset stack read preserves partial spilled zero")
 __success
 __log_level(2)
-__msg("mark_precise: frame0: regs= stack=-8")
 __msg("R3=0")
 __retval(0)
 __naked void stack_read_var_off_preserves_partial_spilled_zero(void)
@@ -311,6 +315,202 @@ __naked void stack_write_clobbers_spilled_regs(void)
 "	:
 	: __imm_addr(map_hash_8b)
 	: __clobber_all);
+}
+
+/*
+ * if (x) a[0] = p; else a[1] = p; with one store. The paths meet in front of it.
+ * The offset is known on each of them.
+ */
+SEC("tc")
+__description("pointer is spilled at one of two offsets")
+__success __retval(0)
+__naked void ptr_at_one_of_two_offsets(void)
+{
+	asm volatile ("					\
+	r1 = 0;						\
+	*(u32*)(r10 - 4) = r1;				\
+	r2 = r10;					\
+	r2 += -4;					\
+	r1 = %[map_array_8b] ll;			\
+	call %[bpf_map_lookup_elem];			\
+	if r0 == 0 goto l2_%=;				\
+	r6 = r0;					\
+	r1 = 0;						\
+	*(u64*)(r10 - 16) = r1;				\
+	*(u64*)(r10 - 24) = r1;				\
+	call %[bpf_get_prandom_u32];			\
+	r7 = 0;						\
+	r8 = 1;						\
+	if r0 > 100 goto l0_%=;				\
+	r7 = 8;						\
+	r8 = 2;						\
+l0_%=:	r2 = r10;					\
+	r2 += -24;					\
+	r2 += r7;					\
+	*(u64*)(r2 + 0) = r6;				\
+	if r8 != 1 goto l1_%=;				\
+	r3 = *(u64*)(r10 - 24);				\
+	r0 = *(u64*)(r3 + 0);				\
+	exit;						\
+l1_%=:	r3 = *(u64*)(r10 - 16);				\
+	r0 = *(u64*)(r3 + 0);				\
+	exit;						\
+l2_%=:	r0 = 0;						\
+	exit;						\
+"	:
+	: __imm(bpf_get_prandom_u32),
+	  __imm(bpf_map_lookup_elem),
+	  __imm_addr(map_array_8b)
+	: __clobber_all);
+}
+
+#define PICK_OFF(slot)					\
+	"call %[bpf_get_prandom_u32];"			\
+	"r1 = 0;"					\
+	"if r0 > 100 goto +1;"				\
+	"r1 = 8;"					\
+	"*(u64*)(r10 - " #slot ") = r1;"
+
+#define USE_OFF(slot)					\
+	"r1 = *(u64*)(r10 - " #slot ");"		\
+	"r2 = r10;"					\
+	"r2 += -16;"					\
+	"r2 += r1;"					\
+	"*(u64*)(r2 + 0) = r0;"
+
+/* 4096 combinations of offsets that are known: not all of them are looked at */
+SEC("tc")
+__description("12 times one of two offsets")
+__success __retval(0)
+__naked void many_offsets(void)
+{
+	asm volatile (
+	"r1 = 0;"
+	"*(u64*)(r10 - 8) = r1;"
+	"*(u64*)(r10 - 16) = r1;"
+	PICK_OFF(24) PICK_OFF(32) PICK_OFF(40) PICK_OFF(48)
+	PICK_OFF(56) PICK_OFF(64) PICK_OFF(72) PICK_OFF(80)
+	PICK_OFF(88) PICK_OFF(96) PICK_OFF(104) PICK_OFF(112)
+	USE_OFF(24) USE_OFF(32) USE_OFF(40) USE_OFF(48)
+	USE_OFF(56) USE_OFF(64) USE_OFF(72) USE_OFF(80)
+	USE_OFF(88) USE_OFF(96) USE_OFF(104) USE_OFF(112)
+	"r0 = 0;"
+	"exit;"
+	:
+	: __imm(bpf_get_prandom_u32)
+	: __clobber_all);
+}
+
+extern int bpf_iter_num_new(struct bpf_iter_num *it, int start, int end) __ksym;
+extern int *bpf_iter_num_next(struct bpf_iter_num *it) __ksym;
+extern void bpf_iter_num_destroy(struct bpf_iter_num *it) __ksym;
+
+/* The verifier doesn't know what is in there */
+unsigned long zero;
+
+#define ITER_NEW	"r1 = r10; r1 += -24; w2 = 0; w3 = 100; call %[bpf_iter_num_new];"
+#define ITER_NEXT	"r1 = r10; r1 += -24; call %[bpf_iter_num_next];"
+#define ITER_DESTROY	"r1 = r10; r1 += -24; call %[bpf_iter_num_destroy];"
+#define __imm_iter	__imm(bpf_iter_num_new), __imm(bpf_iter_num_next), \
+			__imm(bpf_iter_num_destroy)
+
+/*
+ *	u8 stack[10], depth = 0;
+ *	loop {
+ *		if (x) { if (depth >= 10) break; stack[depth++] = 1; }
+ *		else { depth--; if (depth >= 10) break; y = stack[depth]; }
+ *	}
+ * depth is in a 32-bit register. 'depth & 255' is tested, and computed anew for the index.
+ */
+#define PUSH_OR_POP					\
+		"r1 = *(u64 *)(r6 + 0);"		\
+		"if r1 == 0 goto 2f;"			\
+		"w7 = w8;"				\
+		"w7 &= 255;"				\
+		"if w7 > 9 goto 9f;"			\
+		"r1 = r8;"				\
+		"r1 &= 255;"				\
+		"r2 = r10;"				\
+		"r2 += -10;"				\
+		"r2 += r1;"				\
+		"*(u8 *)(r2 + 0) = r1;"			\
+		"w8 += 1;"				\
+		"goto 1b;"				\
+	"2:"						\
+		"w8 += -1;"				\
+		"w2 = w8;"				\
+		"w2 &= 255;"				\
+		"if w2 > 9 goto 9f;"			\
+		"r2 = r8;"				\
+		"r2 &= 255;"				\
+		"r3 = r10;"				\
+		"r3 += -10;"				\
+		"r3 += r2;"				\
+		"r9 = *(u8 *)(r3 + 0);"			\
+		"goto 1b;"
+
+SEC("tc")
+__description("depth of a stack on the stack: a copy is tested")
+__success __retval(0)
+__naked void depth_copy_is_tested(void)
+{
+	asm volatile (
+		"r6 = %[zero] ll;"
+		"r1 = 0;"
+		"*(u64 *)(r10 - 8) = r1;"
+		"*(u64 *)(r10 - 16) = r1;"
+		"w8 = 0;"
+		ITER_NEW
+	"1:"
+		ITER_NEXT
+		"if r0 == 0 goto 9f;"
+		PUSH_OR_POP
+	"9:"
+		ITER_DESTROY
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm_addr(zero), __imm_iter
+		: __clobber_all);
+}
+
+SEC("tc")
+__description("depth of a stack on the stack: no bound")
+__failure __msg("invalid write to stack R2 off=0 size=1")
+__naked void depth_without_a_bound(void)
+{
+	asm volatile (
+		"r1 = 0;"
+		"*(u64 *)(r10 - 8) = r1;"
+		"*(u64 *)(r10 - 16) = r1;"
+		"w8 = 0;"
+		ITER_NEW
+	"1:"
+		ITER_NEXT
+		"if r0 == 0 goto 9f;"
+		"r1 = r8;"
+		"r1 &= 255;"
+		"r2 = r10;"
+		"r2 += -10;"
+		"r2 += r1;"
+		"*(u8 *)(r2 + 0) = r1;"
+		"w8 += 1;"
+		"goto 1b;"
+	"9:"
+		ITER_DESTROY
+		"r0 = 0;"
+		"exit;"
+		:
+		: __imm_iter
+		: __clobber_all);
+}
+
+/* BTF FUNC records are not generated for kfuncs referenced from inline assembly */
+void __kfunc_btf_root(void)
+{
+	bpf_iter_num_new(0, 0, 0);
+	bpf_iter_num_next(0);
+	bpf_iter_num_destroy(0);
 }
 
 SEC("sockops")

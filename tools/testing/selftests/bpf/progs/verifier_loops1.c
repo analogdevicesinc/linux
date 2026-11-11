@@ -123,7 +123,7 @@ l0_%=:	exit;						\
 
 SEC("tracepoint")
 __description("infinite loop after a conditional jump")
-__failure __msg("program is too large")
+__failure __msg("loop at insn 2 never exits")
 __naked void loop_after_a_conditional_jump(void)
 {
 	asm volatile ("					\
@@ -135,10 +135,11 @@ l0_%=:	exit;						\
 "	::: __clobber_all);
 }
 
-SEC("tracepoint")
+SEC("xdp")
 __description("bounded recursion")
-__failure
-__msg("recursive call from")
+__arch_x86_64
+__arch_arm64
+__success __retval(4)
 __naked void bounded_recursion(void)
 {
 	asm volatile ("					\
@@ -163,7 +164,7 @@ l0_%=:	call bounded_recursion__1;			\
 
 SEC("tracepoint")
 __description("infinite loop in two jumps")
-__failure __msg("loop detected")
+__failure __msg("loop at insn 1 never exits")
 __naked void infinite_loop_in_two_jumps(void)
 {
 	asm volatile ("					\
@@ -174,9 +175,10 @@ l0_%=:	if r0 < 4 goto l1_%=;				\
 "	::: __clobber_all);
 }
 
-SEC("tracepoint")
+/* It never ends on its own. may_goto that the verifier adds ends the prog. */
+SEC("xdp")
 __description("infinite loop: three-jump trick")
-__failure __msg("loop detected")
+__success __retval(0)
 __naked void infinite_loop_three_jump_trick(void)
 {
 	asm volatile ("					\
