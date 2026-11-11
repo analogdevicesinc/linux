@@ -322,7 +322,7 @@ static void qtnf_topaz_free_xfer_buffers(struct qtnf_pcie_topaz_state *ts)
 			skb = priv->tx_skb[i];
 			paddr = QTN_HOST_ADDR(0x0, le32_to_cpu(txbd->addr));
 			dma_unmap_single(&priv->pdev->dev, paddr,
-					 SKB_BUF_SIZE, DMA_TO_DEVICE);
+					 skb->len, DMA_TO_DEVICE);
 			dev_kfree_skb_any(skb);
 			priv->tx_skb[i] = NULL;
 			txbd->addr = 0;

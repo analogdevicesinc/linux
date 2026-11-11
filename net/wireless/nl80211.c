@@ -230,11 +230,12 @@ cfg80211_get_dev_from_info(struct net *netns, struct genl_info *info)
  *
  * Returns with wiphy mutex held unless there was an error.
  */
-static struct wireless_dev *
-nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
-			 struct net *netns, u32 wdev_id)
+static int nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
+				    struct net *netns, u32 wdev_id,
+				    struct wireless_dev **wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
-	struct wireless_dev *wdev;
+	struct wireless_dev *tmp;
 
 	wiphy_lock(&rdev->wiphy);
 
@@ -242,7 +243,7 @@ nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
 	    !net_eq(wiphy_net(&rdev->wiphy), netns)) {
 		wiphy_unlock(&rdev->wiphy);
 		put_device(&rdev->wiphy.dev);
-		return ERR_PTR(-ENODEV);
+		return -ENODEV;
 	}
 
 	/*
@@ -251,19 +252,22 @@ nl80211_lock_and_recheck(struct cfg80211_registered_device *rdev,
 	 */
 	put_device(&rdev->wiphy.dev);
 
-	if (!wdev_id)
-		return NULL;
+	if (!wdev_id) {
+		*wdev = NULL;
+		return 0;
+	}
 
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (wdev->identifier != wdev_id)
+	list_for_each_entry(tmp, &rdev->wiphy.wdev_list, list) {
+		if (tmp->identifier != wdev_id)
 			continue;
-		if (wdev->netdev && !net_eq(dev_net(wdev->netdev), netns))
+		if (tmp->netdev && !net_eq(dev_net(tmp->netdev), netns))
 			break;
-		return wdev;
+		*wdev = tmp;
+		return 0;
 	}
 	wiphy_unlock(&rdev->wiphy);
 
-	return ERR_PTR(-ENODEV);
+	return -ENODEV;
 }
 
 /* like nl80211_lock_and_recheck() but under RCU, for wdev_hold() */
@@ -290,36 +294,51 @@ nl80211_wdev_by_id_rcu(struct cfg80211_registered_device *rdev,
 /*
  * Must have wdev_hold(), acquire the wiphy mutex. This has to
  * look up the wdev again (otherwise it could deadlock against
- * wdev removal), so it can return an error pointer.
+ * wdev removal), so it can return NULL.
  */
-static struct wireless_dev *
-__nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
-			 struct net *netns, struct wireless_dev *wdev)
+static int __nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
+				    struct net *netns,
+				    struct wireless_dev *wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
 	u32 wdev_id = wdev->identifier;
+	struct wireless_dev *tmp;
+	int err;
 
 	/* the wdev reference was keeping the wiphy alive */
 	get_device(&rdev->wiphy.dev);
 	wdev_put(wdev);
 
-	return nl80211_lock_and_recheck(rdev, netns, wdev_id);
+	err = nl80211_lock_and_recheck(rdev, netns, wdev_id, &tmp);
+	if (err)
+		return err;
+
+	if (WARN_ON(!tmp || tmp != wdev)) {
+		wiphy_unlock(&rdev->wiphy);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
-static struct wireless_dev *
-nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
-		       struct genl_info *info, struct wireless_dev *wdev)
+static int nl80211_lock_held_wdev(struct cfg80211_registered_device *rdev,
+				  struct genl_info *info,
+				  struct wireless_dev *wdev)
+	__cond_acquires(0, &rdev->wiphy.mtx)
 {
+	int err;
+
 	info->user_ptr[1] = NULL;
-	wdev = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
-	if (IS_ERR(wdev))
-		return wdev;
+	err = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
+	if (err)
+		return err;
 
 	if (!wdev_running(wdev)) {
 		wiphy_unlock(&rdev->wiphy);
-		return ERR_PTR(-ENETDOWN);
+		return -ENETDOWN;
 	}
 
-	return wdev;
+	return 0;
 }
 
 static int validate_beacon_head(const struct nlattr *attr,
@@ -1358,6 +1377,7 @@ static int __nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 				       struct cfg80211_registered_device **rdev,
 				       struct wireless_dev **wdev,
 				       struct nlattr **attrbuf, bool lock)
+	__cond_acquires(0, &(*rdev)->wiphy.mtx)
 {
 	struct net *netns = sock_net(cb->skb->sk);
 	u32 wdev_id;
@@ -1410,13 +1430,15 @@ static int __nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 		if (!*wdev)
 			return -ENODEV;
 	} else {
+		int ret;
+
 		get_device(&(*rdev)->wiphy.dev);
 		rcu_read_unlock();
 
 		/* things may have changed since the lookup or last dumpit */
-		*wdev = nl80211_lock_and_recheck(*rdev, netns, wdev_id);
-		if (IS_ERR(*wdev))
-			return PTR_ERR(*wdev);
+		ret = nl80211_lock_and_recheck(*rdev, netns, wdev_id, wdev);
+		if (ret)
+			return ret;
 	}
 
 	/* 0 is the first index - add 1 to parse only once */
@@ -1430,6 +1452,7 @@ static int nl80211_prepare_wdev_dump(struct netlink_callback *cb,
 				     struct cfg80211_registered_device **rdev,
 				     struct wireless_dev **wdev,
 				     struct nlattr **attrbuf)
+	__cond_acquires(0, &(*rdev)->wiphy.mtx)
 {
 	return __nl80211_prepare_wdev_dump(cb, rdev, wdev, attrbuf, true);
 }
@@ -3415,6 +3438,9 @@ static int nl80211_send_wiphy(struct cfg80211_registered_device *rdev,
 			if (rdev->wiphy.sar_capa)
 				CMD(set_sar_specs, SET_SAR_SPECS);
 			CMD(assoc_ml_reconf, ASSOC_MLO_RECONF);
+
+			if (rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT)
+				CMD(execute_st, EXECUTE_SMD_TRANSITION);
 		}
 #undef CMD
 
@@ -5380,6 +5406,8 @@ static int nl80211_new_interface(struct sk_buff *skb, struct genl_info *info)
 }
 
 static int nl80211_del_interface(struct sk_buff *skb, struct genl_info *info)
+	/* clang cannot see pre_doit acquiring it for us */
+	__must_hold(&((struct cfg80211_registered_device *)info->user_ptr[0])->wiphy.mtx)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct wireless_dev *wdev = info->user_ptr[1];
@@ -5438,6 +5466,8 @@ static int nl80211_validate_key_link_id(struct genl_info *info,
 					struct wireless_dev *wdev,
 					int link_id, bool pairwise)
 {
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+
 	if (pairwise) {
 		if (link_id != -1) {
 			GENL_SET_ERR_MSG(info,
@@ -5454,7 +5484,9 @@ static int nl80211_validate_key_link_id(struct genl_info *info,
 					 "link ID must be set for MLO group key");
 			return -EINVAL;
 		}
-		if (!(wdev->valid_links & BIT(link_id))) {
+		/* for SMD transition support the driver must check itself */
+		if (!(wdev->valid_links & BIT(link_id)) &&
+		    !(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT)) {
 			GENL_SET_ERR_MSG(info, "invalid link ID for MLO group key");
 			return -EINVAL;
 		}
@@ -5563,6 +5595,8 @@ static int nl80211_get_key(struct sk_buff *skb, struct genl_info *info)
 
 	if (!rdev->ops->get_key)
 		return -EOPNOTSUPP;
+
+	mac_addr = cfg80211_get_key_mac_addr(wdev, 0, pairwise, mac_addr);
 
 	if (!cfg80211_valid_key_idx(wdev, key_idx, type, mac_addr))
 		return -ENOENT;
@@ -5765,6 +5799,10 @@ static int nl80211_new_key(struct sk_buff *skb, struct genl_info *info)
 	if (!rdev->ops->add_key)
 		return -EOPNOTSUPP;
 
+	mac_addr = cfg80211_get_key_mac_addr(wdev, key.p.cipher,
+					     key.type == NL80211_KEYTYPE_PAIRWISE,
+					     mac_addr);
+
 	if (cfg80211_validate_key_settings(rdev, wdev, &key.p, key.idx,
 					   key.type, mac_addr)) {
 		GENL_SET_ERR_MSG(info, "key setting validation failed");
@@ -5794,7 +5832,7 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	int err;
 	struct wireless_dev *wdev = info->user_ptr[1];
-	u8 *mac_addr = NULL;
+	const u8 *mac_addr = NULL;
 	struct key_parse key;
 	int link_id = nl80211_link_id_or_invalid(info->attrs);
 
@@ -5819,6 +5857,10 @@ static int nl80211_del_key(struct sk_buff *skb, struct genl_info *info)
 		GENL_SET_ERR_MSG(info, "key type not pairwise, group or CIGTK");
 		return -EINVAL;
 	}
+
+	mac_addr = cfg80211_get_key_mac_addr(wdev, 0,
+					     key.type == NL80211_KEYTYPE_PAIRWISE,
+					     mac_addr);
 
 	if (!cfg80211_valid_key_idx(wdev, key.idx, key.type, mac_addr))
 		return -EINVAL;
@@ -7707,6 +7749,13 @@ static int nl80211_parse_ap_update(struct cfg80211_registered_device *rdev,
 			return err;
 	}
 
+	attr = attrs[NL80211_ATTR_HE_OBSS_PD];
+	if (attr) {
+		err = nl80211_parse_he_obss_pd(attr, &params->he_obss_pd);
+		if (err)
+			return err;
+	}
+
 	return 0;
 }
 
@@ -8940,6 +8989,7 @@ static int nl80211_fill_station_info(struct cfg80211_registered_device *rdev,
 
 static int nl80211_dump_station(struct sk_buff *skb,
 				struct netlink_callback *cb)
+	__context_unsafe("can't cope with the locked variable")
 {
 	struct cfg80211_registered_device *rdev;
 	struct wireless_dev *wdev;
@@ -9026,10 +9076,10 @@ static int nl80211_dump_station(struct sk_buff *skb,
 				memset(&ctx->sinfo, 0, sizeof(ctx->sinfo));
 
 				/* this fails if the wdev is being removed */
-				wdev = __nl80211_lock_held_wdev(rdev, netns,
-								wdev);
-				if (IS_ERR(wdev))
-					return PTR_ERR(wdev);
+				err = __nl80211_lock_held_wdev(rdev, netns,
+							       wdev);
+				if (err)
+					return err;
 
 				/* try again locked now */
 				locked = true;
@@ -9148,6 +9198,7 @@ static int nl80211_dump_station_done(struct netlink_callback *cb)
 }
 
 static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
+	__context_unsafe("can't cope with the locked variable")
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
 	struct wireless_dev *wdev = info->user_ptr[1];
@@ -9198,11 +9249,8 @@ static int nl80211_get_station(struct sk_buff *skb, struct genl_info *info)
 		/* the wdev pointer is only valid until unlocking after this */
 		info->user_ptr[1] = NULL;
 		/* can fail if the wdev is being removed */
-		wdev = __nl80211_lock_held_wdev(rdev, genl_info_net(info),
-						wdev);
-		if (IS_ERR(wdev)) {
-			err = PTR_ERR(wdev);
-		} else {
+		err = __nl80211_lock_held_wdev(rdev, genl_info_net(info), wdev);
+		if (!err) {
 			locked = true;
 			err = rdev_get_station(rdev, wdev, mac_addr, &sinfo);
 		}
@@ -10320,8 +10368,6 @@ static int nl80211_dump_mpath(struct sk_buff *skb,
 	err = nl80211_prepare_wdev_dump(cb, &rdev, &wdev, NULL);
 	if (err)
 		return err;
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	if (!rdev->ops->dump_mpath) {
 		err = -EOPNOTSUPP;
@@ -10520,8 +10566,6 @@ static int nl80211_dump_mpp(struct sk_buff *skb,
 	err = nl80211_prepare_wdev_dump(cb, &rdev, &wdev, NULL);
 	if (err)
 		return err;
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	if (!rdev->ops->dump_mpp) {
 		err = -EOPNOTSUPP;
@@ -11993,7 +12037,7 @@ static int nl80211_trigger_scan(struct sk_buff *skb, struct genl_info *info)
 
  out_free:
 	rdev->scan_req = NULL;
-	kfree(request);
+	kfree_rcu(request, rcu_head);
 
 	return err;
 }
@@ -13076,8 +13120,6 @@ static int nl80211_dump_scan(struct sk_buff *skb, struct netlink_callback *cb)
 		kfree(attrbuf);
 		return err;
 	}
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	dump_include_use_data =
 		attrbuf[NL80211_ATTR_BSS_DUMP_INCLUDE_USE_DATA];
@@ -13216,8 +13258,6 @@ static int nl80211_dump_survey(struct sk_buff *skb, struct netlink_callback *cb)
 		kfree(attrbuf);
 		return res;
 	}
-	/* nl80211_prepare_wdev_dump acquired it in the successful case */
-	__acquire(&rdev->wiphy.mtx);
 
 	/* prepare_wdev_dump parsed the attributes */
 	radio_stats = attrbuf[NL80211_ATTR_SURVEY_RADIO_STATS];
@@ -15420,10 +15460,8 @@ static int nl80211_tx_mgmt(struct sk_buff *skb, struct genl_info *info)
 	/* pre_doit didn't lock the wiphy mutex, try without */
 	err = cfg80211_mlme_mgmt_tx_unlocked(rdev, wdev, &params, cookie);
 	if (err == -EAGAIN) {
-		wdev = nl80211_lock_held_wdev(rdev, info, wdev);
-		if (IS_ERR(wdev)) {
-			err = PTR_ERR(wdev);
-		} else {
+		err = nl80211_lock_held_wdev(rdev, info, wdev);
+		if (!err) {
 			err = nl80211_tx_mgmt_locked(rdev, wdev, &params,
 						     cookie);
 			wiphy_unlock(&rdev->wiphy);
@@ -19996,6 +20034,148 @@ nl80211_epcs_cfg(struct sk_buff *skb, struct genl_info *info)
 	return rdev_set_epcs(rdev, dev, val);
 }
 
+static int nl80211_prepare_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_st_prep_request req = {};
+	bool have_link = false;
+	int err;
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR] ||
+	    !info->attrs[NL80211_ATTR_MLO_LINKS])
+		return -EINVAL;
+
+	req.ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	if (ether_addr_equal(req.ap_mld_addr, wdev->u.client.connected_addr))
+		return -EINVAL;
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		req.elems = nla_data(info->attrs[NL80211_ATTR_IE]);
+		req.elems_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+	}
+
+	if (info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS])
+		req.ext_mld_capa_ops =
+			nla_get_u16(info->attrs[NL80211_ATTR_EXT_MLD_CAPA_AND_OPS]);
+
+	err = nl80211_process_links(rdev, req.links,
+				    IEEE80211_MLD_MAX_NUM_LINKS,
+				    NULL, 0, info);
+	if (err)
+		goto free;
+
+	for (int link_id = 0; link_id < ARRAY_SIZE(req.links); link_id++) {
+		if (req.links[link_id].bss) {
+			have_link = true;
+			break;
+		}
+	}
+
+	if (!have_link) {
+		err = -EINVAL;
+		goto free;
+	}
+
+	return cfg80211_prepare_st(rdev, dev, &req);
+free:
+	for (int link_id = 0; link_id < ARRAY_SIZE(req.links); link_id++)
+		cfg80211_put_bss(&rdev->wiphy, req.links[link_id].bss);
+	return err;
+}
+
+static int nl80211_execute_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct cfg80211_st_exec_request req = {
+		.drain_tids = 0xFF, /* only 8 TIDs in ST preparation */
+	};
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR])
+		return -EINVAL;
+
+	req.ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	if (info->attrs[NL80211_ATTR_TID_BITMAP]) {
+		u16 drain_tids =
+			nla_get_u16(info->attrs[NL80211_ATTR_TID_BITMAP]);
+
+		if (drain_tids > 0xFF)
+			return -EINVAL;
+
+		req.drain_tids = drain_tids;
+	}
+
+	if (info->attrs[NL80211_ATTR_IE]) {
+		req.elems = nla_data(info->attrs[NL80211_ATTR_IE]);
+		req.elems_len = nla_len(info->attrs[NL80211_ATTR_IE]);
+	}
+
+	return rdev_execute_st(rdev, dev, &req);
+}
+
+static int nl80211_abandon_st(struct sk_buff *skb, struct genl_info *info)
+{
+	struct cfg80211_registered_device *rdev = info->user_ptr[0];
+	struct net_device *dev = info->user_ptr[1];
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	const u8 *ap_mld_addr;
+
+	if (!wdev->valid_links)
+		return -EINVAL;
+
+	if (dev->ieee80211_ptr->conn_owner_nlportid &&
+	    dev->ieee80211_ptr->conn_owner_nlportid != info->snd_portid)
+		return -EPERM;
+
+	if (!(rdev->wiphy.flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT))
+		return -EOPNOTSUPP;
+
+	if (wdev->iftype != NL80211_IFTYPE_STATION &&
+	    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT)
+		return -EOPNOTSUPP;
+
+	if (!info->attrs[NL80211_ATTR_MLD_ADDR])
+		return -EINVAL;
+
+	ap_mld_addr = nla_data(info->attrs[NL80211_ATTR_MLD_ADDR]);
+
+	return rdev_abandon_st(rdev, dev, ap_mld_addr,
+			       info->attrs[NL80211_ATTR_LOCAL_STATE_CHANGE]);
+}
+
 #define NL80211_FLAG_NEED_WIPHY		0x01
 #define NL80211_FLAG_NEED_NETDEV	0x02
 #define NL80211_FLAG_NEED_RTNL		0x04
@@ -20115,6 +20295,7 @@ static bool nl80211_need_wdev_ref(u32 internal_flags)
 static int nl80211_pre_doit(const struct genl_split_ops *ops,
 			    struct sk_buff *skb,
 			    struct genl_info *info)
+	__context_unsafe("can't cope with the need_rtnl variable")
 {
 	struct cfg80211_registered_device *rdev = NULL;
 	struct net *netns = genl_info_net(info);
@@ -20184,11 +20365,9 @@ static int nl80211_pre_doit(const struct genl_split_ops *ops,
 			wiphy_lock(&rdev->wiphy);
 		} else {
 			/* without rtnl, things may have changed since lookup */
-			wdev = nl80211_lock_and_recheck(rdev, netns, wdev_id);
-			if (IS_ERR(wdev)) {
-				err = PTR_ERR(wdev);
+			err = nl80211_lock_and_recheck(rdev, netns, wdev_id, &wdev);
+			if (err)
 				goto out;
-			}
 		}
 		locked = true;
 	} else if (rdev && !need_rtnl) {
@@ -21345,6 +21524,24 @@ static const struct genl_small_ops nl80211_small_ops[] = {
 		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP |
 					 NL80211_FLAG_NO_WIPHY_MTX),
 	},
+	{
+		.cmd = NL80211_CMD_PREPARE_SMD_TRANSITION,
+		.doit = nl80211_prepare_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
+	{
+		.cmd = NL80211_CMD_EXECUTE_SMD_TRANSITION,
+		.doit = nl80211_execute_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
+	{
+		.cmd = NL80211_CMD_ABANDON_SMD_TRANSITION,
+		.doit = nl80211_abandon_st,
+		.flags = GENL_UNS_ADMIN_PERM,
+		.internal_flags = IFLAGS(NL80211_FLAG_NEED_NETDEV_UP),
+	},
 };
 
 static struct genl_family nl80211_fam __ro_after_init = {
@@ -21687,6 +21884,7 @@ struct nl80211_mlme_event {
 	const u8 *req_ies;
 	size_t req_ies_len;
 	bool reconnect;
+	const u8 *mld_addr;
 };
 
 static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
@@ -21709,10 +21907,15 @@ static void nl80211_send_mlme_event(struct cfg80211_registered_device *rdev,
 
 	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
 	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, netdev->ifindex) ||
-	    nla_put(msg, NL80211_ATTR_FRAME, event->buf_len, event->buf) ||
+	    (event->buf_len &&
+	     nla_put(msg, NL80211_ATTR_FRAME, event->buf_len, event->buf)) ||
 	    (event->req_ies &&
 	     nla_put(msg, NL80211_ATTR_REQ_IE, event->req_ies_len,
 		     event->req_ies)))
+		goto nla_put_failure;
+
+	if (event->mld_addr &&
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN, event->mld_addr))
 		goto nla_put_failure;
 
 	if (event->reconnect &&
@@ -22202,7 +22405,6 @@ void cfg80211_links_removed(struct net_device *dev, u16 link_mask)
 		return;
 
 	cfg80211_wdev_release_link_bsses(wdev, link_mask);
-	wdev->valid_links &= ~link_mask;
 
 	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 	if (!msg)
@@ -22264,6 +22466,169 @@ void nl80211_mlo_reconf_add_done(struct net_device *dev,
 	};
 
 	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
+}
+
+void nl80211_st_preparation_response(struct cfg80211_registered_device *rdev,
+				     struct net_device *dev,
+				     struct cfg80211_st_preparation_resp_data *data)
+{
+	struct nl80211_mlme_event event = {
+		.cmd = NL80211_CMD_PREPARE_SMD_TRANSITION,
+		.buf = data->buf,
+		.buf_len = data->len,
+		.req_ies = data->req_elems,
+		.req_ies_len = data->req_elems_len,
+		.mld_addr = data->ap_mld_addr,
+	};
+
+	nl80211_send_mlme_event(rdev, dev, &event, GFP_KERNEL);
+}
+
+void nl80211_st_execution_response(struct cfg80211_registered_device *rdev,
+				   struct net_device *dev,
+				   struct cfg80211_st_execution_resp_data *data)
+{
+	size_t link_info_size = NLA_HDRLEN +
+				nla_total_size(sizeof(u8)) +
+				nla_total_size(ETH_ALEN) +
+				nla_total_size(ETH_ALEN);
+	struct nlattr *nested;
+	struct sk_buff *msg;
+	int link_count = 0;
+	void *hdr;
+	int i = 1;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		if (!data->links[link].bssid ||
+		    WARN_ON(!data->links[link].local_addr))
+			continue;
+
+		link_count++;
+	}
+
+	msg = nlmsg_new(100 + data->len + link_info_size * link_count,
+			GFP_KERNEL);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0, NL80211_CMD_EXECUTE_SMD_TRANSITION);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN, data->ap_mld_addr))
+		goto nla_put_failure;
+
+	if (!data->len)
+		goto send;
+
+	if (nla_put(msg, NL80211_ATTR_FRAME, data->len, data->buf))
+		goto nla_put_failure;
+
+	nested = nla_nest_start(msg, NL80211_ATTR_MLO_LINKS);
+	if (!nested)
+		goto nla_put_failure;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		const u8 *bssid = data->links[link].bssid;
+		const u8 *local_addr = data->links[link].local_addr;
+		struct nlattr *nested_mlo_links;
+
+		if (!bssid || !local_addr)
+			continue;
+
+		nested_mlo_links = nla_nest_start(msg, i);
+		if (!nested_mlo_links)
+			goto nla_put_failure;
+
+		if (nla_put_u8(msg, NL80211_ATTR_MLO_LINK_ID, link) ||
+		    nla_put(msg, NL80211_ATTR_BSSID, ETH_ALEN, bssid) ||
+		    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN, local_addr))
+			goto nla_put_failure;
+
+		nla_nest_end(msg, nested_mlo_links);
+		i++;
+	}
+	nla_nest_end(msg, nested);
+
+send:
+	genlmsg_end(msg, hdr);
+
+	genlmsg_multicast_netns(&nl80211_fam, wiphy_net(&rdev->wiphy), msg, 0,
+				NL80211_MCGRP_MLME, GFP_KERNEL);
+	return;
+
+ nla_put_failure:
+	nlmsg_free(msg);
+}
+
+void nl80211_st_done(struct cfg80211_registered_device *rdev,
+		     struct net_device *dev)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct nlattr *nested;
+	struct sk_buff *msg;
+	void *hdr;
+	int i = 1;
+
+	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
+	if (!msg)
+		return;
+
+	hdr = nl80211hdr_put(msg, 0, 0, 0,
+			     NL80211_CMD_COMPLETED_SMD_TRANSITION);
+	if (!hdr) {
+		nlmsg_free(msg);
+		return;
+	}
+
+	if (nla_put_u32(msg, NL80211_ATTR_WIPHY, rdev->wiphy_idx) ||
+	    nla_put_u32(msg, NL80211_ATTR_IFINDEX, dev->ifindex) ||
+	    nla_put(msg, NL80211_ATTR_MLD_ADDR, ETH_ALEN,
+		    wdev->u.client.connected_addr))
+		goto nla_put_failure;
+
+	nested = nla_nest_start(msg, NL80211_ATTR_MLO_LINKS);
+	if (!nested)
+		goto nla_put_failure;
+
+	for (unsigned int link = 0; link < IEEE80211_MLD_MAX_NUM_LINKS; link++) {
+		struct cfg80211_internal_bss *bss;
+		struct nlattr *nested_mlo_links;
+
+		if (!(wdev->valid_links & BIT(link)))
+			continue;
+
+		bss = wdev->links[link].client.current_bss;
+		if (WARN_ON(!bss))
+			continue;
+
+		nested_mlo_links = nla_nest_start(msg, i);
+		if (!nested_mlo_links)
+			goto nla_put_failure;
+
+		if (nla_put_u8(msg, NL80211_ATTR_MLO_LINK_ID, link) ||
+		    nla_put(msg, NL80211_ATTR_BSSID, ETH_ALEN, bss->pub.bssid) ||
+		    nla_put(msg, NL80211_ATTR_MAC, ETH_ALEN,
+			    wdev->links[link].addr))
+			goto nla_put_failure;
+
+		nla_nest_end(msg, nested_mlo_links);
+		i++;
+	}
+	nla_nest_end(msg, nested);
+
+	genlmsg_end(msg, hdr);
+
+	genlmsg_multicast_netns(&nl80211_fam, wiphy_net(&rdev->wiphy), msg, 0,
+				NL80211_MCGRP_MLME, GFP_KERNEL);
+	return;
+
+ nla_put_failure:
+	nlmsg_free(msg);
 }
 
 void nl80211_send_ibss_bssid(struct cfg80211_registered_device *rdev,

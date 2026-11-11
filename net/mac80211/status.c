@@ -1013,7 +1013,7 @@ static void __ieee80211_tx_status(struct ieee80211_hw *hw,
 	fc = hdr->frame_control;
 
 	if (status->sta) {
-		sta = container_of(status->sta, struct sta_info, sta);
+		sta = sta_from_pub(status->sta);
 
 		if (info->flags & IEEE80211_TX_STATUS_EOSP)
 			clear_sta_flag(sta, WLAN_STA_SP);
@@ -1246,7 +1246,7 @@ void ieee80211_tx_status_ext(struct ieee80211_hw *hw,
 	ieee80211_tx_status_drop_invalid_rates(status);
 
 	if (pubsta) {
-		sta = container_of(pubsta, struct sta_info, sta);
+		sta = sta_from_pub(pubsta);
 
 		if (status->n_rates)
 			sta->deflink.tx_stats.last_rate_info =
@@ -1363,7 +1363,7 @@ void ieee80211_tx_rate_update(struct ieee80211_hw *hw,
 			      struct ieee80211_tx_info *info)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_tx_status status = {
 		.info = info,
 		.sta = pubsta,
@@ -1379,7 +1379,7 @@ EXPORT_SYMBOL(ieee80211_tx_rate_update);
 
 void ieee80211_report_low_ack(struct ieee80211_sta *pubsta, u32 num_packets)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	cfg80211_cqm_pktloss_notify(sta->sdata->dev, sta->sta.addr,
 				    num_packets, GFP_ATOMIC);
 }

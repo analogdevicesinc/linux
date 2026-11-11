@@ -526,11 +526,6 @@ static void plfxlc_op_remove_interface(struct ieee80211_hw *hw,
 	mac->vif = NULL;
 }
 
-static int plfxlc_op_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
-{
-	return 0;
-}
-
 #define SUPPORTED_FIF_FLAGS \
 	(FIF_ALLMULTI | FIF_FCSFAIL | FIF_CONTROL | \
 	 FIF_OTHER_BSS | FIF_BCN_PRBRESP_PROMISC)
@@ -690,7 +685,6 @@ static const struct ieee80211_ops plfxlc_ops = {
 	.add_interface = plfxlc_op_add_interface,
 	.remove_interface = plfxlc_op_remove_interface,
 	.set_rts_threshold = plfxlc_set_rts_threshold,
-	.config = plfxlc_op_config,
 	.configure_filter = plfxlc_op_configure_filter,
 	.bss_info_changed = plfxlc_op_bss_info_changed,
 	.get_stats = plfxlc_get_stats,

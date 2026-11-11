@@ -138,7 +138,7 @@ static int cfg80211_conn_scan(struct wireless_dev *wdev)
 		dev_hold(wdev->netdev);
 	} else {
 		rdev->scan_req = NULL;
-		kfree(request);
+		kfree_rcu(request, rcu_head);
 	}
 	return err;
 }
@@ -491,6 +491,8 @@ void cfg80211_wdev_release_link_bsses(struct wireless_dev *wdev, u16 link_mask)
 				 &wdev->links[link].client.current_bss->pub);
 		wdev->links[link].client.current_bss = NULL;
 	}
+
+	wdev->valid_links &= ~link_mask;
 }
 
 static int cfg80211_sme_get_conn_ies(struct wireless_dev *wdev,
@@ -565,6 +567,7 @@ static int cfg80211_sme_connect(struct wireless_dev *wdev,
 	if (wdev->connected) {
 		cfg80211_sme_free(wdev);
 		wdev->connected = false;
+		wdev->u.client.wep_used = false;
 	}
 
 	if (wdev->conn)
@@ -1360,6 +1363,7 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 	wdev->valid_links = 0;
 	wdev->connected = false;
 	wdev->u.client.ssid_len = 0;
+	wdev->u.client.wep_used = false;
 	wdev->conn_owner_nlportid = 0;
 	kfree_sensitive(wdev->connect_keys);
 	wdev->connect_keys = NULL;

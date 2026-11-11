@@ -18,7 +18,8 @@
 #define BRCMF_ARP_OL_HOST_AUTO_REPLY	0x00000004
 #define BRCMF_ARP_OL_PEER_AUTO_REPLY	0x00000008
 
-#define	BRCMF_BSS_INFO_VERSION	109 /* curr ver of brcmf_bss_info_le struct */
+#define BRCMF_BSS_INFO_MIN_VERSION	109
+#define BRCMF_BSS_INFO_MAX_VERSION	112
 #define BRCMF_BSS_RSSI_ON_CHANNEL	0x0004
 
 #define BRCMF_STA_BRCM			0x00000001	/* Running a Broadcom driver */
@@ -52,6 +53,8 @@
 
 /* version of brcmf_scan_params structure */
 #define BRCMF_SCAN_PARAMS_VERSION_V2	2
+#define BRCMF_SCAN_PARAMS_VERSION_V3	3
+#define BRCMF_SCAN_PARAMS_VERSION_V4	4
 
 /* masks for channel and ssid count */
 #define BRCMF_SCAN_PARAMS_COUNT_MASK	0x0000ffff
@@ -62,9 +65,17 @@
 #define BRCMF_SCANTYPE_ACTIVE		0
 #define BRCMF_SCANTYPE_PASSIVE		1
 
+#define BRCMF_SCANFLAGS_LOW_PRIO	BIT(1)
+#define BRCMF_SCANFLAGS_LOW_POWER	BIT(12)
+#define BRCMF_SCANFLAGS_HIGH_ACCURACY	BIT(13)
+#define BRCMF_SCANFLAGS_LOW_SPAN	BIT(14)
+
+#define BRCMF_SCANSSID_INC_RNR		BIT(1)
+
 #define BRCMF_WSEC_MAX_PSK_LEN		32
 #define	BRCMF_WSEC_PASSPHRASE		BIT(0)
 
+#define BRCMF_WSEC_MAX_PMK_LEN		256
 #define BRCMF_WSEC_MAX_SAE_PASSWORD_LEN 128
 
 /* primary (ie tx) key */
@@ -450,6 +461,45 @@ struct brcmf_scan_params_v2_le {
 	};
 };
 
+struct brcmf_scan_params_v3_le {
+	__le16 version;
+	__le16 length;
+	struct brcmf_ssid_le ssid_le;
+	u8 bssid[ETH_ALEN];
+	s8 bss_type;
+	u8 ssid_type;
+	__le32 scan_type;
+	__le32 nprobes;
+	__le32 active_time;
+	__le32 passive_time;
+	__le32 home_time;
+	__le32 channel_num;
+	union {
+		__le16 padding;
+		DECLARE_FLEX_ARRAY(__le16, channel_list);
+	};
+};
+
+struct brcmf_scan_params_v4_le {
+	__le16 version;
+	__le16 length;
+	struct brcmf_ssid_le ssid_le;
+	u8 bssid[ETH_ALEN];
+	s8 bss_type;
+	u8 ssid_type;
+	__le32 scan_type;
+	__le32 scan_type_ext;
+	__le32 nprobes;
+	__le32 active_time;
+	__le32 passive_time;
+	__le32 home_time;
+	__le32 channel_num;
+	union {
+		__le16 padding;
+		DECLARE_FLEX_ARRAY(__le16, channel_list);
+	};
+};
+
 struct brcmf_scan_results {
 	u32 buflen;
 	u32 version;
@@ -464,6 +514,8 @@ struct brcmf_escan_params_le {
 	union {
 		struct brcmf_scan_params_le params_le;
 		struct brcmf_scan_params_v2_le params_v2_le;
+		struct brcmf_scan_params_v3_le params_v3_le;
+		struct brcmf_scan_params_v4_le params_v4_le;
 	};
 };
 
@@ -533,6 +585,35 @@ struct brcmf_ext_join_params_le {
 	struct brcmf_assoc_params_le assoc_le;
 };
 
+struct brcmf_assoc_params_v1_le {
+	__le16 version;
+	__le16 flags;
+	u8 bssid[ETH_ALEN];
+	__le16 bssid_cnt;
+	__le32 chanspec_num;
+	__le16 chanspec_list[];
+};
+
+struct brcmf_join_params_v1_le {
+	struct brcmf_ssid_le ssid_le;
+	struct brcmf_assoc_params_v1_le assoc_le;
+};
+
+struct brcmf_join_version_le {
+	__le16 version;
+	__le16 length;
+	__le16 major;
+	u8 pad[2];
+};
+
+struct brcmf_ext_join_params_v1_le {
+	__le16 version;
+	__le16 pad;
+	struct brcmf_ssid_le ssid_le;
+	struct brcmf_join_scan_params_le scan_le;
+	struct brcmf_assoc_params_v1_le assoc_le;
+};
+
 struct brcmf_wsec_key {
 	u32 index;		/* key index */
 	u32 len;		/* key length */
@@ -585,6 +666,23 @@ struct brcmf_wsec_pmk_le {
 	__le16  key_len;
 	__le16  flags;
 	u8 key[BRCMF_WSEC_MAX_SAE_PASSWORD_LEN];
+};
+
+/**
+ * struct brcmf_wsec_pmk_ext_le - extended firmware pmk material.
+ *
+ * @key_len: number of octets in key material.
+ * @flags: key handling qualifiers.
+ * @key: PMK key material.
+ * @opt_len: optional field length.
+ * @opt_tlvs: optional fields in TLV format.
+ */
+struct brcmf_wsec_pmk_ext_le {
+	__le16  key_len;
+	__le16  flags;
+	u8 key[BRCMF_WSEC_MAX_PMK_LEN];
+	__le16  opt_len;
+	u8 opt_tlvs[];
 };
 
 /**
@@ -1083,6 +1181,21 @@ struct brcmf_pno_scanresults_v2_le {
 };
 
 /**
+ * struct brcmf_scan_version_le - scan interface version.
+ *
+ * @version: version of this structure.
+ * @length: length of this structure.
+ * @scan_ver_major: scan parameter version supported by firmware.
+ */
+struct brcmf_scan_version_le {
+	__le16 version;
+	__le16 length;
+	__le16 scan_ver_major;
+};
+
+#define BRCMF_SCAN_VERSION_VERSION	1
+
+/**
  * struct brcmf_pno_macaddr_le - to configure PNO macaddr randomization.
  *
  * @version: PNO version identifier.
@@ -1235,5 +1348,31 @@ struct brcmf_mkeep_alive_pkt_le {
 	u8   keep_alive_id;
 	u8   data[];
 } __packed;
+
+enum event_msgs_ext_command {
+	EVENTMSGS_NONE		= 0,
+	EVENTMSGS_SET_BIT	= 1,
+	EVENTMSGS_RESET_BIT	= 2,
+	EVENTMSGS_SET_MASK	= 3,
+};
+
+#define EVENTMSGS_VER		1
+
+/**
+ * struct brcmf_eventmsgs_ext_le - event_msgs_ext iovar data
+ *
+ * @version: structure version.
+ * @command: requested operation.
+ * @len: mask size for set, actual firmware mask size for get.
+ * @maxgetsize: maximum mask size that may be returned by firmware.
+ * @mask: event mask.
+ */
+struct brcmf_eventmsgs_ext_le {
+	u8 version;
+	u8 command;
+	u8 len;
+	u8 maxgetsize;
+	u8 mask[] __counted_by(len);
+};
 
 #endif /* FWIL_TYPES_H_ */

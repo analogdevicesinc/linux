@@ -182,7 +182,7 @@ iwl_mld_get_queue_size(struct iwl_mld *mld, struct ieee80211_txq *txq)
 
 	lockdep_assert_wiphy(mld->wiphy);
 
-	for_each_sta_active_link(txq->vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		if (link_sta->eht_cap.has_eht) {
 			max_size = IWL_DEFAULT_QUEUE_SIZE_EHT;
 			break;

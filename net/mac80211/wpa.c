@@ -3,7 +3,7 @@
  * Copyright 2002-2004, Instant802 Networks, Inc.
  * Copyright 2008, Jouni Malinen <j@w1.fi>
  * Copyright (C) 2016-2017 Intel Deutschland GmbH
- * Copyright (C) 2020-2023 Intel Corporation
+ * Copyright (C) 2020-2023, 2026 Intel Corporation
  */
 
 #include <linux/netdevice.h>
@@ -45,9 +45,6 @@ ieee80211_tx_h_michael_mic_add(struct ieee80211_tx_data *tx)
 	if (skb->len < hdrlen)
 		return TX_DROP;
 
-	data = skb->data + hdrlen;
-	data_len = skb->len - hdrlen;
-
 	if (unlikely(info->flags & IEEE80211_TX_INTFL_TKIP_MIC_FAILURE)) {
 		/* Need to use software crypto for the test */
 		info->control.hw_key = NULL;
@@ -66,12 +63,17 @@ ieee80211_tx_h_michael_mic_add(struct ieee80211_tx_data *tx)
 	if (!info->control.hw_key)
 		tail += IEEE80211_TKIP_ICV_LEN;
 
-	if (WARN(skb_tailroom(skb) < tail ||
-		 skb_headroom(skb) < IEEE80211_TKIP_IV_LEN,
-		 "mmic: not enough head/tail (%d/%d,%d/%d)\n",
-		 skb_headroom(skb), IEEE80211_TKIP_IV_LEN,
-		 skb_tailroom(skb), tail))
+	if (ieee80211_crypto_tx_tailroom(skb, tail))
 		return TX_DROP;
+
+	if (WARN(skb_headroom(skb) < IEEE80211_TKIP_IV_LEN,
+		 "mmic: not enough head (%d/%d)\n",
+		 skb_headroom(skb), IEEE80211_TKIP_IV_LEN))
+		return TX_DROP;
+
+	hdr = (struct ieee80211_hdr *)skb->data;
+	data = skb->data + hdrlen;
+	data_len = skb->len - hdrlen;
 
 	mic = skb_put(skb, MICHAEL_MIC_LEN);
 
@@ -215,8 +217,10 @@ static int tkip_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 	else
 		tail = IEEE80211_TKIP_ICV_LEN;
 
-	if (WARN_ON(skb_tailroom(skb) < tail ||
-		    skb_headroom(skb) < IEEE80211_TKIP_IV_LEN))
+	if (ieee80211_crypto_tx_tailroom(skb, tail))
+		return -1;
+
+	if (WARN_ON(skb_headroom(skb) < IEEE80211_TKIP_IV_LEN))
 		return -1;
 
 	pos = skb_push(skb, IEEE80211_TKIP_IV_LEN);
@@ -459,8 +463,10 @@ static int ccmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb,
 	else
 		tail = mic_len;
 
-	if (WARN_ON(skb_tailroom(skb) < tail ||
-		    skb_headroom(skb) < IEEE80211_CCMP_HDR_LEN))
+	if (ieee80211_crypto_tx_tailroom(skb, tail))
+		return -1;
+
+	if (WARN_ON(skb_headroom(skb) < IEEE80211_CCMP_HDR_LEN))
 		return -1;
 
 	pos = skb_push(skb, IEEE80211_CCMP_HDR_LEN);
@@ -674,8 +680,10 @@ static int gcmp_encrypt_skb(struct ieee80211_tx_data *tx, struct sk_buff *skb)
 	else
 		tail = IEEE80211_GCMP_MIC_LEN;
 
-	if (WARN_ON(skb_tailroom(skb) < tail ||
-		    skb_headroom(skb) < IEEE80211_GCMP_HDR_LEN))
+	if (ieee80211_crypto_tx_tailroom(skb, tail))
+		return -1;
+
+	if (WARN_ON(skb_headroom(skb) < IEEE80211_GCMP_HDR_LEN))
 		return -1;
 
 	pos = skb_push(skb, IEEE80211_GCMP_HDR_LEN);

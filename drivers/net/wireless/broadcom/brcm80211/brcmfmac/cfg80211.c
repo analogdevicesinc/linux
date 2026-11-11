@@ -105,6 +105,8 @@
 #define BRCMF_MAX_CHANSPEC_LIST \
 	(BRCMF_DCMD_MEDLEN / sizeof(__le32) - 1)
 
+#define BRCMF_MAX_BANDLIST_ENTRIES	16
+
 struct brcmf_dump_survey {
 	u32 obss;
 	u32 ibss;
@@ -1059,134 +1061,11 @@ bool brcmf_is_apmode_operating(struct wiphy *wiphy)
 	return ret;
 }
 
-static void brcmf_scan_params_v2_to_v1(struct brcmf_scan_params_v2_le *params_v2_le,
-				       struct brcmf_scan_params_le *params_le)
-{
-	size_t params_size;
-	u32 ch;
-	int n_channels, n_ssids;
-
-	memcpy(&params_le->ssid_le, &params_v2_le->ssid_le,
-	       sizeof(params_le->ssid_le));
-	memcpy(&params_le->bssid, &params_v2_le->bssid,
-	       sizeof(params_le->bssid));
-
-	params_le->bss_type = params_v2_le->bss_type;
-	params_le->scan_type = le32_to_cpu(params_v2_le->scan_type);
-	params_le->nprobes = params_v2_le->nprobes;
-	params_le->active_time = params_v2_le->active_time;
-	params_le->passive_time = params_v2_le->passive_time;
-	params_le->home_time = params_v2_le->home_time;
-	params_le->channel_num = params_v2_le->channel_num;
-
-	ch = le32_to_cpu(params_v2_le->channel_num);
-	n_channels = ch & BRCMF_SCAN_PARAMS_COUNT_MASK;
-	n_ssids = ch >> BRCMF_SCAN_PARAMS_NSSID_SHIFT;
-
-	params_size = sizeof(u16) * n_channels;
-	if (n_ssids > 0) {
-		params_size = roundup(params_size, sizeof(u32));
-		params_size += sizeof(struct brcmf_ssid_le) * n_ssids;
-	}
-
-	memcpy(&params_le->channel_list[0],
-	       &params_v2_le->channel_list[0], params_size);
-}
-
-static void brcmf_escan_prep(struct brcmf_cfg80211_info *cfg,
-			     struct brcmf_scan_params_v2_le *params_le,
-			     struct cfg80211_scan_request *request)
-{
-	u32 n_ssids;
-	u32 n_channels;
-	s32 i;
-	s32 offset;
-	u16 chanspec;
-	char *ptr;
-	int length;
-	struct brcmf_ssid_le ssid_le;
-
-	eth_broadcast_addr(params_le->bssid);
-
-	length = BRCMF_SCAN_PARAMS_V2_FIXED_SIZE;
-
-	params_le->version = cpu_to_le16(BRCMF_SCAN_PARAMS_VERSION_V2);
-	params_le->bss_type = DOT11_BSSTYPE_ANY;
-	params_le->scan_type = cpu_to_le32(BRCMF_SCANTYPE_ACTIVE);
-	params_le->channel_num = 0;
-	params_le->nprobes = cpu_to_le32(-1);
-	params_le->active_time = cpu_to_le32(-1);
-	params_le->passive_time = cpu_to_le32(-1);
-	params_le->home_time = cpu_to_le32(-1);
-	memset(&params_le->ssid_le, 0, sizeof(params_le->ssid_le));
-
-	/* Scan abort */
-	if (!request) {
-		length += sizeof(u16);
-		params_le->channel_num = cpu_to_le32(1);
-		params_le->channel_list[0] = cpu_to_le16(-1);
-		params_le->length = cpu_to_le16(length);
-		return;
-	}
-
-	n_ssids = request->n_ssids;
-	n_channels = request->n_channels;
-
-	/* Copy channel array if applicable */
-	brcmf_dbg(SCAN, "### List of channelspecs to scan ### %d\n",
-		  n_channels);
-	if (n_channels > 0) {
-		length += roundup(sizeof(u16) * n_channels, sizeof(u32));
-		for (i = 0; i < n_channels; i++) {
-			chanspec = channel_to_chanspec(&cfg->d11inf,
-						       request->channels[i]);
-			brcmf_dbg(SCAN, "Chan : %d, Channel spec: %x\n",
-				  request->channels[i]->hw_value, chanspec);
-			params_le->channel_list[i] = cpu_to_le16(chanspec);
-		}
-	} else {
-		brcmf_dbg(SCAN, "Scanning all channels\n");
-	}
-
-	/* Copy ssid array if applicable */
-	brcmf_dbg(SCAN, "### List of SSIDs to scan ### %d\n", n_ssids);
-	if (n_ssids > 0) {
-		offset = offsetof(struct brcmf_scan_params_v2_le, channel_list) +
-				n_channels * sizeof(u16);
-		offset = roundup(offset, sizeof(u32));
-		length += sizeof(ssid_le) * n_ssids;
-		ptr = (char *)params_le + offset;
-		for (i = 0; i < n_ssids; i++) {
-			memset(&ssid_le, 0, sizeof(ssid_le));
-			ssid_le.SSID_len =
-					cpu_to_le32(request->ssids[i].ssid_len);
-			memcpy(ssid_le.SSID, request->ssids[i].ssid,
-			       request->ssids[i].ssid_len);
-			if (!ssid_le.SSID_len)
-				brcmf_dbg(SCAN, "%d: Broadcast scan\n", i);
-			else
-				brcmf_dbg(SCAN, "%d: scan for  %.32s size=%d\n",
-					  i, ssid_le.SSID, ssid_le.SSID_len);
-			memcpy(ptr, &ssid_le, sizeof(ssid_le));
-			ptr += sizeof(ssid_le);
-		}
-	} else {
-		brcmf_dbg(SCAN, "Performing passive scan\n");
-		params_le->scan_type = cpu_to_le32(BRCMF_SCANTYPE_PASSIVE);
-	}
-	params_le->length = cpu_to_le16(length);
-	/* Adding mask to channel numbers */
-	params_le->channel_num =
-		cpu_to_le32((n_ssids << BRCMF_SCAN_PARAMS_NSSID_SHIFT) |
-			(n_channels & BRCMF_SCAN_PARAMS_COUNT_MASK));
-}
-
 s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 				struct brcmf_if *ifp, bool aborted,
 				bool fw_abort)
 {
 	struct brcmf_pub *drvr = cfg->pub;
-	struct brcmf_scan_params_v2_le params_v2_le;
 	struct cfg80211_scan_request *scan_request;
 	u64 reqid;
 	u32 bucket;
@@ -1202,29 +1081,29 @@ s32 brcmf_notify_escan_complete(struct brcmf_cfg80211_info *cfg,
 	timer_delete_sync(&cfg->escan_timeout);
 
 	if (fw_abort) {
+		void *params;
+		u32 params_size;
+
 		/* Do a scan abort to stop the driver's scan engine */
 		brcmf_dbg(SCAN, "ABORT scan in firmware\n");
 
-		brcmf_escan_prep(cfg, &params_v2_le, NULL);
-
-		/* E-Scan (or anyother type) can be aborted by SCAN */
-		if (brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2)) {
-			err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SCAN,
-						     &params_v2_le,
-						     sizeof(params_v2_le));
-		} else {
-			struct brcmf_scan_params_le params_le;
-
-			brcmf_scan_params_v2_to_v1(&params_v2_le, &params_le);
-			err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SCAN,
-						     &params_le,
-						     sizeof(params_le));
+		params = drvr->scan_param_handler.get_struct_for_request(cfg,
+									 &params_size,
+									 NULL);
+		if (!params) {
+			bphy_err(drvr, "Scan abort failed to prepare params\n");
+			goto scan_done;
 		}
 
+		/* E-Scan (or any other type) can be aborted by SCAN */
+		err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SCAN, params,
+					     params_size);
+		kfree(params);
 		if (err)
 			bphy_err(drvr, "Scan abort failed\n");
 	}
 
+scan_done:
 	brcmf_scan_config_mpc(ifp, 1);
 
 	/*
@@ -1444,46 +1323,38 @@ brcmf_run_escan(struct brcmf_cfg80211_info *cfg, struct brcmf_if *ifp,
 		struct cfg80211_scan_request *request)
 {
 	struct brcmf_pub *drvr = cfg->pub;
-	s32 params_size = BRCMF_SCAN_PARAMS_V2_FIXED_SIZE +
-			  offsetof(struct brcmf_escan_params_le, params_v2_le);
 	struct brcmf_escan_params_le *params;
+	void *scan_params;
+	u32 scan_params_size;
+	u32 params_size;
 	s32 err = 0;
 
 	brcmf_dbg(SCAN, "E-SCAN START\n");
 
-	if (request != NULL) {
-		/* Allocate space for populating ssids in struct */
-		params_size += sizeof(u32) * ((request->n_channels + 1) / 2);
-
-		/* Allocate space for populating ssids in struct */
-		params_size += sizeof(struct brcmf_ssid_le) * request->n_ssids;
-	}
-
-	params = kzalloc(params_size, GFP_KERNEL);
-	if (!params) {
+	scan_params = drvr->scan_param_handler.get_struct_for_request(cfg,
+								      &scan_params_size,
+								      request);
+	if (!scan_params) {
 		err = -ENOMEM;
 		goto exit;
 	}
-	BUG_ON(params_size + sizeof("escan") >= BRCMF_DCMD_MEDLEN);
-	brcmf_escan_prep(cfg, &params->params_v2_le, request);
 
-	params->version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION_V2);
-
-	if (!brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2)) {
-		struct brcmf_escan_params_le *params_v1;
-
-		params_size -= BRCMF_SCAN_PARAMS_V2_FIXED_SIZE;
-		params_size += BRCMF_SCAN_PARAMS_FIXED_SIZE;
-		params_v1 = kzalloc(params_size, GFP_KERNEL);
-		if (!params_v1) {
-			err = -ENOMEM;
-			goto exit_params;
-		}
-		params_v1->version = cpu_to_le32(BRCMF_ESCAN_REQ_VERSION);
-		brcmf_scan_params_v2_to_v1(&params->params_v2_le, &params_v1->params_le);
-		kfree(params);
-		params = params_v1;
+	params_size = offsetof(struct brcmf_escan_params_le, params_v4_le) +
+		      scan_params_size;
+	if (params_size + sizeof("escan") >= BRCMF_DCMD_MEDLEN) {
+		err = -E2BIG;
+		goto exit_scan_params;
 	}
+	params = kzalloc(params_size, GFP_KERNEL);
+	if (!params) {
+		err = -ENOMEM;
+		goto exit_scan_params;
+	}
+	unsafe_memcpy(&params->params_v4_le, scan_params, scan_params_size,
+		      /* composite flex-array sized by allocation above */);
+	kfree(scan_params);
+
+	params->version = cpu_to_le32(drvr->scan_param_handler.version);
 
 	params->action = cpu_to_le16(WL_ESCAN_ACTION_START);
 	params->sync_id = cpu_to_le16(0x1234);
@@ -1496,8 +1367,10 @@ brcmf_run_escan(struct brcmf_cfg80211_info *cfg, struct brcmf_if *ifp,
 			bphy_err(drvr, "error (%d)\n", err);
 	}
 
-exit_params:
 	kfree(params);
+	return err;
+exit_scan_params:
+	kfree(scan_params);
 exit:
 	return err;
 }
@@ -1711,28 +1584,45 @@ int brcmf_set_wsec(struct brcmf_if *ifp, const u8 *key, u16 key_len, u16 flags)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
 	struct brcmf_wsec_pmk_le pmk;
+	struct brcmf_wsec_pmk_ext_le pmk_ext;
 	int err;
 
-	if (key_len > sizeof(pmk.key)) {
+	if (key_len > sizeof(pmk_ext.key)) {
 		bphy_err(drvr, "key must be less than %zu bytes\n",
-			 sizeof(pmk.key));
+			 sizeof(pmk_ext.key));
 		return -EINVAL;
 	}
 
-	memset(&pmk, 0, sizeof(pmk));
+	if (key_len <= sizeof(pmk.key)) {
+		memset(&pmk, 0, sizeof(pmk));
 
-	/* pass key material directly */
-	pmk.key_len = cpu_to_le16(key_len);
-	pmk.flags = cpu_to_le16(flags);
-	memcpy(pmk.key, key, key_len);
+		pmk.key_len = cpu_to_le16(key_len);
+		pmk.flags = cpu_to_le16(flags);
+		memcpy(pmk.key, key, key_len);
 
-	/* store key material in firmware */
+		err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_WSEC_PMK,
+					     &pmk, sizeof(pmk));
+		if (!err)
+			return 0;
+		if (err != -EBADE)
+			goto fail;
+	}
+
+	memset(&pmk_ext, 0, sizeof(pmk_ext));
+	pmk_ext.key_len = cpu_to_le16(key_len);
+	pmk_ext.flags = cpu_to_le16(flags);
+	memcpy(pmk_ext.key, key, key_len);
+
 	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_WSEC_PMK,
-				     &pmk, sizeof(pmk));
+				     &pmk_ext, sizeof(pmk_ext));
 	if (err < 0)
-		bphy_err(drvr, "failed to change PSK in firmware (len=%u)\n",
-			 key_len);
+		goto fail;
 
+	return 0;
+
+fail:
+	bphy_err(drvr, "failed to change PSK in firmware (len=%u, err=%d)\n",
+		 key_len, err);
 	return err;
 }
 BRCMF_EXPORT_SYMBOL_GPL(brcmf_set_wsec);
@@ -1778,6 +1668,36 @@ static void brcmf_link_down(struct brcmf_cfg80211_vif *vif, u16 reason,
 		vif->profile.use_fwsup = BRCMF_PROFILE_FWSUP_NONE;
 	}
 	brcmf_dbg(TRACE, "Exit\n");
+}
+
+static int brcmf_set_ssid(struct brcmf_if *ifp,
+			  const struct brcmf_join_params *legacy, size_t legacy_size)
+{
+	struct brcmf_join_params_v1_le *params;
+	u32 count = le32_to_cpu(legacy->params_le.chanspec_num);
+	size_t size;
+	int err;
+
+	if (!ifp->drvr->join_version)
+		return brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
+					     (void *)legacy, legacy_size);
+	if (ifp->drvr->join_version != 1)
+		return -EOPNOTSUPP;
+
+	size = struct_size(params, assoc_le.chanspec_list, count);
+	params = kzalloc(size, GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
+
+	params->ssid_le = legacy->ssid_le;
+	params->assoc_le.version = cpu_to_le16(1);
+	ether_addr_copy(params->assoc_le.bssid, legacy->params_le.bssid);
+	params->assoc_le.chanspec_num = legacy->params_le.chanspec_num;
+	memcpy(params->assoc_le.chanspec_list, legacy->params_le.chanspec_list,
+	       count * sizeof(__le16));
+	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID, params, size);
+	kfree(params);
+	return err;
 }
 
 static s32
@@ -1918,8 +1838,7 @@ brcmf_cfg80211_join_ibss(struct wiphy *wiphy, struct net_device *ndev,
 	cfg->ibss_starter = false;
 
 
-	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
-				     &join_params, join_params_size);
+	err = brcmf_set_ssid(ifp, &join_params, join_params_size);
 	if (err) {
 		bphy_err(drvr, "WLC_SET_SSID failed (%d)\n", err);
 		goto done;
@@ -2408,6 +2327,30 @@ static void brcmf_set_join_pref(struct brcmf_if *ifp,
 		bphy_err(drvr, "Set join_pref error (%d)\n", err);
 }
 
+static int brcmf_join_v1(struct brcmf_if *ifp,
+			 const struct brcmf_ext_join_params_le *legacy)
+{
+	struct brcmf_ext_join_params_v1_le *params;
+	u32 count = le32_to_cpu(legacy->assoc_le.chanspec_num);
+	size_t size = struct_size(params, assoc_le.chanspec_list, count);
+	int err;
+
+	params = kzalloc(size, GFP_KERNEL);
+	if (!params)
+		return -ENOMEM;
+	params->version = cpu_to_le16(1);
+	params->ssid_le = legacy->ssid_le;
+	params->scan_le = legacy->scan_le;
+	params->assoc_le.version = cpu_to_le16(1);
+	ether_addr_copy(params->assoc_le.bssid, legacy->assoc_le.bssid);
+	params->assoc_le.chanspec_num = legacy->assoc_le.chanspec_num;
+	memcpy(params->assoc_le.chanspec_list, legacy->assoc_le.chanspec_list,
+	       count * sizeof(__le16));
+	err = brcmf_fil_bsscfg_data_set(ifp, "join", params, size);
+	kfree(params);
+	return err;
+}
+
 static s32
 brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		       struct cfg80211_connect_params *sme)
@@ -2429,6 +2372,8 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 	u32 ssid_len;
 
 	brcmf_dbg(TRACE, "Enter\n");
+	if (drvr->join_version > 1)
+		return -EOPNOTSUPP;
 	if (!check_vif_up(ifp->vif))
 		return -EIO;
 
@@ -2619,14 +2564,15 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 
 	brcmf_set_join_pref(ifp, &sme->bss_select);
 
-	err  = brcmf_fil_bsscfg_data_set(ifp, "join", ext_join_params,
-					 join_params_size);
+	if (ifp->drvr->join_version == 1)
+		err = brcmf_join_v1(ifp, ext_join_params);
+	else
+		err = brcmf_fil_bsscfg_data_set(ifp, "join", ext_join_params,
+						join_params_size);
 	kfree(ext_join_params);
-	if (!err)
-		/* This is it. join command worked, we are done */
+	if (err != -EBADE)
 		goto done;
 
-	/* join command failed, fallback to set ssid */
 	memset(&join_params, 0, sizeof(join_params));
 	join_params_size = sizeof(join_params.ssid_le);
 
@@ -2643,8 +2589,7 @@ brcmf_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
 		join_params.params_le.chanspec_num = cpu_to_le32(1);
 		join_params_size += sizeof(join_params.params_le);
 	}
-	err = brcmf_fil_cmd_data_set(ifp, BRCMF_C_SET_SSID,
-				     &join_params, join_params_size);
+	err = brcmf_set_ssid(ifp, &join_params, join_params_size);
 	if (err)
 		bphy_err(drvr, "BRCMF_C_SET_SSID failed (%d)\n", err);
 
@@ -3388,6 +3333,17 @@ done:
 	return err;
 }
 
+static bool brcmf_chanspec_supported(struct brcmf_cfg80211_info *cfg, u16 chanspec)
+{
+	u16 band = chanspec & BRCMU_CHSPEC_D11AC_BND_MASK;
+
+	if (cfg->d11inf.io_type != BRCMU_D11AC_IOTYPE)
+		return true;
+
+	return band == BRCMU_CHSPEC_D11AC_BND_2G ||
+	       band == BRCMU_CHSPEC_D11AC_BND_5G;
+}
+
 static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 				   struct brcmf_bss_info_le *bi)
 {
@@ -3408,6 +3364,9 @@ static s32 brcmf_inform_single_bss(struct brcmf_cfg80211_info *cfg,
 		bphy_err(drvr, "Bss info is larger than buffer. Discarding\n");
 		return -EINVAL;
 	}
+
+	if (!brcmf_chanspec_supported(cfg, le16_to_cpu(bi->chanspec)))
+		return 0;
 
 	if (!bi->ctl_ch) {
 		ch.chspec = le16_to_cpu(bi->chanspec);
@@ -3471,8 +3430,9 @@ static s32 brcmf_inform_bss(struct brcmf_cfg80211_info *cfg)
 
 	bss_list = (struct brcmf_scan_results *)cfg->escan_info.escan_buf;
 	if (bss_list->count != 0 &&
-	    bss_list->version != BRCMF_BSS_INFO_VERSION) {
-		bphy_err(drvr, "Version %d != WL_BSS_INFO_VERSION\n",
+	    (bss_list->version < BRCMF_BSS_INFO_MIN_VERSION ||
+	     bss_list->version > BRCMF_BSS_INFO_MAX_VERSION)) {
+		bphy_err(drvr, "BSS info version %d unsupported\n",
 			 bss_list->version);
 		return -EOPNOTSUPP;
 	}
@@ -7255,6 +7215,8 @@ static int brcmf_construct_chaninfo(struct brcmf_cfg80211_info *cfg,
 
 	for (i = 0; i < total; i++) {
 		ch.chspec = (u16)le32_to_cpu(list->element[i]);
+		if (!brcmf_chanspec_supported(cfg, ch.chspec))
+			continue;
 		cfg->d11inf.decchspec(&ch);
 
 		if (ch.band == BRCMU_CHAN_BAND_2G) {
@@ -7856,7 +7818,7 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	struct ieee80211_supported_band *band;
 	u16 max_interfaces = 0;
 	bool gscan;
-	__le32 bandlist[3];
+	__le32 bandlist[BRCMF_MAX_BANDLIST_ENTRIES];
 	u32 n_bands;
 	int err, i;
 
@@ -7948,8 +7910,20 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 	}
 	/* first entry in bandlist is number of bands */
 	n_bands = le32_to_cpu(bandlist[0]);
-	for (i = 1; i <= n_bands && i < ARRAY_SIZE(bandlist); i++) {
-		if (bandlist[i] == cpu_to_le32(WLC_BAND_2G)) {
+	if (n_bands >= ARRAY_SIZE(bandlist)) {
+		brcmf_dbg(INFO, "bandlist count %u exceeds buffer entries %zu\n",
+			  n_bands, ARRAY_SIZE(bandlist) - 1);
+		n_bands = ARRAY_SIZE(bandlist) - 1;
+	}
+
+	for (i = 1; i <= n_bands; i++) {
+		u32 band_id = le32_to_cpu(bandlist[i]);
+
+		switch (band_id) {
+		case WLC_BAND_2G:
+			if (wiphy->bands[NL80211_BAND_2GHZ])
+				break;
+
 			band = kmemdup(&__wl_band_2ghz, sizeof(__wl_band_2ghz),
 				       GFP_KERNEL);
 			if (!band)
@@ -7965,8 +7939,11 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 
 			band->n_channels = ARRAY_SIZE(__wl_2ghz_channels);
 			wiphy->bands[NL80211_BAND_2GHZ] = band;
-		}
-		if (bandlist[i] == cpu_to_le32(WLC_BAND_5G)) {
+			break;
+		case WLC_BAND_5G:
+			if (wiphy->bands[NL80211_BAND_5GHZ])
+				break;
+
 			band = kmemdup(&__wl_band_5ghz, sizeof(__wl_band_5ghz),
 				       GFP_KERNEL);
 			if (!band)
@@ -7982,6 +7959,11 @@ static int brcmf_setup_wiphy(struct wiphy *wiphy, struct brcmf_if *ifp)
 
 			band->n_channels = ARRAY_SIZE(__wl_5ghz_channels);
 			wiphy->bands[NL80211_BAND_5GHZ] = band;
+			break;
+		default:
+			brcmf_dbg(INFO, "ignoring unsupported band %u\n",
+				  band_id);
+			break;
 		}
 	}
 

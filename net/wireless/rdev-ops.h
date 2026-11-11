@@ -86,6 +86,12 @@ static inline int rdev_add_key(struct cfg80211_registered_device *rdev,
 			   mac_addr, params->mode);
 	ret = rdev->ops->add_key(&rdev->wiphy, wdev, link_id, key_index,
 				  type, mac_addr, params);
+	if (!ret &&
+	    (wdev->iftype == NL80211_IFTYPE_STATION ||
+	     wdev->iftype == NL80211_IFTYPE_P2P_CLIENT) &&
+	    (params->cipher == WLAN_CIPHER_SUITE_WEP40 ||
+	     params->cipher == WLAN_CIPHER_SUITE_WEP104))
+		wdev->u.client.wep_used = true;
 	trace_rdev_return_int(&rdev->wiphy, ret);
 	return ret;
 }
@@ -1702,6 +1708,48 @@ rdev_set_epcs(struct cfg80211_registered_device *rdev,
 	trace_rdev_set_epcs(wiphy, dev, val);
 	if (rdev->ops->set_epcs)
 		ret = rdev->ops->set_epcs(wiphy, dev, val);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
+static inline int rdev_prepare_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  struct cfg80211_st_prep_request *req)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_prepare_st(wiphy, dev, req);
+	ret = rdev->ops->prepare_st(wiphy, dev, req);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
+static inline int rdev_execute_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  struct cfg80211_st_exec_request *req)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_execute_st(wiphy, dev, req);
+	ret = rdev->ops->execute_st(wiphy, dev, req);
+	trace_rdev_return_int(wiphy, ret);
+
+	return ret;
+}
+
+static inline int rdev_abandon_st(struct cfg80211_registered_device *rdev,
+				  struct net_device *dev,
+				  const u8 *ap_mld_addr, bool local_only)
+{
+	struct wiphy *wiphy = &rdev->wiphy;
+	int ret;
+
+	trace_rdev_abandon_st(wiphy, dev, ap_mld_addr, local_only);
+	ret = rdev->ops->abandon_st(wiphy, dev, ap_mld_addr, local_only);
 	trace_rdev_return_int(wiphy, ret);
 
 	return ret;

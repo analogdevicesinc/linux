@@ -10,6 +10,7 @@
 #include <linux/types.h>
 #include <linux/bitfield.h>
 #include <linux/if_ether.h>
+#include <linux/unaligned.h>
 #include "ieee80211-eht.h"
 
 #define IEEE80211_UHR_OPER_PARAMS_DPS_ENA		0x0001
@@ -83,6 +84,15 @@ struct ieee80211_uhr_npca_info {
 	__le32 params;
 	__le16 dis_subch_bmap[];
 } __packed;
+
+static inline int
+ieee80211_uhr_npca_info_size(const struct ieee80211_uhr_npca_info *npca)
+{
+	if (npca->params & cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES))
+		return sizeof(*npca) + sizeof(npca->dis_subch_bmap[0]);
+
+	return sizeof(*npca);
+}
 
 #define IEEE80211_UHR_DPS_PADDING_DELAY			0x0000003F
 #define IEEE80211_UHR_DPS_TRANSITION_DELAY		0x00003F00
@@ -161,6 +171,18 @@ struct ieee80211_uhr_dps_info {
 	__le32 params;
 } __packed;
 
+enum ieee80211_uhr_duo_params {
+	IEEE80211_UHR_DUO_PARAMS_MAX_STANDALONE_DUO_BSPR	= 0x1f,
+};
+
+/**
+ * struct ieee80211_uhr_duo_info - DUO information
+ * @params: the parameters, see &enum ieee80211_uhr_duo_params
+ */
+struct ieee80211_uhr_duo_info {
+	u8 params;
+} __packed;
+
 #define IEEE80211_UHR_DBE_OPER_BANDWIDTH			0x07
 #define IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES	0x08
 
@@ -234,6 +256,15 @@ struct ieee80211_uhr_dbe_info {
 	__le16 dis_subch_bmap[];
 } __packed;
 
+static inline int
+ieee80211_uhr_dbe_info_size(const struct ieee80211_uhr_dbe_info *dbe)
+{
+	if (dbe->params & IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES)
+		return sizeof(*dbe) + sizeof(dbe->dis_subch_bmap[0]);
+
+	return sizeof(*dbe);
+}
+
 #define IEEE80211_UHR_P_EDCA_ECWMIN		0x0007
 #define IEEE80211_UHR_P_EDCA_ECWMAX		0x0038
 #define IEEE80211_UHR_P_EDCA_AIFSN		0x01C0
@@ -282,21 +313,23 @@ static inline bool ieee80211_uhr_oper_size_ok(const u8 *data, u8 len)
 			return false;
 	}
 
+	if (oper->params & cpu_to_le16(IEEE80211_UHR_OPER_PARAMS_DUO_PRES)) {
+		needed += 1;
+		if (len < needed)
+			return false;
+	}
+
 	/* NPCA Operation Parameters (fixed 4 bytes + optional 2 bytes) */
 	if (oper->params & cpu_to_le16(IEEE80211_UHR_OPER_PARAMS_NPCA_PRES)) {
 		const struct ieee80211_uhr_npca_info *npca =
 			(const void *)(data + needed);
 
-		needed += sizeof(*npca);
-		if (len < needed)
+		if (len < needed + sizeof(*npca))
 			return false;
 
-		if (npca->params &
-		    cpu_to_le32(IEEE80211_UHR_NPCA_PARAMS_DIS_SUBCH_BMAP_PRES)) {
-			needed += sizeof(npca->dis_subch_bmap[0]);
-			if (len < needed)
-				return false;
-		}
+		needed += ieee80211_uhr_npca_info_size(npca);
+		if (len < needed)
+			return false;
 	}
 
 	/* P-EDCA Operation Parameters */
@@ -311,16 +344,12 @@ static inline bool ieee80211_uhr_oper_size_ok(const u8 *data, u8 len)
 		const struct ieee80211_uhr_dbe_info *dbe =
 			(const void *)(data + needed);
 
-		needed += sizeof(*dbe);
-		if (len < needed)
+		if (len < needed + sizeof(*dbe))
 			return false;
 
-		if (dbe->params &
-		    IEEE80211_UHR_DBE_OPER_DIS_SUBCHANNEL_BITMAP_PRES) {
-			needed += sizeof(dbe->dis_subch_bmap[0]);
-			if (len < needed)
-				return false;
-		}
+		needed += ieee80211_uhr_dbe_info_size(dbe);
+		if (len < needed)
+			return false;
 	}
 
 	return len >= needed;
@@ -444,7 +473,7 @@ struct ieee80211_uhr_cap_dbe {
 	u8 max_switch_time_period;
 	u8 mode_change_intvl;
 	/* present 0, 1 or 2 times depending on _PRES bits */
-	struct {
+	struct ieee80211_uhr_cap_dbe_bwcap {
 		struct ieee80211_eht_mcs_nss_supp_bw eht_mcs_map;
 		u8 cap;
 	} __packed bwcap[];
@@ -584,17 +613,6 @@ ieee80211_uhr_dbe_cap(const struct ieee80211_uhr_cap *cap)
 	return (const void *)cap->variable;
 }
 
-#define IEEE80211_SMD_INFO_CAPA_DL_DATA_FWD		0x01
-#define IEEE80211_SMD_INFO_CAPA_MAX_NUM_PREP		0x0E
-#define IEEE80211_SMD_INFO_CAPA_TYPE			0x10
-#define IEEE80211_SMD_INFO_CAPA_PTK_PER_AP_MLD		0x20
-
-struct ieee80211_smd_info {
-	u8 id[ETH_ALEN];
-	u8 capa;
-	__le16 timeout;
-} __packed;
-
 enum ieee80211_protected_uhr_action {
 	IEEE80211_PROTECTED_UHR_ACTION_LINK_RECONFIG_REQUEST	= 0,
 	IEEE80211_PROTECTED_UHR_ACTION_LINK_RECONFIG_RESPONSE	= 1,
@@ -615,14 +633,18 @@ enum ieee80211_uhr_link_reconfig_response_type {
 enum ieee80211_uhr_link_reconfig_notify_type {
 	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_DL_DRAINED		= 2,
 	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_OMP_RESPONSE		= 3,
+	IEEE80211_UHR_LINK_RECONFIG_NOTIFY_ST_UPDATE		= 5,
 };
 
 enum ieee80211_uhr_mode_change_control {
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID		= 0x003f,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE		= 0x0040,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_UPDATE		= 0x0080,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_LENGTH		= 0x0f00,
-	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_SPECIFIC		= 0xf000,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ID		= 0x3f,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE		= 0x40,
+	IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_UPDATE		= 0x80,
+};
+
+enum ieee80211_uhr_mode_change_mode_length_specific_ctrl {
+	IEEE80211_UHR_MODE_CHANGE_MODE_LENGTH		= 0x0f,
+	IEEE80211_UHR_MODE_CHANGE_MODE_SPECIFIC_CTRL	= 0xf0,
 };
 
 enum ieee80211_uhr_mode_change_mode_id {
@@ -641,24 +663,477 @@ enum ieee80211_uhr_mode_change_mode_id {
 };
 
 struct ieee80211_uhr_mode_change_tuple {
-	__le16 control;
+	u8 control;
 	u8 variable[];
 } __packed;
 
-static inline int
-ieee80211_uhr_mode_change_tuple_size(const struct ieee80211_uhr_mode_change_tuple *tuple)
+static inline const struct ieee80211_uhr_mode_change_tuple *
+ieee80211_uhr_mode_change_tuple_next(const struct ieee80211_uhr_mode_change_tuple *tuple,
+				     size_t remaining)
 {
-	return sizeof(*tuple) +
-	       le16_get_bits(tuple->control,
-			     IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_LENGTH);
+	size_t needed = sizeof(*tuple);
+
+	if (remaining < needed)
+		return NULL;
+
+	if (tuple->control & IEEE80211_UHR_MODE_CHANGE_CONTROL_MODE_ENABLE) {
+		needed += 1;
+		if (remaining < needed)
+			return NULL;
+
+		needed += u8_get_bits(tuple->variable[0],
+				      IEEE80211_UHR_MODE_CHANGE_MODE_LENGTH);
+		if (remaining < needed)
+			return NULL;
+	}
+
+	return (const void *)((const u8 *)tuple + needed);
 }
 
 #define for_each_uhr_mode_change_tuple(data, len, tuple)		\
 	for (tuple = (const void *)(data);				\
-	     (len) - ((const u8 *)tuple - (data)) >= sizeof(*tuple) &&	\
-	     (len) - ((const u8 *)tuple - (data)) >=			\
-		ieee80211_uhr_mode_change_tuple_size(tuple);		\
+	     ieee80211_uhr_mode_change_tuple_next(			\
+			tuple, (len) - ((const u8 *)tuple - (data)));	\
+	     tuple = ieee80211_uhr_mode_change_tuple_next(		\
+			tuple, (len) - ((const u8 *)tuple - (data))))
+
+struct ieee80211_uhr_parameters_update {
+	u8 countdown;
+	u8 tuples[];
+} __packed;
+
+enum ieee80211_uhr_param_update_tuple_control {
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ID		= 0x3f,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE	= 0x40,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_UPDATE	= 0x80,
+};
+
+enum ieee80211_uhr_param_update_mode_id {
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DPS			= 0,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_NPCA			= 1,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DUO			= 2,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_P_EDCA		= 3,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DBE			= 4,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_AP_PUO		= 5,
+	IEEE80211_UHR_PARAM_UPDATE_MODE_ID_ELR_RX		= 6,
+
+	NUM_IEEE80211_UHR_PARAM_UPDATE_MODE_IDS
+};
+
+struct ieee80211_uhr_param_update_tuple {
+	u8 control;
+	/* mode length followed by mode specific */
+	u8 variable[];
+} __packed;
+
+static inline int
+ieee80211_uhr_param_update_tuple_size(const struct ieee80211_uhr_param_update_tuple *tuple)
+{
+	if (!(tuple->control & IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE))
+		return sizeof(*tuple);
+
+	/* fixed size (control) + length field + value of length field */
+	return sizeof(*tuple) + 1 + tuple->variable[0];
+}
+
+/* this also serves as a type-check for the macro */
+static inline size_t
+ieee80211_uhr_param_upd_tuples_rem(const struct ieee80211_uhr_parameters_update *upd,
+				   size_t len,
+				   const struct ieee80211_uhr_param_update_tuple *tuple)
+{
+	return len - ((const u8 *)tuple - (const u8 *)upd);
+}
+
+#define for_each_uhr_param_update_tuple(elem, len, tuple)		\
+	for (tuple = (const void *)((elem) ? (elem)->tuples : NULL);	\
+	     (elem) &&							\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		sizeof(*tuple) &&					\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		sizeof(*tuple) +					\
+		!!(tuple->control &					\
+		   IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE) &&	\
+	     ieee80211_uhr_param_upd_tuples_rem(elem, len, tuple) >=	\
+		ieee80211_uhr_param_update_tuple_size(tuple);		\
 	     tuple = (const void *)((const u8 *)tuple +			\
-				    ieee80211_uhr_mode_change_tuple_size(tuple)))
+				    ieee80211_uhr_param_update_tuple_size(tuple)))
+
+static inline bool
+ieee80211_uhr_param_update_ok(const void *elem, size_t len)
+{
+	const struct ieee80211_uhr_parameters_update *upd = elem;
+	const struct ieee80211_uhr_param_update_tuple *tuple;
+
+	/* the loop checks, but also check here for our after-the-loop check */
+	if (len < sizeof(*upd) + sizeof(*tuple))
+		return false;
+
+	for_each_uhr_param_update_tuple(upd, len, tuple) {
+		u8 params_len;
+
+		/* no further checks for disabled modes */
+		if (!(tuple->control & IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ENABLE))
+			continue;
+
+		params_len = tuple->variable[0];
+
+		switch (u8_get_bits(tuple->control,
+				    IEEE80211_UHR_PARAM_UPDATE_MODE_CTRL_MODE_ID)) {
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DPS:
+			if (params_len < sizeof(struct ieee80211_uhr_dps_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_NPCA:
+			if (params_len < sizeof(struct ieee80211_uhr_npca_info))
+				return false;
+			if (params_len <
+			    ieee80211_uhr_npca_info_size((const void *)(tuple->variable + 1)))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DUO:
+			/*
+			 * This one is defined very strangely in the spec,
+			 * having a reserved (!) enable bit and always
+			 * including the parameters. Let's hope it'll get
+			 * unified with the others and implement that.
+			 */
+			if (params_len < sizeof(struct ieee80211_uhr_duo_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_P_EDCA:
+			if (params_len < sizeof(struct ieee80211_uhr_p_edca_info))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_DBE:
+			if (params_len < sizeof(struct ieee80211_uhr_dbe_info))
+				return false;
+			if (params_len <
+			    ieee80211_uhr_dbe_info_size((const void *)(tuple->variable + 1)))
+				return false;
+			break;
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_AP_PUO:
+		case IEEE80211_UHR_PARAM_UPDATE_MODE_ID_ELR_RX:
+			/* no further length checks */
+			break;
+		}
+	}
+
+	/* valid only if the whole data was consumed by tuples */
+	return (const u8 *)tuple == (const u8 *)elem + len;
+}
+
+struct ieee80211_smd_bss_trans_scs_list {
+	u8 n_ids;
+	u8 ids[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_scs_list_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_scs_list *scs = (const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*scs))
+		return false;
+
+	size = sizeof(*scs) + scs->n_ids;
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+enum ieee80211_st_control_prep_req {
+	IEEE80211_ST_CONTROL_PREP_REQ_NO_DL_SN_TRANSFER	= 0x01,
+	IEEE80211_ST_CONTROL_PREP_REQ_NO_UL_SN_TRANSFER	= 0x02,
+	IEEE80211_ST_CONTROL_PREP_REQ_SCS_LIST_PRESENT	= 0x04,
+};
+
+/**
+ * struct ieee80211_smd_bss_trans_params_prep_req - SMD BSS Transition Parameters
+ *	element in preparation request
+ * @st_control: ST control field, see &enum ieee80211_st_control_prep_req
+ * @listen_interval: listen interval
+ * @variable: variable (currently SCS list)
+ */
+struct ieee80211_smd_bss_trans_params_prep_req {
+	u8 st_control;
+	__le16 listen_interval;
+	u8 variable[];
+} __packed;
+
+enum ieee80211_st_control_prep_resp {
+	IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT	= 0x01,
+	IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT	= 0x02,
+	IEEE80211_ST_CONTROL_PREP_RESP_SCS_LIST_PRESENT		= 0x04,
+};
+
+/* Note: D2.0 - we expect this to change */
+struct ieee80211_smd_bss_trans_ext_ba_params {
+	__le16 ba_param_set;
+	u8 addba_ext_param_set;
+} __packed;
+
+struct ieee80211_smd_bss_trans_ba_info {
+	u8 tid_bitmap;
+	struct ieee80211_smd_bss_trans_ext_ba_params params[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_ba_info_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_ba_info *ba = (const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*ba))
+		return false;
+
+	/* one extended BA parameters entry per TID set in the bitmap */
+	size = sizeof(*ba) + hweight8(ba->tid_bitmap) * sizeof(ba->params[0]);
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+/**
+ * struct ieee80211_smd_bss_trans_params_prep_resp - SMD BSS Transition Parameters
+ *	element in preparation response
+ * @st_control: ST control field, see &enum ieee80211_st_control_prep_resp
+ * @variable: variable (DL BA info, UL BA info, SCS list)
+ */
+struct ieee80211_smd_bss_trans_params_prep_resp {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_prep_resp_size_ok(const u8 *data, u8 len)
+{
+	const struct ieee80211_smd_bss_trans_params_prep_resp *params =
+		(const void *)data;
+	const u8 *pos = params->variable;
+	size_t remaining;
+
+	if (len < sizeof(*params))
+		return false;
+	remaining = len - sizeof(*params);
+
+	/* DL BA info, UL BA info and the SCS list follow in order, if present */
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ba_info_ok(&pos, &remaining))
+		return false;
+
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ba_info_ok(&pos, &remaining))
+		return false;
+
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_PREP_RESP_SCS_LIST_PRESENT) &&
+	    !ieee80211_smd_bss_trans_scs_list_ok(&pos, &remaining))
+		return false;
+
+	return true;
+}
+
+/**
+ * ieee80211_smd_prep_resp_ba_info - get per-TID Block Ack info from a
+ *	preparation response element
+ * @data: the SMD BSS Transition Parameters (preparation response) element data,
+ *	which must already have passed ieee80211_smd_prep_resp_size_ok()
+ * @uplink: %true for the uplink BA info, %false for the downlink BA info
+ * @tid: the TID to look up
+ *
+ * Return: a pointer to the extended BA parameters for @tid in the requested
+ *	direction, or %NULL if that direction is not present or @tid is not set
+ *	in its TID bitmap.
+ */
+static inline const struct ieee80211_smd_bss_trans_ext_ba_params *
+ieee80211_smd_prep_resp_ba_info(const u8 *data, bool uplink, u8 tid)
+{
+	const struct ieee80211_smd_bss_trans_params_prep_resp *params =
+		(const void *)data;
+	const struct ieee80211_smd_bss_trans_ba_info *ba;
+	const u8 *pos = params->variable;
+
+	if (uplink) {
+		if (!(params->st_control &
+		      IEEE80211_ST_CONTROL_PREP_RESP_UL_BA_INFO_PRESENT))
+			return NULL;
+
+		/* the UL BA info follows the DL BA info, if present */
+		if (params->st_control &
+		    IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT) {
+			ba = (const void *)pos;
+			pos += sizeof(*ba) +
+			       hweight8(ba->tid_bitmap) * sizeof(ba->params[0]);
+		}
+	} else if (!(params->st_control &
+		     IEEE80211_ST_CONTROL_PREP_RESP_DL_BA_INFO_PRESENT)) {
+		return NULL;
+	}
+
+	ba = (const void *)pos;
+
+	if (!(ba->tid_bitmap & BIT(tid)))
+		return NULL;
+
+	/* entries are ordered by TID, one per bit set below @tid */
+	return &ba->params[hweight8(ba->tid_bitmap & (BIT(tid) - 1))];
+}
+
+enum ieee80211_st_control_exec_req {
+	IEEE80211_ST_CONTROL_EXEC_REQ_DL_TID_BITMAP_PRESENT	= 0x01,
+};
+
+/**
+ * struct ieee80211_smd_bss_trans_params_exec_req - SMD BSS Transition Parameters
+ *	element in execution request
+ * @st_control: ST control field, see &enum ieee80211_st_control_exec_req
+ * @variable: variable (currently DL TID bitmap)
+ */
+struct ieee80211_smd_bss_trans_params_exec_req {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+enum ieee80211_st_control_exec_resp {
+	IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT	= 0x01,
+	IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT	= 0x02,
+};
+
+struct ieee80211_smd_bss_trans_ul_sn_list {
+	u8 tid_bitmap;
+	/*
+	 * a list of 12-bit SNs for each TID in the bitmap,
+	 * then rounded up to be a full number of octets
+	 */
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_bss_trans_ul_sn_list_ok(const u8 **pos, size_t *remaining)
+{
+	const struct ieee80211_smd_bss_trans_ul_sn_list *sn =
+		(const void *)*pos;
+	size_t size;
+
+	if (*remaining < sizeof(*sn))
+		return false;
+
+	/* one 12-bit SN per TID set in the bitmap, padded to whole octets */
+	size = sizeof(*sn) + DIV_ROUND_UP(hweight8(sn->tid_bitmap) * 12, 8);
+	if (*remaining < size)
+		return false;
+
+	*pos += size;
+	*remaining -= size;
+	return true;
+}
+
+/**
+ * struct ieee80211_smd_bss_trans_params_exec_resp - SMD BSS Transition Parameters
+ *	element in execution response
+ * @st_control: ST control field, see &enum ieee80211_st_control_exec_resp
+ * @variable: variable (nominal maximum DL draining period duration,
+ *	Latest UL SN List)
+ */
+struct ieee80211_smd_bss_trans_params_exec_resp {
+	u8 st_control;
+	u8 variable[];
+} __packed;
+
+static inline bool
+ieee80211_smd_exec_resp_size_ok(const u8 *data, u8 len)
+{
+	const struct ieee80211_smd_bss_trans_params_exec_resp *params =
+		(const void *)data;
+	const u8 *pos = params->variable;
+	size_t remaining;
+
+	if (len < sizeof(*params))
+		return false;
+	remaining = len - sizeof(*params);
+
+	/* nominal maximum DL draining period duration */
+	if (params->st_control &
+	    IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT) {
+		if (remaining < sizeof(__le16))
+			return false;
+		pos += sizeof(__le16);
+		remaining -= sizeof(__le16);
+	}
+
+	/* Latest UL SN List */
+	if ((params->st_control &
+	     IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT) &&
+	    !ieee80211_smd_bss_trans_ul_sn_list_ok(&pos, &remaining))
+		return false;
+
+	return true;
+}
+
+/**
+ * ieee80211_smd_exec_resp_ul_sn - get a per-TID uplink SN from an execution
+ *	response element
+ * @data: the SMD BSS Transition Parameters (execution response) element data,
+ *	which must already have passed ieee80211_smd_exec_resp_size_ok()
+ * @tid: the TID to look up
+ *
+ * Return: the 12-bit uplink sequence number for @tid, or -1 if the UL SN list
+ *	is not present or @tid is not set in its TID bitmap.
+ */
+static inline int
+ieee80211_smd_exec_resp_ul_sn(const u8 *data, u8 tid)
+{
+	const struct ieee80211_smd_bss_trans_params_exec_resp *params =
+		(const void *)data;
+	const struct ieee80211_smd_bss_trans_ul_sn_list *sn;
+	const u8 *pos = params->variable;
+	unsigned int offset, bit_offset;
+
+	if (!(params->st_control &
+	      IEEE80211_ST_CONTROL_EXEC_RESP_UL_SN_LIST_PRESENT))
+		return -1;
+
+	/* the UL SN list follows the nominal maximum DL draining duration */
+	if (params->st_control &
+	    IEEE80211_ST_CONTROL_EXEC_RESP_NOM_MAX_DL_DRAIN_PRESENT)
+		pos += sizeof(__le16);
+
+	sn = (const void *)pos;
+
+	if (!(sn->tid_bitmap & BIT(tid)))
+		return -1;
+
+	/* 12-bit SNs, ordered by TID, packed least-significant-bit first */
+	offset = hweight8(sn->tid_bitmap & (BIT(tid) - 1));
+	bit_offset = offset * 12;
+
+	return (get_unaligned_le16(&sn->variable[bit_offset / 8]) >>
+		(bit_offset % 8)) & 0xfff;
+}
+
+enum ieee80211_dl_data_drain_info_flags {
+	IEEE80211_DL_DATA_DRAIN_INFO_DRAIN_COMPLETED		= 0x01,
+	IEEE80211_DL_DATA_DRAIN_INFO_PER_TID_DL_BITMAP_PRESENT	= 0x02,
+};
+
+/**
+ * struct ieee80211_dl_data_drain_info - DL Data Drain Info field
+ * @flags: the info field with flags from &enum ieee80211_dl_data_drain_info_flags
+ * @variable: variable (Per-TID DL bitmap)
+ */
+struct ieee80211_dl_data_drain_info {
+	u8 flags;
+	u8 variable[];
+} __packed;
 
 #endif /* LINUX_IEEE80211_UHR_H */

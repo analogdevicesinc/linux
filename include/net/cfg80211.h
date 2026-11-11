@@ -1668,12 +1668,15 @@ struct cfg80211_ap_settings {
  * @fils_discovery: FILS discovery transmission parameters
  * @unsol_bcast_probe_resp: Unsolicited broadcast probe response parameters
  * @s1g_short_beacon: S1G short beacon data
+ * @he_obss_pd: OBSS Packet Detection settings, applied if @he_obss_pd.enable
+ *	is set
  */
 struct cfg80211_ap_update {
 	struct cfg80211_beacon_data beacon;
 	struct cfg80211_fils_discovery fils_discovery;
 	struct cfg80211_unsol_bcast_probe_resp unsol_bcast_probe_resp;
 	struct cfg80211_s1g_short_beacon s1g_short_beacon;
+	struct ieee80211_he_obss_pd he_obss_pd;
 };
 
 /**
@@ -3494,6 +3497,52 @@ struct cfg80211_assoc_request {
 };
 
 /**
+ * struct cfg80211_st_prep_request - SMD transition preparation request data
+ *
+ * This structure provides the information needed to prepare an SMD transition
+ * to a new AP MLD within the SMD.
+ *
+ * See the nl80211 documentation for link order and element inheritance.
+ *
+ * @links: Per-link information for the target AP MLD's links; the BSS pointer
+ *	is set for each link that is part of the transition.
+ *	Link BSSes must be passed back in either preparation response
+ *	(for failed links), transition switch callback (after successful
+ *	transition), or to the abandon callback.
+ * @ap_mld_addr: AP MLD address of the target AP MLD within the SMD
+ * @elems: extra elements to include in the UHR link reconfiguration request
+ * @elems_len: length of @elems
+ * @ext_mld_capa_ops: extended MLD capabilities and operations set by
+ *	userspace for the UHR link reconfiguration request
+ */
+struct cfg80211_st_prep_request {
+	struct cfg80211_assoc_link links[IEEE80211_MLD_MAX_NUM_LINKS];
+	const u8 *ap_mld_addr;
+	const u8 *elems;
+	size_t elems_len;
+	u16 ext_mld_capa_ops;
+};
+
+/**
+ * struct cfg80211_st_exec_request - SMD transition execution request data
+ *
+ * This structure provides the information needed to execute a previously
+ * prepared SMD transition.
+ *
+ * @ap_mld_addr: AP MLD address of the target AP MLD within the SMD
+ * @drain_tids: bitmap of TIDs that are requested to be drained during the
+ *	transition
+ * @elems: extra elements to include in the UHR link reconfiguration request
+ * @elems_len: length of @elems
+ */
+struct cfg80211_st_exec_request {
+	const u8 *ap_mld_addr;
+	u8 drain_tids;
+	const u8 *elems;
+	size_t elems_len;
+};
+
+/**
  * struct cfg80211_deauth_request - Deauthentication request data
  *
  * This structure provides information needed to complete IEEE 802.11
@@ -4921,6 +4970,12 @@ struct mgmt_frame_regs {
  *	For MLO connection, @link_id will be >= 0 for group key and -1 for
  *	pairwise key, @mac_addr will be peer's MLD address for MLO pairwise key.
  *
+ *	Note: If %WIPHY_FLAG_SMD_TRANSITION_CLIENT is set, the link ID cannot
+ *	be validated by cfg80211, since it only tracks link IDs per interface
+ *	and on SMD Transition other link IDs are valid for new keys for the
+ *	new AP MLD. The driver must validate all link IDs, even not during
+ *	SMD Transition, if it supports it.
+ *
  * @get_key: get information about the key with the given parameters.
  *	@mac_addr will be %NULL when requesting information for a group
  *	key. All pointers given to the @callback function need not be valid
@@ -5332,6 +5387,13 @@ struct mgmt_frame_regs {
  *
  * @start_pd: Start the PD interface.
  * @stop_pd: Stop the PD interface.
+ *
+ * @prepare_st: Prepare an SMD transition to the given AP MLD and
+ *	parameters, drivers should return -EBUSY if no more preparations can
+ *	be made, and -EALREADY if the requested AP MLD is already prepared
+ * @execute_st: Execute a previously prepared SMD transition
+ * @abandon_st: Abandon a prepared SMD transition to the given AP MLD.
+ *	If @local_only is true don't send the ST abandon action frame.
  */
 struct cfg80211_ops {
 	int	(*suspend)(struct wiphy *wiphy, struct cfg80211_wowlan *wow);
@@ -5730,6 +5792,12 @@ struct cfg80211_ops {
 			    bool val);
 	int	(*start_pd)(struct wiphy *wiphy, struct wireless_dev *wdev);
 	void	(*stop_pd)(struct wiphy *wiphy, struct wireless_dev *wdev);
+	int	(*prepare_st)(struct wiphy *wiphy, struct net_device *dev,
+			      struct cfg80211_st_prep_request *req);
+	int	(*execute_st)(struct wiphy *wiphy, struct net_device *dev,
+			      struct cfg80211_st_exec_request *req);
+	int	(*abandon_st)(struct wiphy *wiphy, struct net_device *dev,
+			      const u8 *ap_mld_addr, bool local_only);
 };
 
 /*
@@ -5789,6 +5857,12 @@ struct cfg80211_ops {
  *	set this flag to update channels on beacon hints.
  * @WIPHY_FLAG_SUPPORTS_NSTR_NONPRIMARY: support connection to non-primary link
  *	of an NSTR mobile AP MLD.
+ * @WIPHY_FLAG_CLIENT_AP_STA_GTK: Handle C/B/I/GTK installation on a STA (AP
+ *	STA) basis for station and P2P client interfaces.
+ *	(Note that if userspace doesn't give the MAC address, the AP's address
+ *	is substituted to allow for older userspace versions.)
+ * @WIPHY_FLAG_SMD_TRANSITION_CLIENT: Device supports SMD transition as client,
+ *	setting this requires the required ops to be assigned
  */
 enum wiphy_flags {
 	WIPHY_FLAG_SUPPORTS_EXT_KEK_KCK		= BIT(0),
@@ -5800,7 +5874,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_4ADDR_STATION		= BIT(6),
 	WIPHY_FLAG_CONTROL_PORT_PROTOCOL	= BIT(7),
 	WIPHY_FLAG_IBSS_RSN			= BIT(8),
-	/* reuse bit 9 */
+	WIPHY_FLAG_CLIENT_AP_STA_GTK		= BIT(9),
 	WIPHY_FLAG_MESH_AUTH			= BIT(10),
 	WIPHY_FLAG_SUPPORTS_EXT_KCK_32          = BIT(11),
 	WIPHY_FLAG_SUPPORTS_NSTR_NONPRIMARY	= BIT(12),
@@ -5816,6 +5890,7 @@ enum wiphy_flags {
 	WIPHY_FLAG_HAS_CHANNEL_SWITCH		= BIT(23),
 	WIPHY_FLAG_NOTIFY_REGDOM_BY_DRIVER	= BIT(24),
 	WIPHY_FLAG_CHANNEL_CHANGE_ON_BEACON     = BIT(25),
+	WIPHY_FLAG_SMD_TRANSITION_CLIENT	= BIT(26),
 };
 
 /**
@@ -7215,6 +7290,66 @@ void wiphy_hrtimer_work_flush(struct wiphy *wiphy,
 bool wiphy_hrtimer_work_pending(struct wiphy *wiphy,
 				struct wiphy_hrtimer_work *hrwork);
 
+struct wiphy_rcu_work {
+	struct wiphy_work work;
+	struct list_head rcu_entry;
+	struct rcu_gp_seq rcu_state;
+};
+
+static inline void wiphy_rcu_work_init(struct wiphy_rcu_work *rwork,
+				       wiphy_work_func_t func)
+{
+	INIT_LIST_HEAD(&rwork->rcu_entry);
+	wiphy_work_init(&rwork->work, func);
+}
+
+/**
+ * wiphy_rcu_work_queue - queue work for the wiphy after an RCU grace period
+ * @wiphy: the wiphy to queue for
+ * @rwork: the RCU worker
+ *
+ * Queue the work to run (with the wiphy mutex held, see wiphy_work_queue())
+ * after a full RCU grace period has elapsed since this call. If the work is
+ * already pending do nothing. If a new grace period were needed, the caller
+ * has to handle that, e.g. by calling wiphy_rcu_work_cancel() first.
+ *
+ * This can be used to split operations that would need to synchronize_rcu()
+ * with the wiphy mutex held, but of course state may disappear without the
+ * mutex held.
+ *
+ * Can be called from any context.
+ *
+ * Return: %true if the work was queued, %false if it was already pending,
+ *	in which case it may run before a grace period relative to this call
+ *	has elapsed
+ */
+bool wiphy_rcu_work_queue(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
+/**
+ * wiphy_rcu_work_cancel - cancel previously queued RCU work
+ * @wiphy: the wiphy, for debug purposes
+ * @rwork: the RCU work to cancel
+ *
+ * Cancel the work *without* waiting for it or for an RCU grace period.
+ *
+ * Must be called with the wiphy mutex held.
+ */
+void wiphy_rcu_work_cancel(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
+/**
+ * wiphy_rcu_work_flush - run RCU work now if pending
+ * @wiphy: the wiphy
+ * @rwork: the RCU work to flush
+ *
+ * If the work is pending, wait for the RCU grace period it's waiting for
+ * (if it hasn't elapsed yet) and then run it immediately.
+ *
+ * Note: unlike wiphy_work_flush() this only runs the single work.
+ *
+ * Must be called with the wiphy mutex held.
+ */
+void wiphy_rcu_work_flush(struct wiphy *wiphy, struct wiphy_rcu_work *rwork);
+
 /**
  * enum ieee80211_ap_reg_power - regulatory power for an Access Point
  *
@@ -7385,6 +7520,7 @@ struct wireless_dev {
 			u8 connected_addr[ETH_ALEN] __aligned(2);
 			u8 ssid[IEEE80211_MAX_SSID_LEN];
 			u8 ssid_len;
+			bool wep_used;
 		} client;
 		struct {
 			int beacon_interval;
@@ -8306,6 +8442,10 @@ int reg_query_regdb_wmm(char *alpha2, int freq,
  *
  * @request: the corresponding scan request
  * @info: information about the completed scan
+ *
+ * After calling this, the driver must no longer use the request, except
+ * that readers within an RCU read-side critical section that started
+ * before this call may still access it.
  */
 void cfg80211_scan_done(struct cfg80211_scan_request *request,
 			struct cfg80211_scan_info *info);
@@ -10906,6 +11046,173 @@ struct cfg80211_mlo_reconf_done_data {
  */
 void cfg80211_mlo_reconf_add_done(struct net_device *dev,
 				  struct cfg80211_mlo_reconf_done_data *data);
+
+/**
+ * struct cfg80211_st_preparation_resp_data - SMD transition preparation response data
+ *
+ * @ap_mld_addr: the target AP MLD address the transition was prepared for
+ * @req_elems: the UHR link reconfiguration request frame's elements
+ * @req_elems_len: length of @req_elems
+ * @buf: the UHR link reconfiguration response frame (header + body), or %NULL
+ *	if no response was received (timeout)
+ * @len: length of @buf
+ * @links: for each rejected link (or all for timeout), the BSS that was
+ *	previously passed to the prepare_st() operation; ownership of the
+ *	reference and hold is handed back to cfg80211. Links that were
+ *	accepted must not be set here and remain owned by the driver until
+ *	the transition is completed or abandoned.
+ */
+struct cfg80211_st_preparation_resp_data {
+	const u8 *ap_mld_addr;
+	const u8 *req_elems;
+	size_t req_elems_len;
+	const u8 *buf;
+	size_t len;
+	struct cfg80211_bss *links[IEEE80211_MLD_MAX_NUM_LINKS];
+};
+
+/**
+ * cfg80211_rx_st_preparation_response - notify SMD transition preparation result
+ * @dev: network device
+ * @data: the preparation response data, see &struct cfg80211_st_preparation_resp_data
+ *
+ * Inform userspace about the result of an SMD transition preparation that was
+ * previously requested via the prepare_st() operation. The wiphy mutex must be
+ * held.
+ */
+void cfg80211_rx_st_preparation_response(struct net_device *dev,
+					 struct cfg80211_st_preparation_resp_data *data);
+
+/**
+ * struct cfg80211_st_execution_resp_data - SMD transition execution response data
+ * @ap_mld_addr: the target AP MLD address the transition was executed for
+ * @buf: the response frame (header + body), or %NULL if no response was
+ *	received (timeout)
+ * @len: length of @buf
+ * @links: per-link information for accepted links,
+ *	both bssid/local_addr must be set for accepted links,
+ *	neither for not accepted links
+ * @links.bssid: the BSSID for the link
+ * @links.local_addr: the local address for the link
+ */
+struct cfg80211_st_execution_resp_data {
+	const u8 *ap_mld_addr;
+	const u8 *buf;
+	size_t len;
+	struct {
+		const u8 *bssid;
+		const u8 *local_addr;
+	} links[IEEE80211_MLD_MAX_NUM_LINKS];
+};
+
+/**
+ * cfg80211_rx_st_execution_response - notify SMD transition execution result
+ * @dev: network device
+ * @data: the execution response data, see &struct cfg80211_st_execution_resp_data
+ *
+ * Inform userspace about the result of an SMD transition execution that was
+ * previously requested via the execute_st() operation. The wiphy mutex must
+ * be held.
+ */
+void cfg80211_rx_st_execution_response(struct net_device *dev,
+				       struct cfg80211_st_execution_resp_data *data);
+
+/**
+ * struct cfg80211_st_switched_data - SMD transition switch data
+ * @ap_mld_addr: the AP MLD address connected to now
+ * @links: per-link information for the links of the target AP MLD; both
+ *	bss/addr must be set for the links that are valid after the transition,
+ *	neither for the others
+ * @links.bss: the BSS the station is connected to on this link after the
+ *	transition; cfg80211 installs it as the link's current BSS and takes
+ *	over ownership of the reference and hold that was previously passed to
+ *	the prepare_st() operation
+ * @links.addr: the local address used on this link after the transition
+ */
+struct cfg80211_st_switched_data {
+	const u8 *ap_mld_addr;
+	struct {
+		struct cfg80211_bss *bss;
+		const u8 *addr;
+	} links[IEEE80211_MLD_MAX_NUM_LINKS];
+};
+
+/**
+ * cfg80211_st_switched - indicate that the AP MLD is switched
+ * @dev: network device
+ * @data: the transition switch data, see &struct cfg80211_st_switched_data
+ *
+ * Inform cfg80211 that a previously started SMD Transition switched over to
+ * the target AP MLD, i.e. update the AP MLD address, the per-link BSSes and
+ * the local link addresses. For each link, the given BSS becomes the link's
+ * current BSS, replacing (and releasing) the previous one.
+ *
+ * This is separate from cfg80211_st_done() because for execution with the
+ * target AP MLD, this is done before sending the execution request frame,
+ * which might still fail (and disconnect), but then the switch was already
+ * done and the target AP MLD's link BSSes must be released etc.
+ *
+ * The wiphy mutex must be held.
+ *
+ * After this, cfg80211_st_done() must be called to notify userspace, unless
+ * the transition still failed and the client disconnects.
+ */
+void cfg80211_st_switched(struct net_device *dev,
+			  struct cfg80211_st_switched_data *data);
+
+/**
+ * cfg80211_st_done - notify that an SMD transition took place
+ * @dev: network device
+ *
+ * Inform userspace that a previously executed SMD transition has completed,
+ * using the data that cfg80211_st_switched() previously stored.
+ *
+ * The wiphy mutex must be held.
+ */
+void cfg80211_st_done(struct net_device *dev);
+
+/**
+ * cfg80211_st_abandoned - notify that an SMD transition was abandoned
+ * @dev: network device
+ * @links: for each link, the BSS that was previously passed to the
+ *	prepare_st() operation and is now released; ownership of the
+ *	reference and hold is handed back to cfg80211.
+ *
+ * Inform cfg80211 that a previously prepared SMD transition was abandoned and
+ * will not take place. The given BSSes are released.
+ *
+ * This must be called for any prepared but unused SMD Transition, e.g. on
+ * execution of another, disconnect, and also during the abandon_st() method,
+ * as cfg80211 doesn't track active prepared SMD Transitions.
+ *
+ * It should only be called after cfg80211_rx_st_preparation_response() was
+ * already called, if the preparation was successful but never executed.
+ *
+ * It can also be called for only some of the links, if they're no longer
+ * part of the prepared SMD transition, e.g. if the target AP MLD removed
+ * the corresponding affiliated APs.
+ *
+ * The wiphy mutex must be held.
+ */
+void cfg80211_st_abandoned(struct net_device *dev,
+			   struct cfg80211_bss *links[IEEE80211_MLD_MAX_NUM_LINKS]);
+
+/**
+ * cfg80211_st_update_bss_channel - update the channel of a prepared ST link
+ * @dev: network device
+ * @bss: the BSS of a link of a prepared SMD transition, as previously passed
+ *	to the prepare_st() operation
+ * @chan: the new channel of the BSS
+ *
+ * If the AP of a link of a prepared SMD transition switched channel, update
+ * the channel of the BSS entry accordingly before the SMD transition is
+ * executed.
+ *
+ * The wiphy mutex must be held.
+ */
+void cfg80211_st_update_bss_channel(struct net_device *dev,
+				    struct cfg80211_bss *bss,
+				    struct ieee80211_channel *chan);
 
 /**
  * cfg80211_schedule_channels_check - schedule regulatory check if needed

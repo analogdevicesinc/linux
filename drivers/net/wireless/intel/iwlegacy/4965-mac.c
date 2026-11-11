@@ -5171,7 +5171,7 @@ il4965_alive_start(struct il_priv *il)
 	set_bit(S_ALIVE, &il->status);
 
 	/* Enable watchdog to monitor the driver tx queues */
-	il_setup_watchdog(il);
+	mod_timer(&il->watchdog, jiffies + msecs_to_jiffies(IL_WD_TICK));
 
 	if (il_is_rfkill(il))
 		return;

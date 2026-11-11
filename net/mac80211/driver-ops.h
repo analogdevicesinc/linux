@@ -2,7 +2,7 @@
 /*
 * Portions of this file
 * Copyright(c) 2016 Intel Deutschland GmbH
-* Copyright (C) 2018-2019, 2021-2025 Intel Corporation
+* Copyright (C) 2018-2019, 2021-2026 Intel Corporation
 */
 
 #ifndef __MAC80211_DRIVER_OPS
@@ -147,13 +147,14 @@ void drv_remove_interface(struct ieee80211_local *local,
 static inline int drv_config(struct ieee80211_local *local, int radio_idx,
 			     u32 changed)
 {
-	int ret;
+	int ret = 0;
 
 	might_sleep();
 	lockdep_assert_wiphy(local->hw.wiphy);
 
 	trace_drv_config(local, radio_idx, changed);
-	ret = local->ops->config(&local->hw, radio_idx, changed);
+	if (local->ops->config)
+		ret = local->ops->config(&local->hw, radio_idx, changed);
 	trace_drv_return_int(local, ret);
 	return ret;
 }
@@ -709,26 +710,9 @@ static inline void drv_flush(struct ieee80211_local *local,
 	trace_drv_return_void(local);
 }
 
-static inline void drv_flush_sta(struct ieee80211_local *local,
-				 struct ieee80211_sub_if_data *sdata,
-				 struct sta_info *sta)
-{
-	might_sleep();
-	lockdep_assert_wiphy(local->hw.wiphy);
-
-	sdata = get_bss_sdata(sdata);
-
-	if (sdata && !check_sdata_in_driver(sdata))
-		return;
-
-	if (!sta->uploaded)
-		return;
-
-	trace_drv_flush_sta(local, sdata, &sta->sta);
-	if (local->ops->flush_sta)
-		local->ops->flush_sta(&local->hw, &sdata->vif, &sta->sta);
-	trace_drv_return_void(local);
-}
+void drv_flush_sta(struct ieee80211_local *local,
+		   struct ieee80211_sub_if_data *sdata,
+		   struct sta_info *sta);
 
 static inline void drv_channel_switch(struct ieee80211_local *local,
 				      struct ieee80211_sub_if_data *sdata,

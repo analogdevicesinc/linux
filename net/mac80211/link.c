@@ -152,12 +152,7 @@ void ieee80211_link_init(struct ieee80211_sub_if_data *sdata,
 		default:
 			WARN_ON(1);
 		}
-
-		ieee80211_link_debugfs_add(link);
 	}
-
-	rcu_assign_pointer(sdata->vif.link_conf[link_id], link_conf);
-	rcu_assign_pointer(sdata->link[link_id], link);
 }
 
 void ieee80211_link_stop(struct ieee80211_link_data *link)
@@ -189,6 +184,61 @@ struct link_container {
 	struct ieee80211_bss_conf conf;
 };
 
+struct ieee80211_link_data *
+ieee80211_alloc_link(struct ieee80211_sub_if_data *sdata, int link_id)
+{
+	bool non_sta = sdata->vif.type != NL80211_IFTYPE_STATION;
+	struct link_container *link;
+
+	link = kzalloc_obj(*link);
+	if (!link)
+		return NULL;
+
+	ieee80211_link_init(sdata, link_id, &link->data, &link->conf);
+	ieee80211_link_setup(&link->data);
+	if (sdata->vif.type != NL80211_IFTYPE_AP_VLAN)
+		ieee80211_set_wmm_default(&link->data, true, non_sta);
+
+	return &link->data;
+}
+
+void ieee80211_free_link(struct ieee80211_link_data *link)
+{
+	struct link_container *container =
+		container_of(link, struct link_container, data);
+
+	ieee80211_link_stop(link);
+	kfree(container);
+}
+
+void ieee80211_link_attach(struct ieee80211_link_data *link)
+{
+	struct ieee80211_sub_if_data *sdata = link->sdata;
+
+	if (link != &sdata->deflink)
+		ieee80211_link_debugfs_add(link);
+
+	rcu_assign_pointer(sdata->vif.link_conf[link->link_id], link->conf);
+	rcu_assign_pointer(sdata->link[link->link_id], link);
+}
+
+void ieee80211_link_detach(struct ieee80211_link_data *link)
+{
+	struct ieee80211_sub_if_data *sdata = link->sdata;
+
+	/*
+	 * The deflink's debugfs lives directly in the vif directory and is
+	 * (re)created together with it in ieee80211_debugfs_recreate_netdev();
+	 * it is torn down explicitly in ieee80211_tear_down_links() after that
+	 * recreation, so skip it here.
+	 */
+	if (link != &sdata->deflink)
+		ieee80211_link_debugfs_remove(link);
+
+	rcu_assign_pointer(sdata->vif.link_conf[link->link_id], NULL);
+	rcu_assign_pointer(sdata->link[link->link_id], NULL);
+}
+
 static void ieee80211_tear_down_links(struct ieee80211_sub_if_data *sdata,
 				      struct link_container **links, u16 mask)
 {
@@ -206,8 +256,9 @@ static void ieee80211_tear_down_links(struct ieee80211_sub_if_data *sdata,
 		if (WARN_ON(!link))
 			continue;
 		ieee80211_remove_link_keys(link, &keys);
-		ieee80211_link_debugfs_remove(link);
 		stop[link_id] = link;
+		if (link == &sdata->deflink)
+			ieee80211_link_debugfs_remove(link);
 	}
 
 	/* drain RCU readers before cancelling work they may queue */
@@ -218,15 +269,6 @@ static void ieee80211_tear_down_links(struct ieee80211_sub_if_data *sdata,
 			ieee80211_link_stop(stop[link_id]);
 
 	ieee80211_free_key_list(sdata->local, &keys);
-}
-
-static void ieee80211_free_links(struct ieee80211_sub_if_data *sdata,
-				 struct link_container **links)
-{
-	unsigned int link_id;
-
-	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++)
-		kfree(links[link_id]);
 }
 
 static int ieee80211_check_dup_link_addrs(struct ieee80211_sub_if_data *sdata)
@@ -303,11 +345,10 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 	unsigned long sta_rem = rem;
 	unsigned int link_id;
 	int ret;
-	struct link_container *links[IEEE80211_MLD_MAX_NUM_LINKS] = {}, *link;
+	struct link_container *links[IEEE80211_MLD_MAX_NUM_LINKS] = {};
 	struct ieee80211_bss_conf *old[IEEE80211_MLD_MAX_NUM_LINKS];
 	struct ieee80211_link_data *old_data[IEEE80211_MLD_MAX_NUM_LINKS];
 	bool use_deflink = old_links == 0; /* set for error case */
-	bool non_sta = sdata->vif.type != NL80211_IFTYPE_STATION;
 	struct sta_info *sta;
 
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
@@ -326,12 +367,14 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 
 	/* allocate new link structures first */
 	for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS) {
-		link = kzalloc_obj(*link);
-		if (!link) {
+		struct ieee80211_link_data *data;
+
+		data = ieee80211_alloc_link(sdata, link_id);
+		if (!data) {
 			ret = -ENOMEM;
 			goto free;
 		}
-		links[link_id] = link;
+		links[link_id] = container_of(data, struct link_container, data);
 	}
 
 	/* keep track of the old pointers for the driver */
@@ -343,18 +386,20 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 
 	/* grab old links to free later */
 	for_each_set_bit(link_id, &rem, IEEE80211_MLD_MAX_NUM_LINKS) {
-		if (rcu_access_pointer(sdata->link[link_id]) != &sdata->deflink) {
+		struct ieee80211_link_data *old_link =
+			rcu_access_pointer(sdata->link[link_id]);
+
+		if (old_link != &sdata->deflink) {
 			/*
 			 * we must have allocated the data through this path so
 			 * we know we can free both at the same time
 			 */
-			to_free[link_id] = container_of(rcu_access_pointer(sdata->link[link_id]),
+			to_free[link_id] = container_of(old_link,
 							typeof(*links[link_id]),
 							data);
 		}
 
-		RCU_INIT_POINTER(sdata->link[link_id], NULL);
-		RCU_INIT_POINTER(sdata->vif.link_conf[link_id], NULL);
+		ieee80211_link_detach(old_link);
 	}
 
 	if (!old_links)
@@ -365,16 +410,14 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 		WARN_ON(!use_deflink &&
 			rcu_access_pointer(sdata->link[link_id]) == &sdata->deflink);
 
-		link = links[link_id];
-		ieee80211_link_init(sdata, link_id, &link->data, &link->conf);
-		ieee80211_link_setup(&link->data);
-		if (sdata->vif.type != NL80211_IFTYPE_AP_VLAN)
-			ieee80211_set_wmm_default(&link->data, true, non_sta);
+		ieee80211_link_attach(&links[link_id]->data);
 	}
 
-	if (new_links == 0)
+	if (new_links == 0) {
 		ieee80211_link_init(sdata, -1, &sdata->deflink,
 				    &sdata->vif.bss_conf);
+		ieee80211_link_attach(&sdata->deflink);
+	}
 
 	ret = ieee80211_check_dup_link_addrs(sdata);
 	if (!ret) {
@@ -404,16 +447,15 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 		ret = 0;
 
 	if (ret) {
-		/* restore config */
-		memcpy(sdata->link, old_data, sizeof(old_data));
-		memcpy(sdata->vif.link_conf, old, sizeof(old));
+		/* restore config; add/rem can overlap on link 0, so detach first */
+		for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS)
+			ieee80211_link_detach(&links[link_id]->data);
+		for_each_set_bit(link_id, &rem, IEEE80211_MLD_MAX_NUM_LINKS)
+			ieee80211_link_attach(old_data[link_id]);
 		ieee80211_set_vif_links_bitmaps(sdata, old_links, old_dormant);
-		/* drain RCU readers before cancelling work they may queue */
+
+		/* the new links were published, wait before freeing them */
 		synchronize_rcu();
-		for_each_set_bit(link_id, &add, IEEE80211_MLD_MAX_NUM_LINKS) {
-			ieee80211_link_debugfs_remove(&links[link_id]->data);
-			ieee80211_link_stop(&links[link_id]->data);
-		}
 		/* and free (only) the newly allocated links */
 		memset(to_free, 0, sizeof(links));
 		goto free;
@@ -454,13 +496,16 @@ static int ieee80211_vif_update_links(struct ieee80211_sub_if_data *sdata,
 free:
 	/* if we failed during allocation, only free all */
 	for (link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
-		kfree(links[link_id]);
+		if (links[link_id])
+			ieee80211_free_link(&links[link_id]->data);
 		links[link_id] = NULL;
 	}
 deinit:
-	if (use_deflink)
+	if (use_deflink) {
 		ieee80211_link_init(sdata, -1, &sdata->deflink,
 				    &sdata->vif.bss_conf);
+		ieee80211_link_attach(&sdata->deflink);
+	}
 	return ret;
 }
 
@@ -472,7 +517,13 @@ int ieee80211_vif_set_links(struct ieee80211_sub_if_data *sdata,
 
 	ret = ieee80211_vif_update_links(sdata, links, new_links,
 					 dormant_links);
-	ieee80211_free_links(sdata, links);
+
+	/*
+	 * Removed links were already stopped and RCU-synchronized in
+	 * ieee80211_tear_down_links(), so only the memory is left to free.
+	 */
+	for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++)
+		kfree(links[i]);
 
 	return ret;
 }

@@ -296,8 +296,7 @@ void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
 					       reason != AGG_STOP_DESTROY_STA &&
 					       reason != AGG_STOP_PEER_REQUEST);
 
-	for (i = 0; i <  IEEE80211_NUM_TIDS; i++)
-		__ieee80211_stop_tx_ba_session(sta, i, reason);
+	ieee80211_sta_stop_tx_ba_sessions(sta, reason);
 
 	/*
 	 * In case the tear down is part of a reconfigure due to HW restart
@@ -306,6 +305,8 @@ void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
 	 */
 	if(reason == AGG_STOP_DESTROY_STA) {
 		wiphy_work_cancel(sta->local->hw.wiphy, &sta->ampdu_mlme.work);
+		wiphy_rcu_work_cancel(sta->local->hw.wiphy,
+				      &sta->ampdu_mlme.rcu_work);
 
 		for (i = 0; i < IEEE80211_NUM_TIDS; i++) {
 			struct tid_ampdu_tx *tid_tx =
@@ -320,10 +321,8 @@ void ieee80211_sta_tear_down_BA_sessions(struct sta_info *sta,
 	}
 }
 
-void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work)
+static void ieee80211_ba_session_process(struct sta_info *sta, bool rcu_done)
 {
-	struct sta_info *sta =
-		container_of(work, struct sta_info, ampdu_mlme.work);
 	struct tid_ampdu_tx *tid_tx;
 	bool blocked;
 	int tid;
@@ -383,9 +382,8 @@ void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work)
 				/* Give the task working on the txq a chance
 				 * to send out the queued frags
 				 */
-				synchronize_net();
-
-				wiphy_work_queue(sdata->local->hw.wiphy, work);
+				wiphy_rcu_work_queue(sdata->local->hw.wiphy,
+						     &sta->ampdu_mlme.rcu_work);
 				return;
 			}
 
@@ -413,15 +411,44 @@ void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work)
 		if (!tid_tx)
 			continue;
 
+		/*
+		 * Do this before anything that could set the START_RCU or
+		 * STOP_RCU bits (e.g. WANT_STOP handling below), since then
+		 * the grace period hasn't elapsed yet for this TID.
+		 */
+		if (rcu_done) {
+			/* this may free tid_tx */
+			ieee80211_tx_ba_session_handle_rcu(sta, tid, blocked);
+
+			tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+			if (!tid_tx)
+				continue;
+		}
+
 		if (!blocked &&
 		    test_and_clear_bit(HT_AGG_STATE_START_CB, &tid_tx->state))
 			ieee80211_start_tx_ba_cb(sta, tid, tid_tx);
 		if (test_and_clear_bit(HT_AGG_STATE_WANT_STOP, &tid_tx->state))
-			__ieee80211_stop_tx_ba_session(sta, tid,
-						       AGG_STOP_LOCAL_REQUEST);
+			ieee80211_stop_tx_ba_session_deferred(sta, tid,
+							      AGG_STOP_LOCAL_REQUEST);
+
 		if (test_and_clear_bit(HT_AGG_STATE_STOP_CB, &tid_tx->state))
 			ieee80211_stop_tx_ba_cb(sta, tid, tid_tx);
 	}
+}
+
+void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work)
+{
+	ieee80211_ba_session_process(container_of(work, struct sta_info,
+						  ampdu_mlme.work),
+				     false);
+}
+
+void ieee80211_ba_session_rcu_work(struct wiphy *wiphy, struct wiphy_work *work)
+{
+	ieee80211_ba_session_process(container_of(work, struct sta_info,
+						  ampdu_mlme.rcu_work.work),
+				     true);
 }
 
 void ieee80211_send_delba(struct ieee80211_sub_if_data *sdata,
@@ -476,7 +503,8 @@ void ieee80211_process_delba(struct ieee80211_sub_if_data *sdata,
 		__ieee80211_stop_rx_ba_session(sta, tid, WLAN_BACK_INITIATOR, 0,
 					       true);
 	else
-		__ieee80211_stop_tx_ba_session(sta, tid, AGG_STOP_PEER_REQUEST);
+		ieee80211_stop_tx_ba_session_deferred(sta, tid,
+						      AGG_STOP_PEER_REQUEST);
 }
 
 enum nl80211_smps_mode

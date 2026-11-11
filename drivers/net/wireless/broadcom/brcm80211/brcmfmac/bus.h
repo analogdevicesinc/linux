@@ -86,6 +86,8 @@ struct brcmf_bus_dcmd {
  * @get_ramsize: obtain size of device memory.
  * @get_memdump: obtain device memory dump in provided buffer.
  * @get_blob: obtain a firmware blob.
+ * @d2h_mb_rx: handle device-to-host mailbox data received through a transport
+ *	specific side channel.
  * @remove: initiate unbind of the device.
  *
  * This structure provides an abstract interface towards the
@@ -108,6 +110,7 @@ struct brcmf_bus_ops {
 	void (*debugfs_create)(struct device *dev);
 	int (*reset)(struct device *dev);
 	void (*remove)(struct device *dev);
+	void (*d2h_mb_rx)(struct device *dev, u32 data);
 };
 
 
@@ -290,6 +293,12 @@ static inline void brcmf_bus_remove(struct brcmf_bus *bus)
 	}
 
 	bus->ops->remove(bus->dev);
+}
+
+static inline void brcmf_bus_d2h_mb_rx(struct brcmf_bus *bus, u32 data)
+{
+	if (bus->ops->d2h_mb_rx)
+		bus->ops->d2h_mb_rx(bus->dev, data);
 }
 
 /*

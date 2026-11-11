@@ -242,6 +242,7 @@ static void mesh_path_move_to_queue(struct mesh_path *gate_mpath,
 
 static struct mesh_path *mpath_lookup(struct mesh_table *tbl, const u8 *dst,
 				      struct ieee80211_sub_if_data *sdata)
+	__must_hold_shared(RCU)
 {
 	struct mesh_path *mpath;
 
@@ -267,12 +268,14 @@ static struct mesh_path *mpath_lookup(struct mesh_table *tbl, const u8 *dst,
  */
 struct mesh_path *
 mesh_path_lookup(struct ieee80211_sub_if_data *sdata, const u8 *dst)
+	__must_hold_shared(RCU)
 {
 	return mpath_lookup(&sdata->u.mesh.mesh_paths, dst, sdata);
 }
 
 struct mesh_path *
 mpp_path_lookup(struct ieee80211_sub_if_data *sdata, const u8 *dst)
+	__must_hold_shared(RCU)
 {
 	return mpath_lookup(&sdata->u.mesh.mpp_paths, dst, sdata);
 }
@@ -434,6 +437,7 @@ static void mesh_fast_tx_entry_free(struct mesh_tx_cache *cache,
 struct ieee80211_mesh_fast_tx *
 mesh_fast_tx_get(struct ieee80211_sub_if_data *sdata,
 		 struct ieee80211_mesh_fast_tx_key *key)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_mesh_fast_tx *entry;
 	struct mesh_tx_cache *cache;
@@ -463,6 +467,7 @@ mesh_fast_tx_get(struct ieee80211_sub_if_data *sdata,
 
 void mesh_fast_tx_cache(struct ieee80211_sub_if_data *sdata,
 			struct sk_buff *skb, struct mesh_path *mpath)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
 	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);

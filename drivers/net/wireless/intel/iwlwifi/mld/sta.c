@@ -720,7 +720,7 @@ int iwl_mld_update_all_link_stations(struct iwl_mld *mld,
 	struct ieee80211_link_sta *link_sta;
 	int link_id;
 
-	for_each_sta_active_link(mld_sta->vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		int ret = iwl_mld_add_modify_sta_cmd(mld, link_sta);
 
 		if (ret)
@@ -815,7 +815,6 @@ iwl_mld_init_sta(struct iwl_mld *mld, struct ieee80211_sta *sta,
 int iwl_mld_add_sta(struct iwl_mld *mld, struct ieee80211_sta *sta,
 		    struct ieee80211_vif *vif)
 {
-	struct iwl_mld_sta *mld_sta = iwl_mld_sta_from_mac80211(sta);
 	struct ieee80211_link_sta *link_sta;
 	enum iwl_fw_sta_type type;
 	int link_id;
@@ -841,7 +840,7 @@ int iwl_mld_add_sta(struct iwl_mld *mld, struct ieee80211_sta *sta,
 	 * in the restart case if the single link that is active during
 	 * reconfig is not the deflink one.
 	 */
-	for_each_sta_active_link(mld_sta->vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		ret = iwl_mld_add_link_sta(mld, link_sta);
 		if (ret)
 			goto destroy_sta;
@@ -857,11 +856,10 @@ destroy_sta:
 
 void iwl_mld_flush_sta_txqs(struct iwl_mld *mld, struct ieee80211_sta *sta)
 {
-	struct iwl_mld_sta *mld_sta = iwl_mld_sta_from_mac80211(sta);
 	struct ieee80211_link_sta *link_sta;
 	int link_id;
 
-	for_each_sta_active_link(mld_sta->vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		int fw_sta_id = iwl_mld_fw_sta_id_from_link_sta(mld, link_sta);
 
 		if (fw_sta_id < 0)
@@ -909,7 +907,7 @@ void iwl_mld_remove_sta(struct iwl_mld *mld, struct ieee80211_sta *sta)
 	for (int i = 0; i < ARRAY_SIZE(sta->txq); i++)
 		iwl_mld_remove_txq(mld, sta->txq[i]);
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		/* Mac8011 will remove the groupwise keys after the sta is
 		 * removed, but FW expects all the keys to be removed before
 		 * the STA is, so remove them all here.
@@ -926,7 +924,6 @@ void iwl_mld_remove_sta(struct iwl_mld *mld, struct ieee80211_sta *sta)
 
 u32 iwl_mld_fw_sta_id_mask(struct iwl_mld *mld, struct ieee80211_sta *sta)
 {
-	struct ieee80211_vif *vif = iwl_mld_sta_from_mac80211(sta)->vif;
 	struct ieee80211_link_sta *link_sta;
 	unsigned int link_id;
 	u32 result = 0;
@@ -940,7 +937,7 @@ u32 iwl_mld_fw_sta_id_mask(struct iwl_mld *mld, struct ieee80211_sta *sta)
 	 */
 	lockdep_assert_wiphy(mld->wiphy);
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		int fw_id = iwl_mld_fw_sta_id_from_link_sta(mld, link_sta);
 
 		if (!(fw_id < 0))

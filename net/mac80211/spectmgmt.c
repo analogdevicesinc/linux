@@ -152,7 +152,12 @@ validate_chandef_by_6ghz_he_eht_oper(struct ieee80211_sub_if_data *sdata,
 	struct ieee80211_he_6ghz_oper *_6ghz_oper =
 				(struct ieee80211_he_6ghz_oper *)he->optional;
 	DEFINE_RAW_FLEX(struct ieee80211_eht_operation, eht, optional,
-			sizeof(struct ieee80211_eht_operation_info));
+			sizeof(struct ieee80211_eht_operation_info) +
+			/*
+			 * Additional space for the optional
+			 * Disabled Subchannel Bitmap
+			 */
+			sizeof(u16));
 	struct ieee80211_eht_operation_info *_oper_info =
 			(struct ieee80211_eht_operation_info *)eht->optional;
 	const struct ieee80211_eht_operation *eht_oper;
@@ -207,6 +212,13 @@ validate_chandef_by_6ghz_he_eht_oper(struct ieee80211_sub_if_data *sdata,
 		eht_oper = NULL;
 	} else {
 		eht->params = IEEE80211_EHT_OPER_INFO_PRESENT;
+
+		if (chandef->punctured) {
+			eht->params |=
+				IEEE80211_EHT_OPER_DISABLED_SUBCHANNEL_BITMAP_PRESENT;
+			put_unaligned_le16(chandef->punctured, _oper_info->optional);
+		}
+
 		_oper_info->control = _6ghz_oper->control;
 		_oper_info->ccfs0 = _6ghz_oper->ccfs0;
 		_oper_info->ccfs1 = _6ghz_oper->ccfs1;

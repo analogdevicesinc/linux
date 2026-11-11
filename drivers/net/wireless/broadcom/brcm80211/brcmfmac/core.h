@@ -97,6 +97,22 @@ struct brcmf_rev_info {
 	u32 nvramrev;
 };
 
+struct brcmf_cfg80211_info;
+struct cfg80211_scan_request;
+
+/**
+ * struct scan_param_struct_handler - firmware scan parameter operations.
+ *
+ * @version: scan parameter version used by firmware.
+ * @get_struct_for_request: build a scan parameter structure for @request.
+ */
+struct scan_param_struct_handler {
+	u8 version;
+	void *(*get_struct_for_request)(struct brcmf_cfg80211_info *cfg,
+					u32 *struct_size,
+					struct cfg80211_scan_request *request);
+};
+
 /* Common structure for module and instance linkage */
 struct brcmf_pub {
 	/* Linkage ponters */
@@ -145,6 +161,8 @@ struct brcmf_pub {
 	u8 sta_mac_idx;
 	const struct brcmf_fwvid_ops *vops;
 	void *vdata;
+	struct scan_param_struct_handler scan_param_handler;
+	u16 join_version;
 };
 
 /* forward declarations */

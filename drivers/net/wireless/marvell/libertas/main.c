@@ -877,6 +877,12 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev)
 	}
 
 	priv->work_thread = create_singlethread_workqueue("lbs_worker");
+	if (!priv->work_thread) {
+		err = -ENOMEM;
+		lbs_deb_thread("Error creating worker thread.\n");
+		goto err_thread;
+	}
+
 	INIT_WORK(&priv->mcast_work, lbs_set_mcast_worker);
 
 	priv->wol_criteria = EHS_REMOVE_WAKEUP;
@@ -885,6 +891,9 @@ struct lbs_private *lbs_add_card(void *card, struct device *dmdev)
 	priv->ehs_remove_supported = true;
 
 	return priv;
+
+ err_thread:
+	kthread_stop(priv->main_thread);
 
  err_ndev:
 	free_netdev(dev);

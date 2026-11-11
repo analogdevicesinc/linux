@@ -5,6 +5,7 @@
 
 #include <linux/netdevice.h>
 #include <linux/module.h>
+#include <linux/slab.h>
 
 #include <brcm_hw_ids.h>
 #include <brcmu_wifi.h>
@@ -16,6 +17,7 @@
 #include "fwvid.h"
 #include "feature.h"
 #include "common.h"
+#include "scan_param.h"
 
 #define BRCMF_FW_UNSUPPORTED	23
 
@@ -42,10 +44,10 @@ static const struct brcmf_feat_fwcap brcmf_fwcap_map[] = {
 	{ BRCMF_FEAT_MONITOR_FLAG, "rtap" },
 	{ BRCMF_FEAT_MONITOR_FMT_RADIOTAP, "rtap" },
 	{ BRCMF_FEAT_DOT11H, "802.11h" },
-	{ BRCMF_FEAT_SAE, "sae " },
+	{ BRCMF_FEAT_SAE, "sae" },
 	{ BRCMF_FEAT_FWAUTH, "idauth" },
 	{ BRCMF_FEAT_SAE_EXT, "sae_ext" },
-	{ BRCMF_FEAT_FBT, "fbt " },
+	{ BRCMF_FEAT_FBT, "fbt" },
 	{ BRCMF_FEAT_OKC, "okc" },
 };
 
@@ -158,6 +160,10 @@ static void brcmf_feat_wlc_version_overrides(struct brcmf_pub *drv)
 
 	brcmf_dbg(INFO, "WLC version: %d.%d\n", major, minor);
 
+	if (major >= 17 || (major == 16 && minor >= 1) ||
+	    (major == 14 && (minor == 2 || minor == 4)))
+		drv->join_version = 1;
+
 	for (i = 0; i < ARRAY_SIZE(brcmf_feat_wlcfeat_map); i++) {
 		e = &brcmf_feat_wlcfeat_map[i];
 		if (major > e->min_ver_major ||
@@ -226,15 +232,53 @@ static void brcmf_feat_iovar_data_set(struct brcmf_if *ifp,
 	ifp->fwil_fwerr = false;
 }
 
+static void brcmf_feat_event_msgs_ext(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_fweh_info *fweh = drvr->fweh;
+	struct brcmf_eventmsgs_ext_le *eventmsgs;
+	size_t size;
+	int err;
+
+	if (!fweh || fweh->event_mask_len > 0xff)
+		return;
+
+	size = struct_size(eventmsgs, mask, fweh->event_mask_len);
+	eventmsgs = kzalloc(size, GFP_KERNEL);
+	if (!eventmsgs)
+		return;
+
+	eventmsgs->version = EVENTMSGS_VER;
+	eventmsgs->command = EVENTMSGS_NONE;
+	eventmsgs->len = fweh->event_mask_len;
+	eventmsgs->maxgetsize = fweh->event_mask_len;
+
+	ifp->fwil_fwerr = true;
+	err = brcmf_fil_iovar_data_get(ifp, "event_msgs_ext", eventmsgs, size);
+	ifp->fwil_fwerr = false;
+
+	if (!err) {
+		brcmf_dbg(INFO, "enabling feature: %s\n",
+			  brcmf_feat_names[BRCMF_FEAT_EVENT_MSGS_EXT]);
+		drvr->feat_flags |= BIT(BRCMF_FEAT_EVENT_MSGS_EXT);
+	} else {
+		brcmf_dbg(TRACE, "%s feature check failed: %d\n",
+			  brcmf_feat_names[BRCMF_FEAT_EVENT_MSGS_EXT], err);
+	}
+
+	kfree(eventmsgs);
+}
+
 #define MAX_CAPS_BUFFER_SIZE	768
 static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 {
 	struct brcmf_pub *drvr = ifp->drvr;
-	char caps[MAX_CAPS_BUFFER_SIZE];
+	char caps[MAX_CAPS_BUFFER_SIZE + 1] = {};
+	char *cap, *next = caps;
 	enum brcmf_feat_id id;
 	int i, err;
 
-	err = brcmf_fil_iovar_data_get(ifp, "cap", caps, sizeof(caps));
+	err = brcmf_fil_iovar_data_get(ifp, "cap", caps, sizeof(caps) - 1);
 	if (err) {
 		bphy_err(drvr, "could not get firmware cap (%d)\n", err);
 		return;
@@ -242,14 +286,73 @@ static void brcmf_feat_firmware_capabilities(struct brcmf_if *ifp)
 
 	brcmf_dbg(INFO, "[ %s]\n", caps);
 
-	for (i = 0; i < ARRAY_SIZE(brcmf_fwcap_map); i++) {
-		if (strnstr(caps, brcmf_fwcap_map[i].fwcap_id, sizeof(caps))) {
+	while ((cap = strsep(&next, " \t\r\n")) != NULL) {
+		if (!*cap)
+			continue;
+
+		for (i = 0; i < ARRAY_SIZE(brcmf_fwcap_map); i++) {
+			if (strcmp(cap, brcmf_fwcap_map[i].fwcap_id))
+				continue;
 			id = brcmf_fwcap_map[i].feature;
 			brcmf_dbg(INFO, "enabling feature: %s\n",
 				  brcmf_feat_names[id]);
-			ifp->drvr->feat_flags |= BIT(id);
+			drvr->feat_flags |= BIT(id);
 		}
 	}
+}
+
+static void brcmf_feat_join_params(struct brcmf_if *ifp)
+{
+	struct brcmf_join_version_le version = {};
+	int err;
+
+	err = brcmf_fil_iovar_data_get(ifp, "join_ver", &version,
+				       sizeof(version));
+	if (!err)
+		ifp->drvr->join_version = le16_to_cpu(version.major);
+	if (ifp->drvr->join_version > 1)
+		bphy_err(ifp->drvr, "unsupported join params v%u\n",
+			 ifp->drvr->join_version);
+}
+
+static void brcmf_feat_scan_params(struct brcmf_if *ifp)
+{
+	struct brcmf_pub *drvr = ifp->drvr;
+	struct brcmf_scan_version_le scan_ver = {};
+	u32 version = 1;
+	u32 scalar_version;
+	int err;
+
+	err = brcmf_fil_iovar_data_get(ifp, "scan_ver", &scan_ver,
+				       sizeof(scan_ver));
+	if (!err) {
+		version = le16_to_cpu(scan_ver.scan_ver_major);
+		if (!version)
+			version = le16_to_cpu(scan_ver.version);
+		if (version >= BRCMF_SCAN_PARAMS_VERSION_V2)
+			drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+	} else {
+		err = brcmf_fil_iovar_int_get(ifp, "scan_ver",
+					      &scalar_version);
+		if (!err) {
+			version = scalar_version;
+			if (version >= BRCMF_SCAN_PARAMS_VERSION_V2)
+				drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_V2);
+		} else {
+			brcmf_dbg(TRACE, "scan_ver unavailable (%d), using v1 scan params\n",
+				  err);
+		}
+	}
+
+	err = brcmf_scan_param_setup_for_version(drvr, version);
+	if (!err) {
+		brcmf_dbg(INFO, "using scan params v%u\n", version);
+		return;
+	}
+
+	bphy_err(drvr, "unsupported scan params v%u, using v1\n", version);
+	drvr->feat_flags &= ~BIT(BRCMF_FEAT_SCAN_V2);
+	brcmf_scan_param_setup_for_version(drvr, 1);
 }
 
 /**
@@ -341,9 +444,11 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 		ifp->drvr->feat_flags |= BIT(BRCMF_FEAT_SCAN_RANDOM_MAC);
 
 	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_FWSUP, "sup_wpa");
-	brcmf_feat_iovar_int_get(ifp, BRCMF_FEAT_SCAN_V2, "scan_ver");
+	brcmf_feat_scan_params(ifp);
+	brcmf_feat_event_msgs_ext(ifp);
 
 	brcmf_feat_wlc_version_overrides(drvr);
+	brcmf_feat_join_params(ifp);
 	brcmf_feat_firmware_overrides(drvr);
 
 	brcmf_fwvid_feat_attach(ifp);
@@ -354,6 +459,9 @@ void brcmf_feat_attach(struct brcmf_pub *drvr)
 			  drvr->settings->feature_disable);
 		ifp->drvr->feat_flags &= ~drvr->settings->feature_disable;
 	}
+
+	if (!brcmf_feat_is_enabled(ifp, BRCMF_FEAT_SCAN_V2))
+		brcmf_scan_param_setup_for_version(drvr, 1);
 
 	/* set chip related quirks */
 	switch (drvr->bus_if->chip) {

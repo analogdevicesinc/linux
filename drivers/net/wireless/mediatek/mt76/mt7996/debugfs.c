@@ -776,14 +776,11 @@ mt7996_sta_hw_queue_read(void *data, struct ieee80211_sta *sta)
 	struct mt7996_vif *mvif = msta->vif;
 	struct ieee80211_link_sta *link_sta;
 	struct seq_file *s = data;
-	struct ieee80211_vif *vif;
 	unsigned int link_id;
-
-	vif = container_of((void *)mvif, struct ieee80211_vif, drv_priv);
 
 	rcu_read_lock();
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct mt7996_sta_link *msta_link;
 		struct mt76_vif_link *mlink;
 		struct mt7996_phy *phy;

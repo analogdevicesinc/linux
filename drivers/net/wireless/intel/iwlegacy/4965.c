@@ -1913,7 +1913,6 @@ struct il_cfg il4965_cfg = {
 	.use_bsm = true,
 	.led_compensation = 61,
 	.chain_noise_num_beacons = IL4965_CAL_NUM_BEACONS,
-	.wd_timeout = IL_DEF_WD_TIMEOUT,
 	.temperature_kelvin = true,
 	.ucode_tracing = true,
 	.sensitivity_calib_by_driver = true,

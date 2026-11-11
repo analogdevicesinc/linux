@@ -1181,9 +1181,9 @@ iwl_mld_process_rsc_notification(struct iwl_mld *mld,
 	};
 
 	/* Iterate through all active keys and update RSC */
-	ieee80211_iter_keys_rcu(mld->hw, vif,
-				iwl_mld_rsc_update_key_iter,
-				&iter_data);
+	ieee80211_iter_keys_atomic(mld->hw, vif,
+				   iwl_mld_rsc_update_key_iter,
+				   &iter_data);
 }
 
 static void

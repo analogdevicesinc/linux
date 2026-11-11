@@ -301,14 +301,18 @@ void ieee80211_mps_frame_release(struct sta_info *sta,
 
 /* Mesh paths */
 int mesh_nexthop_lookup(struct ieee80211_sub_if_data *sdata,
-			struct sk_buff *skb);
+			struct sk_buff *skb)
+	__must_hold_shared(RCU);
 int mesh_nexthop_resolve(struct ieee80211_sub_if_data *sdata,
-			 struct sk_buff *skb);
+			 struct sk_buff *skb)
+	__must_hold_shared(RCU);
 void mesh_path_start_discovery(struct ieee80211_sub_if_data *sdata);
 struct mesh_path *mesh_path_lookup(struct ieee80211_sub_if_data *sdata,
-				   const u8 *dst);
+				   const u8 *dst)
+	__must_hold_shared(RCU);
 struct mesh_path *mpp_path_lookup(struct ieee80211_sub_if_data *sdata,
-				  const u8 *dst);
+				  const u8 *dst)
+	__must_hold_shared(RCU);
 int mpp_path_add(struct ieee80211_sub_if_data *sdata,
 		 const u8 *dst, const u8 *mpp);
 struct mesh_path *
@@ -364,11 +368,14 @@ void mesh_path_tx_root_frame(struct ieee80211_sub_if_data *sdata);
 bool mesh_action_is_path_sel(struct ieee80211_mgmt *mgmt);
 struct ieee80211_mesh_fast_tx *
 mesh_fast_tx_get(struct ieee80211_sub_if_data *sdata,
-		 struct ieee80211_mesh_fast_tx_key *key);
+		 struct ieee80211_mesh_fast_tx_key *key)
+	__must_hold_shared(RCU);
 bool ieee80211_mesh_xmit_fast(struct ieee80211_sub_if_data *sdata,
-			      struct sk_buff *skb, u32 ctrl_flags);
+			      struct sk_buff *skb, u32 ctrl_flags)
+	__must_hold_shared(RCU);
 void mesh_fast_tx_cache(struct ieee80211_sub_if_data *sdata,
-			struct sk_buff *skb, struct mesh_path *mpath);
+			struct sk_buff *skb, struct mesh_path *mpath)
+	__must_hold_shared(RCU);
 void mesh_fast_tx_gc(struct ieee80211_sub_if_data *sdata);
 void mesh_fast_tx_flush_addr(struct ieee80211_sub_if_data *sdata,
 			     const u8 *addr);

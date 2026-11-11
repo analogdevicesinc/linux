@@ -105,13 +105,6 @@ static struct faux_device *reg_fdev;
 const struct ieee80211_regdomain __rcu *cfg80211_regdomain;
 
 /*
- * Number of devices that registered to the core
- * that support cellular base station regulatory hints
- * (protected by cfg80211_mutex)
- */
-static int reg_num_devs_support_basehint;
-
-/*
  * State variable indicating if the platform on which the devices
  * are attached is operating in an indoor environment. The state variable
  * is relevant for all registered devices.
@@ -1150,11 +1143,13 @@ static const struct ieee80211_regdomain *reg_get_regdomain(struct wiphy *wiphy)
 
 	/*
 	 * Follow the driver's regulatory domain, if present, unless a country
-	 * IE has been processed or a user wants to help compliance further
+	 * IE has been processed or a user wants to help compliance further.
+	 * Self-managed wiphys always use their own regulatory domain.
 	 */
-	if (lr->initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE &&
-	    lr->initiator != NL80211_REGDOM_SET_BY_USER &&
-	    wiphy->regd)
+	if (wiphy->regd &&
+	    ((wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) ||
+	     (lr->initiator != NL80211_REGDOM_SET_BY_COUNTRY_IE &&
+	      lr->initiator != NL80211_REGDOM_SET_BY_USER)))
 		return get_wiphy_regdom(wiphy);
 
 	return get_cfg80211_regdom();
@@ -2056,6 +2051,13 @@ bool reg_last_request_cell_base(void)
 }
 
 #ifdef CONFIG_CFG80211_REG_CELLULAR_HINTS
+/*
+ * Number of devices that registered to the core
+ * that support cellular base station regulatory hints
+ * (protected by cfg80211_mutex)
+ */
+static int reg_num_devs_support_basehint;
+
 /* Core specific check */
 static enum reg_request_treatment
 reg_ignore_cell_hint(struct regulatory_request *pending_request)
@@ -2077,6 +2079,12 @@ static bool reg_dev_ignore_cell_hint(struct wiphy *wiphy)
 {
 	return !(wiphy->features & NL80211_FEATURE_CELL_BASE_REG_HINTS);
 }
+
+static void reg_update_cell_hint_num(struct wiphy *wiphy, int delta)
+{
+	if (!reg_dev_ignore_cell_hint(wiphy))
+		reg_num_devs_support_basehint += delta;
+}
 #else
 static enum reg_request_treatment
 reg_ignore_cell_hint(struct regulatory_request *pending_request)
@@ -2087,6 +2095,10 @@ reg_ignore_cell_hint(struct regulatory_request *pending_request)
 static bool reg_dev_ignore_cell_hint(struct wiphy *wiphy)
 {
 	return true;
+}
+
+static void reg_update_cell_hint_num(struct wiphy *wiphy, int delta)
+{
 }
 #endif
 
@@ -3228,6 +3240,10 @@ static void reg_process_self_managed_hint(struct wiphy *wiphy)
 
 	lockdep_assert_wiphy(wiphy);
 
+	/* not registered yet, apply later during registration */
+	if (!rdev->wiphy.registered)
+		return;
+
 	spin_lock(&reg_requests_lock);
 	regd = rdev->requested_regd;
 	rdev->requested_regd = NULL;
@@ -4137,7 +4153,8 @@ int regulatory_set_wiphy_regd(struct wiphy *wiphy,
 	if (ret)
 		return ret;
 
-	schedule_work(&reg_work);
+	if (wiphy->registered)
+		schedule_work(&reg_work);
 	return 0;
 }
 EXPORT_SYMBOL(regulatory_set_wiphy_regd);
@@ -4165,30 +4182,28 @@ void wiphy_regulatory_register(struct wiphy *wiphy)
 	struct regulatory_request *lr = get_last_request();
 
 	lockdep_assert_held(&cfg80211_mutex);
+	lockdep_assert_wiphy(wiphy);
 
-	scoped_guard(wiphy, wiphy) {
-		/* self-managed devices ignore beacon hints and country IE */
-		if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
-			wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS |
-						   REGULATORY_COUNTRY_IE_IGNORE;
+	/* self-managed devices ignore beacon hints and country IE */
+	if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
+		wiphy->regulatory_flags |= REGULATORY_DISABLE_BEACON_HINTS |
+					   REGULATORY_COUNTRY_IE_IGNORE;
 
-			/*
-			 * The last request may have been received before this
-			 * registration call. Call the driver notifier if
-			 * initiator is USER.
-			 */
-			if (lr->initiator == NL80211_REGDOM_SET_BY_USER)
-				reg_call_notifier(wiphy, lr);
-		}
-
-		if (!reg_dev_ignore_cell_hint(wiphy))
-			reg_num_devs_support_basehint++;
-
-		wiphy_update_regulatory(wiphy, lr->initiator);
-		wiphy_all_share_dfs_chan_state(wiphy);
+		/*
+		 * The last request may have been received before this
+		 * registration call. Call the driver notifier if
+		 * initiator is USER.
+		 */
+		if (lr->initiator == NL80211_REGDOM_SET_BY_USER)
+			reg_call_notifier(wiphy, lr);
 	}
 
-	reg_process_self_managed_hints();
+	if (!reg_dev_ignore_cell_hint(wiphy))
+		reg_update_cell_hint_num(wiphy, 1);
+
+	wiphy_update_regulatory(wiphy, lr->initiator);
+	wiphy_all_share_dfs_chan_state(wiphy);
+	reg_process_self_managed_hint(wiphy);
 }
 
 void wiphy_regulatory_deregister(struct wiphy *wiphy)
@@ -4200,8 +4215,7 @@ void wiphy_regulatory_deregister(struct wiphy *wiphy)
 
 	lr = get_last_request();
 
-	if (!reg_dev_ignore_cell_hint(wiphy))
-		reg_num_devs_support_basehint--;
+	reg_update_cell_hint_num(wiphy, -1);
 
 	rcu_free_regdom(get_wiphy_regdom(wiphy));
 	RCU_INIT_POINTER(wiphy->regd, NULL);

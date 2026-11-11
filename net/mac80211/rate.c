@@ -88,7 +88,7 @@ void rate_control_tx_status(struct ieee80211_local *local,
 			    struct ieee80211_tx_status *st)
 {
 	struct rate_control_ref *ref = local->rate_ctrl;
-	struct sta_info *sta = container_of(st->sta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(st->sta);
 	void *priv_sta = sta->rate_ctrl_priv;
 	struct ieee80211_supported_band *sband;
 
@@ -442,7 +442,7 @@ static bool rate_control_send_low(struct ieee80211_sta *pubsta,
 			}
 			use_basicrate = true;
 		} else if (pubsta) {
-			sta = container_of(pubsta, struct sta_info, sta);
+			sta = sta_from_pub(pubsta);
 			if (ieee80211_vif_is_mesh(&sta->sdata->vif))
 				use_basicrate = true;
 		}
@@ -970,7 +970,7 @@ int rate_control_set_rates(struct ieee80211_hw *hw,
 			   struct ieee80211_sta *pubsta,
 			   struct ieee80211_sta_rates *rates)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sta_rates *old;
 	struct ieee80211_supported_band *sband;
 

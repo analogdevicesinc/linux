@@ -1414,7 +1414,6 @@ void rt2800_write_beacon(struct queue_entry *entry, struct txentry_desc *txdesc)
 	struct rt2x00_dev *rt2x00dev = entry->queue->rt2x00dev;
 	struct skb_frame_desc *skbdesc = get_skb_frame_desc(entry->skb);
 	unsigned int beacon_base;
-	unsigned int padding_len;
 	u32 orig_reg, reg;
 	const int txwi_desc_size = entry->queue->winfo_size;
 
@@ -1452,10 +1451,9 @@ void rt2800_write_beacon(struct queue_entry *entry, struct txentry_desc *txdesc)
 	/*
 	 * Write entire beacon with TXWI and padding to register.
 	 */
-	padding_len = roundup(entry->skb->len, 4) - entry->skb->len;
-	if (padding_len && skb_pad(entry->skb, padding_len)) {
+	if (skb_put_padto(entry->skb, roundup(entry->skb->len, 4))) {
 		rt2x00_err(rt2x00dev, "Failure padding beacon, aborting\n");
-		/* skb freed by skb_pad() on failure */
+		/* skb freed by skb_put_padto() on failure */
 		entry->skb = NULL;
 		rt2800_register_write(rt2x00dev, BCN_TIME_CFG, orig_reg);
 		return;
@@ -1464,7 +1462,7 @@ void rt2800_write_beacon(struct queue_entry *entry, struct txentry_desc *txdesc)
 	beacon_base = rt2800_hw_beacon_base(rt2x00dev, entry->entry_idx);
 
 	rt2800_register_multiwrite(rt2x00dev, beacon_base, entry->skb->data,
-				   entry->skb->len + padding_len);
+				   entry->skb->len);
 	__set_bit(ENTRY_BCN_ENABLED, &entry->flags);
 
 	/*

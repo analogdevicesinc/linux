@@ -1231,13 +1231,18 @@ int qtnf_wiphy_register(struct qtnf_hw_info *hw_info, struct qtnf_wmac *mac)
 		sizeof(wiphy->fw_version));
 	wiphy->hw_version = hw_info->hw_version;
 
+	if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED) {
+		ret = regulatory_set_wiphy_regd(wiphy, mac->rd);
+		if (ret < 0)
+			goto out;
+	}
+
 	ret = wiphy_register(wiphy);
 	if (ret < 0)
 		goto out;
 
-	if (wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED)
-		ret = regulatory_set_wiphy_regd(wiphy, mac->rd);
-	else if (regdomain_is_known)
+	if (regdomain_is_known &&
+	    !(wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED))
 		ret = regulatory_hint(wiphy, mac->rd->alpha2);
 
 out:

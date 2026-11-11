@@ -704,6 +704,7 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 	spin_lock_init(&rdev->mgmt_registrations_lock);
 	INIT_WORK(&rdev->wiphy_work, cfg80211_wiphy_work);
 	INIT_LIST_HEAD(&rdev->wiphy_work_list);
+	INIT_LIST_HEAD(&rdev->wiphy_rcu_work_list);
 	spin_lock_init(&rdev->wiphy_work_lock);
 
 #ifdef CONFIG_CFG80211_DEFAULT_PS
@@ -1179,6 +1180,13 @@ int wiphy_register(struct wiphy *wiphy)
 		return -EINVAL;
 #endif
 
+	if (WARN_ON(wiphy->flags & WIPHY_FLAG_SMD_TRANSITION_CLIENT &&
+		    (!(wiphy->flags & WIPHY_FLAG_SUPPORTS_MLO) ||
+		     !rdev->ops->prepare_st ||
+		     !rdev->ops->execute_st ||
+		     !rdev->ops->abandon_st)))
+		return -EINVAL;
+
 	if (!wiphy->max_num_akm_suites)
 		wiphy->max_num_akm_suites = NL80211_MAX_NR_AKM_SUITES;
 	else if (wiphy->max_num_akm_suites < NL80211_MAX_NR_AKM_SUITES ||
@@ -1258,10 +1266,13 @@ int wiphy_register(struct wiphy *wiphy)
 	rdev->wiphy.registered = true;
 
 	nl80211_notify_wiphy(rdev, NL80211_CMD_NEW_WIPHY);
-	wiphy_unlock(&rdev->wiphy);
 
 	/* set up regulatory info */
 	wiphy_regulatory_register(wiphy);
+	/* TODO: make this a hard failure when drivers are fixed? */
+	WARN_ON(wiphy->regulatory_flags & REGULATORY_WIPHY_SELF_MANAGED &&
+		!get_wiphy_regdom(wiphy));
+	wiphy_unlock(&rdev->wiphy);
 
 	if (wiphy->regulatory_flags & REGULATORY_CUSTOM_REG) {
 		struct regulatory_request request = {
@@ -1328,6 +1339,37 @@ void wiphy_rfkill_start_polling(struct wiphy *wiphy)
 	rfkill_resume_polling(wiphy->rfkill);
 }
 EXPORT_SYMBOL(wiphy_rfkill_start_polling);
+
+static void cfg80211_wiphy_rcu_work_ready(struct cfg80211_registered_device *rdev,
+					  struct wiphy_rcu_work *rwork)
+{
+	lockdep_assert_held(&rdev->wiphy_work_lock);
+
+	list_del_init(&rwork->rcu_entry);
+	if (list_empty(&rwork->work.entry))
+		list_add_tail(&rwork->work.entry, &rdev->wiphy_work_list);
+}
+
+static void cfg80211_flush_wiphy_rcu_works(struct cfg80211_registered_device *rdev)
+{
+	struct wiphy_rcu_work *rwork, *tmp;
+	bool armed;
+
+	spin_lock_irq(&rdev->wiphy_work_lock);
+	if (!list_empty(&rdev->wiphy_rcu_work_list)) {
+		spin_unlock_irq(&rdev->wiphy_work_lock);
+		synchronize_rcu();
+		spin_lock_irq(&rdev->wiphy_work_lock);
+	}
+	list_for_each_entry_safe(rwork, tmp, &rdev->wiphy_rcu_work_list,
+				 rcu_entry)
+		cfg80211_wiphy_rcu_work_ready(rdev, rwork);
+	armed = rdev->wiphy_rcu_work_pending;
+	spin_unlock_irq(&rdev->wiphy_work_lock);
+
+	if (armed)
+		rcu_barrier();
+}
 
 void cfg80211_process_wiphy_works(struct cfg80211_registered_device *rdev,
 				  struct wiphy_work *end)
@@ -1405,6 +1447,7 @@ void wiphy_unregister(struct wiphy *wiphy)
 #endif
 
 	/* surely nothing is reachable now, clean up work */
+	cfg80211_flush_wiphy_rcu_works(rdev);
 	cfg80211_process_wiphy_works(rdev, NULL);
 	wiphy_unlock(&rdev->wiphy);
 	mutex_unlock(&cfg80211_mutex);
@@ -1439,7 +1482,9 @@ void cfg80211_dev_free(struct cfg80211_registered_device *rdev)
 	unsigned long flags;
 
 	spin_lock_irqsave(&rdev->wiphy_work_lock, flags);
-	WARN_ON(!list_empty(&rdev->wiphy_work_list));
+	WARN_ON(!list_empty(&rdev->wiphy_work_list) ||
+		!list_empty(&rdev->wiphy_rcu_work_list) ||
+		rdev->wiphy_rcu_work_pending);
 	spin_unlock_irqrestore(&rdev->wiphy_work_lock, flags);
 	cancel_work_sync(&rdev->wiphy_work);
 
@@ -2124,6 +2169,117 @@ bool wiphy_hrtimer_work_pending(struct wiphy *wiphy,
 	return hrtimer_is_queued(&hrwork->timer);
 }
 EXPORT_SYMBOL_GPL(wiphy_hrtimer_work_pending);
+
+static void cfg80211_wiphy_rcu_work_cb(struct rcu_head *head)
+{
+	struct cfg80211_registered_device *rdev =
+		container_of(head, struct cfg80211_registered_device,
+			     wiphy_rcu_work_head);
+	struct wiphy_rcu_work *rwork, *tmp;
+	unsigned long flags;
+	bool ready = false;
+
+	spin_lock_irqsave(&rdev->wiphy_work_lock, flags);
+	list_for_each_entry_safe(rwork, tmp, &rdev->wiphy_rcu_work_list,
+				 rcu_entry) {
+		/* the list is in queueing order, so stop at the first one */
+		if (!poll_state_synchronize_rcu_full(&rwork->rcu_state))
+			break;
+		cfg80211_wiphy_rcu_work_ready(rdev, rwork);
+		ready = true;
+	}
+
+	if (ready)
+		queue_work(system_dfl_wq, &rdev->wiphy_work);
+
+	if (list_empty(&rdev->wiphy_rcu_work_list))
+		rdev->wiphy_rcu_work_pending = false;
+	else
+		call_rcu_hurry(&rdev->wiphy_rcu_work_head,
+			       cfg80211_wiphy_rcu_work_cb);
+	spin_unlock_irqrestore(&rdev->wiphy_work_lock, flags);
+}
+
+bool wiphy_rcu_work_queue(struct wiphy *wiphy, struct wiphy_rcu_work *rwork)
+{
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+	unsigned long flags;
+	bool queued = false;
+
+	trace_wiphy_work_queue(wiphy, &rwork->work);
+
+	spin_lock_irqsave(&rdev->wiphy_work_lock, flags);
+	if (!list_empty(&rwork->rcu_entry) || !list_empty(&rwork->work.entry))
+		goto out;
+
+	queued = true;
+
+	get_state_synchronize_rcu_full(&rwork->rcu_state);
+	list_add_tail(&rwork->rcu_entry, &rdev->wiphy_rcu_work_list);
+	/* the work will requeue itself if needed, based on the ->rcu_state */
+	if (!rdev->wiphy_rcu_work_pending) {
+		rdev->wiphy_rcu_work_pending = true;
+		call_rcu_hurry(&rdev->wiphy_rcu_work_head,
+			       cfg80211_wiphy_rcu_work_cb);
+	}
+out:
+	spin_unlock_irqrestore(&rdev->wiphy_work_lock, flags);
+
+	return queued;
+}
+EXPORT_SYMBOL_GPL(wiphy_rcu_work_queue);
+
+void wiphy_rcu_work_cancel(struct wiphy *wiphy, struct wiphy_rcu_work *rwork)
+{
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+	unsigned long flags;
+
+	lockdep_assert_held(&wiphy->mtx);
+
+	spin_lock_irqsave(&rdev->wiphy_work_lock, flags);
+	list_del_init(&rwork->rcu_entry);
+	spin_unlock_irqrestore(&rdev->wiphy_work_lock, flags);
+
+	wiphy_work_cancel(wiphy, &rwork->work);
+}
+EXPORT_SYMBOL_GPL(wiphy_rcu_work_cancel);
+
+void wiphy_rcu_work_flush(struct wiphy *wiphy, struct wiphy_rcu_work *rwork)
+{
+	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
+	struct rcu_gp_seq rcu_state;
+	bool wait, run;
+
+	lockdep_assert_held(&wiphy->mtx);
+
+	trace_wiphy_work_flush(wiphy, &rwork->work);
+
+	spin_lock_irq(&rdev->wiphy_work_lock);
+	wait = !list_empty(&rwork->rcu_entry);
+	run = wait || !list_empty(&rwork->work.entry);
+	rcu_state = rwork->rcu_state;
+	spin_unlock_irq(&rdev->wiphy_work_lock);
+
+	if (!run)
+		return;
+
+	/*
+	 * While pending it can't be requeued, it can't be canceled or run
+	 * (requires wiphy mutex), so still pending here. Synchronize if
+	 * needed and then run it after deleting it from the lists.
+	 */
+	if (wait)
+		cond_synchronize_rcu_full(&rcu_state);
+
+	spin_lock_irq(&rdev->wiphy_work_lock);
+	list_del_init(&rwork->rcu_entry);
+	list_del_init(&rwork->work.entry);
+	spin_unlock_irq(&rdev->wiphy_work_lock);
+
+	trace_wiphy_work_run(wiphy, &rwork->work);
+	rwork->work.func(wiphy, &rwork->work);
+}
+EXPORT_SYMBOL_GPL(wiphy_rcu_work_flush);
 
 static int __init cfg80211_init(void)
 {

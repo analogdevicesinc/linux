@@ -772,6 +772,9 @@ static inline u16 ieee80211_mle_get_mld_capa_op(const u8 *data)
 #define IEEE80211_EHT_ML_EXT_MLD_CAPA_BTM_MLD_RECO_MULTI_AP	0x0080
 /* defined by UHR Draft P802.11bn_D1.5 Figure 9-1168 */
 #define IEEE80211_UHR_ML_EXT_MLD_CAPA_ML_PM			0x0100
+/* defined by UHR Draft P802.11bn_D2.0 Figure 9-1171 */
+#define IEEE80211_UHR_ML_EXT_MLD_CAPA_MAX_DL_BA_BITMAP_LEN	0x1c00
+#define IEEE80211_UHR_ML_EXT_MLD_CAPA_DL_DUAL_BA		0x2000
 
 /**
  * ieee80211_mle_get_ext_mld_capa_op - returns the extended MLD capabilities
@@ -1159,6 +1162,8 @@ ieee80211_mle_basic_sta_prof_enh_crit_upd(const struct ieee80211_mle_per_sta_pro
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_DEL_LINK	3
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_NSTR_STATUS	4
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_UHR_OMP_UPD	5
+#define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_DEL_ST_PREP	6
+#define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_TYPE_ST_LINK_DISABLE	7
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_PARAMS_PRESENT	0x0800
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_BMAP_SIZE	0x1000
 #define IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_IND_BMAP_PRES	0x2000
@@ -1189,7 +1194,14 @@ static inline bool ieee80211_mle_reconf_sta_prof_size_ok(const u8 *data,
 	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_AP_REM_TIMER_PRESENT)
 		info_len += 2;
 	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_PARAMS_PRESENT)
-		info_len += 2;
+		info_len += 3;
+	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_IND_BMAP_PRES)
+		info_len += 1 + !!(control &
+				   IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_NSTR_BMAP_SIZE);
+	if (control & IEEE80211_MLE_STA_RECONF_CONTROL_OPERATION_DSO_INFO_PRESENT) {
+		/* "Offered 80 MHz DSO Subband" OR "DSO Confirmation" */
+		info_len += 1;
+	}
 
 	return prof->sta_info_len >= info_len &&
 	       fixed + prof->sta_info_len - 1 <= len;

@@ -4,7 +4,7 @@
  *
  * Copyright 2007	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
- * Copyright (C) 2018 - 2019, 2021-2025 Intel Corporation
+ * Copyright (C) 2018 - 2019, 2021-2026 Intel Corporation
  */
 
 #include <linux/debugfs.h>
@@ -462,6 +462,7 @@ static const char *hw_flag_names[] = {
 	FLAG(HANDLES_QUIET_CSA),
 	FLAG(STRICT),
 	FLAG(SUPPORTS_NDP_BLOCKACK),
+	FLAG(PER_STA_AP_GTK),
 #undef FLAG
 };
 

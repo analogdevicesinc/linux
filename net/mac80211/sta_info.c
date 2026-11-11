@@ -195,6 +195,7 @@ static void cleanup_single_sta(struct sta_info *sta)
 
 struct rhlist_head *sta_info_hash_lookup(struct ieee80211_local *local,
 					 const u8 *addr)
+	__must_hold_shared(RCU)
 {
 	return rhltable_lookup(&local->sta_hash, addr, sta_rht_params);
 }
@@ -249,6 +250,7 @@ struct sta_info *sta_info_get_bss(struct ieee80211_sub_if_data *sdata,
 
 struct rhlist_head *link_sta_info_hash_lookup(struct ieee80211_local *local,
 					      const u8 *addr)
+	__must_hold_shared(RCU)
 {
 	return rhltable_lookup(&local->link_sta_hash, addr,
 			       link_sta_rht_params);
@@ -283,6 +285,7 @@ ieee80211_find_sta_by_link_addrs(struct ieee80211_hw *hw,
 				 const u8 *addr,
 				 const u8 *localaddr,
 				 unsigned int *link_id)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct link_sta_info *link_sta;
@@ -317,6 +320,7 @@ EXPORT_SYMBOL_GPL(ieee80211_find_sta_by_link_addrs);
 
 struct sta_info *sta_info_get_by_addrs(struct ieee80211_local *local,
 				       const u8 *sta_addr, const u8 *vif_addr)
+	__must_hold_shared(RCU)
 {
 	struct rhlist_head *tmp;
 	struct sta_info *sta;
@@ -629,8 +633,25 @@ static void sta_info_add_link(struct sta_info *sta,
 	link_sta->agg.max_rc_amsdu_len = IEEE80211_MAX_MPDU_LEN_HT_BA;
 }
 
+static struct ieee80211_bss_conf *
+link_data_pub_link_conf(struct ieee80211_link_data *link)
+{
+	struct ieee80211_sub_if_data *sdata = link->sdata;
+	struct ieee80211_sub_if_data *bss_sdata = get_bss_sdata(sdata);
+
+	if (sdata == bss_sdata)
+		return link->conf;
+
+	if (link == &sdata->deflink)
+		return bss_sdata->deflink.conf;
+
+	return sdata_dereference(bss_sdata->vif.link_conf[link->link_id],
+				 bss_sdata);
+}
+
 static struct sta_info *
 __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
+		 struct ieee80211_link_data *link,
 		 const u8 *addr, int link_id, const u8 *link_addr,
 		 gfp_t gfp)
 {
@@ -655,16 +676,24 @@ __sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 		sta_info_add_link(sta, link_id, &sta->deflink,
 				  &sta->sta.deflink);
 		sta->sta.valid_links = BIT(link_id);
+		/* active_links isn't set yet */
 	} else {
 		sta_info_add_link(sta, 0, &sta->deflink, &sta->sta.deflink);
 	}
 
 	sta->sta.cur = &sta->sta.deflink.agg;
+	if (link) {
+		sta->sta.deflink.link_conf = link_data_pub_link_conf(link);
+		if (WARN_ON(!sta->sta.deflink.link_conf))
+			goto free;
+	}
 
 	spin_lock_init(&sta->lock);
 	spin_lock_init(&sta->ps_lock);
 	INIT_WORK(&sta->drv_deliver_wk, sta_deliver_ps_frames);
 	wiphy_work_init(&sta->ampdu_mlme.work, ieee80211_ba_session_work);
+	wiphy_rcu_work_init(&sta->ampdu_mlme.rcu_work,
+			    ieee80211_ba_session_rcu_work);
 #ifdef CONFIG_MAC80211_MESH
 	if (ieee80211_vif_is_mesh(&sdata->vif)) {
 		sta->mesh = kzalloc_obj(*sta->mesh, gfp);
@@ -803,16 +832,71 @@ free:
 struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 				const u8 *addr, gfp_t gfp)
 {
-	return __sta_info_alloc(sdata, addr, -1, addr, gfp);
+	return __sta_info_alloc(sdata, &sdata->deflink, addr, -1, addr, gfp);
 }
 
-struct sta_info *sta_info_alloc_with_link(struct ieee80211_sub_if_data *sdata,
-					  const u8 *mld_addr,
-					  unsigned int link_id,
-					  const u8 *link_addr,
-					  gfp_t gfp)
+struct sta_info *
+sta_info_alloc_with_links(struct ieee80211_sub_if_data *sdata,
+			  const u8 *mld_addr,
+			  const u8 *link_addrs[IEEE80211_MLD_MAX_NUM_LINKS])
 {
-	return __sta_info_alloc(sdata, mld_addr, link_id, link_addr, gfp);
+	struct ieee80211_local *local = sdata->local;
+	struct sta_info *sta;
+	int first = -1;
+
+	if (WARN_ON(!link_addrs))
+		return NULL;
+
+	for (int link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		if (!link_addrs[link_id])
+			continue;
+		first = link_id;
+		break;
+	}
+
+	if (WARN_ON(first < 0))
+		return NULL;
+
+	sta = __sta_info_alloc(sdata, NULL, mld_addr, first,
+			       link_addrs[first], GFP_KERNEL);
+	if (!sta)
+		return NULL;
+
+	for (int link_id = 0; link_id < IEEE80211_MLD_MAX_NUM_LINKS; link_id++) {
+		struct sta_link_alloc *alloc;
+
+		if (!link_addrs[link_id] || link_id == first)
+			continue;
+
+		alloc = kzalloc_obj(*alloc);
+		if (!alloc)
+			goto free;
+
+		if (sta_info_alloc_link(local, &alloc->info, GFP_KERNEL)) {
+			kfree(alloc);
+			goto free;
+		}
+
+		sta_info_add_link(sta, link_id, &alloc->info, &alloc->sta);
+		memcpy(alloc->info.addr, link_addrs[link_id], ETH_ALEN);
+		memcpy(alloc->sta.addr, link_addrs[link_id], ETH_ALEN);
+
+		sta->sta.valid_links |= BIT(link_id);
+	}
+
+	return sta;
+
+free:
+	sta_info_free(local, sta);
+	return NULL;
+}
+
+struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
+					  const u8 *mld_addr,
+					  const u8 *link_addr)
+{
+	return __sta_info_alloc(link->sdata, link, mld_addr, link->link_id,
+				link_addr, GFP_KERNEL);
 }
 
 static int sta_info_insert_check(struct sta_info *sta)
@@ -917,7 +1001,8 @@ ieee80211_recalc_p2p_go_ps_allowed(struct ieee80211_sub_if_data *sdata)
 	}
 }
 
-static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
+static int sta_info_insert_finish(struct sta_info *sta)
+	__acquires_shared(RCU)
 {
 	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
@@ -950,9 +1035,25 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 	if (err)
 		goto out_drop_sta;
 
-	if (sta->sta.valid_links) {
-		err = link_sta_info_hash_add(local, &sta->deflink);
+	for (int i = 0; i < ARRAY_SIZE(sta->link); i++) {
+		struct link_sta_info *link_sta;
+
+		if (!(sta->sta.valid_links & BIT(i)))
+			continue;
+
+		link_sta = wiphy_dereference(local->hw.wiphy, sta->link[i]);
+		if (WARN_ON(!link_sta))
+			continue;
+
+		err = link_sta_info_hash_add(local, link_sta);
 		if (err) {
+			for (int j = 0; j < i; j++) {
+				link_sta = wiphy_dereference(local->hw.wiphy,
+							     sta->link[j]);
+				if (link_sta)
+					link_sta_info_hash_del(local,
+							       link_sta);
+			}
 			sta_info_hash_del(local, sta);
 			goto out_drop_sta;
 		}
@@ -994,7 +1095,7 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 				continue;
 
 			ieee80211_link_sta_debugfs_add(link_sta);
-			if (sdata->vif.active_links & BIT(i))
+			if (sta->sta.active_links & BIT(i))
 				ieee80211_link_sta_debugfs_drv_add(link_sta);
 		}
 	} else {
@@ -1018,8 +1119,16 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 
 	return 0;
  out_remove:
-	if (sta->sta.valid_links)
-		link_sta_info_hash_del(local, &sta->deflink);
+	for (int i = 0; i < ARRAY_SIZE(sta->link); i++) {
+		struct link_sta_info *link_sta;
+
+		if (!(sta->sta.valid_links & BIT(i)))
+			continue;
+
+		link_sta = wiphy_dereference(local->hw.wiphy, sta->link[i]);
+		if (link_sta)
+			link_sta_info_hash_del(local, link_sta);
+	}
 	sta_info_hash_del(local, sta);
 	list_del_rcu(&sta->list);
  out_drop_sta:
@@ -1032,13 +1141,17 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 	return err;
 }
 
-int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU)
+int sta_info_insert_rcu(struct sta_info *sta)
+	__acquires_shared(RCU)
 {
 	struct ieee80211_local *local = sta->local;
 	int err;
 
 	might_sleep();
 	lockdep_assert_wiphy(local->hw.wiphy);
+
+	/* the driver must not see the new station before old ones are gone */
+	sta_info_destroy_flush(local);
 
 	err = sta_info_insert_check(sta);
 	if (err) {
@@ -1382,6 +1495,11 @@ static int __must_check __sta_info_destroy_part1(struct sta_info *sta)
 	list_del_rcu(&sta->list);
 	sta->removed = true;
 
+	local->num_sta--;
+	local->sta_generation++;
+
+	ieee80211_sta_debugfs_remove(sta);
+
 	if (sta->uploaded)
 		drv_sta_pre_rcu_remove(local, sta->sdata, sta);
 
@@ -1489,12 +1607,7 @@ static int _sta_info_move_state(struct sta_info *sta,
 			 */
 			if (local->ops->set_key) {
 				synchronize_net();
-				if (local->ops->flush_sta)
-					drv_flush_sta(local, sta->sdata, sta);
-				else
-					ieee80211_flush_queues(local,
-							       sta->sdata,
-							       false);
+				drv_flush_sta(local, sta->sdata, sta);
 			}
 
 			ieee80211_clear_fast_xmit(sta);
@@ -1575,6 +1688,16 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 	}
 
 	/* now keys can no longer be reached */
+	for (int i = 0; i < ARRAY_SIZE(sta->link); i++) {
+		struct link_sta_info *link_sta;
+
+		link_sta = wiphy_dereference(local->hw.wiphy, sta->link[i]);
+		if (!link_sta)
+			continue;
+
+		ieee80211_unlink_link_sta_keys(local, link_sta);
+	}
+
 	ieee80211_free_sta_keys(local, sta);
 
 	/* disable TIM bit - last chance to tell driver */
@@ -1583,9 +1706,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 	sta->dead = true;
 
 	cancel_work_sync(&sta->drv_deliver_wk);
-
-	local->num_sta--;
-	local->sta_generation++;
 
 	while (sta->sta_state > IEEE80211_STA_NONE) {
 		ret = _sta_info_move_state(sta, sta->sta_state - 1, recalc);
@@ -1609,8 +1729,6 @@ static void __sta_info_destroy_part2(struct sta_info *sta, bool recalc)
 
 	cfg80211_del_sta_sinfo(&sdata->wdev, sta->sta.addr, sinfo, GFP_KERNEL);
 	kfree(sinfo);
-
-	ieee80211_sta_debugfs_remove(sta);
 
 	ieee80211_destroy_frag_cache(&sta->frags);
 
@@ -1641,15 +1759,78 @@ int sta_info_destroy_addr(struct ieee80211_sub_if_data *sdata, const u8 *addr)
 	return __sta_info_destroy(sta);
 }
 
+static void sta_info_destroy_queue(struct ieee80211_local *local)
+{
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	if (list_empty(&local->sta_destroy_new))
+		return;
+
+	/*
+	 * If the work was actually queued now, its grace period covers all
+	 * stations removed so far, otherwise it's already pending and will
+	 * requeue itself for the new ones when it runs.
+	 */
+	if (wiphy_rcu_work_queue(local->hw.wiphy, &local->sta_destroy_work))
+		list_splice_tail_init(&local->sta_destroy_new,
+				      &local->sta_destroy_list);
+}
+
 int sta_info_destroy_addr_bss(struct ieee80211_sub_if_data *sdata,
 			      const u8 *addr)
 {
+	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta;
+	int err;
 
-	lockdep_assert_wiphy(sdata->local->hw.wiphy);
+	lockdep_assert_wiphy(local->hw.wiphy);
 
 	sta = sta_info_get_bss(sdata, addr);
-	return __sta_info_destroy(sta);
+
+	if (sdata->vif.type != NL80211_IFTYPE_AP &&
+	    sdata->vif.type != NL80211_IFTYPE_AP_VLAN)
+		return __sta_info_destroy(sta);
+
+	err = __sta_info_destroy_part1(sta);
+	if (err)
+		return err;
+
+	/* finish later, after an RCU grace period */
+	list_add_tail(&sta->free_list, &local->sta_destroy_new);
+	sta_info_destroy_queue(local);
+
+	return 0;
+}
+
+static void sta_info_destroy_work(struct wiphy *wiphy, struct wiphy_work *work)
+{
+	struct ieee80211_local *local =
+		container_of(work, struct ieee80211_local,
+			     sta_destroy_work.work);
+	struct sta_info *sta, *tmp;
+
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	list_for_each_entry_safe(sta, tmp, &local->sta_destroy_list, free_list) {
+		list_del(&sta->free_list);
+		__sta_info_destroy_part2(sta, true);
+	}
+
+	/* requeue for stations removed after the work was queued */
+	sta_info_destroy_queue(local);
+}
+
+/* finish destroying all stations that are pending, waiting if needed */
+void sta_info_destroy_flush(struct ieee80211_local *local)
+{
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	/* the work might requeue itself, flush it twice */
+	wiphy_rcu_work_flush(local->hw.wiphy, &local->sta_destroy_work);
+	wiphy_rcu_work_flush(local->hw.wiphy, &local->sta_destroy_work);
+
+	WARN_ON(!list_empty(&local->sta_destroy_list) ||
+		!list_empty(&local->sta_destroy_new));
 }
 
 static void sta_info_cleanup(struct timer_list *t)
@@ -1691,6 +1872,9 @@ int sta_info_init(struct ieee80211_local *local)
 
 	spin_lock_init(&local->tim_lock);
 	INIT_LIST_HEAD(&local->sta_list);
+	INIT_LIST_HEAD(&local->sta_destroy_list);
+	INIT_LIST_HEAD(&local->sta_destroy_new);
+	wiphy_rcu_work_init(&local->sta_destroy_work, sta_info_destroy_work);
 
 	timer_setup(&local->sta_cleanup, sta_info_cleanup, 0);
 	return 0;
@@ -1717,6 +1901,8 @@ int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans,
 
 	WARN_ON(vlans && sdata->vif.type != NL80211_IFTYPE_AP);
 	WARN_ON(vlans && !sdata->bss);
+
+	sta_info_destroy_flush(local);
 
 	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
 		if (sdata != sta->sdata &&
@@ -1784,6 +1970,7 @@ void ieee80211_sta_expire(struct ieee80211_sub_if_data *sdata,
 struct ieee80211_sta *ieee80211_find_sta_by_ifaddr(struct ieee80211_hw *hw,
 						   const u8 *addr,
 						   const u8 *localaddr)
+	__must_hold_shared(RCU)
 {
 	struct ieee80211_local *local = hw_to_local(hw);
 	struct rhlist_head *tmp;
@@ -2339,7 +2526,7 @@ void ieee80211_sta_ps_deliver_uapsd(struct sta_info *sta)
 void ieee80211_sta_block_awake(struct ieee80211_hw *hw,
 			       struct ieee80211_sta *pubsta, bool block)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	trace_api_sta_block_awake(sta->local, pubsta, block);
 
@@ -2370,7 +2557,7 @@ EXPORT_SYMBOL(ieee80211_sta_block_awake);
 
 void ieee80211_sta_eosp(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_local *local = sta->local;
 
 	trace_api_eosp(local, pubsta);
@@ -2381,7 +2568,7 @@ EXPORT_SYMBOL(ieee80211_sta_eosp);
 
 void ieee80211_send_eosp_nullfunc(struct ieee80211_sta *pubsta, int tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	enum ieee80211_frame_release_type reason;
 	bool more_data;
 
@@ -2398,7 +2585,7 @@ EXPORT_SYMBOL(ieee80211_send_eosp_nullfunc);
 void ieee80211_sta_set_buffered(struct ieee80211_sta *pubsta,
 				u8 tid, bool buffered)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	if (WARN_ON(tid >= IEEE80211_NUM_TIDS))
 		return;
@@ -2417,7 +2604,7 @@ EXPORT_SYMBOL(ieee80211_sta_set_buffered);
 void ieee80211_sta_register_airtime(struct ieee80211_sta *pubsta, u8 tid,
 				    u32 tx_airtime, u32 rx_airtime)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_local *local = sta->sdata->local;
 	u8 ac = ieee80211_ac_from_tid(tid);
 	u32 airtime = 0;
@@ -2485,9 +2672,9 @@ void __ieee80211_sta_recalc_aggregates(struct sta_info *sta, u16 active_links)
 
 void ieee80211_sta_recalc_aggregates(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
-	__ieee80211_sta_recalc_aggregates(sta, sta->sdata->vif.active_links);
+	__ieee80211_sta_recalc_aggregates(sta, sta->sta.active_links);
 }
 EXPORT_SYMBOL(ieee80211_sta_recalc_aggregates);
 
@@ -3463,12 +3650,15 @@ void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id)
 	sta_remove_link(sta, link_id, false);
 }
 
-int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id)
+int ieee80211_sta_set_link_valid(struct sta_info *sta,
+				 struct ieee80211_link_data *link)
 {
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct link_sta_info *link_sta;
 	u16 old_links = sta->sta.valid_links;
+	int link_id = link->link_id;
 	u16 new_links = old_links | BIT(link_id);
+	struct ieee80211_bss_conf *link_conf;
 	int ret;
 
 	link_sta = rcu_dereference_protected(sta->link[link_id],
@@ -3476,6 +3666,8 @@ int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id)
 
 	if (WARN_ON(old_links == new_links || !link_sta))
 		return -EINVAL;
+
+	sta_info_destroy_flush(sdata->local);
 
 	rcu_read_lock();
 	if (link_sta_info_hash_lookup(sdata->local, link_sta->addr)) {
@@ -3485,6 +3677,11 @@ int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id)
 	/* we only modify under the mutex so this is fine */
 	rcu_read_unlock();
 
+	link_conf = link_data_pub_link_conf(link);
+	if (WARN_ON(!link_conf))
+		return -EINVAL;
+
+	link_sta->pub->link_conf = link_conf;
 	sta->sta.valid_links = new_links;
 
 	if (WARN_ON(!test_sta_flag(sta, WLAN_STA_INSERTED)))
@@ -3497,6 +3694,10 @@ int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id)
 	 */
 	ieee80211_sta_recalc_aggregates(&sta->sta);
 
+	/*
+	 * Note: this is a no-op when new links are added that
+	 * aren't actually active in the vif.
+	 */
 	ret = drv_change_sta_links(sdata->local, sdata, &sta->sta,
 				   old_links, new_links);
 	if (ret) {
@@ -3513,12 +3714,24 @@ hash:
 
 void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id)
 {
+	struct link_sta_info *link_sta = wiphy_dereference(sta->local->hw.wiphy,
+							   sta->link[link_id]);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	u16 old_links = sta->sta.valid_links;
 
 	lockdep_assert_wiphy(sdata->local->hw.wiphy);
 
+	if (!WARN_ON(!link_sta))
+		ieee80211_unlink_link_sta_keys(sta->local, link_sta);
+
 	sta->sta.valid_links &= ~BIT(link_id);
+	sta->sta.active_links &= ~BIT(link_id);
+
+	WARN(!sta->sta.valid_links || !sta->sta.active_links,
+	     "STA %pM has no links after removing %d (valid:0x%x, active:0x%x)\n",
+	     sta->sta.addr, link_id,
+	     sta->sta.valid_links,
+	     sta->sta.active_links);
 
 	if (!WARN_ON(!test_sta_flag(sta, WLAN_STA_INSERTED)))
 		drv_change_sta_links(sdata->local, sdata, &sta->sta,
@@ -3668,7 +3881,7 @@ void ieee80211_sta_set_max_amsdu_subframes(struct sta_info *sta,
 #ifdef CONFIG_LOCKDEP
 bool lockdep_sta_mutex_held(struct ieee80211_sta *pubsta)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 
 	return lockdep_is_held(&sta->local->hw.wiphy->mtx);
 }

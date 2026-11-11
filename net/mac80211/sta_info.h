@@ -122,6 +122,10 @@ enum ieee80211_sta_info_flags {
 #define HT_AGG_STATE_START_CB		6
 #define HT_AGG_STATE_STOP_CB		7
 #define HT_AGG_STATE_SENT_ADDBA		8
+/* waiting for an RCU grace period before telling the driver to start */
+#define HT_AGG_STATE_START_RCU		9
+/* stopping, waiting for an RCU grace period before telling the driver */
+#define HT_AGG_STATE_STOP_RCU		10
 
 DECLARE_EWMA(avg_signal, 10, 8)
 enum ieee80211_agg_stop_reason {
@@ -277,6 +281,8 @@ struct tid_ampdu_rx {
  * @unexpected_agg: bitmap indicating which TID already sent a delBA due to
  *	unexpected aggregation related frames outside a session
  * @work: work struct for starting/stopping aggregation
+ * @rcu_work: work struct for continuing to start/stop TX aggregation
+ *	after an RCU grace period
  * @tid_tx: aggregation info for Tx per TID
  * @tid_start_tx: sessions where start was requested, not just protected
  *	by wiphy mutex but also sta->lock
@@ -295,6 +301,7 @@ struct sta_ampdu_mlme {
 	unsigned long unexpected_agg[BITS_TO_LONGS(IEEE80211_NUM_TIDS)];
 	/* tx */
 	struct wiphy_work work;
+	struct wiphy_rcu_work rcu_work;
 	struct tid_ampdu_tx __rcu *tid_tx[IEEE80211_NUM_TIDS];
 	struct tid_ampdu_tx *tid_start_tx[IEEE80211_NUM_TIDS];
 	unsigned long last_addba_req_time[IEEE80211_NUM_TIDS];
@@ -484,8 +491,8 @@ struct ieee80211_fragment_cache {
  * @capa_nss: NSS limit as determined by local and peer capabilities
  * @link_hash_node: hash node for rhashtable
  * @sta: Points to the STA info
- * @gtk: group keys negotiated with this station, if any
- * @cigtk: control integrity group keys negotiated with this station, if any
+ * @rx_gtk: group keys negotiated with this station, if any
+ * @rx_cigtk: control integrity group keys negotiated with this station, if any
  * @tx_stats: TX statistics
  * @tx_stats.packets: # of packets transmitted
  * @tx_stats.bytes: # of bytes in all packets transmitted
@@ -533,10 +540,10 @@ struct link_sta_info {
 	struct rhlist_head link_hash_node;
 
 	struct sta_info *sta;
-	struct ieee80211_key __rcu *gtk[NUM_DEFAULT_KEYS +
-					NUM_DEFAULT_MGMT_KEYS +
-					NUM_DEFAULT_BEACON_KEYS];
-	struct ieee80211_key __rcu *cigtk[NUM_CTRL_KEYS];
+	struct ieee80211_key __rcu *rx_gtk[NUM_DEFAULT_KEYS +
+					   NUM_DEFAULT_MGMT_KEYS +
+					   NUM_DEFAULT_BEACON_KEYS];
+	struct ieee80211_key __rcu *rx_cigtk[NUM_CTRL_KEYS];
 	struct ieee80211_sta_rx_stats __percpu *pcpu_rx_stats;
 
 	/* Updated from RX path only, no locking requirements */
@@ -793,6 +800,11 @@ struct sta_info {
 	struct ieee80211_sta sta;
 };
 
+static inline struct sta_info *sta_from_pub(struct ieee80211_sta *sta)
+{
+	return container_of(sta, struct sta_info, sta);
+}
+
 static inline int ieee80211_tdls_sta_link_id(struct sta_info *sta)
 {
 	/* TDLS STA can only have a single link */
@@ -884,7 +896,8 @@ void ieee80211_assign_tid_tx(struct sta_info *sta, int tid,
 #define STA_INFO_CLEANUP_INTERVAL (10 * HZ)
 
 struct rhlist_head *sta_info_hash_lookup(struct ieee80211_local *local,
-					 const u8 *addr);
+					 const u8 *addr)
+	__must_hold_shared(RCU);
 
 /*
  * Get a STA info, must be under RCU read lock.
@@ -897,14 +910,16 @@ struct sta_info *sta_info_get_bss(struct ieee80211_sub_if_data *sdata,
 
 /* user must hold wiphy mutex or be in RCU critical section */
 struct sta_info *sta_info_get_by_addrs(struct ieee80211_local *local,
-				       const u8 *sta_addr, const u8 *vif_addr);
+				       const u8 *sta_addr, const u8 *vif_addr)
+	__must_hold_shared(RCU);
 
 #define for_each_sta_info(local, _addr, _sta, _tmp)			\
 	rhl_for_each_entry_rcu(_sta, _tmp,				\
 			       sta_info_hash_lookup(local, _addr), hash_node)
 
 struct rhlist_head *link_sta_info_hash_lookup(struct ieee80211_local *local,
-					      const u8 *addr);
+					      const u8 *addr)
+	__must_hold_shared(RCU);
 
 #define for_each_link_sta_info(local, _addr, _sta, _tmp)		\
 	rhl_for_each_entry_rcu(_sta, _tmp,				\
@@ -922,14 +937,21 @@ struct sta_info *sta_info_get_by_idx(struct ieee80211_sub_if_data *sdata,
 /*
  * Create a new STA info, caller owns returned structure
  * until sta_info_insert().
+ * Note: neither allocation function sets sta->sta.active_links!
  */
 struct sta_info *sta_info_alloc(struct ieee80211_sub_if_data *sdata,
 				const u8 *addr, gfp_t gfp);
-struct sta_info *sta_info_alloc_with_link(struct ieee80211_sub_if_data *sdata,
+struct sta_info *sta_info_alloc_with_link(struct ieee80211_link_data *link,
 					  const u8 *mld_addr,
-					  unsigned int link_id,
-					  const u8 *link_addr,
-					  gfp_t gfp);
+					  const u8 *link_addr);
+/*
+ * Note: Unlike sta_info_alloc_with_link(), none of the link stations
+ * actually get a link_conf pointer! Must be set later.
+ */
+struct sta_info *
+sta_info_alloc_with_links(struct ieee80211_sub_if_data *sdata,
+			  const u8 *mld_addr,
+			  const u8 *link_addrs[IEEE80211_MLD_MAX_NUM_LINKS]);
 
 void sta_info_free(struct ieee80211_local *local, struct sta_info *sta);
 
@@ -942,13 +964,15 @@ void sta_info_free(struct ieee80211_local *local, struct sta_info *sta);
  * without it held.
  */
 int sta_info_insert(struct sta_info *sta);
-int sta_info_insert_rcu(struct sta_info *sta) __acquires(RCU);
+int sta_info_insert_rcu(struct sta_info *sta)
+	__acquires_shared(RCU);
 
 int __must_check __sta_info_destroy(struct sta_info *sta);
 int sta_info_destroy_addr(struct ieee80211_sub_if_data *sdata,
 			  const u8 *addr);
 int sta_info_destroy_addr_bss(struct ieee80211_sub_if_data *sdata,
 			      const u8 *addr);
+void sta_info_destroy_flush(struct ieee80211_local *local);
 
 void sta_info_recalc_tim(struct sta_info *sta);
 
@@ -1008,7 +1032,8 @@ void ieee80211_sta_expire(struct ieee80211_sub_if_data *sdata,
 
 int ieee80211_sta_allocate_link(struct sta_info *sta, unsigned int link_id);
 void ieee80211_sta_free_link(struct sta_info *sta, unsigned int link_id);
-int ieee80211_sta_activate_link(struct sta_info *sta, unsigned int link_id);
+int ieee80211_sta_set_link_valid(struct sta_info *sta,
+				 struct ieee80211_link_data *link);
 void ieee80211_sta_remove_link(struct sta_info *sta, unsigned int link_id);
 
 void ieee80211_sta_ps_deliver_wakeup(struct sta_info *sta);

@@ -3692,7 +3692,7 @@ static bool iwl_mvm_vif_conf_from_sta(struct iwl_mvm *mvm,
 	 * wpa_s will blocklist the AP...
 	 */
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct ieee80211_bss_conf *link_conf =
 			link_conf_dereference_protected(vif, link_id);
 
@@ -3721,7 +3721,7 @@ static void iwl_mvm_vif_set_he_support(struct ieee80211_hw *hw,
 	struct ieee80211_link_sta *link_sta;
 	unsigned int link_id;
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct ieee80211_bss_conf *link_conf =
 			link_conf_dereference_protected(vif, link_id);
 
@@ -3775,7 +3775,7 @@ iwl_mvm_sta_state_notexist_to_none(struct iwl_mvm *mvm,
 	if (ret)
 		return ret;
 
-	for_each_sta_active_link(vif, sta, link_sta, i)
+	for_each_sta_active_link(sta, link_sta, i)
 		link_sta->agg.max_rc_amsdu_len = 1;
 
 	ieee80211_sta_recalc_aggregates(sta);
@@ -3833,7 +3833,7 @@ iwl_mvm_sta_state_auth_to_assoc(struct ieee80211_hw *hw,
 		if (!mvm->mld_api_is_used)
 			goto out;
 
-		for_each_sta_active_link(vif, sta, link_sta, link_id) {
+		for_each_sta_active_link(sta, link_sta, link_id) {
 			struct ieee80211_bss_conf *link_conf =
 				link_conf_dereference_protected(vif, link_id);
 
@@ -4004,7 +4004,7 @@ int iwl_mvm_mac_sta_state_common(struct ieee80211_hw *hw,
 	 * legit to have phy_ctxt = NULL. Don't bother not to WARN if we are in
 	 * recovery flow since we spit tons of error messages anyway.
 	 */
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		if (WARN_ON_ONCE(!mvmvif->link[link_id] ||
 				 !mvmvif->link[link_id]->phy_ctxt)) {
 			mutex_unlock(&mvm->mutex);
@@ -5752,7 +5752,7 @@ void iwl_mvm_mac_flush_sta(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 	int link_id;
 
 	guard(mvm)(mvm);
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		mvm_link_sta = rcu_dereference_protected(mvmsta->link[link_id],
 							 lockdep_is_held(&mvm->mutex));
 		if (!mvm_link_sta)
@@ -6359,7 +6359,6 @@ const struct ieee80211_ops iwl_mvm_hw_ops = {
 	.stop = iwl_mvm_mac_stop,
 	.add_interface = iwl_mvm_mac_add_interface,
 	.remove_interface = iwl_mvm_mac_remove_interface,
-	.config = iwl_mvm_mac_config,
 	.prepare_multicast = iwl_mvm_prepare_multicast,
 	.configure_filter = iwl_mvm_configure_filter,
 	.config_iface_filter = iwl_mvm_config_iface_filter,

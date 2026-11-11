@@ -54,6 +54,17 @@ struct ieee80211_mesh_fast_tx;
 #define IEEE80211_ENCRYPT_HEADROOM 8
 #define IEEE80211_ENCRYPT_TAILROOM 26 /* current max: GMAC/CMAC-256 MME */
 
+/* tailroom accounting can race with TX, expand if needed */
+static inline int ieee80211_crypto_tx_tailroom(struct sk_buff *skb, int tail)
+{
+	int tail_need = tail - skb_tailroom(skb);
+
+	if (!tail || likely(tail_need <= 0 && !skb_cloned(skb)))
+		return 0;
+
+	return pskb_expand_head(skb, 0, max(tail_need, 0), GFP_ATOMIC);
+}
+
 /* power level hasn't been configured (or set to automatic) */
 #define IEEE80211_UNSET_POWER_LEVEL	INT_MIN
 
@@ -497,6 +508,10 @@ struct ieee80211_mgd_assoc_data {
 	u8 fils_kek[FILS_MAX_KEK_LEN];
 	size_t fils_kek_len;
 
+	/* separately allocated, needs to be freed */
+	u8 *req_elems;
+	size_t req_elems_len;
+
 	size_t ie_len;
 	u8 *ie_pos; /* used to fill ie[] with link[].elems */
 	u8 ie[];
@@ -619,12 +634,6 @@ struct ieee80211_if_managed {
 	 * get stuck in a downgraded situation and flush takes forever.
 	 */
 	struct wiphy_delayed_work tx_tspec_wk;
-
-	/* Information elements from the last transmitted (Re)Association
-	 * Request frame.
-	 */
-	u8 *assoc_req_ies;
-	size_t assoc_req_ies_len;
 
 	struct wiphy_hrtimer_work ml_reconf_work;
 	u16 removed_links;
@@ -1097,6 +1106,16 @@ struct ieee80211_link_data_managed {
 
 	int wmm_last_param_set;
 	int mu_edca_last_param_set;
+
+	struct {
+		struct wiphy_hrtimer_work work;
+		/* bitfields using BIT(IEEE80211_UHR_PARAM_UPDATE_MODE_ID_*) */
+		u8 disabling, updating;
+		/* DBE was already enabled when this update was noticed */
+		bool dbe_was_enabled;
+
+		struct ieee80211_uhr_npca_info npca;
+	} uhr_param_upd;
 };
 
 struct ieee80211_link_data_ap {
@@ -1117,10 +1136,10 @@ struct ieee80211_link_data {
 	unsigned int link_id;
 
 	/* multicast keys only */
-	struct ieee80211_key __rcu *gtk[NUM_DEFAULT_KEYS +
-					NUM_DEFAULT_MGMT_KEYS +
-					NUM_DEFAULT_BEACON_KEYS];
-	struct ieee80211_key __rcu *cigtk[NUM_CTRL_KEYS];
+	struct ieee80211_key __rcu *tx_gtk[NUM_DEFAULT_KEYS +
+					   NUM_DEFAULT_MGMT_KEYS +
+					   NUM_DEFAULT_BEACON_KEYS];
+	struct ieee80211_key __rcu *tx_cigtk[NUM_CTRL_KEYS];
 	struct ieee80211_key __rcu *default_multicast_key;
 	struct ieee80211_key __rcu *default_mgmt_key;
 	struct ieee80211_key __rcu *default_beacon_key;
@@ -1199,8 +1218,6 @@ struct ieee80211_sub_if_data {
 
 	/* count for keys needing tailroom space allocation */
 	int crypto_tx_tailroom_needed_cnt;
-	int crypto_tx_tailroom_pending_dec;
-	struct wiphy_delayed_work dec_tailroom_needed_wk;
 
 	struct net_device *dev;
 	struct ieee80211_local *local;
@@ -1536,6 +1553,9 @@ struct ieee80211_local {
 	/* protects the aggregated multicast list and filter calls */
 	spinlock_t filter_lock;
 
+	/* protects atomic iteration of each sdata key_list */
+	spinlock_t key_lock;
+
 	/* used for uploading changed mc list */
 	struct wiphy_work reconfig_filter;
 
@@ -1614,6 +1634,13 @@ struct ieee80211_local {
 	struct rhltable link_sta_hash;
 	struct timer_list sta_cleanup;
 	int sta_generation;
+	/*
+	 * stations waiting to be destroyed: the first list is covered by
+	 * the grace period of the pending sta_destroy_work, the second has
+	 * those removed while the work was already pending
+	 */
+	struct list_head sta_destroy_list, sta_destroy_new;
+	struct wiphy_rcu_work sta_destroy_work;
 
 	struct sk_buff_head pending[IEEE80211_MAX_QUEUES];
 	struct tasklet_struct tx_pending_tasklet;
@@ -1826,11 +1853,12 @@ struct ieee80211_csa_ie {
 };
 
 enum ieee80211_elems_parse_error {
-	IEEE80211_PARSE_ERR_INVALID_END		= BIT(0),
-	IEEE80211_PARSE_ERR_DUP_ELEM		= BIT(1),
-	IEEE80211_PARSE_ERR_BAD_ELEM_SIZE	= BIT(2),
-	IEEE80211_PARSE_ERR_UNEXPECTED_ELEM	= BIT(3),
-	IEEE80211_PARSE_ERR_DUP_NEST_ML_BASIC	= BIT(4),
+	IEEE80211_PARSE_ERR_INVALID_END			= BIT(0),
+	IEEE80211_PARSE_ERR_DUP_ELEM			= BIT(1),
+	IEEE80211_PARSE_ERR_BAD_ELEM_SIZE		= BIT(2),
+	IEEE80211_PARSE_ERR_UNEXPECTED_ELEM		= BIT(3),
+	IEEE80211_PARSE_ERR_DUP_NEST_ML_BASIC		= BIT(4),
+	IEEE80211_PARSE_ERR_INVALID_UHR_PARAM_UPD	= BIT(5),
 };
 
 /* Parsed Information Elements */
@@ -1840,6 +1868,9 @@ struct ieee802_11_elems {
 	u32 crc;
 	u8 frame_type;
 	bool from_ap;
+
+	/* the AP mode, not restricted to the parse mode */
+	enum ieee80211_conn_mode unrestricted_ap_mode;
 
 	/* pointers to IEs */
 	const struct ieee80211_tdls_lnkie *lnk_id;
@@ -1905,6 +1936,9 @@ struct ieee802_11_elems {
 	const struct ieee80211_uhr_cap *uhr_cap;
 	const struct ieee80211_uhr_operation *uhr_operation;
 	const struct ieee80211_cip_cap *cip_cap;
+	const struct ieee80211_uhr_parameters_update *uhr_param_upd;
+	const struct ieee80211_smd_bss_trans_params_prep_resp *smd_prep_resp;
+	const struct ieee80211_smd_bss_trans_params_exec_resp *smd_exec_resp;
 
 	/* not the order in the psd values is per element, not per chandef */
 	struct ieee80211_parsed_tpe tpe;
@@ -1936,6 +1970,8 @@ struct ieee802_11_elems {
 	size_t ml_basic_len;
 	size_t ml_reconf_len;
 	size_t ml_epcs_len;
+	/* same for UHR parameters update */
+	size_t uhr_param_upd_len;
 
 	u8 ttlm_num;
 
@@ -2252,6 +2288,11 @@ void ieee80211_link_init(struct ieee80211_sub_if_data *sdata,
 			 int link_id,
 			 struct ieee80211_link_data *link,
 			 struct ieee80211_bss_conf *link_conf);
+struct ieee80211_link_data *
+ieee80211_alloc_link(struct ieee80211_sub_if_data *sdata, int link_id);
+void ieee80211_free_link(struct ieee80211_link_data *link);
+void ieee80211_link_attach(struct ieee80211_link_data *link);
+void ieee80211_link_detach(struct ieee80211_link_data *link);
 void ieee80211_link_stop(struct ieee80211_link_data *link);
 int ieee80211_vif_set_links(struct ieee80211_sub_if_data *sdata,
 			    u16 new_links, u16 dormant_links);
@@ -2367,13 +2408,21 @@ ieee80211_mgmt_ba(struct sk_buff *skb, const u8 *da,
 
 int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 				   enum ieee80211_agg_stop_reason reason);
+void ieee80211_sta_stop_tx_ba_sessions(struct sta_info *sta,
+				       enum ieee80211_agg_stop_reason reason);
 void ieee80211_start_tx_ba_cb(struct sta_info *sta, int tid,
 			      struct tid_ampdu_tx *tid_tx);
 void ieee80211_stop_tx_ba_cb(struct sta_info *sta, int tid,
 			     struct tid_ampdu_tx *tid_tx);
 void ieee80211_ba_session_work(struct wiphy *wiphy, struct wiphy_work *work);
+void ieee80211_ba_session_rcu_work(struct wiphy *wiphy, struct wiphy_work *work);
 void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid);
-void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid);
+void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
+					bool blocked);
+int ieee80211_stop_tx_ba_session_deferred(struct sta_info *sta, u16 tid,
+					  enum ieee80211_agg_stop_reason reason);
+void ieee80211_release_reorder_timeout(struct sta_info *sta, int tid)
+	__must_hold_shared(RCU);
 
 u8 ieee80211_mcs_to_chains(const struct ieee80211_mcs_info *mcs);
 enum nl80211_smps_mode
@@ -2500,12 +2549,14 @@ void ieee80211_clear_tpe(struct ieee80211_parsed_tpe *tpe);
 void ieee80211_set_wmm_default(struct ieee80211_link_data *link,
 			       bool bss_notify, bool enable_qos);
 void ieee80211_xmit(struct ieee80211_sub_if_data *sdata,
-		    struct sta_info *sta, struct sk_buff *skb);
+		    struct sta_info *sta, struct sk_buff *skb)
+	__must_hold_shared(RCU);
 
 void __ieee80211_tx_skb_tid_band(struct ieee80211_sub_if_data *sdata,
 				 struct sk_buff *skb, struct sta_info *sta,
 				 int tid, int link_id,
-				 enum nl80211_band band);
+				 enum nl80211_band band)
+	__must_hold_shared(RCU);
 
 static inline bool ieee80211_require_encrypted_assoc(__le16 fc,
 						     struct sta_info *sta)
@@ -2536,6 +2587,26 @@ static inline void ieee80211_tx_skb(struct ieee80211_sub_if_data *sdata,
 }
 
 /**
+ * enum ieee80211_parse_action_frame - action frame context for element parsing
+ *
+ * Some elements reuse the same element ID for different structures depending
+ * on which action frame they appear in. This selects the action frame the
+ * elements came from so the parser can extract the correct variant.
+ *
+ * @IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED: not one of the action frames that
+ *	need such disambiguation - parse elements normally
+ * @IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP: SMD transition preparation
+ *	response
+ * @IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP: SMD transition execution
+ *	response
+ */
+enum ieee80211_parse_action_frame {
+	IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED = 0,
+	IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP,
+	IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP,
+};
+
+/**
  * struct ieee80211_elems_parse_params - element parsing parameters
  * @mode: connection mode for parsing
  * @start: pointer to the elements
@@ -2554,6 +2625,9 @@ static inline void ieee80211_tx_skb(struct ieee80211_sub_if_data *sdata,
  *	(or re-association) response frame if this is given
  * @from_ap: frame is received from an AP (currently used only
  *	for EHT capabilities parsing)
+ * @action_frame: which action frame the elements came from, to
+ *	disambiguate elements that reuse the same element ID across different
+ *	action frames, or %IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED
  */
 struct ieee80211_elems_parse_params {
 	enum ieee80211_conn_mode mode;
@@ -2565,10 +2639,11 @@ struct ieee80211_elems_parse_params {
 	struct cfg80211_bss *bss;
 	int link_id;
 	bool from_ap;
+	enum ieee80211_parse_action_frame action_frame;
 };
 
 struct ieee802_11_elems *
-ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params);
+ieee802_11_parse_elems_full(const struct ieee80211_elems_parse_params *params);
 
 static inline struct ieee802_11_elems *
 ieee802_11_parse_elems(const u8 *start, size_t len, u8 type,
@@ -3020,7 +3095,7 @@ void
 ieee80211_uhr_cap_ie_to_sta_uhr_cap(struct ieee80211_sub_if_data *sdata,
 				    struct ieee80211_supported_band *sband,
 				    const struct ieee80211_uhr_cap *uhr_cap,
-				    u8 uhr_cap_len,
+				    bool from_ap,
 				    struct link_sta_info *link_sta);
 
 #if IS_ENABLED(CONFIG_MAC80211_KUNIT_TEST)

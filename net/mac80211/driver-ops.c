@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright 2015 Intel Deutschland GmbH
- * Copyright (C) 2022-2025 Intel Corporation
+ * Copyright (C) 2022-2026 Intel Corporation
  */
 #include <net/mac80211.h>
 #include "ieee80211_i.h"
@@ -515,9 +515,14 @@ int drv_set_key(struct ieee80211_local *local,
 	if (!check_sdata_in_driver(sdata))
 		return -EIO;
 
-	if (WARN_ON(key->link_id >= 0 && sdata->vif.active_links &&
-		    !(sdata->vif.active_links & BIT(key->link_id))))
-		return -ENOLINK;
+	if (key->link_id >= 0) {
+		u16 active_links = sta ? sta->active_links :
+					 sdata->vif.active_links;
+
+		if (WARN_ON(active_links &&
+			    !(active_links & BIT(key->link_id))))
+			return -ENOLINK;
+	}
 
 	if (fips_enabled)
 		return -EOPNOTSUPP;
@@ -583,7 +588,7 @@ int drv_change_sta_links(struct ieee80211_local *local,
 			 struct ieee80211_sta *sta,
 			 u16 old_links, u16 new_links)
 {
-	struct sta_info *info = container_of(sta, struct sta_info, sta);
+	struct sta_info *info = sta_from_pub(sta);
 	struct link_sta_info *link_sta;
 	unsigned long links_to_add;
 	unsigned long links_to_rem;
@@ -620,6 +625,8 @@ int drv_change_sta_links(struct ieee80211_local *local,
 
 	if (ret)
 		return ret;
+
+	sta->active_links = new_links;
 
 	/* during reconfig don't add it to debugfs again */
 	if (local->in_reconfig || local->resuming)
@@ -714,4 +721,27 @@ int drv_link_sta_statistics(struct ieee80211_local *local,
 	trace_drv_return_int(local, ret);
 
 	return ret;
+}
+
+void drv_flush_sta(struct ieee80211_local *local,
+		   struct ieee80211_sub_if_data *sdata,
+		   struct sta_info *sta)
+{
+	might_sleep();
+	lockdep_assert_wiphy(local->hw.wiphy);
+
+	sdata = get_bss_sdata(sdata);
+
+	if (sdata && !check_sdata_in_driver(sdata))
+		return;
+
+	if (!sta->uploaded)
+		return;
+
+	trace_drv_flush_sta(local, sdata, &sta->sta);
+	if (local->ops->flush_sta)
+		local->ops->flush_sta(&local->hw, &sdata->vif, &sta->sta);
+	else
+		ieee80211_flush_queues(local, sdata, false);
+	trace_drv_return_void(local);
 }

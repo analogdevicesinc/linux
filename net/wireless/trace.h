@@ -3281,6 +3281,84 @@ TRACE_EVENT(rdev_set_epcs,
 		  WIPHY_PR_ARG, NETDEV_PR_ARG, __entry->val)
 );
 
+TRACE_EVENT(rdev_prepare_st,
+	TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
+		 struct cfg80211_st_prep_request *req),
+	TP_ARGS(wiphy, netdev, req),
+	TP_STRUCT__entry(
+		WIPHY_ENTRY
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__field(u16, link_mask)
+		__array(u8, bssids, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+	),
+	TP_fast_assign(
+		WIPHY_ASSIGN;
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, req->ap_mld_addr);
+
+		__entry->link_mask = 0;
+
+		memset(__entry->bssids, 0, sizeof(__entry->bssids));
+		for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			if (!req->links[i].bss)
+				continue;
+			__entry->link_mask |= BIT(i);
+			memcpy(__entry->bssids + i * ETH_ALEN,
+			       req->links[i].bss->bssid, ETH_ALEN);
+		}
+	),
+	TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", ap_mld_addr: %pM, link_mask: 0x%x",
+		  WIPHY_PR_ARG, NETDEV_PR_ARG, __entry->ap_mld_addr,
+		  __entry->link_mask)
+);
+
+TRACE_EVENT(rdev_execute_st,
+	TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
+		 struct cfg80211_st_exec_request *req),
+	TP_ARGS(wiphy, netdev, req),
+	TP_STRUCT__entry(
+		WIPHY_ENTRY
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__field(u8, drain_tids)
+		__dynamic_array(u8, elems, req->elems_len)
+	),
+	TP_fast_assign(
+		WIPHY_ASSIGN;
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, req->ap_mld_addr);
+		__entry->drain_tids = req->drain_tids;
+		if (req->elems)
+			memcpy(__get_dynamic_array(elems),
+			       req->elems, req->elems_len);
+	),
+	TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", ap_mld_addr: %pM, drain_tids: 0x%x, elems_len: %u",
+		  WIPHY_PR_ARG, NETDEV_PR_ARG, __entry->ap_mld_addr,
+		  __entry->drain_tids, __get_dynamic_array_len(elems))
+);
+
+TRACE_EVENT(rdev_abandon_st,
+	TP_PROTO(struct wiphy *wiphy, struct net_device *netdev,
+		 const u8 *ap_mld_addr, bool local),
+	TP_ARGS(wiphy, netdev, ap_mld_addr, local),
+	TP_STRUCT__entry(
+		WIPHY_ENTRY
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__field(bool, local)
+	),
+	TP_fast_assign(
+		WIPHY_ASSIGN;
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, ap_mld_addr);
+		__entry->local = local;
+	),
+	TP_printk(WIPHY_PR_FMT ", " NETDEV_PR_FMT ", ap_mld_addr: %pM, local:%d",
+		  WIPHY_PR_ARG, NETDEV_PR_ARG, __entry->ap_mld_addr,
+		  __entry->local)
+);
+
 /*************************************************************
  *	     cfg80211 exported functions traces		     *
  *************************************************************/
@@ -4473,6 +4551,156 @@ TRACE_EVENT(cfg80211_nan_channel_evac,
 	),
 	TP_printk(WDEV_PR_FMT ", " WIPHY_PR_FMT ", " CHAN_DEF_PR_FMT,
 		  WDEV_PR_ARG, WIPHY_PR_ARG, CHAN_DEF_PR_ARG)
+);
+
+TRACE_EVENT(cfg80211_rx_st_preparation_response,
+	TP_PROTO(struct net_device *netdev, const u8 *ap_mld_addr,
+		 const u8 *buf, size_t len,
+		 struct cfg80211_bss **links),
+	TP_ARGS(netdev, ap_mld_addr, buf, len, links),
+	TP_STRUCT__entry(
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__dynamic_array(u8, frame, len)
+		__field(u16, rejected_links)
+		__array(u8, bssids, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+	),
+	TP_fast_assign(
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, ap_mld_addr);
+		if (buf)
+			memcpy(__get_dynamic_array(frame), buf, len);
+
+		__entry->rejected_links = 0;
+
+		memset(__entry->bssids, 0, sizeof(__entry->bssids));
+		for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			if (!links[i])
+				continue;
+			__entry->rejected_links |= BIT(i);
+			memcpy(__entry->bssids + i * ETH_ALEN,
+			       links[i]->bssid, ETH_ALEN);
+		}
+	),
+	TP_printk(NETDEV_PR_FMT ", ap_mld_addr: %pM, frame_len: %u, rejected_links: 0x%x",
+		  NETDEV_PR_ARG, __entry->ap_mld_addr,
+		  __get_dynamic_array_len(frame), __entry->rejected_links)
+);
+
+TRACE_EVENT(cfg80211_rx_st_execution_response,
+	TP_PROTO(struct net_device *netdev,
+		 struct cfg80211_st_execution_resp_data *data),
+	TP_ARGS(netdev, data),
+	TP_STRUCT__entry(
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__dynamic_array(u8, frame, data->len)
+		__field(u16, links)
+		__array(u8, bssids, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+		__array(u8, local_addrs, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+	),
+	TP_fast_assign(
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, data->ap_mld_addr);
+		if (data->buf)
+			memcpy(__get_dynamic_array(frame), data->buf, data->len);
+
+		__entry->links = 0;
+
+		memset(__entry->bssids, 0, sizeof(__entry->bssids));
+		memset(__entry->local_addrs, 0, sizeof(__entry->local_addrs));
+		for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			if (!data->links[i].bssid || !data->links[i].local_addr)
+				continue;
+			__entry->links |= BIT(i);
+			memcpy(__entry->bssids + i * ETH_ALEN,
+			       data->links[i].bssid, ETH_ALEN);
+			memcpy(__entry->local_addrs + i * ETH_ALEN,
+			       data->links[i].local_addr, ETH_ALEN);
+		}
+	),
+	TP_printk(NETDEV_PR_FMT ", ap_mld_addr: %pM, frame_len: %u, links: 0x%x",
+		  NETDEV_PR_ARG, __entry->ap_mld_addr,
+		  __get_dynamic_array_len(frame), __entry->links)
+);
+
+DECLARE_EVENT_CLASS(cfg80211_st_evt,
+	TP_PROTO(struct net_device *netdev,
+		 struct cfg80211_bss **links),
+	TP_ARGS(netdev, links),
+	TP_STRUCT__entry(
+		NETDEV_ENTRY
+		__field(u16, links)
+		__array(u8, bssids, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+	),
+	TP_fast_assign(
+		NETDEV_ASSIGN;
+
+		__entry->links = 0;
+
+		memset(__entry->bssids, 0, sizeof(__entry->bssids));
+		for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			if (!links[i])
+				continue;
+			__entry->links |= BIT(i);
+			memcpy(__entry->bssids + i * ETH_ALEN,
+			       links[i]->bssid, ETH_ALEN);
+		}
+	),
+	TP_printk(NETDEV_PR_FMT ", links: 0x%x",
+		  NETDEV_PR_ARG, __entry->links)
+);
+
+TRACE_EVENT(cfg80211_st_switched,
+	TP_PROTO(struct net_device *netdev,
+		 struct cfg80211_st_switched_data *data),
+	TP_ARGS(netdev, data),
+	TP_STRUCT__entry(
+		NETDEV_ENTRY
+		MAC_ENTRY(ap_mld_addr)
+		__field(u16, links)
+		__array(u8, bssids, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+		__array(u8, addrs, IEEE80211_MLD_MAX_NUM_LINKS * ETH_ALEN)
+	),
+	TP_fast_assign(
+		NETDEV_ASSIGN;
+		MAC_ASSIGN(ap_mld_addr, data->ap_mld_addr);
+
+		__entry->links = 0;
+
+		memset(__entry->bssids, 0, sizeof(__entry->bssids));
+		memset(__entry->addrs, 0, sizeof(__entry->addrs));
+		for (int i = 0; i < IEEE80211_MLD_MAX_NUM_LINKS; i++) {
+			if (!data->links[i].bss)
+				continue;
+			__entry->links |= BIT(i);
+			memcpy(__entry->bssids + i * ETH_ALEN,
+			       data->links[i].bss->bssid, ETH_ALEN);
+			if (data->links[i].addr)
+				memcpy(__entry->addrs + i * ETH_ALEN,
+				       data->links[i].addr, ETH_ALEN);
+		}
+	),
+	TP_printk(NETDEV_PR_FMT ", ap_mld_addr: %pM, links: 0x%x",
+		  NETDEV_PR_ARG, __entry->ap_mld_addr, __entry->links)
+);
+
+TRACE_EVENT(cfg80211_st_done,
+	TP_PROTO(struct net_device *netdev),
+	TP_ARGS(netdev),
+	TP_STRUCT__entry(
+		NETDEV_ENTRY
+	),
+	TP_fast_assign(
+		NETDEV_ASSIGN;
+	),
+	TP_printk(NETDEV_PR_FMT, NETDEV_PR_ARG)
+);
+
+DEFINE_EVENT(cfg80211_st_evt, cfg80211_st_abandoned,
+	TP_PROTO(struct net_device *netdev,
+		 struct cfg80211_bss **links),
+	TP_ARGS(netdev, links)
 );
 #endif /* !__RDEV_OPS_TRACE || TRACE_HEADER_MULTI_READ */
 

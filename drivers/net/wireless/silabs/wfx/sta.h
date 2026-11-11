@@ -21,7 +21,6 @@ struct wfx_sta_priv {
 /* mac80211 interface */
 int wfx_start(struct ieee80211_hw *hw);
 void wfx_stop(struct ieee80211_hw *hw, bool suspend);
-int wfx_config(struct ieee80211_hw *hw, int radio_idx, u32 changed);
 int wfx_set_rts_threshold(struct ieee80211_hw *hw, int radio_idx, u32 value);
 void wfx_set_default_unicast_key(struct ieee80211_hw *hw, struct ieee80211_vif *vif, int idx);
 void wfx_configure_filter(struct ieee80211_hw *hw, unsigned int changed_flags,

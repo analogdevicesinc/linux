@@ -653,13 +653,6 @@ void iwl_mld_mac80211_stop(struct ieee80211_hw *hw, bool suspend)
 }
 
 static
-int iwl_mld_mac80211_config(struct ieee80211_hw *hw, int radio_idx,
-			    u32 changed)
-{
-	return 0;
-}
-
-static
 int iwl_mld_mac80211_add_interface(struct ieee80211_hw *hw,
 				   struct ieee80211_vif *vif)
 {
@@ -1752,7 +1745,7 @@ static void iwl_mld_link_set_2mhz_block(struct iwl_mld *mld,
 	struct ieee80211_link_sta *link_sta;
 	unsigned int link_id;
 
-	for_each_sta_active_link(vif, sta, link_sta, link_id) {
+	for_each_sta_active_link(sta, link_sta, link_id) {
 		struct ieee80211_bss_conf *link_conf =
 			link_conf_dereference_protected(vif, link_id);
 		struct iwl_mld_link *mld_link =
@@ -2921,7 +2914,6 @@ const struct ieee80211_ops iwl_mld_hw_ops = {
 	.tx = iwl_mld_mac80211_tx,
 	.start = iwl_mld_mac80211_start,
 	.stop = iwl_mld_mac80211_stop,
-	.config = iwl_mld_mac80211_config,
 	.get_antenna = iwl_mld_get_antenna,
 	.set_antenna = iwl_mld_set_antenna,
 	.add_interface = iwl_mld_mac80211_add_interface,

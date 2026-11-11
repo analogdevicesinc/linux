@@ -132,7 +132,6 @@ static const struct ieee80211_ops wfx_ops = {
 	.stop                    = wfx_stop,
 	.add_interface           = wfx_add_interface,
 	.remove_interface        = wfx_remove_interface,
-	.config                  = wfx_config,
 	.tx                      = wfx_tx,
 	.wake_tx_queue           = ieee80211_handle_wake_tx_queue,
 	.join_ibss               = wfx_join_ibss,

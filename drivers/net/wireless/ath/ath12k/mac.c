@@ -1584,12 +1584,6 @@ err:
 	return ret;
 }
 
-int ath12k_mac_op_config(struct ieee80211_hw *hw, int radio_idx, u32 changed)
-{
-	return 0;
-}
-EXPORT_SYMBOL(ath12k_mac_op_config);
-
 static int ath12k_mac_setup_bcn_p2p_ie(struct ath12k_link_vif *arvif,
 				       struct sk_buff *bcn)
 {
@@ -15106,6 +15100,14 @@ static int ath12k_mac_hw_register(struct ath12k_hw *ah)
 	 */
 	for_each_ar(ah, ar, i)
 		complete_all(&ar->regd_update_completed);
+
+	for_each_ar(ah, ar, i) {
+		ret = ath12k_regd_update(ar, true);
+		if (ret) {
+			ath12k_err(ar->ab, "ath12k regd update failed: %d\n", ret);
+			goto err_cleanup_if_combs;
+		}
+	}
 
 	ret = ieee80211_register_hw(hw);
 	if (ret) {

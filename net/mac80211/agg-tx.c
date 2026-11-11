@@ -20,6 +20,9 @@
 #include "driver-ops.h"
 #include "wme.h"
 
+/* used for checking agg queue refcount */
+token_context_lock(agg_queue, __reentrant_ctx_lock);
+
 /**
  * DOC: TX A-MPDU aggregation
  *
@@ -285,18 +288,32 @@ static void ieee80211_remove_tid_tx(struct sta_info *sta, int tid)
 	kfree_rcu(tid_tx, rcu_head);
 }
 
-int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
-				   enum ieee80211_agg_stop_reason reason)
+static void ieee80211_agg_abort_start(struct sta_info *sta, int tid,
+				      struct tid_ampdu_tx *tid_tx)
+{
+	struct ieee80211_sub_if_data *sdata = sta->sdata;
+
+	spin_lock_bh(&sta->lock);
+	ieee80211_agg_splice_packets(sdata, tid_tx, tid);
+	ieee80211_assign_tid_tx(sta, tid, NULL);
+	ieee80211_agg_splice_finish(sdata, tid);
+	spin_unlock_bh(&sta->lock);
+
+	ieee80211_agg_start_txq(sta, tid, false);
+
+	kfree_rcu(tid_tx, rcu_head);
+}
+
+/* returns 1 if the driver must be notified after synchronize_net() */
+static int ieee80211_stop_tx_ba_session_prep(struct sta_info *sta, u16 tid,
+					     enum ieee80211_agg_stop_reason reason)
 {
 	struct ieee80211_local *local = sta->local;
 	struct tid_ampdu_tx *tid_tx;
 	struct ieee80211_ampdu_params params = {
 		.sta = &sta->sta,
 		.tid = tid,
-		.buf_size = 0,
-		.amsdu = false,
-		.timeout = 0,
-		.ssn = 0,
+		.action = IEEE80211_AMPDU_TX_STOP_FLUSH_CONT,
 	};
 	int ret;
 
@@ -306,10 +323,7 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	case AGG_STOP_DECLINED:
 	case AGG_STOP_LOCAL_REQUEST:
 	case AGG_STOP_PEER_REQUEST:
-		params.action = IEEE80211_AMPDU_TX_STOP_CONT;
-		break;
 	case AGG_STOP_DESTROY_STA:
-		params.action = IEEE80211_AMPDU_TX_STOP_FLUSH;
 		break;
 	default:
 		WARN_ON_ONCE(1);
@@ -335,9 +349,11 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	 */
 	if (test_bit(HT_AGG_STATE_STOPPING, &tid_tx->state)) {
 		spin_unlock_bh(&sta->lock);
+		/* the driver wasn't told yet, the caller can do that now */
+		if (test_and_clear_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state))
+			return 1;
 		if (reason != AGG_STOP_DESTROY_STA)
 			return -EALREADY;
-		params.action = IEEE80211_AMPDU_TX_STOP_FLUSH_CONT;
 		ret = drv_ampdu_action(local, sta->sdata, &params);
 		WARN_ON_ONCE(ret);
 		return 0;
@@ -348,6 +364,12 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 		ieee80211_assign_tid_tx(sta, tid, NULL);
 		spin_unlock_bh(&sta->lock);
 		kfree_rcu(tid_tx, rcu_head);
+		return 0;
+	}
+
+	if (test_bit(HT_AGG_STATE_START_RCU, &tid_tx->state)) {
+		spin_unlock_bh(&sta->lock);
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
 		return 0;
 	}
 
@@ -370,35 +392,31 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	 */
 	clear_bit(HT_AGG_STATE_OPERATIONAL, &tid_tx->state);
 
-	/*
-	 * There might be a few packets being processed right now (on
-	 * another CPU) that have already gotten past the aggregation
-	 * check when it was still OPERATIONAL and consequently have
-	 * IEEE80211_TX_CTL_AMPDU set. In that case, this code might
-	 * call into the driver at the same time or even before the
-	 * TX paths calls into it, which could confuse the driver.
-	 *
-	 * Wait for all currently running TX paths to finish before
-	 * telling the driver. New packets will not go through since
-	 * the aggregation session is no longer OPERATIONAL.
-	 */
-	if (!local->in_reconfig)
-		synchronize_net();
-
 	tid_tx->stop_initiator = reason == AGG_STOP_PEER_REQUEST ?
 					WLAN_BACK_RECIPIENT :
 					WLAN_BACK_INITIATOR;
 	tid_tx->tx_stop = reason == AGG_STOP_LOCAL_REQUEST;
 
-	ret = drv_ampdu_action(local, sta->sdata, &params);
+	return 1;
+}
 
-	/* HW shall not deny going back to legacy */
-	if (WARN_ON(ret)) {
-		/*
-		 * We may have pending packets get stuck in this case...
-		 * Not bothering with a workaround for now.
-		 */
-	}
+static void ieee80211_stop_tx_ba_session_finish(struct sta_info *sta, u16 tid,
+						bool destroy)
+{
+	struct ieee80211_ampdu_params params = {
+		.sta = &sta->sta,
+		.tid = tid,
+		.action = destroy ? IEEE80211_AMPDU_TX_STOP_FLUSH :
+				    IEEE80211_AMPDU_TX_STOP_CONT,
+	};
+
+	lockdep_assert_wiphy(sta->local->hw.wiphy);
+
+	/*
+	 * HW shall not deny going back to legacy. If it does, we may have
+	 * pending packets get stuck, not bothering with a workaround for now.
+	 */
+	WARN_ON(drv_ampdu_action(sta->local, sta->sdata, &params));
 
 	/*
 	 * In the case of AGG_STOP_DESTROY_STA, the driver won't
@@ -409,8 +427,86 @@ int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
 	 * leaving it around ensures that we don't transmit packets
 	 * to the driver on this TID which might confuse it.
 	 */
+}
+
+/*
+ * There might be a few packets being processed right now (on another CPU)
+ * that have already gotten past the aggregation check when it was still
+ * OPERATIONAL and consequently have IEEE80211_TX_CTL_AMPDU set. In that
+ * case, telling the driver might happen at the same time or even before
+ * the TX paths calls into it, which could confuse the driver.
+ *
+ * Therefore, stopping is split into the _prep() part that clears the
+ * OPERATIONAL bit, and the _finish() part that tells the driver, and
+ * all currently running TX paths must have finished in between. New
+ * packets will not go through since the session is no longer OPERATIONAL.
+ */
+int __ieee80211_stop_tx_ba_session(struct sta_info *sta, u16 tid,
+				   enum ieee80211_agg_stop_reason reason)
+{
+	int ret = ieee80211_stop_tx_ba_session_prep(sta, tid, reason);
+
+	if (ret <= 0)
+		return ret;
+
+	if (!sta->local->in_reconfig)
+		synchronize_net();
+
+	ieee80211_stop_tx_ba_session_finish(sta, tid,
+					    reason == AGG_STOP_DESTROY_STA);
 
 	return 0;
+}
+
+/* like __ieee80211_stop_tx_ba_session() but tell the driver asynchronously */
+int ieee80211_stop_tx_ba_session_deferred(struct sta_info *sta, u16 tid,
+					  enum ieee80211_agg_stop_reason reason)
+{
+	struct tid_ampdu_tx *tid_tx;
+	int ret;
+
+	if (WARN_ON(reason == AGG_STOP_DESTROY_STA))
+		return -EINVAL;
+
+	ret = ieee80211_stop_tx_ba_session_prep(sta, tid, reason);
+	if (ret <= 0)
+		return ret;
+
+	if (sta->local->in_reconfig) {
+		ieee80211_stop_tx_ba_session_finish(sta, tid, false);
+		return 0;
+	}
+
+	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+	set_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state);
+
+	/* cancel first so it waits for a new grace period, as for start */
+	wiphy_rcu_work_cancel(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+	wiphy_rcu_work_queue(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+
+	return 0;
+}
+
+void ieee80211_sta_stop_tx_ba_sessions(struct sta_info *sta,
+				       enum ieee80211_agg_stop_reason reason)
+{
+	unsigned long tids = 0;
+	int tid;
+
+	for (tid = 0; tid < IEEE80211_NUM_TIDS; tid++) {
+		if (ieee80211_stop_tx_ba_session_prep(sta, tid, reason) > 0)
+			__set_bit(tid, &tids);
+	}
+
+	if (!tids)
+		return;
+
+	if (!sta->local->in_reconfig)
+		synchronize_net();
+
+	for_each_set_bit(tid, &tids, IEEE80211_NUM_TIDS)
+		ieee80211_stop_tx_ba_session_finish(sta, tid,
+						    reason == AGG_STOP_DESTROY_STA);
 }
 
 /*
@@ -465,7 +561,8 @@ static void ieee80211_send_addba_with_timeout(struct sta_info *sta,
 
 	if (sta->sta.valid_links ||
 	    sta->sta.deflink.eht_cap.has_eht ||
-	    ieee80211_hw_check(&local->hw, STRICT)) {
+	    (ieee80211_hw_check(&local->hw, STRICT) &&
+	     sta->sta.deflink.he_cap.has_he)) {
 		buf_size = local->hw.max_tx_aggregation_subframes;
 	} else if (sta->sta.deflink.he_cap.has_he) {
 		buf_size = min_t(u16, local->hw.max_tx_aggregation_subframes,
@@ -490,7 +587,36 @@ static void ieee80211_send_addba_with_timeout(struct sta_info *sta,
 
 void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 {
-	struct tid_ampdu_tx *tid_tx;
+	struct tid_ampdu_tx *tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+
+	/*
+	 * Start queuing up packets for this aggregation session.
+	 * We're going to release them once the driver is OK with
+	 * that.
+	 */
+	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
+
+	/*
+	 * Make sure no packets are being processed before telling the
+	 * driver. This ensures that we have a valid starting sequence
+	 * number and that in-flight packets have been flushed out and
+	 * no packets for this TID will go into the driver during the
+	 * ampdu_action call.
+	 */
+	set_bit(HT_AGG_STATE_START_RCU, &tid_tx->state);
+
+	/*
+	 * Cancel first so it waits for a new grace period (if already
+	 * queued), that way the RCU work only runs after _all_ TIDs
+	 * have passed a grace period.
+	 */
+	wiphy_rcu_work_cancel(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+	wiphy_rcu_work_queue(sta->local->hw.wiphy, &sta->ampdu_mlme.rcu_work);
+}
+
+static void ieee80211_tx_ba_session_start_drv(struct sta_info *sta, int tid,
+					      struct tid_ampdu_tx *tid_tx)
+{
 	struct ieee80211_local *local = sta->local;
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_ampdu_params params = {
@@ -502,23 +628,6 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 		.timeout = 0,
 	};
 	int ret;
-
-	tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
-
-	/*
-	 * Start queuing up packets for this aggregation session.
-	 * We're going to release them once the driver is OK with
-	 * that.
-	 */
-	clear_bit(HT_AGG_STATE_WANT_START, &tid_tx->state);
-
-	/*
-	 * Make sure no packets are being processed. This ensures that
-	 * we have a valid starting sequence number and that in-flight
-	 * packets have been flushed out and no packets for this TID
-	 * will go into the driver during the ampdu_action call.
-	 */
-	synchronize_net();
 
 	tid_tx->ndp = ieee80211_s1g_use_ndp_ba(sdata, sta);
 	params.ssn = sta->tid_seq[tid] >> 4;
@@ -537,25 +646,41 @@ void ieee80211_tx_ba_session_handle_start(struct sta_info *sta, int tid)
 		ht_dbg(sdata,
 		       "BA request denied - HW unavailable for %pM tid %d\n",
 		       sta->sta.addr, tid);
-		spin_lock_bh(&sta->lock);
-		ieee80211_agg_splice_packets(sdata, tid_tx, tid);
-		ieee80211_assign_tid_tx(sta, tid, NULL);
-		ieee80211_agg_splice_finish(sdata, tid);
-		spin_unlock_bh(&sta->lock);
-
-		ieee80211_agg_start_txq(sta, tid, false);
-
-		kfree_rcu(tid_tx, rcu_head);
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
 		return;
 	}
 
 	ieee80211_send_addba_with_timeout(sta, tid_tx);
 }
 
+void ieee80211_tx_ba_session_handle_rcu(struct sta_info *sta, int tid,
+					bool blocked)
+{
+	struct tid_ampdu_tx *tid_tx = rcu_dereference_protected_tid_tx(sta, tid);
+
+	lockdep_assert_wiphy(sta->local->hw.wiphy);
+
+	if (!tid_tx)
+		return;
+
+	if (test_and_clear_bit(HT_AGG_STATE_STOP_RCU, &tid_tx->state)) {
+		ieee80211_stop_tx_ba_session_finish(sta, tid, false);
+		return;
+	}
+
+	if (!test_and_clear_bit(HT_AGG_STATE_START_RCU, &tid_tx->state))
+		return;
+
+	if (blocked)
+		ieee80211_agg_abort_start(sta, tid, tid_tx);
+	else
+		ieee80211_tx_ba_session_start_drv(sta, tid, tid_tx);
+}
+
 void ieee80211_refresh_tx_agg_session_timer(struct ieee80211_sta *pubsta,
 					    u16 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct tid_ampdu_tx *tid_tx;
 
 	if (WARN_ON_ONCE(tid >= IEEE80211_NUM_TIDS))
@@ -600,7 +725,7 @@ static void sta_tx_agg_session_timer_expired(struct timer_list *t)
 int ieee80211_start_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid,
 				  u16 timeout)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sdata->local;
 	struct tid_ampdu_tx *tid_tx;
@@ -868,7 +993,7 @@ EXPORT_SYMBOL(ieee80211_start_tx_ba_cb_irqsafe);
 
 int ieee80211_stop_tx_ba_session(struct ieee80211_sta *pubsta, u16 tid)
 {
-	struct sta_info *sta = container_of(pubsta, struct sta_info, sta);
+	struct sta_info *sta = sta_from_pub(pubsta);
 	struct ieee80211_sub_if_data *sdata = sta->sdata;
 	struct ieee80211_local *local = sdata->local;
 	struct tid_ampdu_tx *tid_tx;
@@ -1060,6 +1185,7 @@ void ieee80211_process_addba_resp(struct ieee80211_local *local,
 		}
 
 	} else {
-		__ieee80211_stop_tx_ba_session(sta, tid, AGG_STOP_DECLINED);
+		ieee80211_stop_tx_ba_session_deferred(sta, tid,
+						      AGG_STOP_DECLINED);
 	}
 }

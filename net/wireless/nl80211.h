@@ -129,4 +129,15 @@ int nl80211_pmsr_start(struct sk_buff *skb, struct genl_info *info);
 void nl80211_mlo_reconf_add_done(struct net_device *dev,
 				 struct cfg80211_mlo_reconf_done_data *data);
 
+void nl80211_st_preparation_response(struct cfg80211_registered_device *rdev,
+				     struct net_device *dev,
+				     struct cfg80211_st_preparation_resp_data *data);
+
+void nl80211_st_execution_response(struct cfg80211_registered_device *rdev,
+				   struct net_device *dev,
+				   struct cfg80211_st_execution_resp_data *data);
+
+void nl80211_st_done(struct cfg80211_registered_device *rdev,
+		     struct net_device *dev);
+
 #endif /* __NET_WIRELESS_NL80211_H */

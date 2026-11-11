@@ -55,6 +55,7 @@ struct ieee80211_elems_parse {
 	struct ieee802_11_elems elems;
 
 	struct ieee80211_elem_defrag ml_reconf, ml_epcs, ml_basic;
+	struct ieee80211_elem_defrag uhr_param_upd;
 
 	bool inside_multilink;
 	bool skip_vendor;
@@ -67,6 +68,12 @@ struct ieee80211_elems_parse {
 	u8 *scratch_pos;
 	u8 scratch[] __counted_by(scratch_len);
 };
+
+static void ieee80211_update_unr_ap_mode(struct ieee802_11_elems *elems,
+					 enum ieee80211_conn_mode mode)
+{
+	elems->unrestricted_ap_mode = max(mode, elems->unrestricted_ap_mode);
+}
 
 static void
 ieee80211_parse_extension_element(u32 *crc,
@@ -93,6 +100,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->mu_edca_param_set = data;
 		break;
 	case WLAN_EID_EXT_HE_CAPABILITY:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_HE);
 		if (params->mode < IEEE80211_CONN_MODE_HE)
 			break;
 		if (ieee80211_he_capa_size_ok(data, len)) {
@@ -101,6 +109,7 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_HE_OPERATION:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_HE);
 		if (params->mode < IEEE80211_CONN_MODE_HE)
 			break;
 		calc_crc = true;
@@ -136,6 +145,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->he_6ghz_capa = data;
 		break;
 	case WLAN_EID_EXT_EHT_CAPABILITY:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_EHT);
 		if (params->mode < IEEE80211_CONN_MODE_EHT)
 			break;
 		if (ieee80211_eht_capa_size_ok(elems->he_cap,
@@ -146,6 +156,7 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_EHT_OPERATION:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_EHT);
 		if (params->mode < IEEE80211_CONN_MODE_EHT)
 			break;
 		if (ieee80211_eht_oper_size_ok(data, len))
@@ -210,6 +221,7 @@ ieee80211_parse_extension_element(u32 *crc,
 			elems->cip_cap = data;
 		break;
 	case WLAN_EID_EXT_UHR_OPER:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_UHR);
 		if (params->mode < IEEE80211_CONN_MODE_UHR)
 			break;
 		calc_crc = true;
@@ -219,12 +231,35 @@ ieee80211_parse_extension_element(u32 *crc,
 		}
 		break;
 	case WLAN_EID_EXT_UHR_CAPA:
+		ieee80211_update_unr_ap_mode(elems, IEEE80211_CONN_MODE_UHR);
 		if (params->mode < IEEE80211_CONN_MODE_UHR)
 			break;
 		calc_crc = true;
 		if (ieee80211_uhr_capa_size_ok(data, len, true)) {
 			elems->uhr_cap = data;
 			elems->uhr_cap_len = len;
+		}
+		break;
+	case WLAN_EID_EXT_UHR_PARAM_UPD:
+		if (params->mode < IEEE80211_CONN_MODE_UHR)
+			break;
+		calc_crc = true;
+		elems_parse->uhr_param_upd.elem = elem;
+		elems_parse->uhr_param_upd.start = params->start;
+		elems_parse->uhr_param_upd.len = params->len;
+		break;
+	case WLAN_EID_EXT_BSS_SMD_TRANS_PARAMS:
+		switch (params->action_frame) {
+		case IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP:
+			if (ieee80211_smd_prep_resp_size_ok(data, len))
+				elems->smd_prep_resp = data;
+			break;
+		case IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP:
+			if (ieee80211_smd_exec_resp_size_ok(data, len))
+				elems->smd_exec_resp = data;
+			break;
+		default:
+			break;
 		}
 		break;
 	}
@@ -341,6 +376,10 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 	case IEEE80211_FTYPE_EXT | IEEE80211_STYPE_S1G_BEACON:
 		break;
 	}
+
+	WARN(params->type != (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_ACTION) &&
+	     params->action_frame != IEEE80211_PARSE_ACTION_FRAME_UNSPECIFIED,
+	     "action frame type specified for non-action frame\n");
 
 	for_each_element(elem, params->start, params->len) {
 		const struct element *subelem;
@@ -498,6 +537,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 			elems->ext_supp_rates_len = elen;
 			break;
 		case WLAN_EID_HT_CAPABILITY:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_HT);
 			if (params->mode < IEEE80211_CONN_MODE_HT)
 				break;
 			if (elen >= sizeof(struct ieee80211_ht_cap))
@@ -507,6 +548,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_HT_OPERATION:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_HT);
 			if (params->mode < IEEE80211_CONN_MODE_HT)
 				break;
 			if (elen >= sizeof(struct ieee80211_ht_operation))
@@ -516,6 +559,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_VHT_CAPABILITY:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_VHT);
 			if (params->mode < IEEE80211_CONN_MODE_VHT)
 				break;
 			if (elen >= sizeof(struct ieee80211_vht_cap))
@@ -525,6 +570,8 @@ _ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params,
 					IEEE80211_PARSE_ERR_BAD_ELEM_SIZE;
 			break;
 		case WLAN_EID_VHT_OPERATION:
+			ieee80211_update_unr_ap_mode(elems,
+						     IEEE80211_CONN_MODE_VHT);
 			if (params->mode < IEEE80211_CONN_MODE_VHT)
 				break;
 			if (elen >= sizeof(struct ieee80211_vht_operation)) {
@@ -893,9 +940,9 @@ static size_t ieee802_11_find_bssid_profile(const u8 *start, size_t len,
 	return 0;
 }
 
-static void
+static int
 ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
-			   u8 link_id)
+			   int link_id)
 {
 	struct ieee802_11_elems *elems = &elems_parse->elems;
 	const struct ieee80211_multi_link_elem *ml = elems->ml_basic;
@@ -905,6 +952,7 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 	for_each_mle_subelement(sub, (u8 *)ml, ml_len) {
 		struct ieee80211_mle_per_sta_profile *prof = (void *)sub->data;
 		ssize_t sta_prof_len;
+		int prof_link_id;
 		u16 control;
 
 		if (sub->id != IEEE80211_MLE_SUBELEM_PER_STA_PROFILE)
@@ -912,16 +960,18 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 
 		if (!ieee80211_mle_basic_sta_prof_size_ok(sub->data,
 							  sub->datalen))
-			return;
+			return -1;
 
 		control = le16_to_cpu(prof->control);
+		prof_link_id = u16_get_bits(control,
+					    IEEE80211_MLE_STA_CONTROL_LINK_ID);
 
-		if (link_id != u16_get_bits(control,
-					    IEEE80211_MLE_STA_CONTROL_LINK_ID))
+		/* a link_id of -1 matches the first per-STA profile */
+		if (link_id != -1 && link_id != prof_link_id)
 			continue;
 
 		if (!(control & IEEE80211_MLE_STA_CONTROL_COMPLETE_PROFILE))
-			return;
+			return -1;
 
 		/* the sub element can be fragmented */
 		sta_prof_len =
@@ -934,27 +984,36 @@ ieee80211_mle_get_sta_prof(struct ieee80211_elems_parse *elems_parse,
 						    IEEE80211_MLE_SUBELEM_FRAGMENT);
 
 		if (sta_prof_len < 0)
-			return;
+			return -1;
 
 		elems->prof = (void *)elems_parse->scratch_pos;
 		elems->sta_prof_len = sta_prof_len;
 		elems_parse->scratch_pos += sta_prof_len;
 
-		return;
+		return prof_link_id;
 	}
+
+	return -1;
 }
 
 static const struct element *
 ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
-			      struct ieee80211_elems_parse_params *params,
-			      struct ieee80211_elems_parse_params *sub)
+			      const struct ieee80211_elems_parse_params *params,
+			      struct ieee80211_elems_parse_params *sub,
+			      struct ieee80211_elems_parse_params *base)
 {
 	struct ieee802_11_elems *elems = &elems_parse->elems;
+	struct ieee80211_elems_parse_params new_base = *base;
 	struct ieee80211_mle_per_sta_profile *prof;
 	const struct element *ml_basic_elem = NULL;
+	size_t fixed_len = 4; /* capa/status */
 	const struct element *tmp, *ret;
 	ssize_t ml_len;
 	const u8 *end;
+
+	/* also AID in ST preparation response */
+	if (params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP)
+		fixed_len += 2;
 
 	if (params->mode < IEEE80211_CONN_MODE_EHT)
 		return NULL;
@@ -993,26 +1052,68 @@ ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
 	if (params->link_id == -1)
 		return NULL;
 
-	ieee80211_mle_get_sta_prof(elems_parse, params->link_id);
+	/*
+	 * Per 35.3.3.5.2 "Inheritance from first Per-STA Profile subelement",
+	 * (Draft P802.11bn D1.5) the inheritance base is the first link and
+	 * not the outer frame elements (which don't exist) for the case of
+	 *  - EPP Capabilities And Operation Parameters frame,
+	 *  - UHR Neighboring AP Probe Response frame,
+	 *  - ST preparation request frame,
+	 *  - ST preparation response frame, and
+	 *  - ST execution response frame.
+	 *
+	 * We currently only parse the latter two.
+	 */
+	if (params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_PREP_RESP ||
+	    params->action_frame == IEEE80211_PARSE_ACTION_FRAME_ST_EXEC_RESP) {
+		int first_link_id = ieee80211_mle_get_sta_prof(elems_parse, -1);
+
+		prof = elems->prof;
+		if (first_link_id >= 0 && prof &&
+		    elems->sta_prof_len >=
+		    sizeof(*prof) + prof->sta_info_len - 1 + fixed_len) {
+			/*
+			 * point the base parsing (to be inherited from)
+			 * to the first per-STA profile elements
+			 */
+			new_base.start = prof->variable +
+					 prof->sta_info_len - 1 + fixed_len;
+			end = (const u8 *)prof + elems->sta_prof_len;
+			new_base.len = end - new_base.start;
+			/* no link ID to look for and in MLE */
+			new_base.link_id = -1;
+
+			/* if it's the requested link, that's it */
+			if (first_link_id == params->link_id) {
+				*base = new_base;
+				elems_parse->inside_multilink = true;
+				return NULL;
+			}
+		}
+	}
+
+	if (ieee80211_mle_get_sta_prof(elems_parse, params->link_id) < 0) {
+		elems->prof = NULL;
+		elems->sta_prof_len = 0;
+		return NULL;
+	}
 	prof = elems->prof;
 
-	if (!prof)
-		return NULL;
-
-	/* check if we have the 4 bytes for the fixed part in assoc response */
-	if (elems->sta_prof_len < sizeof(*prof) + prof->sta_info_len - 1 + 4) {
+	/* check if we have the bytes for the fixed part */
+	if (elems->sta_prof_len < sizeof(*prof) + prof->sta_info_len -
+				  1 + fixed_len) {
 		elems->prof = NULL;
 		elems->sta_prof_len = 0;
 		return NULL;
 	}
 
 	/*
-	 * Skip the capability information and the status code that are expected
-	 * as part of the station profile in association response frames. Note
-	 * the -1 is because the 'sta_info_len' is accounted to as part of the
-	 * per-STA profile, but not part of the 'u8 variable[]' portion.
+	 * Skip the fixed fields that are expected as part of the station
+	 * profile. Note the -1 is because the 'sta_info_len' is accounted
+	 * to as part of the per-STA profile, but not part of the
+	 * 'u8 variable[]' portion.
 	 */
-	sub->start = prof->variable + prof->sta_info_len - 1 + 4;
+	sub->start = prof->variable + prof->sta_info_len - 1 + fixed_len;
 	end = (const u8 *)prof + elems->sta_prof_len;
 	sub->len = end - sub->start;
 
@@ -1020,6 +1121,12 @@ ieee80211_prep_mle_link_parse(struct ieee80211_elems_parse *elems_parse,
 	sub->type = params->type;
 	sub->from_ap = params->from_ap;
 	sub->link_id = -1;
+
+	/* we changed the base for "first link" inheritance */
+	if (new_base.start != base->start) {
+		*base = new_base;
+		elems_parse->inside_multilink = true;
+	}
 
 	ret = cfg80211_find_ext_elem(WLAN_EID_EXT_NON_INHERITANCE,
 				     sub->start, sub->len);
@@ -1058,8 +1165,9 @@ ieee80211_mle_defrag(struct ieee80211_elems_parse *elems_parse,
 }
 
 struct ieee802_11_elems *
-ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
+ieee802_11_parse_elems_full(const struct ieee80211_elems_parse_params *params)
 {
+	struct ieee80211_elems_parse_params base = *params;
 	struct ieee80211_elems_parse_params sub = {};
 	struct ieee80211_elems_parse *elems_parse;
 	const struct element *non_inherit = NULL;
@@ -1139,14 +1247,14 @@ ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
 		 * the applicable profile, if requested by params->link_id >= 0.
 		 */
 		non_inherit = ieee80211_prep_mle_link_parse(elems_parse, params,
-							    &sub);
+							    &sub, &base);
 		inside_multilink = true;
 	}
 
 	elems_parse->skip_vendor =
 		cfg80211_find_elem(WLAN_EID_VENDOR_SPECIFIC,
 				   sub.start, sub.len);
-	elems->crc = _ieee802_11_parse_elems_full(params, elems_parse,
+	elems->crc = _ieee802_11_parse_elems_full(&base, elems_parse,
 						  non_inherit);
 
 	/* Override with nontransmitted/per-STA profile if found */
@@ -1166,6 +1274,17 @@ ieee802_11_parse_elems_full(struct ieee80211_elems_parse_params *params)
 		elems->ml_basic = ieee80211_mle_defrag(elems_parse,
 						       &elems_parse->ml_basic,
 						       &elems->ml_basic_len);
+
+	elems->uhr_param_upd = ieee80211_mle_defrag(elems_parse,
+						    &elems_parse->uhr_param_upd,
+						    &elems->uhr_param_upd_len);
+	if (elems_parse->uhr_param_upd.elem &&
+	    !ieee80211_uhr_param_update_ok(elems->uhr_param_upd,
+					   elems->uhr_param_upd_len)) {
+		elems->uhr_param_upd = NULL;
+		elems->uhr_param_upd_len = 0;
+		elems->parse_error |= IEEE80211_PARSE_ERR_INVALID_UHR_PARAM_UPD;
+	}
 
 	if (elems->tim && !elems->parse_error) {
 		const struct ieee80211_tim_ie *tim_ie = elems->tim;

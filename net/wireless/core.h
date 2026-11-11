@@ -27,6 +27,7 @@ extern struct mutex cfg80211_mutex;
 
 struct cfg80211_scan_request_int {
 	struct cfg80211_scan_info info;
+	struct rcu_head rcu_head;
 	bool notified;
 	/*
 	 * set while the request is handed to the driver, i.e. between
@@ -135,7 +136,11 @@ struct cfg80211_registered_device {
 
 	struct work_struct wiphy_work;
 	struct list_head wiphy_work_list;
-	/* protects the list above */
+	/* RCU works waiting for a grace period, in queueing order */
+	struct list_head wiphy_rcu_work_list;
+	struct rcu_head wiphy_rcu_work_head;
+	bool wiphy_rcu_work_pending;
+	/* protects the lists and pending flag above */
 	spinlock_t wiphy_work_lock;
 	bool suspended;
 
@@ -483,6 +488,8 @@ bool cfg80211_cigtk_supported(struct wireless_dev *wdev,
 bool cfg80211_valid_key_idx(struct wireless_dev *wdev,
 			    int key_idx, enum nl80211_key_type type,
 			    const u8 *mac_addr);
+const u8 *cfg80211_get_key_mac_addr(struct wireless_dev *wdev, u32 cipher,
+				    bool pairwise, const u8 *mac_addr);
 int cfg80211_validate_key_settings(struct cfg80211_registered_device *rdev,
 				   struct wireless_dev *wdev,
 				   struct key_params *params, int key_idx,
@@ -640,6 +647,10 @@ void cfg80211_wdev_release_link_bsses(struct wireless_dev *wdev, u16 link_mask);
 int cfg80211_assoc_ml_reconf(struct cfg80211_registered_device *rdev,
 			     struct net_device *dev,
 			     struct cfg80211_ml_reconf_req *req);
+
+int cfg80211_prepare_st(struct cfg80211_registered_device *rdev,
+			struct net_device *dev,
+			struct cfg80211_st_prep_request *req);
 
 /**
  * struct cfg80211_colocated_ap - colocated AP information
