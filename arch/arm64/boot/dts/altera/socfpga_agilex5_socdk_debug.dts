@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2023, Intel Corporation
+ * Copyright (C) 2026, Altera Corporation
  */
 #include "socfpga_agilex5.dtsi"
 
 / {
-	model = "SoCFPGA Agilex5 SoCDK";
-	compatible = "intel,socfpga-agilex5-socdk", "intel,socfpga-agilex5";
+	model = "SoCFPGA Agilex5 SoCDK - debug daughter card";
+	compatible = "intel,socfpga-agilex5-socdk-debug", "intel,socfpga-agilex5";
 
 	aliases {
 		serial0 = &uart0;
@@ -26,9 +26,9 @@
 
 		led-0 {
 			label = "hps_led0";
-			gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
+			/* gpio0 is unrouted on the debug daughter card; LED is on gpio1 */
+			gpios = <&portb 12 GPIO_ACTIVE_HIGH>;
 		};
-
 	};
 
 	memory@80000000 {
@@ -38,22 +38,16 @@
 	};
 };
 
-&gpio0 {
-	status = "okay";
-};
-
-&gmac2 {
+&gmac0 {
 	status = "okay";
 	phy-mode = "rgmii"; /* TX/RX clock delays provided by Agilex5 I/O hardware */
-	phy-handle = <&emac2_phy0>;
+	phy-handle = <&emac0_phy0>;
 	max-frame-size = <9000>;
-
 	mdio0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "snps,dwmac-mdio";
-
-		emac2_phy0: ethernet-phy@0 {
+		emac0_phy0: ethernet-phy@0 {
 			reg = <0>;
 		};
 	};
@@ -100,13 +94,26 @@
 	};
 };
 
+&spi0 {
+	status = "okay";
+
+	eeprom@0 {
+		compatible = "microchip,25aa128", "atmel,at25";
+		reg = <0>;
+		spi-max-frequency = <500000>;
+		size = <16384>;
+		pagesize = <64>;
+		address-width = <16>;
+	};
+};
+
 &uart0 {
 	status = "okay";
 };
 
-&usb0 {
+&usb31 {
+	dr_mode = "host";
 	status = "okay";
-	disable-over-current;
 };
 
 &watchdog0 {

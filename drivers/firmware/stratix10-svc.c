@@ -1444,8 +1444,7 @@ int stratix10_svc_remove_async_client(struct stratix10_svc_chan *chan)
 	}
 
 	if (achan == actrl->common_async_chan) {
-		atomic_dec(&actrl->common_achan_refcount);
-		if (atomic_read(&actrl->common_achan_refcount) == 0) {
+		if (atomic_dec_and_test(&actrl->common_achan_refcount)) {
 			ida_destroy(&achan->job_id_pool);
 			ida_free(&actrl->async_id_pool,
 				 achan->async_client_id);
