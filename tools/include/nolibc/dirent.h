@@ -27,6 +27,18 @@ typedef struct {
 	char dummy[1];
 } DIR;
 
+/* Internal dirfd() that does not set errno */
+static __attribute__((unused))
+int __nolibc_dirfd(DIR *dirp)
+{
+	intptr_t fd = ~(intptr_t)dirp;
+
+	if (fd < 0)
+		return -1;
+
+	return fd;
+}
+
 static __attribute__((unused))
 DIR *fdopendir(int fd)
 {
@@ -63,15 +75,28 @@ DIR *opendir(const char *name)
 }
 
 static __attribute__((unused))
+int dirfd(DIR *dirp)
+{
+	int fd = __nolibc_dirfd(dirp);
+
+	if (fd < 0) {
+		SET_ERRNO(EINVAL);
+		return -1;
+	}
+
+	return fd;
+}
+
+static __attribute__((unused))
 int closedir(DIR *dirp)
 {
-	intptr_t i = (intptr_t)dirp;
+	int fd = __nolibc_dirfd(dirp);
 
-	if (i >= 0) {
+	if (fd < 0) {
 		SET_ERRNO(EBADF);
 		return -1;
 	}
-	return close(~i);
+	return close(fd);
 }
 
 static __attribute__((unused))
@@ -79,14 +104,12 @@ int readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result)
 {
 	char buf[sizeof(struct linux_dirent64) + NAME_MAX + 1] __nolibc_aligned_as(struct linux_dirent64);
 	struct linux_dirent64 *ldir = (void *)buf;
-	intptr_t i = (intptr_t)dirp;
 	int fd, ret;
 	off_t off;
 
-	if (i >= 0)
+	fd = __nolibc_dirfd(dirp);
+	if (fd < 0)
 		return EBADF;
-
-	fd = ~i;
 
 	ret = _sys_getdents64(fd, ldir, sizeof(buf));
 	if (ret < 0)
