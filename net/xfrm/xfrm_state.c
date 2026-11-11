@@ -596,8 +596,14 @@ EXPORT_SYMBOL(xfrm_state_free);
 static void xfrm_state_delete_tunnel(struct xfrm_state *x);
 static void xfrm_state_gc_destroy(struct xfrm_state *x)
 {
-	if (x->mode_cbs && x->mode_cbs->destroy_state)
+	if (x->mode_cbs && x->mode_cbs->destroy_state) {
+		struct module *owner = x->mode_cbs->owner;
+
+		/* The callback may drop the last module reference. */
+		__module_get(owner);
 		x->mode_cbs->destroy_state(x);
+		module_put(owner);
+	}
 	hrtimer_cancel(&x->mtimer);
 	timer_delete_sync(&x->rtimer);
 	kfree_sensitive(x->aead);
@@ -2238,8 +2244,12 @@ struct xfrm_state *xfrm_state_migrate(struct xfrm_state *x,
 
 	xfrm_migrate_sync(xc, x);
 
-	if (xfrm_state_migrate_install(x, xc, m, extack) < 0)
+	/* Hold a reference for the caller before publishing the state. */
+	xfrm_state_hold(xc);
+	if (xfrm_state_migrate_install(x, xc, m, extack) < 0) {
+		xfrm_state_put(xc);
 		return NULL;
+	}
 
 	return xc;
 }

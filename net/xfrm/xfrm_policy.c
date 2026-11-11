@@ -4726,13 +4726,14 @@ int xfrm_migrate(const struct xfrm_selector *sel, u8 dir, u8 type,
 
 	/* Stage 4 - delete old state(s) */
 	if (nx_cur) {
-		xfrm_states_put(x_cur, nx_cur);
 		xfrm_states_delete(x_cur, nx_cur);
+		xfrm_states_put(x_cur, nx_cur);
 	}
 
 	/* Stage 5 - announce */
 	km_migrate(sel, dir, type, m, num_migrate, k, net, encap);
 
+	xfrm_states_put(x_new, nx_new);
 	xfrm_pol_put(pol);
 
 	return 0;
@@ -4744,8 +4745,10 @@ restore_state:
 		xfrm_pol_put(pol);
 	if (nx_cur)
 		xfrm_states_put(x_cur, nx_cur);
-	if (nx_new)
+	if (nx_new) {
 		xfrm_states_delete(x_new, nx_new);
+		xfrm_states_put(x_new, nx_new);
+	}
 
 	return err;
 }
