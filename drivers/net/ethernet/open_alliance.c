@@ -16,6 +16,10 @@
 #define OPEN_ALLIANCE_FEC_LEN		4
 #define OPEN_ALLIANCE_MIN_FRAME_SIZE	64
 
+/* SPI thread: poll period when idle, and delay before a retry after an SPI error */
+#define OPEN_ALLIANCE_POLL_MS		5000
+#define OPEN_ALLIANCE_RETRY_MS		10
+
 static int open_alliance_chunk_sizes_map[][4] = {
 	{ 8, 0x3 },
 	{ 16, 0x4 },
@@ -630,20 +634,27 @@ static void open_alliance_wake_queues(struct open_alliance *oa)
 static int open_alliance_spi_transfer(void *pv)
 {
 	struct open_alliance *oa = pv;
+	unsigned int sleep_ms = OPEN_ALLIANCE_POLL_MS;
 	int ret;
 	u32 val;
 
 	while (!kthread_should_stop()) {
 
-		schedule_timeout_interruptible(msecs_to_jiffies(5000) + 1);
+		schedule_timeout_interruptible(msecs_to_jiffies(sleep_ms) + 1);
+		sleep_ms = OPEN_ALLIANCE_POLL_MS;
+
 		/* Check chip register for available chunks only if
 		 * we did receive all of them in the last run.
 		 */
 		if (!oa->rca) {
 			ret = open_alliance_read_reg(oa, OPEN_ALLIANCE_CTRL_ST,
 						     OPEN_ALLIANCE_BUFSTS, &val);
-			if (ret < 0)
-				return ret;
+			if (ret < 0) {
+				dev_err_ratelimited(&oa->spidev->dev,
+						    "Buffer status read error: %d\n", ret);
+				sleep_ms = OPEN_ALLIANCE_RETRY_MS;
+				continue;
+			}
 
 			oa->rca = FIELD_GET(OPEN_ALLIANCE_BUFSTS_RCA, val);
 			oa->txc = FIELD_GET(OPEN_ALLIANCE_BUFSTS_TXC, val);
