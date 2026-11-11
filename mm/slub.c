@@ -462,8 +462,6 @@ struct slab_sheaf {
 	union {
 		struct rcu_head rcu_head;
 		struct list_head barn_list;
-		/* only used to defer call_rcu() in unknown context */
-		struct llist_node llnode;
 		/* only used for prefilled sheafs */
 		struct {
 			unsigned int capacity;
@@ -4145,7 +4143,6 @@ static void flush_all(struct kmem_cache *s)
 struct deferred_percpu_work {
 	struct llist_head objects;
 	struct llist_head objects_by_rcu;
-	struct llist_head rcu_sheaves;
 	struct irq_work work;
 };
 
@@ -4154,7 +4151,6 @@ static void deferred_percpu_work_fn(struct irq_work *work);
 static DEFINE_PER_CPU(struct deferred_percpu_work, deferred_percpu_work) = {
 	.objects = LLIST_HEAD_INIT(objects),
 	.objects_by_rcu = LLIST_HEAD_INIT(objects_by_rcu),
-	.rcu_sheaves = LLIST_HEAD_INIT(rcu_sheaves),
 	.work = IRQ_WORK_INIT(deferred_percpu_work_fn),
 };
 
@@ -6324,22 +6320,8 @@ do_free:
 	 * we flush before local_unlock to make sure a racing
 	 * flush_all_rcu_sheaves() doesn't miss this sheaf
 	 */
-	if (rcu_sheaf) {
-		/*
-		 * With !allow_spin, we might have interrupted call_rcu()'s
-		 * IRQ-disabled critical section. If IRQs are not disabled,
-		 * we know that's not the case.
-		 */
-		if (unlikely(!allow_spin && irqs_disabled())) {
-			struct deferred_percpu_work *dpw;
-
-			dpw = this_cpu_ptr(&deferred_percpu_work);
-			if (llist_add(&rcu_sheaf->llnode, &dpw->rcu_sheaves))
-				irq_work_queue(&dpw->work);
-		} else {
-			call_rcu(&rcu_sheaf->rcu_head, rcu_free_sheaf);
-		}
-	}
+	if (rcu_sheaf)
+		call_rcu(&rcu_sheaf->rcu_head, rcu_free_sheaf);
 
 	local_unlock(&s->cpu_sheaves->lock);
 
@@ -6549,12 +6531,10 @@ static void free_to_pcs_bulk(struct kmem_cache *s, size_t size, void **p)
 static void deferred_percpu_work_fn(struct irq_work *work)
 {
 	struct deferred_percpu_work *dpw;
-	struct llist_head *objs, *objs_by_rcu, *rcu_sheaves;
+	struct llist_head *objs, *objs_by_rcu;
 	struct llist_node *llnode, *pos, *t;
-	struct slab_sheaf *sheaf, *next;
 
 	dpw = container_of(work, struct deferred_percpu_work, work);
-	rcu_sheaves = &dpw->rcu_sheaves;
 	objs = &dpw->objects;
 	objs_by_rcu = &dpw->objects_by_rcu;
 
@@ -6588,10 +6568,6 @@ static void deferred_percpu_work_fn(struct irq_work *work)
 
 		kvfree_call_rcu(head, objp);
 	}
-
-	llnode = llist_del_all(rcu_sheaves);
-	llist_for_each_entry_safe(sheaf, next, llnode, llnode)
-		call_rcu(&sheaf->rcu_head, rcu_free_sheaf);
 }
 
 static void defer_free(struct kmem_cache *s, void *head)
