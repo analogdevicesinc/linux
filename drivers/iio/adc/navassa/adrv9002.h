@@ -21,6 +21,7 @@
 #include "adi_adrv9001_user.h"
 #include "adi_adrv9001_cals_types.h"
 #include "adi_adrv9001_dpd_types.h"
+#include "adi_adrv9001_pfirBuffer_types.h"
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_radio_types.h"
@@ -284,6 +285,10 @@ struct adrv9002_rf_phy {
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;
+	/* last runtime pfir (only allocated when used) */
+	adi_adrv9001_PfirWbNbBuffer_t	*pfir;
+	u32				pfir_mask;
+	bool				pfir_applied;
 	adi_adrv9001_FhCfg_t		fh;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];

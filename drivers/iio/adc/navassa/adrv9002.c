@@ -4165,6 +4165,9 @@ int adrv9002_init(struct adrv9002_rf_phy *phy, struct adi_adrv9001_Init *profile
 {
 	int ret, c;
 
+	/* (re)initializing loads the profile pfirs so any runtime pfir is gone */
+	phy->pfir_applied = false;
+
 	adrv9002_cleanup(phy);
 
 	/*
@@ -4261,6 +4264,258 @@ static ssize_t adrv9002_profile_bin_write(struct file *filp, struct kobject *kob
 	ret = adrv9002_init(phy, &phy->profile);
 
 	return (ret < 0) ? ret : count;
+}
+
+#define ADRV9002_PFIR_CONFIG_MAX_SZ	PAGE_SIZE
+/* RX1, RX2, TX1, TX2 */
+#define ADRV9002_PFIR_MASK		GENMASK(3, 0)
+#define ADRV9002_PFIR_HDR_SZ		5
+
+static unsigned int adrv9002_pfir_taps(unsigned int taps_sel)
+{
+	return (taps_sel + 1) * 32;
+}
+
+static int adrv9002_pfir_hdr_parse(const struct adrv9002_rf_phy *phy, const char *line,
+				   u32 *mask, adi_adrv9001_PfirWbNbBuffer_t *pfir)
+{
+	unsigned int n_coeffs, sym, taps, gain;
+	int ret;
+
+	ret = sscanf(line, "%u,%u,%u,%u,%u", mask, &n_coeffs, &sym, &taps, &gain);
+	if (ret != ADRV9002_PFIR_HDR_SZ) {
+		dev_err(&phy->spi->dev, "Invalid pfir header: \"%s\"\n", line);
+		return -EINVAL;
+	}
+
+	if (!*mask || *mask & ~ADRV9002_PFIR_MASK) {
+		dev_err(&phy->spi->dev, "Invalid pfir channel mask: 0x%x\n", *mask);
+		return -EINVAL;
+	}
+
+	if (sym > ADI_ADRV9001_PFIR_COEF_SYMMETRIC) {
+		dev_err(&phy->spi->dev, "Invalid pfir symmetric: %u\n", sym);
+		return -EINVAL;
+	}
+
+	if (taps > ADI_ADRV9001_PFIR_TAPS_MAX_ID) {
+		dev_err(&phy->spi->dev, "Invalid pfir taps: %u\n", taps);
+		return -EINVAL;
+	}
+
+	if (gain > ADI_ADRV9001_PFIR_GAIN_MAX) {
+		dev_err(&phy->spi->dev, "Invalid pfir gain: %u\n", gain);
+		return -EINVAL;
+	}
+
+	if (!n_coeffs || n_coeffs > adrv9002_pfir_taps(taps)) {
+		dev_err(&phy->spi->dev, "Invalid number of pfir coefficients(%u) for %u taps\n",
+			n_coeffs, adrv9002_pfir_taps(taps));
+		return -EINVAL;
+	}
+
+	pfir->numCoeff = n_coeffs;
+	pfir->symmetricSel = sym;
+	pfir->tapsSel = taps;
+	pfir->gainSel = gain;
+
+	return 0;
+}
+
+/*
+ * Format:
+ *	# optional comment lines
+ *	<channel_mask>,<num_coeffs>,<symmetric>,<taps_sel>,<gain_sel>
+ *	<coeff 0>
+ *	...
+ *	<coeff num_coeffs - 1>
+ * The channel mask follows the API convention: BIT(0) - RX1, BIT(1) - RX2, BIT(2) - TX1,
+ * BIT(3) - TX2. For RX, the channel filter is updated while for TX it's the pulse shaping
+ * filter.
+ */
+static int adrv9002_pfir_parse(const struct adrv9002_rf_phy *phy, char *cfg, u32 *mask,
+			       adi_adrv9001_PfirWbNbBuffer_t *pfir)
+{
+	unsigned int n = 0;
+	bool hdr = false;
+	char *line;
+	int ret;
+
+	while ((line = strsep(&cfg, "\n"))) {
+		line = strim(line);
+		/* skip comment lines or blank lines */
+		if (line[0] == '#' || !line[0])
+			continue;
+
+		if (!hdr) {
+			ret = adrv9002_pfir_hdr_parse(phy, line, mask, pfir);
+			if (ret)
+				return ret;
+
+			hdr = true;
+			continue;
+		}
+
+		if (n == pfir->numCoeff) {
+			dev_err(&phy->spi->dev, "More than %u pfir coefficients given\n",
+				pfir->numCoeff);
+			return -EINVAL;
+		}
+
+		ret = kstrtos32(line, 0, &pfir->coefficients[n]);
+		if (ret) {
+			dev_err(&phy->spi->dev, "Invalid pfir coefficient(%u): \"%s\"\n", n, line);
+			return ret;
+		}
+
+		n++;
+	}
+
+	if (!hdr || n != pfir->numCoeff) {
+		dev_err(&phy->spi->dev, "Incomplete pfir configuration (%u coefficients)\n", n);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static u32 adrv9002_pfir_chan_mask(const struct adrv9002_chan *c)
+{
+	/* RX1, RX2, TX1, TX2 */
+	return c->port == ADI_RX ? BIT(c->idx) : BIT(c->idx + 2);
+}
+
+static int adrv9002_pfir_apply(struct adrv9002_rf_phy *phy, u32 mask,
+			       const adi_adrv9001_PfirWbNbBuffer_t *pfir)
+{
+	int ret, c;
+
+	/*
+	 * The coefficients can be sent in any channel state (including rf_enabled) as the
+	 * device keeps using the current ones until the profile switch. The device double
+	 * buffers the pfir, so the new coefficients go to the bank not in use and that one
+	 * becomes active on the switch. Hence, do the slow part before stopping the channels.
+	 */
+	ret = api_call(phy, adi_adrv9001_arm_NextPfir_Set, mask, pfir);
+	if (ret)
+		return ret;
+
+	/*
+	 * The profile switch requires all channels to be in calibrated or primed state. Use
+	 * primed as moving from (and back to) rf_enabled is faster than going to calibrated.
+	 */
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		adrv9002_port_enable(phy, phy->channels[c], false);
+		ret = adrv9002_channel_to_state(phy, phy->channels[c],
+						ADI_ADRV9001_CHANNEL_PRIMED, true);
+		if (ret)
+			return ret;
+	}
+
+	ret = api_call(phy, adi_adrv9001_arm_Profile_Switch);
+	if (ret)
+		return ret;
+	/*
+	 * There's no way to know when the switch is done. As per the user guide, it takes about
+	 * 50us so give it some margin before restoring the channels state.
+	 */
+	fsleep(100);
+
+	/* restore state */
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		struct adrv9002_chan *ch = phy->channels[c];
+
+		ret = adrv9002_channel_to_state(phy, ch, ch->cached_state, false);
+		if (ret)
+			return ret;
+
+		adrv9002_port_enable(phy, ch, true);
+	}
+
+	return 0;
+}
+
+static ssize_t adrv9002_pfir_bin_write(struct file *filp, struct kobject *kobj,
+				       struct bin_attribute *bin_attr, char *buf, loff_t off,
+				       size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	u32 mask, enabled = 0;
+	int ret, c;
+
+	/* force a one write() call as it simplifies things a lot */
+	if (off) {
+		dev_err(&phy->spi->dev, "pfir config must be set in one write() call\n");
+		return -EINVAL;
+	}
+
+	adi_adrv9001_PfirWbNbBuffer_t *pfir __free(kfree) = kzalloc(sizeof(*pfir), GFP_KERNEL);
+	if (!pfir)
+		return -ENOMEM;
+
+	/* @buf is always NULL terminated (by kernfs) so it can be parsed in place */
+	ret = adrv9002_pfir_parse(phy, buf, &mask, pfir);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&phy->lock);
+	for (c = 0; c < ARRAY_SIZE(phy->channels); c++) {
+		if (phy->channels[c]->enabled)
+			enabled |= adrv9002_pfir_chan_mask(phy->channels[c]);
+	}
+
+	if ((mask & enabled) != mask) {
+		dev_err(&phy->spi->dev, "pfir mask(0x%x) has channels not enabled(0x%x)\n",
+			mask, enabled);
+		return -EINVAL;
+	}
+
+	ret = adrv9002_pfir_apply(phy, mask, pfir);
+	if (ret)
+		return ret;
+
+	/* only keep memory around for the pfir if the feature is used */
+	if (!phy->pfir) {
+		phy->pfir = devm_kzalloc(&phy->spi->dev, sizeof(*phy->pfir), GFP_KERNEL);
+		if (!phy->pfir)
+			return -ENOMEM;
+	}
+
+	*phy->pfir = *pfir;
+	phy->pfir_mask = mask;
+	phy->pfir_applied = true;
+
+	return count;
+}
+
+static ssize_t adrv9002_pfir_bin_read(struct file *filp, struct kobject *kobj,
+				      struct bin_attribute *bin_attr, char *buf, loff_t off,
+				      size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
+	const adi_adrv9001_PfirWbNbBuffer_t *pfir;
+	int len, i;
+
+	guard(mutex)(&phy->lock);
+	if (!phy->pfir_applied)
+		return 0;
+
+	pfir = phy->pfir;
+
+	char *tmp __free(kfree) = kzalloc(ADRV9002_PFIR_CONFIG_MAX_SZ, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	/* same format as the input so it can be written back */
+	len = scnprintf(tmp, ADRV9002_PFIR_CONFIG_MAX_SZ, "%u,%u,%u,%u,%u\n", phy->pfir_mask,
+			pfir->numCoeff, pfir->symmetricSel, pfir->tapsSel, pfir->gainSel);
+	for (i = 0; i < pfir->numCoeff; i++)
+		len += scnprintf(tmp + len, ADRV9002_PFIR_CONFIG_MAX_SZ - len, "%d\n",
+				 pfir->coefficients[i]);
+
+	return memory_read_from_buffer(buf, count, &off, tmp, len);
 }
 
 static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj,
@@ -4807,6 +5062,8 @@ ADRV9002_DPD_COEFICCIENTS(1, 7);
 static BIN_ATTR(stream_config, 0222, NULL, adrv9002_stream_bin_write, ADRV9002_STREAM_BINARY_SZ);
 static BIN_ATTR(profile_config, 0644, adrv9002_profile_bin_read, adrv9002_profile_bin_write,
 		ADRV9002_PROFILE_MAX_SZ);
+static BIN_ATTR(pfir_config, 0644, adrv9002_pfir_bin_read, adrv9002_pfir_bin_write,
+		ADRV9002_PFIR_CONFIG_MAX_SZ);
 static BIN_ATTR(warmboot_coefficients, 0400, adrv9002_init_cals_bin_read, NULL,
 		ADRV9002_INIT_CALS_COEFFS_MAX);
 
@@ -5059,6 +5316,10 @@ tx_clk_register:
 		return -ENOMEM;
 
 	ret = adrv9002_bin_attr_add(&indio_dev->dev, &bin_attr_stream_config);
+	if (ret < 0)
+		return ret;
+
+	ret = adrv9002_bin_attr_add(&indio_dev->dev, &bin_attr_pfir_config);
 	if (ret < 0)
 		return ret;
 
