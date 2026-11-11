@@ -109,14 +109,21 @@ static inline void pte_clear (struct mm_struct *mm, unsigned long addr, pte_t *p
 #define pmd_page(pmd)		virt_to_page((void *)pmd_page_vaddr(pmd))
 
 
-static inline int pmd_none2 (pmd_t *pmd) { return !pmd_val (*pmd); }
-#define pmd_none(pmd) pmd_none2(&(pmd))
-//static inline int pmd_bad (pmd_t pmd) { return (pmd_val (pmd) & SUN3_PMD_MASK) != SUN3_PMD_MAGIC; }
-static inline int pmd_bad2 (pmd_t *pmd) { return 0; }
-#define pmd_bad(pmd) pmd_bad2(&(pmd))
-static inline int pmd_present2 (pmd_t *pmd) { return pmd_val (*pmd) & SUN3_PMD_VALID; }
-/* #define pmd_present(pmd) pmd_present2(&(pmd)) */
-#define pmd_present(pmd) (!pmd_none2(&(pmd)))
+static inline int pmd_none(pmd_t pmd)
+{
+	return !pmd_val(pmd);
+}
+
+static inline int pmd_bad(pmd_t pmd)
+{
+	return 0;
+}
+
+static inline int pmd_present(pmd_t pmd)
+{
+	return !pmd_none(pmd);
+}
+
 static inline void pmd_clear (pmd_t *pmdp) { pmd_val (*pmdp) = 0; }
 
 /*
