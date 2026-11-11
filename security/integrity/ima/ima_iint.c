@@ -59,7 +59,7 @@ static void ima_iint_init_always(struct ima_iint_cache *iint,
 				 struct inode *inode)
 {
 	iint->ima_hash = NULL;
-	iint->real_inode.version = 0;
+	memset(&iint->real_inode, 0, sizeof(iint->real_inode));
 	iint->flags = 0UL;
 	iint->atomic_flags = 0UL;
 	iint->ima_file_status = INTEGRITY_UNKNOWN;
