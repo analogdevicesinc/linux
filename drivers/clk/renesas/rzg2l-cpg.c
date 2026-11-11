@@ -1452,8 +1452,8 @@ static int rzg3l_cpg_pll_clk_endisable(struct clk_hw *hw, bool enable)
 	ret = readl_poll_timeout_atomic(priv->base + mon_offset, val,
 					mon_val == (val & mon_mask), 10, 100);
 	if (ret)
-		dev_err(priv->dev, "Failed to %s PLL 0x%x/%pC\n", enable ?
-			"enable" : "disable", stby_offset, hw->clk);
+		dev_err(priv->dev, "Failed to %s PLL 0x%x/%pC\n",
+			str_enable_disable(enable), stby_offset, hw->clk);
 
 	return ret;
 }

@@ -207,6 +207,7 @@ enum clk_types {
 	CLK_TYPE_SMUX,		/* Static Mux */
 	CLK_TYPE_PLLDSI,	/* PLLDSI */
 	CLK_TYPE_PLLDSI_DIV,	/* PLLDSI divider */
+	CLK_TYPE_PLLDSI_DIV_LVDS, /* PLLDSI LVDS divider */
 	CLK_TYPE_PLLDSI_SMUX,	/* PLLDSI Static Mux */
 };
 
@@ -246,12 +247,15 @@ enum clk_types {
 		 .dtable = _dtable, \
 		 .parent = _parent, \
 		 .flag = CLK_SET_RATE_PARENT)
+#define DEF_PLLDSI_DIV_LVDS(_name, _id, _parent, _div) \
+	DEF_BASE(_name, _id, CLK_TYPE_PLLDSI_DIV_LVDS, _parent, .div = _div, .mult = 1)
 #define DEF_PLLDSI_SMUX(_name, _id, _smux_packed, _parent_names) \
 	DEF_TYPE(_name, _id, CLK_TYPE_PLLDSI_SMUX, \
 		 .cfg.smux = _smux_packed, \
 		 .parent_names = _parent_names, \
 		 .num_parents = ARRAY_SIZE(_parent_names), \
-		 .flag = CLK_SET_RATE_PARENT, \
+		 .flag = CLK_SET_RATE_PARENT | CLK_DUTY_CYCLE_PARENT | \
+			 CLK_SET_RATE_NO_REPARENT, \
 		 .mux_flags = CLK_MUX_HIWORD_MASK)
 
 /**
