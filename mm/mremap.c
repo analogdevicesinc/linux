@@ -1023,7 +1023,7 @@ static void vrm_stat_account(struct vma_remap_struct *vrm,
 }
 
 static bool __check_map_count_against_split(struct mm_struct *mm,
-					    bool pre_split,
+					    bool source_stays,
 					    bool before_unmaps)
 {
 	const int sys_map_count = get_sysctl_max_map_count();
@@ -1077,14 +1077,14 @@ static bool __check_map_count_against_split(struct mm_struct *mm,
 	 */
 	map_count += 2;
 
-	/* If pre-split, the -1 observed above doesn't apply. */
-	if (pre_split)
+	/* If the split off source stays, the -1 observed above doesn't apply. */
+	if (source_stays)
 		map_count++;
 
 	return map_count <= sys_map_count;
 }
 
-static bool needs_pre_split(struct vma_remap_struct *vrm)
+static bool split_source_stays(struct vma_remap_struct *vrm)
 {
 	/*
 	 * An MREMAP_DONTUNMAP of a mlock()'d VMA needs to unlock the
@@ -1094,11 +1094,23 @@ static bool needs_pre_split(struct vma_remap_struct *vrm)
 		vma_test(vrm->vma, VMA_LOCKED_BIT);
 }
 
+static bool needs_pre_split(struct vma_remap_struct *vrm)
+{
+	/*
+	 * fixup_hugetlb_reservations() takes the reservations away from the
+	 * source VMA.  The parts of it that do not move have to keep theirs.
+	 */
+	if (vma_is_hugetlb(vrm->vma))
+		return true;
+
+	return split_source_stays(vrm);
+}
+
 /* Do we violate the map count limit if we split VMAs when moving the VMA? */
 static bool check_map_count_against_split(struct vma_remap_struct *vrm)
 {
 	return __check_map_count_against_split(current->mm,
-		needs_pre_split(vrm), /*before_unmaps=*/false);
+		split_source_stays(vrm), /*before_unmaps=*/false);
 }
 
 /* Do we violate the map count limit if we split VMAs prior to early unmaps? */
@@ -1147,10 +1159,7 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	if (err)
 		return err;
 
-	/*
-	 * To account mlock()'d pages correctly in the MREMAP_DONTUNMAP
-	 * case perform any split ahead of time for an mlock()'d VMA.
-	 */
+	/* Perform any split ahead of time if the source VMA has to be distinct. */
 	if (needs_pre_split(vrm)) {
 		VMA_ITERATOR(vmi, vma->vm_mm, old_addr);
 
@@ -1163,6 +1172,19 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	}
 
 	return 0;
+}
+
+/* Set VMA_ACCOUNT_BIT on all VMAs in the range [start, end). */
+static void vma_range_set_account(struct vma_iterator *vmi,
+				  unsigned long start, unsigned long end)
+{
+	struct vm_area_struct *vma;
+
+	vma_iter_set(vmi, start);
+	for_each_vma_range(*vmi, vma, end) {
+		vma_start_write(vma);
+		vma_set_flags(vma, VMA_ACCOUNT_BIT);
+	}
 }
 
 /*
@@ -1222,7 +1244,10 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	vrm->vmi_needs_invalidate = true;
 	if (err) {
 		/* OOM: unable to split vma, just get accounts right */
-		vm_acct_memory(len >> PAGE_SHIFT);
+		if (accountable_move) {
+			vm_acct_memory(len >> PAGE_SHIFT);
+			vma_range_set_account(&vmi, vm_start, vm_end);
+		}
 		return;
 	}
 
@@ -1246,28 +1271,10 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	 * | A |     | B |
 	 * |---|     |---|
 	 *
-	 * The VMI is still pointing at addr, so vma_prev() will give us A, and
-	 * a subsequent or lone vma_next() will give as B.
-	 *
-	 * do_vmi_munmap() will have restored the VMI back to addr.
+	 * So reinstate the flag on whatever is left of the range.
 	 */
-	if (accountable_move) {
-		unsigned long end = addr + len;
-
-		if (vm_start < addr) {
-			struct vm_area_struct *prev = vma_prev(&vmi);
-
-			vma_start_write(prev);
-			vma_set_flags(prev, VMA_ACCOUNT_BIT);
-		}
-
-		if (vm_end > end) {
-			struct vm_area_struct *next = vma_next(&vmi);
-
-			vma_start_write(next);
-			vma_set_flags(next, VMA_ACCOUNT_BIT);
-		}
-	}
+	if (accountable_move)
+		vma_range_set_account(&vmi, vm_start, vm_end);
 }
 
 /*

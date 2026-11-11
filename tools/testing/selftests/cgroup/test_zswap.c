@@ -503,6 +503,8 @@ static int test_no_invasive_cgroup_shrink(const char *root)
 	if (cg_enter_current(zw_group))
 		goto out;
 	zw_allocation = malloc(allocation_size);
+	if (!zw_allocation)
+		goto out;
 	for (int i = 0; i < nr_pages; i++) {
 		off = (unsigned long)i * page_size;
 		memset(&zw_allocation[off], 0, page_size);

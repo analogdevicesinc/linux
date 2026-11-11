@@ -3,6 +3,7 @@
 #define _ASM_WORD_AT_A_TIME_H
 
 #include <linux/bitops.h>
+#include <linux/instrumented.h>
 #include <linux/wordpart.h>
 
 struct word_at_a_time {
@@ -70,6 +71,9 @@ static inline unsigned long find_zero(unsigned long mask)
 static inline unsigned long load_unaligned_zeropad(const void *addr)
 {
 	unsigned long ret;
+
+	/* Check only the first byte, the rest may lie past the object */
+	instrument_read(addr, 1);
 
 	asm volatile(
 		"1:	mov %[mem], %[ret]\n"

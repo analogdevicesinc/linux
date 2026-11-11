@@ -44,6 +44,7 @@
 
 #include <asm/tlbflush.h>
 #include "internal.h"
+#include "memory-failure.h"
 #include "mm_slot.h"
 
 #define CREATE_TRACE_POINTS

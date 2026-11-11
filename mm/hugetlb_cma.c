@@ -4,10 +4,8 @@
 #include <linux/cma.h>
 #include <linux/compiler.h>
 #include <linux/cpuset.h>
-#include <linux/mm_inline.h>
 
 #include <asm/page.h>
-#include <asm/setup.h>
 
 #include <linux/hugetlb.h>
 #include <linux/memblock.h>
@@ -166,6 +164,9 @@ static int __init cmdline_parse_hugetlb_cma(char *p)
 				break;
 		} else {
 			char *next;
+
+			if (s != p)
+				return -EINVAL;
 
 			tmp = memparse(p, &next);
 			if (*next == '%') {

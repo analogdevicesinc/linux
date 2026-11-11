@@ -17,6 +17,7 @@
 #include <stdbool.h>
 
 #include "kselftest.h"
+#include "vm_util.h"
 
 #define EXPECT_SUCCESS 0
 #define EXPECT_FAILURE 1
@@ -190,7 +191,7 @@ retry:
 	if (addr < mmap_min_addr)
 		goto retry;
 
-	src_addr = mmap((void *) addr, c.region_size, PROT_READ | PROT_WRITE,
+	src_addr = mmap(u64_to_ptr(addr), c.region_size, PROT_READ | PROT_WRITE,
 					MAP_FIXED_NOREPLACE | MAP_ANONYMOUS | MAP_SHARED,
 					-1, 0);
 	if (src_addr == MAP_FAILED) {
@@ -206,8 +207,8 @@ retry:
 	 * requested alignment of 2MB. This is done to reduce coincidental
 	 * alignment in the tests.
 	 */
-	if (((unsigned long long) src_addr & (c.src_alignment - 1)) ||
-			!((unsigned long long) src_addr & c.src_alignment)) {
+	if ((ptr_to_u64(src_addr) & (c.src_alignment - 1)) ||
+			!(ptr_to_u64(src_addr) & c.src_alignment)) {
 		munmap(src_addr, c.region_size);
 		goto retry;
 	}
@@ -603,6 +604,53 @@ out:
 				      inplace ? " [inplace]" : "");
 }
 
+/*
+ * An old size of 0 duplicates a shared mapping: the pages show up at a second
+ * address, and the mapping they were taken from stays as it is.
+ */
+static void mremap_duplicate_shared(FILE *maps_fp, unsigned long page_size,
+				    unsigned long offset)
+{
+	char *test_name = "mremap duplicate shared mapping";
+	const size_t size = 3 * page_size;
+	const size_t dup_size = size - offset;
+	char *dup = MAP_FAILED;
+	bool success = false;
+	char *ptr;
+
+	ptr = mmap(NULL, size, PROT_READ | PROT_WRITE,
+		   MAP_SHARED | MAP_ANON, -1, 0);
+	if (ptr == MAP_FAILED) {
+		ksft_perror("mmap");
+		goto out;
+	}
+	memset(ptr, 'a', size);
+
+	dup = mremap(ptr + offset, 0, dup_size, MREMAP_MAYMOVE);
+	if (dup == MAP_FAILED) {
+		ksft_perror("mremap");
+		goto out_unmap;
+	}
+
+	/* Both are mapped, each by a single VMA. */
+	if (!is_ptr_mapped(maps_fp, ptr, size) ||
+	    !is_ptr_mapped(maps_fp, dup, dup_size))
+		goto out_unmap;
+
+	/* They show the same pages. */
+	ptr[offset] = 'b';
+	dup[dup_size - 1] = 'c';
+	success = dup[0] == 'b' && ptr[size - 1] == 'c' && ptr[0] != 'c';
+
+out_unmap:
+	if (dup != MAP_FAILED)
+		munmap(dup, dup_size);
+	munmap(ptr, size);
+out:
+	ksft_test_result(success, "%s%s\n", test_name,
+			 offset ? " [from the middle]" : "");
+}
+
 static void mremap_move_multiple_vmas_split(unsigned int pattern_seed,
 					    unsigned long page_size,
 					    bool dont_unmap)
@@ -996,15 +1044,15 @@ static long long remap_region(struct config c, unsigned int threshold_mb,
 	align_mask = ~(c.dest_alignment - 1);
 	/* Offset of destination address from the end of the source region */
 	offset = (c.overlapping) ? -c.dest_alignment : c.dest_alignment;
-	addr = (void *) (((unsigned long long) src_addr + c.region_size
+	addr = u64_to_ptr((ptr_to_u64(src_addr) + c.region_size
 			  + offset) & align_mask);
 
 	/* Remap after the destination block preamble. */
 	addr += c.dest_preamble_size;
 
 	/* See comment in get_source_mapping() */
-	if (!((unsigned long long) addr & c.dest_alignment))
-		addr = (void *) ((unsigned long long) addr | c.dest_alignment);
+	if (!(ptr_to_u64(addr) & c.dest_alignment))
+		addr = u64_to_ptr(ptr_to_u64(addr) | c.dest_alignment);
 
 	/* Don't destroy existing mappings unless expected to overlap. */
 	while (!is_remap_region_valid(addr - c.dest_preamble_size,
@@ -1248,7 +1296,7 @@ int main(int argc, char **argv)
 	char *rand_addr;
 	size_t rand_size;
 	int num_expand_tests = 2;
-	int num_misc_tests = 9;
+	int num_misc_tests = 11;
 	struct test test_cases[MAX_TEST] = {};
 	struct test perf_test_cases[MAX_PERF_TEST];
 	int page_size;
@@ -1385,6 +1433,8 @@ int main(int argc, char **argv)
 	mremap_move_multiple_vmas_split(pattern_seed, page_size, /* dontunmap= */ false);
 	mremap_move_multiple_vmas_split(pattern_seed, page_size, /* dontunmap= */ true);
 	mremap_move_multi_invalid_vmas(maps_fp, page_size);
+	mremap_duplicate_shared(maps_fp, page_size, 0);
+	mremap_duplicate_shared(maps_fp, page_size, page_size);
 
 	fclose(maps_fp);
 
