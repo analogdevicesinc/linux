@@ -1102,6 +1102,16 @@ static void scpsys_remove_one_domain(struct scpsys_domain *pd)
 			"failed to remove domain '%s' : %d - state may be inconsistent\n",
 			pd->genpd.name, ret);
 
+	/*
+	 * Domains with MTK_SCPD_KEEP_DEFAULT_OFF are registered as off and were
+	 * never powered on by this driver (nothing can use them before the
+	 * provider is added), so their clocks were never enabled. If the
+	 * bootloader left one on, running the power-off sequence here would
+	 * disable clocks that are not enabled.
+	 */
+	if (MTK_SCPD_CAPS(pd, MTK_SCPD_KEEP_DEFAULT_OFF))
+		goto put_clocks;
+
 	if (scpsys->soc_data->type == SCPSYS_MTCMOS_TYPE_HW_VOTER) {
 		if (scpsys_hwv_domain_is_enable_done(pd))
 			scpsys_hwv_power_off_internal(pd);
@@ -1110,6 +1120,7 @@ static void scpsys_remove_one_domain(struct scpsys_domain *pd)
 			scpsys_power_off_internal(pd);
 	}
 
+put_clocks:
 	clk_bulk_put(pd->num_clks, pd->clks);
 	clk_bulk_put(pd->num_subsys_clks, pd->subsys_clks);
 }
