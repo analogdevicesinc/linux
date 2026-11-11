@@ -310,7 +310,7 @@ static bool try_to_map_unused_to_zeropage(struct page_vma_mapped_walk *pvmw,
 	VM_BUG_ON_PAGE(pte_present(old_pte), page);
 	VM_WARN_ON_ONCE_FOLIO(folio_is_device_private(folio), folio);
 
-	if (folio_test_mlocked(folio) || (pvmw->vma->vm_flags & VM_LOCKED) ||
+	if (folio_test_mlocked(folio) || vma_test(pvmw->vma, VMA_LOCKED_BIT) ||
 	    mm_forbids_zeropage(pvmw->vma->vm_mm))
 		return false;
 
@@ -690,8 +690,20 @@ static int __folio_migrate_mapping(struct address_space *mapping,
 		old_lruvec = mem_cgroup_lruvec(memcg, oldzone->zone_pgdat);
 		new_lruvec = mem_cgroup_lruvec(memcg, newzone->zone_pgdat);
 
-		mod_lruvec_state(old_lruvec, NR_FILE_PAGES, -nr);
-		mod_lruvec_state(new_lruvec, NR_FILE_PAGES, nr);
+		/*
+		 * Swapcache folios carry NR_FILE_PAGES on the node plane
+		 * only (their memcg footprint is NR_SWAPCACHE, see
+		 * swap_state.c), so move only the node plane for them.
+		 */
+		if (folio_test_swapcache(folio)) {
+			mod_node_page_state(oldzone->zone_pgdat, NR_FILE_PAGES,
+					    -nr);
+			mod_node_page_state(newzone->zone_pgdat, NR_FILE_PAGES,
+					    nr);
+		} else {
+			mod_lruvec_state(old_lruvec, NR_FILE_PAGES, -nr);
+			mod_lruvec_state(new_lruvec, NR_FILE_PAGES, nr);
+		}
 		if (folio_test_swapbacked(folio) && !folio_test_swapcache(folio)) {
 			mod_lruvec_state(old_lruvec, NR_SHMEM, -nr);
 			mod_lruvec_state(new_lruvec, NR_SHMEM, nr);
@@ -2372,6 +2384,8 @@ static int do_pages_move(struct mm_struct *mm, nodemask_t task_nodes,
 		const void __user *p;
 		int node;
 
+		cond_resched();
+
 		err = -EFAULT;
 		if (in_compat_syscall()) {
 			compat_uptr_t cp;
@@ -2545,6 +2559,7 @@ static int do_pages_stat(struct mm_struct *mm, unsigned long nr_pages,
 
 		chunk_offset += chunk_nr;
 		nr_pages -= chunk_nr;
+		cond_resched();
 	}
 	return nr_pages ? -EFAULT : 0;
 }
@@ -2701,7 +2716,8 @@ int migrate_misplaced_folio_prepare(struct folio *folio,
 		 * See folio_maybe_mapped_shared() on possible imprecision
 		 * when we cannot easily detect if a folio is shared.
 		 */
-		if ((vma->vm_flags & VM_EXEC) && folio_maybe_mapped_shared(folio))
+		if (vma_test(vma, VMA_EXEC_BIT) &&
+		    folio_maybe_mapped_shared(folio))
 			return -EACCES;
 
 		/*
