@@ -34,6 +34,8 @@
 
 #define TK_UPDATE_ALL		(TK_CLEAR_NTP | TK_CLOCK_WAS_SET)
 
+#define TK_INITIAL_TAI_OFFSET	37
+
 enum timekeeping_adv_mode {
 	/* Update timekeeper when a tick has passed */
 	TK_ADV_TICK,
@@ -2094,6 +2096,8 @@ void __init timekeeping_init(void)
 	tks->raw_sec = 0;
 
 	tk_set_wall_to_mono(tks, wall_to_mono);
+
+	__timekeeping_set_tai_offset(tks, TK_INITIAL_TAI_OFFSET);
 
 	/*
 	 * Use TK_UPDATE_ALL so the NTP layer picks up the clocksource's

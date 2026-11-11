@@ -925,7 +925,6 @@ static void pmac_cpu_offline_self(void)
 	int cpu = smp_processor_id();
 
 	local_irq_disable();
-	idle_task_exit();
 	pr_debug("CPU%d offline\n", cpu);
 	generic_set_cpu_dead(cpu);
 	smp_wmb();
@@ -940,7 +939,6 @@ static void pmac_cpu_offline_self(void)
 	int cpu = smp_processor_id();
 
 	local_irq_disable();
-	idle_task_exit();
 
 	/*
 	 * turn off as much as possible, we'll be

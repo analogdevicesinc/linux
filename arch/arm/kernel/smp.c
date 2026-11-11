@@ -319,8 +319,6 @@ void __noreturn arch_cpu_idle_dead(void)
 {
 	unsigned int cpu = smp_processor_id();
 
-	idle_task_exit();
-
 	local_irq_disable();
 
 	/*

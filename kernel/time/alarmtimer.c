@@ -61,7 +61,6 @@ static DEFINE_SPINLOCK(freezer_delta_lock);
 /* rtc timer and device for setting alarm wakeups at suspend */
 static struct rtc_timer		rtctimer;
 static struct rtc_device	*rtcdev;
-static DEFINE_SPINLOCK(rtcdev_lock);
 
 /**
  * alarmtimer_get_rtcdev - Return selected rtcdevice
@@ -70,12 +69,7 @@ static DEFINE_SPINLOCK(rtcdev_lock);
  */
 struct rtc_device *alarmtimer_get_rtcdev(void)
 {
-	struct rtc_device *ret;
-
-	guard(spinlock_irqsave)(&rtcdev_lock);
-	ret = rtcdev;
-
-	return ret;
+	return READ_ONCE(rtcdev);
 }
 EXPORT_SYMBOL_GPL(alarmtimer_get_rtcdev);
 
@@ -83,7 +77,6 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 {
 	struct rtc_device *rtc = to_rtc_device(dev);
 	struct platform_device *pdev;
-	int ret = 0;
 
 	if (rtcdev)
 		return -EBUSY;
@@ -95,22 +88,21 @@ static int alarmtimer_rtc_add_device(struct device *dev)
 
 	pdev = platform_device_register_data(dev, "alarmtimer",
 					     PLATFORM_DEVID_AUTO, NULL, 0);
-	if (!IS_ERR(pdev))
-		device_init_wakeup(&pdev->dev, true);
+	if (IS_ERR(pdev))
+		return PTR_ERR(pdev);
 
-	scoped_guard(spinlock_irqsave, &rtcdev_lock) {
-		if (!IS_ERR(pdev) && !rtcdev && try_module_get(rtc->owner)) {
-			rtcdev = rtc;
-			/* hold a reference so it doesn't go away */
-			get_device(dev);
-			pdev = NULL;
-		} else {
-			ret = -1;
-		}
+	device_init_wakeup(&pdev->dev, true);
+
+	if (!try_module_get(rtc->owner)) {
+		platform_device_unregister(pdev);
+		return -1;
 	}
 
-	platform_device_unregister(pdev);
-	return ret;
+	WRITE_ONCE(rtcdev, rtc);
+	/* Hold a reference so it doesn't go away */
+	get_device(dev);
+
+	return 0;
 }
 
 static inline void alarmtimer_rtc_timer_init(void)
@@ -316,6 +308,7 @@ __alarm_init(struct alarm *alarm, enum alarmtimer_type type,
 	     void (*function)(struct alarm *, ktime_t))
 {
 	timerqueue_init(&alarm->node);
+	alarm->node.expires = 0;
 	alarm->function = function;
 	alarm->type = type;
 	alarm->state = ALARMTIMER_STATE_INACTIVE;
@@ -351,10 +344,9 @@ bool alarm_start_timer(struct alarm *alarm, ktime_t expires, bool relative)
 	if (relative)
 		expires = ktime_add_safe(expires, base->get_ktime());
 
-	trace_alarmtimer_start(alarm, base->get_ktime());
-
 	guard(spinlock_irqsave)(&base->lock);
 	alarm->node.expires = expires;
+	trace_alarmtimer_start(alarm, base->get_ktime());
 	alarmtimer_enqueue(base, alarm);
 	if (!hrtimer_start_range_ns_user(&alarm->timer, expires, 0, HRTIMER_MODE_ABS)) {
 		alarmtimer_dequeue(base, alarm);

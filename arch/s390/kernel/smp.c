@@ -918,7 +918,6 @@ void __cpu_die(unsigned int cpu)
 
 void __noreturn cpu_die(void)
 {
-	idle_task_exit();
 	pcpu_sigp_retry(this_cpu_ptr(&pcpu_devices), SIGP_STOP, 0);
 	for (;;) ;
 }

@@ -1020,9 +1020,7 @@ static unsigned int kstat_irqs_desc(struct irq_desc *desc, const struct cpumask 
 	unsigned int sum = 0;
 	int cpu;
 
-	if (!irq_settings_is_per_cpu_devid(desc) &&
-	    !irq_settings_is_per_cpu(desc) &&
-	    !irq_is_nmi(desc))
+	if (irq_desc_has_tot_count(desc))
 		return data_race(desc->tot_count);
 
 	for_each_cpu(cpu, cpumask)

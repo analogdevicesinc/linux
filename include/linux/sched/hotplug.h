@@ -18,6 +18,4 @@ extern int sched_cpu_dying(unsigned int cpu);
 # define sched_cpu_dying	NULL
 #endif
 
-static inline void idle_task_exit(void) {}
-
 #endif /* _LINUX_SCHED_HOTPLUG_H */

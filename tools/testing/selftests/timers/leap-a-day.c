@@ -139,20 +139,21 @@ void sigalarm(int signo)
 	ret = adjtimex(&tx);
 
 	if (tx.time.tv_sec < next_leap) {
-		printf("Error: Early timer expiration! (Should be %ld)\n", next_leap);
+		printf("Error: Early timer expiration! (Should be %lld)\n",
+		       (long long)next_leap);
 		error_found = 1;
-		printf("adjtimex: %10ld sec + %6ld us (%i)\t%s\n",
-					tx.time.tv_sec,
-					tx.time.tv_usec,
+		printf("adjtimex: %10lld sec + %6lld us (%i)\t%s\n",
+					(long long)tx.time.tv_sec,
+					(long long)tx.time.tv_usec,
 					tx.tai,
 					time_state_str(ret));
 	}
 	if (ret != TIME_WAIT) {
 		printf("Error: Timer seeing incorrect NTP state? (Should be TIME_WAIT)\n");
 		error_found = 1;
-		printf("adjtimex: %10ld sec + %6ld us (%i)\t%s\n",
-					tx.time.tv_sec,
-					tx.time.tv_usec,
+		printf("adjtimex: %10lld sec + %6lld us (%i)\t%s\n",
+					(long long)tx.time.tv_sec,
+					(long long)tx.time.tv_usec,
 					tx.tai,
 					time_state_str(ret));
 	}
@@ -291,7 +292,8 @@ int main(int argc, char **argv)
 		printf("Scheduling leap second for %s", ctime(&next_leap));
 
 		/* Set up timer */
-		printf("Setting timer for %ld -  %s", next_leap, ctime(&next_leap));
+		printf("Setting timer for %lld -  %s", (long long)next_leap,
+		       ctime(&next_leap));
 		memset(&se, 0, sizeof(se));
 		se.sigev_notify = SIGEV_SIGNAL;
 		se.sigev_signo = signum;
@@ -339,17 +341,17 @@ int main(int argc, char **argv)
 
 			if (tai_time) {
 				clock_gettime(CLOCK_TAI, &tai);
-				printf("%ld sec, %9ld ns\t%s\n",
-						tai.tv_sec,
-						tai.tv_nsec,
+				printf("%lld sec, %9ld ns\t%s\n",
+						(long long)tai.tv_sec,
+						(long)tai.tv_nsec,
 						time_state_str(ret));
 			} else {
 				ctime_r(&tx.time.tv_sec, buf);
 				buf[strlen(buf)-1] = 0; /*remove trailing\n */
 
-				printf("%s + %6ld us (%i)\t%s\n",
+				printf("%s + %6lld us (%i)\t%s\n",
 						buf,
-						tx.time.tv_usec,
+						(long long)tx.time.tv_usec,
 						tx.tai,
 						time_state_str(ret));
 			}

@@ -80,19 +80,8 @@ static __init void update_static_calls(void)
 	update_call(wakeup_secondary_cpu_64);
 }
 
-void __init apic_setup_apic_calls(void)
+static void __init __apic_install_driver(struct apic *driver)
 {
-	/* Ensure that the default APIC has native_eoi populated */
-	apic->native_eoi = apic->eoi;
-	update_static_calls();
-	pr_info("Static calls initialized\n");
-}
-
-void __init apic_install_driver(struct apic *driver)
-{
-	if (apic == driver)
-		return;
-
 	apic = driver;
 
 	if (IS_ENABLED(CONFIG_X86_X2APIC) && apic->x2apic_set_max_apicid)
@@ -105,6 +94,25 @@ void __init apic_install_driver(struct apic *driver)
 	/* Apply any already installed callback overrides */
 	restore_override_callbacks();
 	update_static_calls();
+}
 
+void __init apic_install_default_driver(struct apic *driver)
+{
+	if (driver) {
+		__apic_install_driver(driver);
+	} else {
+		/* Ensure that the default APIC has the native_eoi() callback populated */
+		apic->native_eoi = apic->eoi;
+		update_static_calls();
+	}
+	pr_info("Set default APIC routing to: %s\n", apic->name);
+}
+
+void __init apic_install_driver(struct apic *driver)
+{
+	if (apic == driver)
+		return;
+
+	__apic_install_driver(driver);
 	pr_info("Switched APIC routing to: %s\n", driver->name);
 }

@@ -79,6 +79,8 @@ enum {
 	IRQS_SYSFS		= 0x00004000,
 };
 
+#define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)
+
 #include "debug.h"
 #include "settings.h"
 
@@ -218,8 +220,6 @@ static inline class_irqdesc_lock_t class_irqdesc_lock_constructor(unsigned int i
 
 #define scoped_irqdesc		((struct irq_desc *)(__guard_ptr(irqdesc_lock)(&scope)))
 
-#define __irqd_to_state(d) ACCESS_PRIVATE((d)->common, state_use_accessors)
-
 static inline unsigned int irqd_get(struct irq_data *d)
 {
 	return __irqd_to_state(d);
@@ -300,6 +300,18 @@ static inline int irq_desc_is_chained(struct irq_desc *desc)
 static inline bool irq_is_nmi(struct irq_desc *desc)
 {
 	return desc->istate & IRQS_NMI;
+}
+
+/*
+ * Per CPU interrupts, NMIs and interrupts handled by handle_percpu_irq()
+ * only update the per CPU statistics and leave desc::tot_count alone.
+ */
+static inline bool irq_desc_has_tot_count(struct irq_desc *desc)
+{
+	return !irq_settings_is_per_cpu_devid(desc) &&
+	       !irq_settings_is_per_cpu(desc) &&
+	       !irq_is_nmi(desc) &&
+	       desc->handle_irq != handle_percpu_irq;
 }
 
 #ifdef CONFIG_PM_SLEEP

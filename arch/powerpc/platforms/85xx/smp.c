@@ -121,8 +121,6 @@ static void smp_85xx_cpu_offline_self(void)
 	/* mask all irqs to prevent cpu wakeup */
 	qoriq_pm_ops->irq_mask(cpu);
 
-	idle_task_exit();
-
 	mtspr(SPRN_TCR, 0);
 	mtspr(SPRN_TSR, mfspr(SPRN_TSR));
 

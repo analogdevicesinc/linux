@@ -181,27 +181,6 @@ static inline void cache_alloc_hsw_probe(void)
 	rdt_alloc_capable = true;
 }
 
-/*
- * rdt_get_mb_table() - get a mapping of bandwidth(b/w) percentage values
- * exposed to user interface and the h/w understandable delay values.
- *
- * The non-linear delay values have the granularity of power of two
- * and also the h/w does not guarantee a curve for configured delay
- * values vs. actual b/w enforced.
- * Hence we need a mapping that is pre calibrated so the user can
- * express the memory b/w as a percentage value.
- */
-static inline bool rdt_get_mb_table(struct rdt_resource *r)
-{
-	/*
-	 * There are no Intel SKUs as of now to support non-linear delay.
-	 */
-	pr_info("MBA b/w map not implemented for cpu:%d, model:%d",
-		boot_cpu_data.x86, boot_cpu_data.x86_model);
-
-	return false;
-}
-
 static __init bool __get_mem_config_intel(struct rdt_resource *r)
 {
 	struct rdt_hw_resource *hw_res = resctrl_to_arch_res(r);
@@ -212,17 +191,17 @@ static __init bool __get_mem_config_intel(struct rdt_resource *r)
 	cpuid_count(0x00000010, 3, &eax.full, &ebx, &ecx, &edx.full);
 	hw_res->num_closid = edx.split.cos_max + 1;
 	max_delay = eax.split.max_delay + 1;
-	r->membw.max_bw = MAX_MBA_BW;
-	r->membw.arch_needs_linear = true;
-	if (ecx & MBA_IS_LINEAR) {
-		r->membw.delay_linear = true;
-		r->membw.min_bw = MAX_MBA_BW - max_delay;
-		r->membw.bw_gran = MAX_MBA_BW - max_delay;
-	} else {
-		if (!rdt_get_mb_table(r))
-			return false;
-		r->membw.arch_needs_linear = false;
+
+	if (!(ecx & MBA_IS_LINEAR)) {
+		pr_info("Non-linear MBA delay values not supported for family:%d, model:%d\n",
+			boot_cpu_data.x86, boot_cpu_data.x86_model);
+		return false;
 	}
+
+	r->membw.delay_linear = true;
+	r->membw.max_bw = MAX_MBA_BW;
+	r->membw.min_bw = MAX_MBA_BW - max_delay;
+	r->membw.bw_gran = MAX_MBA_BW - max_delay;
 
 	if (boot_cpu_has(X86_FEATURE_PER_THREAD_MBA))
 		r->membw.throttle_mode = THREAD_THROTTLE_PER_THREAD;
@@ -255,7 +234,6 @@ static __init bool __rdt_get_mem_config_amd(struct rdt_resource *r)
 
 	/* AMD does not use delay */
 	r->membw.delay_linear = false;
-	r->membw.arch_needs_linear = false;
 
 	/*
 	 * AMD does not use memory delay throttle model to control
@@ -323,29 +301,20 @@ static void mba_wrmsr_amd(struct msr_param *m)
 		wrmsrq(hw_res->msr_base + i, hw_dom->ctrl_val[i]);
 }
 
-/*
- * Map the memory b/w percentage value to delay values
- * that can be written to QOS_MSRs.
- * There are currently no SKUs which support non linear delay values.
- */
-static u32 delay_bw_map(unsigned long bw, struct rdt_resource *r)
-{
-	if (r->membw.delay_linear)
-		return MAX_MBA_BW - bw;
-
-	pr_warn_once("Non Linear delay-bw map not supported but queried\n");
-	return MAX_MBA_BW;
-}
-
 static void mba_wrmsr_intel(struct msr_param *m)
 {
 	struct rdt_hw_ctrl_domain *hw_dom = resctrl_to_arch_ctrl_dom(m->dom);
 	struct rdt_hw_resource *hw_res = resctrl_to_arch_res(m->res);
 	unsigned int i;
 
-	/*  Write the delay values for mba. */
+	if (!m->res->membw.delay_linear) {
+		pr_warn_once("Non-linear MBA delay values not supported\n");
+		return;
+	}
+
+	/* Program bandwidth percentage mapped to linear delay value. */
 	for (i = m->low; i < m->high; i++)
-		wrmsrq(hw_res->msr_base + i, delay_bw_map(hw_dom->ctrl_val[i], m->res));
+		wrmsrq(hw_res->msr_base + i, MAX_MBA_BW - hw_dom->ctrl_val[i]);
 }
 
 static void cat_wrmsr(struct msr_param *m)
@@ -474,6 +443,7 @@ static int get_domain_id_from_scope(int cpu, enum resctrl_scope scope)
 
 static void domain_add_cpu_ctrl(int cpu, struct rdt_resource *r)
 {
+	struct rdt_hw_resource *hw_res = resctrl_to_arch_res(r);
 	int id = get_domain_id_from_scope(cpu, r->ctrl_scope);
 	struct rdt_hw_ctrl_domain *hw_dom;
 	struct list_head *add_pos = NULL;
@@ -496,7 +466,7 @@ static void domain_add_cpu_ctrl(int cpu, struct rdt_resource *r)
 		d = container_of(hdr, struct rdt_ctrl_domain, hdr);
 
 		cpumask_set_cpu(cpu, &d->hdr.cpu_mask);
-		if (r->cache.arch_has_per_cpu_cfg)
+		if (hw_res->qos_cfg_has_cpu_scope)
 			rdt_domain_reconfigure_cdp(r);
 		return;
 	}
@@ -1031,7 +1001,7 @@ static __init void rdt_init_res_defs_intel(void)
 
 		if (r->rid == RDT_RESOURCE_L3 ||
 		    r->rid == RDT_RESOURCE_L2) {
-			r->cache.arch_has_per_cpu_cfg = false;
+			hw_res->qos_cfg_has_cpu_scope = false;
 			r->cache.min_cbm_bits = 1;
 		} else if (r->rid == RDT_RESOURCE_MBA) {
 			hw_res->msr_base = MSR_IA32_MBA_THRTL_BASE;
@@ -1050,8 +1020,8 @@ static __init void rdt_init_res_defs_amd(void)
 
 		if (r->rid == RDT_RESOURCE_L3 ||
 		    r->rid == RDT_RESOURCE_L2) {
+			hw_res->qos_cfg_has_cpu_scope = true;
 			r->cache.arch_has_sparse_bitmasks = true;
-			r->cache.arch_has_per_cpu_cfg = true;
 			r->cache.min_cbm_bits = 0;
 		} else if (r->rid == RDT_RESOURCE_MBA) {
 			hw_res->msr_base = MSR_IA32_MBA_BW_BASE;

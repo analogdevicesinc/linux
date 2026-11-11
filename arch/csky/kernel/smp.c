@@ -294,8 +294,6 @@ void arch_cpuhp_cleanup_dead_cpu(unsigned int cpu)
 
 void __noreturn arch_cpu_idle_dead(void)
 {
-	idle_task_exit();
-
 	cpuhp_ap_report_dead();
 
 	while (!secondary_stack)

@@ -164,8 +164,6 @@ EXPORT_SYMBOL(running_on_qemu);
 void __noreturn arch_cpu_idle_dead(void)
 {
 #ifdef CONFIG_HOTPLUG_CPU
-	idle_task_exit();
-
 	local_irq_disable();
 
 	/* Tell the core that this CPU is now safe to dispose of. */

@@ -636,11 +636,10 @@ static int msix_setup_msi_descs(struct pci_dev *dev, struct msix_entry *entries,
 {
 	int ret = 0, i, vec_count = pci_msix_vec_count(dev);
 	struct irq_affinity_desc *curmsk;
-	struct msi_desc desc;
-
-	memset(&desc, 0, sizeof(desc));
 
 	for (i = 0, curmsk = masks; i < nvec; i++, curmsk++) {
+		struct msi_desc desc = { };
+
 		desc.msi_index = entries ? entries[i].entry : i;
 		desc.affinity = masks ? curmsk : NULL;
 		desc.pci.msi_attrib.is_virtual = desc.msi_index >= vec_count;

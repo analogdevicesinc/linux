@@ -19,7 +19,6 @@
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
 #include <linux/delay.h>
-#include <linux/sched.h>	/* for idle_task_exit */
 #include <linux/sched/hotplug.h>
 #include <linux/cpu.h>
 #include <linux/of.h>
@@ -64,7 +63,6 @@ static void pseries_cpu_offline_self(void)
 	unsigned int hwcpu = hard_smp_processor_id();
 
 	local_irq_disable();
-	idle_task_exit();
 	if (xive_enabled())
 		xive_teardown_cpu();
 	else

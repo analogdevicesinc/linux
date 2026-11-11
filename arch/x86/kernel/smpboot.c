@@ -1407,8 +1407,6 @@ int native_cpu_disable(void)
 
 void play_dead_common(void)
 {
-	idle_task_exit();
-
 	cpuhp_ap_report_dead();
 
 	local_irq_disable();

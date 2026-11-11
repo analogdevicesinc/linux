@@ -93,22 +93,18 @@ static __always_inline void vdso_write_end_clock(struct vdso_clock *vc)
 
 static __always_inline void vdso_write_begin(struct vdso_time_data *vd)
 {
-	struct vdso_clock *vc = vd->clock_data;
-
-	vdso_write_seq_begin(&vc[CS_HRES_COARSE]);
-	vdso_write_seq_begin(&vc[CS_RAW]);
+	vdso_write_seq_begin(&vd->hres_coarse);
+	vdso_write_seq_begin(&vd->raw);
 	/* Ensure the sequence invalidation is visible before data is modified */
 	smp_wmb();
 }
 
 static __always_inline void vdso_write_end(struct vdso_time_data *vd)
 {
-	struct vdso_clock *vc = vd->clock_data;
-
 	/* Ensure the data update is visible before the sequence is set valid again */
 	smp_wmb();
-	vdso_write_seq_end(&vc[CS_HRES_COARSE]);
-	vdso_write_seq_end(&vc[CS_RAW]);
+	vdso_write_seq_end(&vd->hres_coarse);
+	vdso_write_seq_end(&vd->raw);
 }
 
 #endif /* !__ASSEMBLER__ */

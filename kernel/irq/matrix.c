@@ -225,10 +225,10 @@ int irq_matrix_reserve_managed(struct irq_matrix *m, const struct cpumask *msk)
 		if (bit >= m->alloc_end)
 			goto cleanup;
 		cm->managed++;
-		if (cm->online) {
+		if (cm->initialized)
 			cm->available--;
+		if (cm->online)
 			m->global_available--;
-		}
 		trace_irq_matrix_reserve_managed(bit, cpu, m, cm);
 	}
 	return 0;
@@ -275,10 +275,10 @@ void irq_matrix_remove_managed(struct irq_matrix *m, const struct cpumask *msk)
 		clear_bit(bit, cm->managed_map);
 
 		cm->managed--;
-		if (cm->online) {
+		if (cm->initialized)
 			cm->available++;
+		if (cm->online)
 			m->global_available++;
-		}
 		trace_irq_matrix_remove_managed(bit, cpu, m, cm);
 	}
 }

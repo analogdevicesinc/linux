@@ -1391,8 +1391,8 @@ static bool __init vulnerable_to_rfds(u64 x86_arch_cap_msr)
 	 * both Core and Atom CPUs. Mark unaffected when Atom CPUs are not
 	 * present.
 	 */
-	if ((boot_cpu_data.x86_model == 0x97 ||
-	     boot_cpu_data.x86_model == 0xB7) &&
+	if ((boot_cpu_data.x86_vfm == INTEL_ALDERLAKE ||
+	     boot_cpu_data.x86_vfm == INTEL_RAPTORLAKE) &&
 	     boot_cpu_data.topo.intel_type != INTEL_CPU_TYPE_ATOM &&
 	     !boot_cpu_has(X86_FEATURE_HYBRID_CPU))
 		return false;

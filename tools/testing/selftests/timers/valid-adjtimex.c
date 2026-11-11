@@ -136,8 +136,8 @@ int validate_freq(void)
 		tx.modes = 0;
 		ret = adjtimex(&tx);
 		if (tx.freq != valid_freq[i]) {
-			printf("Warning: freq value %ld not what we set it (%ld)!\n",
-					tx.freq, valid_freq[i]);
+			printf("Warning: freq value %lld not what we set it (%ld)!\n",
+					(long long)tx.freq, valid_freq[i]);
 		}
 	}
 	for (i = 0; i < NUM_FREQ_OUTOFRANGE; i++) {
@@ -156,8 +156,8 @@ int validate_freq(void)
 		ret = adjtimex(&tx);
 		if (tx.freq == outofrange_freq[i]) {
 			printf("[FAIL]\n");
-			printf("ERROR: out of range value %ld actually set!\n",
-					tx.freq);
+			printf("ERROR: out of range value %lld actually set!\n",
+					(long long)tx.freq);
 			pass = -1;
 			goto out;
 		}
@@ -218,7 +218,8 @@ int set_offset(long long offset, int use_nano)
 
 	ret = clock_adjtime(CLOCK_REALTIME, &tmx);
 	if (ret < 0) {
-		printf("(sec: %ld  usec: %ld) ", tmx.time.tv_sec, tmx.time.tv_usec);
+		printf("(sec: %lld  usec: %lld) ", (long long)tmx.time.tv_sec,
+		       (long long)tmx.time.tv_usec);
 		printf("[FAIL]\n");
 		return -1;
 	}
@@ -238,7 +239,8 @@ int set_bad_offset(long sec, long usec, int use_nano)
 	tmx.time.tv_usec = usec;
 	ret = clock_adjtime(CLOCK_REALTIME, &tmx);
 	if (ret >= 0) {
-		printf("Invalid (sec: %ld  usec: %ld) did not fail! ", tmx.time.tv_sec, tmx.time.tv_usec);
+		printf("Invalid (sec: %lld  usec: %lld) did not fail! ",
+		       (long long)tmx.time.tv_sec, (long long)tmx.time.tv_usec);
 		printf("[FAIL]\n");
 		return -1;
 	}

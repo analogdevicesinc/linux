@@ -99,6 +99,12 @@ static __always_inline const struct vdso_time_data *__arch_get_vdso_u_time_data(
 
 static __always_inline bool vdso_clockid_valid(clockid_t clock)
 {
+	/*
+	 * The callers turn an accepted clockid into a bitmask with
+	 * 1U << clock, so the largest one has to fit into that u32.
+	 */
+	BUILD_BUG_ON(CLOCK_AUX_LAST >= 8 * sizeof(u32));
+
 	/* Check for negative values or invalid clocks */
 	return likely((u32) clock <= CLOCK_AUX_LAST);
 }
@@ -202,7 +208,7 @@ bool do_coarse_timens(const struct vdso_time_data *vdns, const struct vdso_clock
 {
 	const struct vdso_time_data *vd = vdso_timens_data(vdns);
 	const struct timens_offset *offs = &vcns->offset[clk];
-	const struct vdso_clock *vc = vd->clock_data;
+	const struct vdso_clock *vc = &vd->hres_coarse;
 	const struct vdso_timestamp *vdso_ts;
 	u64 nsec;
 	s64 sec;
@@ -280,7 +286,7 @@ static __always_inline bool
 __cvdso_clock_gettime_common(const struct vdso_time_data *vd, clockid_t clock,
 			     struct __kernel_timespec *ts)
 {
-	const struct vdso_clock *vc = vd->clock_data;
+	const struct vdso_clock *vc;
 	u32 msk;
 
 	if (!vdso_clockid_valid(clock))
@@ -292,11 +298,11 @@ __cvdso_clock_gettime_common(const struct vdso_time_data *vd, clockid_t clock,
 	 */
 	msk = 1U << clock;
 	if (likely(msk & VDSO_HRES))
-		vc = &vc[CS_HRES_COARSE];
+		vc = &vd->hres_coarse;
 	else if (msk & VDSO_COARSE)
-		return do_coarse(vd, &vc[CS_HRES_COARSE], clock, ts);
+		return do_coarse(vd, &vd->hres_coarse, clock, ts);
 	else if (msk & VDSO_RAW)
-		vc = &vc[CS_RAW];
+		vc = &vd->raw;
 	else if (msk & VDSO_AUX)
 		return do_aux(vd, clock, ts);
 	else
@@ -357,7 +363,7 @@ static int
 __cvdso_gettimeofday_data(const struct vdso_time_data *vd,
 			  struct __kernel_old_timeval *tv, struct timezone *tz)
 {
-	const struct vdso_clock *vc = vd->clock_data;
+	const struct vdso_clock *vc = &vd->hres_coarse;
 
 #ifndef __NR_gettimeofday
 	BUILD_BUG();
@@ -368,7 +374,7 @@ __cvdso_gettimeofday_data(const struct vdso_time_data *vd,
 	if (likely(tv != NULL)) {
 		struct __kernel_timespec ts;
 
-		if (!do_hres(vd, &vc[CS_HRES_COARSE], CLOCK_REALTIME, &ts))
+		if (!do_hres(vd, vc, CLOCK_REALTIME, &ts))
 			return gettimeofday_fallback(tv, tz);
 
 		tv->tv_sec = ts.tv_sec;
@@ -396,7 +402,7 @@ __cvdso_gettimeofday(struct __kernel_old_timeval *tv, struct timezone *tz)
 static __kernel_old_time_t
 __cvdso_time_data(const struct vdso_time_data *vd, __kernel_old_time_t *time)
 {
-	const struct vdso_clock *vc = vd->clock_data;
+	const struct vdso_clock *vc = &vd->hres_coarse;
 	__kernel_old_time_t t;
 
 #ifndef __NR_time
@@ -407,10 +413,10 @@ __cvdso_time_data(const struct vdso_time_data *vd, __kernel_old_time_t *time)
 
 	if (vdso_is_timens_clock(vc)) {
 		vd = vdso_timens_data(vd);
-		vc = vd->clock_data;
+		vc = &vd->hres_coarse;
 	}
 
-	t = READ_ONCE(vc[CS_HRES_COARSE].basetime[CLOCK_REALTIME].sec);
+	t = READ_ONCE(vc->basetime[CLOCK_REALTIME].sec);
 
 	if (time)
 		*time = t;
@@ -429,14 +435,13 @@ static __always_inline
 bool __cvdso_clock_getres_common(const struct vdso_time_data *vd, clockid_t clock,
 				 struct __kernel_timespec *res)
 {
-	const struct vdso_clock *vc = vd->clock_data;
 	u32 msk;
 	u64 ns;
 
 	if (!vdso_clockid_valid(clock))
 		return false;
 
-	if (vdso_is_timens_clock(vc))
+	if (vdso_is_timens_clock(&vd->hres_coarse))
 		vd = vdso_timens_data(vd);
 
 	/*

@@ -41,15 +41,14 @@ static inline void fill_clock_configuration(struct vdso_clock *vc, const struct 
 
 static inline void update_vdso_time_data(struct vdso_time_data *vdata, struct timekeeper *tk)
 {
-	struct vdso_clock *vc = vdata->clock_data;
 	struct vdso_timestamp *vdso_ts;
 	u64 nsec, sec;
 
-	fill_clock_configuration(&vc[CS_HRES_COARSE],	&tk->tkr_mono);
-	fill_clock_configuration(&vc[CS_RAW],		&tk->tkr_raw);
+	fill_clock_configuration(&vdata->hres_coarse,	&tk->tkr_mono);
+	fill_clock_configuration(&vdata->raw,		&tk->tkr_raw);
 
 	/* CLOCK_MONOTONIC */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_MONOTONIC];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_MONOTONIC];
 	vdso_ts->sec	= tk->xtime_sec + tk->wall_to_monotonic.tv_sec;
 
 	nsec = tk->tkr_mono.xtime_nsec;
@@ -65,18 +64,18 @@ static inline void update_vdso_time_data(struct vdso_time_data *vdata, struct ti
 	nsec	+= (u64)tk->monotonic_to_boot.tv_nsec << tk->tkr_mono.shift;
 
 	/* CLOCK_BOOTTIME */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_BOOTTIME];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_BOOTTIME];
 	vdso_ts->sec	= sec;
 	vdso_ts->sec	+= __iter_div64_u64_rem(nsec, (u64)NSEC_PER_SEC << tk->tkr_mono.shift,
 						&vdso_ts->nsec);
 
 	/* CLOCK_MONOTONIC_RAW */
-	vdso_ts		= &vc[CS_RAW].basetime[CLOCK_MONOTONIC_RAW];
+	vdso_ts		= &vdata->raw.basetime[CLOCK_MONOTONIC_RAW];
 	vdso_ts->sec	= tk->raw_sec;
 	vdso_ts->nsec	= tk->tkr_raw.xtime_nsec;
 
 	/* CLOCK_TAI */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_TAI];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_TAI];
 	vdso_ts->sec	= tk->xtime_sec + (s64)tk->tai_offset;
 	vdso_ts->nsec	= tk->tkr_mono.xtime_nsec;
 }
@@ -84,7 +83,6 @@ static inline void update_vdso_time_data(struct vdso_time_data *vdata, struct ti
 void update_vsyscall(struct timekeeper *tk)
 {
 	struct vdso_time_data *vdata = vdso_k_time_data;
-	struct vdso_clock *vc = vdata->clock_data;
 	struct vdso_timestamp *vdso_ts;
 	s32 clock_mode;
 	u64 nsec;
@@ -93,21 +91,21 @@ void update_vsyscall(struct timekeeper *tk)
 	vdso_write_begin(vdata);
 
 	clock_mode = tk->tkr_mono.clock->vdso_clock_mode;
-	vc[CS_HRES_COARSE].clock_mode	= clock_mode;
-	vc[CS_RAW].clock_mode		= clock_mode;
+	vdata->hres_coarse.clock_mode	= clock_mode;
+	vdata->raw.clock_mode		= clock_mode;
 
 	/* CLOCK_REALTIME also required for time() */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_REALTIME];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_REALTIME];
 	vdso_ts->sec	= tk->xtime_sec;
 	vdso_ts->nsec	= tk->tkr_mono.xtime_nsec;
 
 	/* CLOCK_REALTIME_COARSE */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_REALTIME_COARSE];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_REALTIME_COARSE];
 	vdso_ts->sec	= tk->xtime_sec;
 	vdso_ts->nsec	= tk->coarse_nsec;
 
 	/* CLOCK_MONOTONIC_COARSE */
-	vdso_ts		= &vc[CS_HRES_COARSE].basetime[CLOCK_MONOTONIC_COARSE];
+	vdso_ts		= &vdata->hres_coarse.basetime[CLOCK_MONOTONIC_COARSE];
 	vdso_ts->sec	= tk->xtime_sec + tk->wall_to_monotonic.tv_sec;
 	nsec		= tk->coarse_nsec;
 	nsec		= nsec + tk->wall_to_monotonic.tv_nsec;
@@ -125,8 +123,8 @@ void update_vsyscall(struct timekeeper *tk)
 	if (clock_mode != VDSO_CLOCKMODE_NONE)
 		update_vdso_time_data(vdata, tk);
 
-	__arch_update_vdso_clock(&vc[CS_HRES_COARSE]);
-	__arch_update_vdso_clock(&vc[CS_RAW]);
+	__arch_update_vdso_clock(&vdata->hres_coarse);
+	__arch_update_vdso_clock(&vdata->raw);
 
 	vdso_write_end(vdata);
 

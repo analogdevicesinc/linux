@@ -64,6 +64,8 @@ static void print_active_timers(struct seq_file *m, struct hrtimer_clock_base *b
 	unsigned long flags;
 
 next_one:
+	if (m && seq_has_overflowed(m))
+		return;
 	i = 0;
 
 	touch_nmi_watchdog();
