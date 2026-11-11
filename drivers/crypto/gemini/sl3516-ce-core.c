@@ -8,7 +8,6 @@
  */
 
 #include <crypto/engine.h>
-#include <crypto/internal/rng.h>
 #include <crypto/internal/skcipher.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>

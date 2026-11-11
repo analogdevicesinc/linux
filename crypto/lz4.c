@@ -35,7 +35,7 @@ static int __lz4_compress_crypto(const u8 *src, unsigned int slen,
 		slen, *dlen, ctx);
 
 	if (!out_len)
-		return -EINVAL;
+		return -ENOSPC;
 
 	*dlen = out_len;
 	return 0;

@@ -8,7 +8,7 @@
  */
 
 #include <crypto/internal/geniv.h>
-#include <crypto/internal/rng.h>
+#include <crypto/rng.h>
 #include <linux/err.h>
 #include <linux/kernel.h>
 #include <linux/module.h>

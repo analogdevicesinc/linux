@@ -49,7 +49,7 @@ enum crypto_attr_type_t {
 	CRYPTOCFGA_REPORT_BLKCIPHER,	/* struct crypto_report_blkcipher */
 	CRYPTOCFGA_REPORT_AEAD,		/* struct crypto_report_aead */
 	CRYPTOCFGA_REPORT_COMPRESS,	/* struct crypto_report_comp */
-	CRYPTOCFGA_REPORT_RNG,		/* struct crypto_report_rng */
+	CRYPTOCFGA_REPORT_RNG,		/* No longer supported, do not use. */
 	CRYPTOCFGA_REPORT_CIPHER,	/* struct crypto_report_cipher */
 	CRYPTOCFGA_REPORT_AKCIPHER,	/* struct crypto_report_akcipher */
 	CRYPTOCFGA_REPORT_KPP,		/* struct crypto_report_kpp */
@@ -191,6 +191,7 @@ struct crypto_report_comp {
 	char type[CRYPTO_MAX_NAME];
 };
 
+/* No longer supported, do not use. */
 struct crypto_report_rng {
 	char type[CRYPTO_MAX_NAME];
 	unsigned int seedsize;

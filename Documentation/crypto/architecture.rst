@@ -13,8 +13,6 @@ cipher types:
 
 -  Message digest, including keyed message digest
 
--  Random number generation
-
 -  User space interface
 
 Ciphers And Templates
@@ -155,8 +153,6 @@ applicable to a cipher, it is not displayed:
 
    -  compression for compression type transformations
 
-   -  rng for random number generator
-
    -  kpp for a Key-agreement Protocol Primitive (KPP) cipher such as
       an ECDH or DH implementation
 
@@ -165,8 +161,6 @@ applicable to a cipher, it is not displayed:
 -  keysize: key size in bytes
 
 -  ivsize: IV size in bytes
-
--  seedsize: required size of seed data for random number generator
 
 -  digestsize: output size of the message digest
 
@@ -207,8 +201,6 @@ the aforementioned cipher types:
 -  CRYPTO_ALG_TYPE_SHASH Synchronous multi-block hash
 
 -  CRYPTO_ALG_TYPE_AHASH Asynchronous multi-block hash
-
--  CRYPTO_ALG_TYPE_RNG Random Number Generation
 
 -  CRYPTO_ALG_TYPE_AKCIPHER Asymmetric cipher
 

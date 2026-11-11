@@ -241,7 +241,7 @@ static int qat_compression_alloc_dc_data(struct adf_accel_dev *accel_dev)
 err:
 	accel_dev->dc_data = NULL;
 	kfree(obuff);
-	devm_kfree(dev, dc_data);
+	kfree(dc_data);
 	return -ENOMEM;
 }
 

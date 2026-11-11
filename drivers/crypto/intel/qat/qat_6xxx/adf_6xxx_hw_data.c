@@ -573,6 +573,19 @@ static int adf_gen6_init_thd2arb_map(struct adf_accel_dev *accel_dev)
 	return 0;
 }
 
+static void init_num_wcy_svc_aes(struct adf_rl_hw_data *device_data)
+{
+	u32 ae_mask = 0;
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(adf_wcy_fw_config); i++) {
+		if (adf_wcy_fw_config[i].obj == ADF_FW_WCY_OBJ)
+			ae_mask |= adf_wcy_fw_config[i].ae_mask;
+	}
+
+	device_data->svc_ae_mask[SVC_SYM] = hweight32(ae_mask);
+}
+
 static void init_num_svc_aes(struct adf_rl_hw_data *device_data)
 {
 	enum adf_fw_objs obj_type, obj_iter;
@@ -607,6 +620,9 @@ static u32 adf_gen6_get_svc_slice_cnt(struct adf_accel_dev *accel_dev,
 				      enum adf_base_services svc)
 {
 	struct adf_rl_hw_data *device_data = &accel_dev->hw_device->rl_data;
+
+	if (adf_6xxx_is_wcy(GET_HW_DATA(accel_dev)))
+		return (svc == SVC_SYM) ? device_data->slices.wcp_cnt : 0;
 
 	switch (svc) {
 	case SVC_SYM:
@@ -973,8 +989,10 @@ static void adf_gen6_init_kpt(struct adf_kpt_hw_data *kpt_data)
 	kpt_data->user_input.swk_cnt_per_pasid = ADF_6XXX_KPT_DEFAULT_SWK_CNT_PER_PASID;
 }
 
-static void adf_gen6_init_rl_data(struct adf_rl_hw_data *rl_data)
+static void adf_gen6_init_rl_data(struct adf_hw_device_data *hw_data)
 {
+	struct adf_rl_hw_data *rl_data = &hw_data->rl_data;
+
 	rl_data->pciout_tb_offset = ADF_GEN6_RL_TOKEN_PCIEOUT_BUCKET_OFFSET;
 	rl_data->pciin_tb_offset = ADF_GEN6_RL_TOKEN_PCIEIN_BUCKET_OFFSET;
 	rl_data->r2l_offset = ADF_GEN6_RL_R2L_OFFSET;
@@ -982,14 +1000,18 @@ static void adf_gen6_init_rl_data(struct adf_rl_hw_data *rl_data)
 	rl_data->c2s_offset = ADF_GEN6_RL_C2S_OFFSET;
 	rl_data->pcie_scale_div = ADF_6XXX_RL_PCIE_SCALE_FACTOR_DIV;
 	rl_data->pcie_scale_mul = ADF_6XXX_RL_PCIE_SCALE_FACTOR_MUL;
-	rl_data->max_tp[SVC_ASYM] = ADF_6XXX_RL_MAX_TP_ASYM;
-	rl_data->max_tp[SVC_SYM] = ADF_6XXX_RL_MAX_TP_SYM;
-	rl_data->max_tp[SVC_DC] = ADF_6XXX_RL_MAX_TP_DC;
-	rl_data->max_tp[SVC_DECOMP] = ADF_6XXX_RL_MAX_TP_DECOMP;
 	rl_data->scan_interval = ADF_6XXX_RL_SCANS_PER_SEC;
 	rl_data->scale_ref = ADF_6XXX_RL_SLICE_REF;
-
-	init_num_svc_aes(rl_data);
+	if (adf_6xxx_is_wcy(hw_data)) {
+		rl_data->max_tp[SVC_SYM] = ADF_6XXX_RL_MAX_TP_WCY_SYM;
+		init_num_wcy_svc_aes(rl_data);
+	} else {
+		rl_data->max_tp[SVC_ASYM] = ADF_6XXX_RL_MAX_TP_ASYM;
+		rl_data->max_tp[SVC_SYM] = ADF_6XXX_RL_MAX_TP_SYM;
+		rl_data->max_tp[SVC_DC] = ADF_6XXX_RL_MAX_TP_DC;
+		rl_data->max_tp[SVC_DECOMP] = ADF_6XXX_RL_MAX_TP_DECOMP;
+		init_num_svc_aes(rl_data);
+	}
 }
 
 static void adf_gen6_init_services_supported(struct adf_hw_device_data *hw_data)
@@ -1067,7 +1089,7 @@ void adf_init_hw_data_6xxx(struct adf_hw_device_data *hw_data)
 	adf_gen6_init_vf_mig_ops(&hw_data->vfmig_ops);
 	adf_gen6_init_ras_ops(&hw_data->ras_ops);
 	adf_gen6_init_tl_data(&hw_data->tl_data);
-	adf_gen6_init_rl_data(&hw_data->rl_data);
+	adf_gen6_init_rl_data(hw_data);
 	adf_gen6_init_anti_rb(&hw_data->anti_rb_data);
 	adf_gen6_init_kpt(&hw_data->kpt_data);
 }

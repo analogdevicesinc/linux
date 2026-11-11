@@ -40,11 +40,11 @@
 
 #include <linux/capability.h>
 #include <linux/module.h>
-#include <crypto/rng.h>
-#include <linux/random.h>
 #include <crypto/if_alg.h>
 #include <linux/net.h>
 #include <net/sock.h>
+#include "drbg.h"
+#include "jitterentropy-kcapi.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
@@ -54,17 +54,26 @@ static const struct af_alg_allowlist_entry rng_allowlist[] = {
 	{},
 };
 
-struct rng_ctx {
-#define MAXSIZE 128
-	unsigned int len;
-	struct crypto_rng *drng;
-	u8 *addtl;
-	size_t addtl_len;
+enum rng_type {
+	RNG_JITTERENTROPY = 1,
+	RNG_DRBG = 2,
 };
 
 struct rng_parent_ctx {
-	struct crypto_rng *drng;
+	enum rng_type type;
+	union {
+		struct jitterentropy *jent;
+		struct drbg_state *drbg;
+	};
 	u8 *entropy;
+};
+
+struct rng_ctx {
+#define MAXSIZE 128
+	unsigned int len;
+	u8 *addtl;
+	size_t addtl_len;
+	struct rng_parent_ctx *pctx;
 };
 
 static void rng_reset_addtl(struct rng_ctx *ctx)
@@ -74,11 +83,10 @@ static void rng_reset_addtl(struct rng_ctx *ctx)
 	ctx->addtl_len = 0;
 }
 
-static int _rng_recvmsg(struct crypto_rng *drng, struct msghdr *msg, size_t len,
+static int _rng_recvmsg(struct rng_ctx *ctx, struct msghdr *msg, size_t len,
 			u8 *addtl, size_t addtl_len)
 {
 	int err = 0;
-	int genlen = 0;
 	u8 result[MAXSIZE];
 
 	if (len == 0)
@@ -92,15 +100,18 @@ static int _rng_recvmsg(struct crypto_rng *drng, struct msghdr *msg, size_t len,
 	 */
 	memset(result, 0, len);
 
-	/*
-	 * The enforcement of a proper seeding of an RNG is done within an
-	 * RNG implementation. Some RNGs (DRBG, krng) do not need specific
-	 * seeding as they automatically seed. The X9.31 DRNG will return
-	 * an error if it was not seeded properly.
-	 */
-	genlen = crypto_rng_generate(drng, addtl, addtl_len, result, len);
-	if (genlen < 0)
-		return genlen;
+	err = -EINVAL;
+	switch (ctx->pctx->type) {
+	case RNG_JITTERENTROPY:
+		err = crypto_jent_get_bytes(ctx->pctx->jent, result, len);
+		break;
+	case RNG_DRBG:
+		err = crypto_drbg_get_bytes(ctx->pctx->drbg, result, len, addtl,
+					    addtl_len);
+		break;
+	}
+	if (err < 0)
+		return err;
 
 	err = memcpy_to_msg(msg, result, len);
 	memzero_explicit(result, len);
@@ -115,7 +126,7 @@ static int rng_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 	struct alg_sock *ask = alg_sk(sk);
 	struct rng_ctx *ctx = ask->private;
 
-	return _rng_recvmsg(ctx->drng, msg, len, NULL, 0);
+	return _rng_recvmsg(ctx, msg, len, NULL, 0);
 }
 
 static int rng_test_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
@@ -127,7 +138,7 @@ static int rng_test_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
 	int ret;
 
 	lock_sock(sock->sk);
-	ret = _rng_recvmsg(ctx->drng, msg, len, ctx->addtl, ctx->addtl_len);
+	ret = _rng_recvmsg(ctx, msg, len, ctx->addtl, ctx->addtl_len);
 	rng_reset_addtl(ctx);
 	release_sock(sock->sk);
 
@@ -204,7 +215,6 @@ static struct proto_ops __maybe_unused algif_rng_test_ops = {
 static void *rng_bind(const char *name)
 {
 	struct rng_parent_ctx *pctx;
-	struct crypto_rng *rng;
 	int err;
 
 	err = af_alg_check_restriction(name, rng_allowlist);
@@ -215,14 +225,30 @@ static void *rng_bind(const char *name)
 	if (!pctx)
 		return ERR_PTR(-ENOMEM);
 
-	rng = crypto_alloc_rng(name, 0, AF_ALG_CRYPTOAPI_MASK);
-	if (IS_ERR(rng)) {
-		kfree(pctx);
-		return ERR_CAST(rng);
+	if (strcmp(name, "jitterentropy_rng") == 0) {
+		pctx->type = RNG_JITTERENTROPY;
+		pctx->jent = crypto_jent_alloc();
+		if (IS_ERR(pctx->jent)) {
+			err = PTR_ERR(pctx->jent);
+			goto error;
+		}
+	} else if (strcmp(name, "stdrng") == 0 ||
+		   strcmp(name, "drbg_nopr_hmac_sha512") == 0) {
+		pctx->type = RNG_DRBG;
+		pctx->drbg = crypto_drbg_alloc();
+		if (IS_ERR(pctx->drbg)) {
+			err = PTR_ERR(pctx->drbg);
+			goto error;
+		}
+	} else {
+		err = -ENOENT;
+		goto error;
 	}
-
-	pctx->drng = rng;
 	return pctx;
+
+error:
+	kfree_sensitive(pctx);
+	return ERR_PTR(err);
 }
 
 static void rng_release(void *private)
@@ -231,7 +257,14 @@ static void rng_release(void *private)
 
 	if (unlikely(!pctx))
 		return;
-	crypto_free_rng(pctx->drng);
+	switch (pctx->type) {
+	case RNG_JITTERENTROPY:
+		crypto_jent_free(pctx->jent);
+		break;
+	case RNG_DRBG:
+		crypto_drbg_free(pctx->drbg);
+		break;
+	}
 	kfree_sensitive(pctx->entropy);
 	kfree_sensitive(pctx);
 }
@@ -266,7 +299,7 @@ static int rng_accept_parent(void *private, struct sock *sk)
 	 * state of the RNG.
 	 */
 
-	ctx->drng = pctx->drng;
+	ctx->pctx = pctx;
 	ask->private = ctx;
 	sk->sk_destruct = rng_sock_destruct;
 
@@ -283,11 +316,10 @@ static int rng_accept_parent(void *private, struct sock *sk)
 static int rng_setkey(void *private, const u8 *seed, unsigned int seedlen)
 {
 	struct rng_parent_ctx *pctx = private;
-	/*
-	 * Check whether seedlen is of sufficient size is done in RNG
-	 * implementations.
-	 */
-	return crypto_rng_reset(pctx->drng, seed, seedlen);
+
+	if (pctx->type != RNG_DRBG)
+		return 0;
+	return crypto_drbg_seed(pctx->drbg, seed, seedlen);
 }
 
 static int __maybe_unused rng_setentropy(void *private, sockptr_t entropy,
@@ -299,7 +331,7 @@ static int __maybe_unused rng_setentropy(void *private, sockptr_t entropy,
 	if (!capable(CAP_SYS_ADMIN))
 		return -EACCES;
 
-	if (pctx->entropy)
+	if (pctx->entropy || pctx->type != RNG_DRBG)
 		return -EINVAL;
 
 	if (len > MAXSIZE)
@@ -311,9 +343,9 @@ static int __maybe_unused rng_setentropy(void *private, sockptr_t entropy,
 			return PTR_ERR(kentropy);
 	}
 
-	crypto_rng_alg(pctx->drng)->set_ent(pctx->drng, kentropy, len);
+	crypto_drbg_set_entropy(pctx->drbg, kentropy, len);
 	/*
-	 * Since rng doesn't perform any memory management for the entropy
+	 * Since drbg doesn't perform any memory management for the entropy
 	 * buffer, save kentropy pointer to pctx now to free it after use.
 	 */
 	pctx->entropy = kentropy;
@@ -346,3 +378,4 @@ static void __exit rng_exit(void)
 
 module_init(rng_init);
 module_exit(rng_exit);
+MODULE_IMPORT_NS("CRYPTO_INTERNAL"); /* for drbg and jitterentropy */

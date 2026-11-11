@@ -44,7 +44,7 @@ struct adf_tl_hw_data {
 	u8 num_cmdq_counters;
 	u8 max_rp;
 	u8 max_sl_cnt;
-	struct icp_qat_fw_init_admin_slice_cnt multiplier;
+	struct icp_qat_fw_init_admin_slice_cnt cmdq_cnt;
 };
 
 struct adf_telemetry {

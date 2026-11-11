@@ -34,11 +34,11 @@
 
 #define CPR_QUEUE_COUNT		5
 #define DCPR_QUEUE_COUNT	3
-#define PKE_QUEUE_COUNT		1
-#define WAT_QUEUE_COUNT		7
-#define WCP_QUEUE_COUNT		7
-#define USC_QUEUE_COUNT		3
-#define ATH_QUEUE_COUNT		2
+#define PKE_QUEUE_COUNT		18
+#define WAT_QUEUE_COUNT		18
+#define WCP_QUEUE_COUNT		18
+#define UCS_QUEUE_COUNT		6
+#define ATH_QUEUE_COUNT		8
 
 /* Device level counters. */
 static const struct adf_tl_dbg_counter dev_counters[] = {
@@ -247,12 +247,12 @@ void adf_gen6_init_tl_data(struct adf_tl_hw_data *tl_data)
 	tl_data->num_rp_counters = ARRAY_SIZE(rp_counters);
 	tl_data->max_sl_cnt = ADF_GEN6_TL_MAX_SLICES_PER_TYPE;
 
-	tl_data->multiplier.cpr_cnt = CPR_QUEUE_COUNT;
-	tl_data->multiplier.dcpr_cnt = DCPR_QUEUE_COUNT;
-	tl_data->multiplier.pke_cnt = PKE_QUEUE_COUNT;
-	tl_data->multiplier.wat_cnt = WAT_QUEUE_COUNT;
-	tl_data->multiplier.wcp_cnt = WCP_QUEUE_COUNT;
-	tl_data->multiplier.ucs_cnt = USC_QUEUE_COUNT;
-	tl_data->multiplier.ath_cnt = ATH_QUEUE_COUNT;
+	tl_data->cmdq_cnt.cpr_cnt = CPR_QUEUE_COUNT;
+	tl_data->cmdq_cnt.dcpr_cnt = DCPR_QUEUE_COUNT;
+	tl_data->cmdq_cnt.pke_cnt = PKE_QUEUE_COUNT;
+	tl_data->cmdq_cnt.wat_cnt = WAT_QUEUE_COUNT;
+	tl_data->cmdq_cnt.wcp_cnt = WCP_QUEUE_COUNT;
+	tl_data->cmdq_cnt.ucs_cnt = UCS_QUEUE_COUNT;
+	tl_data->cmdq_cnt.ath_cnt = ATH_QUEUE_COUNT;
 }
 EXPORT_SYMBOL_GPL(adf_gen6_init_tl_data);

@@ -16,9 +16,9 @@
 #include <net/net_namespace.h>
 #include <net/sock.h>
 #include <crypto/internal/skcipher.h>
-#include <crypto/internal/rng.h>
 #include <crypto/akcipher.h>
 #include <crypto/kpp.h>
+#include <crypto/rng.h>
 
 #include "internal.h"
 

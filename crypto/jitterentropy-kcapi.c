@@ -1,6 +1,6 @@
 /*
  * Non-physical true random number generator based on timing jitter --
- * Linux Kernel Crypto API specific code
+ * Public API
  *
  * Copyright Stephan Mueller <smueller@chronox.de>, 2015 - 2023
  *
@@ -44,9 +44,9 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/time.h>
-#include <crypto/internal/rng.h>
 
 #include "jitterentropy.h"
+#include "jitterentropy-kcapi.h"
 
 /***************************************************************************
  * Helper function
@@ -169,7 +169,7 @@ void jent_read_random_block(struct sha3_ctx *hash_state, char *dst,
 }
 
 /***************************************************************************
- * Kernel crypto API interface
+ * Public API
  ***************************************************************************/
 
 struct jitterentropy {
@@ -178,24 +178,66 @@ struct jitterentropy {
 	struct sha3_ctx hash_state;
 };
 
-static void jent_kcapi_cleanup(struct crypto_tfm *tfm)
+static int jent_init_err;
+
+static void jent_init_once(void)
 {
-	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
+	struct sha3_ctx hash_state;
+	int err;
 
-	mutex_lock(&rng->jent_lock);
+	sha3_256_init(&hash_state);
+	err = jent_entropy_init(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &hash_state,
+				NULL);
+	memzero_explicit(&hash_state, sizeof(hash_state));
+	if (err) {
+		/* Handle permanent health test error */
+		if (fips_enabled)
+			panic("jitterentropy: Initialization failed with host not compliant with requirements: %d\n",
+			      err);
 
-	memzero_explicit(&rng->hash_state, sizeof(rng->hash_state));
-
-	if (rng->entropy_collector)
-		jent_entropy_collector_free(rng->entropy_collector);
-	rng->entropy_collector = NULL;
-	mutex_unlock(&rng->jent_lock);
+		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n",
+			err);
+		jent_init_err = err;
+	}
 }
 
-static int jent_kcapi_init(struct crypto_tfm *tfm)
+static int jent_init(void)
 {
-	struct jitterentropy *rng = crypto_tfm_ctx(tfm);
-	int ret = 0;
+	static DEFINE_MUTEX(jent_init_mutex);
+	static bool initialized;
+
+	/*
+	 * To avoid lockdep reports of inconsistent ordering of drbg_mutex and
+	 * once_mutex, implement one-time-init locally instead of using
+	 * DO_ONCE_SLEEPABLE.
+	 */
+	guard(mutex)(&jent_init_mutex);
+	if (!initialized) {
+		jent_init_once();
+		initialized = true;
+	}
+	if (jent_init_err) {
+		/*
+		 * jent_init_err is a private custom error code from
+		 * jitterentropy.c.  Select an errno value instead.
+		 */
+		return -EOPNOTSUPP;
+	}
+	return 0;
+}
+
+struct jitterentropy *crypto_jent_alloc(void)
+{
+	struct jitterentropy *rng;
+	int err;
+
+	err = jent_init();
+	if (err)
+		return ERR_PTR(err);
+
+	rng = kzalloc_obj(*rng);
+	if (!rng)
+		return ERR_PTR(-ENOMEM);
 
 	mutex_init(&rng->jent_lock);
 
@@ -205,27 +247,21 @@ static int jent_kcapi_init(struct crypto_tfm *tfm)
 	rng->entropy_collector = jent_entropy_collector_alloc(
 		CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &rng->hash_state);
 	if (!rng->entropy_collector) {
-		ret = -ENOMEM;
-		goto err;
+		crypto_jent_free(rng);
+		return ERR_PTR(-ENOMEM);
 	}
-
-	return 0;
-
-err:
-	jent_kcapi_cleanup(tfm);
-	return ret;
+	return rng;
 }
+EXPORT_SYMBOL_NS_GPL(crypto_jent_alloc, "CRYPTO_INTERNAL");
 
-static int jent_kcapi_random(struct crypto_rng *tfm,
-			     const u8 *src, unsigned int slen,
-			     u8 *rdata, unsigned int dlen)
+int crypto_jent_get_bytes(struct jitterentropy *rng, u8 *out,
+			  unsigned int out_len)
 {
-	struct jitterentropy *rng = crypto_rng_ctx(tfm);
-	int ret = 0;
+	int ret;
 
-	mutex_lock(&rng->jent_lock);
+	guard(mutex)(&rng->jent_lock);
 
-	ret = jent_read_entropy(rng->entropy_collector, rdata, dlen);
+	ret = jent_read_entropy(rng->entropy_collector, out, out_len);
 
 	if (ret == -3) {
 		/* Handle permanent health test error */
@@ -239,70 +275,41 @@ static int jent_kcapi_random(struct crypto_rng *tfm,
 			panic("Jitter RNG permanent health test failure\n");
 
 		pr_err("Jitter RNG permanent health test failure\n");
-		ret = -EFAULT;
-	} else if (ret == -2) {
+		return -EFAULT;
+	}
+	if (ret == -2) {
 		/* Handle intermittent health test error */
 		pr_warn_ratelimited("Reset Jitter RNG due to intermittent health test failure\n");
-		ret = -EAGAIN;
-	} else if (ret == -1) {
-		/* Handle other errors */
-		ret = -EINVAL;
+		return -EAGAIN;
 	}
-
-	mutex_unlock(&rng->jent_lock);
-
+	if (ret == -1) {
+		/* Handle other errors */
+		return -EINVAL;
+	}
 	return ret;
 }
+EXPORT_SYMBOL_NS_GPL(crypto_jent_get_bytes, "CRYPTO_INTERNAL");
 
-static int jent_kcapi_reset(struct crypto_rng *tfm,
-			    const u8 *seed, unsigned int slen)
+void crypto_jent_free(struct jitterentropy *rng)
 {
-	return 0;
-}
-
-static struct rng_alg jent_alg = {
-	.generate		= jent_kcapi_random,
-	.seed			= jent_kcapi_reset,
-	.seedsize		= 0,
-	.base			= {
-		.cra_name               = "jitterentropy_rng",
-		.cra_driver_name        = "jitterentropy_rng",
-		.cra_priority           = 100,
-		.cra_ctxsize            = sizeof(struct jitterentropy),
-		.cra_module             = THIS_MODULE,
-		.cra_init               = jent_kcapi_init,
-		.cra_exit               = jent_kcapi_cleanup,
+	if (!IS_ERR_OR_NULL(rng)) {
+		mutex_destroy(&rng->jent_lock);
+		if (rng->entropy_collector)
+			jent_entropy_collector_free(rng->entropy_collector);
+		kfree_sensitive(rng);
 	}
-};
+}
+EXPORT_SYMBOL_NS_GPL(crypto_jent_free, "CRYPTO_INTERNAL");
 
 static int __init jent_mod_init(void)
 {
-	struct sha3_ctx hash_state;
-	int ret = 0;
-
 	jent_testing_init();
-
-	sha3_256_init(&hash_state);
-
-	ret = jent_entropy_init(CONFIG_CRYPTO_JITTERENTROPY_OSR, 0, &hash_state,
-				NULL);
-	memzero_explicit(&hash_state, sizeof(hash_state));
-	if (ret) {
-		/* Handle permanent health test error */
-		if (fips_enabled)
-			panic("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
-
-		jent_testing_exit();
-		pr_info("jitterentropy: Initialization failed with host not compliant with requirements: %d\n", ret);
-		return -EFAULT;
-	}
-	return crypto_register_rng(&jent_alg);
+	return 0;
 }
 
 static void __exit jent_mod_exit(void)
 {
 	jent_testing_exit();
-	crypto_unregister_rng(&jent_alg);
 }
 
 module_init(jent_mod_init);
@@ -311,4 +318,3 @@ module_exit(jent_mod_exit);
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Stephan Mueller <smueller@chronox.de>");
 MODULE_DESCRIPTION("Non-physical True Random Number Generator based on CPU Jitter");
-MODULE_ALIAS_CRYPTO("jitterentropy_rng");
