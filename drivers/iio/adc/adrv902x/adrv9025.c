@@ -1632,6 +1632,31 @@ static u32 *adrv9025_cfr_xm_field(struct adrv9025_cfr_chan *cfr, uintptr_t priva
 	switch (private) {
 	case TX_CFR_PEAK_THRESHOLD:
 		return &cfr->ctrl.cfrPeakThreshold_xM;
+	case TX_CFR_CORR_THRESHOLD_SCALER:
+		return &cfr->ctrl.cfrCorrectionThresholdScaler_xM;
+	case TX_CFR_ENGINE1_THRESHOLD_SCALER:
+		return &cfr->ctrl.cfrEngine1PeakThresholdScaler_xM;
+	case TX_CFR_ENGINE2_THRESHOLD_SCALER:
+		return &cfr->ctrl.cfrEngine2PeakThresholdScaler_xM;
+	case TX_CFR_ENGINE3_THRESHOLD_SCALER:
+		return &cfr->ctrl.cfrEngine3PeakThresholdScaler_xM;
+	case TX_CFR_HARD_CLIPPER_THRESHOLD:
+		return &cfr->hard_clipper.cfrHardClipperThreshold_xM;
+	default:
+		return NULL;
+	}
+}
+
+static u8 *adrv9025_cfr_max_peaks_field(struct adrv9025_cfr_chan *cfr,
+					uintptr_t private)
+{
+	switch (private) {
+	case TX_CFR_ENGINE1_MAX_PEAKS:
+		return &cfr->ctrl.cfrEngine1MaxNumOfPeaks;
+	case TX_CFR_ENGINE2_MAX_PEAKS:
+		return &cfr->ctrl.cfrEngine2MaxNumOfPeaks;
+	case TX_CFR_ENGINE3_MAX_PEAKS:
+		return &cfr->ctrl.cfrEngine3MaxNumOfPeaks;
 	default:
 		return NULL;
 	}
@@ -1646,6 +1671,7 @@ static ssize_t adrv9025_phy_tx_cfr_read(struct iio_dev *indio_dev,
 	adi_adrv9025_CfrStatus_t status = { 0 };
 	struct adrv9025_cfr_chan *cfr;
 	u32 *xm;
+	u8 *peaks;
 	int ret;
 
 	if (chan->channel > CHAN_TX4)
@@ -1660,7 +1686,16 @@ static ssize_t adrv9025_phy_tx_cfr_read(struct iio_dev *indio_dev,
 		return sysfs_emit(buf, "%u.%06u\n", (u32)(*xm / MICRO),
 				  (u32)(*xm % MICRO));
 
+	peaks = adrv9025_cfr_max_peaks_field(cfr, private);
+	if (peaks)
+		return sysfs_emit(buf, "%u\n", *peaks);
+
 	switch (private) {
+	case TX_CFR_TX_DELAY:
+		return sysfs_emit(buf, "%u\n", cfr->ctrl.cfrTxDelay);
+	case TX_CFR_HARD_CLIPPER_EN:
+		return sysfs_emit(buf, "%u\n",
+				  cfr->hard_clipper.cfrHardClipperEnable);
 	case TX_CFR_STATUS:
 		ret = adi_adrv9025_CfrStatusGet(phy->madDevice,
 						ADI_ADRV9025_TX1 << chan->channel,
@@ -1712,7 +1747,10 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 	struct adrv9025_cfr_chan *cfr;
 	int ch = chan->channel;
 	int integer, fract, ret;
+	bool enable;
 	u32 *xm;
+	u8 *peaks;
+	u32 val;
 
 	if (ch > CHAN_TX4)
 		return -EINVAL;
@@ -1736,7 +1774,65 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 		return len;
 	}
 
-	return -EINVAL;
+	peaks = adrv9025_cfr_max_peaks_field(cfr, private);
+	if (peaks) {
+		ret = kstrtou32(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val > 5)
+			return -EINVAL;
+
+		guard(mutex)(&phy->lock);
+		ret = adrv9025_cfr_init_time_check(phy, ch);
+		if (ret)
+			return ret;
+		*peaks = val;
+		return len;
+	}
+
+	switch (private) {
+	case TX_CFR_TX_DELAY: {
+		ret = kstrtou32(buf, 0, &val);
+		if (ret)
+			return ret;
+		if (val < 129 || val > 511)
+			return -EINVAL;
+
+		guard(mutex)(&phy->lock);
+		ret = adrv9025_cfr_init_time_check(phy, ch);
+		if (ret)
+			return ret;
+		cfr->ctrl.cfrTxDelay = val;
+		return len;
+	}
+	case TX_CFR_HARD_CLIPPER_EN: {
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+
+		guard(mutex)(&phy->lock);
+		ret = adrv9025_cfr_init_time_check(phy, ch);
+		if (ret)
+			return ret;
+		cfr->hard_clipper.cfrHardClipperEnable = enable;
+		return len;
+	}
+	case TX_CFR_STATISTICS_RESET: {
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		if (!enable)
+			return len;
+
+		guard(mutex)(&phy->lock);
+		ret = adi_adrv9025_CfrStatisticsReset(phy->madDevice, BIT(ch));
+		if (ret)
+			return adrv9025_dev_err(phy);
+		return len;
+	}
+	default:
+		return -EINVAL;
+	}
 }
 
 #define _ADRV9025_EXT_TX_CFR_INFO(_name, _ident)                               \
@@ -1744,6 +1840,48 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 		.name = _name, .read = adrv9025_phy_tx_cfr_read,               \
 		.write = adrv9025_phy_tx_cfr_write, .private = _ident,         \
 	}
+
+static const char * const adrv9025_cfr_engine_modes[] = {
+	[ADRV9025_CFR_ENGINE_DISABLED] = "disabled",
+	[ADRV9025_CFR_ENGINE_BYPASS] = "bypass",
+	[ADRV9025_CFR_ENGINE_ENABLED] = "enabled",
+};
+
+#define ADRV9025_CFR_ENGINE_MODE_ENUM(_n)                                      \
+static int adrv9025_cfr_engine##_n##_mode_get(struct iio_dev *indio_dev,       \
+					      const struct iio_chan_spec *chan)\
+{                                                                              \
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);                     \
+									       \
+	guard(mutex)(&phy->lock);                                              \
+	return phy->cfr[chan->channel].engine_mode[(_n) - 1];                  \
+}                                                                              \
+									       \
+static int adrv9025_cfr_engine##_n##_mode_set(struct iio_dev *indio_dev,       \
+					      const struct iio_chan_spec *chan,\
+					      unsigned int mode)               \
+{                                                                              \
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);                     \
+	int ret;                                                               \
+									       \
+	guard(mutex)(&phy->lock);                                              \
+	ret = adrv9025_cfr_init_time_check(phy, chan->channel);                \
+	if (ret)                                                               \
+		return ret;                                                    \
+	phy->cfr[chan->channel].engine_mode[(_n) - 1] = mode;                  \
+	return 0;                                                              \
+}                                                                              \
+									       \
+static const struct iio_enum adrv9025_cfr_engine##_n##_mode_enum = {          \
+	.items = adrv9025_cfr_engine_modes,                                    \
+	.num_items = ARRAY_SIZE(adrv9025_cfr_engine_modes),                    \
+	.get = adrv9025_cfr_engine##_n##_mode_get,                             \
+	.set = adrv9025_cfr_engine##_n##_mode_set,                             \
+}
+
+ADRV9025_CFR_ENGINE_MODE_ENUM(1);
+ADRV9025_CFR_ENGINE_MODE_ENUM(2);
+ADRV9025_CFR_ENGINE_MODE_ENUM(3);
 
 static const char * const adrv9025_cfr_interpolation[] = {
 	[ADI_ADRV9025_CFR_INTERPOLATION_1X] = "1x",
@@ -1844,7 +1982,28 @@ static struct iio_chan_spec_ext_info adrv9029_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
 	_ADRV9025_EXT_TX_INFO("dpd_en", TX_DPD),
 	_ADRV9025_EXT_TX_CFR_INFO("cfr_peak_threshold", TX_CFR_PEAK_THRESHOLD),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_correction_threshold_scaler",
+				  TX_CFR_CORR_THRESHOLD_SCALER),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine1_threshold_scaler",
+				  TX_CFR_ENGINE1_THRESHOLD_SCALER),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine2_threshold_scaler",
+				  TX_CFR_ENGINE2_THRESHOLD_SCALER),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine3_threshold_scaler",
+				  TX_CFR_ENGINE3_THRESHOLD_SCALER),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine1_max_peaks", TX_CFR_ENGINE1_MAX_PEAKS),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine2_max_peaks", TX_CFR_ENGINE2_MAX_PEAKS),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_engine3_max_peaks", TX_CFR_ENGINE3_MAX_PEAKS),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_tx_delay", TX_CFR_TX_DELAY),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_hard_clipper_en", TX_CFR_HARD_CLIPPER_EN),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_hard_clipper_threshold",
+				  TX_CFR_HARD_CLIPPER_THRESHOLD),
 	_ADRV9025_EXT_TX_CFR_INFO("cfr_status", TX_CFR_STATUS),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_statistics_reset", TX_CFR_STATISTICS_RESET),
+	IIO_ENUM_AVAILABLE("cfr_engine_mode", IIO_SHARED_BY_TYPE,
+			   &adrv9025_cfr_engine1_mode_enum),
+	IIO_ENUM("cfr_engine1_mode", IIO_SEPARATE, &adrv9025_cfr_engine1_mode_enum),
+	IIO_ENUM("cfr_engine2_mode", IIO_SEPARATE, &adrv9025_cfr_engine2_mode_enum),
+	IIO_ENUM("cfr_engine3_mode", IIO_SEPARATE, &adrv9025_cfr_engine3_mode_enum),
 	IIO_ENUM_AVAILABLE("cfr_interpolation", IIO_SHARED_BY_TYPE,
 			   &adrv9025_cfr_interpolation_enum),
 	IIO_ENUM("cfr_interpolation", IIO_SEPARATE, &adrv9025_cfr_interpolation_enum),
