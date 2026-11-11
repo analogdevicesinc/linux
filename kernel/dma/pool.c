@@ -152,7 +152,8 @@ remove_mapping:
 	dma_common_free_remap(addr, pool_size);
 free_page:
 #endif
-	if (!leak_pages)
+	if (!leak_pages &&
+	    !dma_release_from_contiguous(NULL, page, 1 << order))
 		__free_pages(page, order);
 out:
 	return ret;
