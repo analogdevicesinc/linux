@@ -35,8 +35,6 @@ struct arizona_ldo1 {
 
 	struct regulator_consumer_supply supply;
 	struct regulator_init_data init_data;
-
-	struct gpio_desc *ena_gpiod;
 };
 
 static int arizona_ldo1_hc_set_voltage_sel(struct regulator_dev *rdev,
@@ -262,8 +260,6 @@ static int arizona_ldo1_common_init(struct platform_device *pdev,
 	if (IS_ERR(config.ena_gpiod))
 		return PTR_ERR(config.ena_gpiod);
 
-	ldo1->ena_gpiod = config.ena_gpiod;
-
 	if (pdata->init_data)
 		config.init_data = pdata->init_data;
 	else
@@ -286,8 +282,6 @@ static int arizona_ldo1_common_init(struct platform_device *pdev,
 			ret);
 		return ret;
 	}
-
-	platform_set_drvdata(pdev, ldo1);
 
 	return 0;
 }
@@ -339,14 +333,6 @@ static int arizona_ldo1_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static void arizona_ldo1_remove(struct platform_device *pdev)
-{
-	struct arizona_ldo1 *ldo1 = platform_get_drvdata(pdev);
-
-	if (ldo1->ena_gpiod)
-		gpiod_put(ldo1->ena_gpiod);
-}
-
 static int madera_ldo1_probe(struct platform_device *pdev)
 {
 	struct madera *madera = dev_get_drvdata(pdev->dev.parent);
@@ -375,7 +361,6 @@ static int madera_ldo1_probe(struct platform_device *pdev)
 
 static struct platform_driver arizona_ldo1_driver = {
 	.probe = arizona_ldo1_probe,
-	.remove = arizona_ldo1_remove,
 	.driver = {
 		.name = "arizona-ldo1",
 		.probe_type = PROBE_FORCE_SYNCHRONOUS,
@@ -384,7 +369,6 @@ static struct platform_driver arizona_ldo1_driver = {
 
 static struct platform_driver madera_ldo1_driver = {
 	.probe = madera_ldo1_probe,
-	.remove = arizona_ldo1_remove,
 	.driver = {
 		.name = "madera-ldo1",
 		.probe_type = PROBE_FORCE_SYNCHRONOUS,

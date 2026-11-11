@@ -99,7 +99,9 @@ static int rt6190_out_enable(struct regulator_dev *rdev)
 	u8 out_cfg[4];
 	int ret;
 
-	pm_runtime_get_sync(data->dev);
+	ret = pm_runtime_resume_and_get(data->dev);
+	if (ret)
+		return ret;
 
 	/*
 	 * From off to on, vout config will restore to IC default.

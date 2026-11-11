@@ -285,7 +285,7 @@ impl<T: RegulatorState> Regulator<T> {
 
     fn enable_internal(&self) -> Result {
         // SAFETY: Safe as per the type invariants of `Regulator`.
-        to_result(unsafe { bindings::regulator_enable(self.inner) })
+        to_result(unsafe { bindings::regulator_enable_and_wait(self.inner, 0) })
     }
 
     fn disable_internal(&self) -> Result {

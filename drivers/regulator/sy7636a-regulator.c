@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0+
 //
-// Functions to access SY3686A power management chip voltages
+// Functions to access SY7636A power management chip voltages
 //
 // Copyright (C) 2019 reMarkable AS - http://www.remarkable.com/
 //
 // Authors: Lars Ivar Miljeteig <lars.ivar.miljeteig@remarkable.com>
 //          Alistair Francis <alistair@alistair23.me>
 
+#include <linux/completion.h>
 #include <linux/gpio/consumer.h>
 #include <linux/i2c.h>
+#include <linux/interrupt.h>
 #include <linux/mfd/sy7636a.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
@@ -17,14 +19,17 @@
 #include <linux/regulator/machine.h>
 #include <linux/regmap.h>
 
+#define PGOOD_TIMEOUT_MSECS 200
+
 struct sy7636a_data {
 	struct regmap *regmap;
 	struct gpio_desc *pgood_gpio;
 	struct gpio_desc *en_gpio;
 	struct gpio_desc *vcom_en_gpio;
+	struct completion pgood_completion;
 };
 
-static int sy7636a_get_vcom_voltage_op(struct regulator_dev *rdev)
+static int sy7636a_get_vcom_voltage_sel(struct regulator_dev *rdev)
 {
 	int ret;
 	unsigned int val, val_h;
@@ -37,9 +42,20 @@ static int sy7636a_get_vcom_voltage_op(struct regulator_dev *rdev)
 	if (ret)
 		return ret;
 
-	val |= (val_h << VCOM_ADJUST_CTRL_SHIFT);
+	/* VCOM[8] is bit 7 of register 0x02 */
+	return val | (val_h & BIT(7)) << 1;
+}
 
-	return (val & VCOM_ADJUST_CTRL_MASK) * VCOM_ADJUST_CTRL_SCAL;
+static int sy7636a_set_vcom_voltage_sel(struct regulator_dev *rdev, unsigned int sel)
+{
+	int ret;
+
+	ret = regmap_write(rdev->regmap, SY7636A_REG_VCOM_ADJUST_CTRL_L, sel & 0xff);
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(rdev->regmap, SY7636A_REG_VCOM_ADJUST_CTRL_H, BIT(7),
+				  (sel & BIT(8)) >> 1);
 }
 
 static int sy7636a_get_status(struct regulator_dev *rdev)
@@ -54,12 +70,52 @@ static int sy7636a_get_status(struct regulator_dev *rdev)
 	return ret;
 }
 
+static irqreturn_t sy7636a_pgood_handler(int irq, void *dev_id)
+{
+	struct sy7636a_data *data = dev_id;
+
+	complete(&data->pgood_completion);
+
+	return IRQ_HANDLED;
+}
+
+/* return once the rails are good, so that consumers can use them */
+static int sy7636a_enable(struct regulator_dev *rdev)
+{
+	struct sy7636a_data *data = dev_get_drvdata(rdev->dev.parent);
+	int ret;
+
+	reinit_completion(&data->pgood_completion);
+	ret = regulator_enable_regmap(rdev);
+	if (ret)
+		return ret;
+
+	wait_for_completion_timeout(&data->pgood_completion,
+				    msecs_to_jiffies(PGOOD_TIMEOUT_MSECS));
+	ret = gpiod_get_value_cansleep(data->pgood_gpio);
+	if (ret <= 0) {
+		regulator_disable_regmap(rdev);
+		return ret ? ret : -ETIMEDOUT;
+	}
+
+	return 0;
+}
+
 static const struct regulator_ops sy7636a_vcom_volt_ops = {
-	.get_voltage = sy7636a_get_vcom_voltage_op,
-	.enable = regulator_enable_regmap,
+	.list_voltage = regulator_list_voltage_linear_range,
+	.map_voltage = regulator_map_voltage_linear_range,
+	.get_voltage_sel = sy7636a_get_vcom_voltage_sel,
+	.set_voltage_sel = sy7636a_set_vcom_voltage_sel,
+	.enable = sy7636a_enable,
 	.disable = regulator_disable_regmap,
 	.is_enabled = regulator_is_enabled_regmap,
 	.get_status = sy7636a_get_status,
+};
+
+/* 10 mV steps up to 5 V, higher codes also give 5 V */
+static const struct linear_range sy7636a_vcom_ranges[] = {
+	REGULATOR_LINEAR_RANGE(0, 0x000, 0x1f4, VCOM_ADJUST_CTRL_SCAL),
+	REGULATOR_LINEAR_RANGE(5000000, 0x1f5, 0x1ff, 0),
 };
 
 static const struct regulator_desc desc = {
@@ -68,6 +124,9 @@ static const struct regulator_desc desc = {
 	.ops = &sy7636a_vcom_volt_ops,
 	.type = REGULATOR_VOLTAGE,
 	.owner = THIS_MODULE,
+	.n_voltages = VCOM_ADJUST_CTRL_MASK + 1,
+	.linear_ranges = sy7636a_vcom_ranges,
+	.n_linear_ranges = ARRAY_SIZE(sy7636a_vcom_ranges),
 	.enable_reg = SY7636A_REG_OPERATION_MODE_CRL,
 	.enable_mask = SY7636A_OPERATION_MODE_CRL_ONOFF,
 	.regulators_node = of_match_ptr("regulators"),
@@ -81,7 +140,7 @@ static int sy7636a_regulator_probe(struct platform_device *pdev)
 	struct regulator_dev *rdev;
 	struct gpio_desc *gdp;
 	struct sy7636a_data *data;
-	int ret;
+	int irq, ret;
 
 	if (!regmap)
 		return -EPROBE_DEFER;
@@ -132,6 +191,18 @@ static int sy7636a_regulator_probe(struct platform_device *pdev)
 		dev_err(pdev->dev.parent, "Failed to initialize regulator: %d\n", ret);
 		return ret;
 	}
+
+	irq = gpiod_to_irq(data->pgood_gpio);
+	if (irq < 0)
+		return dev_err_probe(&pdev->dev, irq, "no power good interrupt\n");
+
+	init_completion(&data->pgood_completion);
+	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL, sy7636a_pgood_handler,
+					IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+					"sy7636a-pgood", data);
+	if (ret)
+		return dev_err_probe(&pdev->dev, ret,
+				     "failed to request power good interrupt\n");
 
 	config.dev = &pdev->dev;
 	config.regmap = regmap;

@@ -522,18 +522,7 @@ static struct platform_driver lp8788_buck_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
-
-static int __init lp8788_buck_init(void)
-{
-	return platform_driver_register(&lp8788_buck_driver);
-}
-subsys_initcall(lp8788_buck_init);
-
-static void __exit lp8788_buck_exit(void)
-{
-	platform_driver_unregister(&lp8788_buck_driver);
-}
-module_exit(lp8788_buck_exit);
+subsys_platform_driver(lp8788_buck_driver);
 
 MODULE_DESCRIPTION("TI LP8788 BUCK Driver");
 MODULE_AUTHOR("Milo Kim");

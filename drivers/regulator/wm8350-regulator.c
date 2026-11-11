@@ -1310,18 +1310,7 @@ static struct platform_driver wm8350_regulator_driver = {
 		.probe_type = PROBE_PREFER_ASYNCHRONOUS,
 	},
 };
-
-static int __init wm8350_regulator_init(void)
-{
-	return platform_driver_register(&wm8350_regulator_driver);
-}
-subsys_initcall(wm8350_regulator_init);
-
-static void __exit wm8350_regulator_exit(void)
-{
-	platform_driver_unregister(&wm8350_regulator_driver);
-}
-module_exit(wm8350_regulator_exit);
+subsys_platform_driver(wm8350_regulator_driver);
 
 /* Module information */
 MODULE_AUTHOR("Liam Girdwood");

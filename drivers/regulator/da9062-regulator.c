@@ -1036,18 +1036,7 @@ static struct platform_driver da9062_regulator_driver = {
 	},
 	.probe = da9062_regulator_probe,
 };
-
-static int __init da9062_regulator_init(void)
-{
-	return platform_driver_register(&da9062_regulator_driver);
-}
-subsys_initcall(da9062_regulator_init);
-
-static void __exit da9062_regulator_cleanup(void)
-{
-	platform_driver_unregister(&da9062_regulator_driver);
-}
-module_exit(da9062_regulator_cleanup);
+subsys_platform_driver(da9062_regulator_driver);
 
 /* Module information */
 MODULE_AUTHOR("S Twiss <stwiss.opensource@diasemi.com>");

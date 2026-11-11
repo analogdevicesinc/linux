@@ -386,18 +386,7 @@ static struct platform_driver pm8607_regulator_driver = {
 	.probe		= pm8607_regulator_probe,
 	.id_table	= pm8607_regulator_driver_ids,
 };
-
-static int __init pm8607_regulator_init(void)
-{
-	return platform_driver_register(&pm8607_regulator_driver);
-}
-subsys_initcall(pm8607_regulator_init);
-
-static void __exit pm8607_regulator_exit(void)
-{
-	platform_driver_unregister(&pm8607_regulator_driver);
-}
-module_exit(pm8607_regulator_exit);
+subsys_platform_driver(pm8607_regulator_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Haojian Zhuang <haojian.zhuang@marvell.com>");

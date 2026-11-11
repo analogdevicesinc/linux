@@ -257,18 +257,7 @@ int wm8400_register_regulator(struct device *dev, int reg,
 	return platform_device_register(&wm8400->regulators[reg]);
 }
 EXPORT_SYMBOL_GPL(wm8400_register_regulator);
-
-static int __init wm8400_regulator_init(void)
-{
-	return platform_driver_register(&wm8400_regulator_driver);
-}
-subsys_initcall(wm8400_regulator_init);
-
-static void __exit wm8400_regulator_exit(void)
-{
-	platform_driver_unregister(&wm8400_regulator_driver);
-}
-module_exit(wm8400_regulator_exit);
+subsys_platform_driver(wm8400_regulator_driver);
 
 MODULE_AUTHOR("Mark Brown <broonie@opensource.wolfsonmicro.com>");
 MODULE_DESCRIPTION("WM8400 regulator driver");
