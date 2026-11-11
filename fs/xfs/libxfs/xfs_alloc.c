@@ -676,12 +676,9 @@ xfs_alloc_fixup_trees(
 	/*
 	 * Delete the entry from the by-size btree.
 	 */
-	if ((error = xfs_btree_delete(cnt_cur, &i)))
+	error = xfs_btree_delete(cnt_cur);
+	if (error)
 		return error;
-	if (XFS_IS_CORRUPT(mp, i != 1)) {
-		xfs_btree_mark_sick(cnt_cur);
-		return -EFSCORRUPTED;
-	}
 	/*
 	 * Add new by-size btree entry(s).
 	 */
@@ -692,12 +689,9 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(cnt_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(cnt_cur, &i)))
+		error = xfs_btree_insert(cnt_cur);
+		if (error)
 			return error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			return -EFSCORRUPTED;
-		}
 	}
 	if (nfbno2 != NULLAGBLOCK) {
 		if ((error = xfs_alloc_lookup_eq(cnt_cur, nfbno2, nflen2, &i)))
@@ -706,12 +700,9 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(cnt_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(cnt_cur, &i)))
+		error = xfs_btree_insert(cnt_cur);
+		if (error)
 			return error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			return -EFSCORRUPTED;
-		}
 	}
 	/*
 	 * Fix up the by-block btree entry(s).
@@ -720,12 +711,9 @@ xfs_alloc_fixup_trees(
 		/*
 		 * No remaining freespace, just delete the by-block tree entry.
 		 */
-		if ((error = xfs_btree_delete(bno_cur, &i)))
+		error = xfs_btree_delete(bno_cur);
+		if (error)
 			return error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			return -EFSCORRUPTED;
-		}
 	} else {
 		/*
 		 * Update the by-block entry to start later|be shorter.
@@ -743,12 +731,9 @@ xfs_alloc_fixup_trees(
 			xfs_btree_mark_sick(bno_cur);
 			return -EFSCORRUPTED;
 		}
-		if ((error = xfs_btree_insert(bno_cur, &i)))
+		error = xfs_btree_insert(bno_cur);
+		if (error)
 			return error;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			return -EFSCORRUPTED;
-		}
 	}
 
 	if (fixup_longest)
@@ -2162,13 +2147,9 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Delete the old by-size entry on the right.
 		 */
@@ -2179,23 +2160,15 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Delete the old by-block entry for the right block.
 		 */
-		if ((error = xfs_btree_delete(bno_cur, &i)))
+		error = xfs_btree_delete(bno_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Move the by-block cursor back to the left neighbor.
 		 */
@@ -2251,13 +2224,9 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Back up the by-block cursor to the left neighbor, and
 		 * update its length.
@@ -2289,13 +2258,9 @@ xfs_free_ag_extent(
 			error = -EFSCORRUPTED;
 			goto error0;
 		}
-		if ((error = xfs_btree_delete(cnt_cur, &i)))
+		error = xfs_btree_delete(cnt_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(cnt_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 		/*
 		 * Update the starting block and length of the right
 		 * neighbor in the by-block tree.
@@ -2312,13 +2277,9 @@ xfs_free_ag_extent(
 	else {
 		nbno = bno;
 		nlen = len;
-		if ((error = xfs_btree_insert(bno_cur, &i)))
+		error = xfs_btree_insert(bno_cur);
+		if (error)
 			goto error0;
-		if (XFS_IS_CORRUPT(mp, i != 1)) {
-			xfs_btree_mark_sick(bno_cur);
-			error = -EFSCORRUPTED;
-			goto error0;
-		}
 	}
 	xfs_btree_del_cursor(bno_cur, XFS_BTREE_NOERROR);
 	bno_cur = NULL;
@@ -2339,13 +2300,9 @@ xfs_free_ag_extent(
 	}
 	if (xfs_alloc_cursor_at_lastrec(cnt_cur))
 		fixup_longest = true;
-	if ((error = xfs_btree_insert(cnt_cur, &i)))
+	error = xfs_btree_insert(cnt_cur);
+	if (error)
 		goto error0;
-	if (XFS_IS_CORRUPT(mp, i != 1)) {
-		xfs_btree_mark_sick(cnt_cur);
-		error = -EFSCORRUPTED;
-		goto error0;
-	}
 	if (fixup_longest) {
 		error = xfs_alloc_fixup_longest(cnt_cur);
 		if (error)
@@ -3509,7 +3466,6 @@ xfs_alloc_read_agf(
 	if (!xfs_is_shutdown(pag_mount(pag))) {
 		bool	ok = true;
 
-		ok &= pag->pagf_freeblks == be32_to_cpu(agf->agf_freeblks);
 		ok &= pag->pagf_freeblks == be32_to_cpu(agf->agf_freeblks);
 		ok &= pag->pagf_btreeblks == be32_to_cpu(agf->agf_btreeblks);
 		ok &= pag->pagf_flcount == be32_to_cpu(agf->agf_flcount);
