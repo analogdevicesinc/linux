@@ -1377,7 +1377,14 @@ static int tsens_register(struct tsens_priv *priv)
 	return ret;
 }
 
-static int tsens_probe(struct platform_device *pdev)
+static void tsens_disable(struct tsens_priv *priv)
+{
+	tsens_disable_irq(priv);
+	if (priv->ops->disable)
+		priv->ops->disable(priv);
+}
+
+static int tsens_probe_common(struct platform_device *pdev)
 {
 	int ret, i;
 	struct device *dev;
@@ -1402,10 +1409,20 @@ static int tsens_probe(struct platform_device *pdev)
 
 	num_sensors = data->num_sensors;
 
+	/*
+	 * DT may override the platform sensor count. A missing, empty or too
+	 * short property leaves num_sensors unchanged, retaining the default.
+	 */
 	if (np)
 		of_property_read_u32(np, "#qcom,sensors", &num_sensors);
 
-	if (num_sensors <= 0) {
+	/*
+	 * Require at least one sensor and stay within the IP's hardware limit.
+	 * Platforms with an explicit hardware-ID table also limit the count to
+	 * its number of entries, which may be smaller than the hardware limit.
+	 */
+	if (!num_sensors || num_sensors > data->feat->max_sensors ||
+	    (data->hw_ids && num_sensors > data->num_sensors)) {
 		dev_err(dev, "%s: invalid number of sensors\n", __func__);
 		return -EINVAL;
 	}
@@ -1441,14 +1458,56 @@ static int tsens_probe(struct platform_device *pdev)
 
 	if (priv->ops->calibrate) {
 		ret = priv->ops->calibrate(priv);
-		if (ret < 0)
-			return dev_err_probe(dev, ret, "%s: calibration failed\n",
-					     __func__);
+		if (ret < 0) {
+			dev_err_probe(dev, ret, "%s: calibration failed\n", __func__);
+			goto err_disable;
+		}
 	}
 
 	ret = tsens_register(priv);
-	if (!ret)
-		tsens_debug_init(pdev);
+	if (ret)
+		goto err_disable;
+
+	tsens_debug_init(pdev);
+	return 0;
+
+err_disable:
+	/* Stop hardware events before devres releases IRQs and register maps. */
+	tsens_disable(priv);
+	return ret;
+}
+
+static void tsens_release_resources(void *data)
+{
+	struct device *dev = data;
+
+	devres_release_group(dev->parent, dev);
+}
+
+static int tsens_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	int ret;
+
+	/*
+	 * DT-backed devices own their managed resources directly. Legacy devices
+	 * created by the Global Clock Controller (GCC) driver have no OF node and
+	 * use the parent's firmware data and managed resources instead. Group
+	 * those resources so the child releases them on probe failure or unbind.
+	 */
+	if (dev->of_node)
+		return tsens_probe_common(pdev);
+
+	/* Tie resources allocated on the parent to the TSENS lifetime. */
+	if (!devres_open_group(dev->parent, dev, GFP_KERNEL))
+		return -ENOMEM;
+
+	ret = devm_add_action_or_reset(dev, tsens_release_resources, dev);
+	if (ret)
+		return ret;
+
+	ret = tsens_probe_common(pdev);
+	devres_close_group(dev->parent, dev);
 
 	return ret;
 }
@@ -1458,9 +1517,7 @@ static void tsens_remove(struct platform_device *pdev)
 	struct tsens_priv *priv = platform_get_drvdata(pdev);
 
 	debugfs_remove_recursive(priv->debug_root);
-	tsens_disable_irq(priv);
-	if (priv->ops->disable)
-		priv->ops->disable(priv);
+	tsens_disable(priv);
 }
 
 static struct platform_driver tsens_driver = {
