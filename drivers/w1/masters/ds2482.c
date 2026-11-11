@@ -437,7 +437,7 @@ static u8 ds2482_w1_set_pullup(void *data, int delay)
 
 	/* if delay is non-zero activate the pullup,
 	 * the strong pullup will be automatically deactivated
-	 * by the master, so do not explicitly deactive it
+	 * by the master, so do not explicitly deactivate it
 	 *
 	 * The setting is used up by the next byte on any channel of the chip:
 	 * ds2482_w1_write_byte() makes it, in one go with the byte.
