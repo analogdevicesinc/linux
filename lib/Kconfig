@@ -349,6 +349,17 @@ config XARRAY_MULTI
 	  Support entries which occupy multiple consecutive indices in the
 	  XArray.
 
+config XARRAY_RUST
+	bool "Rust XArray (EXPERIMENTAL)"
+	depends on RUST
+	depends on EXPERT
+	help
+	  This builds the Rust implementation of the XArray (kernel::rxarray).
+	  It is an experimental reference implementation under evaluation and does
+	  not yet cover every feature of the C XArray.
+
+	  If unsure, say N.
+
 config ASSOCIATIVE_ARRAY
 	bool
 	help
