@@ -23,6 +23,8 @@
 #include <linux/interrupt.h>
 #include <linux/types.h>
 #include <linux/cleanup.h>
+#include <linux/units.h>
+#include <linux/sizes.h>
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
@@ -316,6 +318,306 @@ static void adrv9025_shutdown(struct adrv9025_rf_phy *phy)
 	       sizeof(phy->adi_adrv9025_device.devStateInfo));
 }
 
+#define ADRV9025_CFR_PULSE_FILE_SIZE	SZ_16K
+
+/*
+ * Parse a CFR correction pulse file. Format (text, one coefficient per line):
+ *
+ *   # comment
+ *   <real> <imag>      first half of the conjugate-symmetric pulse, int16
+ *   ...
+ *   ---                optional: starts a second pulse for carrier hot swap
+ *   <real> <imag>
+ *   ...
+ */
+static int adrv9025_parse_cfr_pulses(struct adrv9025_rf_phy *phy,
+				     char *data,
+				     adi_adrv9025_CfrCorrectionPulse_t *pulses,
+				     u8 *num_pulses)
+{
+	adi_adrv9025_CfrCorrectionPulse_t *p = &pulses[0];
+	char *ptr = data, *line;
+	s16 re, im;
+
+	*num_pulses = 1;
+	memset(pulses, 0, sizeof(*pulses) * ADRV9025_CFR_MAX_PULSES);
+
+	while ((line = strsep(&ptr, "\n"))) {
+		line = strim(line);
+		if (line[0] == '#' || !line[0])
+			continue;
+
+		if (!strcmp(line, "---")) {
+			if (*num_pulses == ADRV9025_CFR_MAX_PULSES || !p->numCoeffs) {
+				dev_err(&phy->spi->dev,
+					"CFR: at most %d non-empty pulses allowed\n",
+					ADRV9025_CFR_MAX_PULSES);
+				return -EINVAL;
+			}
+			p = &pulses[(*num_pulses)++];
+			continue;
+		}
+
+		if (p->numCoeffs >= ADI_ADRV9025_MAX_CFR_CORRECTION_PULSE_LEN) {
+			dev_err(&phy->spi->dev,
+				"CFR: half pulse exceeds %u coefficients\n",
+				ADI_ADRV9025_MAX_CFR_CORRECTION_PULSE_LEN);
+			return -EINVAL;
+		}
+
+		if (sscanf(line, "%hd %hd", &re, &im) != 2) {
+			dev_err(&phy->spi->dev,
+				"CFR: malformed pulse line '%s'\n", line);
+			return -EINVAL;
+		}
+
+		p->coeffRealHalfPulse[p->numCoeffs] = re;
+		p->coeffImaginaryHalfPulse[p->numCoeffs] = im;
+		p->numCoeffs++;
+	}
+
+	return 0;
+}
+
+static int adrv9025_cfr_pulses_validate(struct adrv9025_rf_phy *phy,
+					adi_adrv9025_CfrCorrectionPulse_t *pulses,
+					u8 num_pulses)
+{
+	if (!pulses[num_pulses - 1].numCoeffs) {
+		dev_err(&phy->spi->dev, "CFR: empty correction pulse\n");
+		return -EINVAL;
+	}
+
+	/* two pulses (hot swap): equal length, half length <= 256 each */
+	if (num_pulses == ADRV9025_CFR_MAX_PULSES &&
+	    (pulses[0].numCoeffs != pulses[1].numCoeffs ||
+	     pulses[0].numCoeffs > ADI_ADRV9025_MAX_CFR_CORRECTION_PULSE_LEN / 2)) {
+		dev_err(&phy->spi->dev,
+			"CFR: hot swap pulses must have equal half length <= %u\n",
+			ADI_ADRV9025_MAX_CFR_CORRECTION_PULSE_LEN / 2);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/*
+ * Parse and validate the buffered pulse file into phy->cfrPulses. Parsing is
+ * deferred to first use because sysfs delivers large writes in chunks and the
+ * end of the file is not known in the write handler.
+ */
+static int adrv9025_cfr_load_pulses(struct adrv9025_rf_phy *phy)
+{
+	u8 num_pulses;
+	int ret;
+
+	if (phy->cfrNumPulses)
+		return 0;
+
+	if (!phy->cfrPulseBufLen) {
+		dev_err(&phy->spi->dev,
+			"CFR: no correction pulse loaded (cfr_correction_pulse)\n");
+		return -ENODATA;
+	}
+
+	/* strsep() modifies its input, keep the raw buffer intact */
+	char *tmp __free(kfree) = kmemdup_nul(phy->cfrPulseBuf,
+					      phy->cfrPulseBufLen, GFP_KERNEL);
+	if (!tmp)
+		return -ENOMEM;
+
+	ret = adrv9025_parse_cfr_pulses(phy, tmp, phy->cfrPulses, &num_pulses);
+	if (ret)
+		return ret;
+
+	ret = adrv9025_cfr_pulses_validate(phy, phy->cfrPulses, num_pulses);
+	if (ret)
+		return ret;
+
+	phy->cfrNumPulses = num_pulses;
+
+	return 0;
+}
+
+static void adrv9025_cfr_defaults(struct adrv9025_rf_phy *phy)
+{
+	int ch, i;
+
+	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++) {
+		struct adrv9025_cfr_chan *cfr = &phy->cfr[ch];
+
+		cfr->ctrl.cfrMode = ADI_ADRV9025_CFR_MODE1;
+		/* maximum delay: 129 skipped all peaks with the pulses tested */
+		cfr->ctrl.cfrTxDelay = 511;
+		cfr->ctrl.cfrPeakThreshold_xM = 790000;
+		cfr->ctrl.cfrEngine1PeakThresholdScaler_xM = 1000000;
+		cfr->ctrl.cfrEngine2PeakThresholdScaler_xM = 1000000;
+		cfr->ctrl.cfrEngine3PeakThresholdScaler_xM = 1000000;
+		cfr->ctrl.cfrCorrectionThresholdScaler_xM = 1000000;
+		cfr->ctrl.cfrInterpolationFactor = ADI_ADRV9025_CFR_INTERPOLATION_1X;
+		cfr->ctrl.cfrEngine1MaxNumOfPeaks = 5;
+		cfr->ctrl.cfrEngine2MaxNumOfPeaks = 5;
+		cfr->ctrl.cfrEngine3MaxNumOfPeaks = 5;
+
+		cfr->hard_clipper.cfrHardClipperEnable = 0;
+		cfr->hard_clipper.cfrHardClipperThreshold_xM = 1000000;
+
+		for (i = 0; i < ADRV9025_CFR_NUM_ENGINES; i++)
+			cfr->engine_mode[i] = ADRV9025_CFR_ENGINE_ENABLED;
+	}
+}
+
+/* Forget all CFR device state; called whenever the device is (re)initialized */
+static void adrv9025_cfr_reset_state(struct adrv9025_rf_phy *phy)
+{
+	int ch;
+
+	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++)
+		phy->cfr[ch].initialized = false;
+}
+
+/*
+ * UG-1727 "Setting Up the CFR", step 2: verify the control configuration.
+ * CfrCtrlConfigGet_v2() reads the CFR init cal status object of the
+ * firmware, which only holds the configuration once the CFR init cal has
+ * run, so this is checked after the cal. The cal has already been executed
+ * at that point, so a mismatch is reported but not treated as a failure.
+ * The thresholds are not compared because the firmware adjusts them
+ * internally before applying them.
+ */
+static void adrv9025_cfr_ctrl_verify(struct adrv9025_rf_phy *phy, int ch)
+{
+	const adi_adrv9025_CfrCtrlConfig_v2_t *want = &phy->cfr[ch].ctrl;
+	const enum adrv9025_cfr_engine_mode *mode = phy->cfr[ch].engine_mode;
+	adi_adrv9025_CfrCtrlConfig_v2_t got = { 0 };
+	u8 peaks[ADRV9025_CFR_NUM_ENGINES] = {
+		want->cfrEngine1MaxNumOfPeaks,
+		want->cfrEngine2MaxNumOfPeaks,
+		want->cfrEngine3MaxNumOfPeaks,
+	};
+	int i, ret;
+
+	/* max number of peaks is forced to 0 for disabled engines */
+	for (i = 0; i < ADRV9025_CFR_NUM_ENGINES; i++)
+		if (mode[i] == ADRV9025_CFR_ENGINE_DISABLED)
+			peaks[i] = 0;
+
+	ret = adi_adrv9025_CfrCtrlConfigGet_v2(phy->madDevice,
+					       ADI_ADRV9025_TX1 << ch, &got);
+	if (ret) {
+		adrv9025_dev_err(phy);
+		return;
+	}
+
+	if (got.cfrMode != want->cfrMode ||
+	    got.cfrTxDelay != want->cfrTxDelay ||
+	    got.cfrInterpolationFactor != want->cfrInterpolationFactor ||
+	    got.cfrEngine1MaxNumOfPeaks != peaks[0] ||
+	    got.cfrEngine2MaxNumOfPeaks != peaks[1] ||
+	    got.cfrEngine3MaxNumOfPeaks != peaks[2])
+		dev_warn(&phy->spi->dev,
+			 "CFR: Tx%d config readback mismatch: mode %d/%d delay %u/%u interp %d/%d peaks %u,%u,%u/%u,%u,%u (set/read)\n",
+			 ch + 1, want->cfrMode, got.cfrMode,
+			 want->cfrTxDelay, got.cfrTxDelay,
+			 want->cfrInterpolationFactor, got.cfrInterpolationFactor,
+			 peaks[0], peaks[1], peaks[2],
+			 got.cfrEngine1MaxNumOfPeaks, got.cfrEngine2MaxNumOfPeaks,
+			 got.cfrEngine3MaxNumOfPeaks);
+}
+
+/*
+ * Program the staged CFR configuration for every Tx channel in @tx_mask,
+ * following UG-1727 "Setting Up the CFR":
+ *   1. CfrCtrlConfigSet, 3. CfrCorrectionPulseWrite_v2, 4. CfrEnableSet,
+ *   5. CfrHardClipperConfigSet.
+ * The caller then runs the CFR init cal (step 6) and the readback of step 2
+ * (adrv9025_cfr_ctrl_verify()), which is only meaningful after the cal.
+ *
+ * All of these are init-time functions that may only be called before the
+ * CFR init cal, so channels on which it already ran are refused; the device
+ * has to be re-initialized (jesd204_fsm_ctrl) to change this configuration.
+ */
+static int adrv9025_cfr_apply(struct adrv9025_rf_phy *phy, u32 tx_mask)
+{
+	int ch, ret;
+
+	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++) {
+		if ((tx_mask & BIT(ch)) && phy->cfr[ch].initialized) {
+			dev_err(&phy->spi->dev,
+				"CFR: Tx%d already initialized, re-initialize the device to reconfigure\n",
+				ch + 1);
+			return -EBUSY;
+		}
+	}
+
+	ret = adrv9025_cfr_load_pulses(phy);
+	if (ret)
+		return ret;
+
+	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++) {
+		struct adrv9025_cfr_chan *cfr = &phy->cfr[ch];
+		adi_adrv9025_CfrCtrlConfig_v2_t ctrl = cfr->ctrl;
+		adi_adrv9025_CfrHardClipperConfig_v2_t hclip = cfr->hard_clipper;
+		adi_adrv9025_CfrEnable_t en = { 0 };
+		u8 *max_peaks[] = {
+			&ctrl.cfrEngine1MaxNumOfPeaks,
+			&ctrl.cfrEngine2MaxNumOfPeaks,
+			&ctrl.cfrEngine3MaxNumOfPeaks,
+		};
+		u8 *enable[] = {
+			&en.cfrEngine1Enable,
+			&en.cfrEngine2Enable,
+			&en.cfrEngine3Enable,
+		};
+		u8 *bypass[] = {
+			&en.cfrEngine1BypassEnable,
+			&en.cfrEngine2BypassEnable,
+			&en.cfrEngine3BypassEnable,
+		};
+		int i;
+
+		if (!(tx_mask & BIT(ch)))
+			continue;
+
+		for (i = 0; i < ADRV9025_CFR_NUM_ENGINES; i++) {
+			*enable[i] = cfr->engine_mode[i] != ADRV9025_CFR_ENGINE_DISABLED;
+			*bypass[i] = cfr->engine_mode[i] == ADRV9025_CFR_ENGINE_BYPASS;
+			/* max number of peaks must be 0 for a disabled engine */
+			if (cfr->engine_mode[i] == ADRV9025_CFR_ENGINE_DISABLED)
+				*max_peaks[i] = 0;
+		}
+
+		ctrl.txChannelMask = BIT(ch);
+		en.txChannelMask = BIT(ch);
+		hclip.txChannelMask = BIT(ch);
+
+		/* step 1 */
+		ret = adi_adrv9025_CfrCtrlConfigSet_v2(phy->madDevice, &ctrl, 1);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		/* step 3 */
+		ret = adi_adrv9025_CfrCorrectionPulseWrite_v2(phy->madDevice, BIT(ch),
+							      phy->cfrPulses,
+							      phy->cfrNumPulses);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		/* step 4 */
+		ret = adi_adrv9025_CfrEnableSet(phy->madDevice, &en, 1);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		/* step 5 */
+		ret = adi_adrv9025_CfrHardClipperConfigSet_v2(phy->madDevice,
+							      &hclip, 1);
+		if (ret)
+			return adrv9025_dev_err(phy);
+	}
+
+	return 0;
+}
+
 static ssize_t adrv9025_phy_store(struct device *dev,
 				  struct device_attribute *attr,
 				  const char *buf, size_t len)
@@ -351,6 +653,13 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 				phy->cal_mask.channelMask =
 					phy->adrv9025PostMcsInitInst.initCals.channelMask;
 
+			if (phy->cal_mask.calMask & ADI_ADRV9025_CFR_INIT) {
+				ret = adrv9025_cfr_apply(phy,
+							 phy->cal_mask.channelMask);
+				if (ret)
+					break;
+			}
+
 			/* Run Init Cals */
 			ret = adi_adrv9025_InitCalsRun(phy->madDevice,
 						       &phy->cal_mask);
@@ -362,8 +671,21 @@ static ssize_t adrv9025_phy_store(struct device *dev,
 			ret = adi_adrv9025_InitCalsWait(phy->madDevice,
 							INIT_CALS_TIMEOUT_MS,
 							&initCalsError);
-			if (ret)
+			if (ret) {
 				ret = adrv9025_dev_err(phy);
+				break;
+			}
+
+			if (phy->cal_mask.calMask & ADI_ADRV9025_CFR_INIT) {
+				int ch;
+
+				for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++) {
+					if (!(phy->cal_mask.channelMask & BIT(ch)))
+						continue;
+					phy->cfr[ch].initialized = true;
+					adrv9025_cfr_ctrl_verify(phy, ch);
+				}
+			}
 		}
 		break;
 	case ADRV9025_CAL_MASK:
@@ -610,6 +932,10 @@ static IIO_DEVICE_ATTR(calibrate_orx_adc_en, 0644,
 		       adrv9025_phy_show, adrv9025_phy_store,
 		       ADRV9025_INIT_CAL | (ADI_ADRV9025_ORX_TIA << 8));
 
+static IIO_DEVICE_ATTR(calibrate_cfr_en, 0644,
+		       adrv9025_phy_show, adrv9025_phy_store,
+		       ADRV9025_INIT_CAL | ((u64)ADI_ADRV9025_CFR_INIT << 8));
+
 static IIO_DEVICE_ATTR(calibrate_mask, 0644, adrv9025_phy_show,
 		       adrv9025_phy_store, ADRV9025_CAL_MASK);
 
@@ -682,6 +1008,7 @@ static struct attribute *adrv9029_phy_attributes[] = {
 	&iio_dev_attr_dpd_tx_mask.dev_attr.attr,
 	&iio_dev_attr_dpd_reset.dev_attr.attr,
 	&iio_dev_attr_dpd_tracking_config_set.dev_attr.attr,
+	&iio_dev_attr_calibrate_cfr_en.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_error.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_state.dev_attr.attr,
 	&iio_dev_attr_jesd204_fsm_paused.dev_attr.attr,
@@ -1300,6 +1627,161 @@ static const struct iio_enum adrv9025_rf_obs2_rx_port_available = {
 	.set = adrv9025_set_obs_rx_path,
 };
 
+static u32 *adrv9025_cfr_xm_field(struct adrv9025_cfr_chan *cfr, uintptr_t private)
+{
+	switch (private) {
+	case TX_CFR_PEAK_THRESHOLD:
+		return &cfr->ctrl.cfrPeakThreshold_xM;
+	default:
+		return NULL;
+	}
+}
+
+static ssize_t adrv9025_phy_tx_cfr_read(struct iio_dev *indio_dev,
+					uintptr_t private,
+					const struct iio_chan_spec *chan,
+					char *buf)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv9025_CfrStatus_t status = { 0 };
+	struct adrv9025_cfr_chan *cfr;
+	u32 *xm;
+	int ret;
+
+	if (chan->channel > CHAN_TX4)
+		return -EINVAL;
+
+	cfr = &phy->cfr[chan->channel];
+
+	guard(mutex)(&phy->lock);
+
+	xm = adrv9025_cfr_xm_field(cfr, private);
+	if (xm)
+		return sysfs_emit(buf, "%u.%06u\n", (u32)(*xm / MICRO),
+				  (u32)(*xm % MICRO));
+
+	switch (private) {
+	case TX_CFR_STATUS:
+		ret = adi_adrv9025_CfrStatusGet(phy->madDevice,
+						ADI_ADRV9025_TX1 << chan->channel,
+						&status);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		/*
+		 * error det1 skip1 det2 skip2 det3 skip3 clipped
+		 * (peaks detected/skipped per engine, samples clipped)
+		 */
+		return sysfs_emit(buf, "%u %llu %llu %llu %llu %llu %llu %llu\n",
+				  status.cfrErrorCode,
+				  status.cfrStatistics.cfrEngine1PeaksDetected,
+				  status.cfrStatistics.cfrEngine1PeaksSkipped,
+				  status.cfrStatistics.cfrEngine2PeaksDetected,
+				  status.cfrStatistics.cfrEngine2PeaksSkipped,
+				  status.cfrStatistics.cfrEngine3PeaksDetected,
+				  status.cfrStatistics.cfrEngine3PeaksSkipped,
+				  status.cfrStatistics.cfrNumSamplesClipped);
+	default:
+		return -EINVAL;
+	}
+}
+
+/*
+ * Settings that UG-1727 only allows before the CFR init cal. Changing them
+ * afterwards would have no effect until the device is re-initialized, so
+ * reject the write instead of silently staging it.
+ */
+static int adrv9025_cfr_init_time_check(struct adrv9025_rf_phy *phy, int ch)
+{
+	if (phy->cfr[ch].initialized) {
+		dev_err(&phy->spi->dev,
+			"CFR: Tx%d already initialized, re-initialize the device to change this setting\n",
+			ch + 1);
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
+					 uintptr_t private,
+					 const struct iio_chan_spec *chan,
+					 const char *buf, size_t len)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	struct adrv9025_cfr_chan *cfr;
+	int ch = chan->channel;
+	int integer, fract, ret;
+	u32 *xm;
+
+	if (ch > CHAN_TX4)
+		return -EINVAL;
+
+	cfr = &phy->cfr[ch];
+
+	xm = adrv9025_cfr_xm_field(cfr, private);
+	if (xm) {
+		ret = iio_str_to_fixpoint(buf, 100000, &integer, &fract);
+		if (ret)
+			return ret;
+		if (integer < 0 || fract < 0 || integer > 1 ||
+		    (integer == 1 && fract))
+			return -EINVAL;
+
+		guard(mutex)(&phy->lock);
+		ret = adrv9025_cfr_init_time_check(phy, ch);
+		if (ret)
+			return ret;
+		*xm = integer * MICRO + fract;
+		return len;
+	}
+
+	return -EINVAL;
+}
+
+#define _ADRV9025_EXT_TX_CFR_INFO(_name, _ident)                               \
+	{                                                                      \
+		.name = _name, .read = adrv9025_phy_tx_cfr_read,               \
+		.write = adrv9025_phy_tx_cfr_write, .private = _ident,         \
+	}
+
+static const char * const adrv9025_cfr_interpolation[] = {
+	[ADI_ADRV9025_CFR_INTERPOLATION_1X] = "1x",
+	[ADI_ADRV9025_CFR_INTERPOLATION_2X] = "2x",
+	[ADI_ADRV9025_CFR_INTERPOLATION_4X] = "4x",
+};
+
+static int adrv9025_cfr_interpolation_get(struct iio_dev *indio_dev,
+					  const struct iio_chan_spec *chan)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	guard(mutex)(&phy->lock);
+	return phy->cfr[chan->channel].ctrl.cfrInterpolationFactor;
+}
+
+static int adrv9025_cfr_interpolation_set(struct iio_dev *indio_dev,
+					  const struct iio_chan_spec *chan,
+					  unsigned int mode)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	int ret;
+
+	guard(mutex)(&phy->lock);
+	ret = adrv9025_cfr_init_time_check(phy, chan->channel);
+	if (ret)
+		return ret;
+	phy->cfr[chan->channel].ctrl.cfrInterpolationFactor = mode;
+	return 0;
+}
+
+static const struct iio_enum adrv9025_cfr_interpolation_enum = {
+	.items = adrv9025_cfr_interpolation,
+	.num_items = ARRAY_SIZE(adrv9025_cfr_interpolation),
+	.get = adrv9025_cfr_interpolation_get,
+	.set = adrv9025_cfr_interpolation_set,
+};
+
 #define _ADRV9025_EXT_TX_INFO(_name, _ident)                                   \
 	{                                                                      \
 		.name = _name, .read = adrv9025_phy_tx_read,                   \
@@ -1361,6 +1843,11 @@ static struct iio_chan_spec_ext_info adrv9029_phy_tx_ext_info[] = {
 	_ADRV9025_EXT_TX_INFO("lo_leakage_tracking_en", TX_LOL),
 	_ADRV9025_EXT_TX_INFO("rf_bandwidth", TX_RF_BANDWIDTH),
 	_ADRV9025_EXT_TX_INFO("dpd_en", TX_DPD),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_peak_threshold", TX_CFR_PEAK_THRESHOLD),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_status", TX_CFR_STATUS),
+	IIO_ENUM_AVAILABLE("cfr_interpolation", IIO_SHARED_BY_TYPE,
+			   &adrv9025_cfr_interpolation_enum),
+	IIO_ENUM("cfr_interpolation", IIO_SEPARATE, &adrv9025_cfr_interpolation_enum),
 	{},
 };
 static int adrv9025_gainindex_to_gain(struct adrv9025_rf_phy *phy, int channel,
@@ -2866,6 +3353,9 @@ static int adrv9025_jesd204_link_setup(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
 		jesd204_state_op_reason_str(reason));
 
+	/* the device is reset below or reloaded afterwards: CFR starts over */
+	adrv9025_cfr_reset_state(phy);
+
 	if (reason == JESD204_STATE_OP_REASON_UNINIT) {
 		phy->is_initialized = 0;
 
@@ -3794,6 +4284,33 @@ static BIN_ATTR(dpd_coef_model, 0644,
 		adrv9025_dpd_coef_read,
 		adrv9025_dpd_coef_write, PAGE_SIZE);
 
+static ssize_t adrv9025_cfr_pulse_write(struct file *filp, struct kobject *kobj,
+					struct bin_attribute *bin_attr,
+					char *buf, loff_t off, size_t count)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+
+	guard(mutex)(&phy->lock);
+
+	/* sysfs splits large writes into chunks; accumulate them */
+	if (!off)
+		phy->cfrPulseBufLen = 0;
+	if (off != phy->cfrPulseBufLen ||
+	    off + count > ADRV9025_CFR_PULSE_FILE_SIZE)
+		return -EINVAL;
+
+	memcpy(phy->cfrPulseBuf + off, buf, count);
+	phy->cfrPulseBufLen += count;
+	/* invalidate, re-parsed on next use */
+	phy->cfrNumPulses = 0;
+
+	return count;
+}
+
+static BIN_ATTR(cfr_correction_pulse, 0200, NULL,
+		adrv9025_cfr_pulse_write, ADRV9025_CFR_PULSE_FILE_SIZE);
+
 struct adrv9025_bin_attr_drop {
 	const struct bin_attribute *attr;
 	struct device *dev;
@@ -3871,6 +4388,15 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->dpdTrackingConfig = devm_kzalloc(&spi->dev, sizeof(adi_adrv9025_DpdTrackingConfig_t), GFP_KERNEL);
 	if (!(phy->dpdTrackingConfig))
 		return -ENOMEM;
+	phy->cfrPulses = devm_kcalloc(&spi->dev, ADRV9025_CFR_MAX_PULSES,
+				      sizeof(*phy->cfrPulses), GFP_KERNEL);
+	if (!phy->cfrPulses)
+		return -ENOMEM;
+	phy->cfrPulseBuf = devm_kzalloc(&spi->dev, ADRV9025_CFR_PULSE_FILE_SIZE,
+					GFP_KERNEL);
+	if (!phy->cfrPulseBuf)
+		return -ENOMEM;
+	adrv9025_cfr_defaults(phy);
 	mutex_init(&phy->lock);
 
 	ret = adrv9025_phy_parse_agc_dt(indio_dev, &spi->dev);
@@ -4057,6 +4583,11 @@ static int adrv9025_probe(struct spi_device *spi)
 
 	if (id == ID_ADRV9022 || id == ID_ADRV9025 || id == ID_ADRV9029) {
 		ret = adrv9025_bin_attr_add(&indio_dev->dev, adrv9025_bin_attributes);
+		if (ret)
+			goto out_iio_device_unregister;
+
+		ret = adrv9025_bin_attr_add(&indio_dev->dev,
+					    &bin_attr_cfr_correction_pulse);
 		if (ret)
 			goto out_iio_device_unregister;
 	}

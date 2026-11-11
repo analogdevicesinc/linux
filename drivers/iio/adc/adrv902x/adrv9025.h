@@ -74,6 +74,31 @@ enum adrv9025_tx_ext_info {
 	TX_LOL,
 	TX_RF_BANDWIDTH,
 	TX_DPD,
+	TX_CFR_PEAK_THRESHOLD,
+	TX_CFR_STATUS,
+};
+
+#define ADRV9025_CFR_NUM_ENGINES	3
+#define ADRV9025_CFR_MAX_PULSES		2
+
+enum adrv9025_cfr_engine_mode {
+	ADRV9025_CFR_ENGINE_DISABLED,
+	ADRV9025_CFR_ENGINE_BYPASS,
+	ADRV9025_CFR_ENGINE_ENABLED,
+};
+
+/* CFR settings staged per Tx channel and applied before the CFR init cal */
+struct adrv9025_cfr_chan {
+	adi_adrv9025_CfrCtrlConfig_v2_t ctrl;
+	adi_adrv9025_CfrHardClipperConfig_v2_t hard_clipper;
+	enum adrv9025_cfr_engine_mode engine_mode[ADRV9025_CFR_NUM_ENGINES];
+	/*
+	 * CFR init cal has completed on this channel. Per UG-1727 the CFR
+	 * control config, pulse, engine enables and hard clipper may only be
+	 * programmed before the CFR init cal, so they are locked until the
+	 * device is re-initialized.
+	 */
+	bool initialized;
 };
 
 enum adrv9025_iio_voltage_in {
@@ -188,6 +213,14 @@ struct adrv9025_rf_phy {
 	adi_adrv9025_DpdModelConfig_v2_t *dpdModelConfig;
 	adi_adrv9025_TxChannels_e dpdTxChannel;
 	adi_adrv9025_DpdTrackingConfig_t *dpdTrackingConfig;
+
+	/* CFR */
+	struct adrv9025_cfr_chan cfr[4];
+	adi_adrv9025_CfrCorrectionPulse_t *cfrPulses;
+	u8 cfrNumPulses;
+	/* accumulates the pulse file across multiple write() chunks */
+	char *cfrPulseBuf;
+	size_t cfrPulseBufLen;
 
 	/* TX channel context for debugfs */
 	struct adrv9025_tx_chan_ctx tx_chan_ctx[4];
