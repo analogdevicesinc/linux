@@ -33,7 +33,8 @@
 };
 
 &sai1 {
-	pinctrl-0 = <>;
+	/delete-property/ pinctrl-0;
+	/delete-property/ pinctrl-names;
 	status = "okay";
 };
 

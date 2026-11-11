@@ -15,7 +15,8 @@ static struct scmi_protocol_handle *ph;
 
 int scmi_imx_lmm_info(u32 lmid, struct scmi_imx_lmm_info *info)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	if (!info)
@@ -27,7 +28,8 @@ EXPORT_SYMBOL(scmi_imx_lmm_info);
 
 int scmi_imx_lmm_reset_vector_set(u32 lmid, u32 cpuid, u32 flags, u64 vector)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	return imx_lmm_ops->lmm_reset_vector_set(ph, lmid, cpuid, flags, vector);
@@ -36,7 +38,8 @@ EXPORT_SYMBOL(scmi_imx_lmm_reset_vector_set);
 
 int scmi_imx_lmm_operation(u32 lmid, enum scmi_imx_lmm_op op, u32 flags)
 {
-	if (!ph)
+	/* Pairs with the smp_store_release() in the probe function. */
+	if (!smp_load_acquire(&ph))
 		return -EPROBE_DEFER;
 
 	switch (op) {
@@ -57,6 +60,8 @@ EXPORT_SYMBOL(scmi_imx_lmm_operation);
 static int scmi_imx_lmm_probe(struct scmi_device *sdev)
 {
 	const struct scmi_handle *handle = sdev->handle;
+	const struct scmi_imx_lmm_proto_ops *ops;
+	struct scmi_protocol_handle *lmm_ph;
 
 	if (!handle)
 		return -ENODEV;
@@ -66,9 +71,16 @@ static int scmi_imx_lmm_probe(struct scmi_device *sdev)
 		return -EEXIST;
 	}
 
-	imx_lmm_ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_LMM, &ph);
-	if (IS_ERR(imx_lmm_ops))
-		return PTR_ERR(imx_lmm_ops);
+	ops = handle->devm_protocol_get(sdev, SCMI_PROTOCOL_IMX_LMM, &lmm_ph);
+	if (IS_ERR(ops))
+		return PTR_ERR(ops);
+
+	imx_lmm_ops = ops;
+	/*
+	 * ph is the gate the exported helpers test. Publish it only after
+	 * imx_lmm_ops is set, and pair with the smp_load_acquire() there.
+	 */
+	smp_store_release(&ph, lmm_ph);
 
 	return 0;
 }

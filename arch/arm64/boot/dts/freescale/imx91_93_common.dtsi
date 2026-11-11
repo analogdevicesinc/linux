@@ -51,6 +51,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <32768>;
 		clock-output-names = "osc_32k";
+		bootph-all;
 	};
 
 	osc_24m: clock-osc-24m {
@@ -58,6 +59,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <24000000>;
 		clock-output-names = "osc_24m";
+		bootph-all;
 	};
 
 	clk_ext1: clock-ext1 {
@@ -65,6 +67,7 @@
 		#clock-cells = <0>;
 		clock-frequency = <133000000>;
 		clock-output-names = "clk_ext1";
+		bootph-all;
 	};
 
 	pmu {
@@ -136,6 +139,7 @@
 		#size-cells = <1>;
 		ranges = <0x0 0x0 0x0 0x80000000>,
 			 <0x28000000 0x0 0x28000000 0x10000000>;
+		bootph-all;
 
 		aips1: bus@44000000 {
 			compatible = "fsl,aips-bus", "simple-bus";
@@ -143,6 +147,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
+			bootph-all;
 
 			edma1: dma-controller@44000000 {
 				compatible = "fsl,imx93-edma3";
@@ -357,6 +362,8 @@
 				compatible = "fsl,imx93-iomuxc";
 				reg = <0x443c0000 0x10000>;
 				status = "okay";
+				bootph-pre-ram;
+				bootph-some-ram;
 			};
 
 			bbnsm: bbnsm@44440000 {
@@ -384,6 +391,7 @@
 				assigned-clocks = <&clk IMX93_CLK_AUDIO_PLL>;
 				assigned-clock-rates = <393216000>;
 				status = "okay";
+				bootph-all;
 			};
 
 			src: system-controller@44460000 {
@@ -444,6 +452,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
+			bootph-pre-ram;
+			bootph-some-ram;
 
 			edma2: dma-controller@42000000 {
 				compatible = "fsl,imx93-edma4";
@@ -919,6 +929,8 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			ranges;
+			bootph-pre-ram;
+			bootph-some-ram;
 
 			usdhc1: mmc@42850000 {
 				compatible = "fsl,imx93-usdhc", "fsl,imx8mm-usdhc";
@@ -1039,6 +1051,8 @@
 			clock-names = "gpio", "port";
 			gpio-ranges = <&iomuxc 0 4 30>;
 			ngpios = <30>;
+			bootph-pre-ram;
+			bootph-some-ram;
 		};
 
 		gpio3: gpio@43820000 {
@@ -1056,6 +1070,8 @@
 			gpio-ranges = <&iomuxc 0 84 8>, <&iomuxc 8 66 18>,
 				      <&iomuxc 26 34 2>, <&iomuxc 28 0 4>;
 			ngpios = <32>;
+			bootph-pre-ram;
+			bootph-some-ram;
 		};
 
 		gpio4: gpio@43830000 {
@@ -1072,6 +1088,8 @@
 			clock-names = "gpio", "port";
 			gpio-ranges = <&iomuxc 0 38 28>, <&iomuxc 28 36 2>;
 			ngpios = <30>;
+			bootph-pre-ram;
+			bootph-some-ram;
 		};
 
 		gpio1: gpio@47400000 {
@@ -1088,6 +1106,8 @@
 			clock-names = "gpio", "port";
 			gpio-ranges = <&iomuxc 0 92 16>;
 			ngpios = <16>;
+			bootph-pre-ram;
+			bootph-some-ram;
 		};
 
 		ocotp: efuse@47510000 {
@@ -1113,6 +1133,8 @@
 				     <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
 			interrupt-names = "tx", "rx";
 			#mbox-cells = <2>;
+			bootph-pre-ram;
+			bootph-some-ram;
 		};
 
 		media_blk_ctrl: system-controller@4ac10000 {

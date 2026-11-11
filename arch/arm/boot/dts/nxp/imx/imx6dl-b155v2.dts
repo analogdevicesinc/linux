@@ -25,6 +25,8 @@
 		pinctrl-0 = <&pinctrl_q7_gpio0>;
 		interrupt-parent = <&gpio5>;
 		interrupts = <2 IRQ_TYPE_LEVEL_LOW>;
+		touchscreen-size-x = <16384>;
+		touchscreen-size-y = <16384>;
 		touchscreen-inverted-x;
 		touchscreen-inverted-y;
 		reset-gpios = <&tca6424a 21 GPIO_ACTIVE_HIGH>;

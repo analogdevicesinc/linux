@@ -127,61 +127,66 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio2>;
 	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "",
-			  "SDIO_A_CD", "SDIO_A_CLK", "SDIO_A_CMD", "SDIO_A_D0",
+			  "SDIO_A_CD#", "SDIO_A_CLK", "SDIO_A_CMD", "SDIO_A_D0",
 			  "SDIO_A_D1", "SDIO_A_D2", "SDIO_A_D3", "CAN_ADDR2",
 			  "CAN_ADDR3";
 };
 
 /*
  * Rename SoM signals according to board usage:
+ *   GPIO_A_7      -> TFT_STBY
  *   GPIO_B_0      -> IO_EXP_INT
  *   GPIO_B_1      -> IO_EXP_RST
  */
 &gpio3 {
-	gpio-line-names = "PCIE_WAKE", "PCIE_CLKREQ", "PCIE_A_PERST", "SDIO_B_D5",
-			  "SDIO_B_D6", "SDIO_B_D7", "SPI_A_WP", "SPI_A_HOLD",
+	gpio-line-names = "PCIe_WAKE#", "TFT_STBY", "PCIe_A_PERST#", "SDIO_B_D5",
+			  "SDIO_B_D6", "SDIO_B_D7", "UART_B_RX", "I2S_LRCLK",
 			  "UART_B_RTS", "UART_B_CTS", "SDIO_B_D0", "SDIO_B_D1",
 			  "SDIO_B_D2", "SDIO_B_D3", "SDIO_B_WP", "SDIO_B_D4",
-			  "PCIE_SM_ALERT", "SDIO_B_CLK", "SDIO_B_CMD", "IO_EXP_INT",
-			  "IO_EXP_RST", "", "BOOT_SEL0", "BOOT_SEL1",
-			  "", "", "SDIO_B_CD", "SDIO_B_PWR_EN",
+			  "PCIe_SM_ALERT#", "SDIO_B_CLK", "SDIO_B_CMD", "IO_EXP_INT",
+			  "IO_EXP_RST", "", "BOOT_SEL0#", "BOOT_SEL1#",
+			  "", "", "SDIO_B_CD#", "SDIO_B_PWR_EN",
 			  "HDMI_CEC", "HDMI_HPD";
 };
 
 /*
  * Rename SoM signals according to board usage and remove labels for unsed pins:
  *   GPIO_A_6      -> TFT_RESET
- *   GPIO_A_7      -> TFT_STBY
  *   GPIO_B_3      -> CSI_ENABLE
  *   GPIO_B_2      -> USB_HUB_RST
  */
 &gpio4 {
 	gpio-line-names = "", "", "", "",
-			  "ETH_A_MDC", "ETH_A_MDIO", "ETH_A_RXD0", "ETH_A_RXD1",
-			  "ETH_A_RXD2", "ETH_A_RXD3", "ETH_A_RX_DV", "ETH_A_RX_CLK",
-			  "ETH_A_TXD0", "ETH_A_TXD1", "ETH_A_TXD2", "ETH_A_TXD3",
-			  "ETH_A_TX_EN", "ETH_A_TX_CLK", "CSI_ENABLE", "",
+			  "ETH_MDC", "ETH_MDIO",
+			  "ETH_A_(S)(R)(G)MII_RXD0", "ETH_A_(S)(R)(G)MII_RXD1",
+			  "ETH_A_(R)(G)MII_RXD2", "ETH_A_(R)(G)MII_RXD3",
+			  "ETH_A_(R)(G)MII_RX_DV(_ER)", "ETH_A_(R)(G)MII_RX_CLK",
+			  "ETH_A_(S)(R)(G)MII_TXD0", "ETH_A_(S)(R)(G)MII_TXD1",
+			  "ETH_A_(S)(R)(G)MII_TXD2", "ETH_A_(S)(R)(G)MII_TXD3",
+			  "ETH_A_(R)(G)MII_TX_EN(_ER)", "ETH_A_(R)(G)MII_TX_CLK",
+			  "CSI_ENABLE", "",
 			  "USB_HUB_RST", "TFT_RESET", "CAN_A_TX", "UART_A_CTS",
 			  "UART_A_RTS", "CAN_A_RX", "CAN_B_TX", "CAN_B_RX",
-			  "TFT_STBY", "CARRIER_PWR_EN", "I2S_A_DATA_IN", "I2S_LRCLK";
+			  "I2S_B_DATA_IN", "GPIO_C_1", "I2S_A_DATA_IN", "I2S_B_DATA_OUT";
 };
 
 /*
  * Rename SoM signals according to board usage:
- *   SPI_A_SDI	-> CAN_ADDR0
- *   SPI_A_SDO	-> CAN_ADDR1
+ *   SPI_A_SDI_(IO0) -> CAN_ADDR0
+ *   SPI_A_SDO_(IO1) -> CAN_ADDR1
  */
 &gpio5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio5>;
 	gpio-line-names = "I2S_BITCLK", "I2S_A_DATA_OUT", "I2S_MCLK", "VCC_PANEL_EN",
 			  "PWM_1", "PWM_0", "SPI_A_SCK", "CAN_ADDR1",
-			  "CAN_ADDR0", "SPI_A_CS0", "SPI_B_SCK", "SPI_B_SDO",
-			  "SPI_B_SDI", "SPI_B_CS0", "I2C_A_SCL", "I2C_A_SDA",
-			  "I2C_B_SCL", "I2C_B_SDA", "PCIE_SMCLK", "PCIE_SMDAT",
-			  "I2C_CAM_SCL", "I2C_CAM_SDA", "UART_A_RX", "UART_A_TX",
+			  "CAN_ADDR0", "SPI_A_CS0#", "SPI_B_SCK", "SPI_B_SDO",
+			  "SPI_B_SDI", "SPI_B_CS0#", "I2C_A_SCL", "I2C_A_SDA",
+			  "I2C_B_SCL", "I2C_B_SDA", "PCIe_SMCLK", "PCIe_SMDAT",
+			  "I2C_CAM_SCL/CSI_TX_P", "I2C_CAM_SDA/CSI_TX_N",
+			  "UART_A_RX", "UART_A_TX",
 			  "UART_C_RX", "UART_C_TX", "UART_CON_RX", "UART_CON_TX",
-			  "UART_B_RX", "UART_B_TX";
+			  "PCIe_CLKREQ#", "UART_B_TX";
 };
 
 &hdmi_pvi {

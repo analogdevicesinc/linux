@@ -72,29 +72,6 @@
 		regulator-max-microvolt = <3300000>;
 		regulator-name = "VCC_SDIO_B";
 	};
-
-	reg_vdd_carrier: regulator-vdd-carrier {
-		compatible = "regulator-fixed";
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_reg_vdd_carrier>;
-		gpio = <&gpio3 16 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-always-on;
-		regulator-boot-on;
-		regulator-name = "VDD_CARRIER";
-
-		regulator-state-standby {
-			regulator-on-in-suspend;
-		};
-
-		regulator-state-mem {
-			regulator-off-in-suspend;
-		};
-
-		regulator-state-disk {
-			regulator-off-in-suspend;
-		};
-	};
 };
 
 &A53_0 {
@@ -141,16 +118,19 @@
 	gpio-line-names = "GPIO_A_0", "GPIO_A_1", "", "",
 			  "", "GPIO_A_2", "GPIO_A_3", "GPIO_A_4",
 			  "GPIO_A_5", "USB_B_EN", "USB_A_ID", "USB_B_ID",
-			  "USB_A_EN", "USB_A_OC","CAM_MCK", "USB_B_OC",
-			  "ETH_B_MDC", "ETH_B_MDIO", "ETH_B_TXD3", "ETH_B_TXD2",
-			  "ETH_B_TXD1", "ETH_B_TXD0", "ETH_B_TX_EN", "ETH_B_TX_CLK",
-			  "ETH_B_RX_DV", "ETH_B_RX_CLK", "ETH_B_RXD0", "ETH_B_RXD1",
-			  "ETH_B_RXD2", "ETH_B_RXD3";
+			  "USB_A_EN", "USB_A_OC#","CAM_MCK", "USB_B_OC#",
+			  "ETH_B_MDC", "ETH_B_MDIO",
+			  "ETH_B_(S)(R)(G)MII_TXD3", "ETH_B_(S)(R)(G)MII_TXD2",
+			  "ETH_B_(S)(R)(G)MII_TXD1", "ETH_B_(S)(R)(G)MII_TXD0",
+			  "ETH_B_(R)(G)MII_TX_EN(_ER)", "ETH_B_(R)(G)MII_TX_CLK",
+			  "ETH_B_(R)(G)MII_RX_DV(_ER)", "ETH_B_(R)(G)MII_RX_CLK",
+			  "ETH_B_(S)(R)(G)MII_RXD0", "ETH_B_(S)(R)(G)MII_RXD1",
+			  "ETH_B_(R)(G)MII_RXD2", "ETH_B_(R)(G)MII_RXD3";
 };
 
 &gpio2 {
 	gpio-line-names = "", "", "", "", "", "", "", "", "", "", "", "",
-			  "SDIO_A_CD", "SDIO_A_CLK", "SDIO_A_CMD", "SDIO_A_D0",
+			  "SDIO_A_CD#", "SDIO_A_CLK", "SDIO_A_CMD", "SDIO_A_D0",
 			  "SDIO_A_D1", "SDIO_A_D2", "SDIO_A_D3", "SDIO_A_PWR_EN",
 			  "SDIO_A_WP";
 };
@@ -158,13 +138,13 @@
 &gpio3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio3>;
-	gpio-line-names = "PCIE_WAKE", "PCIE_CLKREQ", "PCIE_A_PERST", "SDIO_B_D5",
-			  "SDIO_B_D6", "SDIO_B_D7", "SPI_A_WP", "SPI_A_HOLD",
+	gpio-line-names = "PCIe_WAKE#", "GPIO_A_7", "PCIe_A_PERST#", "SDIO_B_D5",
+			  "SDIO_B_D6", "SDIO_B_D7", "UART_B_RX", "I2S_LRCLK",
 			  "UART_B_RTS", "UART_B_CTS", "SDIO_B_D0", "SDIO_B_D1",
 			  "SDIO_B_D2", "SDIO_B_D3", "SDIO_B_WP", "SDIO_B_D4",
-			  "PCIE_SM_ALERT", "SDIO_B_CLK", "SDIO_B_CMD", "GPIO_B_0",
-			  "GPIO_B_1", "", "BOOT_SEL0", "BOOT_SEL1",
-			  "", "", "SDIO_B_CD", "SDIO_B_PWR_EN",
+			  "PCIe_SM_ALERT#", "SDIO_B_CLK", "SDIO_B_CMD", "GPIO_B_0",
+			  "GPIO_B_1", "", "BOOT_SEL0#", "BOOT_SEL1#",
+			  "", "", "SDIO_B_CD#", "SDIO_B_PWR_EN",
 			  "HDMI_CEC", "HDMI_HPD";
 };
 
@@ -172,24 +152,29 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gpio4>;
 	gpio-line-names = "GPIO_B_5", "GPIO_B_6", "GPIO_B_7", "GPIO_C_0",
-			  "ETH_A_MDC", "ETH_A_MDIO", "ETH_A_RXD0", "ETH_A_RXD1",
-			  "ETH_A_RXD2", "ETH_A_RXD3", "ETH_A_RX_DV", "ETH_A_RX_CLK",
-			  "ETH_A_TXD0", "ETH_A_TXD1", "ETH_A_TXD2", "ETH_A_TXD3",
-			  "ETH_A_TX_EN", "ETH_A_TX_CLK", "GPIO_B_3", "GPIO_B_4",
+			  "ETH_MDC", "ETH_MDIO",
+			  "ETH_A_(S)(R)(G)MII_RXD0", "ETH_A_(S)(R)(G)MII_RXD1",
+			  "ETH_A_(R)(G)MII_RXD2", "ETH_A_(R)(G)MII_RXD3",
+			  "ETH_A_(R)(G)MII_RX_DV(_ER)", "ETH_A_(R)(G)MII_RX_CLK",
+			  "ETH_A_(S)(R)(G)MII_TXD0", "ETH_A_(S)(R)(G)MII_TXD1",
+			  "ETH_A_(S)(R)(G)MII_TXD2", "ETH_A_(S)(R)(G)MII_TXD3",
+			  "ETH_A_(R)(G)MII_TX_EN(_ER)", "ETH_A_(R)(G)MII_TX_CLK",
+			  "GPIO_B_3", "GPIO_B_4",
 			  "GPIO_B_2", "GPIO_A_6", "CAN_A_TX", "UART_A_CTS",
 			  "UART_A_RTS", "CAN_A_RX", "CAN_B_TX", "CAN_B_RX",
-			  "GPIO_A_7", "CARRIER_PWR_EN", "I2S_A_DATA_IN", "I2S_LRCLK";
+			  "I2S_B_DATA_IN", "GPIO_C_1", "I2S_A_DATA_IN", "I2S_B_DATA_OUT";
 };
 
 &gpio5 {
 	gpio-line-names = "I2S_BITCLK", "I2S_A_DATA_OUT", "I2S_MCLK", "PWM_2",
-			  "PWM_1", "PWM_0", "SPI_A_SCK", "SPI_A_SDO",
-			  "SPI_A_SDI", "SPI_A_CS0", "SPI_B_SCK", "SPI_B_SDO",
-			  "SPI_B_SDI", "SPI_B_CS0", "I2C_A_SCL", "I2C_A_SDA",
-			  "I2C_B_SCL", "I2C_B_SDA", "PCIE_SMCLK", "PCIE_SMDAT",
-			  "I2C_CAM_SCL", "I2C_CAM_SDA", "UART_A_RX", "UART_A_TX",
+			  "PWM_1", "PWM_0", "SPI_A_SCK", "SPI_A_SDO_(IO1)",
+			  "SPI_A_SDI_(IO0)", "SPI_A_CS0#", "SPI_B_SCK", "SPI_B_SDO",
+			  "SPI_B_SDI", "SPI_B_CS0#", "I2C_A_SCL", "I2C_A_SDA",
+			  "I2C_B_SCL", "I2C_B_SDA", "PCIe_SMCLK", "PCIe_SMDAT",
+			  "I2C_CAM_SCL/CSI_TX_P", "I2C_CAM_SDA/CSI_TX_N",
+			  "UART_A_RX", "UART_A_TX",
 			  "UART_C_RX", "UART_C_TX", "UART_CON_RX", "UART_CON_TX",
-			  "UART_B_RX", "UART_B_TX";
+			  "PCIe_CLKREQ#", "UART_B_TX";
 };
 
 &i2c1 { /* OSM-S I2C_A */
@@ -539,6 +524,7 @@
 			MX8MP_IOMUXC_SAI1_TXD7__GPIO4_IO19		0x19 /* GPIO_B_4 */
 			MX8MP_IOMUXC_SAI1_MCLK__GPIO4_IO20		0x19 /* GPIO_B_2 */
 			MX8MP_IOMUXC_SAI2_RXFS__GPIO4_IO21		0x19 /* GPIO_A_6 */
+			MX8MP_IOMUXC_SAI3_RXC__GPIO4_IO29		0x19 /* GPIO_C_1 */
 		>;
 	};
 
@@ -623,7 +609,7 @@
 			MX8MP_IOMUXC_UART4_RXD__PCIE_CLKREQ_B		0x19 /* PCIe_CLKREQ# */
 			MX8MP_IOMUXC_NAND_CE1_B__GPIO3_IO02		0x19 /* PCIe_A_PERST# */
 			MX8MP_IOMUXC_NAND_ALE__GPIO3_IO00		0x19 /* PCIe_WAKE# */
-			MX8MP_IOMUXC_NAND_READY_B__GPIO3_IO16		0x19 /* PCIe_SM_ALERT */
+			MX8MP_IOMUXC_NAND_READY_B__GPIO3_IO16		0x19 /* PCIe_SM_ALERT# */
 		>;
 	};
 
@@ -672,12 +658,6 @@
 	pinctrl_reg_usdhc3_vcc: regusdhc3vccgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_HDMI_DDC_SDA__GPIO3_IO27		0x19 /* SDIO_B_PWR_EN */
-		>;
-	};
-
-	pinctrl_reg_vdd_carrier: regvddcarriergrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_SAI3_RXC__GPIO4_IO29		0x19 /* CARRIER_PWR_EN */
 		>;
 	};
 

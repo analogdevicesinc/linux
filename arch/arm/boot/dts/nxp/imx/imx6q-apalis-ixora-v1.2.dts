@@ -100,6 +100,16 @@
 	status = "okay";
 };
 
+/* Apalis SPI1 */
+&ecspi1 {
+	status = "okay";
+};
+
+/* Apalis SPI2 */
+&ecspi2 {
+	status = "okay";
+};
+
 &gpio1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart24_forceoff>;

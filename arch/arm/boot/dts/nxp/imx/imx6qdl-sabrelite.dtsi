@@ -234,7 +234,7 @@
 	bus-width = <8>;
 	data-shift = <12>; /* Lines 19:12 used */
 	hsync-active = <1>;
-	vync-active = <1>;
+	vsync-active = <1>;
 };
 
 &ipu1_csi0_mux_from_parallel_sensor {

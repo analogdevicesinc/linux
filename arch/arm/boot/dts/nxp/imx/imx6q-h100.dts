@@ -335,7 +335,9 @@
 &mipi_csi {
 	status = "okay";
 
-	port {
+	port@0 {
+		reg = <0>;
+
 		mipi_csi2_in: endpoint {
 			remote-endpoint = <&tc358743_out>;
 			data-lanes = <1 2 3 4>;

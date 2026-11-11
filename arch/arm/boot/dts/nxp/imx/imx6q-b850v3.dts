@@ -231,9 +231,9 @@
 	};
 };
 
-&pci_root {
+&pcie_port0 {
 	/* PLX Technology, Inc. PEX 8605 PCI Express 4-port Gen2 Switch */
-	bridge@1,0 {
+	bridge@0,0 {
 		compatible = "pci10b5,8605";
 		reg = <0x00010000 0 0 0 0>;
 
