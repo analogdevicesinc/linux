@@ -87,6 +87,7 @@ enum adrv9025_tx_ext_info {
 	TX_CFR_HARD_CLIPPER_THRESHOLD,
 	TX_CFR_STATUS,
 	TX_CFR_STATISTICS_RESET,
+	TX_CFR_PULSE_UPDATE,
 };
 
 #define ADRV9025_CFR_NUM_ENGINES	3
@@ -107,9 +108,12 @@ struct adrv9025_cfr_chan {
 	 * CFR init cal has completed on this channel. Per UG-1727 the CFR
 	 * control config, pulse, engine enables and hard clipper may only be
 	 * programmed before the CFR init cal; afterwards only the thresholds
-	 * can be changed until the device is re-initialized.
+	 * and the correction pulses can be changed until the device is
+	 * re-initialized.
 	 */
 	bool initialized;
+	/* correction pulses programmed in the device for this channel */
+	u8 num_pulses;
 };
 
 enum adrv9025_iio_voltage_in {

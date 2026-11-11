@@ -472,8 +472,10 @@ static void adrv9025_cfr_reset_state(struct adrv9025_rf_phy *phy)
 {
 	int ch;
 
-	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++)
+	for (ch = 0; ch < ARRAY_SIZE(phy->cfr); ch++) {
 		phy->cfr[ch].initialized = false;
+		phy->cfr[ch].num_pulses = 0;
+	}
 }
 
 /*
@@ -602,6 +604,7 @@ static int adrv9025_cfr_apply(struct adrv9025_rf_phy *phy, u32 tx_mask)
 							      phy->cfrNumPulses);
 		if (ret)
 			return adrv9025_dev_err(phy);
+		cfr->num_pulses = phy->cfrNumPulses;
 
 		/* step 4 */
 		ret = adi_adrv9025_CfrEnableSet(phy->madDevice, &en, 1);
@@ -1887,6 +1890,66 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 			return adrv9025_dev_err(phy);
 		return len;
 	}
+	case TX_CFR_PULSE_UPDATE: {
+		u32 rx_mask, tx_mask;
+
+		/*
+		 * UG-1727 "Updating Correction Pulses On-the-Fly", step 1: write
+		 * the pulse, then apply it to the running engines with
+		 * CfrCoefficientsRunTimeUpdate (API documentation; without it
+		 * the engines keep the previous coefficients). The user then
+		 * selects the pulse via cfr_active_pulse (step 2).
+		 * Requires a completed CFR init cal. A single full length pulse
+		 * (half length > 256) cannot be hot swapped and must only be
+		 * switched while the Tx channel is off.
+		 */
+		ret = kstrtobool(buf, &enable);
+		if (ret)
+			return ret;
+		if (!enable)
+			return len;
+
+		guard(mutex)(&phy->lock);
+		if (!cfr->initialized) {
+			dev_err(&phy->spi->dev,
+				"CFR: Tx%d not initialized, run the CFR init cal first\n",
+				ch + 1);
+			return -EPERM;
+		}
+
+		ret = adrv9025_cfr_load_pulses(phy);
+		if (ret)
+			return ret;
+
+		if (phy->cfrNumPulses == 1 &&
+		    phy->cfrPulses[0].numCoeffs > ADI_ADRV9025_MAX_CFR_CORRECTION_PULSE_LEN / 2) {
+			ret = adi_adrv9025_RxTxEnableGet(phy->madDevice, &rx_mask,
+							 &tx_mask);
+			if (ret)
+				return adrv9025_dev_err(phy);
+			if (tx_mask & (ADI_ADRV9025_TX1 << ch)) {
+				dev_err(&phy->spi->dev,
+					"CFR: full length pulse can only be switched with Tx%d off\n",
+					ch + 1);
+				return -EBUSY;
+			}
+		}
+
+		ret = adi_adrv9025_CfrCorrectionPulseWrite_v2(phy->madDevice, BIT(ch),
+							      phy->cfrPulses,
+							      phy->cfrNumPulses);
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		/* make the running CFR engines pick up the new coefficients */
+		ret = adi_adrv9025_CfrCoefficientsRunTimeUpdate(phy->madDevice,
+								BIT(ch));
+		if (ret)
+			return adrv9025_dev_err(phy);
+
+		cfr->num_pulses = phy->cfrNumPulses;
+		return len;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -1977,6 +2040,62 @@ static const struct iio_enum adrv9025_cfr_interpolation_enum = {
 	.set = adrv9025_cfr_interpolation_set,
 };
 
+static const char * const adrv9025_cfr_pulses[] = {
+	[ADI_ADRV9025_CFR_CARRIER_HOT_SWAP_CORR_PULSE_1] = "pulse1",
+	[ADI_ADRV9025_CFR_CARRIER_HOT_SWAP_CORR_PULSE_2] = "pulse2",
+};
+
+static int adrv9025_cfr_active_pulse_get(struct iio_dev *indio_dev,
+					 const struct iio_chan_spec *chan)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	adi_adrv9025_CfrCarrierHotSwapCorrPulseSel_e sel;
+	int ret;
+
+	guard(mutex)(&phy->lock);
+	if (!phy->cfr[chan->channel].initialized)
+		return -ENODATA;
+
+	ret = adi_adrv9025_CfrActiveCorrectionPulseGet(phy->madDevice,
+						       ADI_ADRV9025_TX1 << chan->channel,
+						       &sel);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return sel;
+}
+
+static int adrv9025_cfr_active_pulse_set(struct iio_dev *indio_dev,
+					 const struct iio_chan_spec *chan,
+					 unsigned int sel)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(indio_dev);
+	int ret;
+
+	guard(mutex)(&phy->lock);
+	/*
+	 * Hot swap needs a completed CFR init cal (engines enabled) and two
+	 * correction pulses programmed in this channel.
+	 */
+	if (!phy->cfr[chan->channel].initialized ||
+	    phy->cfr[chan->channel].num_pulses != ADRV9025_CFR_MAX_PULSES)
+		return -EPERM;
+
+	ret = adi_adrv9025_CfrActiveCorrectionPulseSet(phy->madDevice,
+						       BIT(chan->channel), sel);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return 0;
+}
+
+static const struct iio_enum adrv9025_cfr_active_pulse_enum = {
+	.items = adrv9025_cfr_pulses,
+	.num_items = ARRAY_SIZE(adrv9025_cfr_pulses),
+	.get = adrv9025_cfr_active_pulse_get,
+	.set = adrv9025_cfr_active_pulse_set,
+};
+
 #define _ADRV9025_EXT_TX_INFO(_name, _ident)                                   \
 	{                                                                      \
 		.name = _name, .read = adrv9025_phy_tx_read,                   \
@@ -2056,6 +2175,7 @@ static struct iio_chan_spec_ext_info adrv9029_phy_tx_ext_info[] = {
 				  TX_CFR_HARD_CLIPPER_THRESHOLD),
 	_ADRV9025_EXT_TX_CFR_INFO("cfr_status", TX_CFR_STATUS),
 	_ADRV9025_EXT_TX_CFR_INFO("cfr_statistics_reset", TX_CFR_STATISTICS_RESET),
+	_ADRV9025_EXT_TX_CFR_INFO("cfr_pulse_update", TX_CFR_PULSE_UPDATE),
 	IIO_ENUM_AVAILABLE("cfr_engine_mode", IIO_SHARED_BY_TYPE,
 			   &adrv9025_cfr_engine1_mode_enum),
 	IIO_ENUM("cfr_engine1_mode", IIO_SEPARATE, &adrv9025_cfr_engine1_mode_enum),
@@ -2064,6 +2184,9 @@ static struct iio_chan_spec_ext_info adrv9029_phy_tx_ext_info[] = {
 	IIO_ENUM_AVAILABLE("cfr_interpolation", IIO_SHARED_BY_TYPE,
 			   &adrv9025_cfr_interpolation_enum),
 	IIO_ENUM("cfr_interpolation", IIO_SEPARATE, &adrv9025_cfr_interpolation_enum),
+	IIO_ENUM_AVAILABLE("cfr_active_pulse", IIO_SHARED_BY_TYPE,
+			   &adrv9025_cfr_active_pulse_enum),
+	IIO_ENUM("cfr_active_pulse", IIO_SEPARATE, &adrv9025_cfr_active_pulse_enum),
 	{},
 };
 static int adrv9025_gainindex_to_gain(struct adrv9025_rf_phy *phy, int channel,
