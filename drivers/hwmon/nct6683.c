@@ -1798,6 +1798,32 @@ static void nct6683_setup_sensors(struct nct6683_data *data)
 	}
 }
 
+/*
+ * Hand the fans the driver switched to manual mode back to the EC, so that
+ * they do not stay at a fixed duty cycle once nobody is left to adjust it.
+ */
+static void nct6683_restore_fan_control(void *_dev)
+{
+	struct device *dev = _dev;
+	struct nct6683_data *data = dev_get_drvdata(dev);
+	unsigned long manual;
+	int ch, err;
+
+	mutex_lock(&data->update_lock);
+	manual = data->pwm_manual;
+	for_each_set_bit(ch, &manual, NCT6683_NUM_REG_FAN) {
+		err = nct6683_fan_ctrl_update(data, ch, false, -1);
+		if (err) {
+			dev_warn(dev, "Failed to restore automatic mode of pwm%d: %d\n",
+				 ch + 1, err);
+			/* The EC does not respond, skip the remaining channels */
+			if (err == -ETIMEDOUT)
+				break;
+		}
+	}
+	mutex_unlock(&data->update_lock);
+}
+
 static int nct6683_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -1807,6 +1833,7 @@ static int nct6683_probe(struct platform_device *pdev)
 	struct device *hwmon_dev;
 	struct resource *res;
 	int groups = 0;
+	int err;
 	char build[16];
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
@@ -1923,6 +1950,13 @@ static int nct6683_probe(struct platform_device *pdev)
 		 nct6683_read(data, NCT6683_REG_VERSION_HI),
 		 nct6683_read(data, NCT6683_REG_VERSION_LO),
 		 build);
+
+	if (data->have_fan_ctrl) {
+		err = devm_add_action_or_reset(dev, nct6683_restore_fan_control,
+					       dev);
+		if (err)
+			return err;
+	}
 
 	hwmon_dev = devm_hwmon_device_register_with_groups(dev,
 			nct6683_device_names[data->kind], data, data->groups);
