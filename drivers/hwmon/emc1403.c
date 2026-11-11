@@ -490,7 +490,7 @@ static int emc1403_temp_write(struct thermal_data *data, u32 attr, int channel, 
 }
 
 /* Lookup table for temperature conversion times in msec */
-static const u16 ina3221_conv_time[] = {
+static const u16 emc1403_conv_time[] = {
 	16000, 8000, 4000, 2000, 1000, 500, 250, 125, 62, 31, 16
 };
 
@@ -498,8 +498,8 @@ static int emc1403_set_convrate(struct thermal_data *data, unsigned int interval
 {
 	int convrate;
 
-	convrate = find_closest_descending(interval, ina3221_conv_time,
-					   ARRAY_SIZE(ina3221_conv_time));
+	convrate = find_closest_descending(interval, emc1403_conv_time,
+					   ARRAY_SIZE(emc1403_conv_time));
 	return regmap_write(data->regmap, 0x04, convrate);
 }
 
