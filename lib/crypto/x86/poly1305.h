@@ -117,7 +117,7 @@ static void poly1305_blocks(struct poly1305_block_state *state, const u8 *inp,
 	do {
 		const size_t bytes = min(len, SZ_4K);
 
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&poly1305_use_avx512))
 			poly1305_blocks_avx512(ctx, inp, bytes, padbit);
 		else if (static_branch_likely(&poly1305_use_avx2))

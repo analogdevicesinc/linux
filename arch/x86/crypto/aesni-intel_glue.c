@@ -458,7 +458,7 @@ static int gcm_setkey(struct crypto_aead *tfm, const u8 *raw_key,
 		return err;
 
 	if (likely(crypto_simd_usable())) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		aes_gcm_precompute(key, flags);
 		kernel_fpu_end();
 	} else {
@@ -527,7 +527,7 @@ static int gcm_setkey(struct crypto_aead *tfm, const u8 *raw_key,
 /*
  * Initialize @ghash_acc, then pass all @assoclen bytes of associated data
  * (a.k.a. additional authenticated data) from @sg_src through the GHASH update
- * assembly function.  kernel_fpu_begin() must have already been called.
+ * assembly function.  The caller must be in a kernel-mode FPU section.
  */
 static void gcm_process_assoc(const struct aes_gcm_key *key, u8 ghash_acc[16],
 			      struct scatterlist *sg_src, unsigned int assoclen,
@@ -578,7 +578,7 @@ next:
 		scatterwalk_done_src(&walk, orig_len_this_step);
 		if (need_resched()) {
 			kernel_fpu_end();
-			kernel_fpu_begin();
+			kernel_fpu_begin_mask(0);
 		}
 	}
 	if (unlikely(pos))
@@ -631,7 +631,7 @@ gcm_crypt(struct aead_request *req, int flags)
 	 * section and start a new one if there are multiple data segments or if
 	 * rescheduling is needed while processing the associated data.
 	 */
-	kernel_fpu_begin();
+	kernel_fpu_begin_mask(0);
 
 	/* Pass the associated data through GHASH. */
 	gcm_process_assoc(key, ghash_acc, req->src, assoclen, flags);
@@ -653,7 +653,7 @@ gcm_crypt(struct aead_request *req, int flags)
 		err = skcipher_walk_done(&walk, walk.nbytes - nbytes);
 		if (err)
 			return err;
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 	}
 	/* Last segment: process all remaining data. */
 	aes_gcm_update(key, le_ctr, ghash_acc, walk.src.virt.addr,

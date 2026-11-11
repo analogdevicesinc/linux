@@ -18,7 +18,7 @@ DEFINE_STATIC_CALL(sha256_blocks_x86, sha256_blocks_generic);
 			 size_t nblocks)                                   \
 	{                                                                  \
 		if (likely(irq_fpu_usable())) {                            \
-			kernel_fpu_begin();                                \
+			kernel_fpu_begin_mask(0);                          \
 			asm_fn(state, data, nblocks);                      \
 			kernel_fpu_end();                                  \
 		} else {                                                   \
@@ -79,7 +79,7 @@ static bool sha256_finup_2x_arch(const struct __sha256_ctx *ctx,
 	 */
 	if (static_branch_likely(&have_sha_ni) && len >= SHA256_BLOCK_SIZE &&
 	    len <= 65536 && likely(irq_fpu_usable())) {
-		kernel_fpu_begin();
+		kernel_fpu_begin_mask(0);
 		sha256_ni_finup2x(ctx, data1, data2, len, out1, out2);
 		kernel_fpu_end();
 		kmsan_unpoison_memory(out1, SHA256_DIGEST_SIZE);

@@ -167,6 +167,7 @@ void poly1305_core_emit(const struct poly1305_state *state, const u32 nonce[4],
 
 	/* select h if h < p, or h + -p if h >= p */
 	mask = (g4 >> ((sizeof(u32) * 8) - 1)) - 1;
+	OPTIMIZER_HIDE_VAR(mask);
 	g0 &= mask;
 	g1 &= mask;
 	g2 &= mask;

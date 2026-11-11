@@ -24,7 +24,7 @@
 		const u8 *src = walk.src.virt.addr;			\
 		u8 *dst = walk.dst.virt.addr;				\
 		u8 __maybe_unused buf[(bsize)];				\
-		if (do_fpu) kernel_fpu_begin()
+		if (do_fpu) kernel_fpu_begin_mask(0)
 
 #define CBC_WALK_START(req, bsize, fpu_blocks)				\
 	ECB_WALK_START(req, bsize, fpu_blocks)

@@ -45,6 +45,14 @@ config CRYPTO_LIB_BLAKE2S_KUNIT_TEST
 	help
 	  KUnit tests for the BLAKE2s cryptographic hash function.
 
+config CRYPTO_LIB_CHACHA_KUNIT_TEST
+	tristate "KUnit tests for ChaCha" if !KUNIT_ALL_TESTS
+	depends on KUNIT && CRYPTO_LIB_CHACHA
+	default KUNIT_ALL_TESTS
+	select CRYPTO_LIB_BENCHMARK_VISIBLE
+	help
+	  KUnit tests for the ChaCha stream cipher.
+
 config CRYPTO_LIB_CHACHA20POLY1305_KUNIT_TEST
 	tristate "KUnit tests for ChaCha20Poly1305" if !KUNIT_ALL_TESTS
 	depends on KUNIT && CRYPTO_LIB_CHACHA20POLY1305

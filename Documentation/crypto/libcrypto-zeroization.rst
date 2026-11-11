@@ -43,8 +43,12 @@ two purposes:
 What to zeroize
 ---------------
 
-The following types of structures hold sensitive material and should be
-zeroized after use:
+Raw key material (e.g. a plain AES key stored in an array or a caller-defined
+struct) must be zeroized as soon as it is no longer needed, for example right
+after it has been used to populate one of the key structures below.
+
+In addition, the following types of structures hold sensitive material and
+should be zeroized after use:
 
 - **Key structures** (e.g. ``struct aes_key``, ``struct hmac_sha256_key``):
   contain expanded round keys or prepared key material.

@@ -6,9 +6,8 @@
  */
 
 #include <asm/fpu/api.h>
-#include <linux/static_call.h>
+#include <linux/jump_label.h>
 
-static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_sse2);
 static __ro_after_init DEFINE_STATIC_KEY_FALSE(have_avx2);
 
 asmlinkage void nh_sse2(const u32 *key, const u8 *message, size_t message_len,
@@ -19,9 +18,8 @@ asmlinkage void nh_avx2(const u32 *key, const u8 *message, size_t message_len,
 static bool nh_arch(const u32 *key, const u8 *message, size_t message_len,
 		    __le64 hash[NH_NUM_PASSES])
 {
-	if (message_len >= 64 && static_branch_likely(&have_sse2) &&
-	    irq_fpu_usable()) {
-		kernel_fpu_begin();
+	if (message_len >= 64 && irq_fpu_usable()) {
+		kernel_fpu_begin_mask(0);
 		if (static_branch_likely(&have_avx2))
 			nh_avx2(key, message, message_len, hash);
 		else
@@ -35,9 +33,6 @@ static bool nh_arch(const u32 *key, const u8 *message, size_t message_len,
 #define nh_mod_init_arch nh_mod_init_arch
 static void nh_mod_init_arch(void)
 {
-	if (boot_cpu_has(X86_FEATURE_XMM2)) {
-		static_branch_enable(&have_sse2);
-		if (boot_cpu_has(X86_FEATURE_AVX2))
-			static_branch_enable(&have_avx2);
-	}
+	if (boot_cpu_has(X86_FEATURE_AVX2))
+		static_branch_enable(&have_avx2);
 }

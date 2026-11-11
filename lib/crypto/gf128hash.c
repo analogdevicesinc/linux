@@ -88,10 +88,18 @@ static void clmul64(u64 a, u64 b, u64 *out_lo, u64 *out_hi)
 		  (a2 * (u128)b1) ^ (a3 * (u128)b0);
 
 	/* Multiply the low 4 bits of @a by @b. */
-	u64 e0 = -(a & 1) & b;
-	u64 e1 = -((a >> 1) & 1) & b;
-	u64 e2 = -((a >> 2) & 1) & b;
-	u64 e3 = -((a >> 3) & 1) & b;
+	u64 e0 = -(a & 1);
+	u64 e1 = -((a >> 1) & 1);
+	u64 e2 = -((a >> 2) & 1);
+	u64 e3 = -((a >> 3) & 1);
+	OPTIMIZER_HIDE_VAR(e0);
+	OPTIMIZER_HIDE_VAR(e1);
+	OPTIMIZER_HIDE_VAR(e2);
+	OPTIMIZER_HIDE_VAR(e3);
+	e0 &= b;
+	e1 &= b;
+	e2 &= b;
+	e3 &= b;
 	u64 extra_lo = e0 ^ (e1 << 1) ^ (e2 << 2) ^ (e3 << 3);
 	u64 extra_hi = (e1 >> 63) ^ (e2 >> 62) ^ (e3 >> 61);
 
@@ -245,6 +253,7 @@ static void __maybe_unused ghash_key_to_polyval(const u8 in[GHASH_BLOCK_SIZE],
 	u64 lo = get_unaligned_be64(&in[8]);
 	u64 mask = (s64)hi >> 63;
 
+	OPTIMIZER_HIDE_VAR(mask);
 	hi = (hi << 1) ^ (lo >> 63) ^ (mask & ((u64)0xc2 << 56));
 	lo = (lo << 1) ^ (mask & 1);
 	out->lo = cpu_to_le64(lo);

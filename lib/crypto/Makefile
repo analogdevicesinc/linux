@@ -129,7 +129,7 @@ libchacha-$(CONFIG_RISCV) += riscv/chacha-riscv64-zvkb.o
 libchacha-$(CONFIG_S390) += s390/chacha-s390.o
 libchacha-$(CONFIG_X86) += x86/chacha-ssse3-x86_64.o \
 			   x86/chacha-avx2-x86_64.o \
-			   x86/chacha-avx512vl-x86_64.o
+			   x86/chacha-avx512-x86_64.o
 endif # CONFIG_CRYPTO_LIB_CHACHA_ARCH
 
 ################################################################################
