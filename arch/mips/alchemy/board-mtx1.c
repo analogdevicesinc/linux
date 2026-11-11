@@ -125,13 +125,19 @@ static void __init mtx1_keys_init(void)
 }
 
 static const struct property_entry mtx1_wdt_props[] = {
+	PROPERTY_ENTRY_STRING("hw_algo", "toggle"),
+	/* Allow for tolerance in the nominal 100-second timeout. */
+	PROPERTY_ENTRY_U32("hw_margin_ms", 70000),
+	PROPERTY_ENTRY_U32("hw-min-interval-ms", 1600),
+	PROPERTY_ENTRY_U32("timeout-sec", 100),
+	PROPERTY_ENTRY_BOOL("always-running"),
 	/* Global number 215 is offset 15 on Alchemy GPIO 2 */
 	PROPERTY_ENTRY_GPIO("gpios", &alchemy_gpio2_node, 15, GPIO_ACTIVE_HIGH),
 	{ }
 };
 
 static const struct platform_device_info mtx1_wdt_info __initconst = {
-	.name = "mtx1-wdt",
+	.name = "gpio-wdt",
 	.id = 0,
 	.properties = mtx1_wdt_props,
 };

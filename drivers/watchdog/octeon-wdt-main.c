@@ -107,6 +107,11 @@ module_param(disable, int, 0444);
 MODULE_PARM_DESC(disable,
 	"Disable the watchdog entirely (default=0)");
 
+static bool panic_on_timeout;
+module_param(panic_on_timeout, bool, 0444);
+MODULE_PARM_DESC(panic_on_timeout,
+	"Panic when the heartbeat expires, instead of a silent reset (default=0)");
+
 static struct cvmx_boot_vector_element *octeon_wdt_bootvector;
 
 void octeon_wdt_nmi_stage2(void);
@@ -143,6 +148,8 @@ static irqreturn_t octeon_wdt_poke_irq(int cpl, void *dev_id)
 			/* Bad news, you are about to reboot. */
 			disable_irq_nosync(cpl);
 			cpumask_clear_cpu(cpu, &irq_enabled_cpus);
+			if (panic_on_timeout)
+				panic("Watchdog timeout");
 		}
 	} else {
 		/* Not open, just ping away... */

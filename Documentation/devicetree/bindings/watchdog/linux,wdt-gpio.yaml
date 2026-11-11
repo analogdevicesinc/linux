@@ -36,7 +36,12 @@ properties:
     description: Maximum time to reset watchdog circuit (milliseconds).
     $ref: /schemas/types.yaml#/definitions/uint32
     minimum: 2
-    maximum: 65535
+
+  hw-min-interval-ms:
+    description:
+      Minimum time between watchdog resets in milliseconds. If omitted, the
+      watchdog can be reset at any time. Must be less than hw_margin_ms.
+    minimum: 1
 
   always-running:
     type: boolean
@@ -45,6 +50,11 @@ properties:
       keep toggling the signal without a client.
       It will only cease to toggle the signal when the device is open and the
       timeout elapsed.
+
+  reset-from-wdt-gpios:
+    description:
+      gpio connection that signals, that the last reset was issued by this watchdog.
+    maxItems: 1
 
 required:
   - compatible
@@ -64,5 +74,7 @@ examples:
         compatible = "linux,wdt-gpio";
         gpios = <&gpio3 9 GPIO_ACTIVE_LOW>;
         hw_algo = "toggle";
-        hw_margin_ms = <1600>;
+        hw_margin_ms = <100000>;
+        hw-min-interval-ms = <1600>;
+        always-running;
     };

@@ -5,8 +5,10 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/irqflags.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -114,6 +116,32 @@ static unsigned int bcm7038_wdt_get_timeleft(struct watchdog_device *wdog)
 	return time_left / wdt->rate;
 }
 
+static int bcm7038_wdt_restart(struct watchdog_device *wdog,
+			       unsigned long action, void *data)
+{
+	struct bcm7038_watchdog *wdt = watchdog_get_drvdata(wdog);
+	unsigned long flags;
+
+	/*
+	 * Prevent runtime watchdog operations from interfering on
+	 * uniprocessor systems where restart handlers are preemptible.
+	 */
+	local_irq_save(flags);
+
+	/* Stop the timer before changing its reload value. */
+	bcm7038_wdt_stop(wdog);
+	/* The watchdog does not fire with a count below two. */
+	bcm7038_wdt_write(2, wdt->base + WDT_TIMEOUT_REG);
+	bcm7038_wdt_ping(wdog);
+
+	/* Flush the writes and wait for the reset to take effect. */
+	bcm7038_wdt_read(wdt->base + WDT_CMD_REG);
+	mdelay(500);
+	local_irq_restore(flags);
+
+	return 0;
+}
+
 static const struct watchdog_info bcm7038_wdt_info = {
 	.identity	= "Broadcom BCM7038 Watchdog Timer",
 	.options	= WDIOF_SETTIMEOUT | WDIOF_KEEPALIVEPING |
@@ -126,6 +154,7 @@ static const struct watchdog_ops bcm7038_wdt_ops = {
 	.stop		= bcm7038_wdt_stop,
 	.set_timeout	= bcm7038_wdt_set_timeout,
 	.get_timeleft	= bcm7038_wdt_get_timeleft,
+	.restart	= bcm7038_wdt_restart,
 };
 
 static int bcm7038_wdt_probe(struct platform_device *pdev)
@@ -168,6 +197,7 @@ static int bcm7038_wdt_probe(struct platform_device *pdev)
 	wdt->wdd.max_timeout	= 0xffffffff / wdt->rate;
 	wdt->wdd.parent		= dev;
 	watchdog_set_drvdata(&wdt->wdd, wdt);
+	watchdog_set_restart_priority(&wdt->wdd, 128);
 
 	watchdog_stop_on_reboot(&wdt->wdd);
 	watchdog_stop_on_unregister(&wdt->wdd);
