@@ -2329,8 +2329,10 @@ static int __init _init(struct omap_hwmod *oh, void *data)
 
 	r = _init_mpu_rt_base(oh, NULL, index, np);
 	if (r < 0) {
-		WARN(1, "omap_hwmod: %s: doesn't have mpu register target base\n",
-		     oh->name);
+		/* there might be a transition ongoing from hwmod to ti-sys */
+		if (np)
+			WARN(1, "omap_hwmod: %s: doesn't have mpu register target base\n",
+			     oh->name);
 		r = 0;
 		goto out_put_node;
 	}

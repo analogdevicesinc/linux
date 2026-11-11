@@ -48,7 +48,6 @@ enum sysc_soc {
 	SOC_UNKNOWN,
 	SOC_2420,
 	SOC_2430,
-	SOC_AM33,
 	SOC_3430,
 	SOC_AM35,
 	SOC_3630,
@@ -2914,7 +2913,6 @@ static void ti_sysc_idle(struct work_struct *work)
 static const struct soc_device_attribute sysc_soc_match[] = {
 	SOC_FLAG("OMAP242*", SOC_2420),
 	SOC_FLAG("OMAP243*", SOC_2430),
-	SOC_FLAG("AM33*", SOC_AM33),
 	SOC_FLAG("AM35*", SOC_AM35),
 	SOC_FLAG("OMAP3[45]*", SOC_3430),
 	SOC_FLAG("OMAP3[67]*", SOC_3630),
@@ -3121,13 +3119,12 @@ static int sysc_check_active_timer(struct sysc *ddata)
 	 * A to B4 at some point.
 	 */
 	switch (sysc_soc->soc) {
-	case SOC_AM33:
 	case SOC_3430:
 	case SOC_AM35:
 		error = -ENXIO;
 		break;
 	default:
-		error = -EBUSY;
+		error = -ENODEV;
 	}
 
 	if ((ddata->cfg.quirks & SYSC_QUIRK_NO_RESET_ON_INIT) &&
