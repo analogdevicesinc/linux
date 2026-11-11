@@ -167,8 +167,11 @@
 		reg = <0x39>, <0x66>;
 		reg-names = "main", "edid";
 
-		interrupt-parent = <&pm660l_gpios>;
+		interrupt-parent = <&pm660_gpios>;
 		interrupts = <11 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-0 = <&adv7533_int_default>;
+		pinctrl-names = "default";
 
 		clocks = <&rpmcc RPM_SMD_BB_CLK2>;
 		clock-names = "cec";
@@ -282,6 +285,15 @@
 
 		input-enable;
 		bias-pull-down;
+	};
+
+	adv7533_int_default: adv7533-int-default-state {
+		pins = "gpio11";
+		function = "normal";
+		input-enable;
+		output-disable;
+		/* pull-up on board */
+		bias-disable;
 	};
 };
 

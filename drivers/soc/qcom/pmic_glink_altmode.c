@@ -543,6 +543,23 @@ static void pmic_glink_altmode_put_switch(void *data)
 	typec_switch_put(data);
 }
 
+static void pmic_glink_altmode_disable_work(void *data)
+{
+	struct pmic_glink_altmode *altmode = data;
+	struct pmic_glink_altmode_port *alt_port;
+	unsigned int port;
+
+	disable_work_sync(&altmode->enable_work);
+
+	for (port = 0; port < ARRAY_SIZE(altmode->ports); port++) {
+		alt_port = &altmode->ports[port];
+		if (!alt_port->altmode)
+			continue;
+
+		disable_work_sync(&alt_port->work);
+	}
+}
+
 static void pmic_glink_altmode_enable_worker(struct work_struct *work)
 {
 	struct pmic_glink_altmode *altmode = work_to_altmode(work);
@@ -694,6 +711,18 @@ static int pmic_glink_altmode_probe(struct auxiliary_device *adev,
 						       altmode);
 	if (IS_ERR(altmode->client))
 		return PTR_ERR(altmode->client);
+
+	/*
+	 * Registered after the client, so that on unbind the workers are
+	 * disabled, and any in-flight instance is waited for, before the
+	 * client, the typec handles and the altmode context go away. The
+	 * client callbacks may still fire until the client is released, so
+	 * disable rather than cancel the works to keep them from being
+	 * requeued.
+	 */
+	ret = devm_add_action_or_reset(dev, pmic_glink_altmode_disable_work, altmode);
+	if (ret)
+		return ret;
 
 	pmic_glink_client_register(altmode->client);
 

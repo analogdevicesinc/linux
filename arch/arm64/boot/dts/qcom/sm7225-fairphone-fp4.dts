@@ -17,6 +17,8 @@
 #include <dt-bindings/iio/qcom,spmi-adc7-pmk8350.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/media/video-interfaces.h>
+#include <dt-bindings/media/video-interface-devices.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 #include <dt-bindings/sound/qcom,q6asm.h>
@@ -547,6 +549,29 @@
 	};
 };
 
+&camss {
+	vdd-csiphy0-0p9-supply = <&vreg_l18a>;
+	vdd-csiphy0-1p25-supply = <&vreg_l22a>;
+	vdd-csiphy1-0p9-supply = <&vreg_l18a>;
+	vdd-csiphy1-1p25-supply = <&vreg_l22a>;
+	vdd-csiphy2-0p9-supply = <&vreg_l18a>;
+	vdd-csiphy2-1p25-supply = <&vreg_l22a>;
+	vdd-csiphy3-0p9-supply = <&vreg_l18a>;
+	vdd-csiphy3-1p25-supply = <&vreg_l22a>;
+
+	status = "okay";
+
+	ports {
+		port@3 {
+			csiphy3_ep: endpoint {
+				data-lanes = <0 1 2 3>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				remote-endpoint = <&camera_imx576_ep>;
+			};
+		};
+	};
+};
+
 &cci0 {
 	status = "okay";
 };
@@ -581,7 +606,34 @@
 };
 
 &cci1_i2c0 {
-	/* Front cam (Sony IMX576) @ 0x10 */
+	camera@10 {
+		compatible = "sony,imx576";
+		reg = <0x10>;
+
+		vana-supply = <&vreg_l3p>;
+		vif-supply = <&vreg_l6p>;
+		vdig-supply = <&vreg_32m_cam_dvdd_1p05>;
+
+		clocks = <&camcc CAMCC_MCLK1_CLK>;
+		assigned-clocks = <&camcc CAMCC_MCLK1_CLK>;
+		assigned-clock-rates = <24000000>;
+
+		reset-gpios = <&tlmm 35 GPIO_ACTIVE_LOW>;
+		pinctrl-0 = <&cam_mclk1_default>;
+		pinctrl-names = "default";
+
+		orientation = <MEDIA_ORIENTATION_FRONT>;
+		rotation = <90>;
+
+		port {
+			camera_imx576_ep: endpoint {
+				data-lanes = <1 2 3 4>;
+				bus-type = <MEDIA_BUS_TYPE_CSI2_DPHY>;
+				link-frequencies = /bits/ 64 <1017000000>;
+				remote-endpoint = <&csiphy3_ep>;
+			};
+		};
+	};
 
 	eeprom@50 {
 		compatible = "giantec,gt24p64a", "atmel,24c64";

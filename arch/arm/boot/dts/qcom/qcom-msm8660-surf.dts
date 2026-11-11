@@ -60,7 +60,7 @@
 		MATRIX_KEY(5, 2, KEY_DOWN)
 		MATRIX_KEY(5, 3, KEY_BACK)
 		MATRIX_KEY(5, 4, KEY_MENU)
-		>;
+	>;
 	keypad,num-rows = <6>;
 	keypad,num-columns = <5>;
 };

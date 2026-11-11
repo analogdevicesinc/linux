@@ -58,34 +58,34 @@
 
 &tlmm {
 	spi1_default: spi1-default-state {
-		 mosi-pins {
+		mosi-pins {
 			pins = "gpio6";
 			function = "gsbi1";
 			drive-strength = <12>;
 			bias-disable;
-		 };
+		};
 
-		 miso-pins {
+		miso-pins {
 			pins = "gpio7";
 			function = "gsbi1";
 			drive-strength = <12>;
 			bias-disable;
-		 };
+		};
 
-		 cs-pins {
+		cs-pins {
 			pins = "gpio8";
 			function = "gsbi1";
 			drive-strength = <12>;
 			bias-disable;
 			output-low;
-		 };
+		};
 
-		 clk-pins {
+		clk-pins {
 			pins = "gpio9";
 			function = "gsbi1";
 			drive-strength = <12>;
 			bias-disable;
-		 };
+		};
 	};
 };
 
@@ -99,7 +99,7 @@
 		MATRIX_KEY(0, 1, KEY_VOLUMEDOWN)
 		MATRIX_KEY(0, 2, KEY_CAMERA_FOCUS)
 		MATRIX_KEY(0, 3, KEY_CAMERA)
-		>;
+	>;
 	keypad,num-rows = <1>;
 	keypad,num-columns = <5>;
 

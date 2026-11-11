@@ -22,22 +22,27 @@
 			reg = <0x02f00000 0x100000>;
 			no-map;
 		};
+
 		external_image_region: external-image@3100000 {
 			reg = <0x3100000 0x200000>;
 			no-map;
 		};
+
 		peripheral_region: peripheral@3300000 {
 			reg = <0x3300000 0x600000>;
 			no-map;
 		};
+
 		adsp_region: adsp@3900000 {
 			reg = <0x3900000 0x1400000>;
 			no-map;
 		};
+
 		modem_region: modem@4d00000 {
 			reg = <0x4d00000 0x1b00000>;
 			no-map;
 		};
+
 		modem_efs_region: modem-efs@7f00000 {
 			reg = <0x7f00000 0x100000>;
 			no-map;
@@ -94,10 +99,12 @@
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1300000>;
 		};
+
 		pm8226_s4: s4 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2200000>;
 		};
+
 		pm8226_s5: s5 {
 			regulator-min-microvolt = <1150000>;
 			regulator-max-microvolt = <1150000>;
@@ -107,102 +114,127 @@
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 		};
+
 		pm8226_l2: l2 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 		};
+
 		pm8226_l3: l3 {
 			regulator-min-microvolt = <750000>;
 			regulator-max-microvolt = <1337500>;
 		};
+
 		pm8226_l4: l4 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 		};
+
 		pm8226_l5: l5 {
 			regulator-min-microvolt = <1200000>;
 			regulator-max-microvolt = <1200000>;
 		};
+
 		pm8226_l6: l6 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l7: l7 {
 			regulator-min-microvolt = <1900000>;
 			regulator-max-microvolt = <1900000>;
 		};
+
 		pm8226_l8: l8 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l9: l9 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l10: l10 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l12: l12 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l14: l14 {
 			regulator-min-microvolt = <2750000>;
 			regulator-max-microvolt = <2750000>;
 		};
+
 		pm8226_l15: l15 {
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3000000>;
 		};
+
 		pm8226_l16: l16 {
 			regulator-min-microvolt = <3000000>;
 			regulator-max-microvolt = <3000000>;
 		};
+
 		pm8226_l17: l17 {
 			regulator-min-microvolt = <2950000>;
 			regulator-max-microvolt = <2950000>;
 		};
+
 		pm8226_l18: l18 {
 			regulator-min-microvolt = <2950000>;
 			regulator-max-microvolt = <2950000>;
 		};
+
 		pm8226_l19: l19 {
 			regulator-min-microvolt = <2850000>;
 			regulator-max-microvolt = <2850000>;
 		};
+
 		pm8226_l20: l20 {
 			regulator-min-microvolt = <3075000>;
 			regulator-max-microvolt = <3075000>;
 		};
+
 		pm8226_l21: l21 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 		};
+
 		pm8226_l22: l22 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
 		};
+
 		pm8226_l23: l23 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <1800000>;
 		};
+
 		pm8226_l24: l24 {
 			regulator-min-microvolt = <1300000>;
 			regulator-max-microvolt = <1350000>;
 		};
+
 		pm8226_l25: l25 {
 			regulator-min-microvolt = <1775000>;
 			regulator-max-microvolt = <2125000>;
 		};
+
 		pm8226_l26: l26 {
 			regulator-min-microvolt = <1225000>;
 			regulator-max-microvolt = <1225000>;
 		};
+
 		pm8226_l27: l27 {
 			regulator-min-microvolt = <2050000>;
 			regulator-max-microvolt = <2050000>;
 		};
+
 		pm8226_l28: l28 {
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;

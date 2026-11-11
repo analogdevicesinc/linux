@@ -471,6 +471,25 @@
 	status = "okay";
 };
 
+&i2c3 {
+	clock-frequency = <1000000>;
+
+	status = "okay";
+
+	nfc@28 {
+		compatible = "nxp,pn547", "nxp,nxp-nci-i2c";
+		reg = <0x28>;
+
+		interrupts-extended = <&tlmm 63 IRQ_TYPE_EDGE_RISING>;
+
+		enable-gpios = <&tlmm 12 GPIO_ACTIVE_HIGH>;
+		firmware-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+
+		pinctrl-0 = <&nfc_default>;
+		pinctrl-names = "default";
+	};
+};
+
 &ipa {
 	status = "okay";
 };
@@ -538,7 +557,6 @@
 	qcom,current-limit-microamp = <20000>;
 	qcom,ovp-millivolt = <29600>;
 	qcom,switching-freq = <800>;
-	qcom,num-strings = <3>;
 	qcom,cabc;
 	status = "okay";
 };
@@ -549,6 +567,11 @@
 
 &qupv3_id_1 {
 	status = "okay";
+};
+
+&qup_i2c3_default {
+	drive-strength = <2>;
+	bias-disable;
 };
 
 &qup_uart9_rx {
@@ -601,6 +624,13 @@
 		function = "gpio";
 		bias-pull-up;
 		drive-strength = <2>;
+	};
+
+	nfc_default: nfc-default-state {
+		pins = "gpio12", "gpio62", "gpio63", "gpio116";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
 	};
 };
 

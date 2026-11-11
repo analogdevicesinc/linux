@@ -27,6 +27,8 @@
 /delete-node/ &gpu_mem;
 
 / {
+	chassis-type = "handset";
+
 	aliases {
 		serial0 = &uart12;
 	};

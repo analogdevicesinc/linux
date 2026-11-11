@@ -1076,6 +1076,7 @@
 					     "apps-usb";
 
 			usb-role-switch;
+			dma-coherent;
 
 			status = "disabled";
 

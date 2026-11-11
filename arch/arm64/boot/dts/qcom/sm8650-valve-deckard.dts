@@ -95,6 +95,66 @@
 		regulator-boot-on;
 	};
 
+	vreg_cam_eyetracking_1p8: regulator-cam-eyetracking {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_eyetracking_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 74 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		vin-supply = <&vreg_l5m_1p8>;
+	};
+
+	vreg_cam_front_left_1p2: regulator-cam-front-left-1p2 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_front_left_1p2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+
+		gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		vin-supply = <&vreg_l2n_1p2>;
+	};
+
+	vreg_cam_front_left_1p8: regulator-cam-front-left-1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_front_left_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 36 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		vin-supply = <&vreg_l5n_1p8>;
+	};
+
+	vreg_cam_front_right_1p2: regulator-cam-front-right-1p2 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_front_right_1p2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+
+		gpio = <&tlmm 37 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		vin-supply = <&vreg_l2m_1p2>;
+	};
+
+	vreg_cam_front_right_1p8: regulator-cam-front-right-1p8 {
+		compatible = "regulator-fixed";
+		regulator-name = "cam_front_right_1p8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&tlmm 36 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+
+		vin-supply = <&vreg_l5m_1p8>;
+	};
+
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -671,6 +731,153 @@
 			regulator-min-microvolt = <2800000>;
 			regulator-max-microvolt = <2800000>;
 			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+};
+
+&camss {
+	vdd-csiphy01-0p9-supply = <&vreg_l2i_0p88>;
+	vdd-csiphy01-1p2-supply = <&vreg_l3i_1p2>;
+	vdd-csiphy24-0p9-supply = <&vreg_l2i_0p88>;
+	vdd-csiphy24-1p2-supply = <&vreg_l3i_1p2>;
+
+	status = "okay";
+
+	ports {
+		port@0 {
+			csiphy0_ep: endpoint {
+				data-lanes = <0 1>;
+				remote-endpoint = <&cam_front_left>;
+			};
+		};
+
+		port@1 {
+			csiphy1_ep: endpoint {
+				data-lanes = <0 1>;
+				remote-endpoint = <&cam_front_right>;
+			};
+		};
+
+		port@2 {
+			csiphy2_ep: endpoint {
+				data-lanes = <0>;
+				remote-endpoint = <&cam_eyetracking_left>;
+			};
+		};
+
+		port@4 {
+			csiphy4_ep: endpoint {
+				data-lanes = <0>;
+				remote-endpoint = <&cam_eyetracking_right>;
+			};
+		};
+	};
+};
+
+&cci0 {
+	status = "okay";
+};
+
+&cci0_i2c1 {
+	sensor@60 {
+		compatible = "ovti,ov6211";
+		reg = <0x60>;
+		clocks = <&camcc CAM_CC_MCLK4_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK4_CLK>;
+		assigned-clock-rates = <24000000>;
+		pinctrl-0 = <&cam4_default>;
+		pinctrl-1 = <&cam4_sleep>;
+		pinctrl-names = "default", "sleep";
+		reset-gpios = <&tlmm 195 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vreg_l6n_2p8>;
+		dovdd-supply = <&vreg_cam_eyetracking_1p8>;
+		dvdd-supply = <&vreg_l1n_1p1>;
+
+		port {
+			cam_eyetracking_left: endpoint {
+				link-frequencies = /bits/ 64 <480000000>;
+				remote-endpoint = <&csiphy2_ep>;
+			};
+		};
+	};
+};
+
+&cci1 {
+	status = "okay";
+};
+
+&cci1_i2c0 {
+	sensor@60 {
+		compatible = "ovti,ov6211";
+		reg = <0x60>;
+		clocks = <&camcc CAM_CC_MCLK2_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK2_CLK>;
+		assigned-clock-rates = <24000000>;
+		pinctrl-0 = <&cam2_default>;
+		pinctrl-1 = <&cam2_sleep>;
+		pinctrl-names = "default", "sleep";
+		reset-gpios = <&tlmm 3 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vreg_l6m_2p8>;
+		dovdd-supply = <&vreg_cam_eyetracking_1p8>;
+		dvdd-supply = <&vreg_l1m_1p1>;
+
+		port {
+			cam_eyetracking_right: endpoint {
+				link-frequencies = /bits/ 64 <480000000>;
+				remote-endpoint = <&csiphy4_ep>;
+			};
+		};
+	};
+};
+
+&cci2 {
+	status = "okay";
+};
+
+&cci2_i2c0 {
+	sensor@36 {
+		compatible = "ovti,og01a1b";
+		reg = <0x36>;
+		clocks = <&camcc CAM_CC_MCLK0_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK0_CLK>;
+		assigned-clock-rates = <19200000>;
+		pinctrl-0 = <&cam0_default>;
+		pinctrl-1 = <&cam0_sleep>;
+		pinctrl-names = "default", "sleep";
+		reset-gpios = <&pm8550vs_e_gpios 4 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vreg_l3m_2p8>;
+		dovdd-supply = <&vreg_cam_front_right_1p8>;
+		dvdd-supply = <&vreg_cam_front_right_1p2>;
+
+		port {
+			cam_front_right: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <500000000>;
+				remote-endpoint = <&csiphy1_ep>;
+			};
+		};
+	};
+
+	sensor@60 {
+		compatible = "ovti,og01a1b";
+		reg = <0x60>;
+		clocks = <&camcc CAM_CC_MCLK1_CLK>;
+		assigned-clocks = <&camcc CAM_CC_MCLK1_CLK>;
+		assigned-clock-rates = <19200000>;
+		pinctrl-0 = <&cam1_default>;
+		pinctrl-1 = <&cam1_sleep>;
+		pinctrl-names = "default", "sleep";
+		reset-gpios = <&pm8550vs_e_gpios 6 GPIO_ACTIVE_LOW>;
+		avdd-supply = <&vreg_l3n_2p8>;
+		dovdd-supply = <&vreg_cam_front_left_1p8>;
+		dvdd-supply = <&vreg_cam_front_left_1p2>;
+
+		port {
+			cam_front_left: endpoint {
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <500000000>;
+				remote-endpoint = <&csiphy0_ep>;
+			};
 		};
 	};
 };
@@ -1280,6 +1487,10 @@
 
 	phys = <&pm8550b_eusb2_repeater>;
 
+	status = "okay";
+};
+
+&watchdog {
 	status = "okay";
 };
 

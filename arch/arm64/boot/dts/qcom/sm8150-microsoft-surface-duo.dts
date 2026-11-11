@@ -372,7 +372,7 @@
 		compatible = "dlg,da7280";
 		reg = <0x4a>;
 		interrupts-extended = <&tlmm 42 IRQ_TYPE_LEVEL_LOW>;
-		pinctrl-names = "da7280_default";
+		pinctrl-names = "default";
 		pinctrl-0 = <&da7280_intr_default>;
 
 		dlg,actuator-type = "LRA";

@@ -21,7 +21,7 @@
 		pinctrl@1000000 {
 			serial_1_pins: serial1-state {
 				pins = "gpio8", "gpio9",
-					"gpio10", "gpio11";
+				       "gpio10", "gpio11";
 				function = "blsp_uart1";
 				bias-disable;
 			};
@@ -32,6 +32,7 @@
 					pins = "gpio13", "gpio14", "gpio15";
 					bias-disable;
 				};
+
 				spio-cs-pins {
 					function = "gpio";
 					pins = "gpio12";

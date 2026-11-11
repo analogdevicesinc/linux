@@ -26,6 +26,7 @@
 			linux,input-type = <1>;
 			debounce-interval = <60>;
 		};
+
 		button-2 {
 			label = "wps";
 			linux,code = <KEY_WPS_BUTTON>;

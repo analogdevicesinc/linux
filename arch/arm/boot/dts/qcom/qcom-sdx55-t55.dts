@@ -297,11 +297,11 @@
 		};
 
 		wake-pins {
-		       pins = "gpio53";
-		       function = "gpio";
-		       drive-strength = <2>;
-		       bias-pull-up;
-	       };
+			pins = "gpio53";
+			function = "gpio";
+			drive-strength = <2>;
+			bias-pull-up;
+		};
 	};
 };
 

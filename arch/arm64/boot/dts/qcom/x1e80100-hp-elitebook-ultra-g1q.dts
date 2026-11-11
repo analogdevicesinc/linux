@@ -2,7 +2,8 @@
 
 /dts-v1/;
 
-#include "x1e80100-hp-omnibook-x14.dts"
+#include "hamoa.dtsi"
+#include "x1-hp-omnibook-x14.dtsi"
 
 / {
 	model = "HP EliteBook Ultra G1q";
@@ -16,11 +17,15 @@
 &remoteproc_adsp {
 	firmware-name = "qcom/x1e80100/hp/elitebook-ultra-g1q/qcadsp8380.mbn",
 			"qcom/x1e80100/hp/elitebook-ultra-g1q/adsp_dtbs.elf";
+
+	status = "okay";
 };
 
 &remoteproc_cdsp {
 	firmware-name = "qcom/x1e80100/hp/elitebook-ultra-g1q/qccdsp8380.mbn",
 			"qcom/x1e80100/hp/elitebook-ultra-g1q/cdsp_dtbs.elf";
+
+	status = "okay";
 };
 
 &sound {

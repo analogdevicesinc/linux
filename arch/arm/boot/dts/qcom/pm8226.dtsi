@@ -109,21 +109,26 @@
 				qcom,pre-scaling = <1 3>;
 				label = "vph_pwr";
 			};
+
 			channel@8 {
 				reg = <VADC_DIE_TEMP>;
 				label = "die_temp";
 			};
+
 			channel@9 {
 				reg = <VADC_REF_625MV>;
 				label = "ref_625mv";
 			};
+
 			channel@a {
 				reg = <VADC_REF_1250MV>;
 				label = "ref_1250mv";
 			};
+
 			channel@e {
 				reg = <VADC_GND_REF>;
 			};
+
 			channel@f {
 				reg = <VADC_VDD_VADC>;
 			};

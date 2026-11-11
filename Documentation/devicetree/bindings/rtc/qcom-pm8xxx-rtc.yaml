@@ -18,6 +18,9 @@ properties:
           - qcom,pm8941-rtc
           - qcom,pmk8350-rtc
       - items:
+          - const: qcom,pmm8654au-rtc
+          - const: qcom,pmk8350-rtc
+      - items:
           - enum:
               - qcom,pm8018-rtc
           - const: qcom,pm8921-rtc

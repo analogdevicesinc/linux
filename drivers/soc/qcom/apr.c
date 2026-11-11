@@ -83,6 +83,13 @@ void gpr_free_port(gpr_port_t *port)
 	idr_remove(&gpr->svcs_idr, port->id);
 	spin_unlock_irqrestore(&gpr->svcs_lock, flags);
 
+	/*
+	 * The port is no longer discoverable, but RX worker might have already
+	 * looked it up and be calling its callback, so wait for
+	 * gpr_do_rx_callback() to finish.
+	 */
+	flush_workqueue(gpr->rxwq);
+
 	kfree(port);
 }
 EXPORT_SYMBOL_GPL(gpr_free_port);
@@ -110,9 +117,9 @@ gpr_port_t *gpr_alloc_port(struct apr_device *gdev, struct device *dev,
 	id = idr_alloc_cyclic(&pr->svcs_idr, svc, GPR_DYNAMIC_PORT_START,
 			      GPR_DYNAMIC_PORT_END, GFP_ATOMIC);
 	if (id < 0) {
+		spin_unlock(&pr->svcs_lock);
 		dev_err(dev, "Unable to allocate dynamic GPR src port\n");
 		kfree(port);
-		spin_unlock(&pr->svcs_lock);
 		return ERR_PTR(id);
 	}
 
@@ -210,7 +217,8 @@ static int apr_do_rx_callback(struct packet_router *apr, struct apr_rx_buf *abuf
 		return -EINVAL;
 	}
 
-	if (hdr->pkt_size < APR_HDR_SIZE || hdr->pkt_size != len) {
+	if (hdr->pkt_size < APR_HDR_SIZE || hdr->pkt_size != len ||
+	    hdr->pkt_size <= hdr_size) {
 		dev_err(apr->dev, "APR: Wrong packet size\n");
 		return -EINVAL;
 	}
@@ -280,7 +288,8 @@ static int gpr_do_rx_callback(struct packet_router *gpr, struct apr_rx_buf *abuf
 		return -EINVAL;
 	}
 
-	if (hdr->pkt_size < GPR_PKT_HEADER_BYTE_SIZE || hdr->pkt_size != len) {
+	if (hdr->pkt_size < GPR_PKT_HEADER_BYTE_SIZE || hdr->pkt_size != len ||
+	    hdr->pkt_size <= hdr_size * 4) {
 		dev_err(gpr->dev, "GPR: Wrong packet size\n");
 		return -EINVAL;
 	}

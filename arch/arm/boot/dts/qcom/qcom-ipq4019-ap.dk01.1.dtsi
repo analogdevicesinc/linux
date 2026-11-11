@@ -47,6 +47,7 @@
 			drive-strength = <12>;
 			bias-disable;
 		};
+
 		spi0-cs-pins {
 			pins = "gpio54";
 			function = "gpio";

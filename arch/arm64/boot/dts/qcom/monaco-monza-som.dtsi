@@ -227,6 +227,46 @@
 	status = "okay";
 };
 
+&pmm8620au_0_adc {
+	channel@44 {
+		reg = <ADC5_GEN3_AMUX1_THM_100K_PU(0)>;
+		label = "pmm8620au_0_xo_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		qcom,adc-tm;
+	};
+
+	channel@48 {
+		reg = <ADC5_GEN3_AMUX5_THM_100K_PU(0)>;
+		label = "pmm8620au_0_ufs_emmc_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		qcom,adc-tm;
+	};
+
+	channel@49 {
+		reg = <ADC5_GEN3_AMUX6_THM_100K_PU(0)>;
+		label = "pmm8620au_0_soc_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		qcom,adc-tm;
+	};
+};
+
+&pmm8650au_1_adc {
+	channel@249 {
+		reg = <ADC5_GEN3_AMUX6_THM_100K_PU(2)>;
+		label = "pmm8620au_1_sdram_therm";
+		qcom,ratiometric;
+		qcom,hw-settle-time = <200>;
+		qcom,pre-scaling = <1 1>;
+		qcom,adc-tm;
+	};
+};
+
 &qupv3_id_0 {
 	firmware-name = "qcom/qcs8300/qupv3fw.elf";
 

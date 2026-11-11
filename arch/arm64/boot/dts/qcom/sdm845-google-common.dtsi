@@ -464,6 +464,11 @@
 	status = "okay";
 };
 
+&qup_i2c2_default {
+	drive-strength = <2>;
+	bias-disable;
+};
+
 &qup_uart9_rx {
 	drive-strength = <2>;
 	bias-pull-up;
@@ -477,6 +482,22 @@
 &tlmm {
 	gpio-reserved-ranges = < 0 4>, /* SPI (Intel MNH Pixel Visual Core) */
 			       <81 4>; /* SPI (most likely Fingerprint Cards FPC1075) */
+
+	panel_default: panel-default-state {
+		reset-pins {
+			pins = "gpio6";
+			function = "gpio";
+			drive-strength = <8>;
+			bias-disable;
+		};
+
+		te-pins {
+			pins = "gpio12";
+			function = "mdp_vsync";
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
 
 	nfc_default: nfc-default-state {
 		enable-pins {
@@ -511,13 +532,6 @@
 
 	touchscreen_pins: ts-pins-gpio-state {
 		pins = "gpio125";
-		function = "gpio";
-		drive-strength = <2>;
-		bias-disable;
-	};
-
-	touchscreen_i2c_pins: qup-i2c2-gpio-state {
-		pins = "gpio27", "gpio28";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;

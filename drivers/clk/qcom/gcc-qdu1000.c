@@ -2669,6 +2669,9 @@ static int gcc_qdu1000_probe(struct platform_device *pdev)
 	/* Update FORCE_MEM_CORE_ON for gcc_pcie_0_mstr_axi_clk */
 	regmap_update_bits(regmap, 0x9d024, BIT(14), BIT(14));
 
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_0_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_0_pipe_clk, true);
+
 	ret = qcom_cc_register_rcg_dfs(regmap, gcc_dfs_clocks,
 				       ARRAY_SIZE(gcc_dfs_clocks));
 	if (ret)

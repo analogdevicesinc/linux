@@ -86,8 +86,8 @@
 
 	i2c-backlight {
 		compatible = "i2c-gpio";
-		sda-gpios = <&tlmm 20 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
-		scl-gpios = <&tlmm 21 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
+		sda-gpios = <&tlmm 20 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+		scl-gpios = <&tlmm 21 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 
 		pinctrl-0 = <&backlight_i2c_default_state>;
 		pinctrl-names = "default";

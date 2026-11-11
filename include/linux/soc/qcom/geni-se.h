@@ -78,6 +78,7 @@ struct geni_se {
 	struct geni_icc_path icc_paths[3];
 	struct dev_pm_domain_list *pd_list;
 	bool has_opp;
+	enum geni_se_xfer_mode prev_xfer_mode;
 };
 
 /* Common SE registers */

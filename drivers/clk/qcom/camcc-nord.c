@@ -515,8 +515,8 @@ static const struct clk_parent_data cam_cc_parent_data_9[] = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_camnoc_rt_axi_clk_src[] = {
-	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
+	F(200000000, P_CAM_CC_PLL0_OUT_ODD, 2, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	{ }
 };
 
@@ -622,8 +622,8 @@ static struct clk_rcg2 cam_cc_cci_4_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_cphy_rx_clk_src[] = {
-	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
-	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
+	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
+	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
 	F(480000000, P_CAM_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
 	{ }
 };
@@ -645,7 +645,6 @@ static struct clk_rcg2 cam_cc_cphy_rx_clk_src = {
 };
 
 static const struct freq_tbl ftbl_cam_cc_csi0phytimer_clk_src[] = {
-	F(300000000, P_CAM_CC_PLL0_OUT_EVEN, 2, 0, 0),
 	F(400000000, P_CAM_CC_PLL0_OUT_ODD, 1, 0, 0),
 	{ }
 };
@@ -730,19 +729,12 @@ static struct clk_rcg2 cam_cc_csi4phytimer_clk_src = {
 	},
 };
 
-static const struct freq_tbl ftbl_cam_cc_csid_clk_src[] = {
-	F(300000000, P_CAM_CC_PLL0_OUT_MAIN, 4, 0, 0),
-	F(400000000, P_CAM_CC_PLL0_OUT_MAIN, 3, 0, 0),
-	F(480000000, P_CAM_CC_PLL0_OUT_MAIN, 2.5, 0, 0),
-	{ }
-};
-
 static struct clk_rcg2 cam_cc_csid_clk_src = {
 	.cmd_rcgr = 0x13214,
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
-	.freq_tbl = ftbl_cam_cc_csid_clk_src,
+	.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src,
 	.hw_clk_ctrl = true,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "cam_cc_csid_clk_src",
@@ -889,7 +881,7 @@ static struct clk_rcg2 cam_cc_ife_lite_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
-	.freq_tbl = ftbl_cam_cc_csid_clk_src,
+	.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src,
 	.hw_clk_ctrl = true,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "cam_cc_ife_lite_clk_src",
@@ -905,7 +897,7 @@ static struct clk_rcg2 cam_cc_ife_lite_csid_clk_src = {
 	.mnd_width = 0,
 	.hid_width = 5,
 	.parent_map = cam_cc_parent_map_1,
-	.freq_tbl = ftbl_cam_cc_csid_clk_src,
+	.freq_tbl = ftbl_cam_cc_cphy_rx_clk_src,
 	.hw_clk_ctrl = true,
 	.clkr.hw.init = &(const struct clk_init_data) {
 		.name = "cam_cc_ife_lite_csid_clk_src",

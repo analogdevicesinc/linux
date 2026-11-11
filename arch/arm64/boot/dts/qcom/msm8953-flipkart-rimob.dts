@@ -147,7 +147,8 @@
 	status = "okay";
 
 	panel: panel@0 {
-		compatible = "flipkart,rimob-panel-nt35532-cs";
+		compatible = "flipkart,rimob-panel-nt35532-cs",
+			     "novatek,nt35532";
 		reg = <0>;
 
 		backlight = <&pmi8950_wled>;

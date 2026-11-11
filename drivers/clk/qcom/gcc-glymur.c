@@ -3373,21 +3373,6 @@ static struct clk_branch gcc_aggre_usb4_2_axi_clk = {
 	},
 };
 
-static struct clk_branch gcc_av1e_ahb_clk = {
-	.halt_reg = 0x9b02c,
-	.halt_check = BRANCH_HALT_VOTED,
-	.hwcg_reg = 0x9b02c,
-	.hwcg_bit = 1,
-	.clkr = {
-		.enable_reg = 0x9b02c,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "gcc_av1e_ahb_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
 static struct clk_branch gcc_av1e_axi_clk = {
 	.halt_reg = 0x9b030,
 	.halt_check = BRANCH_HALT_SKIP,
@@ -3398,19 +3383,6 @@ static struct clk_branch gcc_av1e_axi_clk = {
 		.enable_mask = BIT(0),
 		.hw.init = &(const struct clk_init_data) {
 			.name = "gcc_av1e_axi_clk",
-			.ops = &clk_branch2_ops,
-		},
-	},
-};
-
-static struct clk_branch gcc_av1e_xo_clk = {
-	.halt_reg = 0x9b044,
-	.halt_check = BRANCH_HALT,
-	.clkr = {
-		.enable_reg = 0x9b044,
-		.enable_mask = BIT(0),
-		.hw.init = &(const struct clk_init_data) {
-			.name = "gcc_av1e_xo_clk",
 			.ops = &clk_branch2_ops,
 		},
 	},
@@ -7581,6 +7553,8 @@ static struct gdsc gcc_pcie_0_tunnel_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(2),
 	.pd = {
 		.name = "gcc_pcie_0_tunnel_gdsc",
 	},
@@ -7593,6 +7567,8 @@ static struct gdsc gcc_pcie_1_tunnel_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(1),
 	.pd = {
 		.name = "gcc_pcie_1_tunnel_gdsc",
 	},
@@ -7605,6 +7581,8 @@ static struct gdsc gcc_pcie_2_tunnel_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(3),
 	.pd = {
 		.name = "gcc_pcie_2_tunnel_gdsc",
 	},
@@ -7617,6 +7595,8 @@ static struct gdsc gcc_pcie_3a_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(4),
 	.pd = {
 		.name = "gcc_pcie_3a_gdsc",
 	},
@@ -7629,6 +7609,8 @@ static struct gdsc gcc_pcie_3a_phy_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x2,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(5),
 	.pd = {
 		.name = "gcc_pcie_3a_phy_gdsc",
 	},
@@ -7641,6 +7623,8 @@ static struct gdsc gcc_pcie_3b_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(6),
 	.pd = {
 		.name = "gcc_pcie_3b_gdsc",
 	},
@@ -7653,6 +7637,8 @@ static struct gdsc gcc_pcie_3b_phy_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x2,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(7),
 	.pd = {
 		.name = "gcc_pcie_3b_phy_gdsc",
 	},
@@ -7665,6 +7651,8 @@ static struct gdsc gcc_pcie_4_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(10),
 	.pd = {
 		.name = "gcc_pcie_4_gdsc",
 	},
@@ -7677,6 +7665,8 @@ static struct gdsc gcc_pcie_4_phy_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x2,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(11),
 	.pd = {
 		.name = "gcc_pcie_4_phy_gdsc",
 	},
@@ -7689,6 +7679,8 @@ static struct gdsc gcc_pcie_5_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(8),
 	.pd = {
 		.name = "gcc_pcie_5_gdsc",
 	},
@@ -7701,6 +7693,8 @@ static struct gdsc gcc_pcie_5_phy_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x2,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(9),
 	.pd = {
 		.name = "gcc_pcie_5_phy_gdsc",
 	},
@@ -7713,6 +7707,8 @@ static struct gdsc gcc_pcie_6_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0xf,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(12),
 	.pd = {
 		.name = "gcc_pcie_6_gdsc",
 	},
@@ -7725,6 +7721,8 @@ static struct gdsc gcc_pcie_6_phy_gdsc = {
 	.en_rest_wait_val = 0x2,
 	.en_few_wait_val = 0x2,
 	.clk_dis_wait_val = 0x2,
+	.collapse_ctrl = 0x6214c,
+	.collapse_mask = BIT(13),
 	.pd = {
 		.name = "gcc_pcie_6_phy_gdsc",
 	},
@@ -7752,7 +7750,7 @@ static struct gdsc gcc_usb20_prim_gdsc = {
 	.pd = {
 		.name = "gcc_usb20_prim_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7764,7 +7762,7 @@ static struct gdsc gcc_usb30_mp_gdsc = {
 	.pd = {
 		.name = "gcc_usb30_mp_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7776,7 +7774,7 @@ static struct gdsc gcc_usb30_prim_gdsc = {
 	.pd = {
 		.name = "gcc_usb30_prim_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7788,7 +7786,7 @@ static struct gdsc gcc_usb30_sec_gdsc = {
 	.pd = {
 		.name = "gcc_usb30_sec_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7800,7 +7798,7 @@ static struct gdsc gcc_usb30_tert_gdsc = {
 	.pd = {
 		.name = "gcc_usb30_tert_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7812,7 +7810,7 @@ static struct gdsc gcc_usb3_mp_ss0_phy_gdsc = {
 	.pd = {
 		.name = "gcc_usb3_mp_ss0_phy_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7824,7 +7822,7 @@ static struct gdsc gcc_usb3_mp_ss1_phy_gdsc = {
 	.pd = {
 		.name = "gcc_usb3_mp_ss1_phy_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7872,7 +7870,7 @@ static struct gdsc gcc_usb_0_phy_gdsc = {
 	.pd = {
 		.name = "gcc_usb_0_phy_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7884,7 +7882,7 @@ static struct gdsc gcc_usb_1_phy_gdsc = {
 	.pd = {
 		.name = "gcc_usb_1_phy_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7896,7 +7894,7 @@ static struct gdsc gcc_usb_2_phy_gdsc = {
 	.pd = {
 		.name = "gcc_usb_2_phy_gdsc",
 	},
-	.pwrsts = PWRSTS_OFF_ON,
+	.pwrsts = PWRSTS_RET_ON,
 	.flags = POLL_CFG_GDSCR | RETAIN_FF_ENABLE,
 };
 
@@ -7915,9 +7913,7 @@ static struct clk_regmap *gcc_glymur_clocks[] = {
 	[GCC_AGGRE_USB4_0_AXI_CLK] = &gcc_aggre_usb4_0_axi_clk.clkr,
 	[GCC_AGGRE_USB4_1_AXI_CLK] = &gcc_aggre_usb4_1_axi_clk.clkr,
 	[GCC_AGGRE_USB4_2_AXI_CLK] = &gcc_aggre_usb4_2_axi_clk.clkr,
-	[GCC_AV1E_AHB_CLK] = &gcc_av1e_ahb_clk.clkr,
 	[GCC_AV1E_AXI_CLK] = &gcc_av1e_axi_clk.clkr,
-	[GCC_AV1E_XO_CLK] = &gcc_av1e_xo_clk.clkr,
 	[GCC_BOOT_ROM_AHB_CLK] = &gcc_boot_rom_ahb_clk.clkr,
 	[GCC_CAMERA_HF_AXI_CLK] = &gcc_camera_hf_axi_clk.clkr,
 	[GCC_CAMERA_SF_AXI_CLK] = &gcc_camera_sf_axi_clk.clkr,
@@ -8483,6 +8479,8 @@ static const u32 gcc_glymur_critical_cbcrs[] = {
 	0x32058, /* GCC_VIDEO_XO_CLK */
 	0x9b004, /* GCC_EVA_AHB_CLK */
 	0x9b024, /* GCC_EVA_XO_CLK */
+	0x9b02c, /* GCC_AV1E_AHB_CLK */
+	0x9b044, /* GCC_AV1E_XO_CLK */
 };
 
 static const struct regmap_config gcc_glymur_regmap_config = {
@@ -8497,6 +8495,17 @@ static void clk_glymur_regs_configure(struct device *dev, struct regmap *regmap)
 {
 	/* FORCE_MEM_CORE_ON for ufs phy ice core clocks */
 	qcom_branch_set_force_mem_core(regmap, gcc_ufs_phy_ice_core_clk, true);
+
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3a_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3a_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_3b_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_3b_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_4_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_4_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_5_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_5_pipe_clk, true);
+	qcom_branch_set_force_mem_core(regmap, gcc_pcie_6_pipe_clk, true);
+	qcom_branch_set_force_periph_on(regmap, gcc_pcie_6_pipe_clk, true);
 }
 
 static const struct qcom_cc_driver_data gcc_glymur_driver_data = {

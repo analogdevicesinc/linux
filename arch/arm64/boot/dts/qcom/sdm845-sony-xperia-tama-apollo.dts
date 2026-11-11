@@ -10,6 +10,13 @@
 / {
 	model = "Sony Xperia XZ2 Compact";
 	compatible = "sony,apollo-row", "qcom,sdm845";
+
+	battery: battery {
+		compatible = "simple-battery";
+		charge-full-design-microamp-hours = <2899000>;
+		voltage-min-design-microvolt = <3400000>;
+		voltage-max-design-microvolt = <4245000>;
+	};
 };
 
 &panel {

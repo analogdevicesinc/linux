@@ -285,7 +285,7 @@
 
 		pm8150_l10: l10 {
 			regulator-min-microvolt = <2700000>;
-			regulator-max-microvolt = <3544000>;
+			regulator-max-microvolt = <3300000>;
 		};
 
 		pm8150_l11: l11 {

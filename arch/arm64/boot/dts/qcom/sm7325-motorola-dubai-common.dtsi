@@ -16,6 +16,8 @@
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+#include <dt-bindings/sound/qcom,q6afe.h>
+#include <dt-bindings/sound/qcom,q6asm.h>
 
 #include "sm7325.dtsi"
 #include "pm7325.dtsi"
@@ -699,6 +701,40 @@
 	firmware-name = "qcom/sm7325/motorola/dubai/a660_zap.mbn";
 };
 
+&i2c1 {
+	clock-frequency = <100000>;
+
+	status = "okay";
+
+	/* Bottom speaker */
+	aw88261_r: audio-codec@34 {
+		compatible = "awinic,aw88261";
+		reg = <0x34>;
+
+		dvdd-supply = <&vreg_l18b_1p8>;
+		sound-name-prefix = "Amplifier R";
+		firmware-name = "qcom/sm7325/motorola/dubai/aw88261_acf.bin";
+
+		awinic,audio-channel = <0>;
+
+		#sound-dai-cells = <0>;
+	};
+
+	/* Top speaker / ear speaker */
+	aw88261_l: audio-codec@35 {
+		compatible = "awinic,aw88261";
+		reg = <0x35>;
+
+		dvdd-supply = <&vreg_l18b_1p8>;
+		sound-name-prefix = "Amplifier L";
+		firmware-name = "qcom/sm7325/motorola/dubai/aw88261_acf.bin";
+
+		awinic,audio-channel = <1>;
+
+		#sound-dai-cells = <0>;
+	};
+};
+
 &i2c4 {
 	clock-frequency = <100000>;
 
@@ -730,6 +766,11 @@
 	qcom,gsi-loader = "self";
 
 	status = "okay";
+};
+
+&lpass_audiocc {
+	compatible = "qcom,qcm6490-lpassaudiocc";
+	/delete-property/ power-domains;
 };
 
 &pm7250b_adc {
@@ -972,8 +1013,20 @@
 	status = "okay";
 };
 
+&q6afedai {
+	dai@147 {
+		reg = <SENARY_MI2S_RX>;
+		qcom,sd-lines = <0>;
+	};
+};
+
 &qfprom {
 	vcc-supply = <&vdd_qfprom>;
+};
+
+&qup_i2c1_data_clk {
+	drive-strength = <2>;
+	bias-pull-up;
 };
 
 &qup_spi13_cs {
@@ -1064,6 +1117,72 @@
 &rmtfs_mem {
 	qcom,vmid = <QCOM_SCM_VMID_MSS_MSA>,
 		    <QCOM_SCM_VMID_NAV>;
+};
+
+&sound {
+	compatible = "motorola,dubai-sndcard";
+	model = "Motorola-dubai";
+
+	pinctrl-0 = <&lpass_i2s2_active>;
+	pinctrl-1 = <&lpass_i2s2_sleep>;
+	pinctrl-names = "default",
+			"sleep";
+
+	mm1-dai-link {
+		link-name = "MultiMedia1";
+
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA1>;
+		};
+	};
+
+	mm2-dai-link {
+		link-name = "MultiMedia2";
+
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA2>;
+		};
+	};
+
+	mm3-dai-link {
+		link-name = "MultiMedia3";
+
+		cpu {
+			sound-dai = <&q6asmdai MSM_FRONTEND_DAI_MULTIMEDIA3>;
+		};
+	};
+
+	i2s-dai-link {
+		link-name = "Senary MI2S Playback";
+
+		codec {
+			sound-dai = <&aw88261_l>, <&aw88261_r>;
+		};
+
+		cpu {
+			sound-dai = <&q6afedai SENARY_MI2S_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
+
+	usb-dai-link {
+		link-name = "USB Playback";
+
+		codec {
+			sound-dai = <&q6usbdai USB_RX>;
+		};
+
+		cpu {
+			sound-dai = <&q6afedai USB_RX>;
+		};
+
+		platform {
+			sound-dai = <&q6routing>;
+		};
+	};
 };
 
 &spi13 {

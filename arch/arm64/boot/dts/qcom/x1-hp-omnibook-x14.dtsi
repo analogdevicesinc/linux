@@ -10,7 +10,11 @@
 #include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
 #include <dt-bindings/regulator/qcom,rpmh-regulator.h>
 
+#include "hamoa-pmics.dtsi"
+
 / {
+	chassis-type = "laptop";
+
 	aliases {
 		serial0 = &uart21;
 		serial1 = &uart14;

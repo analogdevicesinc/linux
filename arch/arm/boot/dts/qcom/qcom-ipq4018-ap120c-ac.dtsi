@@ -260,8 +260,7 @@
 
 &usb3 {
 	status = "okay";
-
-	};
+};
 
 &usb3_dwc {
 	phys = <&usb3_hs_phy>;
