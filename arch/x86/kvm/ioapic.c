@@ -647,7 +647,7 @@ static int ioapic_mmio_read(struct kvm_vcpu *vcpu, struct kvm_io_device *this,
 		memcpy(val, (char *)&result, len);
 		break;
 	default:
-		printk(KERN_WARNING "ioapic: wrong length %d\n", len);
+		pr_warn_ratelimited("ioapic: wrong length %d\n", len);
 	}
 	return 0;
 }
@@ -672,7 +672,7 @@ static int ioapic_mmio_write(struct kvm_vcpu *vcpu, struct kvm_io_device *this,
 		data = *(u8  *) val;
 		break;
 	default:
-		printk(KERN_WARNING "ioapic: Unsupported size %d\n", len);
+		pr_warn_ratelimited("ioapic: Unsupported size %d\n", len);
 		return 0;
 	}
 

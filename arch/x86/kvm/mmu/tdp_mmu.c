@@ -43,7 +43,7 @@ void kvm_mmu_uninit_tdp_mmu(struct kvm *kvm)
 #ifdef CONFIG_KVM_PROVE_MMU
 	KVM_MMU_WARN_ON(atomic64_read(&kvm->arch.tdp_mmu_pages));
 #endif
-	WARN_ON(!list_empty(&kvm->arch.tdp_mmu_roots));
+	WARN_ON_ONCE(!list_empty(&kvm->arch.tdp_mmu_roots));
 
 	/*
 	 * Ensure that all the outstanding RCU callbacks to free shadow pages
@@ -1151,6 +1151,7 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 		return RET_PF_RETRY;
 	else if (is_shadow_present_pte(iter->old_spte) &&
 		 (!is_last_spte(iter->old_spte, iter->level) ||
+		  WARN_ON_ONCE(!is_shadow_present_pte(new_spte)) ||
 		  WARN_ON_ONCE(leaf_spte_change_needs_tlb_flush(iter->old_spte, new_spte))))
 		kvm_flush_remote_tlbs_gfn(vcpu->kvm, iter->gfn, iter->level);
 
@@ -1368,7 +1369,7 @@ static bool __kvm_tdp_mmu_age_gfn_range(struct kvm *kvm,
 	 * this helper must NOT be used to unmap GFNs, as it processes only
 	 * valid roots!
 	 */
-	WARN_ON(types & ~KVM_VALID_ROOTS);
+	WARN_ON_ONCE(types & ~KVM_VALID_ROOTS);
 
 	guard(rcu)();
 	for_each_tdp_mmu_root_rcu(kvm, root, range->slot->as_id, types) {

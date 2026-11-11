@@ -63,10 +63,11 @@ When KVM_X2APIC_API_USE_32BIT_IDS is enabled, KVM activates a hack/quirk that
 allows sending events to a single vCPU using its x2APIC ID even if the target
 vCPU has legacy xAPIC enabled, e.g. to bring up hotplugged vCPUs via INIT-SIPI
 on VMs with > 255 vCPUs.  A side effect of the quirk is that, if multiple vCPUs
-have the same physical APIC ID, KVM will deliver events targeting that APIC ID
-only to the vCPU with the lowest vCPU ID.  If KVM_X2APIC_API_USE_32BIT_IDS is
-not enabled, KVM follows x86 architecture when processing interrupts (all vCPUs
-matching the target APIC ID receive the interrupt).
+have the same physical legacy xAPIC ID, KVM may deliver events targeting that
+xAPIC ID only to the vCPU whose vCPU ID matches the aliased x2APIC ID. If
+KVM_X2APIC_API_USE_32BIT_IDS is not enabled, KVM follows x86 architecture when
+processing interrupts (all vCPUs matching the target APIC ID receive the
+interrupt).
 
 MTRRs
 -----
@@ -85,3 +86,10 @@ memory.
 Note, this erratum does not affect AMD CPUs, which fully virtualize CR0.CD in
 hardware, i.e. put the CPU caches into "no fill" mode when CR0.CD=1, even when
 running in the guest.
+
+VM_CR
+-----
+KVM does not virtualize VM_CR (MSR_VM_CR) on AMD CPUs.  RDMSR always returns
+VM_CR.LOCK (bit 3) set and all other bits clear, and WRMSR silently ignores all
+writes without raising a #GP if reserved bits (bits 63:5) are set or if
+VM_CR.SVMDIS (bit 4) is set while EFER.SVME is set.

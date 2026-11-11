@@ -61,7 +61,7 @@ extern bool __read_mostly eager_page_split;
 			       X86_CR4_SMEP | X86_CR4_SMAP | X86_CR4_PKE)
 
 #define KVM_MMU_CR0_ROLE_BITS (X86_CR0_PG | X86_CR0_WP)
-#define KVM_MMU_EFER_ROLE_BITS (EFER_LME | EFER_NX)
+#define KVM_MMU_EFER_ROLE_BITS (EFER_LMA | EFER_NX)
 
 static __always_inline u64 rsvd_bits(int s, int e)
 {

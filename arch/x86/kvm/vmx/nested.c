@@ -349,7 +349,9 @@ static void free_nested(struct kvm_vcpu *vcpu)
 
 	vmx->nested.vmxon = false;
 	vmx->nested.smm.vmxon = false;
+	vmx->nested.smm.guest_mode = false;
 	vmx->nested.vmxon_ptr = INVALID_GPA;
+	vmx->nested.need_sync_vmcs02_to_vmcs12_rare = false;
 	free_vpid(vmx->nested.vpid02);
 	vmx->nested.posted_intr_nv = -1;
 	vmx->nested.current_vmptr = INVALID_GPA;
@@ -385,8 +387,15 @@ static void free_nested(struct kvm_vcpu *vcpu)
  */
 void nested_vmx_free_vcpu(struct kvm_vcpu *vcpu)
 {
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
 	vcpu_load(vcpu);
-	vmx_leave_nested(vcpu);
+	if (is_guest_mode(vcpu)) {
+		hrtimer_cancel(&vmx->nested.preemption_timer);
+		leave_guest_mode(vcpu);
+		vmx_switch_vmcs(vcpu, &vmx->vmcs01);
+	}
+	free_nested(vcpu);
 	vcpu_put(vcpu);
 }
 
@@ -515,7 +524,7 @@ static void nested_ept_new_eptp(struct kvm_vcpu *vcpu)
 
 static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 {
-	WARN_ON(mmu_is_nested(vcpu));
+	WARN_ON_ONCE(mmu_is_nested(vcpu));
 
 	vcpu->arch.mmu = &vcpu->arch.guest_mmu;
 	nested_ept_new_eptp(vcpu);
@@ -523,11 +532,6 @@ static void nested_ept_init_mmu_context(struct kvm_vcpu *vcpu)
 	vcpu->arch.ngpa_walk.get_pdptr       = kvm_pdptr_read;
 
 	vcpu->arch.ngpa_walk.inject_page_fault = nested_ept_inject_page_fault;
-}
-
-static void nested_ept_uninit_mmu_context(struct kvm_vcpu *vcpu)
-{
-	vcpu->arch.mmu = &vcpu->arch.root_mmu;
 }
 
 static bool nested_vmx_is_page_fault_vmexit(struct vmcs12 *vmcs12,
@@ -619,7 +623,6 @@ static int nested_vmx_check_tpr_shadow_controls(struct kvm_vcpu *vcpu,
 	 * if userspace hasn't yet configured memslots during state restore.
 	 */
 	if (warn_on_missed_cc && vcpu->wants_to_run &&
-	    nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW) &&
 	    !nested_cpu_has_vid(vmcs12) &&
 	    !nested_cpu_has2(vmcs12, SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES) &&
 	    !kvm_read_guest(vcpu->kvm, vtpr_gpa, &vtpr, sizeof(vtpr)) &&
@@ -1315,7 +1318,7 @@ static void nested_vmx_transition_tlb_flush(struct kvm_vcpu *vcpu,
 	}
 
 	/* L2 should never have a VPID if VPID is disabled. */
-	WARN_ON(!enable_vpid);
+	WARN_ON_ONCE(!enable_vpid);
 
 	/*
 	 * VPID is enabled and in use by vmcs12.  If vpid12 is changing, then
@@ -1508,33 +1511,6 @@ static int vmx_restore_vmx_ept_vpid_cap(struct vcpu_vmx *vmx, u64 data)
 	return 0;
 }
 
-static u64 *vmx_get_fixed0_msr(struct nested_vmx_msrs *msrs, u32 msr_index)
-{
-	switch (msr_index) {
-	case MSR_IA32_VMX_CR0_FIXED0:
-		return &msrs->cr0_fixed0;
-	case MSR_IA32_VMX_CR4_FIXED0:
-		return &msrs->cr4_fixed0;
-	default:
-		BUG();
-	}
-}
-
-static int vmx_restore_fixed0_msr(struct vcpu_vmx *vmx, u32 msr_index, u64 data)
-{
-	const u64 *msr = vmx_get_fixed0_msr(&vmcs_config.nested, msr_index);
-
-	/*
-	 * 1 bits (which indicates bits which "must-be-1" during VMX operation)
-	 * must be 1 in the restored value.
-	 */
-	if (!is_bitwise_subset(data, *msr, -1ULL))
-		return -EINVAL;
-
-	*vmx_get_fixed0_msr(&vmx->nested.msrs, msr_index) = data;
-	return 0;
-}
-
 /*
  * Called when userspace is restoring VMX MSRs.
  *
@@ -1577,8 +1553,9 @@ int vmx_set_vmx_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data)
 	case MSR_IA32_VMX_MISC:
 		return vmx_restore_vmx_misc(vmx, data);
 	case MSR_IA32_VMX_CR0_FIXED0:
+		return data && data != vmcs_config.nested.cr0_fixed0;
 	case MSR_IA32_VMX_CR4_FIXED0:
-		return vmx_restore_fixed0_msr(vmx, msr_index, data);
+		return data && data != vmcs_config.nested.cr4_fixed0;
 	case MSR_IA32_VMX_CR0_FIXED1:
 	case MSR_IA32_VMX_CR4_FIXED1:
 		/*
@@ -1698,7 +1675,7 @@ static void copy_shadow_to_vmcs12(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	preempt_disable();
@@ -1733,7 +1710,7 @@ static void copy_vmcs12_to_shadow(struct vcpu_vmx *vmx)
 	unsigned long val;
 	int i, q;
 
-	if (WARN_ON(!shadow_vmcs))
+	if (WARN_ON_ONCE(!shadow_vmcs))
 		return;
 
 	vmcs_load(shadow_vmcs);
@@ -3770,10 +3747,8 @@ vmentry_fail_vmexit_guest_mode:
 vmentry_fail_vmexit:
 	vmx_switch_vmcs(vcpu, &vmx->vmcs01);
 
-	if (!from_vmentry) {
-		nested_ept_uninit_mmu_context(vcpu);
+	if (!from_vmentry)
 		return NVMX_VMENTRY_VMEXIT;
-	}
 
 	nested_put_vmcs12_pages(vcpu);
 
@@ -4833,8 +4808,6 @@ static void load_vmcs12_host_state(struct kvm_vcpu *vcpu,
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs12->host_cr4);
 
-	nested_ept_uninit_mmu_context(vcpu);
-
 	/*
 	 * Only PDPTE load can fail as the value of cr3 was checked on entry and
 	 * couldn't have changed.
@@ -4980,7 +4953,7 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 		if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
 			kvm_set_dr(vcpu, 7, DR7_FIXED_1);
 		else
-			WARN_ON(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
+			WARN_ON_ONCE(kvm_set_dr(vcpu, 7, vmcs_readl(GUEST_DR7)));
 	}
 
 	/* Reload DEBUGCTL to ensure vmcs01 has a fresh FREEZE_IN_SMM value. */
@@ -4998,7 +4971,6 @@ static void nested_vmx_restore_host_state(struct kvm_vcpu *vcpu)
 	vcpu->arch.cr4_guest_owned_bits = ~vmcs_readl(CR4_GUEST_HOST_MASK);
 	vmx_set_cr4(vcpu, vmcs_readl(CR4_READ_SHADOW));
 
-	nested_ept_uninit_mmu_context(vcpu);
 	vcpu->arch.cr3 = vmx->nested.pre_vmenter_cr3;
 	kvm_register_mark_available(vcpu, VCPU_REG_CR3);
 
@@ -5411,7 +5383,7 @@ static struct vmcs *alloc_shadow_vmcs(struct kvm_vcpu *vcpu)
 	 * doesn't support virtualization of VMCS shadowing, so vmcs01 should
 	 * always be the loaded VMCS.
 	 */
-	if (WARN_ON(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
+	if (WARN_ON_ONCE(loaded_vmcs != &vmx->vmcs01 || loaded_vmcs->shadow_vmcs))
 		return loaded_vmcs->shadow_vmcs;
 
 	loaded_vmcs->shadow_vmcs = alloc_vmcs(true);
@@ -5466,9 +5438,11 @@ static int enter_vmx_operation(struct kvm_vcpu *vcpu)
 
 out_shadow_vmcs:
 	kfree(vmx->nested.cached_shadow_vmcs12);
+	vmx->nested.cached_shadow_vmcs12 = NULL;
 
 out_cached_shadow_vmcs12:
 	kfree(vmx->nested.cached_vmcs12);
+	vmx->nested.cached_vmcs12 = NULL;
 
 out_cached_vmcs12:
 	free_loaded_vmcs(&vmx->nested.vmcs02);
@@ -6878,7 +6852,7 @@ static int vmx_get_nested_state(struct kvm_vcpu *vcpu,
 	if (copy_to_user(user_vmx_nested_state->vmcs12, vmcs12, VMCS12_SIZE))
 		return -EFAULT;
 
-	if (nested_cpu_has_shadow_vmcs(vmcs12) &&
+	if (is_guest_mode(vcpu) && nested_cpu_has_shadow_vmcs(vmcs12) &&
 	    vmcs12->vmcs_link_pointer != INVALID_GPA) {
 		if (copy_to_user(user_vmx_nested_state->shadow_vmcs12,
 				 get_shadow_vmcs12(vcpu), VMCS12_SIZE))

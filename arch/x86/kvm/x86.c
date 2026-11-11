@@ -370,7 +370,7 @@ static int exception_type(int vector)
 {
 	unsigned int mask;
 
-	if (WARN_ON(vector > 31 || vector == NMI_VECTOR))
+	if (WARN_ON_ONCE(vector > 31 || vector == NMI_VECTOR))
 		return EXCPT_INTERRUPT;
 
 	mask = 1 << vector;
@@ -1154,6 +1154,19 @@ static void kvm_track_tsc_matching(struct kvm_vcpu *vcpu, bool new_generation)
 static inline u64 __scale_tsc(u64 ratio, u64 tsc)
 {
 	return mul_u64_u64_shr(tsc, ratio, kvm_caps.tsc_scaling_ratio_frac_bits);
+}
+
+/*
+ * Use the current tsc_khz, not the one at load time, as the TSC frequency can
+ * be refined after KVM is initialized.  Make sure the user can only configure
+ * tsc_khz values that fit into a signed integer, otherwise KVM_GET_TSC_KHZ
+ * would return a negative value and confuse userspace.  A min value is not
+ * calculated because it will always be 1 on all machines.
+ */
+static u32 kvm_max_guest_tsc_khz(void)
+{
+	return min(0x7fffffffULL,
+		   __scale_tsc(kvm_caps.max_tsc_scaling_ratio, tsc_khz));
 }
 
 u64 kvm_scale_tsc(u64 tsc, u64 ratio)
@@ -3728,7 +3741,7 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 		user_tsc_khz = (u32)arg;
 
 		if (kvm_caps.has_tsc_control &&
-		    user_tsc_khz > kvm_caps.max_guest_tsc_khz)
+		    user_tsc_khz > kvm_max_guest_tsc_khz())
 			goto out;
 
 		if (user_tsc_khz == 0)
@@ -4173,7 +4186,7 @@ disable_exits_unlock:
 			break;
 
 		mutex_lock(&kvm->lock);
-		if (kvm->arch.bsp_vcpu_id > cap->args[0]) {
+		if (kvm->arch.bsp_vcpu_id >= cap->args[0]) {
 			;
 		} else if (kvm->arch.max_vcpu_ids == cap->args[0]) {
 			r = 0;
@@ -4568,9 +4581,6 @@ set_identity_unlock:
 		r = -EFAULT;
 		if (copy_from_user(&u.ps, argp, sizeof(struct kvm_pit_state)))
 			goto out;
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto out;
 		r = kvm_vm_ioctl_get_pit(kvm, &u.ps);
 		if (r)
 			goto out;
@@ -4585,18 +4595,11 @@ set_identity_unlock:
 		if (copy_from_user(&u.ps, argp, sizeof(u.ps)))
 			goto out;
 		mutex_lock(&kvm->lock);
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto set_pit_out;
 		r = kvm_vm_ioctl_set_pit(kvm, &u.ps);
-set_pit_out:
 		mutex_unlock(&kvm->lock);
 		break;
 	}
 	case KVM_GET_PIT2: {
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto out;
 		r = kvm_vm_ioctl_get_pit2(kvm, &u.ps2);
 		if (r)
 			goto out;
@@ -4611,11 +4614,7 @@ set_pit_out:
 		if (copy_from_user(&u.ps2, argp, sizeof(u.ps2)))
 			goto out;
 		mutex_lock(&kvm->lock);
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
-			goto set_pit2_out;
 		r = kvm_vm_ioctl_set_pit2(kvm, &u.ps2);
-set_pit2_out:
 		mutex_unlock(&kvm->lock);
 		break;
 	}
@@ -4623,9 +4622,6 @@ set_pit2_out:
 		struct kvm_reinject_control control;
 		r =  -EFAULT;
 		if (copy_from_user(&control, argp, sizeof(control)))
-			goto out;
-		r = -ENXIO;
-		if (!kvm->arch.vpit)
 			goto out;
 		r = kvm_vm_ioctl_reinject(kvm, &control);
 		break;
@@ -4636,8 +4632,8 @@ set_pit2_out:
 		mutex_lock(&kvm->lock);
 		if (kvm->created_vcpus)
 			r = -EBUSY;
-		else if (arg > KVM_MAX_VCPU_IDS ||
-			 (kvm->arch.max_vcpu_ids && arg > kvm->arch.max_vcpu_ids))
+		else if (arg >= KVM_MAX_VCPU_IDS ||
+			 (kvm->arch.max_vcpu_ids && arg >= kvm->arch.max_vcpu_ids))
 			r = -EINVAL;
 		else
 			kvm->arch.bsp_vcpu_id = arg;
@@ -4695,7 +4691,7 @@ set_pit2_out:
 		user_tsc_khz = (u32)arg;
 
 		if (kvm_caps.has_tsc_control &&
-		    user_tsc_khz > kvm_caps.max_guest_tsc_khz)
+		    user_tsc_khz > kvm_max_guest_tsc_khz())
 			goto out;
 
 		if (user_tsc_khz == 0)
@@ -4907,7 +4903,7 @@ static int kvm_fetch_guest_virt(struct x86_emulate_ctxt *ctxt,
 		return X86EMUL_PROPAGATE_FAULT;
 
 	offset = addr & (PAGE_SIZE-1);
-	if (WARN_ON(offset + bytes > PAGE_SIZE))
+	if (WARN_ON_ONCE(offset + bytes > PAGE_SIZE))
 		bytes = (unsigned)PAGE_SIZE - offset;
 	ret = kvm_vcpu_read_guest_page(vcpu, gpa >> PAGE_SHIFT, val,
 				       offset, bytes);
@@ -5167,7 +5163,7 @@ static int emulator_read_write_onepage(unsigned long addr, void *val,
 	bytes -= handled;
 	val += handled;
 
-	WARN_ON(vcpu->mmio_nr_fragments >= KVM_MAX_MMIO_FRAGMENTS);
+	WARN_ON_ONCE(vcpu->mmio_nr_fragments >= KVM_MAX_MMIO_FRAGMENTS);
 	frag = &vcpu->mmio_fragments[vcpu->mmio_nr_fragments++];
 	frag->gpa = gpa;
 	if (write && bytes <= 8u) {
@@ -6751,7 +6747,6 @@ static void kvm_hyperv_tsc_notifier(void)
 		for_each_present_cpu(cpu)
 			per_cpu(cpu_tsc_khz, cpu) = tsc_khz;
 	}
-	kvm_caps.max_guest_tsc_khz = tsc_khz;
 
 	list_for_each_entry(kvm, &vm_list, vm_list) {
 		__kvm_start_pvclock_update(kvm);
@@ -7044,7 +7039,7 @@ static int kvm_x86_check_processor_compatibility(void)
 	 * compatible, i.e. KVM should never perform a compatibility check on
 	 * an offline CPU.
 	 */
-	WARN_ON(!cpu_online(cpu));
+	WARN_ON_ONCE(!cpu_online(cpu));
 
 	if (__cr4_reserved_bits(cpu_has, c) !=
 	    __cr4_reserved_bits(cpu_has, &boot_cpu_data))
@@ -7190,18 +7185,6 @@ int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 	if (!tdp_enabled)
 		kvm_caps.supported_quirks &= ~KVM_X86_QUIRK_IGNORE_GUEST_PAT;
 
-	if (kvm_caps.has_tsc_control) {
-		/*
-		 * Make sure the user can only configure tsc_khz values that
-		 * fit into a signed integer, otherwise KVM_GET_TSC_KHZ would
-		 * return a negative value and confuse userspace.
-		 * A min value is not calculated because it will always
-		 * be 1 on all machines.
-		 */
-		u64 max = min(0x7fffffffULL,
-			      __scale_tsc(kvm_caps.max_tsc_scaling_ratio, tsc_khz));
-		kvm_caps.max_guest_tsc_khz = max;
-	}
 	kvm_caps.default_tsc_scaling_ratio = 1ULL << kvm_caps.tsc_scaling_ratio_frac_bits;
 	kvm_init_msr_lists();
 	return 0;
@@ -7785,7 +7768,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			vcpu->arch.nmi_injected = true;
 			kvm_x86_call(inject_nmi)(vcpu);
 			can_inject = false;
-			WARN_ON(kvm_x86_call(nmi_allowed)(vcpu, true) < 0);
+			WARN_ON_ONCE(kvm_x86_call(nmi_allowed)(vcpu, true) < 0);
 		}
 		if (vcpu->arch.nmi_pending)
 			kvm_x86_call(enable_nmi_window)(vcpu);
@@ -7802,7 +7785,7 @@ static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
 			if (likely(irq != -1)) {
 				kvm_queue_interrupt(vcpu, irq, false);
 				kvm_x86_call(inject_irq)(vcpu, false);
-				WARN_ON(kvm_x86_call(interrupt_allowed)(vcpu, true) < 0);
+				WARN_ON_ONCE(kvm_x86_call(interrupt_allowed)(vcpu, true) < 0);
 			} else {
 				kvm_warn_on_lost_irq(vcpu);
 			}
@@ -8049,6 +8032,9 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_inc_or_dec_irq_window_inhibit);
 
 static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 {
+	unsigned long *eoi_exit_bitmap = vcpu->arch.ioapic_handled_vectors;
+	DECLARE_BITMAP(__eoi_exit_bitmap, 256) __maybe_unused;
+
 	if (!kvm_apic_present(vcpu))
 		return;
 
@@ -8064,30 +8050,16 @@ static void vcpu_scan_ioapic(struct kvm_vcpu *vcpu)
 		kvm_ioapic_scan_entry(vcpu, vcpu->arch.ioapic_handled_vectors);
 #endif
 
-	if (is_guest_mode(vcpu))
-		vcpu->arch.load_eoi_exitmap_pending = true;
-	else
-		kvm_make_request(KVM_REQ_LOAD_EOI_EXITMAP, vcpu);
-}
-
-static void vcpu_load_eoi_exitmap(struct kvm_vcpu *vcpu)
-{
-	if (!kvm_apic_hw_enabled(vcpu->arch.apic))
-		return;
-
 #ifdef CONFIG_KVM_HYPERV
 	if (to_hv_vcpu(vcpu)) {
-		u64 eoi_exit_bitmap[4];
-
-		bitmap_or((ulong *)eoi_exit_bitmap,
+		bitmap_or(__eoi_exit_bitmap,
 			  vcpu->arch.ioapic_handled_vectors,
 			  to_hv_synic(vcpu)->vec_bitmap, 256);
-		kvm_x86_call(load_eoi_exitmap)(vcpu, eoi_exit_bitmap);
-		return;
+
+		eoi_exit_bitmap = __eoi_exit_bitmap;
 	}
 #endif
-	kvm_x86_call(load_eoi_exitmap)(
-		vcpu, (u64 *)vcpu->arch.ioapic_handled_vectors);
+	kvm_x86_call(load_eoi_exitmap)(vcpu, (u64 *)eoi_exit_bitmap);
 }
 
 void kvm_arch_guest_memory_reclaimed(struct kvm *kvm)
@@ -8206,8 +8178,7 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 				kvm_nested_call(triple_fault)(vcpu);
 
 			if (kvm_check_request(KVM_REQ_TRIPLE_FAULT, vcpu)) {
-				vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
-				vcpu->mmio_needed = 0;
+				kvm_prepare_shutdown_exit(vcpu);
 				r = 0;
 				goto out;
 			}
@@ -8242,8 +8213,6 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 		}
 		if (kvm_check_request(KVM_REQ_SCAN_IOAPIC, vcpu))
 			vcpu_scan_ioapic(vcpu);
-		if (kvm_check_request(KVM_REQ_LOAD_EOI_EXITMAP, vcpu))
-			vcpu_load_eoi_exitmap(vcpu);
 		if (kvm_check_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu))
 			kvm_vcpu_reload_apic_access_page(vcpu);
 #ifdef CONFIG_KVM_HYPERV
@@ -8472,8 +8441,8 @@ static int vcpu_enter_guest(struct kvm_vcpu *vcpu)
 	 * KVM_DEBUGREG_WONT_EXIT again.
 	 */
 	if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
-		WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
-		WARN_ON(vcpu->arch.switch_db_regs & KVM_DEBUGREG_AUTO_SWITCH);
+		WARN_ON_ONCE(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
+		WARN_ON_ONCE(vcpu->arch.switch_db_regs & KVM_DEBUGREG_AUTO_SWITCH);
 		kvm_x86_call(sync_dirty_debug_regs)(vcpu);
 		kvm_update_dr0123(vcpu);
 		vcpu->arch.dr6 |= kvm_get_dr6_fixed_1(vcpu);
@@ -9129,7 +9098,7 @@ int kvm_arch_vcpu_ioctl_set_mpstate(struct kvm_vcpu *vcpu,
 
 	/*
 	 * SIPI_RECEIVED is obsolete and no longer used internally; KVM instead
-	 * leaves the vCPU in INIT_RECIEVED (Wait-For-SIPI) and pends the SIPI.
+	 * leaves the vCPU in INIT_RECEIVED (Wait-For-SIPI) and pends the SIPI.
 	 * Translate SIPI_RECEIVED as appropriate for backwards compatibility.
 	 */
 	if (mp_state->mp_state == KVM_MP_STATE_SIPI_RECEIVED) {
@@ -9434,6 +9403,17 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
 	struct page *page;
 	int r;
+
+	/*
+	 * The host TSC frequency is unknown, e.g. because TSC calibration failed
+	 * at boot.  KVM cannot virtualize the TSC in this state, and every
+	 * consumer of the frequency ends up needing its own zero check; fail vCPU
+	 * creation instead of handing userspace a vCPU that cannot run.
+	 */
+	if (!tsc_khz) {
+		pr_err_ratelimited("cannot create vCPU, host TSC frequency is unknown\n");
+		return -EIO;
+	}
 
 	vcpu->arch.last_vmentry_cpu = -1;
 	bitmap_fill(vcpu->arch.regs_avail, NR_VCPU_TOTAL_REGS);
@@ -10042,7 +10022,7 @@ void __user * __x86_set_memory_region(struct kvm *kvm, int id, gpa_t gpa,
 
 	lockdep_assert_held(&kvm->slots_lock);
 
-	if (WARN_ON(id >= KVM_MEM_SLOTS_NUM))
+	if (WARN_ON_ONCE(id >= KVM_MEM_SLOTS_NUM))
 		return ERR_PTR_USR(-EINVAL);
 
 	slot = id_to_memslot(slots, id);
@@ -10146,7 +10126,7 @@ static void memslot_rmap_free(struct kvm_memory_slot *slot)
 	int i;
 
 	for (i = 0; i < KVM_NR_PAGE_SIZES; ++i) {
-		vfree(slot->arch.rmap[i]);
+		kvm_memslot_metadata_free(slot->arch.rmap[i]);
 		slot->arch.rmap[i] = NULL;
 	}
 }
@@ -10158,7 +10138,7 @@ void kvm_arch_free_memslot(struct kvm *kvm, struct kvm_memory_slot *slot)
 	memslot_rmap_free(slot);
 
 	for (i = 1; i < KVM_NR_PAGE_SIZES; ++i) {
-		vfree(slot->arch.lpage_info[i - 1]);
+		kvm_memslot_metadata_free(slot->arch.lpage_info[i - 1]);
 		slot->arch.lpage_info[i - 1] = NULL;
 	}
 
@@ -10177,7 +10157,7 @@ int memslot_rmap_alloc(struct kvm_memory_slot *slot, unsigned long npages)
 		if (slot->arch.rmap[i])
 			continue;
 
-		slot->arch.rmap[i] = __vcalloc(lpages, sz, GFP_KERNEL_ACCOUNT);
+		slot->arch.rmap[i] = kvm_memslot_metadata_alloc(lpages, sz);
 		if (!slot->arch.rmap[i]) {
 			memslot_rmap_free(slot);
 			return -ENOMEM;
@@ -10214,7 +10194,7 @@ static int kvm_alloc_memslot_metadata(struct kvm *kvm,
 
 		lpages = __kvm_mmu_slot_lpages(slot, npages, level);
 
-		linfo = __vcalloc(lpages, sizeof(*linfo), GFP_KERNEL_ACCOUNT);
+		linfo = kvm_memslot_metadata_alloc(lpages, sizeof(*linfo));
 		if (!linfo)
 			goto out_free;
 
@@ -10250,7 +10230,7 @@ out_free:
 	memslot_rmap_free(slot);
 
 	for (i = 1; i < KVM_NR_PAGE_SIZES; ++i) {
-		vfree(slot->arch.lpage_info[i - 1]);
+		kvm_memslot_metadata_free(slot->arch.lpage_info[i - 1]);
 		slot->arch.lpage_info[i - 1] = NULL;
 	}
 	return -ENOMEM;
@@ -10474,11 +10454,6 @@ unsigned long kvm_arch_vcpu_get_ip(struct kvm_vcpu *vcpu)
 		return 0;
 
 	return kvm_rip_read(vcpu);
-}
-
-int kvm_arch_vcpu_should_kick(struct kvm_vcpu *vcpu)
-{
-	return kvm_vcpu_exiting_guest_mode(vcpu) == IN_GUEST_MODE;
 }
 
 static inline u32 kvm_async_pf_hash_fn(gfn_t gfn)

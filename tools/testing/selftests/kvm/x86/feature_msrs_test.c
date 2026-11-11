@@ -14,7 +14,7 @@
 
 static bool is_kvm_controlled_msr(u32 msr)
 {
-	return msr == MSR_IA32_VMX_CR0_FIXED1 || msr == MSR_IA32_VMX_CR4_FIXED1;
+	return msr >= MSR_IA32_VMX_CR0_FIXED0 && msr <= MSR_IA32_VMX_CR4_FIXED1;
 }
 
 /*

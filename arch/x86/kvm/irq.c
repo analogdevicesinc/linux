@@ -128,7 +128,7 @@ EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_cpu_has_interrupt);
 int kvm_cpu_get_extint(struct kvm_vcpu *v)
 {
 	if (!kvm_cpu_has_extint(v)) {
-		WARN_ON(!lapic_in_kernel(v));
+		WARN_ON_ONCE(!lapic_in_kernel(v));
 		return -1;
 	}
 
@@ -513,7 +513,7 @@ void kvm_arch_irq_bypass_del_producer(struct irq_bypass_consumer *cons,
 	struct kvm *kvm = irqfd->kvm;
 	int ret;
 
-	WARN_ON(irqfd->producer != prod);
+	WARN_ON_ONCE(irqfd->producer != prod);
 
 	/*
 	 * If the producer of an IRQ that is currently being posted to a vCPU

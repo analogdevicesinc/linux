@@ -303,12 +303,6 @@ int kvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 }
 EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_set_cr0);
 
-void kvm_lmsw(struct kvm_vcpu *vcpu, unsigned long msw)
-{
-	(void)kvm_set_cr0(vcpu, kvm_read_cr0_bits(vcpu, ~0x0eul) | (msw & 0x0f));
-}
-EXPORT_SYMBOL_FOR_KVM_INTERNAL(kvm_lmsw);
-
 int kvm_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
 {
 	bool skip_tlb_flush = false;
@@ -737,6 +731,10 @@ int kvm_run_sync_regs_from_user(struct kvm_vcpu *vcpu)
 
 	if (vcpu->run->kvm_dirty_regs & KVM_SYNC_X86_SREGS) {
 		struct kvm_sregs sregs = vcpu->run->s.regs.sregs;
+
+		if (is_guest_mode(vcpu) &&
+		    (vcpu->arch.efer & EFER_SVME) && !(sregs.efer & EFER_SVME))
+			return -EINVAL;
 
 		if (__set_sregs(vcpu, &sregs))
 			return -EINVAL;

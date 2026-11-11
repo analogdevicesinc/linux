@@ -297,8 +297,8 @@ static int kvm_recalculate_phys_map(struct kvm_apic_map *new,
 	 * Apply KVM's hotplug hack if userspace has enable 32-bit APIC IDs.
 	 * Allow sending events to vCPUs by their x2APIC ID even if the target
 	 * vCPU is in legacy xAPIC mode, and silently ignore aliased xAPIC IDs
-	 * (the x2APIC ID is truncated to 8 bits, causing IDs > 0xff to wrap
-	 * and collide).
+	 * but make sure the non-truncated xAPIC ID always "wins" (the x2APIC
+	 * ID is truncated to 8 bits, causing IDs > 0xff to wrap and collide).
 	 *
 	 * Honor the architectural (and KVM's non-optimized) behavior if
 	 * userspace has not enabled 32-bit x2APIC IDs.  Each APIC is supposed
@@ -312,7 +312,8 @@ static int kvm_recalculate_phys_map(struct kvm_apic_map *new,
 		if (apic_x2apic_mode(apic) || x2apic_id > 0xff)
 			new->phys_map[x2apic_id] = apic;
 
-		if (!apic_x2apic_mode(apic) && !new->phys_map[xapic_id])
+		if (!apic_x2apic_mode(apic) &&
+		    (!new->phys_map[xapic_id] || vcpu->vcpu_id == xapic_id))
 			new->phys_map[xapic_id] = apic;
 	} else {
 		/*
@@ -1123,7 +1124,7 @@ static void kvm_apic_disabled_lapic_found(struct kvm *kvm)
 {
 	if (!kvm->arch.disabled_lapic_found) {
 		kvm->arch.disabled_lapic_found = true;
-		pr_info("Disabled LAPIC found during irq injection\n");
+		pr_info_ratelimited("Disabled LAPIC found during irq injection\n");
 	}
 }
 
@@ -1359,7 +1360,7 @@ int __kvm_irq_delivery_to_apic(struct kvm *kvm, struct kvm_lapic *src,
 
 	if (irq->dest_mode == APIC_DEST_PHYSICAL &&
 	    irq->dest_id == 0xff && kvm_lowest_prio_delivery(irq)) {
-		pr_info("apic: phys broadcast and lowest prio\n");
+		pr_info_ratelimited("apic: phys broadcast and lowest prio\n");
 		irq->delivery_mode = APIC_DM_FIXED;
 	}
 
@@ -1826,8 +1827,8 @@ static int kvm_lapic_reg_read(struct kvm_lapic *apic, u32 offset, int len,
 		memcpy(data, (char *)&result + alignment, len);
 		break;
 	default:
-		printk(KERN_ERR "Local APIC read with len = %x, "
-		       "should be 1,2, or 4 instead\n", len);
+		pr_err_ratelimited("Local APIC read with len = %x, should be 1,2, or 4 instead\n",
+				   len);
 		break;
 	}
 	return 0;
@@ -2062,7 +2063,7 @@ static void apic_timer_expired(struct kvm_lapic *apic, bool from_timer_fn)
 		ktimer->expired_tscdeadline = ktimer->tscdeadline;
 
 	if (!from_timer_fn && apic->apicv_active && vcpu->wants_to_run) {
-		WARN_ON(kvm_get_running_vcpu() != vcpu);
+		WARN_ON_ONCE(kvm_get_running_vcpu() != vcpu);
 		kvm_apic_inject_pending_timer_irqs(apic);
 		return;
 	}
@@ -2270,8 +2271,9 @@ bool kvm_lapic_hv_timer_in_use(struct kvm_vcpu *vcpu)
 
 static void cancel_hv_timer(struct kvm_lapic *apic)
 {
-	WARN_ON(preemptible());
-	WARN_ON(!apic->lapic_timer.hv_timer_in_use);
+	lockdep_assert_preemption_disabled();
+
+	WARN_ON_ONCE(!apic->lapic_timer.hv_timer_in_use);
 	kvm_x86_call(cancel_hv_timer)(apic->vcpu);
 	apic->lapic_timer.hv_timer_in_use = false;
 }
@@ -2282,7 +2284,8 @@ static bool start_hv_timer(struct kvm_lapic *apic)
 	struct kvm_vcpu *vcpu = apic->vcpu;
 	bool expired;
 
-	WARN_ON(preemptible());
+	lockdep_assert_preemption_disabled();
+
 	if (!kvm_can_use_hv_timer(vcpu))
 		return false;
 
@@ -2322,7 +2325,8 @@ static void start_sw_timer(struct kvm_lapic *apic)
 {
 	struct kvm_timer *ktimer = &apic->lapic_timer;
 
-	WARN_ON(preemptible());
+	lockdep_assert_preemption_disabled();
+
 	if (apic->lapic_timer.hv_timer_in_use)
 		cancel_hv_timer(apic);
 	if (!apic_lvtt_period(apic) && atomic_read(&ktimer->pending))
@@ -2356,7 +2360,7 @@ void kvm_lapic_expired_hv_timer(struct kvm_vcpu *vcpu)
 	/* If the preempt notifier has already run, it also called apic_timer_expired */
 	if (!apic->lapic_timer.hv_timer_in_use)
 		goto out;
-	WARN_ON(kvm_vcpu_is_blocking(vcpu));
+	WARN_ON_ONCE(kvm_vcpu_is_blocking(vcpu));
 	apic_timer_expired(apic, false);
 	cancel_hv_timer(apic);
 
@@ -2389,7 +2393,7 @@ void kvm_lapic_restart_hv_timer(struct kvm_vcpu *vcpu)
 {
 	struct kvm_lapic *apic = vcpu->arch.apic;
 
-	WARN_ON(!apic->lapic_timer.hv_timer_in_use);
+	WARN_ON_ONCE(!apic->lapic_timer.hv_timer_in_use);
 	restart_apic_timer(apic);
 }
 

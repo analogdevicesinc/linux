@@ -3007,7 +3007,7 @@ void sev_vm_destroy(struct kvm *kvm)
 	if (!sev_guest(kvm))
 		return;
 
-	WARN_ON(!list_empty(&sev->mirror_vms));
+	WARN_ON_ONCE(!list_empty(&sev->mirror_vms));
 
 	/*
 	 * If this is a mirror VM, remove it from the owner's list of a mirrors
@@ -3656,14 +3656,14 @@ static int setup_vmgexit_scratch(struct vcpu_svm *svm, bool sync, u64 min_len)
 
 	scratch_gpa_beg = svm->sev_es.sw_scratch;
 	if (!scratch_gpa_beg) {
-		pr_err("vmgexit: scratch gpa not provided\n");
+		pr_err_ratelimited("vmgexit: scratch gpa not provided\n");
 		goto e_scratch;
 	}
 
 	scratch_gpa_end = scratch_gpa_beg + min_len;
 	if (scratch_gpa_end < scratch_gpa_beg) {
-		pr_err("vmgexit: scratch length (%#llx) not valid for scratch address (%#llx)\n",
-		       min_len, scratch_gpa_beg);
+		pr_err_ratelimited("vmgexit: scratch length (%#llx) not valid for scratch address (%#llx)\n",
+				   min_len, scratch_gpa_beg);
 		goto e_scratch;
 	}
 
@@ -3682,8 +3682,8 @@ static int setup_vmgexit_scratch(struct vcpu_svm *svm, bool sync, u64 min_len)
 		 */
 		if (scratch_gpa_beg < ghcb_scratch_beg ||
 		    scratch_gpa_end > ghcb_scratch_end) {
-			pr_err("vmgexit: scratch area is outside of GHCB shared buffer area (%#llx - %#llx)\n",
-			       scratch_gpa_beg, scratch_gpa_end);
+			pr_err_ratelimited("vmgexit: scratch area is outside of GHCB shared buffer area (%#llx - %#llx)\n",
+					   scratch_gpa_beg, scratch_gpa_end);
 			goto e_scratch;
 		}
 
@@ -3703,8 +3703,8 @@ static int setup_vmgexit_scratch(struct vcpu_svm *svm, bool sync, u64 min_len)
 		 * limit the size
 		 */
 		if (min_len > GHCB_SCRATCH_AREA_LIMIT) {
-			pr_err("vmgexit: scratch area exceeds KVM limits (%#llx requested, %#llx limit)\n",
-			       min_len, GHCB_SCRATCH_AREA_LIMIT);
+			pr_err_ratelimited("vmgexit: scratch area exceeds KVM limits (%#llx requested, %#llx limit)\n",
+					   min_len, GHCB_SCRATCH_AREA_LIMIT);
 			goto e_scratch;
 		}
 		scratch_va = kvzalloc(min_len, GFP_KERNEL_ACCOUNT);
@@ -3713,7 +3713,7 @@ static int setup_vmgexit_scratch(struct vcpu_svm *svm, bool sync, u64 min_len)
 
 		if (kvm_read_guest(svm->vcpu.kvm, scratch_gpa_beg, scratch_va, min_len)) {
 			/* Unable to copy scratch area from guest */
-			pr_err("vmgexit: kvm_read_guest for scratch area failed\n");
+			pr_err_ratelimited("vmgexit: kvm_read_guest for scratch area failed\n");
 
 			kvfree(scratch_va);
 			return -EFAULT;
@@ -4511,8 +4511,8 @@ static int sev_handle_vmgexit_msr_protocol(struct vcpu_svm *svm)
 		reason_code = get_ghcb_msr_bits(svm,
 						GHCB_MSR_TERM_REASON_MASK,
 						GHCB_MSR_TERM_REASON_POS);
-		pr_info("SEV-ES guest requested termination: %#llx:%#llx\n",
-			reason_set, reason_code);
+		pr_info_ratelimited("SEV-ES guest requested termination: %#llx:%#llx\n",
+				    reason_set, reason_code);
 
 		goto out_terminate;
 	}
@@ -4680,8 +4680,8 @@ int sev_handle_vmgexit(struct kvm_vcpu *vcpu)
 			svm_vmgexit_success(svm, sev->ap_jump_table);
 			break;
 		default:
-			pr_err("svm: vmgexit: unsupported AP jump table request - exit_info_1=%#llx\n",
-			       control->exit_info_1);
+			pr_err_ratelimited("svm: vmgexit: unsupported AP jump table request - exit_info_1=%#llx\n",
+					   control->exit_info_1);
 			svm_vmgexit_bad_input(svm, GHCB_ERR_INVALID_INPUT);
 		}
 		return 1;
@@ -4690,8 +4690,8 @@ int sev_handle_vmgexit(struct kvm_vcpu *vcpu)
 		svm_vmgexit_success(svm, GHCB_HV_FT_SUPPORTED);
 		return 1;
 	case SVM_VMGEXIT_TERM_REQUEST:
-		pr_info("SEV-ES guest requested termination: reason %#llx info %#llx\n",
-			control->exit_info_1, control->exit_info_2);
+		pr_info_ratelimited("SEV-ES guest requested termination: reason %#llx info %#llx\n",
+				    control->exit_info_1, control->exit_info_2);
 		vcpu->run->exit_reason = KVM_EXIT_SYSTEM_EVENT;
 		vcpu->run->system_event.type = KVM_SYSTEM_EVENT_SEV_TERM;
 		vcpu->run->system_event.ndata = 1;
