@@ -506,8 +506,7 @@ static int setup_gsi_xfer(struct spi_transfer *xfer, struct spi_geni_master *mas
 		return -EIO;
 	}
 
-	tx_desc->callback_result = spi_gsi_callback_result;
-	tx_desc->callback_param = spi;
+	dmaengine_desc_set_callback(tx_desc, NULL, spi_gsi_callback_result, spi);
 
 	if (peripheral.cmd & SPI_RX)
 		dmaengine_submit(rx_desc);

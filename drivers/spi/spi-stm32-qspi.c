@@ -265,8 +265,7 @@ static int stm32_qspi_tx_dma(struct stm32_qspi *qspi,
 	cr = readl_relaxed(qspi->io_base + QSPI_CR);
 
 	reinit_completion(&qspi->dma_completion);
-	desc->callback = stm32_qspi_dma_callback;
-	desc->callback_param = &qspi->dma_completion;
+	dmaengine_desc_set_callback(desc, stm32_qspi_dma_callback, NULL, &qspi->dma_completion);
 	cookie = dmaengine_submit(desc);
 	err = dma_submit_error(cookie);
 	if (err)

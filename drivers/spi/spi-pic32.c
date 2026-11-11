@@ -330,8 +330,7 @@ static int pic32_spi_dma_transfer(struct pic32_spi *pic32s,
 	}
 
 	/* Put callback on the RX transfer, that should finish last */
-	desc_rx->callback = pic32_spi_dma_rx_notify;
-	desc_rx->callback_param = pic32s;
+	dmaengine_desc_set_callback(desc_rx, pic32_spi_dma_rx_notify, NULL, pic32s);
 
 	cookie = dmaengine_submit(desc_rx);
 	ret = dma_submit_error(cookie);

@@ -374,8 +374,7 @@ static int stm32_ospi_tx_dma(struct stm32_ospi *ospi,
 	cr = readl_relaxed(regs_base + OSPI_CR);
 
 	reinit_completion(&ospi->dma_completion);
-	desc->callback = stm32_ospi_dma_callback;
-	desc->callback_param = &ospi->dma_completion;
+	dmaengine_desc_set_callback(desc, stm32_ospi_dma_callback, NULL, &ospi->dma_completion);
 	cookie = dmaengine_submit(desc);
 	err = dma_submit_error(cookie);
 	if (err)
@@ -986,12 +985,15 @@ err_dma_free:
 static void stm32_ospi_remove(struct platform_device *pdev)
 {
 	struct stm32_ospi *ospi = platform_get_drvdata(pdev);
+	int ret;
 
-	pm_runtime_resume_and_get(ospi->dev);
+	ret = pm_runtime_resume_and_get(ospi->dev);
 
 	spi_unregister_controller(ospi->ctrl);
-	/* Disable ospi */
-	writel_relaxed(0, ospi->regs_base + OSPI_CR);
+	if (ret >= 0) {
+		/* Disable ospi */
+		writel_relaxed(0, ospi->regs_base + OSPI_CR);
+	}
 	mutex_destroy(&ospi->lock);
 
 	if (ospi->dma_chtx)
@@ -1001,7 +1003,8 @@ static void stm32_ospi_remove(struct platform_device *pdev)
 
 	reset_control_release(ospi->rstc);
 
-	pm_runtime_put_sync_suspend(ospi->dev);
+	if (ret >= 0)
+		pm_runtime_put_sync_suspend(ospi->dev);
 	pm_runtime_force_suspend(ospi->dev);
 }
 

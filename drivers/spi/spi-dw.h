@@ -36,6 +36,7 @@
 #define DW_SPI_CAP_CS_OVERRIDE		BIT(0)
 #define DW_SPI_CAP_DFS32		BIT(1)
 #define DW_SPI_CAP_EMODE		BIT(2)
+#define DW_SPI_CAP_DDR			BIT(3)
 
 /* Register offsets (Generic for both DWC APB SSI and DWC SSI IP-cores) */
 #define DW_SPI_CTRLR0			0x00
@@ -66,6 +67,7 @@
 #define DW_SPI_RX_SAMPLE_DLY		0xf0
 #define DW_SPI_SPI_CTRLR0		0xf4
 #define DW_SPI_CS_OVERRIDE		0xf4
+#define DW_SPI_DDR_DRIVE_EDGE		0xf8
 
 /* Register offsets (StarFive JHB100 DWC SSI IP-cores) */
 #define DW_SPI_JHB100_INST		0x1000
@@ -139,6 +141,7 @@
 
 /* Bit fields in SPI_CTRLR0 */
 #define DW_SPI_ENH_CTRLR0_CLK_STRETCH_EN	BIT(30)
+#define DW_SPI_ENH_CTRLR0_SPI_DDR_EN		BIT(16)
 #define DW_SPI_ENH_CTRLR0_WAIT_CYCLE_MASK	GENMASK(15, 11)
 #define DW_SPI_ENH_CTRLR0_INST_L_MASK		GENMASK(9, 8)
 #define DW_SPI_ENH_CTRLR0_INST_L_INST_L0	0x0
@@ -149,6 +152,9 @@
 #define DW_SPI_ENH_CTRLR0_TRANS_TYPE_TT1	0x1
 #define DW_SPI_ENH_CTRLR0_TRANS_TYPE_TT2	0x2
 #define DW_SPI_ENH_CTRLR0_TRANS_TYPE_MASK	GENMASK(1, 0)
+
+/* Bit fields in DDR_DRIVE_EDGE */
+#define DW_SPI_DDR_DRIVE_EDGE_TDE_MASK		GENMASK(7, 0)
 
 /* Mem/DMA operations helpers */
 #define DW_SPI_WAIT_RETRIES			5

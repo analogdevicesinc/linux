@@ -1738,8 +1738,7 @@ static int spi_imx_dma_submit(struct spi_imx_data *spi_imx,
 		return -EINVAL;
 	}
 
-	desc_rx->callback = spi_imx_dma_rx_callback;
-	desc_rx->callback_param = (void *)spi_imx;
+	dmaengine_desc_set_callback(desc_rx, spi_imx_dma_rx_callback, NULL, spi_imx);
 	cookie = dmaengine_submit(desc_rx);
 	if (dma_submit_error(cookie)) {
 		dev_err(spi_imx->dev, "submitting DMA RX failed\n");
@@ -1756,8 +1755,7 @@ static int spi_imx_dma_submit(struct spi_imx_data *spi_imx,
 	if (!desc_tx)
 		goto dmaengine_terminate_rx;
 
-	desc_tx->callback = spi_imx_dma_tx_callback;
-	desc_tx->callback_param = (void *)spi_imx;
+	dmaengine_desc_set_callback(desc_tx, spi_imx_dma_tx_callback, NULL, spi_imx);
 	cookie = dmaengine_submit(desc_tx);
 	if (dma_submit_error(cookie)) {
 		dev_err(spi_imx->dev, "submitting DMA TX failed\n");
