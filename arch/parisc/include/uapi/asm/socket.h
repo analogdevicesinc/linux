@@ -153,6 +153,8 @@
 
 #define SO_PEERPIDFD_THREAD	0x4055
 
+#define SO_PASSCRED_THREAD	0x4056
+
 #if !defined(__KERNEL__)
 
 #if __BITS_PER_LONG == 64

@@ -243,7 +243,7 @@ psp_sock_set_tx_key(struct sock *sk, struct psp_dev *psd, struct psp_assoc *pas,
 	pas->upgrade_seq = tcp_sk(sk)->rcv_nxt;
 
 	icsk = inet_csk(sk);
-	icsk->icsk_ext_hdr_len += psp_sk_overhead(sk);
+	icsk->icsk_mtup.search_high += psp_sk_overhead(sk);
 	icsk->icsk_sync_mss(sk, icsk->icsk_pmtu_cookie);
 
 	return err;

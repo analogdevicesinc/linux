@@ -543,28 +543,34 @@ static void scm_pidfd_recv(struct msghdr *msg, struct scm_cookie *scm,
 		fd_install(pidfd, pidfd_file);
 }
 
+static void scm_creds_recv(struct msghdr *msg, struct scm_cookie *scm,
+			   u32 pid, int cmsg_type)
+{
+	struct user_namespace *current_ns = current_user_ns();
+	struct ucred ucreds = {
+		.pid = pid,
+		.uid = from_kuid_munged(current_ns, scm->creds.uid),
+		.gid = from_kgid_munged(current_ns, scm->creds.gid),
+	};
+
+	put_cmsg(msg, SOL_SOCKET, cmsg_type, sizeof(ucreds), &ucreds);
+}
+
 static bool __scm_recv_common(struct sock *sk, struct msghdr *msg,
 			      struct scm_cookie *scm, int flags)
 {
 	if (!msg->msg_control) {
 		if (sk->sk_scm_credentials || sk->sk_scm_pidfd ||
-		    sk->sk_scm_pidfd_thread || scm->fp || scm_has_secdata(sk))
+		    sk->sk_scm_pidfd_thread || sk->sk_scm_credentials_thread ||
+		    scm->fp || scm_has_secdata(sk))
 			msg->msg_flags |= MSG_CTRUNC;
 
 		scm_destroy(scm);
 		return false;
 	}
 
-	if (sk->sk_scm_credentials) {
-		struct user_namespace *current_ns = current_user_ns();
-		struct ucred ucreds = {
-			.pid = scm->creds.pid,
-			.uid = from_kuid_munged(current_ns, scm->creds.uid),
-			.gid = from_kgid_munged(current_ns, scm->creds.gid),
-		};
-
-		put_cmsg(msg, SOL_SOCKET, SCM_CREDENTIALS, sizeof(ucreds), &ucreds);
-	}
+	if (sk->sk_scm_credentials)
+		scm_creds_recv(msg, scm, scm->creds.pid, SCM_CREDENTIALS);
 
 	scm_passec(sk, msg, scm);
 
@@ -586,6 +592,10 @@ void scm_recv_unix(struct socket *sock, struct msghdr *msg,
 {
 	if (!__scm_recv_common(sock->sk, msg, scm, flags))
 		return;
+
+	if (sock->sk->sk_scm_credentials_thread)
+		scm_creds_recv(msg, scm, pid_vnr(scm->pid[PIDTYPE_PID]),
+			       SCM_CREDENTIALS_THREAD);
 
 	if (scm->fp) {
 		struct unix_sock *u;

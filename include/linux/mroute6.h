@@ -27,7 +27,7 @@ struct sock;
 
 #ifdef CONFIG_IPV6_MROUTE
 extern int ip6_mroute_setsockopt(struct sock *, int, sockptr_t, unsigned int);
-extern int ip6_mroute_getsockopt(struct sock *, int, sockptr_t, sockptr_t);
+int ip6_mroute_getsockopt(struct sock *sk, int optname, sockopt_t *sopt);
 extern int ip6_mr_input(struct sk_buff *skb);
 extern int ip6mr_compat_ioctl(struct sock *sk, unsigned int cmd, void __user *arg);
 extern int ip6_mr_init(void);
@@ -42,8 +42,7 @@ static inline int ip6_mroute_setsockopt(struct sock *sock, int optname,
 }
 
 static inline
-int ip6_mroute_getsockopt(struct sock *sock,
-			  int optname, sockptr_t optval, sockptr_t optlen)
+int ip6_mroute_getsockopt(struct sock *sock, int optname, sockopt_t *sopt)
 {
 	return -ENOPROTOOPT;
 }

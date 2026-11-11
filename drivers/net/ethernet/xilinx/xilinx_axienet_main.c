@@ -1014,8 +1014,7 @@ axienet_start_xmit_dmaengine(struct sk_buff *skb, struct net_device *ndev)
 
 	skbuf_dma->skb = skb;
 	skbuf_dma->sg_len = sg_len;
-	dma_tx_desc->callback_param = lp;
-	dma_tx_desc->callback_result = axienet_dma_tx_cb;
+	dmaengine_desc_set_callback(dma_tx_desc, NULL, axienet_dma_tx_cb, lp);
 	/* Claim the ring slot only after the steps above that can fail.  The
 	 * completion callback can't run before dmaengine_submit().
 	 */
@@ -1565,8 +1564,7 @@ static void axienet_rx_submit_desc(struct net_device *ndev)
 	skbuf_dma->skb = skb;
 	skbuf_dma->dma_address = sg_dma_address(skbuf_dma->sgl);
 	skbuf_dma->desc = dma_rx_desc;
-	dma_rx_desc->callback_param = lp;
-	dma_rx_desc->callback_result = axienet_dma_rx_cb;
+	dmaengine_desc_set_callback(dma_rx_desc, NULL, axienet_dma_rx_cb, lp);
 	lp->rx_ring_head++;
 	dmaengine_submit(dma_rx_desc);
 

@@ -392,6 +392,7 @@ static int hellcreek_led_setup(struct hellcreek *hellcreek)
 	ret = 0;
 
 out:
+	of_node_put(led);
 	of_node_put(leds);
 
 	return ret;

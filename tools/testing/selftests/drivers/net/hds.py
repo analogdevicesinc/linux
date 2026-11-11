@@ -65,13 +65,13 @@ def _hds_reset(cfg, netnl, rings) -> None:
     cur = netnl.rings_get({'header': {'dev-index': cfg.ifindex}})
 
     arg = {'header': {'dev-index': cfg.ifindex}}
-    if cur.get('tcp-data-split') != rings.get('tcp-data-split'):
+    if 'tcp-data-split' in rings:
         # Try to reset to "unknown" first, we don't know if the setting
         # was the default or user chose it. Default seems more likely.
         arg['tcp-data-split'] = "unknown"
         netnl.rings_set(arg)
         cur = netnl.rings_get({'header': {'dev-index': cfg.ifindex}})
-        if cur['tcp-data-split'] == rings['tcp-data-split']:
+        if cur.get('tcp-data-split') == rings['tcp-data-split']:
             del arg['tcp-data-split']
         else:
             # Try the explicit setting
@@ -254,6 +254,7 @@ def ioctl_set_xdp(cfg, netnl) -> None:
     """
     mode = _get_hds_mode(cfg, netnl)
     if mode == 'enabled':
+        _defer_reset_hds(cfg, netnl)
         netnl.rings_set({'header': {'dev-index': cfg.ifindex},
                          'tcp-data-split': 'unknown'})
 
@@ -273,6 +274,8 @@ def ioctl_enabled_set_xdp(cfg, netnl) -> None:
                      'tcp-data-split': 'enabled'})
     defer(netnl.rings_set, {'header': {'dev-index': cfg.ifindex},
                             'tcp-data-split': 'unknown'})
+
+    _ioctl_ringparam_modify(cfg, netnl)
 
     with ksft_raises(CmdExitFailure) as e:
         _xdp_onoff(cfg)

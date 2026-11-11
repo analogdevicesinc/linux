@@ -124,6 +124,7 @@ typedef __u64 __bitwise __addrpair;
  *	@skc_ipv6only: socket is IPV6 only
  *	@skc_net_refcnt: socket is using net ref counting
  *	@skc_bypass_prot_mem: bypass the per-protocol memory accounting for skb
+ *	@skc_unused: unused bits
  *	@skc_bound_dev_if: bound device index if != 0
  *	@skc_bind_node: bind hash linkage for various protocol lookup tables
  *	@skc_portaddr_node: second hash linkage for UDP
@@ -176,11 +177,12 @@ struct sock_common {
 
 	unsigned short		skc_family;
 	volatile unsigned char	skc_state;
-	unsigned char		skc_reuse:4;
+	unsigned char		skc_reuse:2;
 	unsigned char		skc_reuseport:1;
 	unsigned char		skc_ipv6only:1;
 	unsigned char		skc_net_refcnt:1;
 	unsigned char		skc_bypass_prot_mem:1;
+	unsigned char		skc_unused:2;
 	int			skc_bound_dev_if;
 	union {
 		struct hlist_node	skc_bind_node;
@@ -357,6 +359,7 @@ struct sk_filter;
   *	@sk_scm_pidfd: flagged by SO_PASSPIDFD to recv SCM_PIDFD
   *	@sk_scm_rights: flagged by SO_PASSRIGHTS to recv SCM_RIGHTS
   *	@sk_scm_pidfd_thread: flagged by SO_PASSPIDFD_THREAD to recv a thread SCM_PIDFD
+  *	@sk_scm_credentials_thread: flagged by SO_PASSCRED_THREAD to recv SCM_CREDENTIALS_THREAD
   *	@sk_scm_unused: unused flags for scm_recv()
   *	@ns_tracker: tracker for netns reference
   *	@sk_user_frags: xarray of pages the user is holding a reference on.
@@ -564,7 +567,8 @@ struct sock {
 				sk_scm_pidfd : 1,
 				sk_scm_rights : 1,
 				sk_scm_pidfd_thread : 1,
-				sk_scm_unused : 3;
+				sk_scm_credentials_thread : 1,
+				sk_scm_unused : 2;
 		};
 	};
 	u8			sk_clockid;

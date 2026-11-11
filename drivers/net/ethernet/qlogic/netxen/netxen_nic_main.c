@@ -1049,7 +1049,8 @@ netxen_nic_request_irq(struct netxen_adapter *adapter)
 
 	for (ring = 0; ring < adapter->max_sds_rings; ring++) {
 		sds_ring = &recv_ctx->sds_rings[ring];
-		sprintf(sds_ring->name, "%s[%d]", netdev->name, ring);
+		snprintf(sds_ring->name, sizeof(sds_ring->name),
+			 "%s[%d]", netdev->name, ring);
 		err = request_irq(sds_ring->irq, handler,
 				  flags, sds_ring->name, sds_ring);
 		if (err)

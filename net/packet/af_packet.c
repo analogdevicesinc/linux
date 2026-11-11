@@ -1778,7 +1778,8 @@ static int fanout_add(struct sock *sk, struct fanout_args *args)
 			/* legacy PACKET_FANOUT_MAX */
 			args->max_num_members = 256;
 		err = -ENOMEM;
-		match = kvzalloc_flex(*match, arr, args->max_num_members);
+		match = kvzalloc_flex(*match, arr, args->max_num_members,
+				      GFP_KERNEL_ACCOUNT | __GFP_NOWARN);
 		if (!match)
 			goto out;
 		write_pnet(&match->net, sock_net(sk));
@@ -2606,10 +2607,6 @@ static void tpacket_ubuf_complete(struct sk_buff *skb, struct ubuf_info *uarg,
 	sk_free(&po->sk);
 }
 
-static const struct ubuf_info_ops tpacket_ubuf_ops = {
-	.complete = tpacket_ubuf_complete,
-};
-
 static int tpacket_fill_skb(struct packet_sock *po, struct sk_buff *skb,
 		struct net_device *dev, void *data, int tp_len,
 		__be16 proto, unsigned char *addr, int hlen, int copylen,
@@ -2942,7 +2939,7 @@ tpacket_error:
 		}
 		uarg->po = po;
 		uarg->ph = ph;
-		uarg->ubuf.ops = &tpacket_ubuf_ops;
+		uarg->ubuf.type = UBUF_TYPE_TPACKET;
 		uarg->ubuf.flags = SKBFL_ZEROCOPY_FRAG;
 		refcount_set(&uarg->ubuf.refcnt, 1);
 
@@ -3773,7 +3770,7 @@ static int packet_mc_add(struct sock *sk, struct packet_mreq_max *mreq)
 		goto done;
 
 	err = -ENOBUFS;
-	i = kmalloc_obj(*i);
+	i = kmalloc_obj(*i, GFP_KERNEL_ACCOUNT);
 	if (i == NULL)
 		goto done;
 
@@ -4494,7 +4491,7 @@ static void packet_free_tx_ring(struct sock *sk, struct pgv *pg_vec,
 static char *alloc_one_pg_vec_page(unsigned long order)
 {
 	char *buffer;
-	gfp_t gfp_flags = GFP_KERNEL | __GFP_COMP |
+	gfp_t gfp_flags = GFP_KERNEL_ACCOUNT | __GFP_COMP |
 			  __GFP_ZERO | __GFP_NOWARN | __GFP_NORETRY;
 
 	buffer = (char *) __get_free_pages(gfp_flags, order);
@@ -4502,7 +4499,8 @@ static char *alloc_one_pg_vec_page(unsigned long order)
 		return buffer;
 
 	/* __get_free_pages failed, fall back to vmalloc */
-	buffer = vzalloc(array_size((1 << order), PAGE_SIZE));
+	buffer = __vcalloc(1 << order, PAGE_SIZE,
+			   GFP_KERNEL_ACCOUNT | __GFP_NOWARN);
 	if (buffer)
 		return buffer;
 
@@ -4523,7 +4521,8 @@ static struct pgv *alloc_pg_vec(struct tpacket_req *req, int order, bool tx_ring
 	struct pgv *pg_vec;
 	int i;
 
-	vec = kzalloc_flex(*vec, pg_vec, block_nr, GFP_KERNEL | __GFP_NOWARN);
+	vec = kzalloc_flex(*vec, pg_vec, block_nr,
+			   GFP_KERNEL_ACCOUNT | __GFP_NOWARN);
 	if (unlikely(!vec))
 		return NULL;
 	vec->order = order;
@@ -4647,8 +4646,10 @@ static int packet_set_ring(struct sock *sk, union tpacket_req_u *req_u,
 			break;
 		default:
 			if (!tx_ring) {
-				rx_owner_map = bitmap_alloc(req->tp_frame_nr,
-					GFP_KERNEL | __GFP_NOWARN | __GFP_ZERO);
+				rx_owner_map =
+					bitmap_zalloc(req->tp_frame_nr,
+						      GFP_KERNEL_ACCOUNT |
+						      __GFP_NOWARN);
 				if (!rx_owner_map)
 					goto out_free_pg_vec;
 			}
@@ -4931,6 +4932,7 @@ static void __exit packet_exit(void)
 	proto_unregister(&packet_proto);
 	unregister_netdevice_notifier(&packet_netdev_notifier);
 	unregister_pernet_subsys(&packet_net_ops);
+	net_zcopy_register(UBUF_TYPE_TPACKET, NULL);
 }
 
 static int __init packet_init(void)
@@ -4946,6 +4948,8 @@ static int __init packet_init(void)
 	rc = proto_register(&packet_proto, 0);
 	if (rc)
 		goto out_notifier;
+
+	net_zcopy_register(UBUF_TYPE_TPACKET, tpacket_ubuf_complete);
 	rc = sock_register(&packet_family_ops);
 	if (rc)
 		goto out_proto;
@@ -4953,6 +4957,7 @@ static int __init packet_init(void)
 	return 0;
 
 out_proto:
+	net_zcopy_register(UBUF_TYPE_TPACKET, NULL);
 	proto_unregister(&packet_proto);
 out_notifier:
 	unregister_netdevice_notifier(&packet_netdev_notifier);

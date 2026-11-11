@@ -184,8 +184,7 @@ impl FamilyFlags {
         }
         // Convert from little endian to the target's endianness.
         bits = u8::from_le(bits);
-        // SAFETY: This bitfield is represented as an u8.
-        unsafe { core::mem::transmute::<u8, bindings::__BindgenBitfieldUnit<[u8; 1]>>(bits) }
+        bindings::__BindgenBitfieldUnit::new([bits])
     }
 }
 
@@ -339,11 +338,7 @@ mod tests {
                 }
                 .into_bitfield();
 
-                // SAFETY: The bit field is stored as u8.
-                let b_val: u8 = unsafe { core::mem::transmute(b_fam._bitfield_1) };
-                // SAFETY: The bit field is stored as u8.
-                let c_val: u8 = unsafe { core::mem::transmute(c_bitfield) };
-                assert_eq!(b_val, c_val);
+                assert_eq!(b_fam._bitfield_1, c_bitfield);
             }
         }
     }

@@ -4086,6 +4086,8 @@ static int dpaa2_switch_probe(struct fsl_mc_device *sw_dev)
 {
 	struct device *dev = &sw_dev->dev;
 	struct ethsw_core *ethsw;
+	int registered_ports = 0;
+	int probed_ports = 0;
 	int i, err;
 
 	/* Allocate switch core*/
@@ -4148,7 +4150,8 @@ static int dpaa2_switch_probe(struct fsl_mc_device *sw_dev)
 	for (i = 0; i < ethsw->sw_attr.num_ifs; i++) {
 		err = dpaa2_switch_probe_port(ethsw, i);
 		if (err)
-			goto err_free_netdev;
+			goto err_remove_ports;
+		probed_ports++;
 	}
 
 	/* Add a NAPI instance for each of the Rx queues. The first port's
@@ -4178,19 +4181,22 @@ static int dpaa2_switch_probe(struct fsl_mc_device *sw_dev)
 			dev_err(dev, "register_netdev error %d\n", err);
 			goto err_unregister_ports;
 		}
+		registered_ports++;
 	}
 
 	return 0;
 
 err_unregister_ports:
-	for (i--; i >= 0; i--)
-		unregister_netdev(ethsw->ports[i]->netdev);
+	while (registered_ports)
+		unregister_netdev(ethsw->ports[--registered_ports]->netdev);
 	dpaa2_switch_teardown_irqs(sw_dev);
 err_stop:
 	dpsw_disable(ethsw->mc_io, 0, ethsw->dpsw_handle);
-err_free_netdev:
-	for (i--; i >= 0; i--)
-		dpaa2_switch_remove_port(ethsw, i);
+	for (i = 0; i < DPAA2_SWITCH_RX_NUM_FQS; i++)
+		netif_napi_del(&ethsw->fq[i].napi);
+err_remove_ports:
+	while (probed_ports)
+		dpaa2_switch_remove_port(ethsw, --probed_ports);
 	for (i = 0; i < ethsw->sw_attr.num_ifs; i++)
 		mutex_destroy(&ethsw->lags[i].fdb_lock);
 	kfree(ethsw->lags);

@@ -9,6 +9,7 @@
 #include <linux/workqueue.h>
 #include <linux/skbuff.h>
 #include <linux/bpf_trace.h>
+#include <linux/ionic/ionic_hwmon.h>
 
 #include "ionic_if.h"
 #include "ionic_regs.h"
@@ -115,6 +116,13 @@ static_assert(sizeof(ionic_rx_filter_del_comp) == 16);
 /* RDMA commands */
 static_assert(sizeof(struct ionic_rdma_reset_cmd) == 64);
 static_assert(sizeof(struct ionic_rdma_queue_cmd) == 64);
+
+/* HWMON commands */
+static_assert(sizeof(struct ionic_hwmon_getattr_cmd) == 64);
+static_assert(sizeof(struct ionic_hwmon_getattr_comp) == 16);
+static_assert(sizeof(struct ionic_hwmon_getcaps_cmd) == 64);
+static_assert(sizeof(struct ionic_hwmon_getcaps_comp) == 16);
+static_assert(sizeof(struct ionic_hwmon_chan_caps) == 164);
 
 /* Events */
 static_assert(sizeof(struct ionic_notifyq_cmd) == 4);

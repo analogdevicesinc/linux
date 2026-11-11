@@ -1878,6 +1878,13 @@ void tcp_set_rcvbuf(struct sock *sk, int val)
 	tcp_set_window_clamp(sk, tcp_win_from_space(sk, val));
 }
 
+static bool tcp_want_rx_tstamp(const struct sock *sk,
+			       const struct sk_buff *skb)
+{
+	return TCP_SKB_CB(skb)->has_rxtstamp &&
+		tcp_want_rx_tstamp_cmsg(sk);
+}
+
 #ifdef CONFIG_MMU
 static const struct vm_operations_struct tcp_vm_ops = {
 };
@@ -2069,7 +2076,7 @@ static int tcp_zc_handle_leftover(struct tcp_zerocopy_receive *zc,
 		offset = *seq - TCP_SKB_CB(skb)->seq;
 	} else {
 		skb = tcp_recv_skb(sk, *seq, &offset);
-		if (TCP_SKB_CB(skb)->has_rxtstamp) {
+		if (tcp_want_rx_tstamp(sk, skb)) {
 			tcp_update_recv_tstamps(skb, tss);
 			zc->msg_flags |= TCP_CMSG_TS;
 		}
@@ -2280,7 +2287,7 @@ static int tcp_zerocopy_receive(struct sock *sk,
 			if (!skb_frags_readable(skb))
 				break;
 
-			if (TCP_SKB_CB(skb)->has_rxtstamp) {
+			if (tcp_want_rx_tstamp(sk, skb)) {
 				tcp_update_recv_tstamps(skb, tss);
 				zc->msg_flags |= TCP_CMSG_TS;
 			}
@@ -2893,7 +2900,7 @@ skip_copy:
 			tcp_fast_path_check(sk);
 		}
 
-		if (TCP_SKB_CB(skb)->has_rxtstamp) {
+		if (tcp_want_rx_tstamp(sk, skb)) {
 			tcp_update_recv_tstamps(skb, tss);
 			*cmsg_flags |= TCP_CMSG_TS;
 		}

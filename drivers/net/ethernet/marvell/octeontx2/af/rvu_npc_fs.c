@@ -1959,7 +1959,7 @@ int rvu_mbox_handler_npc_delete_flow(struct rvu *rvu,
 			/* single rule */
 			} else if (req->entry == iter->entry) {
 				blkaddr = rvu_get_blkaddr(rvu, BLKTYPE_NPC, 0);
-				if (blkaddr)
+				if (blkaddr && !is_cn20k(rvu->pdev))
 					rsp->cntr_val = rvu_read64(rvu, blkaddr,
 								   NPC_AF_MATCH_STATX(iter->cntr));
 				list_move_tail(&iter->list, &del_list);

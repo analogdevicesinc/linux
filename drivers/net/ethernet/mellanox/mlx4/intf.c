@@ -41,23 +41,7 @@
 static DEFINE_MUTEX(intf_mutex);
 static DEFINE_IDA(mlx4_adev_ida);
 
-static bool is_eth_supported(struct mlx4_dev *dev)
-{
-	return true;
-}
-
-static bool is_ib_supported(struct mlx4_dev *dev)
-{
-	return true;
-}
-
-static const struct mlx4_adev_device {
-	const char *suffix;
-	bool (*is_supported)(struct mlx4_dev *dev);
-} mlx4_adev_devices[] = {
-	{ "eth", is_eth_supported },
-	{ "ib", is_ib_supported },
-};
+static const char *const mlx4_adev_devices[] = { "eth", "ib" };
 
 int mlx4_adev_init(struct mlx4_dev *dev)
 {
@@ -98,8 +82,8 @@ static void adev_release(struct device *dev)
 
 static struct mlx4_adev *add_adev(struct mlx4_dev *dev, int idx)
 {
+	const char *suffix = mlx4_adev_devices[idx];
 	struct mlx4_priv *priv = mlx4_priv(dev);
-	const char *suffix = mlx4_adev_devices[idx].suffix;
 	struct auxiliary_device *adev;
 	struct mlx4_adev *madev;
 	int ret;
@@ -211,7 +195,7 @@ int mlx4_do_bond(struct mlx4_dev *dev, bool enable)
 		priv->adev[i] = add_adev(dev, i);
 		if (IS_ERR(priv->adev[i])) {
 			mlx4_warn(dev, "Device[%d] (%s) failed to load\n", i,
-				  mlx4_adev_devices[i].suffix);
+				  mlx4_adev_devices[i]);
 			priv->adev[i] = NULL;
 			continue;
 		}
@@ -258,21 +242,13 @@ static int add_drivers(struct mlx4_dev *dev)
 	int i, ret = 0;
 
 	for (i = 0; i < ARRAY_SIZE(mlx4_adev_devices); i++) {
-		bool is_supported = false;
-
 		if (priv->adev[i])
-			continue;
-
-		if (mlx4_adev_devices[i].is_supported)
-			is_supported = mlx4_adev_devices[i].is_supported(dev);
-
-		if (!is_supported)
 			continue;
 
 		priv->adev[i] = add_adev(dev, i);
 		if (IS_ERR(priv->adev[i])) {
 			mlx4_warn(dev, "Device[%d] (%s) failed to load\n", i,
-				  mlx4_adev_devices[i].suffix);
+				  mlx4_adev_devices[i]);
 			/* We continue to rescan drivers and leave to the caller
 			 * to make decision if to release everything or
 			 * continue. */
@@ -286,21 +262,13 @@ static int add_drivers(struct mlx4_dev *dev)
 static void delete_drivers(struct mlx4_dev *dev)
 {
 	struct mlx4_priv *priv = mlx4_priv(dev);
-	bool delete_all;
 	int i;
 
-	delete_all = !(dev->persist->interface_state & MLX4_INTERFACE_STATE_UP);
+	if (dev->persist->interface_state & MLX4_INTERFACE_STATE_UP)
+		return;
 
 	for (i = ARRAY_SIZE(mlx4_adev_devices) - 1; i >= 0; i--) {
-		bool is_supported = false;
-
 		if (!priv->adev[i])
-			continue;
-
-		if (mlx4_adev_devices[i].is_supported && !delete_all)
-			is_supported = mlx4_adev_devices[i].is_supported(dev);
-
-		if (is_supported)
 			continue;
 
 		del_adev(&priv->adev[i]->adev);

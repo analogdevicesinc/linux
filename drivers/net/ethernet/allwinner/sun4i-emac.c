@@ -303,8 +303,7 @@ static int emac_dma_inblk_32bit(struct emac_board_info *db,
 		goto prepare_err;
 	}
 
-	desc->callback_param = req;
-	desc->callback = emac_dma_done_callback;
+	dmaengine_desc_set_callback(desc, emac_dma_done_callback, NULL, req);
 
 	cookie = dmaengine_submit(desc);
 	ret = dma_submit_error(cookie);

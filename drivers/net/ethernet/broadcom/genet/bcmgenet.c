@@ -2030,7 +2030,7 @@ static int bcmgenet_tx_poll(struct napi_struct *napi, int budget)
 
 	spin_lock(&ring->lock);
 	__bcmgenet_tx_reclaim(ring->priv->dev, ring);
-	if (ring->free_bds > (MAX_SKB_FRAGS + 1)) {
+	if (ring->free_bds > ring->stop_thld) {
 		txq = netdev_get_tx_queue(ring->priv->dev, ring->index);
 		netif_tx_wake_queue(txq);
 	}
@@ -2143,6 +2143,22 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	nr_frags = skb_shinfo(skb)->nr_frags;
 
+	/* The check below would always refuse this frame */
+	if (unlikely(nr_frags + 1 >= ring->size)) {
+		skb = skb_share_check(skb, GFP_ATOMIC);
+		if (skb && skb_linearize(skb)) {
+			dev_kfree_skb_any(skb);
+			skb = NULL;
+		}
+		if (!skb) {
+			spin_lock(&ring->lock);
+			BCMGENET_STATS64_INC((&ring->stats64), dropped);
+			ret = NETDEV_TX_OK;
+			goto out;
+		}
+		nr_frags = 0;
+	}
+
 	spin_lock(&ring->lock);
 	if (ring->free_bds <= (nr_frags + 1)) {
 		if (!netif_tx_queue_stopped(txq))
@@ -2235,7 +2251,7 @@ static netdev_tx_t bcmgenet_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	netdev_tx_sent_queue(txq, GENET_CB(skb)->bytes_sent);
 
-	if (ring->free_bds <= (MAX_SKB_FRAGS + 1))
+	if (ring->free_bds <= ring->stop_thld)
 		netif_tx_stop_queue(txq);
 
 	if (!netdev_xmit_more() || netif_xmit_stopped(txq))
@@ -2742,6 +2758,8 @@ static void bcmgenet_init_tx_ring(struct bcmgenet_priv *priv,
 	ring->index = index;
 	ring->cbs = priv->tx_cbs + start_ptr;
 	ring->size = size;
+	/* An empty ring must be able to wake the queue */
+	ring->stop_thld = min_t(unsigned int, MAX_SKB_FRAGS + 1, size - 1);
 	ring->clean_ptr = start_ptr;
 	ring->c_index = 0;
 	ring->free_bds = size;

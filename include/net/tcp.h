@@ -517,6 +517,13 @@ int tcp_set_rcvlowat(struct sock *sk, int val);
 void tcp_set_rcvbuf(struct sock *sk, int val);
 int tcp_set_window_clamp(struct sock *sk, int val);
 
+static inline bool tcp_want_rx_tstamp_cmsg(const struct sock *sk)
+{
+	return READ_ONCE(sk->sk_flags) &
+		((1UL << SOCK_RCVTSTAMP) |
+		 (1UL << SOCK_TIMESTAMPING_ANY));
+}
+
 static inline void
 tcp_update_recv_tstamps(struct sk_buff *skb,
 			struct scm_timestamping_internal *tss)

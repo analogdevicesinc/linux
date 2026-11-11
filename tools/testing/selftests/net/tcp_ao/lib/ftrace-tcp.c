@@ -504,7 +504,7 @@ static int setup_tcp_trace_events(struct test_ftracer *tracer)
 	size_t i;
 	int ret;
 
-	filter = test_sprintf("net_cookie == %zu || net_cookie == %zu",
+	filter = test_sprintf("net_cookie == %" PRIu64 " || net_cookie == %" PRIu64,
 			      ns_cookie1, ns_cookie2);
 	if (!filter)
 		return -ENOMEM;

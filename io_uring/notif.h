@@ -4,6 +4,7 @@
 #include <linux/uio.h>
 #include <net/sock.h>
 #include <linux/nospec.h>
+#include <linux/io_uring/net.h>
 
 #include "rsrc.h"
 
@@ -24,8 +25,6 @@ struct io_notif_data {
 };
 
 struct io_kiocb *io_alloc_notif(struct io_ring_ctx *ctx);
-void io_tx_ubuf_complete(struct sk_buff *skb, struct ubuf_info *uarg,
-			 bool success);
 
 static inline struct io_notif_data *io_notif_to_data(struct io_kiocb *notif)
 {

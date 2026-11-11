@@ -25,11 +25,11 @@ struct netns_sysctl_ipv6 {
 	int ip6_rt_gc_min_interval;
 	int ip6_rt_gc_timeout;
 	int ip6_rt_gc_interval;
-	int ip6_rt_gc_elasticity;
 	int ip6_rt_mtu_expires;
 	int ip6_rt_min_advmss;
 	u32 multipath_hash_fields;
 	u8 multipath_hash_policy;
+	u8 ip6_rt_gc_elasticity;
 
 	__cacheline_group_begin(sysctl_ipv6_flowlabel);
 	u8 flowlabel_consistency;

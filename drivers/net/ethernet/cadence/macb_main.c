@@ -1369,7 +1369,8 @@ static void macb_tx_error_task(struct work_struct *work)
 	 * network engine about the macb/gem being halted.
 	 */
 	napi_disable(&queue->napi_tx);
-	spin_lock_irqsave(&bp->lock, flags);
+	spin_lock_irqsave(&queue->tx_ptr_lock, flags);
+	spin_lock(&bp->lock);
 
 	/* Make sure nobody is trying to queue up new packets */
 	netif_tx_stop_all_queues(bp->netdev);
@@ -1412,10 +1413,8 @@ static void macb_tx_error_task(struct work_struct *work)
 					    skb->data);
 				bp->netdev->stats.tx_packets++;
 				queue->stats.tx_packets++;
-				packets++;
 				bp->netdev->stats.tx_bytes += skb->len - tx_skb->fcs_len;
 				queue->stats.tx_bytes += skb->len - tx_skb->fcs_len;
-				bytes += skb->len;
 			}
 		} else {
 			/* "Buffers exhausted mid-frame" errors may only happen
@@ -1426,6 +1425,12 @@ static void macb_tx_error_task(struct work_struct *work)
 				buggy_driver = true;
 
 			desc->ctrl = ctrl | MACB_BIT(TX_USED);
+		}
+
+		/* BQL has to see every frame leaving the ring, sent or not */
+		if (skb) {
+			packets++;
+			bytes += skb->len;
 		}
 
 		macb_tx_unmap(&bp->info, tx_skb, 0);
@@ -1459,7 +1464,8 @@ static void macb_tx_error_task(struct work_struct *work)
 	netif_tx_start_all_queues(bp->netdev);
 	macb_writel(bp, NCR, macb_readl(bp, NCR) | MACB_BIT(TSTART));
 
-	spin_unlock_irqrestore(&bp->lock, flags);
+	spin_unlock(&bp->lock);
+	spin_unlock_irqrestore(&queue->tx_ptr_lock, flags);
 
 	napi_enable(&queue->napi_tx);
 

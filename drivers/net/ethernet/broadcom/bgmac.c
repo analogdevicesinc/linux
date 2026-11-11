@@ -145,9 +145,6 @@ static netdev_tx_t bgmac_dma_tx_add(struct bgmac *bgmac,
 		goto err_drop;
 	}
 
-	if (skb->ip_summed == CHECKSUM_PARTIAL)
-		skb_checksum_help(skb);
-
 	nr_frags = skb_shinfo(skb)->nr_frags;
 
 	/* ring->end - ring->start will return the number of valid slots,
@@ -1555,7 +1552,7 @@ int bgmac_enet_probe(struct bgmac *bgmac)
 		goto err_dma_free;
 	}
 
-	net_dev->features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM;
+	net_dev->features = NETIF_F_SG;
 	net_dev->hw_features = net_dev->features;
 	net_dev->vlan_features = net_dev->features;
 

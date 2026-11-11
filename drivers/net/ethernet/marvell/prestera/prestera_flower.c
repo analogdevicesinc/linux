@@ -411,6 +411,8 @@ int prestera_flower_prio_get(struct prestera_flow_block *block, u32 chain_index,
 		return PTR_ERR(ruleset);
 
 	prestera_acl_ruleset_prio_get(ruleset, prio_min, prio_max);
+	prestera_acl_ruleset_put(ruleset);
+
 	return 0;
 }
 

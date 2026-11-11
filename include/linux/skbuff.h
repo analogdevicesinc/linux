@@ -534,12 +534,17 @@ enum {
 #define SKBFL_ALL_ZEROCOPY	(SKBFL_ZEROCOPY_FRAG | SKBFL_PURE_ZEROCOPY | \
 				 SKBFL_DONT_ORPHAN | SKBFL_MANAGED_FRAG_REFS)
 
-struct ubuf_info_ops {
-	void (*complete)(struct sk_buff *, struct ubuf_info *,
-			 bool zerocopy_success);
-	/* has to be compatible with skb_zcopy_set() */
-	int (*link_skb)(struct sk_buff *skb, struct ubuf_info *uarg);
+enum ubuf_info_type {
+	UBUF_TYPE_NONE = 0,
+	UBUF_TYPE_MSG_ZEROCOPY,
+	UBUF_TYPE_IO_URING,
+	UBUF_TYPE_TPACKET,
+	UBUF_TYPE_VHOST,
+	UBUF_TYPE_XENVIF,
 };
+
+typedef void (*ubuf_complete_fn)(struct sk_buff *skb, struct ubuf_info *uarg,
+				 bool zerocopy_success);
 
 /*
  * The callback notifies userspace to release buffers when skb DMA is done in
@@ -550,8 +555,8 @@ struct ubuf_info_ops {
  * The desc field is used to track userspace buffer index.
  */
 struct ubuf_info {
-	const struct ubuf_info_ops *ops;
 	refcount_t refcnt;
+	u8 type;
 	u8 flags;
 };
 
@@ -1757,7 +1762,9 @@ static inline void skb_set_end_offset(struct sk_buff *skb, unsigned int offset)
 }
 #endif
 
-extern const struct ubuf_info_ops msg_zerocopy_ubuf_ops;
+void net_zcopy_register(enum ubuf_info_type type, ubuf_complete_fn fn);
+void net_zcopy_complete(struct sk_buff *skb, struct ubuf_info *uarg,
+			bool zerocopy_success);
 
 struct ubuf_info *msg_zerocopy_realloc(struct sock *sk, size_t size,
 				       struct ubuf_info *uarg, bool devmem);
@@ -1843,13 +1850,13 @@ static inline void skb_zcopy_set(struct sk_buff *skb, struct ubuf_info *uarg,
 static inline void net_zcopy_put(struct ubuf_info *uarg)
 {
 	if (uarg)
-		uarg->ops->complete(NULL, uarg, true);
+		net_zcopy_complete(NULL, uarg, true);
 }
 
 static inline void net_zcopy_put_abort(struct ubuf_info *uarg, bool have_uref)
 {
 	if (uarg) {
-		if (uarg->ops == &msg_zerocopy_ubuf_ops)
+		if (uarg->type == UBUF_TYPE_MSG_ZEROCOPY)
 			msg_zerocopy_put_abort(uarg, have_uref);
 		else if (have_uref)
 			net_zcopy_put(uarg);
@@ -1862,7 +1869,7 @@ static inline void skb_zcopy_clear(struct sk_buff *skb, bool zerocopy_success)
 	struct ubuf_info *uarg = skb_zcopy(skb);
 
 	if (uarg) {
-		uarg->ops->complete(skb, uarg, zerocopy_success);
+		net_zcopy_complete(skb, uarg, zerocopy_success);
 
 		skb_shinfo(skb)->flags &= ~SKBFL_ALL_ZEROCOPY;
 	}

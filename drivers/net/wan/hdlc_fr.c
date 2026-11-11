@@ -1009,7 +1009,6 @@ static void fr_start(struct net_device *dev)
 		state(hdlc)->txseq = state(hdlc)->rxseq = 0;
 
 		state(hdlc)->dev = dev;
-		timer_setup(&state(hdlc)->timer, fr_timer, 0);
 		/* First poll after 1 s */
 		state(hdlc)->timer.expires = jiffies + HZ;
 		add_timer(&state(hdlc)->timer);
@@ -1153,6 +1152,9 @@ static void fr_destroy(struct net_device *frad)
 	hdlc_device *hdlc = dev_to_hdlc(frad);
 	struct pvc_device *pvc = state(hdlc)->first_pvc;
 
+	/* The LMI timer must not outlive the state being torn down. */
+	timer_shutdown_sync(&state(hdlc)->timer);
+
 	state(hdlc)->first_pvc = NULL; /* All PVCs destroyed */
 	state(hdlc)->dce_pvc_count = 0;
 	state(hdlc)->dce_changed = 1;
@@ -1242,6 +1244,7 @@ static int fr_ioctl(struct net_device *dev, struct if_settings *ifs)
 				return result;
 			state(hdlc)->first_pvc = NULL;
 			state(hdlc)->dce_pvc_count = 0;
+			timer_setup(&state(hdlc)->timer, fr_timer, 0);
 		}
 		memcpy(&state(hdlc)->settings, &new_settings, size);
 		dev->type = ARPHRD_FRAD;

@@ -226,9 +226,9 @@ static struct ctl_table ipv6_rotable[] = {
 	{
 		.procname	= "mld_qrv",
 		.data		= &sysctl_mld_qrv,
-		.maxlen		= sizeof(int),
+		.maxlen		= sizeof(u8),
 		.mode		= 0644,
-		.proc_handler	= proc_dointvec_minmax,
+		.proc_handler	= proc_dou8vec_minmax,
 		.extra1		= SYSCTL_ONE
 	},
 #ifdef CONFIG_NETLABEL

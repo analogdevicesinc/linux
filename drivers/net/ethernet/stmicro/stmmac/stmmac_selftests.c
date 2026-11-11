@@ -1216,7 +1216,7 @@ static int stmmac_test_rxp(struct stmmac_priv *priv)
 	sel->offshift = 0;
 	sel->keys[0].off = 6;
 	sel->keys[0].val = htonl(0xdeadbeef);
-	sel->keys[0].mask = ~0x0;
+	sel->keys[0].mask = htonl(~0x0);
 
 	ret = stmmac_tc_setup_cls_u32(priv, priv, &cls_u32);
 	if (ret)
@@ -1463,8 +1463,8 @@ static int __stmmac_test_l3filt(struct stmmac_priv *priv, u32 dst, u32 src,
 
 	key.src = htonl(src);
 	key.dst = htonl(dst);
-	mask.src = src_mask;
-	mask.dst = dst_mask;
+	mask.src = htonl(src_mask);
+	mask.dst = htonl(dst_mask);
 
 	cls->rule = rule;
 
@@ -1594,8 +1594,8 @@ static int __stmmac_test_l4filt(struct stmmac_priv *priv, u32 dst, u32 src,
 	keys.key.dst = htons(dst);
 	/* Match the full IP proto field */
 	masks.bmask.ip_proto = 0xff;
-	masks.mask.src = src_mask;
-	masks.mask.dst = dst_mask;
+	masks.mask.src = htons(src_mask);
+	masks.mask.dst = htons(dst_mask);
 
 	cls->rule = rule;
 

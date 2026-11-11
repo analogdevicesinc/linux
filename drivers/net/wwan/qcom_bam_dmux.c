@@ -195,9 +195,8 @@ static bool bam_dmux_skb_dma_submit_tx(struct bam_dmux_skb_dma *skb_dma)
 		return false;
 	}
 
-	desc->callback = bam_dmux_tx_callback;
-	desc->callback_param = skb_dma;
-	desc->cookie = dmaengine_submit(desc);
+	dmaengine_desc_set_callback(desc, bam_dmux_tx_callback, NULL, skb_dma);
+	dmaengine_submit(desc);
 	return true;
 }
 
@@ -477,9 +476,8 @@ static bool bam_dmux_skb_dma_submit_rx(struct bam_dmux_skb_dma *skb_dma)
 		return false;
 	}
 
-	desc->callback = bam_dmux_rx_callback;
-	desc->callback_param = skb_dma;
-	desc->cookie = dmaengine_submit(desc);
+	dmaengine_desc_set_callback(desc, bam_dmux_rx_callback, NULL, skb_dma);
+	dmaengine_submit(desc);
 	return true;
 }
 

@@ -138,7 +138,7 @@ struct efx_mcdi_mon_attribute {
 	unsigned int type;
 	enum efx_hwmon_type hwmon_type;
 	unsigned int limit_value;
-	char name[12];
+	char name[24];
 };
 
 static int efx_mcdi_mon_update(struct efx_nic *efx)
@@ -308,7 +308,7 @@ int efx_mcdi_mon_probe(struct efx_nic *efx)
 	MCDI_DECLARE_BUF(outbuf, MC_CMD_SENSOR_INFO_OUT_LENMAX);
 	unsigned int n_pages, n_sensors, n_attrs, page;
 	size_t outlen;
-	char name[12];
+	char name[24];
 	u32 mask;
 	int rc, i, j, type;
 

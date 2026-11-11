@@ -166,6 +166,14 @@ static int do_proc_int_conv_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
 			     sysctl_u2k_int_conv_hz, sysctl_k2u_int_conv_hz);
 }
 
+static int do_proc_int_conv_jiffies_minmax(bool *negp, ulong *u_ptr,
+					   int *k_ptr, int dir,
+					   const struct ctl_table *tbl)
+{
+	return proc_int_conv(negp, u_ptr, k_ptr, dir, tbl, true,
+			     sysctl_u2k_int_conv_hz, sysctl_k2u_int_conv_hz);
+}
+
 static int do_proc_int_conv_userhz_jiffies(bool *negp, ulong *u_ptr,
 					   int *k_ptr, int dir,
 					   const struct ctl_table *tbl)
@@ -210,6 +218,13 @@ static int do_proc_ulong_conv_ms_jiffies_minmax(bool *negp, ulong *u_ptr, ulong 
 #else // CONFIG_SYSCTL
 static int do_proc_int_conv_jiffies(bool *negp, ulong *u_ptr, int *k_ptr,
 				    int dir, const struct ctl_table *tbl)
+{
+	return -ENOSYS;
+}
+
+static int do_proc_int_conv_jiffies_minmax(bool *negp, ulong *u_ptr,
+					   int *k_ptr, int dir,
+					   const struct ctl_table *tbl)
 {
 	return -ENOSYS;
 }
@@ -263,6 +278,31 @@ int proc_dointvec_jiffies(const struct ctl_table *table, int dir,
 				  do_proc_int_conv_jiffies);
 }
 EXPORT_SYMBOL(proc_dointvec_jiffies);
+
+/**
+ * proc_dointvec_jiffies_minmax - read a vector of integers as seconds with min/max values
+ * @table: the sysctl table
+ * @dir: %TRUE if this is a write to the sysctl file
+ * @buffer: the user buffer
+ * @lenp: the size of the user buffer
+ * @ppos: file position
+ *
+ * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
+ * values from/to the user buffer, treated as an ASCII string.
+ * The values read are assumed to be in seconds, and are converted into
+ * jiffies. The converted values are checked against the optional
+ * table->extra1 (min) and table->extra2 (max) bounds, in jiffies;
+ * a value outside the range is rejected with -EINVAL.
+ *
+ * Return: 0 on success.
+ */
+int proc_dointvec_jiffies_minmax(const struct ctl_table *table, int dir,
+				 void *buffer, size_t *lenp, loff_t *ppos)
+{
+	return proc_dointvec_conv(table, dir, buffer, lenp, ppos,
+				  do_proc_int_conv_jiffies_minmax);
+}
+EXPORT_SYMBOL(proc_dointvec_jiffies_minmax);
 
 /**
  * proc_dointvec_userhz_jiffies - read a vector of integers as 1/USER_HZ seconds

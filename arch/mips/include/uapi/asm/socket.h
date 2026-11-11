@@ -172,6 +172,8 @@
 
 #define SO_PEERPIDFD_THREAD    87
 
+#define SO_PASSCRED_THREAD     88
+
 #if !defined(__KERNEL__)
 
 #if __BITS_PER_LONG == 64

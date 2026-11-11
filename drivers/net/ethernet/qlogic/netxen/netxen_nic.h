@@ -634,7 +634,7 @@ struct nx_host_sds_ring {
 	int irq;
 
 	dma_addr_t phys_addr;
-	char name[IFNAMSIZ+4];
+	char name[IFNAMSIZ + 16];
 };
 
 struct nx_host_tx_ring {

@@ -2060,6 +2060,8 @@ static inline int __tcp_mtu_to_mss(struct sock *sk, int pmtu)
 	 */
 	mss_now = pmtu - icsk->icsk_af_ops->net_header_len - sizeof(struct tcphdr);
 
+	mss_now -= psp_sk_overhead(sk);
+
 	/* Clamp it (mss_clamp does not include tcp options) */
 	if (mss_now > tp->rx_opt.mss_clamp)
 		mss_now = tp->rx_opt.mss_clamp;
@@ -2088,9 +2090,10 @@ int tcp_mss_to_mtu(struct sock *sk, int mss)
 	const struct inet_connection_sock *icsk = inet_csk(sk);
 
 	return mss +
-	      tp->tcp_header_len +
-	      icsk->icsk_ext_hdr_len +
-	      icsk->icsk_af_ops->net_header_len;
+		tp->tcp_header_len +
+		psp_sk_overhead(sk) +
+		icsk->icsk_ext_hdr_len +
+		icsk->icsk_af_ops->net_header_len;
 }
 EXPORT_SYMBOL(tcp_mss_to_mtu);
 
@@ -2103,7 +2106,7 @@ void tcp_mtup_init(struct sock *sk)
 
 	icsk->icsk_mtup.enabled = READ_ONCE(net->ipv4.sysctl_tcp_mtu_probing) > 1;
 	icsk->icsk_mtup.search_high = tp->rx_opt.mss_clamp + sizeof(struct tcphdr) +
-			       icsk->icsk_af_ops->net_header_len;
+		psp_sk_overhead(sk) + icsk->icsk_af_ops->net_header_len;
 	icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, READ_ONCE(net->ipv4.sysctl_tcp_base_mss));
 	icsk->icsk_mtup.probe_size = 0;
 	if (icsk->icsk_mtup.enabled)
@@ -2643,7 +2646,8 @@ static inline void tcp_mtu_check_reprobe(struct sock *sk)
 		icsk->icsk_mtup.probe_size = 0;
 		icsk->icsk_mtup.search_high = tp->rx_opt.mss_clamp +
 			sizeof(struct tcphdr) +
-			icsk->icsk_af_ops->net_header_len;
+			icsk->icsk_af_ops->net_header_len +
+			psp_sk_overhead(sk);
 		icsk->icsk_mtup.search_low = tcp_mss_to_mtu(sk, mss);
 
 		/* Update probe time stamp */

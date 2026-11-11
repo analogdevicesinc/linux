@@ -980,7 +980,8 @@ void devl_sb_unregister(struct devlink *devlink, unsigned int sb_index)
 	lockdep_assert_held(&devlink->lock);
 
 	devlink_sb = devlink_sb_get_by_index(devlink, sb_index);
-	WARN_ON(!devlink_sb);
+	if (WARN_ON(!devlink_sb))
+		return;
 	list_del(&devlink_sb->list);
 	kfree(devlink_sb);
 }

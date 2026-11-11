@@ -102,7 +102,7 @@ enum octeon_tag_type {
 
 #define BYTES_PER_DHLEN_UNIT        8
 #define MAX_REG_CNT                 2000000U
-#define INTRNAMSIZ                  32
+#define INTRNAMSIZ                  64
 #define IRQ_NAME_OFF(i)             ((i) * INTRNAMSIZ)
 #define MAX_IOQ_INTERRUPTS_PER_PF   (64 * 2)
 #define MAX_IOQ_INTERRUPTS_PER_VF   (8 * 2)

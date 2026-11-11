@@ -1,0 +1,224 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/snps,dwc-qos-ethernet-4.10.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Synopsys DWC Ethernet QoS IP version 4.10 (GMAC)
+
+maintainers:
+  - Thierry Reding <treding@nvidia.com>
+  - Jon Hunter <jonathanh@nvidia.com>
+
+description: >
+  The IP supports multiple options for bus type, clocking and reset structure,
+  and feature list. Consequently, a number of properties and list entries in
+  properties are marked as optional, or only required in specific HW
+  configurations.
+
+  This binding is deprecated, but it continues to be supported, but new features
+  should be preferably added to the stmmac binding document.
+
+deprecated: true
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: nvidia,tegra186-eqos
+          - const: snps,dwc-qos-ethernet-4.10
+      - items:
+          - const: nvidia,tegra194-eqos
+          - const: nvidia,tegra186-eqos
+          - const: snps,dwc-qos-ethernet-4.10
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description:
+          The master bus interface clock. Only required in configurations that
+          use a separate clock for the master and slave bus interfaces. The HW
+          signal name is hclk_i (AHB) or aclk_i (AXI).
+      - description:
+          The CPU/slave-bus (CSR) interface clock. This applies to any bus type;
+          APB, AHB, AXI, etc. The HW signal name is hclk_i (AHB) or clk_csr_i
+          (other buses).
+      - description: >
+          The EQOS receive path clock. The HW signal name is clk_rx_i. In some
+          configurations (e.g. GMII/RGMII), this clock is derived from the PHY's
+          RX clock output. In other configurations, other clocks (such as
+          rx_125, rmii) may drive the EQOS RX path.
+
+          In cases where the PHY clock is directly fed into the EQOS receive
+          path without intervening logic, the DT need not represent this clock,
+          since it is assumed to be fully under the control of the PHY
+          device/driver. In cases where SoC integration adds additional logic to
+          this path, such as a SW-controlled clock gate, this clock should be
+          represented in DT.
+      - description: >
+          The EQOS transmit path clock. The HW signal name is clk_tx_i.
+
+          In some configurations (e.g. GMII/RGMII), this clock also drives the
+          PHY TX path. In other configurations, other clocks (such as tx_125,
+          rmii) may drive the PHY TX path.
+      - description:
+          The PTP reference clock. The HW signal name is clk_ptp_ref_i.
+    description: >
+      Support for additional IP configurations may require adding the following
+      clocks to this list in the future: clk_rx_125_i, clk_tx_125_i,
+      clk_pmarx_0_i, clk_pmarx1_i, clk_rmii_i, clk_revmii_rx_i, clk_revmii_tx_i.
+      Configurations exist where multiple similar clocks are used at once, e.g.
+      all of clk_rx_125_i, clk_pmarx_0_i, clk_pmarx1_i. For this reason it is
+      best to extend the binding with a separate clock-names entry for each of
+      those RX clocks, rather than repurposing the existing "rx" clock-names
+      entry as a generic/logical clock in a similar fashion to "master_bus" and
+      "slave_bus". This will allow easy support for configurations that support
+      multiple PHY interfaces using a mux, and hence need to have explicit
+      control over specific RX clocks.
+
+  clock-names:
+    items:
+      - const: master_bus
+      - const: slave_bus
+      - const: rx
+      - const: tx
+      - const: ptp_ref
+
+  interrupts:
+    minItems: 1
+    items:
+      - description: common
+      - description: power
+      - description: rx0
+      - description: tx0
+      - description: rx1
+      - description: tx1
+      - description: rx2
+      - description: tx2
+      - description: rx3
+      - description: tx3
+
+  resets:
+    maxItems: 1
+
+  reset-names:
+    items:
+      - const: eqos
+
+  dma-coherent: true
+
+  interconnects:
+    maxItems: 2
+
+  interconnect-names:
+    items:
+      - const: dma-mem
+      - const: write
+
+  iommus:
+    maxItems: 1
+
+  phy-reset-gpios:
+    description: Phandle and specifier for any GPIO used to reset the PHY
+    maxItems: 1
+
+  snps,en-lpi:
+    description: If present it enables use of the AXI low-power interface
+    type: boolean
+
+  snps,write-requests:
+    description: Number of write requests that the AXI port can issue
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  snps,read-requests:
+    description: Number of read requests that the AXI port can issue
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  snps,burst-map:
+    description:
+      Bitmap of allowed AXI burst lengths, with the LSB representing 4, then
+      8 etc.
+    $ref: /schemas/types.yaml#/definitions/uint32
+
+  mdio:
+    $ref: /schemas/net/mdio.yaml#
+    unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - interrupts
+  - resets
+  - reset-names
+  - phy-mode
+
+unevaluatedProperties: false
+
+allOf:
+  - $ref: /schemas/net/ethernet-controller.yaml#
+  - $ref: /schemas/net/snps,dwmac-common.yaml#
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/gpio/tegra186-gpio.h>
+    #include <dt-bindings/clock/tegra186-clock.h>
+    #include <dt-bindings/reset/tegra186-reset.h>
+    #include <dt-bindings/memory/tegra186-mc.h>
+
+    ethernet@2490000 {
+        compatible = "nvidia,tegra186-eqos",
+                     "snps,dwc-qos-ethernet-4.10";
+        reg = <0x02490000 0x10000>;
+        interrupts = <GIC_SPI 194 IRQ_TYPE_LEVEL_HIGH>, /* common */
+                     <GIC_SPI 195 IRQ_TYPE_LEVEL_HIGH>, /* power */
+                     <GIC_SPI 190 IRQ_TYPE_LEVEL_HIGH>, /* rx0 */
+                     <GIC_SPI 186 IRQ_TYPE_LEVEL_HIGH>, /* tx0 */
+                     <GIC_SPI 191 IRQ_TYPE_LEVEL_HIGH>, /* rx1 */
+                     <GIC_SPI 187 IRQ_TYPE_LEVEL_HIGH>, /* tx1 */
+                     <GIC_SPI 192 IRQ_TYPE_LEVEL_HIGH>, /* rx2 */
+                     <GIC_SPI 188 IRQ_TYPE_LEVEL_HIGH>, /* tx2 */
+                     <GIC_SPI 193 IRQ_TYPE_LEVEL_HIGH>, /* rx3 */
+                     <GIC_SPI 189 IRQ_TYPE_LEVEL_HIGH>; /* tx3 */
+        clocks = <&bpmp TEGRA186_CLK_AXI_CBB>,
+                 <&bpmp TEGRA186_CLK_EQOS_AXI>,
+                 <&bpmp TEGRA186_CLK_EQOS_RX>,
+                 <&bpmp TEGRA186_CLK_EQOS_TX>,
+                 <&bpmp TEGRA186_CLK_EQOS_PTP_REF>;
+        clock-names = "master_bus", "slave_bus", "rx", "tx", "ptp_ref";
+        resets = <&bpmp TEGRA186_RESET_EQOS>;
+        reset-names = "eqos";
+        interconnects = <&mc TEGRA186_MEMORY_CLIENT_EQOSR &emc>,
+                        <&mc TEGRA186_MEMORY_CLIENT_EQOSW &emc>;
+        interconnect-names = "dma-mem", "write";
+        iommus = <&smmu TEGRA186_SID_EQOS>;
+
+        snps,write-requests = <1>;
+        snps,read-requests = <3>;
+        snps,burst-map = <0x7>;
+        snps,txpbl = <32>;
+        snps,rxpbl = <8>;
+
+        phy-reset-gpios = <&gpio_aon TEGRA186_AON_GPIO(AA, 6) GPIO_ACTIVE_LOW>;
+        phy-handle = <&phy>;
+        phy-mode = "rgmii-id";
+
+        mdio {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            phy: ethernet-phy@0 {
+                compatible = "ethernet-phy-ieee802.3-c22";
+                reg = <0x0>;
+                interrupt-parent = <&gpio_aon>;
+                interrupts = <TEGRA186_AON_GPIO(AA, 7) IRQ_TYPE_LEVEL_LOW>;
+                #phy-cells = <0>;
+            };
+        };
+    };

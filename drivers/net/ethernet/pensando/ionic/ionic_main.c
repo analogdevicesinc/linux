@@ -185,6 +185,10 @@ static const char *ionic_opcode_to_str(enum ionic_cmd_opcode opcode)
 		return "IONIC_CMD_VF_GETATTR";
 	case IONIC_CMD_VF_SETATTR:
 		return "IONIC_CMD_VF_SETATTR";
+	case IONIC_CMD_HWMON_GETATTR:
+		return "IONIC_CMD_HWMON_GETATTR";
+	case IONIC_CMD_HWMON_GETCAPS:
+		return "IONIC_CMD_HWMON_GETCAPS";
 	default:
 		return "DEVCMD_UNKNOWN";
 	}
