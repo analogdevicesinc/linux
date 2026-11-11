@@ -76,8 +76,7 @@ static int fsl_asrc_dma_prepare_and_submit(struct snd_pcm_substream *substream,
 		return -ENOMEM;
 	}
 
-	pair->desc[!dir]->callback = fsl_asrc_dma_complete;
-	pair->desc[!dir]->callback_param = substream;
+	dmaengine_desc_set_callback(pair->desc[!dir], fsl_asrc_dma_complete, NULL, substream);
 
 	dmaengine_submit(pair->desc[!dir]);
 
@@ -251,7 +250,7 @@ static int fsl_asrc_dma_hw_params(struct snd_soc_component *component,
 
 		/* Get DMA request of Front-End */
 		tmp_chan = asrc->get_dma_channel(pair, dir);
-		if (!tmp_chan) {
+		if (IS_ERR(tmp_chan)) {
 			dma_release_channel(pair->dma_chan[!dir]);
 			pair->dma_chan[!dir] = NULL;
 			return -EINVAL;

@@ -3114,6 +3114,7 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 	struct wm8994 *control = wm8994->wm8994;
 	int aif1_reg;
 	int aif1 = 0;
+	int ret;
 
 	switch (dai->id) {
 	case 3:
@@ -3146,7 +3147,16 @@ static int wm8994_aif3_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	return snd_soc_component_update_bits(component, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
+	ret = snd_soc_component_update_bits(component, aif1_reg, WM8994_AIF1_WL_MASK, aif1);
+	if (ret < 0)
+		return ret;
+
+	/*
+	 * ASoC only marks the DAI hw_params as done when .hw_params() returns 0.
+	 * Since snd_soc_component_update_bits() may return 1, explicitly
+	 * return 0 to ensure the DAI is correctly marked.
+	 */
+	return 0;
 }
 
 static int wm8994_aif_mute(struct snd_soc_dai *codec_dai, int mute,
@@ -3540,8 +3550,8 @@ static void wm8994_handle_pdata(struct wm8994_priv *wm8994)
  * Configuration of detection levels is available via the micbias1_lvl
  * and micbias2_lvl platform data members.
  */
-int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
-		      int micbias)
+static int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
+			     int micbias)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct wm8994_priv *wm8994 = snd_soc_component_get_drvdata(component);
@@ -3608,7 +3618,6 @@ int wm8994_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8994_mic_detect);
 
 static void wm8994_mic_work(struct work_struct *work)
 {
@@ -3959,9 +3968,9 @@ static void wm1811_jackdet_bootstrap(struct work_struct *work)
  * flexiblity a callback is provided which allows a completely custom
  * detection algorithm.
  */
-int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
-		      wm1811_micdet_cb det_cb, void *det_cb_data,
-		      wm1811_mic_id_cb id_cb, void *id_cb_data)
+static int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *jack,
+			     wm1811_micdet_cb det_cb, void *det_cb_data,
+			     wm1811_mic_id_cb id_cb, void *id_cb_data)
 {
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
 	struct wm8994_priv *wm8994 = snd_soc_component_get_drvdata(component);
@@ -4050,7 +4059,6 @@ int wm8958_mic_detect(struct snd_soc_component *component, struct snd_soc_jack *
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(wm8958_mic_detect);
 
 static void wm8958_mic_work(struct work_struct *work)
 {
@@ -4595,6 +4603,14 @@ err_irq:
 	wm8994_free_irq(wm8994->wm8994, WM8994_IRQ_FIFOS_ERR, component);
 	wm8994_free_irq(wm8994->wm8994, WM8994_IRQ_TEMP_SHUT, component);
 	wm8994_free_irq(wm8994->wm8994, WM8994_IRQ_TEMP_WARN, component);
+	if (control->type == WM8994 || control->type == WM1811)
+		cancel_delayed_work_sync(&wm8994->mic_work);
+	cancel_delayed_work_sync(&wm8994->jackdet_bootstrap);
+	/* Catch mic_work re-armed by jackdet_bootstrap running concurrently. */
+	if (control->type == WM8994 || control->type == WM1811)
+		cancel_delayed_work_sync(&wm8994->mic_work);
+	cancel_delayed_work_sync(&wm8994->mic_complete_work);
+	cancel_delayed_work_sync(&wm8994->open_circuit_work);
 
 	return ret;
 }
@@ -4636,10 +4652,35 @@ static void wm8994_component_remove(struct snd_soc_component *component)
 			free_irq(wm8994->micdet_irq, wm8994);
 		break;
 	}
+	if (control->type == WM8994 || control->type == WM1811)
+		cancel_delayed_work_sync(&wm8994->mic_work);
+	cancel_delayed_work_sync(&wm8994->jackdet_bootstrap);
+	/* Catch mic_work re-armed by jackdet_bootstrap running concurrently. */
+	if (control->type == WM8994 || control->type == WM1811)
+		cancel_delayed_work_sync(&wm8994->mic_work);
+	cancel_delayed_work_sync(&wm8994->mic_complete_work);
+	cancel_delayed_work_sync(&wm8994->open_circuit_work);
 	release_firmware(wm8994->mbc);
 	release_firmware(wm8994->mbc_vss);
 	release_firmware(wm8994->enh_eq);
 	kfree(wm8994->retune_mobile_texts);
+}
+
+static int wm8994_set_jack(struct snd_soc_component *component,
+			   struct snd_soc_jack *jack, void *data)
+{
+	struct wm8994_priv *wm8994 = snd_soc_component_get_drvdata(component);
+	struct wm8994 *control = wm8994->wm8994;
+
+	switch (control->type) {
+	case WM8994:
+		return wm8994_mic_detect(component, jack, data ? *(int *)data : 1);
+	case WM1811:
+	case WM8958:
+		return wm8958_mic_detect(component, jack, NULL, NULL, NULL, NULL);
+	default:
+		return -EINVAL;
+	}
 }
 
 static const struct snd_soc_component_driver soc_component_dev_wm8994 = {
@@ -4648,6 +4689,7 @@ static const struct snd_soc_component_driver soc_component_dev_wm8994 = {
 	.suspend		= wm8994_component_suspend,
 	.resume			= wm8994_component_resume,
 	.set_bias_level		= wm8994_set_bias_level,
+	.set_jack		= wm8994_set_jack,
 	.idle_bias_on		= 1,
 	.use_pmdown_time	= 1,
 	.endianness		= 1,

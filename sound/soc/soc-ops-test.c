@@ -11,6 +11,7 @@
 #include <sound/control.h>
 #include <sound/soc.h>
 #include <sound/soc-component.h>
+#include "soc-internal.h"
 
 enum soc_ops_test_control_layout {
 	SOC_OPS_TEST_SINGLE,
@@ -526,12 +527,60 @@ end:
 	kfree(result);
 }
 
+static const char * const fields_test_texts[] = { "A", "B", "C" };
+static SOC_ENUM_SINGLE_DECL(fields_test_enum, 0x2, 4, fields_test_texts);
+static SOC_ENUM_DOUBLE_DECL(fields_test_enum_double, 0x2, 0, 4, fields_test_texts);
+
+static const struct fields_test_param {
+	struct snd_kcontrol_new kctl;
+	int num;
+	struct snd_soc_control_field fields[2];
+} fields_test_params[] = {
+	{ SOC_SINGLE("Single", 0x1, 2, 0x3f, 0), 1, { { 0x1, 0xfc } } },
+	{ SOC_DOUBLE("Double", 0x1, 0, 8, 0xff, 0), 1, { { 0x1, 0xffff } } },
+	{ SOC_DOUBLE_R("Double R", 0x1, 0x2, 1, 0x7, 0), 2,
+	  { { 0x1, 0xe }, { 0x2, 0xe } } },
+	{ SOC_SINGLE_RANGE("Range", 0x1, 4, 2, 5, 0), 1, { { 0x1, 0x70 } } },
+	{ SOC_SINGLE_S_TLV("Signed", 0x1, 0, -8, 7, 3, 0, NULL), 1,
+	  { { 0x1, 0xf } } },
+	{ SOC_SINGLE_SX_TLV("SX", 0x1, 0, 0x10, 0x20, NULL), 1,
+	  { { 0x1, 0x1f } } },
+	{ SOC_ENUM("Enum", fields_test_enum), 1, { { 0x2, 0x30 } } },
+	{ SOC_ENUM("Enum Double", fields_test_enum_double), 1,
+	  { { 0x2, 0x33 } } },
+	{ SOC_SINGLE_EXT("Ext", 0x1, 0, 1, 0, snd_soc_get_volsw, NULL), 0 },
+};
+
+static void soc_ops_test_fields(struct kunit *test)
+{
+	int i, j, num;
+
+	for (i = 0; i < ARRAY_SIZE(fields_test_params); i++) {
+		const struct fields_test_param *param = &fields_test_params[i];
+		struct snd_kcontrol kctl = {
+			.put = param->kctl.put,
+			.private_value = param->kctl.private_value,
+		};
+		struct snd_soc_control_field fields[2] = {};
+
+		num = snd_soc_control_fields(&kctl, fields);
+		KUNIT_EXPECT_EQ_MSG(test, num, param->num, "%s", param->kctl.name);
+		for (j = 0; j < num && j < param->num; j++) {
+			KUNIT_EXPECT_EQ_MSG(test, fields[j].reg,
+					    param->fields[j].reg, "%s", param->kctl.name);
+			KUNIT_EXPECT_EQ_MSG(test, fields[j].mask,
+					    param->fields[j].mask, "%s", param->kctl.name);
+		}
+	}
+}
+
 KUNIT_ARRAY_PARAM(all_info_tests, all_info_test_params, info_test_desc);
 KUNIT_ARRAY_PARAM(all_access_tests, all_access_test_params, access_test_desc);
 
 static struct kunit_case soc_ops_test_cases[] = {
 	KUNIT_CASE_PARAM(soc_ops_test_info, all_info_tests_gen_params),
 	KUNIT_CASE_PARAM(soc_ops_test_access, all_access_tests_gen_params),
+	KUNIT_CASE(soc_ops_test_fields),
 	{}
 };
 
@@ -546,3 +595,4 @@ kunit_test_suites(&soc_ops_test_suite);
 
 MODULE_DESCRIPTION("ASoC soc-ops kunit test");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("EXPORTED_FOR_KUNIT_TESTING");

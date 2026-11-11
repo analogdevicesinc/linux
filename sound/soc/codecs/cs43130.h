@@ -513,6 +513,8 @@ struct	cs43130_private {
 	/* shared by both DAIs */
 	struct mutex			clk_mutex;
 	int				clk_req;
+	/* DAIs holding one of clk_req's references, by DAI id */
+	unsigned long			clk_dais;
 	bool				pll_bypass;
 	struct completion		xtal_rdy;
 	struct completion		pll_rdy;

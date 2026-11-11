@@ -286,22 +286,55 @@ MODULE_DEVICE_TABLE(of, sun50i_dmic_of_match);
 
 static const SNDRV_CTL_TLVD_DECLARE_DB_SCALE(sun50i_dmic_vol_scale, -12000, 75, 1);
 
+static int sun50i_dmic_get_volsw(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(component->dev);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_get_volsw(kcontrol, ucontrol);
+	pm_runtime_put(component->dev);
+
+	return ret;
+}
+
+static int sun50i_dmic_put_volsw(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_component *component = snd_kcontrol_chip(kcontrol);
+	int ret;
+
+	ret = pm_runtime_resume_and_get(component->dev);
+	if (ret < 0)
+		return ret;
+
+	ret = snd_soc_put_volsw(kcontrol, ucontrol);
+	pm_runtime_put(component->dev);
+
+	return ret;
+}
+
 static const struct snd_kcontrol_new sun50i_dmic_controls[] = {
-
-        SOC_DOUBLE_TLV("DMIC Channel 0 Capture Volume", SUN50I_DMIC_D0D1_VOL_CTR,
-                       SUN50I_DMIC_D0D1_VOL_CTR_0L, SUN50I_DMIC_D0D1_VOL_CTR_0R,
-                       0xFF, 0, sun50i_dmic_vol_scale),
-        SOC_DOUBLE_TLV("DMIC Channel 1 Capture Volume", SUN50I_DMIC_D0D1_VOL_CTR,
-                       SUN50I_DMIC_D0D1_VOL_CTR_1L, SUN50I_DMIC_D0D1_VOL_CTR_1R,
-                       0xFF, 0, sun50i_dmic_vol_scale),
-        SOC_DOUBLE_TLV("DMIC Channel 2 Capture Volume", SUN50I_DMIC_D2D3_VOL_CTR,
-                       SUN50I_DMIC_D2D3_VOL_CTR_2L, SUN50I_DMIC_D2D3_VOL_CTR_2R,
-                       0xFF, 0, sun50i_dmic_vol_scale),
-        SOC_DOUBLE_TLV("DMIC Channel 3 Capture Volume", SUN50I_DMIC_D2D3_VOL_CTR,
-                       SUN50I_DMIC_D2D3_VOL_CTR_3L, SUN50I_DMIC_D2D3_VOL_CTR_3R,
-                       0xFF, 0, sun50i_dmic_vol_scale),
-
-
+	SOC_DOUBLE_EXT_TLV("DMIC Channel 0 Capture Volume", SUN50I_DMIC_D0D1_VOL_CTR,
+			   SUN50I_DMIC_D0D1_VOL_CTR_0L, SUN50I_DMIC_D0D1_VOL_CTR_0R,
+			   0xFF, 0, sun50i_dmic_get_volsw, sun50i_dmic_put_volsw,
+			   sun50i_dmic_vol_scale),
+	SOC_DOUBLE_EXT_TLV("DMIC Channel 1 Capture Volume", SUN50I_DMIC_D0D1_VOL_CTR,
+			   SUN50I_DMIC_D0D1_VOL_CTR_1L, SUN50I_DMIC_D0D1_VOL_CTR_1R,
+			   0xFF, 0, sun50i_dmic_get_volsw, sun50i_dmic_put_volsw,
+			   sun50i_dmic_vol_scale),
+	SOC_DOUBLE_EXT_TLV("DMIC Channel 2 Capture Volume", SUN50I_DMIC_D2D3_VOL_CTR,
+			   SUN50I_DMIC_D2D3_VOL_CTR_2L, SUN50I_DMIC_D2D3_VOL_CTR_2R,
+			   0xFF, 0, sun50i_dmic_get_volsw, sun50i_dmic_put_volsw,
+			   sun50i_dmic_vol_scale),
+	SOC_DOUBLE_EXT_TLV("DMIC Channel 3 Capture Volume", SUN50I_DMIC_D2D3_VOL_CTR,
+			   SUN50I_DMIC_D2D3_VOL_CTR_3L, SUN50I_DMIC_D2D3_VOL_CTR_3R,
+			   0xFF, 0, sun50i_dmic_get_volsw, sun50i_dmic_put_volsw,
+			   sun50i_dmic_vol_scale),
 };
 
 static const struct snd_soc_component_driver sun50i_dmic_component = {
@@ -322,16 +355,16 @@ static int sun50i_dmic_runtime_suspend(struct device *dev)
 
 static int sun50i_dmic_runtime_resume(struct device *dev)
 {
-	struct sun50i_dmic_dev *host  = dev_get_drvdata(dev);
+	struct sun50i_dmic_dev *host = dev_get_drvdata(dev);
 	int ret;
 
-	ret = clk_prepare_enable(host->dmic_clk);
+	ret = clk_prepare_enable(host->bus_clk);
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(host->bus_clk);
+	ret = clk_prepare_enable(host->dmic_clk);
 	if (ret) {
-		clk_disable_unprepare(host->dmic_clk);
+		clk_disable_unprepare(host->bus_clk);
 		return ret;
 	}
 

@@ -176,8 +176,7 @@ static int asrc_dmaconfig(struct fsl_asrc_pair *pair,
 		return -EINVAL;
 	}
 
-	pair->desc[dir]->callback = ASRC_xPUT_DMA_CALLBACK(dir);
-	pair->desc[dir]->callback_param = pair;
+	dmaengine_desc_set_callback(pair->desc[dir], ASRC_xPUT_DMA_CALLBACK(dir), NULL, pair);
 
 	return 0;
 }
@@ -258,12 +257,12 @@ static int asrc_m2m_device_run(struct fsl_asrc_pair *pair, struct snd_compr_task
 
 	/* Submit DMA request */
 	dmaengine_submit(pair->desc[IN]);
-	dma_async_issue_pending(pair->desc[IN]->chan);
+	dma_async_issue_pending(pair->dma_chan[IN]);
 	if (out_dma_len > 0) {
 		if (asrc->start_before_dma && asrc->m2m_output_ready)
 			asrc->m2m_output_ready(pair);
 		dmaengine_submit(pair->desc[OUT]);
-		dma_async_issue_pending(pair->desc[OUT]->chan);
+		dma_async_issue_pending(pair->dma_chan[OUT]);
 	}
 
 	if (!asrc->start_before_dma)

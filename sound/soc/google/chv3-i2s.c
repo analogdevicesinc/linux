@@ -234,7 +234,7 @@ static snd_pcm_uframes_t chv3_dma_pointer(struct snd_soc_component *component,
 	u32 frame_bytes, buffer_bytes;
 	u32 idx_bytes;
 
-	frame_bytes = substream->runtime->frame_bits * 8;
+	frame_bytes = substream->runtime->frame_bits / 8;
 	buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
 
 	if (substream->pstr->stream == SNDRV_PCM_STREAM_CAPTURE) {
@@ -303,17 +303,15 @@ static int chv3_i2s_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
-		return -ENXIO;
+		return irq;
 	res = devm_request_irq(i2s->dev, irq, chv3_i2s_isr, 0, "chv3-i2s", i2s);
 	if (res)
 		return res;
 
 	res = devm_snd_soc_register_component(&pdev->dev, &chv3_i2s_comp,
 					      &chv3_i2s_dai, 1);
-	if (res) {
-		dev_err(&pdev->dev, "couldn't register component: %d\n", res);
+	if (res)
 		return res;
-	}
 
 	return 0;
 }

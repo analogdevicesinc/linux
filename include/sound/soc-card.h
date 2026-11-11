@@ -28,6 +28,8 @@ static inline void snd_soc_card_mutex_unlock(struct snd_soc_card *card)
 	mutex_unlock(&card->mutex);
 }
 
+int snd_soc_card_add_controls(struct snd_soc_card *soc_card,
+			      const struct snd_kcontrol_new *controls, int num_controls);
 struct snd_kcontrol *snd_soc_card_get_kcontrol(struct snd_soc_card *soc_card,
 					       const char *name);
 int snd_soc_card_jack_new(struct snd_soc_card *card, const char *id, int type,

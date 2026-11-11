@@ -3386,6 +3386,7 @@ static const struct of_device_id mt8188_afe_pcm_dt_match[] = {
 MODULE_DEVICE_TABLE(of, mt8188_afe_pcm_dt_match);
 
 static const struct dev_pm_ops mt8188_afe_pm_ops = {
+	SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend, pm_runtime_force_resume)
 	RUNTIME_PM_OPS(mt8188_afe_runtime_suspend,
 		       mt8188_afe_runtime_resume, NULL)
 };

@@ -10,8 +10,15 @@
 
 struct device;
 
+enum es8328_type {
+	ES8328_TYPE_ES8328 = 1,
+	ES8328_TYPE_ES8388,
+};
+
 extern const struct regmap_config es8328_regmap_config;
-int es8328_probe(struct device *dev, struct regmap *regmap);
+extern const struct regmap_config es8388_regmap_config;
+int es8328_probe(struct device *dev, struct regmap *regmap,
+		 enum es8328_type type);
 
 #define ES8328_DACLVOL 46
 #define ES8328_DACRVOL 47
@@ -225,6 +232,8 @@ int es8328_probe(struct device *dev, struct regmap *regmap);
 #define ES8328_DACCONTROL21_LI2MOVOL (7 << 3)
 #define ES8328_DACCONTROL21_LI2MO (1 << 6)
 #define ES8328_DACCONTROL21_LD2MO (1 << 7)
+/* Bit 7 is SLRCK on the ES8388 and LD2MO on the ES8328 */
+#define ES8328_DACCONTROL21_SLRCK (1 << 7)
 
 #define ES8328_DACCONTROL22	0x2c
 #define ES8328_DACCONTROL22_RI2MOVOL (7 << 3)

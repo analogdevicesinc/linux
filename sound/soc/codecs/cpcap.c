@@ -1754,14 +1754,14 @@ static const struct snd_soc_component_driver soc_codec_dev_cpcap = {
 
 static int cpcap_codec_probe(struct platform_device *pdev)
 {
-	struct device_node *codec_node =
+	struct device_node *codec_node __free(device_node) =
 		of_get_child_by_name(pdev->dev.parent->of_node, "audio-codec");
 	struct cpcap_audio *cpcap;
 
 	if (!codec_node)
 		return -ENODEV;
 
-	pdev->dev.of_node = codec_node;
+	platform_device_set_of_node(pdev, codec_node);
 
 	cpcap = devm_kzalloc_obj(&pdev->dev, *cpcap);
 	if (!cpcap)

@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/pm.h>
 #include <linux/i2c.h>
@@ -27,6 +28,7 @@
 
 struct rt5631_priv {
 	struct regmap *regmap;
+	struct clk *mclk;
 	int codec_version;
 	int master;
 	int sysclk;
@@ -1536,10 +1538,19 @@ static int rt5631_set_bias_level(struct snd_soc_component *component,
 {
 	struct rt5631_priv *rt5631 = snd_soc_component_get_drvdata(component);
 	struct snd_soc_dapm_context *dapm = snd_soc_component_to_dapm(component);
+	int ret;
 
 	switch (level) {
-	case SND_SOC_BIAS_ON:
 	case SND_SOC_BIAS_PREPARE:
+		if (snd_soc_dapm_get_bias_level(dapm) == SND_SOC_BIAS_ON) {
+			clk_disable_unprepare(rt5631->mclk);
+		} else {
+			ret = clk_prepare_enable(rt5631->mclk);
+			if (ret)
+				return ret;
+		}
+		fallthrough;
+	case SND_SOC_BIAS_ON:
 		snd_soc_component_update_bits(component, RT5631_PWR_MANAG_ADD2,
 			RT5631_PWR_MICBIAS1_VOL | RT5631_PWR_MICBIAS2_VOL,
 			RT5631_PWR_MICBIAS1_VOL | RT5631_PWR_MICBIAS2_VOL);
@@ -1724,6 +1735,11 @@ static int rt5631_i2c_probe(struct i2c_client *i2c)
 	rt5631->regmap = devm_regmap_init_i2c(i2c, &rt5631_regmap_config);
 	if (IS_ERR(rt5631->regmap))
 		return PTR_ERR(rt5631->regmap);
+
+	rt5631->mclk = devm_clk_get_optional(&i2c->dev, "mclk");
+	if (IS_ERR(rt5631->mclk))
+		return dev_err_probe(&i2c->dev, PTR_ERR(rt5631->mclk),
+				     "failed to get the mclk clock\n");
 
 	ret = devm_snd_soc_register_component(&i2c->dev,
 			&soc_component_dev_rt5631,

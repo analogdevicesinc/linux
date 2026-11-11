@@ -89,7 +89,7 @@ static int tegra_wm8962_init(struct snd_soc_pcm_runtime *rtd)
 			return err;
 		}
 
-		wm8962_mic_detect(component, machine->mic_jack);
+		snd_soc_component_set_jack(component, machine->mic_jack, NULL);
 	}
 
 	snd_soc_dapm_force_enable_pin(dapm, "MICBIAS");
@@ -104,7 +104,7 @@ static int tegra_wm8962_remove(struct snd_soc_card *card)
 	struct snd_soc_dai *codec_dai = snd_soc_rtd_to_codec(rtd, 0);
 	struct snd_soc_component *component = codec_dai->component;
 
-	wm8962_mic_detect(component, NULL);
+	snd_soc_component_set_jack(component, NULL, NULL);
 
 	return 0;
 }

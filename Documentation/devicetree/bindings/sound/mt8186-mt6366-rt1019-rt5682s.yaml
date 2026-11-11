@@ -144,7 +144,7 @@ if:
 then:
   properties:
     headset-codec: false
-    speaker-codecs: false
+    playback-codecs: false
 
 examples:
   - |

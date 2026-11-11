@@ -1018,7 +1018,7 @@ static int adcx140_codec_probe(struct snd_soc_component *component)
 	u32 pdm_edges[ADCX140_NUM_PDM_EDGES];
 	u32 pdm_edge_val = 0;
 	int gpi_count;
-	u32 gpi_inputs[ADCX140_NUM_GPI_PINS];
+	u32 gpi_inputs[ADCX140_NUM_GPI_PINS] = {};
 	u32 gpi_input_val = 0;
 	int i;
 	int ret;

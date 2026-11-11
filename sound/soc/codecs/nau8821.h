@@ -563,6 +563,7 @@ struct nau8821 {
 	struct snd_soc_jack *jack;
 	struct delayed_work jdet_work;
 	bool jdet_active;
+	bool suspend_irq_disabled;
 	int irq;
 	int clk_id;
 	int micbias_voltage;

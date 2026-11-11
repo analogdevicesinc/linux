@@ -248,6 +248,17 @@ static void rt721_sdca_jack_detect_handler(struct work_struct *work)
 					RT721_SDCA_ENT_HID01, RT721_BUF_ADDR_HID1,
 					RT721_SDCA_HID_ID);
 
+	if (btn_type < 0) {
+		unsigned int mask = SND_JACK_HEADSET;
+
+		if (rt721->jack_type != SND_JACK_HEADSET)
+			mask |= SND_JACK_BTN_0 | SND_JACK_BTN_1 |
+				SND_JACK_BTN_2 | SND_JACK_BTN_3;
+
+		snd_soc_jack_report(rt721->hs_jack, rt721->jack_type, mask);
+		return;
+	}
+
 	if (rt721->jack_type == 0)
 		btn_type = 0;
 

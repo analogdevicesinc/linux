@@ -104,6 +104,7 @@ config SND_SOC_FSL_EASRC
 
 config SND_SOC_FSL_XCVR
 	tristate "NXP Audio Transceiver (XCVR) module support"
+	select BITREVERSE
 	select REGMAP_MMIO
 	select SND_SOC_IMX_PCM_DMA if SND_IMX_SOC != n
 	select SND_SOC_GENERIC_DMAENGINE_PCM
@@ -116,6 +117,8 @@ config SND_SOC_FSL_XCVR
 config SND_SOC_FSL_AUD2HTX
 	tristate "AUDIO TO HDMI TX module support"
 	depends on ARCH_MXC || COMPILE_TEST
+	select REGMAP_MMIO
+	select SND_SOC_GENERIC_DMAENGINE_PCM
 	select SND_SOC_IMX_PCM_DMA if SND_IMX_SOC != n
 	help
 	  Say Y if you want to add AUDIO TO HDMI TX support for NXP.
@@ -138,6 +141,7 @@ config SND_SOC_FSL_RPMSG
 config SND_SOC_FSL_LPC3XXX
 	tristate "SoC Audio for NXP LPC32XX CPUs"
 	depends on ARCH_LPC32XX || COMPILE_TEST
+	select REGMAP_MMIO
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 	help
 	  Say Y or M if you want to add support for the LPC3XXX I2S interface.

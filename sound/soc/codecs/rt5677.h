@@ -1788,6 +1788,7 @@ struct rt5677_priv {
 #endif
 	bool dsp_vad_en_request; /* DSP VAD enable/disable request */
 	bool dsp_vad_en; /* dsp_work parameter */
+	bool cache_restore_pending;
 	bool is_dsp_mode;
 	bool is_vref_slow;
 	struct delayed_work dsp_work;
@@ -1798,6 +1799,7 @@ struct rt5677_priv {
 	unsigned int irq_en;
 	struct delayed_work resume_irq_check;
 	int irq;
+	bool suspend_irq_disabled;
 
 	int (*set_dsp_vad)(struct snd_soc_component *component, bool on);
 };
