@@ -30,7 +30,6 @@ MODULE_PARM_DESC(map, "Map of attached joysticks in form of <a>,<b> (default is 
 static int amijoy_used;
 static DEFINE_MUTEX(amijoy_mutex);
 static struct input_dev *amijoy_dev[2];
-static char *amijoy_phys[2] = { "amijoy/input0", "amijoy/input1" };
 
 static irqreturn_t amijoy_interrupt(int irq, void *dummy)
 {
@@ -98,17 +97,16 @@ static int __init amijoy_init(void)
 		amijoy_dev[i] = input_allocate_device();
 		if (!amijoy_dev[i]) {
 			err = -ENOMEM;
-			goto fail;
+			goto err_unregister;
 		}
 
 		if (!request_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2, "amijoy [Denise]")) {
-			input_free_device(amijoy_dev[i]);
 			err = -EBUSY;
-			goto fail;
+			goto err_free_dev;
 		}
 
 		amijoy_dev[i]->name = "Amiga joystick";
-		amijoy_dev[i]->phys = amijoy_phys[i];
+		amijoy_dev[i]->phys = i ? "amijoy/input1" : "amijoy/input0";
 		amijoy_dev[i]->id.bustype = BUS_AMIGA;
 		amijoy_dev[i]->id.vendor = 0x0001;
 		amijoy_dev[i]->id.product = 0x0003;
@@ -127,14 +125,17 @@ static int __init amijoy_init(void)
 		}
 
 		err = input_register_device(amijoy_dev[i]);
-		if (err) {
-			input_free_device(amijoy_dev[i]);
-			goto fail;
-		}
+		if (err)
+			goto err_release_mem;
 	}
 	return 0;
 
- fail:	while (--i >= 0)
+err_release_mem:
+	release_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2);
+err_free_dev:
+	input_free_device(amijoy_dev[i]);
+err_unregister:
+	while (--i >= 0)
 		if (amijoy[i]) {
 			input_unregister_device(amijoy_dev[i]);
 			release_mem_region(CUSTOM_PHYSADDR + 10 + i * 2, 2);

@@ -179,18 +179,15 @@ static int bbnsm_pwrkey_probe(struct platform_device *pdev)
 		return error;
 	}
 
-	device_init_wakeup(&pdev->dev, true);
-	error = dev_pm_set_wake_irq(&pdev->dev, bbnsm->irq);
+	error = devm_device_init_wakeup(&pdev->dev);
+	if (error)
+		return error;
+
+	error = devm_pm_set_wake_irq(&pdev->dev, bbnsm->irq);
 	if (error)
 		dev_warn(&pdev->dev, "irq wake enable failed.\n");
 
 	return 0;
-}
-
-static void bbnsm_pwrkey_remove(struct platform_device *pdev)
-{
-	dev_pm_clear_wake_irq(&pdev->dev);
-	device_init_wakeup(&pdev->dev, false);
 }
 
 static int __maybe_unused bbnsm_pwrkey_suspend(struct device *dev)
@@ -229,8 +226,6 @@ static struct platform_driver bbnsm_pwrkey_driver = {
 		.of_match_table = bbnsm_pwrkey_ids,
 	},
 	.probe = bbnsm_pwrkey_probe,
-	.remove = bbnsm_pwrkey_remove,
-
 };
 module_platform_driver(bbnsm_pwrkey_driver);
 

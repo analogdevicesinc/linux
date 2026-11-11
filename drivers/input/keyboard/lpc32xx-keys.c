@@ -39,6 +39,8 @@
 
 #define LPC32XX_KSCAN_DEB_NUM_DEB_PASS(n)	((n) & 0xFF)
 
+#define LPC32XX_MAX_MATRIX_SIZE		8
+
 #define LPC32XX_KSCAN_SCOND_IN_IDLE		0x0
 #define LPC32XX_KSCAN_SCOND_IN_SCANONCE		0x1
 #define LPC32XX_KSCAN_SCOND_IN_IRQGEN		0x2
@@ -65,7 +67,7 @@ struct lpc32xx_kscan_drv {
 	unsigned int row_shift;
 	unsigned short *keymap;	/* Pointer to key map for the scan matrix */
 
-	u8 lastkeystates[8];
+	u8 lastkeystates[LPC32XX_MAX_MATRIX_SIZE];
 };
 
 static void lpc32xx_mod_states(struct lpc32xx_kscan_drv *kscandat, int col)
@@ -141,6 +143,12 @@ static int lpc32xx_parse_dt(struct device *dev,
 		dev_err(dev, "rows and columns must be equal!\n");
 		return -EINVAL;
 	}
+	if (rows > LPC32XX_MAX_MATRIX_SIZE) {
+		dev_err(dev, "rows and columns must be at most %d!\n",
+			LPC32XX_MAX_MATRIX_SIZE);
+		return -EINVAL;
+	}
+
 
 	kscandat->matrix_sz = rows;
 	kscandat->row_shift = get_count_order(columns);

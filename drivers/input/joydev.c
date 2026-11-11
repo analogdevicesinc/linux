@@ -67,22 +67,27 @@ struct joydev_client {
 
 static int joydev_correct(int value, struct js_corr *corr)
 {
+	s64 v64;
+
 	switch (corr->type) {
 
 	case JS_CORR_NONE:
-		break;
+		return clamp(value, -32767, 32767);
 
 	case JS_CORR_BROKEN:
-		value = value > corr->coef[0] ? (value < corr->coef[1] ? 0 :
-			((corr->coef[3] * (value - corr->coef[1])) >> 14)) :
-			((corr->coef[2] * (value - corr->coef[0])) >> 14);
-		break;
+		v64 = value;
+		if (value < corr->coef[0])
+			v64 = (v64 - corr->coef[0]) * corr->coef[2];
+		else if (value > corr->coef[0] && value > corr->coef[1])
+			v64 = (v64 - corr->coef[1]) * corr->coef[3];
+		else
+			return 0;
+
+		return clamp_val(v64 >> 14, -32767, 32767);
 
 	default:
 		return 0;
 	}
-
-	return clamp(value, -32767, 32767);
 }
 
 static void joydev_pass_event(struct joydev_client *client,
@@ -353,8 +358,8 @@ static ssize_t joydev_0x_read(struct joydev_client *client,
 	for (data.buttons = i = 0; i < 32 && i < joydev->nkey; i++)
 		data.buttons |=
 			test_bit(joydev->keypam[i], input->key) ? (1 << i) : 0;
-	data.x = (joydev->abs[0] / 256 + 128) >> joydev->glue.JS_CORR.x;
-	data.y = (joydev->abs[1] / 256 + 128) >> joydev->glue.JS_CORR.y;
+	data.x = (joydev->abs[0] / 256 + 128) >> clamp(joydev->glue.JS_CORR.x, 0, 31);
+	data.y = (joydev->abs[1] / 256 + 128) >> clamp(joydev->glue.JS_CORR.y, 0, 31);
 
 	/*
 	 * Reset reader's event queue

@@ -397,9 +397,9 @@ static int apple_z2_probe(struct spi_device *spi)
 	/* Allocate the axes before setting from DT */
 	input_set_abs_params(z2->input_dev, ABS_MT_POSITION_X, 0, 0, 0, 0);
 	input_set_abs_params(z2->input_dev, ABS_MT_POSITION_Y, 0, 0, 0, 0);
-	touchscreen_parse_properties(z2->input_dev, true, &z2->props);
 	input_abs_set_res(z2->input_dev, ABS_MT_POSITION_X, 100);
 	input_abs_set_res(z2->input_dev, ABS_MT_POSITION_Y, 100);
+	touchscreen_parse_properties(z2->input_dev, true, &z2->props);
 	input_set_abs_params(z2->input_dev, ABS_MT_WIDTH_MAJOR, 0, 65535, 0, 0);
 	input_set_abs_params(z2->input_dev, ABS_MT_WIDTH_MINOR, 0, 65535, 0, 0);
 	input_set_abs_params(z2->input_dev, ABS_MT_TOUCH_MAJOR, 0, 65535, 0, 0);

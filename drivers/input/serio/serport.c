@@ -18,6 +18,7 @@
 #include <linux/serio.h>
 #include <linux/tty.h>
 #include <linux/compat.h>
+#include <linux/workqueue.h>
 
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@ucw.cz>");
 MODULE_DESCRIPTION("Input device TTY line discipline");
@@ -33,6 +34,7 @@ struct serport {
 	wait_queue_head_t wait;
 	struct serio *serio;
 	struct serio_device_id id;
+	struct work_struct write_wakeup;
 	spinlock_t lock;
 	unsigned long flags;
 };
@@ -51,8 +53,13 @@ static int serport_serio_open(struct serio *serio)
 {
 	struct serport *serport = serio->port_data;
 
-	guard(spinlock_irqsave)(&serport->lock);
-	set_bit(SERPORT_ACTIVE, &serport->flags);
+	scoped_guard(spinlock_irqsave, &serport->lock)
+		set_bit(SERPORT_ACTIVE, &serport->flags);
+
+	if (serio->drv->write_wakeup) {
+		enable_work(&serport->write_wakeup);
+		set_bit(TTY_DO_WRITE_WAKEUP, &serport->tty->flags);
+	}
 
 	return 0;
 }
@@ -62,8 +69,20 @@ static void serport_serio_close(struct serio *serio)
 {
 	struct serport *serport = serio->port_data;
 
-	guard(spinlock_irqsave)(&serport->lock);
-	clear_bit(SERPORT_ACTIVE, &serport->flags);
+	scoped_guard(spinlock_irqsave, &serport->lock)
+		clear_bit(SERPORT_ACTIVE, &serport->flags);
+
+	if (serio->drv->write_wakeup) {
+		clear_bit(TTY_DO_WRITE_WAKEUP, &serport->tty->flags);
+		disable_work_sync(&serport->write_wakeup);
+	}
+}
+
+static void serport_write_wakeup(struct work_struct *work)
+{
+	struct serport *serport = container_of(work, struct serport, write_wakeup);
+
+	serio_drv_write_wakeup(serport->serio);
 }
 
 /*
@@ -85,10 +104,11 @@ static int serport_ldisc_open(struct tty_struct *tty)
 	serport->tty = tty;
 	spin_lock_init(&serport->lock);
 	init_waitqueue_head(&serport->wait);
+	INIT_WORK(&serport->write_wakeup, serport_write_wakeup);
+	disable_work(&serport->write_wakeup);
 
 	tty->disc_data = serport;
 	tty->receive_room = 256;
-	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
 
 	return 0;
 }
@@ -239,6 +259,10 @@ static void serport_ldisc_hangup(struct tty_struct *tty)
 {
 	struct serport *serport = tty->disc_data;
 
+	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+	/* Keep work disabled even if a driver opens the port during hangup. */
+	disable_work_sync(&serport->write_wakeup);
+
 	scoped_guard(spinlock_irqsave, &serport->lock)
 		set_bit(SERPORT_DEAD, &serport->flags);
 
@@ -249,10 +273,8 @@ static void serport_ldisc_write_wakeup(struct tty_struct * tty)
 {
 	struct serport *serport = tty->disc_data;
 
-	guard(spinlock_irqsave)(&serport->lock);
-
-	if (test_bit(SERPORT_ACTIVE, &serport->flags))
-		serio_drv_write_wakeup(serport->serio);
+	/* A serio driver may write to the TTY, so defer the callback. */
+	schedule_work(&serport->write_wakeup);
 }
 
 /*

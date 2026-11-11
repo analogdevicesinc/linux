@@ -414,6 +414,17 @@ static int titsc_parse_dt(struct platform_device *pdev,
  * The functions for inserting/removing driver as a module.
  */
 
+static void titsc_se_clr(void *data)
+{
+	struct titsc *ts_dev = data;
+	u32 steps;
+
+	/* total steps followed by the enable mask */
+	steps = 2 * ts_dev->coordinate_readouts + 2;
+	steps = (1 << steps) - 1;
+	am335x_tsc_se_clr(ts_dev->mfd_tscadc, steps);
+}
+
 static int titsc_probe(struct platform_device *pdev)
 {
 	struct titsc *ts_dev;
@@ -421,14 +432,13 @@ static int titsc_probe(struct platform_device *pdev)
 	struct ti_tscadc_dev *tscadc_dev = ti_tscadc_dev_get(pdev);
 	int err;
 
-	/* Allocate memory for device */
-	ts_dev = kzalloc_obj(*ts_dev);
-	input_dev = input_allocate_device();
-	if (!ts_dev || !input_dev) {
-		dev_err(&pdev->dev, "failed to allocate memory.\n");
-		err = -ENOMEM;
-		goto err_free_mem;
-	}
+	ts_dev = devm_kzalloc(&pdev->dev, sizeof(*ts_dev), GFP_KERNEL);
+	if (!ts_dev)
+		return -ENOMEM;
+
+	input_dev = devm_input_allocate_device(&pdev->dev);
+	if (!input_dev)
+		return -ENOMEM;
 
 	tscadc_dev->tsc = ts_dev;
 	ts_dev->mfd_tscadc = tscadc_dev;
@@ -439,20 +449,8 @@ static int titsc_probe(struct platform_device *pdev)
 	err = titsc_parse_dt(pdev, ts_dev);
 	if (err) {
 		dev_err(&pdev->dev, "Could not find valid DT data.\n");
-		goto err_free_mem;
+		return err;
 	}
-
-	err = request_irq(ts_dev->irq, titsc_irq,
-			  IRQF_SHARED, pdev->dev.driver->name, ts_dev);
-	if (err) {
-		dev_err(&pdev->dev, "failed to allocate irq.\n");
-		goto err_free_mem;
-	}
-
-	device_init_wakeup(&pdev->dev, true);
-	err = dev_pm_set_wake_irq(&pdev->dev, ts_dev->irq);
-	if (err)
-		dev_err(&pdev->dev, "irq wake enable failed.\n");
 
 	titsc_writel(ts_dev, REG_IRQSTATUS, TSC_IRQENB_MASK);
 	titsc_writel(ts_dev, REG_IRQENABLE, IRQENB_FIFO0THRES);
@@ -460,14 +458,32 @@ static int titsc_probe(struct platform_device *pdev)
 	err = titsc_config_wires(ts_dev);
 	if (err) {
 		dev_err(&pdev->dev, "wrong i/p wire configuration\n");
-		goto err_free_irq;
+		return err;
 	}
 	titsc_step_config(ts_dev);
 	titsc_writel(ts_dev, REG_FIFO0THR,
 			ts_dev->coordinate_readouts * 2 + 2 - 1);
 
+	err = devm_add_action_or_reset(&pdev->dev, titsc_se_clr, ts_dev);
+	if (err)
+		return err;
+
+	err = devm_request_irq(&pdev->dev, ts_dev->irq, titsc_irq, IRQF_SHARED,
+			       pdev->dev.driver->name, ts_dev);
+	if (err) {
+		dev_err(&pdev->dev, "failed to allocate irq.\n");
+		return err;
+	}
+
+	err = devm_device_init_wakeup(&pdev->dev);
+	if (err)
+		dev_err(&pdev->dev, "device init wakeup failed.\n");
+
+	err = devm_pm_set_wake_irq(&pdev->dev, ts_dev->irq);
+	if (err)
+		dev_err(&pdev->dev, "irq wake enable failed.\n");
+
 	input_dev->name = "ti-tsc";
-	input_dev->dev.parent = &pdev->dev;
 
 	input_dev->evbit[0] = BIT_MASK(EV_KEY) | BIT_MASK(EV_ABS);
 	input_dev->keybit[BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH);
@@ -479,38 +495,10 @@ static int titsc_probe(struct platform_device *pdev)
 	/* register to the input system */
 	err = input_register_device(input_dev);
 	if (err)
-		goto err_free_irq;
+		return err;
 
 	platform_set_drvdata(pdev, ts_dev);
 	return 0;
-
-err_free_irq:
-	dev_pm_clear_wake_irq(&pdev->dev);
-	device_init_wakeup(&pdev->dev, false);
-	free_irq(ts_dev->irq, ts_dev);
-err_free_mem:
-	input_free_device(input_dev);
-	kfree(ts_dev);
-	return err;
-}
-
-static void titsc_remove(struct platform_device *pdev)
-{
-	struct titsc *ts_dev = platform_get_drvdata(pdev);
-	u32 steps;
-
-	dev_pm_clear_wake_irq(&pdev->dev);
-	device_init_wakeup(&pdev->dev, false);
-	free_irq(ts_dev->irq, ts_dev);
-
-	/* total steps followed by the enable mask */
-	steps = 2 * ts_dev->coordinate_readouts + 2;
-	steps = (1 << steps) - 1;
-	am335x_tsc_se_clr(ts_dev->mfd_tscadc, steps);
-
-	input_unregister_device(ts_dev->input);
-
-	kfree(ts_dev);
 }
 
 static int titsc_suspend(struct device *dev)
@@ -554,7 +542,6 @@ MODULE_DEVICE_TABLE(of, ti_tsc_dt_ids);
 
 static struct platform_driver ti_tsc_driver = {
 	.probe	= titsc_probe,
-	.remove	= titsc_remove,
 	.driver	= {
 		.name	= "TI-am335x-tsc",
 		.pm	= pm_sleep_ptr(&titsc_pm_ops),

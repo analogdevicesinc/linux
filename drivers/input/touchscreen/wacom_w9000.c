@@ -249,7 +249,6 @@ static int wacom_w9000_probe(struct i2c_client *client)
 	struct wacom_w9000_data *wacom_data;
 	struct input_dev *input_dev;
 	int error;
-	u32 val;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(dev, "i2c_check_functionality error\n");
@@ -349,15 +348,6 @@ static int wacom_w9000_probe(struct i2c_client *client)
 
 	dev_info(dev, "%s size X%uY%u\n", wacom_data->variant->name,
 		 wacom_data->prop.max_x, wacom_data->prop.max_y);
-
-	error = device_property_read_u32(dev, "touchscreen-x-mm", &val);
-	if (!error && val)
-		input_abs_set_res(input_dev, wacom_data->prop.swap_x_y ? ABS_Y : ABS_X,
-				  wacom_data->prop.max_x / val);
-	error = device_property_read_u32(dev, "touchscreen-y-mm", &val);
-	if (!error && val)
-		input_abs_set_res(input_dev, wacom_data->prop.swap_x_y ? ABS_X : ABS_Y,
-				  wacom_data->prop.max_y / val);
 
 	error = input_register_device(wacom_data->input_dev);
 	if (error)

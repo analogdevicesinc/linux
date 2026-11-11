@@ -626,8 +626,6 @@ static int goodix_berlin_input_dev_config(struct goodix_berlin_core *cd,
 			     0, SZ_64K - 1, 0, 0);
 	input_set_abs_params(cd->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 
-	touchscreen_parse_properties(cd->input_dev, true, &cd->props);
-
 	/*
 	 * The resolution of these touchscreens is about 10 units/mm, the actual
 	 * resolution does not matter much since we set INPUT_PROP_DIRECT.
@@ -635,6 +633,8 @@ static int goodix_berlin_input_dev_config(struct goodix_berlin_core *cd,
 	 */
 	input_abs_set_res(cd->input_dev, ABS_MT_POSITION_X, 10);
 	input_abs_set_res(cd->input_dev, ABS_MT_POSITION_Y, 10);
+
+	touchscreen_parse_properties(cd->input_dev, true, &cd->props);
 
 	error = input_mt_init_slots(cd->input_dev, GOODIX_BERLIN_MAX_TOUCH,
 				    INPUT_MT_DIRECT | INPUT_MT_DROP_UNUSED);
