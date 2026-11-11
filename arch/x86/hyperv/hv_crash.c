@@ -512,20 +512,20 @@ static void hv_crash_build_tramp_pt(void)
 	pte_t *pte;
 	u64 pa, addr = trampoline_pa;
 
-	p4d = hv_crash_ptpgs[0] + pgd_index(addr) * sizeof(p4d);
+	p4d = hv_crash_ptpgs[0] + pgd_index(addr) * sizeof(*p4d);
 	pa = virt_to_phys(hv_crash_ptpgs[1]);
 	set_p4d(p4d, __p4d(_PAGE_TABLE | pa));
 	p4d->p4d &= ~(_PAGE_NX);	/* enable execute */
 
-	pud = hv_crash_ptpgs[1] + pud_index(addr) * sizeof(pud);
+	pud = hv_crash_ptpgs[1] + pud_index(addr) * sizeof(*pud);
 	pa = virt_to_phys(hv_crash_ptpgs[2]);
 	set_pud(pud, __pud(_PAGE_TABLE | pa));
 
-	pmd = hv_crash_ptpgs[2] + pmd_index(addr) * sizeof(pmd);
+	pmd = hv_crash_ptpgs[2] + pmd_index(addr) * sizeof(*pmd);
 	pa = virt_to_phys(hv_crash_ptpgs[3]);
 	set_pmd(pmd, __pmd(_PAGE_TABLE | pa));
 
-	pte = hv_crash_ptpgs[3] + pte_index(addr) * sizeof(pte);
+	pte = hv_crash_ptpgs[3] + pte_index(addr) * sizeof(*pte);
 	set_pte(pte, pfn_pte(addr >> PAGE_SHIFT, PAGE_KERNEL_EXEC));
 }
 
