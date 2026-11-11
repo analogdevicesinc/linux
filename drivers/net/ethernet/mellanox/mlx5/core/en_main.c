@@ -5489,7 +5489,7 @@ static void mlx5e_get_queue_stats_rx(struct net_device *dev, int i,
 	struct mlx5e_rq_stats *xskrq_stats;
 	struct mlx5e_rq_stats *rq_stats;
 
-	if (mlx5e_is_uplink_rep(priv) || !mlx5e_stats_nch_read(priv))
+	if (mlx5e_is_uplink_rep(priv) || i >= mlx5e_stats_nch_read(priv))
 		return;
 
 	channel_stats = priv->channel_stats[i];
@@ -5521,6 +5521,9 @@ static void mlx5e_get_queue_stats_tx(struct net_device *dev, int i,
 	 * inactive sqs.
 	 */
 	sq_stats = priv->txq2sq_stats[i];
+	if (!sq_stats)
+		return;
+
 	stats->packets = sq_stats->packets;
 	stats->bytes = sq_stats->bytes;
 
@@ -6382,7 +6385,7 @@ int mlx5e_priv_init(struct mlx5e_priv *priv,
 	node = dev_to_node(mlx5_core_dma_dev(mdev));
 
 	/* priv init */
-	priv->mdev        = mdev;
+	WRITE_ONCE(priv->mdev, mdev);
 	priv->netdev      = netdev;
 	priv->max_nch     = nch;
 	priv->max_opened_tc = 1;
@@ -6467,6 +6470,8 @@ void mlx5e_priv_cleanup(struct mlx5e_priv *priv)
 		mlx5e_mqprio_rl_free(priv->mqprio_rl);
 	}
 
+	/* Clear atomically before memset() for lockless XFRM readers. */
+	WRITE_ONCE(priv->mdev, NULL);
 	memset(priv, 0, sizeof(*priv));
 	if (destroying) /* restore destroying bit, to allow unload */
 		set_bit(MLX5E_STATE_DESTROYING, &priv->state);
