@@ -43,7 +43,7 @@ void menu_warn(const struct menu *menu, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	fprintf(stderr, "%s:%d:warning: ", menu->filename, menu->lineno);
+	fprintf(stderr, "%s:%d: warning: ", menu->filename, menu->lineno);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	va_end(ap);
@@ -53,7 +53,17 @@ static void prop_warn(const struct property *prop, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	fprintf(stderr, "%s:%d:warning: ", prop->filename, prop->lineno);
+	fprintf(stderr, "%s:%d: warning: ", prop->filename, prop->lineno);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	va_end(ap);
+}
+
+static void prop_err(const struct property *prop, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	fprintf(stderr, "%s:%d: error: ", prop->filename, prop->lineno);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
 	va_end(ap);
@@ -246,18 +256,15 @@ static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 
 	if (sym2->type != S_UNKNOWN ||
 		!sym_string_valid(sym, sym2->name)) {
-		fprintf(stderr, "%s:%d: error: '%s' is an invalid value for '%s'\n",
-			prop->filename, prop->lineno, sym2->name,
-			sym_type_name(sym->type));
+		prop_err(prop, "'%s' is an invalid value for '%s'",
+			 sym2->name, sym_type_name(sym->type));
 		return 1;
 	}
 
 	if (!sym_string_check_bounds(sym, sym2->name)) {
-		fprintf(stderr,
-			"%s:%d: error: %s constant '%s' is outside the 64-bit %s bounds\n",
-			prop->filename, prop->lineno, sym_type_name(sym->type),
-			sym2->name, sym->type == S_INT ? "signed" : "unsigned");
-
+		prop_err(prop, "%s constant '%s' is outside the 64-bit %s bounds",
+			 sym_type_name(sym->type), sym2->name,
+			 sym->type == S_INT ? "signed" : "unsigned");
 		return 1;
 	}
 
@@ -267,9 +274,9 @@ static int menu_validate_number(struct symbol *sym, struct symbol *sym2,
 static int sym_check_prop(struct symbol *sym)
 {
 	struct property *prop;
-	struct symbol *sym2;
+	struct symbol *sym2, *lower, *upper;
 	char *use;
-	int errors = 0;
+	int errors = 0, numeric_errors;
 
 	for (prop = sym->prop; prop; prop = prop->next) {
 		switch (prop->type) {
@@ -318,8 +325,22 @@ static int sym_check_prop(struct symbol *sym)
 			if (sym->type != S_INT && sym->type != S_HEX)
 				prop_warn(prop, "range is only allowed "
 						"for int or hex symbols");
-			errors += menu_validate_number(sym, prop->expr->left.sym, prop);
-			errors += menu_validate_number(sym, prop->expr->right.sym, prop);
+			lower = prop->expr->left.sym;
+			upper = prop->expr->right.sym;
+			numeric_errors = menu_validate_number(sym, lower, prop);
+			numeric_errors += menu_validate_number(sym, upper, prop);
+			errors += numeric_errors;
+			if (numeric_errors || lower->type != S_UNKNOWN || upper->type != S_UNKNOWN)
+				break;
+
+			if ((sym->type == S_INT &&
+				strtoll(lower->name, NULL, 10) > strtoll(upper->name, NULL, 10)) ||
+				(sym->type == S_HEX &&
+				strtoull(lower->name, NULL, 16) > strtoull(upper->name, NULL, 16))) {
+				prop_err(prop, "range lower limit '%s' is greater than upper limit '%s'",
+					lower->name, upper->name);
+				errors++;
+			}
 			break;
 		default:
 			;

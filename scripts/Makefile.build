@@ -558,7 +558,10 @@ endif
 # Single targets
 # ---------------------------------------------------------------------------
 
-single-subdirs := $(foreach d, $(subdir-ym), $(if $(filter $d/%, $(MAKECMDGOALS)), $d))
+# A single target may match nested entries in subdir-ym.  Descend through only
+# the deepest match so that two recursive makes do not build the same target.
+single-subdir = $(lastword $(sort $(foreach d, $(subdir-ym), $(if $(filter $d/%, $(1)), $d))))
+single-subdirs := $(sort $(foreach g, $(MAKECMDGOALS), $(call single-subdir, $g)))
 single-subdir-goals := $(filter $(addsuffix /%, $(single-subdirs)), $(MAKECMDGOALS))
 
 $(single-subdir-goals): $(single-subdirs)
@@ -572,7 +575,8 @@ $(subdir-ym):
 	$(Q)$(MAKE) $(build)=$@ \
 	need-builtin=$(if $(filter $@/built-in.a, $(subdir-builtin)),1) \
 	need-modorder=$(if $(filter $@/modules.order, $(subdir-modorder)),1) \
-	$(filter $@/%, $(single-subdir-goals))
+	$(filter-out $(addsuffix /%, $(filter $@/%, $(single-subdirs))), \
+		$(filter $@/%, $(single-subdir-goals)))
 
 # Add FORCE to the prerequisites of a target to force it to be always rebuilt.
 # ---------------------------------------------------------------------------

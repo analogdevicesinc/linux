@@ -293,26 +293,32 @@ void variable_add(const char *name, const char *value,
 		if (flavor == VAR_APPEND) {
 			flavor = v->flavor;
 			append = true;
-		} else {
-			free(v->value);
 		}
 	} else {
 		/* For undefined variables, += assumes the recursive flavor */
 		if (flavor == VAR_APPEND)
 			flavor = VAR_RECURSIVE;
+	}
 
+	/*
+	 * Expand the value before touching the variable because the
+	 * right-hand side may refer to the variable itself, like
+	 * "X := $(X) foo".
+	 */
+	if (flavor == VAR_SIMPLE)
+		new_value = expand_string(value);
+	else
+		new_value = xstrdup(value);
+
+	if (!v) {
 		v = xmalloc(sizeof(*v));
 		v->name = xstrdup(name);
+		v->value = NULL;
 		v->exp_count = 0;
 		list_add_tail(&v->node, &variable_list);
 	}
 
 	v->flavor = flavor;
-
-	if (flavor == VAR_SIMPLE)
-		new_value = expand_string(value);
-	else
-		new_value = xstrdup(value);
 
 	if (append) {
 		v->value = xrealloc(v->value,
@@ -321,6 +327,7 @@ void variable_add(const char *name, const char *value,
 		strcat(v->value, new_value);
 		free(new_value);
 	} else {
+		free(v->value);
 		v->value = new_value;
 	}
 }

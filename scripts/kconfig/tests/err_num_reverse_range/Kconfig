@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: GPL-2.0
+# Check constant range bounds.
+
+config INT_ORDERED
+	int
+	range -10 10
+
+config INT_EQUAL
+	int
+	range 5 5
+
+config HEX_ORDERED
+	hex
+	range 0x7fffffffffffffff 0xffffffffffffffff
+
+config HEX_EQUAL
+	hex
+	range 0xffffffffffffffff 0xffffffffffffffff
+
+# Skip ranges with symbolic bounds.
+
+config INT_LOWER
+	int
+
+config INT_UPPER
+	int
+
+config INT_SYMBOL_LOWER
+	int
+	range INT_LOWER 0
+
+config INT_SYMBOL_UPPER
+	int
+	range 0 INT_UPPER
+
+config INT_SYMBOL_BOTH
+	int
+	range INT_LOWER INT_UPPER
+
+config HEX_LOWER
+	hex
+
+config HEX_UPPER
+	hex
+
+config HEX_SYMBOL_LOWER
+	hex
+	range HEX_LOWER 0x0
+
+config HEX_SYMBOL_UPPER
+	hex
+	range 0x0 HEX_UPPER
+
+config HEX_SYMBOL_BOTH
+	hex
+	range HEX_LOWER HEX_UPPER
+
+# Reject reversed constant bounds.
+
+config INT_REVERSED
+	int
+	range 10 2
+
+config INT_REVERSED_NEGATIVE
+	int
+	range -1 -10
+
+config INT_REVERSED_SIGNED
+	int
+	range 1 -1
+
+config INT_REVERSED_QUOTED
+	int
+	range "8" "2"
+
+config HEX_REVERSED
+	hex
+	range 0x10 0xf
+
+config HEX_REVERSED_HIGH
+	hex
+	range 0xffffffffffffffff 0x8000000000000000
+
+config HEX_REVERSED_UNPREFIXED
+	hex
+	range f a
+
+# Check each conditional range independently.
+
+config RANGE_CONDITION
+	bool
+
+config INT_REVERSED_FIRST
+	int
+	range 10 2 if RANGE_CONDITION
+	range -10 10 if !RANGE_CONDITION
+
+config INT_REVERSED_SECOND
+	int
+	range -10 10 if RANGE_CONDITION
+	range 10 2 if !RANGE_CONDITION
+
+config HEX_REVERSED_FIRST
+	hex
+	range 0x10 0xf if RANGE_CONDITION
+	range 0x0 0x10 if !RANGE_CONDITION
+
+config HEX_REVERSED_SECOND
+	hex
+	range 0x0 0x10 if RANGE_CONDITION
+	range 0x10 0xf if !RANGE_CONDITION

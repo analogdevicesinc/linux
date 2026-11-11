@@ -10,6 +10,7 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/cpufeature.h>
+#include <linux/device-id/ap.h>
 
 #include "zcrypt_ccamisc.h"
 #include "zcrypt_ep11misc.h"
