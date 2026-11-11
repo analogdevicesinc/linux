@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/if_vlan.h>
 #include <linux/module.h>
 #include <linux/open_alliance.h>
 #include <linux/property.h>
@@ -605,6 +606,27 @@ static int open_alliance_transfer(struct open_alliance *oa)
 	return 0;
 }
 
+/* Wake the TX queues that were stopped because the TX chunk fifo was full. */
+static void open_alliance_wake_queues(struct open_alliance *oa)
+{
+	struct net_device *netdev;
+	u32 max_frame;
+	int i;
+
+	/* Pairs with the barrier after netif_stop_queue() in the transmit path. */
+	smp_mb();
+
+	for (i = 0; i < oa->nr_ports; i++) {
+		netdev = oa->netdevs[i];
+		if (!netif_running(netdev) || !netif_queue_stopped(netdev))
+			continue;
+
+		max_frame = round_up(netdev->mtu + VLAN_ETH_HLEN, oa->chunk_size);
+		if (open_alliance_tx_space(oa) >= max_frame)
+			netif_wake_queue(netdev);
+	}
+}
+
 static int open_alliance_spi_transfer(void *pv)
 {
 	struct open_alliance *oa = pv;
@@ -636,6 +658,8 @@ static int open_alliance_spi_transfer(void *pv)
 				break;
 		}
 		mutex_unlock(&oa->spi_lock);
+
+		open_alliance_wake_queues(oa);
 	}
 
 	return 0;
