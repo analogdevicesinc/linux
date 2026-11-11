@@ -37,7 +37,7 @@ properties:
     maxItems: 1
 
 patternProperties:
-  ".*@[0-9]+$":
+  ".*@[0-9a-f]+$":
     type: object
     $ref: mc-peripheral-props.yaml#
     additionalProperties: true

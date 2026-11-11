@@ -174,7 +174,7 @@ allOf:
             - const: mfc
         iommus:
           maxItems: 2
-        iommus-names: false
+        iommu-names: false
 
 examples:
   - |

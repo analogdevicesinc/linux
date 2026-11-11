@@ -80,7 +80,7 @@ allOf:
         - resets
     else:
       properties:
-        "#interrupts-cells": false
+        "#interrupt-cells": false
         interrupt-controller: false
         resets: false
 

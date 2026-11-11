@@ -104,3 +104,6 @@ static_test_1-dtbs := static_base_1.dtb $(apply_static_overlay_1)
 static_test_2-dtbs := static_base_2.dtb $(apply_static_overlay_2)
 
 dtb-$(CONFIG_OF_OVERLAY) += static_test_1.dtb static_test_2.dtb
+
+# Include the static overlay tests in normal kernel builds.
+always-$(CONFIG_OF_OVERLAY) += static_test_1.dtb static_test_2.dtb

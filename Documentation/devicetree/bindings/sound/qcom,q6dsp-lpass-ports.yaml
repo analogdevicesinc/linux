@@ -28,7 +28,7 @@ properties:
 
 # Digital Audio Interfaces
 patternProperties:
-  '^dai@[0-9]+$':
+  '^dai@[0-9a-f]+$':
     type: object
     description:
       Q6DSP Digital Audio Interfaces.

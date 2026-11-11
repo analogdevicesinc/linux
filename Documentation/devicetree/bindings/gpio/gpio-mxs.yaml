@@ -36,7 +36,7 @@ properties:
     maxItems: 1
 
 patternProperties:
-  '^(?!gpio@)[^@]+@[0-9]+$':
+  '^(?!gpio@)[^@]+@[0-9a-f]+$':
     type: object
     properties:
       fsl,pinmux-ids:
@@ -94,7 +94,7 @@ patternProperties:
 
     additionalProperties: false
 
-  '^gpio@[0-9]+$':
+  '^gpio@[0-9a-f]+$':
     type: object
     properties:
       compatible:

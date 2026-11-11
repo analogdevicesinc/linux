@@ -46,7 +46,7 @@ properties:
   wakeup-source: true
 
 patternProperties:
-  "^button@[0-9]+$":
+  "^button@[0-9a-f]+$":
     type: object
     $ref: ../input.yaml#
     properties:

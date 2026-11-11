@@ -109,7 +109,7 @@ properties:
       - compatible
 
 patternProperties:
-  "^trigger@[0-9]+$":
+  "^trigger@[0-4]$":
     type: object
     additionalProperties: false
 

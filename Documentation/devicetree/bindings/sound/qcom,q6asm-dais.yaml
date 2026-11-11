@@ -32,7 +32,7 @@ properties:
     const: 0
 
 patternProperties:
-  "^dai@[0-9]+$":
+  "^dai@[0-9a-f]+$":
     type: object
     description:
       Q6ASM Digital Audio Interface

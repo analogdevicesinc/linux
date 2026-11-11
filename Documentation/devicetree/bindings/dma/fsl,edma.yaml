@@ -172,7 +172,7 @@ allOf:
             const: fsl,imx7ulp-edma
     then:
       properties:
-        clock:
+        clocks:
           minItems: 2
           maxItems: 2
         clock-names:

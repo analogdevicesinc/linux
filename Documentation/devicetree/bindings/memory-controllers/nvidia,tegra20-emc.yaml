@@ -142,7 +142,7 @@ $defs:
     additionalProperties: false
 
 patternProperties:
-  "^emc-table@[0-9]+$":
+  "^emc-table@[0-9a-f]+$":
     $ref: "#/$defs/emc-table"
 
   "^emc-tables@[a-f0-9-]+$":
@@ -169,7 +169,7 @@ patternProperties:
         type: object
 
     patternProperties:
-      "^emc-table@[0-9]+$":
+      "^emc-table@[0-9a-f]+$":
         $ref: "#/$defs/emc-table"
 
     oneOf:

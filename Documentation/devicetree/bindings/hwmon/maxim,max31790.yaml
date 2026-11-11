@@ -45,7 +45,7 @@ properties:
     const: 1
 
 patternProperties:
-  "^fan@[0-9]+$":
+  "^fan@[0-9a-f]+$":
     $ref: fan-common.yaml#
     unevaluatedProperties: false
 
