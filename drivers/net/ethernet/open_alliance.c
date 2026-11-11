@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
+#include <linux/delay.h>
 #include <linux/if_vlan.h>
 #include <linux/module.h>
 #include <linux/open_alliance.h>
@@ -19,6 +20,8 @@
 /* SPI thread: poll period when idle, and delay before a retry after an SPI error */
 #define OPEN_ALLIANCE_POLL_MS		5000
 #define OPEN_ALLIANCE_RETRY_MS		10
+/* SPI thread: pause when the device has no room for a TX chunk */
+#define OPEN_ALLIANCE_NO_CREDIT_US	500
 
 static int open_alliance_chunk_sizes_map[][4] = {
 	{ 8, 0x3 },
@@ -678,10 +681,11 @@ static int open_alliance_spi_transfer(void *pv)
 			oa->txc = FIELD_GET(OPEN_ALLIANCE_BUFSTS_TXC, val);
 		}
 
-		mutex_lock(&oa->spi_lock);
 		while (oa->rca || kfifo_len(&oa->tx_chunks_kfifo)) {
 
+			mutex_lock(&oa->spi_lock);
 			ret = open_alliance_transfer(oa);
+			mutex_unlock(&oa->spi_lock);
 			if (ret < 0) {
 				dev_err_ratelimited(&oa->spidev->dev,
 						    "Data transfer error: %d\n", ret);
@@ -693,8 +697,12 @@ static int open_alliance_spi_transfer(void *pv)
 
 			if (kthread_should_stop())
 				break;
+
+			/* No credit to send and nothing to receive. */
+			if (!oa->rca && !oa->txc)
+				usleep_range(OPEN_ALLIANCE_NO_CREDIT_US,
+					     2 * OPEN_ALLIANCE_NO_CREDIT_US);
 		}
-		mutex_unlock(&oa->spi_lock);
 
 		open_alliance_wake_queues(oa);
 	}
