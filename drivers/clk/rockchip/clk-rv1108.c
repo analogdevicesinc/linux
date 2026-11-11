@@ -813,8 +813,7 @@ static void __init rv1108_clk_init(struct device_node *np)
 			&rv1108_cpuclk_data, rv1108_cpuclk_rates,
 			ARRAY_SIZE(rv1108_cpuclk_rates));
 
-	rockchip_register_softrst(np, 13, reg_base + RV1108_SOFTRST_CON(0),
-				  ROCKCHIP_SOFTRST_HIWORD_MASK);
+	rockchip_register_softrst(np, 13, reg_base + RV1108_SOFTRST_CON(0));
 
 	rockchip_register_restart_notifier(ctx, RV1108_GLB_SRST_FST, NULL);
 

@@ -14,7 +14,6 @@
 #include <linux/clocksource.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/map.h>
-#include "core.h"
 #include "pm.h"
 
 #define RK3288_TIMER6_7_PHYS 0xff810000

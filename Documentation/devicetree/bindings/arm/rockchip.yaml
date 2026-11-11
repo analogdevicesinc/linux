@@ -99,6 +99,12 @@ properties:
           - const: armsom,sige7
           - const: rockchip,rk3588
 
+      - description: ArmSoM Sige7s board
+        items:
+          - const: armsom,sige7s
+          - const: coolpi,pi-4b
+          - const: rockchip,rk3588s
+
       - description: ArmSoM LM7 SoM
         items:
           - enum:
@@ -392,6 +398,7 @@ properties:
         items:
           - enum:
               - friendlyarm,nanopi-m6
+              - friendlyarm,nanopi-m6v2
               - friendlyarm,nanopi-r6c
               - friendlyarm,nanopi-r6s
           - const: rockchip,rk3588s
@@ -1380,6 +1387,11 @@ properties:
         items:
           - const: vicharak,axon
           - const: rockchip,rk3588
+
+      - description: Vicharak Axon Lite
+        items:
+          - const: vicharak,axon-lite
+          - const: rockchip,rk3576
 
       - description: Vicharak Vaaman
         items:

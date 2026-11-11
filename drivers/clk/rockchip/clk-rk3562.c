@@ -411,7 +411,7 @@ static struct rockchip_clk_branch rk3562_clk_branches[] __initdata = {
 
 	/* PD_DDR */
 	FACTOR_GATE(0, "clk_gpll_mux_to_ddr", "gpll", 0, 1, 4,
-			RK3328_CLKGATE_CON(1), 6, GFLAGS),
+			RK3562_DDR_CLKGATE_CON(0), 0, GFLAGS),
 	COMPOSITE_NOMUX(PCLK_DDR, "pclk_ddr", "clk_gpll_mux_to_ddr", CLK_IS_CRITICAL,
 			RK3562_DDR_CLKSEL_CON(1), 8, 5, DFLAGS,
 			RK3562_DDR_CLKGATE_CON(0), 3, GFLAGS),
