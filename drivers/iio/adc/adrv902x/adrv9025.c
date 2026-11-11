@@ -1662,6 +1662,45 @@ static u8 *adrv9025_cfr_max_peaks_field(struct adrv9025_cfr_chan *cfr,
 	}
 }
 
+/*
+ * Push new peak/correction thresholds to a channel on which the CFR init cal
+ * has already run (UG-1727, "Modifying CFR Thresholds On-the-Fly"). Only the
+ * threshold fields are changed; the rest of the control config is read back
+ * from the device so staged non-threshold settings are not applied early.
+ */
+static int adrv9025_cfr_thresholds_update(struct adrv9025_rf_phy *phy, int ch)
+{
+	adi_adrv9025_CfrCtrlConfig_v2_t ctrl = { 0 };
+	struct adrv9025_cfr_chan *cfr = &phy->cfr[ch];
+	int ret;
+
+	ret = adi_adrv9025_CfrCtrlConfigGet_v2(phy->madDevice,
+					       ADI_ADRV9025_TX1 << ch, &ctrl);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	ctrl.txChannelMask = BIT(ch);
+	ctrl.cfrPeakThreshold_xM = cfr->ctrl.cfrPeakThreshold_xM;
+	ctrl.cfrCorrectionThresholdScaler_xM =
+		cfr->ctrl.cfrCorrectionThresholdScaler_xM;
+	ctrl.cfrEngine1PeakThresholdScaler_xM =
+		cfr->ctrl.cfrEngine1PeakThresholdScaler_xM;
+	ctrl.cfrEngine2PeakThresholdScaler_xM =
+		cfr->ctrl.cfrEngine2PeakThresholdScaler_xM;
+	ctrl.cfrEngine3PeakThresholdScaler_xM =
+		cfr->ctrl.cfrEngine3PeakThresholdScaler_xM;
+
+	ret = adi_adrv9025_CfrCtrlConfigSet_v2(phy->madDevice, &ctrl, 1);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	ret = adi_adrv9025_CfrThresholdsRunTimeUpdate(phy->madDevice, BIT(ch));
+	if (ret)
+		return adrv9025_dev_err(phy);
+
+	return 0;
+}
+
 static ssize_t adrv9025_phy_tx_cfr_read(struct iio_dev *indio_dev,
 					uintptr_t private,
 					const struct iio_chan_spec *chan,
@@ -1748,7 +1787,7 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 	int ch = chan->channel;
 	int integer, fract, ret;
 	bool enable;
-	u32 *xm;
+	u32 *xm, old;
 	u8 *peaks;
 	u32 val;
 
@@ -1767,10 +1806,28 @@ static ssize_t adrv9025_phy_tx_cfr_write(struct iio_dev *indio_dev,
 			return -EINVAL;
 
 		guard(mutex)(&phy->lock);
-		ret = adrv9025_cfr_init_time_check(phy, ch);
-		if (ret)
-			return ret;
+		if (private == TX_CFR_HARD_CLIPPER_THRESHOLD) {
+			ret = adrv9025_cfr_init_time_check(phy, ch);
+			if (ret)
+				return ret;
+		}
+
+		old = *xm;
 		*xm = integer * MICRO + fract;
+
+		/*
+		 * UG-1727 "Modifying CFR Thresholds On-the-Fly": thresholds can
+		 * be updated at runtime once the CFR init cal has run.
+		 */
+		if (private != TX_CFR_HARD_CLIPPER_THRESHOLD && cfr->initialized) {
+			ret = adrv9025_cfr_thresholds_update(phy, ch);
+			if (ret) {
+				/* keep the readback in sync with the device */
+				*xm = old;
+				return ret;
+			}
+		}
+
 		return len;
 	}
 

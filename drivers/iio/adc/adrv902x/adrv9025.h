@@ -106,8 +106,8 @@ struct adrv9025_cfr_chan {
 	/*
 	 * CFR init cal has completed on this channel. Per UG-1727 the CFR
 	 * control config, pulse, engine enables and hard clipper may only be
-	 * programmed before the CFR init cal, so they are locked until the
-	 * device is re-initialized.
+	 * programmed before the CFR init cal; afterwards only the thresholds
+	 * can be changed until the device is re-initialized.
 	 */
 	bool initialized;
 };
