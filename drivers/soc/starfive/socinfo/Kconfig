@@ -6,7 +6,7 @@ config STARFIVE_JHB100_SOCINFO
 	select SOC_BUS
 	select MFD_CORE
 	select MFD_SYSCON
-	default y
+	default ARCH_STARFIVE
 	help
 	  Include support for the SoC bus socinfo for the StarFive JHB100 SoC
 	  platforms to provide information about the SoC family and variant
