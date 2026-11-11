@@ -749,8 +749,10 @@ static int ipu6_isys_csi2_disable_streams(struct v4l2_subdev *sd,
 	lockdep_assert_held(&csi2->isys->stream_mutex);
 
 	ret = ipu6_isys_get_frame_desc(remote_sd, remote_pad->index, &desc);
-	if (ret)
-		return ret;
+	if (ret) {
+		dev_err(sd->dev, "cannot obtain frame descriptor\n");
+		return 0;
+	}
 
 	sink_streams =
 		v4l2_subdev_state_xlate_streams(state, pad, CSI2_PAD_SINK,
@@ -821,6 +823,8 @@ static int ipu6_isys_csi2_set_sel(struct v4l2_subdev *sd,
 	/* Only vertical cropping is supported */
 	sel->r.left = 0;
 	sel->r.width = sink_ffmt->width;
+	sel->r.top = clamp_t(s32, sel->r.top, 0,
+			     sink_ffmt->height - IPU6_ISYS_MIN_HEIGHT);
 	/* Non-bayer formats can't be single line cropped */
 	if (!ipu6_isys_is_bayer_format(sink_ffmt->code))
 		sel->r.top &= ~1;

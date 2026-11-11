@@ -290,9 +290,6 @@ static int ipu6_isys_vidioc_try_fmt_vid_cap(struct file *file, void *fh,
 {
 	struct ipu6_isys_video *av = video_drvdata(file);
 
-	if (vb2_is_busy(&av->aq.vbq))
-		return -EBUSY;
-
 	__ipu6_isys_vidioc_try_fmt_vid_cap(av, f);
 
 	return 0;
@@ -323,6 +320,9 @@ static int ipu6_isys_vidioc_s_fmt_vid_cap(struct file *file, void *fh,
 				      struct v4l2_format *f)
 {
 	struct ipu6_isys_video *av = video_drvdata(file);
+
+	if (vb2_is_busy(&av->aq.vbq))
+		return -EBUSY;
 
 	ipu6_isys_vidioc_try_fmt_vid_cap(file, fh, f);
 	av->pix_fmt = f->fmt.pix;
