@@ -144,7 +144,8 @@ int main(int argc, char **argv)
     } else
 	usage();
 
-    if (!(fd = open(disk, O_RDONLY|O_NONBLOCK))) {
+    fd = open(disk, O_RDONLY|O_NONBLOCK);
+    if (fd < 0) {
 	printf("Can't open %s, because: %s\n", disk, strerror(errno));
 	exit(-1);
     }

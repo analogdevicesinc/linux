@@ -2670,6 +2670,11 @@ sub exclude_global_initialisers {
 sub is_userspace {
     my ($realfile) = @_;
 
+    # Kernel code under tools/: test modules, mocks, code generator templates.
+    return 0 if ($realfile =~ m@^tools/testing/(?:cxl|nvdimm|crypto)/@ ||
+             $realfile =~ m@^tools/testing/selftests/(?:bpf/test_kmods|livepatch/test_modules|mm/page_frag|net/bench/page_pool)/@ ||
+             $realfile =~ m@^tools/(?:power/cpupower/debug/kernel|virtio/vhost_test|verification/rvgen)/@);
+
     return $userspace if (defined $userspace);
 
     return ($realfile =~ m@^tools/@ ||
@@ -3481,7 +3486,7 @@ sub process {
 		}
 
 # Check for added, moved or deleted files
-		if (!$reported_maintainer_file && !$in_commit_log &&
+		if (!$reported_maintainer_file && !$in_commit_log && !$in_header_lines &&
 		    ($line =~ /^(?:new|deleted) file mode\s*\d+\s*$/ ||
 		     $line =~ /^rename (?:from|to) [\w\/\.\-]+\s*$/ ||
 		     ($line =~ /\{\s*([\w\/\.\-]*)\s*\=\>\s*([\w\/\.\-]*)\s*\}/ &&
@@ -4917,8 +4922,9 @@ sub process {
 			}
 		}
 
-# do not use BUG() or variants
-		if ($line =~ /\b(?!AA_|BUILD_|IDA_|KVM_|RWLOCK_|snd_|SPIN_)(?:[a-zA-Z_]*_)?BUG(?:_ON)?(?:_[A-Z_]+)?\s*\(/) {
+# do not use BUG() or variants (does not apply to userspace)
+		if (!is_userspace($realfile) &&
+		    $line =~ /\b(?!AA_|BUILD_|IDA_|KVM_|RWLOCK_|snd_|SPIN_)(?:[a-zA-Z_]*_)?BUG(?:_ON)?(?:_[A-Z_]+)?\s*\(/) {
 			my $msg_level = \&WARN;
 			$msg_level = \&CHK if ($file);
 			&{$msg_level}("AVOID_BUG",
@@ -4978,7 +4984,7 @@ sub process {
 # ENOSYS means "bad syscall nr" and nothing else.  This will have a small
 # number of false positives, but assembly files are not checked, so at
 # least the arch entry code will not trigger this warning.
-		if ($line =~ /\bENOSYS\b/) {
+		if ($line =~ /\bENOSYS\b/ && !is_userspace($realfile)) {
 			WARN("ENOSYS",
 			     "ENOSYS means 'invalid syscall nr' and nothing else\n" . $herecurr);
 		}
@@ -6050,6 +6056,9 @@ sub process {
 			$dstat =~ s/^\s*//s;
 			$dstat =~ s/\s*$//s;
 
+			# Make asm volatile uses seem like a generic function
+			$dstat =~ s/\b_*asm_*\s+_*volatile_*\b/asm_volatile/g;
+
 			# Flatten any parentheses and braces
 			while ($dstat =~ s/\([^\(\)]*\)/1u/ ||
 			       $dstat =~ s/\{[^\{\}]*\}/1u/ ||
@@ -6062,9 +6071,6 @@ sub process {
 			       $dstat =~ s/$Ident\s*($String)/$1/)
 			{
 			}
-
-			# Make asm volatile uses seem like a generic function
-			$dstat =~ s/\b_*asm_*\s+_*volatile_*\b/asm_volatile/g;
 
 			my $exceptions = qr{
 				$Declare|
@@ -6884,6 +6890,7 @@ sub process {
 				"no_caller_saved_registers"	=> "__no_caller_saved_registers",
 				"noclone"			=> "__noclone",
 				"noinline"			=> "noinline",
+				"nonnull"			=> "__nonnull_args",
 				"nonstring"			=> "__nonstring",
 				"noreturn"			=> "__noreturn",
 				"packed"			=> "__packed",
@@ -6904,6 +6911,8 @@ sub process {
 					if ($curr_attr eq "format" && $params) {
 						$params =~ /^\s*\(\s*(\w+)\s*,\s*(.*)/;
 						$new = "__$1\($2";
+					} elsif ($curr_attr eq "nonnull" && $params eq "") {
+						$new = "$new()";
 					} else {
 						$new = "$new$params";
 					}
@@ -7215,8 +7224,8 @@ sub process {
 			     "unchecked sscanf return value\n" . "$here\n$stat_real\n");
 		}
 
-# check for simple sscanf that should be kstrto<foo>
-		if ($perl_version_ok &&
+# check for simple sscanf that should be kstrto<foo> (not available in userspace)
+		if ($perl_version_ok && !is_userspace($realfile) &&
 		    defined $stat &&
 		    $line =~ /\bsscanf\b/) {
 			my $lc = $stat =~ tr@\n@@;

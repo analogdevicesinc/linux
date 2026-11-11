@@ -78,7 +78,6 @@ static int uevent_listener(unsigned long post_flags, bool expect_uevent,
 {
 	int sk_fd, ret;
 	socklen_t sk_addr_len;
-	int rcv_buf_sz = __UEVENT_BUFFER_SIZE;
 	uint64_t sync_add = 1;
 	struct sockaddr_nl sk_addr = { 0 }, rcv_addr = { 0 };
 	char buf[__UEVENT_BUFFER_SIZE] = { 0 };
@@ -94,13 +93,6 @@ static int uevent_listener(unsigned long post_flags, bool expect_uevent,
 	if (sk_fd < 0) {
 		fprintf(stderr, "%s - Failed to open uevent socket\n", strerror(errno));
 		return -1;
-	}
-
-	ret = setsockopt(sk_fd, SOL_SOCKET, SO_RCVBUF, &rcv_buf_sz,
-			 sizeof(rcv_buf_sz));
-	if (ret < 0) {
-		fprintf(stderr, "%s - Failed to set socket options\n", strerror(errno));
-		goto on_error;
 	}
 
 	sk_addr.nl_family = AF_NETLINK;
@@ -158,6 +150,30 @@ static int uevent_listener(unsigned long post_flags, bool expect_uevent,
 		ssize_t r;
 
 		r = recvmsg(sk_fd, &hdr, 0);
+		if (r < 0 && errno == ENOBUFS) {
+			/*
+			 * The socket receive buffer overran and the kernel
+			 * dropped uevents. This may happen due to udev
+			 * rebroadcasting kernel uevents that end up in the
+			 * receive buffer as we are subscribed to all groups.
+			 *
+			 * When a uevent is expected, we trigger it multiple
+			 * times to tolerate drops, so keep listening for one
+			 * of the remaining copies. The parent bounds this
+			 * wait by killing us on a timeout.
+			 *
+			 * When no uevent is expected, our socket sits in a
+			 * namespace that should not receive any, so a drop
+			 * means traffic reached it, or that we can no longer
+			 * prove it did not. Rather fail.
+			 */
+			if (!expect_uevent) {
+				fprintf(stderr, "Unexpected buffer overrun\n");
+				ret = -1;
+				break;
+			}
+			continue;
+		}
 		if (r <= 0) {
 			fprintf(stderr, "%s - Failed to receive uevent\n", strerror(errno));
 			ret = -1;

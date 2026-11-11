@@ -535,11 +535,13 @@ static int newary(struct ipc_namespace *ns, struct ipc_params *params)
 	key_t key = params->key;
 	int nsems = params->u.nsems;
 	int semflg = params->flg;
+	int total_sems;
 	int i;
 
 	if (!nsems)
 		return -EINVAL;
-	if (ns->used_sems + nsems > ns->sc_semmns)
+	if (check_add_overflow(ns->used_sems, nsems, &total_sems) ||
+	    total_sems > ns->sc_semmns)
 		return -ENOSPC;
 
 	sma = sem_alloc(nsems);
@@ -627,8 +629,8 @@ SYSCALL_DEFINE3(semget, key_t, key, int, nsems, int, semflg)
 }
 
 /**
- * perform_atomic_semop[_slow] - Attempt to perform semaphore
- *                               operations on a given array.
+ * perform_atomic_semop_slow - Attempt to perform semaphore
+ *                             operations on a given array.
  * @sma: semaphore array
  * @q: struct sem_queue that describes the operation
  *
@@ -716,6 +718,23 @@ undo:
 	return result;
 }
 
+/**
+ * perform_atomic_semop - Attempt to perform semaphore
+ *                        operations on a given array.
+ * @sma: semaphore array
+ * @q: struct sem_queue that describes the operation
+ *
+ * Caller blocking are as follows, based the value
+ * indicated by the semaphore operation (sem_op):
+ *
+ *  (1) >0 never blocks.
+ *  (2)  0 (wait-for-zero operation): semval is non-zero.
+ *  (3) <0 attempting to decrement semval to a value smaller than zero.
+ *
+ * Returns 0 if the operation was possible.
+ * Returns 1 if the operation is impossible, the caller must sleep.
+ * Returns <0 for error codes.
+ */
 static int perform_atomic_semop(struct sem_array *sma, struct sem_queue *q)
 {
 	int result, sem_op, nsops;

@@ -2503,6 +2503,19 @@ config PRINTF_KUNIT_TEST
 
 	  If unsure, say N.
 
+config SBITMAP_KUNIT_TEST
+	tristate "KUnit test for sbitmap" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	depends on SBITMAP
+	default KUNIT_ALL_TESTS
+	help
+	  Enable to turn on sbitmap tests, running at boot or module load time.
+
+	  For more information on KUnit and unit tests in general, please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
+
 config SCANF_KUNIT_TEST
 	tristate "KUnit test scanf() family of functions at runtime" if !KUNIT_ALL_TESTS
 	depends on KUNIT
@@ -3065,6 +3078,25 @@ config MIN_HEAP_KUNIT_TEST
 
 	  If unsure, say N
 
+config PLIST_KUNIT_TEST
+	tristate "KUnit test for priority sorted list (plist)" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  This builds the priority sorted list (plist) KUnit test suite.
+	  It checks that plist_add(), plist_del() and plist_requeue()
+	  maintain the ordering invariants of the two-level list, including
+	  the priority bucket boundary cases.
+
+	  KUnit tests run during boot and print their results in KTAP format.
+	  Only useful for kernel developers running the KUnit test harness,
+	  not for production builds.
+
+	  For more information on KUnit and unit tests in general please refer
+	  to the KUnit documentation in Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
+
 config IS_SIGNED_TYPE_KUNIT_TEST
 	tristate "Test is_signed_type() macro" if !KUNIT_ALL_TESTS
 	depends on KUNIT
@@ -3461,6 +3493,34 @@ config RATELIMIT_KUNIT_TEST
 
 	  If unsure, say N.
 
+config XXHASH_KUNIT_TEST
+	tristate "KUnit test for xxHash" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select XXHASH
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for lib/xxhash.c, the
+	  xxh32() and xxh64() hashes used by zstd, btrfs and erofs. The
+	  tests check known answers from the reference xxHash
+	  implementation, the xxh64 streaming interface and unaligned
+	  input.
+
+	  If unsure, say N.
+
+config UCS2_STRING_KUNIT_TEST
+	tristate "KUnit test for UCS-2 string helpers" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select UCS2_STRING
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for the UCS-2 string
+	  helpers in lib/ucs2_string.c, which are used for EFI variable
+	  names and other firmware strings. The tests cover length,
+	  copy and compare helpers and the UCS-2 to UTF-8 conversion,
+	  including truncation at the destination buffer size.
+
+	  If unsure, say N.
+
 config UUID_KUNIT_TEST
 	tristate "KUnit test for UUID" if !KUNIT_ALL_TESTS
 	depends on KUNIT
@@ -3557,6 +3617,21 @@ config PRIME_NUMBERS_KUNIT_TEST
 	  generator functions against a brute force implementation.
 
 	  If unsure, say N
+
+config GENALLOC_KUNIT_TEST
+	tristate "KUnit test for the general purpose allocator" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	select GENERIC_ALLOCATOR
+	default KUNIT_ALL_TESTS
+	help
+	  This option enables the KUnit test suite for lib/genalloc.c, the
+	  allocator drivers use to manage on-chip SRAM and other special
+	  memory regions. The tests cover allocation and freeing, the
+	  first fit, best fit, aligned, order aligned and fixed offset
+	  algorithms, multiple chunks, virtual to physical translation,
+	  the DMA helpers and the device-managed pools.
+
+	  If unsure, say N.
 
 config GLOB_KUNIT_TEST
 	tristate "Glob matching test" if !KUNIT_ALL_TESTS

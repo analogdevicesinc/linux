@@ -10,6 +10,8 @@
 #ifndef OCFS2_FILE_H
 #define OCFS2_FILE_H
 
+#include <linux/falloc.h>
+
 extern const struct file_operations ocfs2_fops;
 extern const struct file_operations ocfs2_dops;
 extern const struct file_operations ocfs2_fops_no_plocks;
@@ -64,7 +66,7 @@ int ocfs2_update_inode_atime(struct inode *inode,
 			     struct buffer_head *bh);
 
 int ocfs2_change_file_space(struct file *file, unsigned int cmd,
-			    struct ocfs2_space_resv *sr);
+			    struct space_resv *sr);
 
 int ocfs2_check_range_for_refcount(struct inode *inode, loff_t pos,
 				   size_t count);

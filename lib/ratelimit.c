@@ -67,7 +67,7 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 	if (!(rs->flags & RATELIMIT_INITIALIZED)) {
 		rs->begin = jiffies;
 		rs->flags |= RATELIMIT_INITIALIZED;
-		atomic_set(&rs->rs_n_left, rs->burst);
+		atomic_set(&rs->rs_n_left, burst);
 	}
 
 	if (time_is_before_jiffies(rs->begin + interval)) {
@@ -77,7 +77,7 @@ int ___ratelimit(struct ratelimit_state *rs, const char *func)
 		 * Reset rs_n_left ASAP to reduce false positives
 		 * in parallel calls, see above.
 		 */
-		atomic_set(&rs->rs_n_left, rs->burst);
+		atomic_set(&rs->rs_n_left, burst);
 		rs->begin = jiffies;
 
 		if (!(rs->flags & RATELIMIT_MSG_ON_RELEASE)) {

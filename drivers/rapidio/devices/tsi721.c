@@ -21,6 +21,7 @@
 #include <linux/kfifo.h>
 #include <linux/delay.h>
 
+#include "../../dma/dmaengine.h"
 #include "tsi721.h"
 
 #ifdef DEBUG

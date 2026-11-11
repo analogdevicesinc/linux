@@ -64,6 +64,7 @@ Alex Elder <elder@kernel.org> <elder@ieee.org>
 Alex Elder <elder@kernel.org> <elder@inktank.com>
 Alex Elder <elder@kernel.org> <elder@linaro.org>
 Alex Elder <elder@kernel.org> <elder@newdream.net>
+Alex Elder <elder@kernel.org> <elder@riscstar.com>
 Alex Hung <alexhung@gmail.com> <alex.hung@canonical.com>
 Alex Shi <alexs@kernel.org> <alex.shi@intel.com>
 Alex Shi <alexs@kernel.org> <alex.shi@linaro.org>
@@ -82,6 +83,7 @@ Amit Blay <quic_ablay@quicinc.com> <ablay@codeaurora.org>
 Amit Nischal <quic_anischal@quicinc.com> <anischal@codeaurora.org>
 Andi Kleen <ak@linux.intel.com> <ak@suse.de>
 Andi Shyti <andi@etezian.org> <andi.shyti@samsung.com>
+Andrea Cervesato <andrea.cervesato@linux.dev> <andrea.cervesato@suse.com>
 Andreas Herrmann <aherrman@de.ibm.com>
 Andreas Hindborg <a.hindborg@kernel.org> <a.hindborg@samsung.com>
 Andrej Shadura <andrew.shadura@collabora.co.uk>
@@ -154,6 +156,7 @@ Bart Van Assche <bvanassche@acm.org> <bart.vanassche@sandisk.com>
 Bart Van Assche <bvanassche@acm.org> <bart.vanassche@wdc.com>
 Bartosz Golaszewski <brgl@kernel.org> <bartosz.golaszewski@linaro.org>
 Bartosz Golaszewski <brgl@kernel.org> <bgolaszewski@baylibre.com>
+Beat M. Liechti <beat@softbase.tech> <bml303@gmail.com>
 Ben Dooks <ben-linux@fluff.org> <ben.dooks@simtec.co.uk>
 Ben Dooks <ben-linux@fluff.org> <ben.dooks@sifive.com>
 Ben Gardner <bgardner@wabtec.com>
@@ -357,8 +360,10 @@ Gokul Sriram Palanisamy <quic_gokulsri@quicinc.com> <gokulsri@codeaurora.org>
 Govindaraj Saminathan <quic_gsamin@quicinc.com> <gsamin@codeaurora.org>
 Guo Ren <guoren@kernel.org> <guoren@linux.alibaba.com>
 Guo Ren <guoren@kernel.org> <ren_guo@c-sky.com>
-Guodong Xu <docular.xu@gmail.com> <guodong.xu@linaro.org>
-Guodong Xu <docular.xu@gmail.com> <guodong@riscstar.com>
+Guodong Xu <guodong.xu@linux.dev> <docular.xu@gmail.com>
+Guodong Xu <guodong.xu@linux.dev> <guodong.xu@linaro.org>
+Guodong Xu <guodong.xu@linux.dev> <guodong.xu@oss.qualcomm.com>
+Guodong Xu <guodong.xu@linux.dev> <guodong@riscstar.com>
 Guru Das Srinagesh <linux@gurudas.dev>
 Guru Das Srinagesh <linux@gurudas.dev> <quic_gurus@quicinc.com>
 Guru Das Srinagesh <linux@gurudas.dev> <gurus@codeaurora.org>
@@ -808,6 +813,8 @@ Richard Genoud <richard.genoud@bootlin.com> <richard.genoud@gmail.com>
 Richard Leitner <richard.leitner@linux.dev> <dev@g0hl1n.net>
 Richard Leitner <richard.leitner@linux.dev> <me@g0hl1n.net>
 Richard Leitner <richard.leitner@linux.dev> <richard.leitner@skidata.com>
+Ridong Chen <ridong.chen@linux.dev> <chenridong@huawei.com>
+Ridong Chen <ridong.chen@linux.dev> <chenridong@xiaomi.com>
 Rob Clark <robin.clark@oss.qualcomm.com> <robdclark@chromium.org>
 Rob Clark <robin.clark@oss.qualcomm.com> <robdclark@gmail.com>
 Robert Foss <rfoss@kernel.org> <robert.foss@linaro.org>
@@ -1005,6 +1012,7 @@ Vlad Dogaru <ddvlad@gmail.com> <vlad.dogaru@intel.com>
 Vladimir Davydov <vdavydov.dev@gmail.com> <vdavydov@parallels.com>
 Vladimir Davydov <vdavydov.dev@gmail.com> <vdavydov@virtuozzo.com>
 Vlastimil Babka <vbabka@kernel.org> <vbabka@suse.cz>
+Wang Yibo <wangyibo@kylinos.cn> <szwyb123@gmail.com>
 WangYuli <wangyuli@aosc.io> <wangyl5933@chinaunicom.cn>
 WangYuli <wangyuli@aosc.io> <wangyuli@deepin.org>
 Wei Wang <weiwan@google.com> <weibunny@fb.com>

@@ -196,7 +196,8 @@ class VMAList:
     # instance to receive VMAs.
     def __init__(self, pid='self', stats=[]):
         self.vmas = []
-        with open(f'/proc/{pid}/smaps', 'r') as file:
+        with open(f'/proc/{pid}/smaps', 'r', newline='\n',
+                  errors='surrogateescape') as file:
             for line in file:
                 elements = line.rstrip('\n').split(maxsplit=5)
                 if '-' in elements[0]:
@@ -363,12 +364,14 @@ def cont_parse(vma, order, ranges, anons, heads):
 def vma_print(vma, pid):
     # Prints a VMA instance in a format similar to smaps. The main difference is
     # that the pid is included as the first value.
+    name = vma.name.encode(sys.stdout.encoding, errors='backslashreplace')
+    name = name.decode(sys.stdout.encoding)
     print("{:010d}: {:016x}-{:016x} {}{}{}{} {:08x} {:02x}:{:02x} {:08x} {}"
         .format(
             pid, vma.start, vma.end,
             'r' if vma.read else '-', 'w' if vma.write else '-',
             'x' if vma.execute else '-', 'p' if vma.private else 's',
-            vma.pgoff, vma.major, vma.minor, vma.inode, vma.name
+            vma.pgoff, vma.major, vma.minor, vma.inode, name
         ))
 
 

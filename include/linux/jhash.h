@@ -58,7 +58,7 @@
 #define JHASH_INITVAL		0xdeadbeef
 
 /* jhash - hash an arbitrary key
- * @k: sequence of bytes as key
+ * @key: sequence of bytes as key
  * @length: the length of the key
  * @initval: the previous hash, or an arbitrary value
  *

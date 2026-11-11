@@ -3,6 +3,7 @@
  * Helpers for initial module or kernel cmdline parsing
  * Copyright (C) 2001 Rusty Russell.
  */
+#include <linux/cleanup.h>
 #include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -19,6 +20,12 @@
 #ifdef CONFIG_SYSFS
 /* Protects all built-in parameters, modules use their own param_lock */
 static DEFINE_MUTEX(param_lock);
+
+/*
+ * Serializes module kobject lookup and creation in
+ * lookup_or_create_module_kobject()
+ */
+static DEFINE_MUTEX(mod_kobject_mutex);
 
 /* Use the module's mutex, or if built-in use the built-in mutex */
 #ifdef CONFIG_MODULES
@@ -753,6 +760,13 @@ lookup_or_create_module_kobject(const char *name)
 	struct module_kobject *mk;
 	struct kobject *kobj;
 	int err;
+
+	/*
+	 * The lookup and the creation must be done atomically, otherwise
+	 * concurrent callers may race to create the same kobject, and the
+	 * loser of the race gets -EEXIST from kobject_init_and_add().
+	 */
+	guard(mutex)(&mod_kobject_mutex);
 
 	kobj = kset_find_obj(module_kset, name);
 	if (kobj)

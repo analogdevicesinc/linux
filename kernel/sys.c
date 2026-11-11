@@ -3035,24 +3035,22 @@ COMPAT_SYSCALL_DEFINE1(sysinfo, struct compat_sysinfo __user *, info)
 	do_sysinfo(&s);
 
 	/* Check to see if any memory value is too large for 32-bit and scale
-	 *  down if needed
+	 * down if needed.  Keep going until the values fit, not just until the
+	 * unit reaches a page.  The values halve each turn, so this ends.
 	 */
 	if (upper_32_bits(s.totalram) || upper_32_bits(s.totalswap)) {
-		int bitcount = 0;
-
-		while (s.mem_unit < PAGE_SIZE) {
+		while (s.mem_unit < PAGE_SIZE || upper_32_bits(s.totalram) ||
+		       upper_32_bits(s.totalswap)) {
 			s.mem_unit <<= 1;
-			bitcount++;
+			s.totalram >>= 1;
+			s.freeram >>= 1;
+			s.sharedram >>= 1;
+			s.bufferram >>= 1;
+			s.totalswap >>= 1;
+			s.freeswap >>= 1;
+			s.totalhigh >>= 1;
+			s.freehigh >>= 1;
 		}
-
-		s.totalram >>= bitcount;
-		s.freeram >>= bitcount;
-		s.sharedram >>= bitcount;
-		s.bufferram >>= bitcount;
-		s.totalswap >>= bitcount;
-		s.freeswap >>= bitcount;
-		s.totalhigh >>= bitcount;
-		s.freehigh >>= bitcount;
 	}
 
 	memset(&s_32, 0, sizeof(s_32));

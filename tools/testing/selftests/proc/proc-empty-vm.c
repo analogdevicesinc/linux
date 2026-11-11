@@ -41,6 +41,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <signal.h>
 
 #ifdef __amd64__
 #define TEST_VSYSCALL
@@ -76,6 +77,9 @@ static int protection_key_support(void)
 		return 0;
 	} else if (rv == -1 && errno == EINVAL) {
 		// ospke=n
+		return 0;
+	} else if (rv == -1 && errno == ENOSPC) {
+		// CPU without protection keys
 		return 0;
 	} else {
 		fprintf(stderr, "%s: error: rv %ld, errno %d\n", __func__, rv, errno);
@@ -500,13 +504,18 @@ int main(void)
 #endif
 		return EXIT_FAILURE;
 	} else {
-		/*
-		 * TODO find reliable way to signal parent that munmap(2) completed.
-		 * Child can't do it directly because it effectively doesn't exist
-		 * anymore. Looking at child's VM files isn't 100% reliable either:
-		 * due to a bug they may not become empty or empty-like.
-		 */
-		sleep(1);
+		int wstatus;
+		pid_t p;
+
+		for (;;) {
+			p = waitpid(pid, &wstatus, 0);
+			if (p == -1 && errno == EINTR)
+				continue;
+			break;
+		}
+		assert(p == pid);
+		assert(WIFSTOPPED(wstatus));
+		assert(WSTOPSIG(wstatus) == SIGSEGV);
 
 		if (rv == EXIT_SUCCESS) {
 			rv = test_proc_pid_maps(pid);
@@ -525,10 +534,8 @@ int main(void)
 		}
 
 		/* Cut the rope. */
-		int wstatus;
+		kill(pid, SIGKILL);
 		waitpid(pid, &wstatus, 0);
-		assert(WIFSTOPPED(wstatus));
-		assert(WSTOPSIG(wstatus) == SIGSEGV);
 	}
 
 	return rv;

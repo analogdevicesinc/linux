@@ -1,5 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0
-ifndef CROSS_COMPILE
 ARCH ?= $(shell uname -m 2>/dev/null || echo not)
 override ARCH := $(shell echo $(ARCH) | sed -e s/i.86/x86/ -e s/x86_64/x86/)
 
@@ -10,5 +9,8 @@ all: $(TEST_PROGS)
 
 include ../lib.mk
 
-endif
+else
+nothing:
+.PHONY: all clean run_tests install
+.SILENT:
 endif
