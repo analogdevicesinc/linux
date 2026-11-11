@@ -1,4 +1,39 @@
 # SPDX-License-Identifier: GPL-2.0-only
+config PLATFORM_PROFILE
+	tristate "Platform profile support"
+	help
+	  Provide a common sysfs interface for selecting platform power,
+	  performance and cooling profiles. Platform-specific provider drivers
+	  map their operating modes onto standard profile names, independently
+	  of the firmware interface they use.
+
+	  The core exposes per-provider controls under /sys/class/platform-profile/.
+	  A provider driver must register before profile attributes become
+	  available. ACPI is not required. The legacy system-wide interface under
+	  /sys/firmware/acpi/ can be enabled separately for existing userspace.
+
+	  To compile this as a module, choose M here: the module will be called
+	  platform_profile.
+
+config PLATFORM_PROFILE_LEGACY
+	bool "Legacy ACPI platform profile sysfs interface (DEPRECATED)"
+	depends on PLATFORM_PROFILE && ACPI
+	default y
+	help
+	  Expose platform_profile and platform_profile_choices under
+	  /sys/firmware/acpi/ for compatibility with existing userspace. These
+	  attributes aggregate the profiles of all registered providers.
+
+	  This interface is deprecated and is intended for removal after the
+	  2028 LTS kernel, once userspace has migrated to the class interface.
+	  It remains enabled by default until replacement userspace releases
+	  are available and have had time to reach users.
+
+	  New userspace should use the individual devices under
+	  /sys/class/platform-profile/ instead. Disabling this option removes
+	  the legacy sysfs interface but retains class devices and kernel
+	  profile cycling. If unsure, say Y to preserve compatibility.
+
 source "drivers/platform/mips/Kconfig"
 
 source "drivers/platform/loongarch/Kconfig"

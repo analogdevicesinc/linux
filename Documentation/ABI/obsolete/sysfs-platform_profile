@@ -2,6 +2,12 @@ What:		/sys/firmware/acpi/platform_profile_choices
 Date:		October 2020
 Contact:	Hans de Goede <hdegoede@redhat.com>
 Description:	This file contains a space-separated list of profiles supported for this device.
+		Available with CONFIG_PLATFORM_PROFILE_LEGACY on active ACPI
+		systems for backwards compatibility. New userspace should use
+		/sys/class/platform-profile/platform-profile-X/choices instead.
+		This interface is deprecated, with removal intended after the
+		2028 LTS kernel once userspace migration is complete. Accessing
+		either legacy attribute emits a one-time deprecation notice.
 
 		Drivers must use the following standard profile-names:
 
@@ -26,6 +32,12 @@ Contact:	Hans de Goede <hdegoede@redhat.com>
 Description:	Reading this file gives the current selected profile for this
 		device. Writing this file with one of the strings from
 		platform_profile_choices changes the profile to the new value.
+
+		This legacy interface requires CONFIG_PLATFORM_PROFILE_LEGACY.
+		Individual class devices remain available without that option.
+		Use /sys/class/platform-profile/platform-profile-X/profile
+		instead. This interface is deprecated, with removal intended
+		after the 2028 LTS kernel once userspace migration is complete.
 
 		This file can be monitored for changes by polling for POLLPRI,
 		POLLPRI will be signalled on any changes, independent of those

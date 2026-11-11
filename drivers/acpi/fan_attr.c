@@ -15,6 +15,7 @@
 #include "fan.h"
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Extra sysfs attributes for the ACPI fan driver");
 
 static ssize_t show_state(struct device *dev, struct device_attribute *attr, char *buf)
 {

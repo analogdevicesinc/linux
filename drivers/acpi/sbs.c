@@ -55,6 +55,7 @@ struct acpi_battery {
 	struct power_supply_desc bat_desc;
 	struct acpi_sbs *sbs;
 	unsigned long update_time;
+	struct mutex state_lock;	/* serializes state refreshes */
 	char name[8];
 	char manufacturer_name[ACPI_SBS_BLOCK_MAX];
 	char device_name[ACPI_SBS_BLOCK_MAX];
@@ -355,6 +356,13 @@ static int acpi_battery_get_state(struct acpi_battery *battery)
 {
 	int i, result = 0;
 
+	/*
+	 * Callers that find the cache stale at the same time would each
+	 * re-read the whole state over SMBus. Serialize them so that only
+	 * the first one does; the others then find a fresh cache.
+	 */
+	guard(mutex)(&battery->state_lock);
+
 	if (battery->update_time &&
 	    time_before(jiffies, battery->update_time +
 				msecs_to_jiffies(cache_time)))
@@ -367,9 +375,8 @@ static int acpi_battery_get_state(struct acpi_battery *battery)
 					 (u8 *)battery +
 						state_readers[i].offset);
 		if (result)
-			goto end;
+			break;
 	}
-      end:
 	battery->update_time = jiffies;
 	return result;
 }
@@ -530,6 +537,7 @@ static int acpi_battery_add(struct acpi_sbs *sbs, int id)
 
 	battery->id = id;
 	battery->sbs = sbs;
+	mutex_init(&battery->state_lock);
 	result = acpi_battery_read(battery);
 	if (result)
 		return result;

@@ -398,7 +398,7 @@ static void powercap_release(struct device *dev)
 		kfree(power_zone->name);
 		kfree(power_zone->zone_dev_attrs);
 		kfree(power_zone->constraints);
-		if (power_zone->ops->release)
+		if (power_zone->ops && power_zone->ops->release)
 			power_zone->ops->release(power_zone);
 		if (allocated)
 			kfree(power_zone);
@@ -555,6 +555,12 @@ struct powercap_zone *powercap_register_zone(
 					power_zone->id);
 	result = device_register(&power_zone->dev);
 	if (result) {
+		/*
+		 * As on the other failures, the zone is left to the caller:
+		 * the release frees what was allocated here, but must not call
+		 * ->release(), which may free the zone.
+		 */
+		power_zone->ops = NULL;
 		put_device(&power_zone->dev);
 		mutex_unlock(&control_type->lock);
 
