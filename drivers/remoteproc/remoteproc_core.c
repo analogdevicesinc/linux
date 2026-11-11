@@ -198,18 +198,20 @@ void *rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *is_iomem)
 	}
 
 	list_for_each_entry(carveout, &rproc->carveouts, node) {
-		int offset = da - carveout->da;
+		u64 offset;
 
 		/*  Verify that carveout is allocated */
 		if (!carveout->va)
 			continue;
 
 		/* try next carveout if da is too small */
-		if (offset < 0)
+		if (da < carveout->da)
 			continue;
 
-		/* try next carveout if da is too large */
-		if (offset + len > carveout->len)
+		offset = da - carveout->da;
+
+		/* try next carveout if da or len is too large */
+		if (offset > carveout->len || len > carveout->len - offset)
 			continue;
 
 		ptr = carveout->va + offset;

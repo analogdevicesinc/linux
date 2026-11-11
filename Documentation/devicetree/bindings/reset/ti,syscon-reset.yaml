@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/ti,syscon-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: TI Syscon Reset Controller
+
+maintainers:
+  - Nishanth Menon <nm@ti.com>
+
+description:
+  Reset controller implemented by registers in the parent syscon.
+
+properties:
+  compatible:
+    oneOf:
+      - const: ti,syscon-reset
+      - items:
+          - enum:
+              - ti,k2e-pscrst
+              - ti,k2l-pscrst
+              - ti,k2hk-pscrst
+          - const: ti,syscon-reset
+
+  '#reset-cells':
+    const: 1
+
+  ti,reset-bits:
+    description: >
+      Seven cells per reset, indexed by the reset specifier:
+
+        Cell #1 : offset of the reset assert control register
+        Cell #2 : bit position of the reset in the reset assert control register
+        Cell #3 : offset of the reset deassert control register
+        Cell #4 : bit position of the reset in the reset deassert control register
+        Cell #5 : offset of the reset status register
+        Cell #6 : bit position of the reset in the reset status register
+        Cell #7 : Flags used to control reset behavior, available flags defined
+                  in the DT include file <dt-bindings/reset/ti-syscon.h>
+
+required:
+  - compatible
+  - '#reset-cells'
+  - ti,reset-bits
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/reset/ti-syscon.h>
+
+    reset-controller {
+        compatible = "ti,k2e-pscrst", "ti,syscon-reset";
+        #reset-cells = <1>;
+        ti,reset-bits = <0xa3c 8 0xa3c 8 0x83c 8
+                          (ASSERT_CLEAR | DEASSERT_SET | STATUS_CLEAR)>;
+    };

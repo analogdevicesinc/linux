@@ -216,7 +216,7 @@ struct q6v5 {
 	int proxy_pd_count;
 
 	struct reg_info active_regs[1];
-	struct reg_info proxy_regs[1];
+	struct reg_info proxy_regs[2];
 	struct reg_info fallback_proxy_regs[2];
 	int active_reg_count;
 	int proxy_reg_count;
@@ -1128,9 +1128,12 @@ static int q6v5_mpss_init_image(struct q6v5 *qproc, const struct firmware *fw,
 	/* Metadata authentication done, remove modem access */
 	xferop_ret = q6v5_xfer_mem_ownership(qproc, &mdata_perm, true, false,
 					     phys, size);
-	if (xferop_ret)
+	if (xferop_ret) {
 		dev_warn(qproc->dev,
 			 "mdt buffer not reclaimed system may become unstable\n");
+		/* The modem may still have access to the buffer, so leak it */
+		goto free_metadata;
+	}
 
 free_dma_attrs:
 	if (!qproc->mdata_phys)
@@ -1846,6 +1849,7 @@ static int q6v5_init_mem(struct q6v5 *qproc, struct platform_device *pdev)
 		qproc->qaccept_mdm = args.args[0];
 		qproc->qaccept_cx = args.args[1];
 		qproc->qaccept_axi = args.args[2];
+		of_node_put(args.np);
 	}
 
 	if (qproc->has_ext_bhs_reg) {
@@ -1892,6 +1896,7 @@ static int q6v5_init_mem(struct q6v5 *qproc, struct platform_device *pdev)
 
 		qproc->axim1_clk_off = args.args[0];
 		qproc->crypto_clk_off = args.args[1];
+		of_node_put(args.np);
 	}
 
 	if (qproc->has_spare_reg) {
