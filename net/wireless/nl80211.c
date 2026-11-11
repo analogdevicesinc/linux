@@ -9080,7 +9080,7 @@ static int nl80211_dump_station(struct sk_buff *skb,
 				err = __nl80211_lock_held_wdev(rdev, netns,
 							       wdev);
 				if (err)
-					goto out_err;
+					return err;
 
 				/* try again locked now */
 				locked = true;
