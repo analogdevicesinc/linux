@@ -6,9 +6,11 @@
  */
 
 #include <linux/debugfs.h>
+#include <linux/delay.h>
 #include <linux/hid.h>
 #include <linux/hwmon.h>
 #include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include <linux/unaligned.h>
@@ -80,6 +82,14 @@ static const u8 set_cooler_duty_cmd[] = { RYUJIN_CMD_PREFIX, 0x1A, 0x00, 0x00, 0
 #define RYUJIN_SOURCE_HEADER	0
 #define RYUJIN_SOURCE_USB	1
 
+/*
+ * The cooler ignores a pump source change sent 500 ms or less after the
+ * previous one and applies one sent 1 s or more after it. The cooler duty
+ * report shows a change within 1.1 s.
+ */
+#define RYUJIN_SOURCE_CHANGE_INTERVAL	1000	/* ms */
+#define RYUJIN_SOURCE_CHANGE_TIMEOUT	2000	/* ms */
+
 #define RYUJIN_SET_CONTROLLER_FAN_DUTY_OFFSET	4
 static const u8 set_controller_duty_cmd[] = { RYUJIN_CMD_PREFIX, 0x21, 0x00, 0x00, 0x00 };
 
@@ -124,9 +134,10 @@ struct rog_ryujin_data {
 	u16 speed_input[6];	/* Pump, internal fan and four controller fan speeds in RPM */
 	u8 duty_input[3];	/* Pump, internal fan and controller fan duty in PWM */
 	u8 pump_source;		/* Pump control source from the cooler duty report */
+	ktime_t source_changed;
 
 	u8 *buffer;
-	unsigned long updated;	/* jiffies */
+	ktime_t updated;
 };
 
 static int rog_ryujin_percent_to_pwm(u16 val)
@@ -171,6 +182,10 @@ static umode_t rog_ryujin_is_visible(const void *data,
 		switch (attr) {
 		case hwmon_pwm_input:
 			return 0644;
+		case hwmon_pwm_enable:
+			if (channel == 0 && priv->info->duty_channel)
+				return 0644;
+			break;
 		default:
 			break;
 		}
@@ -230,7 +245,8 @@ static int rog_ryujin_get_status(struct rog_ryujin_data *priv)
 {
 	int ret;
 
-	if (!time_after(jiffies, priv->updated + msecs_to_jiffies(STATUS_VALIDITY))) {
+	if (!ktime_after(ktime_get(),
+			 ktime_add_ms(priv->updated, STATUS_VALIDITY))) {
 		/* Data is up to date */
 		return 0;
 	}
@@ -267,7 +283,7 @@ static int rog_ryujin_get_status(struct rog_ryujin_data *priv)
 			return ret;
 	}
 
-	priv->updated = jiffies;
+	priv->updated = ktime_get();
 	return 0;
 }
 
@@ -291,6 +307,9 @@ static int rog_ryujin_read(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr) {
 		case hwmon_pwm_input:
 			*val = priv->duty_input[channel];
+			break;
+		case hwmon_pwm_enable:
+			*val = priv->pump_source == RYUJIN_SOURCE_USB ? 1 : 2;
 			break;
 		default:
 			return -EOPNOTSUPP;
@@ -318,6 +337,46 @@ static int rog_ryujin_read_string(struct device *dev, enum hwmon_sensor_types ty
 	}
 
 	return 0;
+}
+
+/*
+ * Send a set cooler duty command. If it changes the pump control source, first
+ * wait until RYUJIN_SOURCE_CHANGE_INTERVAL has passed since the last change,
+ * then wait for the cooler duty report to show the new source, so that success
+ * means the change took effect.
+ */
+static int rog_ryujin_write_cooler_duty(struct rog_ryujin_data *priv, const u8 *set_cmd)
+{
+	u8 source = set_cmd[RYUJIN_SET_COOLER_CHANNEL_OFFSET];
+	ktime_t timeout;
+	s64 elapsed;
+	int ret;
+
+	if (!priv->info->duty_channel || source == priv->pump_source)
+		return rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH,
+					      &priv->cooler_duty_set);
+
+	elapsed = ktime_ms_delta(ktime_get(), priv->source_changed);
+	if (elapsed < RYUJIN_SOURCE_CHANGE_INTERVAL)
+		msleep(RYUJIN_SOURCE_CHANGE_INTERVAL - elapsed);
+
+	ret = rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH, &priv->cooler_duty_set);
+	if (ret < 0)
+		return ret;
+
+	priv->source_changed = ktime_get();
+	timeout = ktime_add_ms(priv->source_changed, RYUJIN_SOURCE_CHANGE_TIMEOUT);
+	do {
+		msleep(100);
+		ret = rog_ryujin_execute_cmd(priv, get_cooler_duty_cmd, GET_CMD_LENGTH,
+					     &priv->cooler_duty_received);
+		if (ret < 0)
+			return ret;
+		if (priv->pump_source == source)
+			return 0;
+	} while (ktime_before(ktime_get(), timeout));
+
+	return -ETIMEDOUT;
 }
 
 /*
@@ -352,7 +411,7 @@ static int rog_ryujin_select_pump_source(struct rog_ryujin_data *priv, u8 *set_c
 		return 0;
 
 	set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = duty < 100 ? duty + 1 : duty - 1;
-	ret = rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH, &priv->cooler_duty_set);
+	ret = rog_ryujin_write_cooler_duty(priv, set_cmd);
 	set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = duty;
 
 	return ret;
@@ -361,6 +420,7 @@ static int rog_ryujin_select_pump_source(struct rog_ryujin_data *priv, u8 *set_c
 static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel, int val)
 {
 	u8 set_cmd[SET_CMD_LENGTH];
+	int duty;
 	int ret;
 
 	if (channel < 2) {
@@ -378,18 +438,18 @@ static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel
 		set_cmd[RYUJIN_SET_COOLER_CHANNEL_OFFSET] = priv->info->duty_channel;
 
 		/* Cooler duties are set as 0-100% */
-		val = rog_ryujin_pwm_to_percent(val);
+		duty = rog_ryujin_pwm_to_percent(val);
 
 		if (channel == 0) {
 			/* Cooler pump duty */
-			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = val;
+			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] = duty;
 			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] =
 			    rog_ryujin_pwm_to_percent(priv->duty_input[1]);
 		} else if (channel == 1) {
 			/* Cooler internal fan duty */
 			set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] =
 			    rog_ryujin_pwm_to_percent(priv->duty_input[0]);
-			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] = val;
+			set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] = duty;
 		}
 
 		if (priv->info->duty_channel) {
@@ -398,7 +458,9 @@ static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel
 				return ret;
 		}
 
-		return rog_ryujin_execute_cmd(priv, set_cmd, SET_CMD_LENGTH, &priv->cooler_duty_set);
+		ret = rog_ryujin_write_cooler_duty(priv, set_cmd);
+		if (ret < 0)
+			return ret;
 	} else {
 		/*
 		 * Controller fan duty (channel == 2). No need to retrieve current
@@ -420,6 +482,52 @@ static int rog_ryujin_write_fixed_duty(struct rog_ryujin_data *priv, int channel
 	return 0;
 }
 
+/*
+ * pwm1_enable: 1 hands the pump to pwm1, 2 hands it back to its internal
+ * controller. Both keep the reported duties.
+ */
+static int rog_ryujin_write_pwm_enable(struct rog_ryujin_data *priv, long val)
+{
+	u8 set_cmd[SET_CMD_LENGTH];
+	u8 source;
+	int ret;
+
+	switch (val) {
+	case 1:
+		source = RYUJIN_SOURCE_USB;
+		break;
+	case 2:
+		source = RYUJIN_SOURCE_HEADER;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = rog_ryujin_execute_cmd(priv, get_cooler_duty_cmd, GET_CMD_LENGTH,
+				     &priv->cooler_duty_received);
+	if (ret < 0)
+		return ret;
+
+	if (priv->pump_source == source)
+		return 0;
+
+	memcpy(set_cmd, set_cooler_duty_cmd, SET_CMD_LENGTH);
+	set_cmd[RYUJIN_SET_COOLER_CHANNEL_OFFSET] = source;
+	set_cmd[RYUJIN_SET_COOLER_PUMP_DUTY_OFFSET] =
+	    rog_ryujin_pwm_to_percent(priv->duty_input[0]);
+	set_cmd[RYUJIN_SET_COOLER_FAN_DUTY_OFFSET] =
+	    rog_ryujin_pwm_to_percent(priv->duty_input[1]);
+
+	if (source == RYUJIN_SOURCE_USB) {
+		/* As for a pwm1 write of the reported duty */
+		ret = rog_ryujin_select_pump_source(priv, set_cmd, 0);
+		if (ret < 0)
+			return ret;
+	}
+
+	return rog_ryujin_write_cooler_duty(priv, set_cmd);
+}
+
 static int rog_ryujin_write(struct device *dev, enum hwmon_sensor_types type, u32 attr, int channel,
 			    long val)
 {
@@ -437,6 +545,8 @@ static int rog_ryujin_write(struct device *dev, enum hwmon_sensor_types type, u3
 			if (ret < 0)
 				return ret;
 			break;
+		case hwmon_pwm_enable:
+			return rog_ryujin_write_pwm_enable(priv, val);
 		default:
 			return -EOPNOTSUPP;
 		}
@@ -466,7 +576,7 @@ static const struct hwmon_channel_info *rog_ryujin_info[] = {
 			   HWMON_F_INPUT | HWMON_F_LABEL,
 			   HWMON_F_INPUT | HWMON_F_LABEL),
 	HWMON_CHANNEL_INFO(pwm,
-			   HWMON_PWM_INPUT,
+			   HWMON_PWM_INPUT | HWMON_PWM_ENABLE,
 			   HWMON_PWM_INPUT,
 			   HWMON_PWM_INPUT),
 	NULL
@@ -602,7 +712,8 @@ static int rog_ryujin_probe(struct hid_device *hdev, const struct hid_device_id 
 	 * the initial empty data invalid for rog_ryujin_read() without the need for
 	 * a special case there.
 	 */
-	priv->updated = jiffies - msecs_to_jiffies(STATUS_VALIDITY);
+	priv->updated = ktime_sub_ms(ktime_get(), STATUS_VALIDITY + 1);
+	priv->source_changed = ktime_sub_ms(ktime_get(), RYUJIN_SOURCE_CHANGE_INTERVAL);
 
 	ret = hid_parse(hdev);
 	if (ret) {

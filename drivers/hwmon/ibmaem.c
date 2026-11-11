@@ -128,7 +128,7 @@ struct aem_data {
 	struct platform_device	*pdev;
 	struct mutex		lock;
 	bool			valid;
-	unsigned long		last_updated;	/* In jiffies */
+	u64			last_updated;	/* In jiffies */
 	u8			ver_major;
 	u8			ver_minor;
 	u8			module_handle;
@@ -417,29 +417,37 @@ static int aem_read_sensor(struct aem_data *data, u8 elt, u8 reg,
 }
 
 /* Update AEM energy registers */
-static void update_aem_energy_one(struct aem_data *data, int which)
+static int update_aem_energy_one(struct aem_data *data, int which)
 {
-	aem_read_sensor(data, AEM_ENERGY_ELEMENT, which,
-			&data->energy[which], 8);
+	return aem_read_sensor(data, AEM_ENERGY_ELEMENT, which,
+			       &data->energy[which], 8);
 }
 
-static void update_aem_energy(struct aem_data *data)
+static int update_aem_energy(struct aem_data *data)
 {
-	update_aem_energy_one(data, 0);
+	int err, ret;
+
+	err = update_aem_energy_one(data, 0);
 	if (data->ver_major < 2)
-		return;
-	update_aem_energy_one(data, 1);
+		return err;
+
+	ret = update_aem_energy_one(data, 1);
+	return err ? err : ret;
 }
 
 /* Update all AEM1 sensors */
 static void update_aem1_sensors(struct aem_data *data)
 {
 	mutex_lock(&data->lock);
-	if (time_before(jiffies, data->last_updated + REFRESH_INTERVAL) &&
+	if (time_before64(get_jiffies_64(),
+			  data->last_updated + REFRESH_INTERVAL) &&
 	    data->valid)
 		goto out;
 
-	update_aem_energy(data);
+	if (!update_aem_energy(data)) {
+		data->last_updated = get_jiffies_64();
+		data->valid = true;
+	}
 out:
 	mutex_unlock(&data->lock);
 }
@@ -447,20 +455,29 @@ out:
 /* Update all AEM2 sensors */
 static void update_aem2_sensors(struct aem_data *data)
 {
-	int i;
+	int i, err;
 
 	mutex_lock(&data->lock);
-	if (time_before(jiffies, data->last_updated + REFRESH_INTERVAL) &&
+	if (time_before64(get_jiffies_64(),
+			  data->last_updated + REFRESH_INTERVAL) &&
 	    data->valid)
 		goto out;
 
-	update_aem_energy(data);
-	aem_read_sensor(data, AEM_EXHAUST_ELEMENT, 0, &data->temp[0], 1);
-	aem_read_sensor(data, AEM_EXHAUST_ELEMENT, 1, &data->temp[1], 1);
+	err = update_aem_energy(data);
+	if (aem_read_sensor(data, AEM_EXHAUST_ELEMENT, 0, &data->temp[0], 1))
+		err = -EIO;
+	if (aem_read_sensor(data, AEM_EXHAUST_ELEMENT, 1, &data->temp[1], 1))
+		err = -EIO;
 
-	for (i = POWER_CAP; i <= POWER_AUX; i++)
-		aem_read_sensor(data, AEM_POWER_CAP_ELEMENT, i,
-				&data->pcap[i], 2);
+	for (i = POWER_CAP; i <= POWER_AUX; i++) {
+		if (aem_read_sensor(data, AEM_POWER_CAP_ELEMENT, i,
+				    &data->pcap[i], 2))
+			err = -EIO;
+	}
+	if (!err) {
+		data->last_updated = get_jiffies_64();
+		data->valid = true;
+	}
 out:
 	mutex_unlock(&data->lock);
 }

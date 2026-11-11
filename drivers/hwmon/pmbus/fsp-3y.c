@@ -205,7 +205,8 @@ static int fsp3y_detect(struct i2c_client *client)
 	int rv;
 	u8 buf[I2C_SMBUS_BLOCK_MAX + 1];
 
-	rv = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, buf);
+	rv = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+					sizeof(buf) - 1, buf);
 	if (rv < 0)
 		return rv;
 

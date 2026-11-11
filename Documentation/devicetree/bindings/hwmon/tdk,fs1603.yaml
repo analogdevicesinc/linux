@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/tdk,fs1603.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: TDK FS160x and FS1006 uPOL DC-DC converters
+
+maintainers:
+  - Kevin Jia <kjia@nexthop.ai>
+
+description:
+  The TDK FS160x and FS1006 are uPOL DC-DC converters with an integrated
+  inductor. They report telemetry over a proprietary I2C register map and
+  have no ID register. The FS1604, FS1006 and FS1606-2500 encode telemetry
+  in the same way as the FS1603, and fall back to it. The base FS1606 and the
+  FS1606-0600 preset encode it differently and have no fallback.
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - tdk,fs1603
+          - tdk,fs1606
+          - tdk,fs1606-0600
+      - items:
+          - enum:
+              - tdk,fs1006-3300
+              - tdk,fs1006-5000
+              - tdk,fs1604
+              - tdk,fs1606-2500
+          - const: tdk,fs1603
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        regulator@40 {
+            compatible = "tdk,fs1006-3300", "tdk,fs1603";
+            reg = <0x40>;
+        };
+    };

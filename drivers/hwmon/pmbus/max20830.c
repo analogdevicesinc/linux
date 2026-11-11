@@ -20,7 +20,15 @@ struct max20830_data {
 	u32 vout_rfb2;
 };
 
+/*
+ * IC_DEVICE_ID strings matched at probe. The LTM4739/LTM4740 uModules
+ * report their MAX die ID with a "B" suffix, not the "LTM47xx" names in
+ * their datasheets (being corrected); the plain datasheet IDs are not
+ * matched, as no such part has been observed.
+ */
 static const char * const supported_chip_ids[] = {
+	"MAX20810B",	/* LTM4739 */
+	"MAX20815B",	/* LTM4740 */
 	"MAX20830",
 	"MAX20830C",
 	"MAX20840C",
@@ -34,7 +42,7 @@ static const char * const supported_chip_ids[] = {
  * like in1_max, in1_crit, etc. will not be available. Only in1_input (the
  * scaled output voltage) is supported.
  *
- * MAX20830 uses an external resistor divider for voltage sensing:
+ * MAX20830 family uses an external resistor divider for voltage sensing:
  * - VOUT_COMMAND and VOUT_MAX set the reference voltage at the feedback pin
  * - READ_VOUT reports the feedback voltage, which needs to be scaled for actual
  *   output voltage

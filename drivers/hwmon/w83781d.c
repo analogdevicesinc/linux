@@ -204,7 +204,7 @@ struct w83781d_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	struct i2c_client *lm75[2];	/* for secondary I2C addresses */
 	/* array of 2 pointers to subclients */
@@ -1447,8 +1447,8 @@ static struct w83781d_data *w83781d_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-	    || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		dev_dbg(dev, "Starting device update\n");
 
 		for (i = 0; i <= 8; i++) {
@@ -1549,7 +1549,7 @@ static struct w83781d_data *w83781d_update_device(struct device *dev)
 			    w83781d_read_value(data,
 					       W83781D_REG_BEEP_INTS3) << 16;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

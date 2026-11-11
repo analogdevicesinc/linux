@@ -193,8 +193,8 @@ struct adt7462_data {
 	struct mutex		lock;
 	char			sensors_valid;
 	char			limits_valid;
-	unsigned long		sensors_last_updated;	/* In jiffies */
-	unsigned long		limits_last_updated;	/* In jiffies */
+	u64			sensors_last_updated;	/* In jiffies */
+	u64			limits_last_updated;	/* In jiffies */
 
 	u8			temp[ADT7462_TEMP_COUNT];
 				/* bits 6-7 are quarter pieces of temp */
@@ -673,13 +673,14 @@ static struct adt7462_data *adt7462_update_device(struct device *dev)
 {
 	struct adt7462_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
-	unsigned long local_jiffies = jiffies;
+	u64 local_jiffies;
 	int i;
 
 	mutex_lock(&data->lock);
-	if (time_before(local_jiffies, data->sensors_last_updated +
-		SENSOR_REFRESH_INTERVAL)
-		&& data->sensors_valid)
+	local_jiffies = get_jiffies_64();
+	if (time_before64(local_jiffies, data->sensors_last_updated +
+			  SENSOR_REFRESH_INTERVAL) &&
+	    data->sensors_valid)
 		goto no_sensor_update;
 
 	for (i = 0; i < ADT7462_TEMP_COUNT; i++) {
@@ -726,9 +727,9 @@ static struct adt7462_data *adt7462_update_device(struct device *dev)
 	data->sensors_valid = 1;
 
 no_sensor_update:
-	if (time_before(local_jiffies, data->limits_last_updated +
-		LIMIT_REFRESH_INTERVAL)
-		&& data->limits_valid)
+	if (time_before64(local_jiffies, data->limits_last_updated +
+			  LIMIT_REFRESH_INTERVAL) &&
+	    data->limits_valid)
 		goto out;
 
 	for (i = 0; i < ADT7462_TEMP_COUNT; i++) {

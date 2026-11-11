@@ -206,8 +206,8 @@ struct w83793_data {
 	struct device *hwmon_dev;
 	struct mutex update_lock;
 	bool valid;			/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
-	unsigned long last_nonvolatile;	/* In jiffies, last time we update the
+	u64 last_updated;		/* In jiffies */
+	u64 last_nonvolatile;		/* In jiffies, last time we update the
 					 * nonvolatile registers
 					 */
 
@@ -1946,8 +1946,9 @@ static void w83793_update_nonvolatile(struct device *dev)
 	 * takes so much time, it's just not worthy. Update them in a long
 	 * interval to avoid exception.
 	 */
-	if (!(time_after(jiffies, data->last_nonvolatile + HZ * 300)
-	      || !data->valid))
+	if (!(time_after64(get_jiffies_64(),
+			   data->last_nonvolatile + HZ * 300) ||
+	      !data->valid))
 		return;
 	/* update voltage limits */
 	for (i = 1; i < 3; i++) {
@@ -2020,7 +2021,7 @@ static void w83793_update_nonvolatile(struct device *dev)
 	for (i = 0; i < ARRAY_SIZE(data->beeps); i++)
 		data->beeps[i] = w83793_read_value(client, W83793_REG_BEEP(i));
 
-	data->last_nonvolatile = jiffies;
+	data->last_nonvolatile = get_jiffies_64();
 }
 
 static struct w83793_data *w83793_update_device(struct device *dev)
@@ -2031,8 +2032,8 @@ static struct w83793_data *w83793_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (!(time_after(jiffies, data->last_updated + HZ * 2)
-	      || !data->valid))
+	if (!(time_after64(get_jiffies_64(), data->last_updated + HZ * 2) ||
+	      !data->valid))
 		goto END;
 
 	/* Update the voltages measured value and limits */
@@ -2077,7 +2078,7 @@ static struct w83793_data *w83793_update_device(struct device *dev)
 	if (data->has_vid & 0x02)
 		data->vid[1] = w83793_read_value(client, W83793_REG_VID_INB);
 	w83793_update_nonvolatile(dev);
-	data->last_updated = jiffies;
+	data->last_updated = get_jiffies_64();
 	data->valid = true;
 
 END:

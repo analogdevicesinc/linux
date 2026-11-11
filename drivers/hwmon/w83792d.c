@@ -262,7 +262,7 @@ struct w83792d_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[9];		/* Register value */
 	u8 in_max[9];		/* Register value */
@@ -1484,9 +1484,8 @@ static struct w83792d_data *w83792d_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after
-	    (jiffies - data->last_updated, (unsigned long) (HZ * 3))
-	    || time_before(jiffies, data->last_updated) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ * 3) ||
+	    !data->valid) {
 		dev_dbg(dev, "Starting device update\n");
 
 		/* Update the voltages measured value and limits */
@@ -1586,7 +1585,7 @@ static struct w83792d_data *w83792d_update_device(struct device *dev)
 			data->sf2_levels[i][3] = reg_tmp & 0x0f;
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

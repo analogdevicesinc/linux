@@ -152,7 +152,7 @@ struct vt8231_data {
 	struct mutex update_lock;
 	struct device *hwmon_dev;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	u8 in[6];		/* Register value */
 	u8 in_max[6];		/* Register value */
@@ -188,8 +188,8 @@ static struct vt8231_data *vt8231_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
-	    || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2) ||
+	    !data->valid) {
 		for (i = 0; i < 6; i++) {
 			if (ISVOLT(i, data->uch_config)) {
 				data->in[i] = vt8231_read_value(data,
@@ -239,7 +239,7 @@ static struct vt8231_data *vt8231_update_device(struct device *dev)
 		else if (data->fan[1] && !data->fan_min[1])
 			data->alarms &= ~0x80;
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

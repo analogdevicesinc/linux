@@ -46,7 +46,7 @@ struct emc6w201_data {
 	struct i2c_client *client;
 	struct mutex update_lock;
 	bool valid; /* false until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* registers values */
 	u8 in[3][6];
@@ -127,7 +127,8 @@ static struct emc6w201_data *emc6w201_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		for (nr = 0; nr < 6; nr++) {
 			data->in[input][nr] =
 				emc6w201_read8(client,
@@ -161,7 +162,7 @@ static struct emc6w201_data *emc6w201_update_device(struct device *dev)
 						EMC6W201_REG_FAN_MIN(nr));
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

@@ -15,7 +15,7 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 
 MODULE_LICENSE("GPL");
 
@@ -60,7 +60,7 @@ struct thmc50_data {
 
 	struct mutex update_lock;
 	enum chips type;
-	unsigned long last_updated;	/* In jiffies */
+	ktime_t last_updated;
 	char has_temp3;		/* !=0 if it is ADM1022 in temp3 mode */
 	bool valid;		/* true if following fields are valid */
 
@@ -77,12 +77,13 @@ static struct thmc50_data *thmc50_update_device(struct device *dev)
 {
 	struct thmc50_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
-	int timeout = HZ / 5 + (data->type == thmc50 ? HZ : 0);
+	unsigned int timeout_ms = data->type == thmc50 ? 1200 : 200;
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + timeout)
-	    || !data->valid) {
+	if (!data->valid ||
+	    ktime_after(ktime_get(),
+			ktime_add_ms(data->last_updated, timeout_ms))) {
 
 		int temps = data->has_temp3 ? 3 : 2;
 		int i;
@@ -106,7 +107,7 @@ static struct thmc50_data *thmc50_update_device(struct device *dev)
 		    i2c_smbus_read_byte_data(client, THMC50_REG_ANALOG_OUT);
 		data->alarms =
 		    i2c_smbus_read_byte_data(client, THMC50_REG_INTR);
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 

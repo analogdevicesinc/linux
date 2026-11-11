@@ -19,6 +19,7 @@
  * Supports the following chips:
  *
  * Chip        #vin    #fan    #pwm    #temp  chip IDs       man ID
+ * nct5525d     8      3       3       3+3    0xd2b3 0xc1    0x5ca3
  * nct6106d     9      3       3       6+3    0xc450 0xc1    0x5ca3
  * nct6116d     9      5       5       3+3    0xd280 0xc1    0x5ca3
  * nct6126d    10      5       5       3+3    0xd283 0xc1    0x5ca3
@@ -66,6 +67,7 @@
 
 /* used to set data->name = nct6775_device_names[data->sio_kind] */
 static const char * const nct6775_device_names[] = {
+	[nct5525] = "nct5525",
 	[nct6106] = "nct6106",
 	[nct6116] = "nct6116",
 	[nct6126] = "nct6126",
@@ -840,6 +842,41 @@ static const u16 NCT6106_REG_TEMP_CRIT[32] = {
 
 static const u16 NCT6106_REG_TSI_TEMP[] = { 0x59, 0x5b, 0x5d, 0x5f, 0x61, 0x63, 0x65, 0x67 };
 
+/* NCT5525D specific data */
+
+static const u16 NCT5525_REG_IN_MAX[] = {
+	0x92, 0x94, 0x96, 0x9a, 0x9c, 0x9e, 0xa0, 0xa2 };
+static const u16 NCT5525_REG_IN_MIN[] = {
+	0x93, 0x95, 0x97, 0x9b, 0x9d, 0x9f, 0xa1, 0xa3 };
+static const u16 NCT5525_REG_IN[] = {
+	0x01, 0x02, 0x03, 0x05, 0x06, 0x07, 0x08, 0x09 };
+
+/* AUXFAN2 is a bit special without a Max Duty Output Register so
+ * use Output Value Select Register instead
+ */
+static const u16 NCT5525_REG_PWM_READ[] = {
+	0x4a, 0x4b, 0, 0, 0x1a9
+};
+
+static const u16 NCT5525_REG_TEMP_SEL[] = { 0x110, 0x120, 0, 0, 0x1a0 };
+static const u16 NCT5525_REG_WEIGHT_TEMP_SEL[] = { 0x168, 0x178, 0, 0, 0 };
+
+static const s8 NCT5525_ALARM_BITS[NUM_ALARM_BITS] = {
+	 1,  2,  3,  5,  6,  7,  8,  9, -1, -1, -1, -1,	  /* in0-in11     */
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,	  /* in12-in23    */
+	32, 33, -1, -1, 36, -1, -1, -1, -1, -1, -1, -1,	  /* fan1-fan12   */
+	16, 17, 18, -1, -1, -1, -1, -1, -1, -1, -1, -1,	  /* temp1-temp12 */
+	-1, -1,						  /* intr0-intr1  */
+};
+
+static const s8 NCT5525_BEEP_BITS[NUM_BEEP_BITS] = {
+	 1,  2,  3,  5,  6,  7,  8,  9, -1, -1, -1, -1,	  /* in0-in11     */
+	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,	  /* in12-in23    */
+	24, 25, -1, -1, 28, -1, -1, -1, -1, -1, -1, -1,	  /* fan1-fan12   */
+	16, 17, 18, -1, -1, -1, -1, -1, -1, -1, -1, -1,	  /* temp1-temp12 */
+	-1, -1, 32					  /* intr0-intr1, beep_en */
+};
+
 /* NCT6112D/NCT6114D/NCT6116D specific data */
 
 static const u16 NCT6116_REG_FAN[] = { 0x20, 0x22, 0x24, 0x26, 0x28 };
@@ -1034,6 +1071,14 @@ static const u16 scale_in_6126[10] = {
 	800, 800, 1600, 1600, 800, 800, 1600, 1600, 1600, 800
 };
 
+/*
+ * NCT5525 scaling:
+ * VIN0, AVSB, 3VCC, VIN2, VHIF, 3VSB, VBAT, VTT
+ */
+static const u16 scale_in_5525[8] = {
+	800, 1600, 1600, 800, 1600, 1600, 1600, 800
+};
+
 static inline long in_from_reg(u8 reg, u8 nr, const u16 *scales)
 {
 	return DIV_ROUND_CLOSEST(reg * scales[nr], 100);
@@ -1185,6 +1230,10 @@ static int nct6775_add_template_attr_group(struct device *dev, struct nct6775_da
 bool nct6775_reg_is_word_sized(struct nct6775_data *data, u16 reg)
 {
 	switch (data->kind) {
+	case nct5525:
+		return reg == 0x20 || reg == 0x22 || reg == 0x28 ||
+		  reg == 0x59 || reg == 0x5b || reg == 0xe0 || reg == 0xe2 ||
+		  reg == 0xe8;
 	case nct6106:
 		return reg == 0x20 || reg == 0x22 || reg == 0x24 ||
 		  (reg >= 0x59 && reg < 0x69 && (reg & 1)) ||
@@ -1432,11 +1481,15 @@ static int nct6775_update_pwm(struct device *dev)
 		if (!(data->has_pwm & BIT(i)))
 			continue;
 
-		err = nct6775_read_value(data, data->REG_PWM_MODE[i], &reg);
-		if (err)
-			return err;
-		duty_is_dc = data->REG_PWM_MODE[i] && (reg & data->PWM_MODE_MASK[i]);
-		data->pwm_mode[i] = !duty_is_dc;
+		if (data->REG_PWM_MODE[i] == 0) {
+			data->pwm_mode[i] = 1;
+		} else {
+			err = nct6775_read_value(data, data->REG_PWM_MODE[i], &reg);
+			if (err)
+				return err;
+			duty_is_dc = data->REG_PWM_MODE[i] && (reg & data->PWM_MODE_MASK[i]);
+			data->pwm_mode[i] = !duty_is_dc;
+		}
 
 		err = nct6775_read_value(data, data->REG_FAN_MODE[i], &fanmodecfg);
 		if (err)
@@ -1570,6 +1623,7 @@ static int nct6775_update_pwm_limits(struct device *dev)
 		case nct6776:
 			data->auto_pwm[i][data->auto_pwm_num] = 0xff;
 			break;
+		case nct5525:
 		case nct6106:
 		case nct6116:
 		case nct6126:
@@ -1608,7 +1662,7 @@ struct nct6775_data *nct6775_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 		/* Fan clock dividers */
 		err = nct6775_update_fan_div_common(data);
@@ -1732,7 +1786,7 @@ struct nct6775_data *nct6775_update_device(struct device *dev)
 			data->beeps |= ((u64)beep) << (i << 3);
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 out:
@@ -2111,7 +2165,7 @@ write_div:
 		if (err)
 			goto write_min;
 		/* Give the chip time to sample a new speed value */
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 	}
 
 write_min:
@@ -3236,6 +3290,7 @@ store_auto_pwm(struct device *dev, struct device_attribute *attr,
 			break;
 		case nct6776:
 			break; /* always enabled, nothing to do */
+		case nct5525:
 		case nct6106:
 		case nct6116:
 		case nct6126:
@@ -3562,6 +3617,89 @@ int nct6775_probe(struct device *dev, struct nct6775_data *data,
 	data->scale_in = scale_in;
 
 	switch (data->kind) {
+	case nct5525:
+		data->in_num = 8;
+		data->scale_in = scale_in_5525;
+		/* compatible with NCT6116, with pwm index 3 and 4 not populated. */
+		data->pwm_num = 5;
+		data->auto_pwm_num = 4;
+		data->temp_fixed_num = 3;
+		data->num_temp_alarms = 3;
+		data->num_temp_beeps = 3;
+
+		data->ALARM_BITS = NCT5525_ALARM_BITS;
+		data->BEEP_BITS = NCT5525_BEEP_BITS;
+
+		data->fan_from_reg = fan_from_reg13;
+		data->fan_from_reg_min = fan_from_reg13;
+		data->target_temp_mask = 0xff;
+		data->tolerance_mask = 0x07;
+		data->speed_tolerance_limit = 63;
+
+		data->temp_label = nct6776_temp_label;
+		data->temp_mask = NCT6776_TEMP_MASK;
+		data->virt_temp_mask = NCT6776_VIRT_TEMP_MASK;
+
+		data->REG_VBAT = NCT6106_REG_VBAT;
+		data->REG_DIODE = NCT6106_REG_DIODE;
+		data->DIODE_MASK = NCT6106_DIODE_MASK;
+		data->REG_VIN = NCT5525_REG_IN;
+		data->REG_IN_MINMAX[0] = NCT5525_REG_IN_MIN;
+		data->REG_IN_MINMAX[1] = NCT5525_REG_IN_MAX;
+		/* compatible with NCT6116, with fans index 3 and 4 not populated. */
+		data->REG_TARGET = NCT6116_REG_TARGET;
+		data->REG_FAN = NCT6116_REG_FAN;
+		data->REG_FAN_MODE = NCT6116_REG_FAN_MODE;
+		data->REG_FAN_MIN = NCT6116_REG_FAN_MIN;
+		data->REG_FAN_PULSES = NCT6116_REG_FAN_PULSES;
+		data->FAN_PULSE_SHIFT = NCT6116_FAN_PULSE_SHIFT;
+		data->REG_FAN_TIME[0] = NCT6116_REG_FAN_STOP_TIME;
+		data->REG_FAN_TIME[1] = NCT6116_REG_FAN_STEP_UP_TIME;
+		data->REG_FAN_TIME[2] = NCT6116_REG_FAN_STEP_DOWN_TIME;
+		data->REG_TOLERANCE_H = NCT6116_REG_TOLERANCE_H;
+		data->REG_PWM[0] = NCT6116_REG_PWM;
+		data->REG_PWM[1] = NCT6116_REG_FAN_START_OUTPUT;
+		data->REG_PWM[2] = NCT6116_REG_FAN_STOP_OUTPUT;
+		data->REG_PWM[5] = NCT6106_REG_WEIGHT_DUTY_STEP;
+		data->REG_PWM[6] = NCT6106_REG_WEIGHT_DUTY_BASE;
+		data->REG_PWM_READ = NCT5525_REG_PWM_READ;
+		data->REG_PWM_MODE = NCT6106_REG_PWM_MODE;
+		data->PWM_MODE_MASK = NCT6106_PWM_MODE_MASK;
+		data->REG_AUTO_TEMP = NCT6116_REG_AUTO_TEMP;
+		data->REG_AUTO_PWM = NCT6116_REG_AUTO_PWM;
+		data->REG_CRITICAL_TEMP = NCT6116_REG_CRITICAL_TEMP;
+		data->REG_CRITICAL_TEMP_TOLERANCE =
+			NCT6116_REG_CRITICAL_TEMP_TOLERANCE;
+		data->REG_CRITICAL_PWM_ENABLE = NCT6116_REG_CRITICAL_PWM_ENABLE;
+		data->CRITICAL_PWM_ENABLE_MASK =
+			NCT6106_CRITICAL_PWM_ENABLE_MASK;
+		data->REG_CRITICAL_PWM = NCT6116_REG_CRITICAL_PWM;
+		data->REG_TEMP_OFFSET = NCT6106_REG_TEMP_OFFSET;
+		data->REG_TEMP_SOURCE = NCT6106_REG_TEMP_SOURCE;
+		data->REG_TEMP_SEL = NCT5525_REG_TEMP_SEL;
+		data->REG_WEIGHT_TEMP_SEL = NCT5525_REG_WEIGHT_TEMP_SEL;
+		data->REG_WEIGHT_TEMP[0] = NCT6106_REG_WEIGHT_TEMP_STEP;
+		data->REG_WEIGHT_TEMP[1] = NCT6106_REG_WEIGHT_TEMP_STEP_TOL;
+		data->REG_WEIGHT_TEMP[2] = NCT6106_REG_WEIGHT_TEMP_BASE;
+		data->REG_ALARM = NCT6106_REG_ALARM;
+		data->REG_BEEP = NCT6106_REG_BEEP;
+		data->REG_TSI_TEMP = NCT6116_REG_TSI_TEMP;
+
+		reg_temp = NCT6106_REG_TEMP;
+		reg_temp_mon = NCT6106_REG_TEMP_MON;
+		num_reg_temp = 3;
+		num_reg_temp_mon = 2;
+		num_reg_tsi_temp = ARRAY_SIZE(NCT6116_REG_TSI_TEMP);
+		reg_temp_over = NCT6106_REG_TEMP_OVER;
+		reg_temp_hyst = NCT6106_REG_TEMP_HYST;
+		reg_temp_config = NCT6106_REG_TEMP_CONFIG;
+		num_reg_temp_config = 3;
+		reg_temp_alternate = NCT6106_REG_TEMP_ALTERNATE;
+		reg_temp_crit = NCT6106_REG_TEMP_CRIT;
+		reg_temp_crit_l = NCT6106_REG_TEMP_CRIT_L;
+		reg_temp_crit_h = NCT6106_REG_TEMP_CRIT_H;
+
+		break;
 	case nct6106:
 		data->in_num = 9;
 		data->pwm_num = 3;

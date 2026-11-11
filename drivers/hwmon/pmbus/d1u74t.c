@@ -30,11 +30,12 @@ static struct pmbus_driver_info d1u74t_info = {
 
 static int d1u74t_probe(struct i2c_client *client)
 {
-	char buf[I2C_SMBUS_BLOCK_MAX + 2] = { 0 };
+	char buf[I2C_SMBUS_BLOCK_MAX + 1] = { 0 };
 	struct device *dev = &client->dev;
 	int rc;
 
-	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, buf);
+	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID,
+				       sizeof(buf) - 1, buf);
 	if (rc < 0)
 		return dev_err_probe(dev, rc, "Failed to read PMBUS_MFR_ID\n");
 
@@ -45,7 +46,8 @@ static int d1u74t_probe(struct i2c_client *client)
 				     buf);
 	}
 
-	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, buf);
+	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+				       sizeof(buf) - 1, buf);
 	if (rc < 0)
 		return dev_err_probe(dev, rc,
 				     "Failed to read PMBUS_MFR_MODEL\n");

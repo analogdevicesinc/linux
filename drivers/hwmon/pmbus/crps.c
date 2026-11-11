@@ -31,9 +31,10 @@ static int crps_probe(struct i2c_client *client)
 {
 	int rc;
 	struct device *dev = &client->dev;
-	char buf[I2C_SMBUS_BLOCK_MAX + 2] = { 0 };
+	char buf[I2C_SMBUS_BLOCK_MAX + 1] = { 0 };
 
-	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, buf);
+	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+				       sizeof(buf) - 1, buf);
 	if (rc < 0)
 		return dev_err_probe(dev, rc, "Failed to read PMBUS_MFR_MODEL\n");
 

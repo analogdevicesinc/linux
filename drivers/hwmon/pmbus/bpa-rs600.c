@@ -166,18 +166,19 @@ static int bpa_rs600_probe(struct i2c_client *client)
 				     | I2C_FUNC_SMBUS_READ_BLOCK_DATA))
 		return -ENODEV;
 
-	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, buf);
+	ret = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+					sizeof(buf) - 1, buf);
 	if (ret < 0) {
 		dev_err(dev, "Failed to read Manufacturer Model\n");
 		return ret;
 	}
 
+	buf[ret] = '\0';
 	for (mid = bpa_rs600_id; mid->name[0]; mid++) {
 		if (!strncasecmp(buf, mid->name, strlen(mid->name)))
 			break;
 	}
 	if (!mid->name[0]) {
-		buf[ret] = '\0';
 		dev_err(dev, "Unsupported Manufacturer Model '%s'\n", buf);
 		return -ENODEV;
 	}

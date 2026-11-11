@@ -15,7 +15,7 @@
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
 #include <linux/i2c.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/slab.h>
@@ -29,7 +29,7 @@ struct tc74_data {
 	struct i2c_client	*client;
 	struct mutex		lock;	/* atomic read data updates */
 	bool			valid;	/* validity of fields below */
-	unsigned long		next_update;	/* In jiffies */
+	ktime_t			next_update;	/* Next update time */
 	s8			temp_input;	/* Temp value in dC */
 };
 
@@ -43,7 +43,7 @@ static int tc74_update_device(struct device *dev)
 	if (ret)
 		return ret;
 
-	if (time_after(jiffies, data->next_update) || !data->valid) {
+	if (!data->valid || ktime_after(ktime_get(), data->next_update)) {
 		s32 value;
 
 		value = i2c_smbus_read_byte_data(client, TC74_REG_CONFIG);
@@ -72,7 +72,7 @@ static int tc74_update_device(struct device *dev)
 		}
 
 		data->temp_input = value;
-		data->next_update = jiffies + HZ / 4;
+		data->next_update = ktime_add_ms(ktime_get(), 250);
 		data->valid = true;
 	}
 

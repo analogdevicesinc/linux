@@ -19,11 +19,12 @@ static ssize_t acbel_fsg032_debugfs_read(struct file *file, char __user *buf, si
 					 loff_t *ppos)
 {
 	struct i2c_client *client = file->private_data;
-	u8 data[I2C_SMBUS_BLOCK_MAX + 2] = { 0 };
+	u8 data[I2C_SMBUS_BLOCK_MAX] = { 0 };
 	char out[8];
 	int rc;
 
-	rc = i2c_smbus_read_block_data(client, ACBEL_MFR_FW_REVISION, data);
+	rc = i2c_smbus_read_block_data(client, ACBEL_MFR_FW_REVISION,
+				       sizeof(data), data);
 	if (rc < 0)
 		return rc;
 
@@ -70,25 +71,26 @@ static int acbel_fsg032_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	int rc;
 
-	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID, buf);
+	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_ID,
+				       sizeof(buf) - 1, buf);
 	if (rc < 0) {
 		dev_err(dev, "Failed to read PMBUS_MFR_ID\n");
 		return rc;
 	}
+	buf[rc] = '\0';
 	if (strncmp(buf, "ACBEL", 5)) {
-		buf[rc] = '\0';
 		dev_err(dev, "Manufacturer '%s' not supported\n", buf);
 		return -ENODEV;
 	}
 
-	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL, buf);
+	rc = i2c_smbus_read_block_data(client, PMBUS_MFR_MODEL,
+				       sizeof(buf) - 1, buf);
 	if (rc < 0) {
 		dev_err(dev, "Failed to read PMBUS_MFR_MODEL\n");
 		return rc;
 	}
-
+	buf[rc] = '\0';
 	if (strncmp(buf, "FSG032", 6)) {
-		buf[rc] = '\0';
 		dev_err(dev, "Model '%s' not supported\n", buf);
 		return -ENODEV;
 	}

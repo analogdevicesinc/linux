@@ -23,6 +23,7 @@
 enum sensor_access { access_direct, access_asuswmi };
 
 static const char * const nct6775_sio_names[] __initconst = {
+	[nct5525] = "NCT5525D",
 	[nct6106] = "NCT6106D",
 	[nct6116] = "NCT6116D",
 	[nct6126] = "NCT6122D/NCT6126D",
@@ -75,6 +76,7 @@ MODULE_PARM_DESC(fan_debounce, "Enable debouncing for fan RPM signal");
 #define SIO_REG_ENABLE		0x30	/* Logical device enable */
 #define SIO_REG_ADDR		0x60	/* Logical device address (2 bytes) */
 
+#define SIO_NCT5525_ID		0xd2b0
 #define SIO_NCT6106_ID		0xc450
 #define SIO_NCT6116_ID		0xd280
 #define SIO_NCT6122_ID		0xd2a0
@@ -547,6 +549,14 @@ nct6775_check_fan_inputs(struct nct6775_data *data, struct nct6775_sio_data *sio
 
 		fan4min = fan4pin;
 		pwm3pin = fan3pin;
+	} else if (data->kind == nct5525) {
+		/* Pin 48 can be GP64 / SCL / MSCL / AUXFANOUT2 */
+		/* Pin 46 can be GP63 / SDA / MSDA / AUXFANIN2 */
+		int cr1b = sio_data->sio_inb(sio_data, 0x1b);
+		int cr2a = sio_data->sio_inb(sio_data, 0x2a);
+
+		fan5pin = (!(cr1b & 0x03) && (cr2a & 0x01));
+		pwm5pin = fan5pin;
 	} else if (data->kind == nct6106) {
 		int cr24 = sio_data->sio_inb(sio_data, 0x24);
 
@@ -882,6 +892,7 @@ static int nct6775_platform_probe_init(struct nct6775_data *data)
 	case nct6776:
 		data->have_vid = (cr2a & 0x60) == 0x40;
 		break;
+	case nct5525:
 	case nct6106:
 	case nct6116:
 	case nct6126:
@@ -914,6 +925,9 @@ static int nct6775_platform_probe_init(struct nct6775_data *data)
 		tmp = sio_data->sio_inb(sio_data,
 				    NCT6775_REG_CR_FAN_DEBOUNCE);
 		switch (data->kind) {
+		case nct5525:
+			tmp |= 0x68;
+			break;
 		case nct6106:
 		case nct6116:
 		case nct6126:
@@ -1027,6 +1041,9 @@ static int __init nct6775_find(int sioaddr, struct nct6775_sio_data *sio_data)
 		val = force_id;
 
 	switch (val & SIO_ID_MASK) {
+	case SIO_NCT5525_ID:
+		sio_data->kind = nct5525;
+		break;
 	case SIO_NCT6106_ID:
 		sio_data->kind = nct6106;
 		break;
@@ -1330,6 +1347,7 @@ static const char * const asus_msi_boards[] = {
 	"PRIME B760M-A WIFI",
 	"PRIME B760M-A WIFI D4",
 	"PRIME B760M-AJ D4",
+	"PRIME B760M-K",
 	"PRIME B760M-K D4",
 	"PRIME H510M-A",
 	"PRIME H510M-A WIFI",

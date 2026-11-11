@@ -40,6 +40,11 @@ static char *mutex_path_override;
 
 /* Writing to this EC register switches EC bank */
 #define ASUS_EC_BANK_REGISTER	0xff
+/*
+ * On some boards, writing to this bank 0 register selects which device a
+ * group of registers reports (e.g. one of the fans of the fan extension card).
+ */
+#define ASUS_EC_SELECT_REGISTER	0x43
 #define SENSOR_LABEL_LEN	16
 
 /*
@@ -73,12 +78,18 @@ typedef union {
 		u8 index;
 		u8 bank;
 		u8 size;
-		u8 dummy;
+		/* value to write to ASUS_EC_SELECT_REGISTER first, 0 if none */
+		u8 select;
 	} components;
 } sensor_address;
 
 #define MAKE_SENSOR_ADDRESS(size, bank, index) {                               \
 		.value = (size << 16) + (bank << 8) + index                    \
+	}
+
+#define MAKE_SENSOR_ADDRESS_SELECT(size, bank, index, select) {               \
+		.value = ((u32)(select) << 24) + ((size) << 16) +            \
+			 ((bank) << 8) + (index)                               \
 	}
 
 static u32 hwmon_attributes[hwmon_max] = {
@@ -98,6 +109,12 @@ struct ec_sensor_info {
 #define EC_SENSOR(sensor_label, sensor_type, size, bank, index) {              \
 		.label = sensor_label, .type = sensor_type,                    \
 		.addr = MAKE_SENSOR_ADDRESS(size, bank, index),                \
+	}
+
+/* A sensor read after writing @select to ASUS_EC_SELECT_REGISTER */
+#define EC_SENSOR_SELECT(sensor_label, sensor_type, size, bank, index, select) {\
+		.label = sensor_label, .type = sensor_type,                    \
+		.addr = MAKE_SENSOR_ADDRESS_SELECT(size, bank, index, select), \
 	}
 
 enum ec_sensors {
@@ -155,6 +172,10 @@ enum ec_sensors {
 	ec_sensor_temp_sensor_extra_2,
 	/* "Extra_3" temperature sensor reading [℃] */
 	ec_sensor_temp_sensor_extra_3,
+	/* fan extension card fans [RPM] */
+	ec_sensor_fan_ext_1,
+	ec_sensor_fan_ext_2,
+	ec_sensor_fan_ext_3,
 };
 
 #define SENSOR_TEMP_CHIPSET BIT(ec_sensor_temp_chipset)
@@ -184,6 +205,9 @@ enum ec_sensors {
 #define SENSOR_TEMP_SENSOR_EXTRA_1 BIT(ec_sensor_temp_sensor_extra_1)
 #define SENSOR_TEMP_SENSOR_EXTRA_2 BIT(ec_sensor_temp_sensor_extra_2)
 #define SENSOR_TEMP_SENSOR_EXTRA_3 BIT(ec_sensor_temp_sensor_extra_3)
+#define SENSOR_FAN_EXT_1 BIT(ec_sensor_fan_ext_1)
+#define SENSOR_FAN_EXT_2 BIT(ec_sensor_fan_ext_2)
+#define SENSOR_FAN_EXT_3 BIT(ec_sensor_fan_ext_3)
 
 /*
  * The values for temperature sensor readings without physical sensors connected.
@@ -358,8 +382,21 @@ static const struct ec_sensor_info sensors_family_intel_200[] = {
 		EC_SENSOR("Motherboard", hwmon_temp, 1, 0x00, 0x3c),
 	[ec_sensor_temp_t_sensor] =
 		EC_SENSOR("T_Sensor", hwmon_temp, 1, 0x00, 0x3d),
+	[ec_sensor_temp_vrm] = EC_SENSOR("VRM", hwmon_temp, 1, 0x00, 0x3e),
+	[ec_sensor_temp_sensor_extra_1] =
+		EC_SENSOR("Extra_1", hwmon_temp, 1, 0x00, 0x60),
+	[ec_sensor_temp_sensor_extra_2] =
+		EC_SENSOR("Extra_2", hwmon_temp, 1, 0x00, 0x61),
+	[ec_sensor_temp_sensor_extra_3] =
+		EC_SENSOR("Extra_3", hwmon_temp, 1, 0x00, 0x62),
 	[ec_sensor_fan_cpu_opt] =
 		EC_SENSOR("CPU_Opt", hwmon_fan, 2, 0x00, 0xbc),
+	[ec_sensor_fan_ext_1] =
+		EC_SENSOR_SELECT("EXT_FAN1", hwmon_fan, 2, 0x00, 0x57, 0x0a),
+	[ec_sensor_fan_ext_2] =
+		EC_SENSOR_SELECT("EXT_FAN2", hwmon_fan, 2, 0x00, 0x57, 0x0b),
+	[ec_sensor_fan_ext_3] =
+		EC_SENSOR_SELECT("EXT_FAN3", hwmon_fan, 2, 0x00, 0x57, 0x0c),
 };
 
 static const struct ec_sensor_info sensors_family_intel_300[] = {
@@ -518,6 +555,15 @@ static const struct ec_board_info board_info_maximus_vi_hero = {
 		SENSOR_FAN_CPU_OPT | SENSOR_FAN_WATER_FLOW,
 	.mutex_path = ACPI_GLOBAL_LOCK_PSEUDO_PATH,
 	.family = family_intel_300_series,
+};
+
+static const struct ec_board_info board_info_maximus_ix_extreme = {
+	.sensors = SENSOR_TEMP_CHIPSET | SENSOR_TEMP_T_SENSOR |
+		SENSOR_TEMP_VRM | SENSOR_TEMP_SENSOR_EXTRA_1 |
+		SENSOR_TEMP_SENSOR_EXTRA_2 | SENSOR_TEMP_SENSOR_EXTRA_3 |
+		SENSOR_FAN_EXT_1 | SENSOR_FAN_EXT_2 | SENSOR_FAN_EXT_3,
+	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PCI0_LPCB_SIO1_MUT0,
+	.family = family_intel_200_series,
 };
 
 static const struct ec_board_info board_info_maximus_x_hero = {
@@ -721,7 +767,7 @@ static const struct ec_board_info board_info_strix_x470_i_gaming = {
 
 static const struct ec_board_info board_info_strix_x570_e_gaming = {
 	.sensors = SENSOR_SET_TEMP_CHIPSET_CPU_MB |
-		SENSOR_TEMP_T_SENSOR |
+		SENSOR_TEMP_T_SENSOR | SENSOR_FAN_CPU_OPT |
 		SENSOR_FAN_CHIPSET | SENSOR_CURR_CPU |
 		SENSOR_IN_CPU_CORE,
 	.mutex_path = ASUS_HW_ACCESS_MUTEX_ASMX,
@@ -882,6 +928,8 @@ static const struct ec_board_info board_info_zenith_ii_extreme = {
 static const struct dmi_system_id dmi_table[] = {
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("MAXIMUS VI HERO",
 					&board_info_maximus_vi_hero),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("MAXIMUS IX EXTREME",
+					&board_info_maximus_ix_extreme),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("PRIME X470-PRO",
 					&board_info_prime_x470_pro),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("PRIME X570-PRO",
@@ -1057,8 +1105,11 @@ struct ec_sensors_data {
 	const struct ec_board_info *board_info;
 	const struct ec_sensor_info *sensors_info;
 	struct ec_sensor *sensors;
-	/* EC registers to read from */
-	u16 *registers;
+	/*
+	 * EC registers to read from: (select << 16) + (bank << 8) + index,
+	 * see register_select()
+	 */
+	u32 *registers;
 	u8 *read_buffer;
 	/* sorted list of unique register banks */
 	u8 banks[ASUS_EC_MAX_BANK + 1];
@@ -1076,14 +1127,19 @@ struct ec_sensors_data {
 	u8 nr_banks;
 };
 
-static u8 register_bank(u16 reg)
+static u8 register_bank(u32 reg)
 {
-	return reg >> 8;
+	return (reg >> 8) & 0xff;
 }
 
-static u8 register_index(u16 reg)
+static u8 register_index(u32 reg)
 {
 	return reg & 0x00ff;
+}
+
+static u8 register_select(u32 reg)
+{
+	return (reg >> 16) & 0xff;
 }
 
 static bool is_sensor_data_signed(const struct ec_sensor_info *si)
@@ -1168,6 +1224,7 @@ static void fill_ec_registers(struct ec_sensors_data *ec)
 		si = get_sensor_info(ec, i);
 		for (j = 0; j < si->addr.components.size; ++j, ++register_idx) {
 			ec->registers[register_idx] =
+				(si->addr.components.select << 16) +
 				(si->addr.components.bank << 8) +
 				si->addr.components.index + j;
 		}
@@ -1222,7 +1279,8 @@ static int asus_ec_block_read(const struct device *dev,
 			      struct ec_sensors_data *ec)
 {
 	int ireg, ibank, status;
-	u8 bank, reg_bank, prev_bank;
+	u8 bank, reg_bank, prev_bank, select, prev_select;
+	bool select_saved;
 
 	bank = 0;
 	status = asus_ec_bank_switch(bank, &prev_bank);
@@ -1247,14 +1305,30 @@ static int asus_ec_block_read(const struct device *dev,
 				break;
 			}
 		}
+		select_saved = false;
 		for (ireg = 0; ireg < ec->nr_registers; ireg++) {
 			reg_bank = register_bank(ec->registers[ireg]);
 			if (reg_bank != bank) {
 				continue;
 			}
+			select = register_select(ec->registers[ireg]);
+			if (select) {
+				if (!select_saved) {
+					if (ec_read(ASUS_EC_SELECT_REGISTER,
+						    &prev_select))
+						continue;
+					select_saved = true;
+				}
+				if (ec_write(ASUS_EC_SELECT_REGISTER, select))
+					continue;
+			}
 			ec_read(register_index(ec->registers[ireg]),
 				ec->read_buffer + ireg);
 		}
+		/* restore the selector while still in its bank */
+		if (select_saved &&
+		    ec_write(ASUS_EC_SELECT_REGISTER, prev_select))
+			dev_warn(dev, "EC selector restore failed");
 	}
 
 	status = asus_ec_bank_switch(prev_bank, NULL);
@@ -1537,7 +1611,7 @@ static int asus_ec_probe(struct platform_device *pdev)
 	}
 
 	setup_sensor_data(ec_data);
-	ec_data->registers = devm_kzalloc_objs(dev, u16, ec_data->nr_registers);
+	ec_data->registers = devm_kzalloc_objs(dev, u32, ec_data->nr_registers);
 	ec_data->read_buffer = devm_kcalloc(dev, ec_data->nr_registers,
 					    sizeof(u8), GFP_KERNEL);
 

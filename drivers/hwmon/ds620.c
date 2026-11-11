@@ -57,7 +57,7 @@ struct ds620_data {
 	struct i2c_client *client;
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	s16 temp[3];		/* Register values, word */
 };
@@ -99,7 +99,7 @@ static struct ds620_data *ds620_update_client(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 		int i;
 		int res;
@@ -117,7 +117,7 @@ static struct ds620_data *ds620_update_client(struct device *dev)
 			data->temp[i] = res;
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 abort:

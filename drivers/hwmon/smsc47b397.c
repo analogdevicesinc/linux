@@ -95,7 +95,7 @@ struct smsc47b397_data {
 	struct mutex lock;
 
 	struct mutex update_lock;
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 	bool valid;
 
 	/* register values */
@@ -121,7 +121,8 @@ static struct smsc47b397_data *smsc47b397_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		dev_dbg(dev, "starting device update...\n");
 
 		/* 4 temperature inputs, 4 fan inputs */
@@ -136,7 +137,7 @@ static struct smsc47b397_data *smsc47b397_update_device(struct device *dev)
 					SMSC47B397_REG_FAN_MSB(i)) << 8;
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 
 		dev_dbg(dev, "... device update complete\n");

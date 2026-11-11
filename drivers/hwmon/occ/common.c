@@ -164,11 +164,11 @@ static int occ_poll(struct occ *occ)
 	header = (struct occ_poll_response_header *)occ->resp.data;
 	if (header->occ_state == OCC_STATE_SAFE) {
 		if (occ->last_safe) {
-			if (time_after(jiffies,
-				       occ->last_safe + OCC_SAFE_TIMEOUT))
+			if (time_after64(get_jiffies_64(),
+					 occ->last_safe + OCC_SAFE_TIMEOUT))
 				occ->error = -EHOSTDOWN;
 		} else {
-			occ->last_safe = jiffies;
+			occ->last_safe = get_jiffies_64();
 		}
 	} else {
 		occ->last_safe = 0;
@@ -220,9 +220,9 @@ int occ_update_response(struct occ *occ)
 	}
 
 	/* limit the maximum rate of polling the OCC */
-	if (time_after(jiffies, occ->next_update)) {
+	if (time_after64(get_jiffies_64(), occ->next_update)) {
 		rc = occ_poll(occ);
-		occ->next_update = jiffies + OCC_UPDATE_FREQUENCY;
+		occ->next_update = get_jiffies_64() + OCC_UPDATE_FREQUENCY;
 	} else {
 		rc = occ->last_error;
 	}
@@ -1156,7 +1156,7 @@ int occ_active(struct occ *occ, bool active)
 			goto unlock;
 		}
 
-		occ->next_update = jiffies + OCC_UPDATE_FREQUENCY;
+		occ->next_update = get_jiffies_64() + OCC_UPDATE_FREQUENCY;
 		rc = occ_parse_poll_response(occ);
 		if (rc)
 			goto unlock;

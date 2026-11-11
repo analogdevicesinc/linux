@@ -42,7 +42,7 @@ struct g760a_data {
 
 	/* g760a register cache */
 	unsigned int valid:1;
-	unsigned long last_updated; /* In jiffies */
+	u64 last_updated; /* In jiffies */
 
 	u8 set_cnt; /* PWM (period) count number; 0xff stops fan */
 	u8 act_cnt; /*   formula: cnt = (CLK * 30)/(rpm * P) */
@@ -86,7 +86,8 @@ static struct g760a_data *g760a_update_client(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + G760A_UPDATE_INTERVAL)
+	if (time_after64(get_jiffies_64(),
+			 data->last_updated + G760A_UPDATE_INTERVAL)
 	    || !data->valid) {
 		dev_dbg(&client->dev, "Starting g760a update\n");
 
@@ -94,7 +95,7 @@ static struct g760a_data *g760a_update_client(struct device *dev)
 		data->act_cnt = g760a_read_value(client, G760A_REG_ACT_CNT);
 		data->fan_sta = g760a_read_value(client, G760A_REG_FAN_STA);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

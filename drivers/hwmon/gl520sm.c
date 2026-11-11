@@ -65,7 +65,7 @@ struct gl520_data {
 	const struct attribute_group *groups[3];
 	struct mutex update_lock;
 	bool valid;		/* false until the following fields are valid */
-	unsigned long last_updated;	/* in jiffies */
+	u64 last_updated;	/* in jiffies */
 
 	u8 vid;
 	u8 vrm;
@@ -114,7 +114,8 @@ static struct gl520_data *gl520_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + 2 * HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + 2 * HZ) ||
+	    !data->valid) {
 
 		dev_dbg(&client->dev, "Starting gl520sm update\n");
 
@@ -173,7 +174,7 @@ static struct gl520_data *gl520_update_device(struct device *dev)
 						GL520_REG_IN_MAX[4]);
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

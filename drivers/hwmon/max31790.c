@@ -58,7 +58,7 @@
 struct max31790_data {
 	struct i2c_client *client;
 	bool valid; /* zero until following fields are valid */
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 
 	/* register values */
 	u8 fan_config[NR_CHANNEL];
@@ -75,7 +75,8 @@ static struct max31790_data *max31790_update_device(struct device *dev)
 	struct i2c_client *client = data->client;
 	int i, rv;
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		data->valid = false;
 		rv = i2c_smbus_read_byte_data(client,
 				MAX31790_REG_FAN_FAULT_STATUS1);
@@ -119,7 +120,7 @@ static struct max31790_data *max31790_update_device(struct device *dev)
 			}
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 	return data;

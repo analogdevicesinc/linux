@@ -49,6 +49,37 @@ The driver has only been tested with the Intel firmware, and by default
 only instantiates on Intel boards. To enable it on non-Intel boards,
 set the 'force' module parameter to 1.
 
+Fan Control
+-----------
+
+Fan control is supported on MSI boards with an NCT6687D-R (customer ID
+0x20d). pwm1 and pwm2 control the CPU and pump fan headers, and pwm11 to
+pwm16 control the system fan headers that are present. pwmN controls the
+fan reported by fanN_input.
+
+pwmN_enable selects the fan control mode:
+
+  * 1: manual mode, the duty cycle is set with pwmN
+  * 2: automatic mode, using the fan curve configured in the BIOS
+
+pwmN can only be written in manual mode. Switching to manual mode keeps the
+current duty cycle.
+
+For each fan with a pwmN_enable attribute, the fan curve configured in the
+BIOS setup is reported with the following read-only attributes, if the
+curve sets a duty cycle:
+
+  * pwmN_auto_point[1-7]_temp: temperature of the curve point, in
+    millidegrees Celsius
+  * pwmN_auto_point[1-7]_pwm: duty cycle of the curve point (0-255)
+  * pwmN_auto_channels_temp: temperature channels used by the curve, as a
+    bitmap (1 is temp1, 2 is temp2, 4 is temp3 etc.)
+
+A fan with Smart Fan disabled in the BIOS setup has a flat curve, with its
+fixed duty cycle at all points. The curve is read from the EC on each
+access. Reading pwmN_auto_channels_temp returns -ENODATA if the curve uses
+a temperature source which the driver does not report.
+
 Tested Boards and Firmware Versions
 -----------------------------------
 
@@ -71,6 +102,7 @@ MSI B550M			NCT6687D EC firmware version 1.0 build 05/07/20
 MSI B650			NCT6687D EC firmware version 0.0 build 09/27/22
 MSI B650M			NCT6687D EC firmware version 0.0 build 09/27/22
 MSI B850M			NCT6687D EC firmware version 0.0 build 03/10/25
+MSI B850-P			NCT6687D EC firmware version 0.0 build 04/18/25
 MSI X670-P			NCT6687D EC firmware version 0.0 build 09/27/22
 MSI X870E			NCT6687D EC firmware version 0.0 build 11/13/24
 ===============================	===============================================

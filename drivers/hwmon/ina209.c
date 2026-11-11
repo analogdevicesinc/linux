@@ -18,6 +18,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/err.h>
@@ -62,7 +63,7 @@ struct ina209_data {
 
 	struct mutex update_lock;
 	bool valid;
-	unsigned long last_updated;	/* in jiffies */
+	ktime_t last_updated;
 
 	u16 regs[INA209_REGISTERS];	/* All chip registers */
 
@@ -81,8 +82,15 @@ static struct ina209_data *ina209_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
+	/*
+	 * Single-sample conversion takes 532 us per channel (~1.06 ms for
+	 * shunt and bus), which truncates to 0 ms in update_interval. Enforce
+	 * at least a 1 ms cache window so rapid sequential sysfs reads coalesce.
+	 */
 	if (!data->valid ||
-	    time_after(jiffies, data->last_updated + data->update_interval)) {
+	    ktime_after(ktime_get(),
+			ktime_add_ms(data->last_updated,
+				     max_t(u16, data->update_interval, 1)))) {
 		for (i = 0; i < ARRAY_SIZE(data->regs); i++) {
 			val = i2c_smbus_read_word_swapped(client, i);
 			if (val < 0) {
@@ -91,7 +99,7 @@ static struct ina209_data *ina209_update_device(struct device *dev)
 			}
 			data->regs[i] = val;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 abort:

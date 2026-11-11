@@ -20,7 +20,7 @@
 #include <linux/i2c.h>
 #include <linux/hwmon.h>
 #include <linux/hwmon-sysfs.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 
 /* chip registers */
 #define LTC4261_STATUS	0x00	/* readonly */
@@ -46,7 +46,7 @@ struct ltc4261_data {
 
 	struct mutex update_lock;
 	bool valid;
-	unsigned long last_updated;	/* in jiffies */
+	ktime_t last_updated;
 
 	/* Registers */
 	u8 regs[10];
@@ -60,7 +60,8 @@ static struct ltc4261_data *ltc4261_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ / 4) || !data->valid) {
+	if (ktime_after(ktime_get(), ktime_add_ms(data->last_updated, 250)) ||
+	    !data->valid) {
 		int i;
 
 		/* Read registers -- 0x00 to 0x09 */
@@ -78,7 +79,7 @@ static struct ltc4261_data *ltc4261_update_device(struct device *dev)
 			}
 			data->regs[i] = val;
 		}
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 abort:

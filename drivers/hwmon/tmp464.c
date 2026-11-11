@@ -12,6 +12,7 @@
 #include <linux/hwmon.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/regmap.h>
@@ -94,7 +95,7 @@ struct tmp464_data {
 	int channels;
 	s16 config_orig;
 	u16 open_reg;
-	unsigned long last_updated;
+	ktime_t last_updated;
 	bool valid;
 	int update_interval;
 	struct tmp464_channel channel[MAX_CHANNELS];
@@ -170,13 +171,15 @@ static int tmp464_temp_read(struct device *dev, u32 attr, int channel, long *val
 		 * complete. That means we have to cache the value internally
 		 * for one measurement cycle and report the cached value.
 		 */
-		if (!data->valid || time_after(jiffies, data->last_updated +
-					       msecs_to_jiffies(data->update_interval))) {
+		if (!data->valid ||
+		    ktime_after(ktime_get(),
+				ktime_add_ms(data->last_updated,
+					     data->update_interval))) {
 			err = regmap_read(regmap, TMP464_REMOTE_OPEN_REG, &regval);
 			if (err < 0)
 				break;
 			data->open_reg = regval;
-			data->last_updated = jiffies;
+			data->last_updated = ktime_get();
 			data->valid = true;
 		}
 		*val = !!(data->open_reg & BIT(channel + 7));

@@ -119,7 +119,7 @@ struct pem_data {
 	bool valid;
 	bool fans_supported;
 	int input_length;
-	unsigned long last_updated;	/* in jiffies */
+	u64 last_updated;	/* in jiffies */
 
 	u8 firmware_rev[FIRMWARE_REV_LEN];
 	u8 data_string[DATA_STRING_LEN];
@@ -130,20 +130,15 @@ struct pem_data {
 static int pem_read_block(struct i2c_client *client, u8 command, u8 *data,
 			  int data_len)
 {
-	u8 block_buffer[I2C_SMBUS_BLOCK_MAX];
 	int result;
 
-	result = i2c_smbus_read_block_data(client, command, block_buffer);
+	result = i2c_smbus_read_block_data(client, command, data_len, data);
 	if (unlikely(result < 0))
-		goto abort;
-	if (unlikely(result == 0xff || result != data_len)) {
-		result = -EIO;
-		goto abort;
-	}
-	memcpy(data, block_buffer, data_len);
-	result = 0;
-abort:
-	return result;
+		return result;
+	if (unlikely(result == 0xff || result != data_len))
+		return -EIO;
+
+	return 0;
 }
 
 static struct pem_data *pem_update_device(struct device *dev)
@@ -154,7 +149,8 @@ static struct pem_data *pem_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		int result;
 
 		/* Read data string */
@@ -190,7 +186,7 @@ static struct pem_data *pem_update_device(struct device *dev)
 
 		i2c_smbus_write_byte(client, PEM_CLEAR_INFO_FLAGS);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 abort:

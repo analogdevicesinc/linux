@@ -100,7 +100,7 @@ struct adm1029_data {
 	struct i2c_client *client;
 	struct mutex update_lock; /* protect register access */
 	bool valid;		/* false until following fields are valid */
-	unsigned long last_updated;	/* in jiffies */
+	u64 last_updated;	/* in jiffies */
 
 	/* registers values, signed for temperature, unsigned for other stuff */
 	s8 temp[ARRAY_SIZE(ADM1029_REG_TEMP)];
@@ -121,7 +121,8 @@ static struct adm1029_data *adm1029_update_device(struct device *dev)
 	 * Use the "cache" Luke, don't recheck values
 	 * if there are already checked not a long time later
 	 */
-	if (time_after(jiffies, data->last_updated + HZ * 2) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ * 2) ||
+	    !data->valid) {
 		int nr;
 
 		dev_dbg(&client->dev, "Updating adm1029 data\n");
@@ -142,7 +143,7 @@ static struct adm1029_data *adm1029_update_device(struct device *dev)
 						     ADM1029_REG_FAN_DIV[nr]);
 		}
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

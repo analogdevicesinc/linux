@@ -12,7 +12,7 @@
 #include "pmbus.h"
 
 /*
- * Vender specific register READ_PIN_EST(0x93), READ_IIN_EST(0x8E),
+ * Vendor specific register READ_PIN_EST(0x93), READ_IIN_EST(0x8E),
  * MFR_VR_MULTI_CONFIG_R1(0x0D) and MFR_VR_MULTI_CONFIG_R2(0x1D).
  * The READ_PIN_EST is used to read pin telemetry, the READ_IIN_EST
  * is used to read iin telemetry and the MFR_VR_MULTI_CONFIG_R1,
@@ -62,9 +62,9 @@ static u16 mp2985_linear_exp_transfer(u16 word, u16 expect_exponent)
 	target_exponent = (s16)((expect_exponent & 0x1f) << 11) >> 11;
 
 	/*
-	 * The MP2985 does not support negtive limit value, if a negtive
+	 * The MP2985 does not support negative limit value, if a negative
 	 * limit value is written, the limit value will become to 0. And
-	 * the maximum positive limit value is limitted to 0x3FF.
+	 * the maximum positive limit value is limited to 0x3FF.
 	 */
 	if (mantissa < 0) {
 		mantissa = 0;
@@ -133,7 +133,7 @@ static int mp2985_read_word_data(struct i2c_client *client, int page, int phase,
 		/*
 		 * The MP2985 has standard PMBUS_READ_IIN register(0x89), but this is
 		 * not used to read the input current of per rail. The input current
-		 * is read through the vender redefined register READ_IIN_EST(0x8E).
+		 * is read through the vendor redefined register READ_IIN_EST(0x8E).
 		 */
 		ret = pmbus_read_word_data(client, page, phase, READ_IIN_EST);
 		break;
@@ -141,7 +141,7 @@ static int mp2985_read_word_data(struct i2c_client *client, int page, int phase,
 		/*
 		 * The MP2985 has standard PMBUS_READ_PIN register(0x97), but this
 		 * is not used to read the input power of per rail. The input power
-		 * of per rail is read through the vender redefined register
+		 * of per rail is read through the vendor redefined register
 		 * READ_PIN_EST(0x93).
 		 */
 		ret = pmbus_read_word_data(client, page, phase, READ_PIN_EST);

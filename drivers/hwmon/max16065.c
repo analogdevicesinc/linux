@@ -84,7 +84,7 @@ struct max16065_data {
 	const struct attribute_group *groups[4];
 	struct mutex update_lock;
 	bool valid;
-	unsigned long last_updated; /* in jiffies */
+	u64 last_updated; /* in jiffies */
 	int num_adc;
 	bool have_current;
 	int curr_gain;
@@ -147,7 +147,8 @@ static struct max16065_data *max16065_update_device(struct device *dev)
 	struct i2c_client *client = data->client;
 
 	mutex_lock(&data->update_lock);
-	if (time_after(jiffies, data->last_updated + HZ) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ) ||
+	    !data->valid) {
 		int i;
 
 		for (i = 0; i < data->num_adc; i++)
@@ -173,7 +174,7 @@ static struct max16065_data *max16065_update_device(struct device *dev)
 			WRITE_ONCE(data->fault[0],
 				   data->fault[0] | data->fault[1]);
 
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 	mutex_unlock(&data->update_lock);

@@ -390,7 +390,7 @@ static umode_t macsmc_hwmon_fan_is_visible(const struct macsmc_hwmon_fan *fan,
 					   u32 attr)
 {
 	if (fan->attrs & BIT(attr)) {
-		if (attr == hwmon_fan_target && fan_control && fan->mode.macsmc_key)
+		if (attr == hwmon_fan_target && fan->mode.macsmc_key)
 			return 0644;
 
 		return 0444;

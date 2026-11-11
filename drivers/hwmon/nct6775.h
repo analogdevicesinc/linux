@@ -4,8 +4,9 @@
 
 #include <linux/types.h>
 
-enum kinds { nct6106, nct6116, nct6126, nct6775, nct6776, nct6779, nct6791,
-	     nct6792, nct6793, nct6795, nct6796, nct6797, nct6798, nct6799 };
+enum kinds { nct5525, nct6106, nct6116, nct6126, nct6775, nct6776, nct6779,
+	     nct6791, nct6792, nct6793, nct6795, nct6796, nct6797, nct6798,
+	     nct6799 };
 enum pwm_enable { off, manual, thermal_cruise, speed_cruise, sf3, sf4 };
 
 #define NUM_TEMP	12	/* Max number of temp attribute sets w/ limits*/
@@ -93,7 +94,7 @@ struct nct6775_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 
 	/* Register values */
 	u8 bank;		/* current register bank */

@@ -170,7 +170,7 @@ struct sis5595_data {
 
 	struct mutex update_lock;
 	bool valid;		/* true if following fields are valid */
-	unsigned long last_updated;	/* In jiffies */
+	u64 last_updated;	/* In jiffies */
 	char maxins;		/* == 3 if temp enabled, otherwise == 4 */
 	u8 revision;		/* Reg. value */
 
@@ -215,7 +215,7 @@ static struct sis5595_data *sis5595_update_device(struct device *dev)
 
 	mutex_lock(&data->update_lock);
 
-	if (time_after(jiffies, data->last_updated + HZ + HZ / 2)
+	if (time_after64(get_jiffies_64(), data->last_updated + HZ + HZ / 2)
 	    || !data->valid) {
 
 		for (i = 0; i <= data->maxins; i++) {
@@ -249,7 +249,7 @@ static struct sis5595_data *sis5595_update_device(struct device *dev)
 		data->alarms =
 		    sis5595_read_value(data, SIS5595_REG_ALARM1) |
 		    (sis5595_read_value(data, SIS5595_REG_ALARM2) << 8);
-		data->last_updated = jiffies;
+		data->last_updated = get_jiffies_64();
 		data->valid = true;
 	}
 

@@ -38,7 +38,7 @@ struct ad7414_data {
 	struct i2c_client	*client;
 	struct mutex		lock;	/* atomic read data updates */
 	bool			valid;	/* true if following fields are valid */
-	unsigned long		next_update;	/* In jiffies */
+	u64			next_update;	/* In jiffies */
 	s16			temp_input;	/* Register values */
 	s8			temps[ARRAY_SIZE(AD7414_REG_LIMIT)];
 };
@@ -73,7 +73,7 @@ static struct ad7414_data *ad7414_update_device(struct device *dev)
 
 	mutex_lock(&data->lock);
 
-	if (time_after(jiffies, data->next_update) || !data->valid) {
+	if (time_after64(get_jiffies_64(), data->next_update) || !data->valid) {
 		int value, i;
 
 		dev_dbg(&client->dev, "starting ad7414 update\n");
@@ -94,7 +94,7 @@ static struct ad7414_data *ad7414_update_device(struct device *dev)
 				data->temps[i] = value;
 		}
 
-		data->next_update = jiffies + HZ + HZ / 2;
+		data->next_update = get_jiffies_64() + HZ + HZ / 2;
 		data->valid = true;
 	}
 

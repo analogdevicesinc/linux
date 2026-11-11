@@ -18,9 +18,9 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
+#include <linux/ktime.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/jiffies.h>
 #include <linux/unaligned.h>
 
 /* commands (high repeatability mode) */
@@ -170,7 +170,7 @@ struct sht3x_data {
 	u8 mode;
 	const unsigned char *command;
 	u32 wait_time;			/* in us*/
-	unsigned long last_update;	/* last update in periodic mode*/
+	ktime_t last_update;		/* last update in periodic mode */
 	enum sht3x_repeatability repeatability;
 	u32 serial_number;
 
@@ -257,7 +257,6 @@ static struct sht3x_data *sht3x_update_client(struct device *dev)
 	struct sht3x_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
 	u16 interval_ms = mode_to_update_interval[data->mode];
-	unsigned long interval_jiffies = msecs_to_jiffies(interval_ms);
 	unsigned char buf[SHT3X_RESPONSE_LENGTH];
 	u16 val;
 	int ret = 0;
@@ -271,7 +270,9 @@ static struct sht3x_data *sht3x_update_client(struct device *dev)
 	 * internally by the sensor and reading out sensor values only makes
 	 * sense if a new reading is available.
 	 */
-	if (time_after(jiffies, data->last_update + interval_jiffies)) {
+	if (interval_ms == 0 ||
+	    ktime_after(ktime_get(),
+			ktime_add_ms(data->last_update, interval_ms))) {
 		ret = sht3x_read_from_command(client, data, data->command, buf,
 					      sizeof(buf), data->wait_time);
 		if (ret)
@@ -281,7 +282,7 @@ static struct sht3x_data *sht3x_update_client(struct device *dev)
 		data->temperature = sht3x_extract_temperature(val);
 		val = get_unaligned_be16(buf + 3);
 		data->humidity = sht3x_extract_humidity(val);
-		data->last_update = jiffies;
+		data->last_update = ktime_get();
 	}
 
 out:
@@ -902,7 +903,7 @@ static int sht3x_probe(struct i2c_client *client)
 
 	data->repeatability = high_repeatability;
 	data->mode = 0;
-	data->last_update = jiffies - msecs_to_jiffies(3000);
+	data->last_update = ktime_sub_ms(ktime_get(), 3000);
 	data->client = client;
 	data->chip_id = (uintptr_t)i2c_get_match_data(client);
 	crc8_populate_msb(sht3x_crc8_table, SHT3X_CRC8_POLYNOMIAL);

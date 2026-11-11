@@ -12,7 +12,7 @@
 #include <linux/err.h>
 #include <linux/i2c.h>
 #include <linux/init.h>
-#include <linux/jiffies.h>
+#include <linux/ktime.h>
 #include <linux/hwmon.h>
 #include <linux/module.h>
 #include <linux/slab.h>
@@ -74,7 +74,7 @@ static const u8 lm95241_reg_address[] = {
 /* Client data (each client gets its own) */
 struct lm95241_data {
 	struct i2c_client *client;
-	unsigned long last_updated;	/* in jiffies */
+	ktime_t last_updated;
 	unsigned long interval;		/* in milli-seconds */
 	bool valid;		/* false until following fields are valid */
 	/* registers values */
@@ -100,8 +100,8 @@ static struct lm95241_data *lm95241_update_device(struct device *dev)
 	struct lm95241_data *data = dev_get_drvdata(dev);
 	struct i2c_client *client = data->client;
 
-	if (time_after(jiffies, data->last_updated
-		       + msecs_to_jiffies(data->interval)) ||
+	if (ktime_after(ktime_get(),
+			ktime_add_ms(data->last_updated, data->interval)) ||
 	    !data->valid) {
 		int i;
 
@@ -113,7 +113,7 @@ static struct lm95241_data *lm95241_update_device(struct device *dev)
 
 		data->status = i2c_smbus_read_byte_data(client,
 							LM95241_REG_R_STATUS);
-		data->last_updated = jiffies;
+		data->last_updated = ktime_get();
 		data->valid = true;
 	}
 	return data;
