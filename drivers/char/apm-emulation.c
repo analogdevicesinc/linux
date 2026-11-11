@@ -78,7 +78,7 @@ struct apm_queue {
  *	5: APM_IOC_SUSPEND ioctl returns
  *
  *	6: the notifier invoked from the core PM code timed out waiting
- *	   for all relevant threds to enter ACKED state and puts those
+ *	   for all relevant threads to enter ACKED state and puts those
  *	   that haven't into ACKTO
  *	7: those threads issue APM_IOC_SUSPEND ioctl too late,
  *	   get an error

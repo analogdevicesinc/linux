@@ -4,7 +4,11 @@
 
 use kernel::{list::ListArc, prelude::*, seq_file::SeqFile, seq_print, sync::UniqueArc};
 
-use crate::{node::Node, thread::Thread, BinderReturnWriter, DArc, DLArc, DTRWrap, DeliverToRead};
+use crate::{
+    node::{MaybeHashed, Node},
+    thread::Thread,
+    BinderReturnWriter, DArc, DLArc, DTRWrap, DeliverToRead,
+};
 
 use core::mem::MaybeUninit;
 
@@ -94,14 +98,14 @@ impl DeliverToRead for NodeWrapper {
     }
 
     #[inline(never)]
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str, hashed: bool) -> Result {
         seq_print!(
             m,
-            "{}node work {}: u{:016x} c{:016x}\n",
+            "{}node work {}: u{} c{}\n",
             prefix,
             self.node.debug_id,
-            self.node.ptr,
-            self.node.cookie,
+            MaybeHashed(self.node.ptr, hashed),
+            MaybeHashed(self.node.cookie, hashed),
         );
         Ok(())
     }

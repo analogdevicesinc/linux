@@ -30,7 +30,7 @@
  * CAREFUL will block a bit after in lp_check_status().
  *				Andrea Arcangeli, 15 Oct 1998
  * Obsoleted and removed all the lowlevel stuff implemented in the last
- * month to use the IEEE1284 functions (that handle the _new_ compatibilty
+ * month to use the IEEE1284 functions (that handle the _new_ compatibility
  * mode fine).
  */
 

@@ -153,7 +153,7 @@ impl DeliverToRead for FreezeMessage {
     }
 
     #[inline(never)]
-    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str) -> Result {
+    fn debug_print(&self, m: &SeqFile, prefix: &str, _tprefix: &str, _hashed: bool) -> Result {
         seq_print!(m, "{}has frozen binder\n", prefix);
         Ok(())
     }

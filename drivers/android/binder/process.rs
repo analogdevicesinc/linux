@@ -596,7 +596,13 @@ impl Process {
     }
 
     #[inline(never)]
-    pub(crate) fn debug_print(&self, m: &SeqFile, ctx: &Context, print_all: bool) -> Result {
+    pub(crate) fn debug_print(
+        &self,
+        m: &SeqFile,
+        ctx: &Context,
+        print_all: bool,
+        hashed: bool,
+    ) -> Result {
         seq_print!(m, "proc {}\n", self.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
@@ -628,13 +634,13 @@ impl Process {
         }
 
         for thread in all_threads {
-            thread.debug_print(m, print_all)?;
+            thread.debug_print(m, print_all, hashed)?;
         }
 
         let mut inner = self.inner.lock();
         for node in all_nodes {
             if print_all || node.has_oneway_transaction(&mut inner) {
-                node.full_debug_print(m, &mut inner)?;
+                node.full_debug_print(m, &mut inner, hashed)?;
             }
         }
         drop(inner);
@@ -659,7 +665,7 @@ impl Process {
 
         let inner = self.inner.lock();
         for work in &inner.work {
-            work.debug_print(m, "  ", "  pending transaction ")?;
+            work.debug_print(m, "  ", "  pending transaction ", hashed)?;
         }
         for _death in &inner.delivered_deaths {
             seq_print!(m, "  has delivered dead binder\n");

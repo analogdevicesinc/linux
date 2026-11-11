@@ -572,6 +572,10 @@ static int mei_ioctl_connect_vtag(struct file *file,
 			if (!IS_ERR(mei_cl_fp_by_vtag(pos, vtag)))
 				continue;
 
+			/* do not share with devices on bus */
+			if (pos->cldev)
+				continue;
+
 			/* replace cl with acquired one */
 			cl_dbg(dev, cl, "replacing with existing cl\n");
 			mei_cl_unlink(cl);
