@@ -99,6 +99,8 @@ static void mpfs_sys_controller_delete(struct kref *kref)
 		container_of(kref, struct mpfs_sys_controller, consumers);
 
 	mbox_free_channel(sys_controller->chan);
+	if (!IS_ERR_OR_NULL(sys_controller->flash))
+		put_mtd_device(sys_controller->flash);
 	kfree(sys_controller);
 }
 
@@ -177,6 +179,8 @@ out_put:
 	mpfs_sys_controller_put(sys_controller);
 	return ret;
 out_free:
+	if (!IS_ERR_OR_NULL(sys_controller->flash))
+		put_mtd_device(sys_controller->flash);
 	kfree(sys_controller);
 	return ret;
 }
