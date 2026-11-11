@@ -69,7 +69,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.404"
+#define DC_VER "3.2.405"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -1350,6 +1350,8 @@ struct dc_debug_options {
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
 	bool override_utm_client_qc_profile;
 	uint8_t utm_client_qc_profiles[4];
+	/* keep HW viewport unchanged by shrinking only recout for visual confirm */
+	bool visual_confirm_full_viewport;
 };
 
 
@@ -3262,6 +3264,8 @@ void dc_unlock_memory_clock_frequency(struct dc *dc);
 
 /* set min memory clock to the min required for current mode, max to maxDPM */
 void dc_lock_memory_clock_frequency(struct dc *dc);
+
+unsigned int dc_refresh_memclk_states(struct dc *dc);
 
 /* set soft max for memclk, to be used for AC/DC switching clock limitations */
 void dc_enable_dcmode_clk_limit(struct dc *dc, bool enable);

@@ -667,8 +667,13 @@ static int gmc_v12_0_early_init(struct amdgpu_ip_block *ip_block)
 
 		r = amdgpu_acpi_find_gpu_memory_in_srat(adev, &aper_base,
 							&aper_size);
+		/*
+		 * An SPM VF has no FB BAR0 and cannot init without the HBM
+		 * aperture from the SRAT. Abort this GPU probe instead of
+		 * limping on as if the GMC block were absent.
+		 */
 		if (r)
-			return r;
+			return -ENODEV;
 
 		adev->gmc.aper_base = aper_base;
 		adev->gmc.aper_size = aper_size;

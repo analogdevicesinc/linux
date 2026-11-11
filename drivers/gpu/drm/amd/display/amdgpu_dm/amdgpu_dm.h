@@ -825,6 +825,12 @@ struct amdgpu_hdmi_vsdb_info {
 	bool replay_mode;
 };
 
+enum amdgpu_dm_vrr_override {
+	AMDGPU_DM_VRR_OVERRIDE_AUTO,
+	AMDGPU_DM_VRR_OVERRIDE_FORCE_HDMI_VRR,
+	AMDGPU_DM_VRR_OVERRIDE_DISABLE_VRR,
+};
+
 struct amdgpu_dm_connector {
 
 	struct drm_connector base;
@@ -915,6 +921,7 @@ struct amdgpu_dm_connector {
 	/* Adaptive Sync */
 	bool pack_sdp_v1_3;
 	enum adaptive_sync_type as_type;
+	enum amdgpu_dm_vrr_override vrr_override;
 	struct amdgpu_hdmi_vsdb_info vsdb_info;
 
 	/* HDMI HPD debounce support */
@@ -1178,6 +1185,12 @@ void dm_free_gpu_mem(struct amdgpu_device *adev,
 						  void *addr);
 
 bool amdgpu_dm_is_headless(struct amdgpu_device *adev);
+
+#if defined(CONFIG_DRM_AMD_DC)
+void amdgpu_dm_update_memclk_states(struct amdgpu_device *adev);
+#else
+static inline void amdgpu_dm_update_memclk_states(struct amdgpu_device *adev) {}
+#endif
 
 bool amdgpu_dm_crtc_complete_writeback(struct amdgpu_crtc *acrtc);
 

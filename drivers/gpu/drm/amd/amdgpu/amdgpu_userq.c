@@ -52,7 +52,6 @@ u32 amdgpu_userq_get_supported_ip_mask(struct amdgpu_device *adev)
 static bool amdgpu_userq_is_reset_type_supported(struct amdgpu_device *adev,
 				enum amdgpu_ring_type ring_type, int reset_type)
 {
-
 	if (ring_type < 0 || ring_type >= AMDGPU_RING_TYPE_MAX)
 		return false;
 
@@ -153,7 +152,7 @@ static void amdgpu_userq_hang_detect_work(struct work_struct *work)
 		int r;
 
 		if (queue->queue_type == AMDGPU_HW_IP_COMPUTE)
-			r = amdgpu_gfx_reset_mes_compute(adev, NULL, NULL,
+			r = amdgpu_gfx_reset_mes_compute(adev, NULL, NULL, NULL,
 							 queue, NULL, NULL);
 		else
 			r = userq_funcs->reset(queue);
@@ -303,8 +302,6 @@ static bool amdgpu_userq_buffer_vas_mapped(struct amdgpu_usermode_queue *queue)
 
 	return true;
 }
-
-
 
 static int amdgpu_userq_preempt_helper(struct amdgpu_usermode_queue *queue)
 {
@@ -461,8 +458,6 @@ retry:
 	}
 	dma_fence_put(ev_fence);
 }
-
-
 
 static int
 amdgpu_userq_get_doorbell_index(struct amdgpu_userq_mgr *uq_mgr,
@@ -961,7 +956,6 @@ amdgpu_userq_restore_all(struct amdgpu_userq_mgr *uq_mgr)
 	mutex_lock(&uq_mgr->userq_mutex);
 	/* Resume all the queues for this process */
 	xa_for_each(&uq_mgr->userq_xa, queue_id, queue) {
-
 		if (!amdgpu_userq_buffer_vas_mapped(queue)) {
 			drm_file_err(uq_mgr->file,
 				     "trying restore queue without va mapping\n");

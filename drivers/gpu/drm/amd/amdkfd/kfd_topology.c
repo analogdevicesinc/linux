@@ -996,7 +996,6 @@ static void kfd_add_non_crat_information(struct kfd_topology_device *kdev)
 int kfd_topology_init(void)
 {
 	void *crat_image = NULL;
-	size_t image_size = 0;
 	int ret;
 	struct list_head temp_topology_device_list;
 	int cpu_only_node = 0;
@@ -1023,8 +1022,7 @@ int kfd_topology_init(void)
 	 */
 	proximity_domain = 0;
 
-	ret = kfd_create_crat_image_virtual(&crat_image, &image_size,
-					    COMPUTE_UNIT_CPU, NULL,
+	ret = kfd_create_crat_image_virtual(&crat_image, COMPUTE_UNIT_CPU, NULL,
 					    proximity_domain);
 	cpu_only_node = 1;
 	if (ret) {
@@ -1039,9 +1037,6 @@ int kfd_topology_init(void)
 		pr_err("Error parsing VCRAT table for CPU\n");
 		goto err;
 	}
-
-	kdev = list_first_entry(&temp_topology_device_list,
-				struct kfd_topology_device, list);
 
 	down_write(&topology_lock);
 	kfd_topology_update_device_list(&temp_topology_device_list,
@@ -1424,6 +1419,9 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 				    struct kfd_iolink_properties, list);
 
 	for (i = 0; i < num_cpu; i++) {
+		if (!node_online(i))
+			continue;
+
 		/* CPU <--> GPU */
 		if (gpu_link->node_to == i)
 			continue;
@@ -1442,7 +1440,7 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 		}
 
 		if (!cpu_link)
-			return -ENOMEM;
+			continue;
 
 		/* CPU <--> CPU <--> GPU, GPU node*/
 		props = kfd_alloc_struct(props);
@@ -1464,8 +1462,8 @@ static int kfd_create_indirect_link_prop(struct kfd_topology_device *kdev, int g
 		if (ret < 0)
 			return ret;
 
-		/* for small Bar, no CPU --> GPU in-direct links */
-		if (kfd_dev_is_large_bar(kdev->gpu)) {
+		/* for small Bar or CPU-less NUMA nodes, no CPU --> GPU in-direct links */
+		if (kfd_dev_is_large_bar(kdev->gpu) && node_state(i, N_CPU)) {
 			/* CPU <--> CPU <--> GPU, CPU node*/
 			props2 = kfd_alloc_struct(props2);
 			if (!props2)
@@ -1871,11 +1869,9 @@ static int kfd_topology_add_device_locked(struct kfd_node *gpu,
 	int proximity_domain = ++topology_crat_proximity_domain;
 	struct list_head temp_topology_device_list;
 	void *crat_image = NULL;
-	size_t image_size = 0;
 	int res;
 
-	res = kfd_create_crat_image_virtual(&crat_image, &image_size,
-					    COMPUTE_UNIT_GPU, gpu,
+	res = kfd_create_crat_image_virtual(&crat_image, COMPUTE_UNIT_GPU, gpu,
 					    proximity_domain);
 	if (res) {
 		dev_err(gpu->adev->dev, "Error creating VCRAT\n");

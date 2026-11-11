@@ -53,6 +53,8 @@ struct dc_dmub_srv {
 	bool idle_allowed;
 	bool needs_idle_wake;
 	bool cursor_offload_enabled;
+	bool disable_timeout;
+	bool enable_dmu_recovery;
 };
 
 bool dc_dmub_srv_wait_for_pending(struct dc_dmub_srv *dc_dmub_srv);
@@ -198,9 +200,28 @@ bool dc_wake_and_execute_dmub_cmd_list(const struct dc_context *ctx, unsigned in
 bool dc_wake_and_execute_gpint(const struct dc_context *ctx, enum dmub_gpint_command command_code,
 			       uint16_t param, uint32_t *response, enum dm_dmub_wait_type wait_type);
 
-void dc_dmub_srv_fams2_update_config(struct dc *dc,
-		struct dc_state *context,
-		bool enable);
+/**
+ * struct dc_dmub_fams2_config_data - Inputs of the FAMS2 config command.
+ *
+ * Filled by the caller from dc and dc_state, so that
+ * dc_dmub_srv_fams2_update_config() needs neither of them.
+ * Note: The stream arrays point into dc_state to keep union block_sequence_params
+ * small; dc_state must outlive the command.
+ */
+struct dc_dmub_fams2_config_data {
+	unsigned int fams_version_major;
+	union dmub_fams2_global_feature_config features;
+	bool imm_restore_drr;
+	bool visual_confirm;
+	bool enable;
+	struct dmub_cmd_fams2_global_config global;
+	const union dmub_cmd_fams2_config *stream_base;
+	const union dmub_cmd_fams2_config *stream_sub;
+	const union dmub_fams2_stream_static_sub_state_v2 *stream_sub_v2;
+};
+
+void dc_dmub_srv_fams2_update_config(struct dc_dmub_srv *dc_dmub_srv,
+		const struct dc_dmub_fams2_config_data *data);
 void dc_dmub_srv_fams2_drr_update(struct dc *dc,
 		uint32_t tg_inst,
 		uint32_t vtotal_min,

@@ -256,11 +256,8 @@ void dcn32_init_clocks(struct clk_mgr *clk_mgr_base)
 		if (clk_mgr_base->bw_params->clk_table.entries[i].dppclk_mhz > 1950)
 			clk_mgr_base->bw_params->clk_table.entries[i].dppclk_mhz = 1950;
 
-	/* Get UCLK, update bounding box */
+	/* Get UCLK, update bounding box and WM range table */
 	clk_mgr_base->funcs->get_memclk_states_from_smu(clk_mgr_base);
-
-	/* WM range table */
-	dcn32_build_wm_range_table(clk_mgr);
 }
 
 static void dcn32_update_clocks_update_dtb_dto(struct clk_mgr_internal *clk_mgr,
@@ -1079,6 +1076,9 @@ static void dcn32_get_memclk_states_from_smu(struct clk_mgr *clk_mgr_base)
 	/* Refresh bounding box */
 	clk_mgr_base->ctx->dc->res_pool->funcs->update_bw_bounding_box(
 			clk_mgr->base.ctx->dc, clk_mgr_base->bw_params);
+
+	/* WM range table and dummy P-state table depend on the memclk levels */
+	dcn32_build_wm_range_table(clk_mgr);
 }
 
 static bool dcn32_are_clock_states_equal(struct dc_clocks *a,

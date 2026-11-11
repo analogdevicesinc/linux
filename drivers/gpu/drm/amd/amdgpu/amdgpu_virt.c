@@ -135,6 +135,18 @@ int amdgpu_virt_release_full_gpu(struct amdgpu_device *adev, bool init)
 	return 0;
 }
 
+/*
+ * amdgpu_virt_deactivate - stop driving an SR-IOV VF after a failed init
+ *
+ * Clear the runtime capability and drop the virt ops so the teardown path
+ * does not issue host handshakes the host will never answer.
+ */
+void amdgpu_virt_deactivate(struct amdgpu_device *adev)
+{
+	adev->virt.caps &= ~AMDGPU_SRIOV_CAPS_RUNTIME;
+	adev->virt.ops = NULL;
+}
+
 /**
  * amdgpu_virt_reset_gpu() - reset gpu
  * @adev:	amdgpu device.
@@ -838,7 +850,6 @@ void amdgpu_virt_init_data_exchange(struct amdgpu_device *adev)
 		/* go through this logic in ip_init and reset to init workqueue*/
 		amdgpu_virt_exchange_data(adev);
 
-		INIT_DELAYED_WORK(&adev->virt.vf2pf_work, amdgpu_virt_update_vf2pf_work_item);
 		schedule_delayed_work(&(adev->virt.vf2pf_work), msecs_to_jiffies(adev->virt.vf2pf_update_interval_ms));
 	} else if (adev->bios != NULL) {
 		/* got through this logic in early init stage to get necessary flags, e.g. rlcg_acc related*/
@@ -1249,8 +1260,17 @@ void amdgpu_virt_init(struct amdgpu_device *adev)
 
 	is_sriov = amdgpu_virt_init_req_data(adev, reg);
 
-	if (is_sriov)
+	if (is_sriov) {
 		amdgpu_virt_init_ras(adev);
+
+		/*
+		 * Initialize the vf2pf work here, before early init writes
+		 * vf2pf_update_interval_ms, so a teardown after a failed init
+		 * can cancel the work safely.
+		 */
+		INIT_DELAYED_WORK(&adev->virt.vf2pf_work,
+				  amdgpu_virt_update_vf2pf_work_item);
+	}
 }
 
 static bool amdgpu_virt_access_debugfs_is_mmio(struct amdgpu_device *adev)

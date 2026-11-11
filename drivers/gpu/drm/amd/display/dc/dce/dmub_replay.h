@@ -41,5 +41,4 @@ struct dmub_replay_funcs {
 struct dmub_replay *dmub_replay_create(struct dc_context *ctx);
 void dmub_replay_destroy(struct dmub_replay **dmub);
 
-
 #endif /* _DMUB_REPLAY_H_ */

@@ -458,6 +458,7 @@ void dsc60_get_single_enc_caps(struct dsc_enc_caps *dsc_enc_caps, unsigned int m
 	dsc_enc_caps->color_depth.bits.COLOR_DEPTH_10_BPC = 1;
 	dsc_enc_caps->color_depth.bits.COLOR_DEPTH_12_BPC = 1;
 	dsc_enc_caps->max_total_throughput_mps = max_dscclk_khz * 3 / 1000;
+	dsc_enc_caps->single_slice_config_throughput_mps = 340;
 
 	dsc_enc_caps->max_slice_width = 5760; /* (including 64 overlap pixels for eDP MSO mode) */
 	dsc_enc_caps->bpp_increment_div = 16; /* 1/16th of a bit */

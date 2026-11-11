@@ -485,7 +485,7 @@ static int smu_v13_0_12_get_system_metrics_table(struct smu_context *smu)
 	if (ret)
 		return ret;
 
-	smu_table_cache_update_time(sys_table, jiffies);
+	smu_table_cache_update_time(sys_table);
 
 	return 0;
 }

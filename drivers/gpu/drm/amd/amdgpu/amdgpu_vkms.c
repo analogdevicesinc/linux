@@ -486,26 +486,9 @@ static int amdgpu_vkms_hw_fini(struct amdgpu_ip_block *ip_block)
 	return 0;
 }
 
-static int amdgpu_vkms_suspend(struct amdgpu_ip_block *ip_block)
-{
-	struct amdgpu_device *adev = ip_block->adev;
-	int r;
-
-	r = drm_mode_config_helper_suspend(adev_to_drm(adev));
-	if (r)
-		return r;
-
-	return 0;
-}
-
 static int amdgpu_vkms_resume(struct amdgpu_ip_block *ip_block)
 {
-	int r;
-
-	r = amdgpu_vkms_hw_init(ip_block);
-	if (r)
-		return r;
-	return drm_mode_config_helper_resume(adev_to_drm(ip_block->adev));
+	return amdgpu_vkms_hw_init(ip_block);
 }
 
 static int amdgpu_vkms_set_clockgating_state(struct amdgpu_ip_block *ip_block,
@@ -526,7 +509,6 @@ static const struct amd_ip_funcs amdgpu_vkms_ip_funcs = {
 	.sw_fini = amdgpu_vkms_sw_fini,
 	.hw_init = amdgpu_vkms_hw_init,
 	.hw_fini = amdgpu_vkms_hw_fini,
-	.suspend = amdgpu_vkms_suspend,
 	.resume = amdgpu_vkms_resume,
 	.set_clockgating_state = amdgpu_vkms_set_clockgating_state,
 	.set_powergating_state = amdgpu_vkms_set_powergating_state,

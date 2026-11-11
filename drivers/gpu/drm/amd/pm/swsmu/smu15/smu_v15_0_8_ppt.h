@@ -35,6 +35,10 @@
 #define SMU_15_0_8_CAP_NPM			1
 #define SMU_15_0_8_CAP_NODE_UNLOAD		2
 #define SMU_15_0_8_NODE_UNLOAD_MIN_FW_VERSION	0x027d0c00u /* 2.125.12.0 */
+#define SMU_15_0_8_GPU_METRICS_REVISION			1
+#define SMU_15_0_8_GPUBOARD_TEMP_METRICS_REVISION	1
+#define SMU_15_0_8_BASEBOARD_TEMP_METRICS_REVISION	1
+#define SMU_15_0_8_PARTITION_METRICS_REVISION		1
 extern void smu_v15_0_8_set_ppt_funcs(struct smu_context *smu);
 
 typedef struct {
@@ -143,10 +147,10 @@ typedef struct {
 	SMU_ARRAY(SMU_MATTR(XGMI_LINK_STATUS), SMU_MUNIT(NONE),                \
 		  SMU_MTYPE(U16), xgmi_link_status,                            \
 		  SMU_15_0_8_NUM_XGMI_LINKS);                                  \
-	SMU_SCALAR(SMU_MATTR(XGMI_READ_DATA_ACC), SMU_MUNIT(DATA_1),           \
-		   SMU_MTYPE(U64), xgmi_read_data_acc);                        \
-	SMU_SCALAR(SMU_MATTR(XGMI_WRITE_DATA_ACC), SMU_MUNIT(DATA_1),          \
-		   SMU_MTYPE(U64), xgmi_write_data_acc);                                  \
+	SMU_SCALAR(SMU_MATTR(XGMI_READ_BANDWIDTH_ACC), SMU_MUNIT(BW_1),        \
+		   SMU_MTYPE(U64), xgmi_read_bandwidth_acc);                   \
+	SMU_SCALAR(SMU_MATTR(XGMI_WRITE_BANDWIDTH_ACC), SMU_MUNIT(BW_1),       \
+		   SMU_MTYPE(U64), xgmi_write_bandwidth_acc);                  \
 	SMU_SCALAR(SMU_MATTR(FIRMWARE_TIMESTAMP), SMU_MUNIT(TIME_2),           \
 		   SMU_MTYPE(U64), firmware_timestamp);                        \
 	SMU_ARRAY(SMU_MATTR(CURRENT_GFXCLK), SMU_MUNIT(CLOCK_1),               \
@@ -181,7 +185,9 @@ typedef struct {
 		  SMU_15_0_8_MAX_XCC);                                         \
 	SMU_ARRAY(SMU_MATTR(GFX_BELOW_HOST_LIMIT_TOTAL_ACC), SMU_MUNIT(NONE),  \
 		  SMU_MTYPE(U64), gfx_below_host_limit_total_acc,              \
-		  SMU_15_0_8_MAX_XCC);
+		  SMU_15_0_8_MAX_XCC);                                         \
+	SMU_SCALAR(SMU_MATTR(REVISION), SMU_MUNIT(NONE),                       \
+		   SMU_MTYPE(U16), revision);
 
 DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_gpu_metrics, SMU_15_0_8_METRICS_FIELDS);
 
@@ -251,7 +257,9 @@ DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_gpu_metrics, SMU_15_0_8_METRICS_FIELDS);
 	SMU_SCALAR(SMU_MATTR(VR_TEMP_VDDIO_065_UCIEAM_C), SMU_MUNIT(TEMP_1),   \
 		   SMU_MTYPE(S16), vr_temp_vddio_065_ucieam_c);                \
 	SMU_SCALAR(SMU_MATTR(VR_TEMP_VDDAN_075), SMU_MUNIT(TEMP_1),            \
-		   SMU_MTYPE(S16), vr_temp_vddan_075);
+		   SMU_MTYPE(S16), vr_temp_vddan_075);                          \
+	SMU_SCALAR(SMU_MATTR(REVISION), SMU_MUNIT(NONE),                       \
+		   SMU_MTYPE(U16), revision);
 
 DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_gpuboard_temp_metrics,
 			  SMU_15_0_8_GPUBOARD_TEMP_METRICS_FIELDS);
@@ -309,7 +317,9 @@ DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_gpuboard_temp_metrics,
 	SMU_SCALAR(SMU_MATTR(SYSTEM_TEMP_IBC_HSC), SMU_MUNIT(TEMP_1),          \
 		   SMU_MTYPE(S16), system_temp_ibc_hsc);                       \
 	SMU_SCALAR(SMU_MATTR(SYSTEM_TEMP_IBC), SMU_MUNIT(TEMP_1),              \
-		   SMU_MTYPE(S16), system_temp_ibc);
+		   SMU_MTYPE(S16), system_temp_ibc);                            \
+	SMU_SCALAR(SMU_MATTR(REVISION), SMU_MUNIT(NONE),                       \
+		   SMU_MTYPE(U16), revision);
 
 DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_baseboard_temp_metrics,
 			  SMU_15_0_8_BASEBOARD_TEMP_METRICS_FIELDS);
@@ -343,7 +353,9 @@ DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_baseboard_temp_metrics,
 	SMU_SCALAR(SMU_MATTR(ACCUMULATION_COUNTER), SMU_MUNIT(NONE),           \
 		   SMU_MTYPE(U64), accumulation_counter);                      \
 	SMU_SCALAR(SMU_MATTR(FIRMWARE_TIMESTAMP), SMU_MUNIT(TIME_2),           \
-		   SMU_MTYPE(U64), firmware_timestamp);
+		   SMU_MTYPE(U64), firmware_timestamp);                         \
+	SMU_SCALAR(SMU_MATTR(REVISION), SMU_MUNIT(NONE),                       \
+		   SMU_MTYPE(U16), revision);
 
 DECLARE_SMU_METRICS_CLASS(smu_v15_0_8_partition_metrics,
 			  SMU_15_0_8_PARTITION_METRICS_FIELDS);

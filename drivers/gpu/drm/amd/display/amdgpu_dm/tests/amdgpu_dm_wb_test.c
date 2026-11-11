@@ -486,6 +486,10 @@ static void dm_test_wb_connector_init_success(struct kunit *test)
 	struct dc *dc;
 	int ret;
 
+	/* Must be allocated before adev to prevent use-after-free on cleanup */
+	wbcon = kunit_kzalloc(test, sizeof(*wbcon), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, wbcon);
+
 	adev = dm_kunit_alloc_adev(test);
 	adev->mode_info.num_crtc = 1;
 	dm = &adev->dm;
@@ -499,9 +503,6 @@ static void dm_test_wb_connector_init_success(struct kunit *test)
 
 	dc->links[0] = link;
 	dm->dc = dc;
-
-	wbcon = kunit_kzalloc(test, sizeof(*wbcon), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_NULL(test, wbcon);
 
 	ret = amdgpu_dm_wb_connector_init(dm, wbcon, 0);
 

@@ -197,12 +197,25 @@ static void dm_test_backlight_set_level_aux_programs_power_module(struct kunit *
  *
  * With aux_support cleared, set_level() takes the millipercent branch:
  * get_brightness_range() + mod_power_set_backlight_percent(). A NULL
- * power_module keeps the call a safe early-false.
+ * power_module keeps the call a safe early-false. The cases walk each segment of
+ * the custom luminance curve; DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE then bypasses it.
  */
 static void dm_test_backlight_set_level_pwm_programs_power_module(struct kunit *test)
 {
+	static const struct amdgpu_dm_luminance_data curve[] = {
+		{ .input_signal = 50, .luminance = 10 },
+		{ .input_signal = 100, .luminance = 40 },
+		{ .input_signal = 200, .luminance = 80 },
+		{ .input_signal = 255, .luminance = 90 },
+	};
+	/* { data_points, brightness }: no curve, below/between/above points, zero-width end */
+	static const u32 cases[][2] = {
+		{ 0, 2000 }, { 3, 0 }, { 3, 38550 }, { 3, 65535 }, { 4, 65535 },
+	};
 	struct amdgpu_display_manager *dm = dm_kunit_alloc_dm(test);
 	struct dc_link *link = dm_kunit_alloc_link(test);
+	uint saved_mask = amdgpu_dm_get_dc_debug_mask();
+	int i;
 
 	setup_test_dm_ddev(test, dm);
 	mutex_init(&dm->dc_lock);
@@ -212,10 +225,20 @@ static void dm_test_backlight_set_level_pwm_programs_power_module(struct kunit *
 	dm->backlight_caps[1].aux_support = false;
 	dm->backlight_caps[1].min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
 	dm->backlight_caps[1].max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	memcpy(dm->backlight_caps[1].luminance_data, curve, sizeof(curve));
 	dm->backlight_link[1] = link;
 	dm_kunit_add_stream_to_state(test, dm->dc->current_state, 0, link);
 
+	amdgpu_dm_set_dc_debug_mask(saved_mask & ~DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE);
+	for (i = 0; i < ARRAY_SIZE(cases); i++) {
+		dm->backlight_caps[1].data_points = cases[i][0];
+		amdgpu_dm_backlight_set_level(dm, 1, cases[i][1]);
+		KUNIT_EXPECT_EQ_MSG(test, dm->brightness[1], cases[i][1], "case %d", i);
+	}
+
+	amdgpu_dm_set_dc_debug_mask(saved_mask | DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE);
 	amdgpu_dm_backlight_set_level(dm, 1, 2000);
+	amdgpu_dm_set_dc_debug_mask(saved_mask);
 
 	KUNIT_EXPECT_EQ(test, dm->brightness[1], 2000U);
 	KUNIT_EXPECT_EQ(test, dm->actual_brightness[1], 0U);
@@ -512,6 +535,54 @@ static void dm_test_register_backlight_device_success(struct kunit *test)
 	KUNIT_ASSERT_EQ(test, kunit_add_action_or_reset(test,
 			dm_test_unregister_backlight_device,
 			adev->dm.backlight_dev[0]), 0);
+}
+
+/**
+ * dm_test_register_backlight_device_custom_curve_readback - Test curve + readback
+ * @test: The KUnit test context
+ *
+ * Custom curve data points select the non-linear backlight scale, and a
+ * hardware readback that differs from the initial brightness must update both
+ * the requested and the actual brightness.
+ */
+static void dm_test_register_backlight_device_custom_curve_readback(struct kunit *test)
+{
+	struct amdgpu_device *adev = dm_kunit_alloc_adev(test);
+	uint saved_mask = amdgpu_dm_get_dc_debug_mask();
+	struct amdgpu_dm_connector *aconnector;
+	struct amdgpu_dm_backlight_caps *caps;
+	struct dc_link *link = dm_kunit_alloc_link(test);
+	struct backlight_device *bd;
+	struct drm_minor *primary;
+	int ret;
+
+	amdgpu_dm_set_dc_debug_mask(saved_mask & ~DC_DISABLE_CUSTOM_BRIGHTNESS_CURVE);
+	setup_test_link_service(test, link);
+	link->dc->link_srv->edp_get_backlight_level = dm_test_get_backlight_level_mid;
+	primary = kunit_kzalloc(test, sizeof(*primary), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, primary);
+	adev->ddev.primary = primary;
+	adev->dm.backlight_link[0] = link;
+
+	aconnector = dm_kunit_alloc_connector(test, adev, link);
+	aconnector->bl_idx = 0;
+	aconnector->base.kdev = adev->ddev.dev;
+	caps = &adev->dm.backlight_caps[0];
+	caps->min_input_signal = AMDGPU_DM_DEFAULT_MIN_BACKLIGHT;
+	caps->max_input_signal = AMDGPU_DM_DEFAULT_MAX_BACKLIGHT;
+	caps->data_points = 1;
+
+	amdgpu_dm_register_backlight_device(aconnector);
+	amdgpu_dm_set_dc_debug_mask(saved_mask);
+
+	bd = adev->dm.backlight_dev[0];
+	KUNIT_ASSERT_NOT_NULL(test, bd);
+	ret = kunit_add_action_or_reset(test, dm_test_unregister_backlight_device, bd);
+	KUNIT_ASSERT_EQ(test, ret, 0);
+
+	KUNIT_EXPECT_EQ(test, bd->props.scale, BACKLIGHT_SCALE_NON_LINEAR);
+	KUNIT_EXPECT_NE(test, adev->dm.brightness[0], (u32)bd->props.brightness);
+	KUNIT_EXPECT_EQ(test, adev->dm.actual_brightness[0], adev->dm.brightness[0]);
 }
 
 static struct drm_connector *setup_panel_power_savings_connector(struct kunit *test,
@@ -1567,6 +1638,11 @@ static void dm_test_update_connector_ext_caps_oled_defaults(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, fixture.adev->dm.backlight_caps[0].aux_max_input_signal, 512);
 	KUNIT_EXPECT_EQ(test, fixture.adev->dm.backlight_caps[0].aux_min_input_signal, 1);
 
+	/* DPCD panel luminance control selects VESA AUX over AMD AUX. */
+	fixture.link->dpcd_caps.panel_luminance_control = true;
+	amdgpu_dm_update_connector_ext_caps(fixture.aconnector);
+	KUNIT_EXPECT_EQ(test, fixture.link->backlight_control_type, BACKLIGHT_CONTROL_VESA_AUX);
+
 	amdgpu_dm_set_backlight_param(saved_backlight);
 }
 
@@ -1934,6 +2010,7 @@ static struct kunit_case dm_backlight_test_cases[] = {
 	/* amdgpu_dm_register_backlight_device */
 	KUNIT_CASE(dm_test_register_backlight_device_negative_index),
 	KUNIT_CASE(dm_test_register_backlight_device_success),
+	KUNIT_CASE(dm_test_register_backlight_device_custom_curve_readback),
 	/* panel_power_savings_show / store */
 	KUNIT_CASE(dm_test_panel_power_savings_show_maps_disable_to_zero),
 	KUNIT_CASE(dm_test_panel_power_savings_show_reports_level),

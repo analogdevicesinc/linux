@@ -88,6 +88,33 @@ void hwss_dmub_hw_control_lock_fast(union block_sequence_params *params)
 		dmub_hw_lock_mgr_inbox0_cmd(p->dmub_srv, p->command);
 }
 
+void hwss_add_dmub_fams2_update_config(struct block_sequence_state *seq_state,
+		struct dc *dc, struct dc_state *context, bool enable)
+{
+	struct dmub_fams2_update_config_params *params;
+
+	if (!seq_state || !seq_state->steps || !seq_state->num_steps || !dc || !dc->ctx ||
+			!dc->hwss.fams2_build_update_config ||
+			*seq_state->num_steps >= MAX_HWSS_BLOCK_SEQUENCE_SIZE) {
+		ASSERT(!seq_state || !seq_state->num_steps || *seq_state->num_steps < MAX_HWSS_BLOCK_SEQUENCE_SIZE);
+		return;
+	}
+
+	params = &seq_state->steps[*seq_state->num_steps].params.dmub_fams2_update_config_params;
+	if (!dc->hwss.fams2_build_update_config(dc, context, enable, &params->data))
+		return;
+
+	params->dmub_srv = dc->ctx->dmub_srv;
+	seq_state->steps[(*seq_state->num_steps)++].func = DMUB_FAMS2_UPDATE_CONFIG;
+}
+
+void hwss_dmub_fams2_update_config(union block_sequence_params *params)
+{
+	struct dmub_fams2_update_config_params *p = &params->dmub_fams2_update_config_params;
+
+	dc_dmub_srv_fams2_update_config(p->dmub_srv, &p->data);
+}
+
 #define MAX_NUM_MCACHE 8
 
 /* used as index in array of black_color_format */
@@ -2197,6 +2224,9 @@ void hwss_execute_sequence(struct dc *dc,
 			break;
 		case HUBBUB_PROGRAM_COMPBUF_SEGMENTS:
 			hwss_hubbub_program_compbuf_segments(params);
+			break;
+		case DMUB_FAMS2_UPDATE_CONFIG:
+			hwss_dmub_fams2_update_config(params);
 			break;
 		default:
 			ASSERT(false);
@@ -6238,6 +6268,14 @@ bool hwss_add_dsc_sequence_for_stream(struct block_sequence_state *seq_state,
 
 	dsc = top_pipe->stream_res.dsc;
 	stream = top_pipe->stream;
+
+	/* In some timing-sensitive sequences, the stream may be reset before
+	 * powered on (DPMS on). This will cause DSC disablement to be skipped.
+	 * Thus, we should skip the DSC sequence if the stream is powered off.
+	 * DSC should be programmed at some later point when the stream is powered on.
+	 */
+	if (stream->dpms_off)
+		return false;
 
 	if (stream->ctx && stream->ctx->dc && stream->ctx->dc->res_pool)
 		dccg = stream->ctx->dc->res_pool->dccg;

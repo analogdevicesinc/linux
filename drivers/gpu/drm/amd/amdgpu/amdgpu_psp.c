@@ -5376,6 +5376,9 @@ static int psp_read_spirom_debugfs_open(struct inode *inode, struct file *filp)
 	struct spirom_bo *bo_triplet;
 	int ret;
 
+	if (!adev->psp.funcs || !adev->psp.funcs->dump_spirom)
+		return -EOPNOTSUPP;
+
 	/* serialize the open() file calling */
 	if (!mutex_trylock(&adev->psp.mutex))
 		return -EBUSY;
@@ -5467,6 +5470,9 @@ void amdgpu_psp_debugfs_init(struct amdgpu_device *adev)
 {
 #if defined(CONFIG_DEBUG_FS)
 	struct drm_minor *minor = adev_to_drm(adev)->primary;
+
+	if (!adev->psp.funcs || !adev->psp.funcs->dump_spirom)
+		return;
 
 	debugfs_create_file_size("psp_spirom_dump", 0444, minor->debugfs_root,
 				 adev, &psp_dump_spirom_debugfs_ops, AMD_VBIOS_FILE_MAX_SIZE_B * 2);

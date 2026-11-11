@@ -1329,6 +1329,7 @@ int amdgpu_dpm_odn_edit_dpm_table(struct amdgpu_device *adev,
 				  uint32_t size)
 {
 	const struct amd_pm_funcs *pp_funcs = adev->powerplay.pp_funcs;
+	bool uclk_changed = false;
 	int ret = 0;
 
 	if (!pp_funcs->odn_edit_dpm_table)
@@ -1339,7 +1340,13 @@ int amdgpu_dpm_odn_edit_dpm_table(struct amdgpu_device *adev,
 					   type,
 					   input,
 					   size);
+	if (is_support_sw_smu(adev))
+		uclk_changed = smu_od_uclk_changed(adev->powerplay.pp_handle);
 	mutex_unlock(&adev->pm.mutex);
+
+	/* The OD commit changed the UCLK levels, let DC re-read them */
+	if (!ret && uclk_changed)
+		amdgpu_dm_update_memclk_states(adev);
 
 	return ret;
 }

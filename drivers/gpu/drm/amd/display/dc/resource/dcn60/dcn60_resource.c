@@ -675,6 +675,7 @@ static const struct dc_debug_options debug_defaults_drv = {
 		}
 	},
 	.force_cositing = CHROMA_COSITING_NONE + 1,
+	.visual_confirm_full_viewport = true,
 };
 
 static const struct dc_check_config config_defaults = {

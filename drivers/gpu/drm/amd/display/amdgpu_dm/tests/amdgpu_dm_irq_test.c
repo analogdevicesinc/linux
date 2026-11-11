@@ -2398,6 +2398,7 @@ static void dm_test_hpd_rx_offload_work_in_reset(struct kunit *test)
  */
 static void dm_test_hpd_rx_offload_work_msg_rdy(struct kunit *test)
 {
+	struct hpd_rx_irq_offload_work_queue *offload_wq;
 	struct hpd_rx_irq_offload_work *offload_work;
 	struct amdgpu_dm_connector *aconn;
 	struct link_service *link_srv;
@@ -2419,9 +2420,15 @@ static void dm_test_hpd_rx_offload_work_msg_rdy(struct kunit *test)
 	offload_work->offload_wq->is_handling_mst_msg_rdy_event = true;
 	offload_work->data.bytes.device_service_irq.bits.UP_REQ_MSG_RDY = 1;
 
+	/* NB: offload_work is freed by dm_handle_hpd_rx_offload_work so need to
+	 * save a pointer to the wq to do the final KUNIT_EXPECT. This is safe
+	 * because the wq is actually a kunit_alloc and is not freed along with
+	 * the offload_work object.
+	 */
+	offload_wq = offload_work->offload_wq;
 	dm_handle_hpd_rx_offload_work(&offload_work->work);
 
-	KUNIT_EXPECT_FALSE(test, offload_work->offload_wq->is_handling_mst_msg_rdy_event);
+	KUNIT_EXPECT_FALSE(test, offload_wq->is_handling_mst_msg_rdy_event);
 }
 
 /**

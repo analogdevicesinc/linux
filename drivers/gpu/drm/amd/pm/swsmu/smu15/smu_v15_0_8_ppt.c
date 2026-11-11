@@ -358,8 +358,7 @@ static int smu_v15_0_8_get_metrics_table_internal(struct smu_context *smu, uint3
 
 	mutex_lock(&smu_table->metrics_lock);
 
-	if (!tmo || !smu_table->metrics_time ||
-	    time_after(jiffies, smu_table->metrics_time + msecs_to_jiffies(tmo))) {
+	if (smu_ms_cache_expired(smu_table->metrics_time, tmo)) {
 		int ret = smu_cmn_send_smc_msg(smu, SMU_MSG_GetMetricsTable, NULL);
 		if (ret) {
 			dev_info(adev->dev,
@@ -376,7 +375,7 @@ static int smu_v15_0_8_get_metrics_table_internal(struct smu_context *smu, uint3
 			return ret;
 		}
 
-		smu_table->metrics_time = jiffies;
+		smu_table_metrics_update_time(smu_table);
 	}
 
 	if (data)
@@ -586,7 +585,7 @@ static int smu_v15_0_8_get_system_metrics_table(struct smu_context *smu)
 	if (ret)
 		return ret;
 
-	smu_table_cache_update_time(sys_table, jiffies);
+	smu_table_cache_update_time(sys_table);
 
 	return 0;
 }
@@ -1652,6 +1651,8 @@ static void smu_v15_0_8_fill_baseboard_temp_metrics(
 		metrics->SystemTemperatures[SYSTEM_TEMP_IBC_HSC];
 	baseboard_temp_metrics->system_temp_ibc =
 		metrics->SystemTemperatures[SYSTEM_TEMP_IBC];
+	baseboard_temp_metrics->revision =
+		SMU_15_0_8_BASEBOARD_TEMP_METRICS_REVISION;
 }
 
 static void smu_v15_0_8_fill_gpuboard_temp_metrics(
@@ -1717,6 +1718,8 @@ static void smu_v15_0_8_fill_gpuboard_temp_metrics(
 		metrics->VrTemperatures[SVI_PLANE_VDDIO_065_UCIEAM_C_TEMP];
 	gpuboard_temp_metrics->vr_temp_vddan_075 =
 		metrics->VrTemperatures[SVI_PLANE_VDDAN_075_TEMP];
+	gpuboard_temp_metrics->revision =
+		SMU_15_0_8_GPUBOARD_TEMP_METRICS_REVISION;
 }
 
 static ssize_t smu_v15_0_8_get_temp_metrics(struct smu_context *smu,
@@ -1833,6 +1836,7 @@ static ssize_t smu_v15_0_8_get_xcp_metrics(struct smu_context *smu, int xcp_id,
 
 	xcp_metrics->accumulation_counter = metrics->AccumulationCounter;
 	xcp_metrics->firmware_timestamp = metrics->Timestamp;
+	xcp_metrics->revision = SMU_15_0_8_PARTITION_METRICS_REVISION;
 
 	return sizeof(*xcp_metrics);
 }
@@ -1972,8 +1976,10 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 			gpu_metrics->xgmi_link_status[j] = ret;
 	}
 
-	gpu_metrics->xgmi_read_data_acc = SMUQ10_ROUND(metrics->XgmiReadBandwidthAcc);
-	gpu_metrics->xgmi_write_data_acc = SMUQ10_ROUND(metrics->XgmiWriteBandwidthAcc);
+	gpu_metrics->xgmi_read_bandwidth_acc =
+		SMUQ10_ROUND(metrics->XgmiReadBandwidthAcc);
+	gpu_metrics->xgmi_write_bandwidth_acc =
+		SMUQ10_ROUND(metrics->XgmiWriteBandwidthAcc);
 
 	for (i = 0; i < NUM_XCC(adev->gfx.xcc_mask); ++i) {
 		inst = GET_INST(GC, i);
@@ -1993,6 +1999,7 @@ static ssize_t smu_v15_0_8_get_gpu_metrics(struct smu_context *smu, void **table
 	gpu_metrics->xgmi_link_speed = SMUQ10_ROUND(metrics->XgmiBitrate);
 
 	gpu_metrics->firmware_timestamp = metrics->Timestamp;
+	gpu_metrics->revision = SMU_15_0_8_GPU_METRICS_REVISION;
 
 	*table = gpu_metrics;
 

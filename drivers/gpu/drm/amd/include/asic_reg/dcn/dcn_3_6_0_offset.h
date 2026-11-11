@@ -8329,6 +8329,8 @@
 #define regODM0_OPTC_MEMORY_CONFIG_BASE_IDX                                                             2
 #define regODM0_OPTC_INPUT_SPARE_REGISTER                                                               0x1ad1
 #define regODM0_OPTC_INPUT_SPARE_REGISTER_BASE_IDX                                                      2
+#define regODM0_OPTC_RSMU_UNDERFLOW                                                                     0x1ad4
+#define regODM0_OPTC_RSMU_UNDERFLOW_BASE_IDX                                                            2
 #define regODM0_OPTC_UNDERFLOW_THRESHOLD                                                                0x1ad5
 #define regODM0_OPTC_UNDERFLOW_THRESHOLD_BASE_IDX                                                       2
 
@@ -8351,6 +8353,8 @@
 #define regODM1_OPTC_MEMORY_CONFIG_BASE_IDX                                                             2
 #define regODM1_OPTC_INPUT_SPARE_REGISTER                                                               0x1ae1
 #define regODM1_OPTC_INPUT_SPARE_REGISTER_BASE_IDX                                                      2
+#define regODM1_OPTC_RSMU_UNDERFLOW                                                                     0x1ae4
+#define regODM1_OPTC_RSMU_UNDERFLOW_BASE_IDX                                                            2
 #define regODM1_OPTC_UNDERFLOW_THRESHOLD                                                                0x1ae5
 #define regODM1_OPTC_UNDERFLOW_THRESHOLD_BASE_IDX                                                       2
 
@@ -8373,6 +8377,8 @@
 #define regODM2_OPTC_MEMORY_CONFIG_BASE_IDX                                                             2
 #define regODM2_OPTC_INPUT_SPARE_REGISTER                                                               0x1af1
 #define regODM2_OPTC_INPUT_SPARE_REGISTER_BASE_IDX                                                      2
+#define regODM2_OPTC_RSMU_UNDERFLOW                                                                     0x1af4
+#define regODM2_OPTC_RSMU_UNDERFLOW_BASE_IDX                                                            2
 #define regODM2_OPTC_UNDERFLOW_THRESHOLD                                                                0x1af5
 #define regODM2_OPTC_UNDERFLOW_THRESHOLD_BASE_IDX                                                       2
 
@@ -8395,6 +8401,8 @@
 #define regODM3_OPTC_MEMORY_CONFIG_BASE_IDX                                                             2
 #define regODM3_OPTC_INPUT_SPARE_REGISTER                                                               0x1b01
 #define regODM3_OPTC_INPUT_SPARE_REGISTER_BASE_IDX                                                      2
+#define regODM3_OPTC_RSMU_UNDERFLOW                                                                     0x1b04
+#define regODM3_OPTC_RSMU_UNDERFLOW_BASE_IDX                                                            2
 #define regODM3_OPTC_UNDERFLOW_THRESHOLD                                                                0x1b05
 #define regODM3_OPTC_UNDERFLOW_THRESHOLD_BASE_IDX                                                       2
 

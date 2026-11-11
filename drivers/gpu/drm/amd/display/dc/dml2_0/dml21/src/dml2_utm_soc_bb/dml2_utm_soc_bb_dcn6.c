@@ -315,6 +315,7 @@ static void dcn6_initialize_from_soc_bb(struct dml2_utm_soc_bb *utm_soc_bb,
 	utm_soc_bb->writeback_base_latency_us = soc_bb->qos_parameters.writeback.base_latency_us;
 	utm_soc_bb->vmin_limit = soc_bb->vmin_limit;
 	utm_soc_bb->dchub_refclk_mhz = soc_bb->dchub_refclk_mhz;
+	utm_soc_bb->dprefclk_mhz = soc_bb->dprefclk_mhz;
 	utm_soc_bb->max_outstanding_reqs = soc_bb->max_outstanding_reqs;
 	utm_soc_bb->return_bus_width_bytes = soc_bb->return_bus_width_bytes;
 	utm_soc_bb->phy_downspread_percent = soc_bb->phy_downspread_percent;

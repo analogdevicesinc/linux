@@ -31,6 +31,7 @@
 #include "dm_pp_smu.h"
 #include "smu_types.h"
 #include "linux/firmware.h"
+#include <linux/ktime.h>
 
 #define SMU_THERMAL_MINIMUM_ALERT_TEMP		0
 #define SMU_THERMAL_MAXIMUM_ALERT_TEMP		255
@@ -275,7 +276,7 @@ struct smu_table_cache {
 	size_t size;
 	/* interval in ms*/
 	uint32_t interval;
-	unsigned long last_cache_time;
+	ktime_t last_cache_time;
 };
 
 struct smu_table {
@@ -403,7 +404,7 @@ struct smu_table_context {
 	void				*power_play_table;
 	uint32_t			power_play_table_size;
 	void				*hardcode_pptable;
-	unsigned long			metrics_time;
+	ktime_t				metrics_time;
 	void				*metrics_table;
 	void				*clocks_table;
 	void				*watermarks_table;
@@ -434,6 +435,8 @@ struct smu_table_context {
 	void				*user_overdrive_table;
 
 	uint32_t			user_od_feature_mask;
+	/* Set when an OD commit/restore changed the UCLK levels */
+	bool				od_uclk_changed;
 
 	struct smu_driver_table driver_tables[SMU_DRIVER_TABLE_COUNT];
 };
@@ -1815,22 +1818,32 @@ smu_metrics_get_temp_table_id(enum smu_temp_metric_type type)
 	return SMU_DRIVER_TABLE_COUNT;
 }
 
-static inline void smu_table_cache_update_time(struct smu_table *table,
-					       unsigned long time)
+static inline bool smu_ms_cache_expired(ktime_t last, uint32_t interval_ms)
 {
-	table->cache.last_cache_time = time;
+	if (!last || !interval_ms)
+		return true;
+
+	return ktime_after(ktime_get_boottime(), ktime_add_ms(last, interval_ms));
+}
+
+static inline void smu_table_cache_update_time(struct smu_table *table)
+{
+	table->cache.last_cache_time = ktime_get_boottime();
+}
+
+static inline void
+smu_table_metrics_update_time(struct smu_table_context *smu_table)
+{
+	smu_table->metrics_time = ktime_get_boottime();
 }
 
 static inline bool smu_table_cache_is_valid(struct smu_table *table)
 {
-	if (!table->cache.buffer || !table->cache.last_cache_time ||
-	    !table->cache.interval || !table->cache.size ||
-	    time_after(jiffies,
-		       table->cache.last_cache_time +
-			       msecs_to_jiffies(table->cache.interval)))
+	if (!table->cache.buffer || !table->cache.size)
 		return false;
 
-	return true;
+	return !smu_ms_cache_expired(table->cache.last_cache_time,
+				     table->cache.interval);
 }
 
 static inline int smu_table_cache_init(struct smu_context *smu,
@@ -1906,14 +1919,11 @@ static inline void smu_driver_table_fini(struct smu_context *smu,
 
 static inline bool smu_driver_table_is_valid(struct smu_driver_table *table)
 {
-	if (!table->cache.buffer || !table->cache.last_cache_time ||
-	    !table->cache.interval || !table->cache.size ||
-	    time_after(jiffies,
-		       table->cache.last_cache_time +
-			       msecs_to_jiffies(table->cache.interval)))
+	if (!table->cache.buffer || !table->cache.size)
 		return false;
 
-	return true;
+	return !smu_ms_cache_expired(table->cache.last_cache_time,
+				     table->cache.interval);
 }
 
 static inline void *smu_driver_table_ptr(struct smu_context *smu,
@@ -1938,7 +1948,7 @@ smu_driver_table_update_cache_time(struct smu_context *smu,
 	if (table_id >= SMU_DRIVER_TABLE_COUNT)
 		return;
 
-	driver_tables[table_id].cache.last_cache_time = jiffies;
+	driver_tables[table_id].cache.last_cache_time = ktime_get_boottime();
 }
 
 #if !defined(SWSMU_CODE_LAYER_L2) && !defined(SWSMU_CODE_LAYER_L3) && !defined(SWSMU_CODE_LAYER_L4)
@@ -1948,6 +1958,7 @@ int smu_get_ppt_limit(void *handle,
 		      enum pp_power_type pp_power_type);
 
 bool smu_mode1_reset_is_support(struct smu_context *smu);
+bool smu_od_uclk_changed(struct smu_context *smu);
 bool smu_link_reset_is_support(struct smu_context *smu);
 int smu_mode1_reset(struct smu_context *smu);
 int smu_link_reset(struct smu_context *smu);

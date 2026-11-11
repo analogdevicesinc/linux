@@ -49,6 +49,7 @@ MODULE_FIRMWARE("amdgpu/gc_9_4_4_rlc.bin");
 MODULE_FIRMWARE("amdgpu/gc_9_5_0_rlc.bin");
 MODULE_FIRMWARE("amdgpu/gc_9_4_3_sjt_mec.bin");
 MODULE_FIRMWARE("amdgpu/gc_9_4_4_sjt_mec.bin");
+MODULE_FIRMWARE("amdgpu/gc_9_5_0_sjt_mec.bin");
 
 #define GFX9_MEC_HPD_SIZE 4096
 #define RLCG_UCODE_LOADING_START_ADDRESS 0x00002000L

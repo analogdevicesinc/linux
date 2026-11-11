@@ -148,7 +148,7 @@ void amdgpu_gfx_parse_disable_cu(struct amdgpu_device *adev, unsigned int *mask,
 
 static bool amdgpu_gfx_is_graphics_multipipe_capable(struct amdgpu_device *adev)
 {
-	return amdgpu_async_gfx_ring && adev->gfx.me.num_pipe_per_me > 1;
+	return adev->gfx.me.num_pipe_per_me > 1;
 }
 
 static bool amdgpu_gfx_is_compute_multipipe_capable(struct amdgpu_device *adev)
@@ -447,7 +447,7 @@ int amdgpu_gfx_mqd_sw_init(struct amdgpu_device *adev,
 		}
 	}
 
-	if (adev->asic_type >= CHIP_NAVI10 && amdgpu_async_gfx_ring) {
+	if (adev->gfx.me.num_queue_per_pipe > 1) {
 		/* create MQD for each KGQ */
 		for (i = 0; i < adev->gfx.num_gfx_rings; i++) {
 			ring = &adev->gfx.gfx_ring[i];
@@ -503,7 +503,7 @@ void amdgpu_gfx_mqd_sw_fini(struct amdgpu_device *adev, int xcc_id)
 	int i, j;
 	struct amdgpu_kiq *kiq = &adev->gfx.kiq[xcc_id];
 
-	if (adev->asic_type >= CHIP_NAVI10 && amdgpu_async_gfx_ring) {
+	if (adev->gfx.me.num_queue_per_pipe > 1) {
 		for (i = 0; i < adev->gfx.num_gfx_rings; i++) {
 			ring = &adev->gfx.gfx_ring[i];
 			kfree(adev->gfx.me.mqd_backup[i]);
@@ -1013,6 +1013,97 @@ void amdgpu_gfx_off_ctrl(struct amdgpu_device *adev, bool enable)
 void amdgpu_gfx_off_ctrl_immediate(struct amdgpu_device *adev, bool enable)
 {
 	amdgpu_gfx_do_off_ctrl(adev, enable, true);
+}
+
+/*
+ * Force the perfmon clock on, or restore the saved state; @save records the old
+ * one. Called with perfmon_clk_mutex held and GFXOFF disallowed.
+ */
+static void amdgpu_gfx_perfmon_clk_program(struct amdgpu_device *adev,
+					   bool force_on, bool save)
+{
+	int i, num_xcc = NUM_XCC(adev->gfx.xcc_mask);
+
+	lockdep_assert_held(&adev->gfx.perfmon_clk_mutex);
+
+	for (i = 0; i < num_xcc; i++) {
+		bool on = force_on || test_bit(i, &adev->gfx.perfmon_clk_restore_mask);
+		bool in_safe_mode = adev->gfx.rlc.in_safe_mode[i];
+		bool was_on;
+
+		if (!in_safe_mode)
+			amdgpu_gfx_rlc_enter_safe_mode(adev, i);
+		was_on = adev->gfx.funcs->set_perfmon_clk_override(adev, i, on);
+		if (!in_safe_mode)
+			amdgpu_gfx_rlc_exit_safe_mode(adev, i);
+
+		if (save)
+			assign_bit(i, &adev->gfx.perfmon_clk_restore_mask, was_on);
+	}
+}
+
+/*
+ * Refcounted override that keeps the perfmon clock on for profilers. The last
+ * put restores the previous state. Each hold keeps GFXOFF disallowed, as a
+ * GFXOFF exit restores the register. Returns -EOPNOTSUPP if the ASIC can't do it.
+ *
+ * GFXOFF control takes pm.mutex, which clock gating holds around
+ * perfmon_clk_mutex, so it must be called without perfmon_clk_mutex held.
+ */
+int amdgpu_gfx_perfmon_clk_override(struct amdgpu_device *adev, bool enable)
+{
+	int r = 0;
+
+	if (amdgpu_sriov_vf(adev) || !adev->gfx.funcs ||
+	    !adev->gfx.funcs->set_perfmon_clk_override)
+		return -EOPNOTSUPP;
+
+	if (enable)
+		amdgpu_gfx_off_ctrl(adev, false);
+
+	mutex_lock(&adev->gfx.perfmon_clk_mutex);
+	if (enable) {
+		if (!adev->gfx.perfmon_clk_override_count++)
+			amdgpu_gfx_perfmon_clk_program(adev, true, true);
+	} else if (WARN_ON_ONCE(!adev->gfx.perfmon_clk_override_count)) {
+		r = -EINVAL;
+	} else if (!--adev->gfx.perfmon_clk_override_count) {
+		amdgpu_gfx_perfmon_clk_program(adev, false, false);
+	}
+	mutex_unlock(&adev->gfx.perfmon_clk_mutex);
+
+	if (!enable && !r)
+		amdgpu_gfx_off_ctrl(adev, true);
+
+	return r;
+}
+
+/*
+ * Program the perfmon clock for clock gating. While overridden, only record
+ * the state for the final restore. Called with perfmon_clk_mutex held.
+ */
+void amdgpu_gfx_perfmon_clk_update(struct amdgpu_device *adev, int xcc_id, bool on)
+{
+	lockdep_assert_held(&adev->gfx.perfmon_clk_mutex);
+
+	if (adev->gfx.perfmon_clk_override_count)
+		assign_bit(xcc_id, &adev->gfx.perfmon_clk_restore_mask, on);
+	else
+		adev->gfx.funcs->set_perfmon_clk_override(adev, xcc_id, on);
+}
+
+/* Re-apply the override after resume/reset reprogrammed clock gating. */
+void amdgpu_gfx_perfmon_clk_restore(struct amdgpu_device *adev)
+{
+	if (!adev->gfx.funcs || !adev->gfx.funcs->set_perfmon_clk_override)
+		return;
+
+	amdgpu_gfx_off_ctrl(adev, false);
+	mutex_lock(&adev->gfx.perfmon_clk_mutex);
+	if (adev->gfx.perfmon_clk_override_count)
+		amdgpu_gfx_perfmon_clk_program(adev, true, false);
+	mutex_unlock(&adev->gfx.perfmon_clk_mutex);
+	amdgpu_gfx_off_ctrl(adev, true);
 }
 
 int amdgpu_set_gfx_off_residency(struct amdgpu_device *adev, bool value)
@@ -2470,6 +2561,7 @@ static int amdgpu_gfx_reset_mes_kcq(struct amdgpu_device *adev,
 }
 
 int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
+				 struct amdgpu_xcp *xcp,
 				 struct amdgpu_ring *ring,
 				 struct amdgpu_fence *guilty_fence,
 				 struct amdgpu_usermode_queue *uq,
@@ -2486,6 +2578,14 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 	struct amdgpu_gfx_deferred_entry deferred_end[AMDGPU_MAX_COMPUTE_RINGS + 1];
 	int n_deferred = 0;
 	int ring_err;
+	uint32_t xcc_mask, xcc_id = 0, xcp_id = 0;
+
+	if (xcp) {
+		amdgpu_xcp_get_inst_details(xcp, AMDGPU_XCP_GFX, &xcc_mask);
+		/* master xcc in the partition */
+		xcc_id = ffs(xcc_mask) - 1;
+		xcp_id = xcp->id;
+	}
 
 	guard(mutex)(&adev->gfx.mec.reset_mutex);
 	/* stop the drm schedulers for all compute queues */
@@ -2493,17 +2593,23 @@ int amdgpu_gfx_reset_mes_compute(struct amdgpu_device *adev,
 	/* suspend all will determine which queues are hung.
 	 * reset detect will return the array of bad queue doorbells
 	 */
-	r = amdgpu_mes_suspend(adev, 0);
+	r = amdgpu_mes_suspend(adev, xcc_id);
 	/* if suspend all success, it should no hang queue */
-	if (!r)
+	if (!r) {
+		dev_dbg(adev->dev, "Suspend all succeeds. xcc_id %d\n", xcc_id);
 		/* always reset the KCQ/userq since we need to signal the fence
 		 * and we could be stuck in a loop which is preemptable.
 		 */
 		goto fence_reset;
+	}
 	r = amdgpu_mes_detect_and_reset_hung_queues(adev, AMDGPU_RING_TYPE_COMPUTE,
-						    true, &num_hung, adev->gfx.mec.mes_hung_db_array, 0);
-	if (r)
+						    true, &num_hung, adev->gfx.mec.mes_hung_db_array, xcc_id);
+	if (r) {
+		dev_dbg(adev->dev, "MES fails on detecting hung queues\n");
 		goto out;
+	}
+	dev_dbg(adev->dev, "Detected %d hung queues\n", num_hung);
+
 	if (hung_queue_count)
 		*hung_queue_count = num_hung;
 
@@ -2530,6 +2636,8 @@ fence_reset:
 		pipe = hqd_info[i].pipe_index;
 		queue = hqd_info[i].queue_index;
 		queue_type = hqd_info[i].queue_type;
+		dev_dbg(adev->dev, "Hung queue: queue_id %d at pipe %d type %d\n",
+					queue, pipe, queue_type);
 
 		/* reset any KCQs */
 		r = amdgpu_gfx_reset_mes_kcq(adev, ring,
@@ -2543,7 +2651,7 @@ fence_reset:
 			n_deferred++;
 		}
 		/* reset any KFD queues */
-		r = amdgpu_amdkfd_reset_mes_queue(adev, 0, queue_type, pipe, queue,
+		r = amdgpu_amdkfd_reset_mes_queue(adev, xcp_id, queue_type, pipe, queue,
 						  adev->gfx.mec.mes_hung_db_array[i]);
 		if (r)
 			goto out;
@@ -2574,7 +2682,7 @@ fence_reset:
 
 out:
 	/* resume all will enable the non-hung queues */
-	amdgpu_mes_resume(adev, 0);
+	amdgpu_mes_resume(adev, xcc_id);
 
 	/* Now CP is running again — replay backed-up commands and ring
 	 * doorbells on each reset queue.

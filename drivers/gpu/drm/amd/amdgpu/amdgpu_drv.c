@@ -128,9 +128,10 @@
  * - 3.63.0 - GFX12 display DCC supports 256B max compressed block size
  * - 3.64.0 - Userq IP support query
  * - 3.65.0 - Add userq syncobj timeline signaling support
+ * - 3.66.0 - Allow jpeg type 4 packets and VCE SEI command
  */
 #define KMS_DRIVER_MAJOR	3
-#define KMS_DRIVER_MINOR	65
+#define KMS_DRIVER_MINOR	66
 #define KMS_DRIVER_PATCHLEVEL	0
 
 /*
@@ -150,6 +151,7 @@ enum AMDGPU_DEBUG_MASK {
 	AMDGPU_DEBUG_HIBERNATION_THAW_RESUME_GPU = BIT(11),
 	AMDGPU_DEBUG_DISABLE_IP_BLOCK_SOFT_RESET = BIT(12),
 	AMDGPU_DEBUG_SDMA_RB_CMD = BIT(13),
+	AMDGPU_DEBUG_DISABLE_USERPTR_SIZE_LIMIT = BIT(14),
 };
 
 unsigned int amdgpu_vram_limit = UINT_MAX;
@@ -224,7 +226,6 @@ int amdgpu_smu_pptable_id = -1;
 uint amdgpu_dc_feature_mask = DC_MULTI_MON_PP_MCLK_SWITCH_MASK | DC_FRL_MASK;
 uint amdgpu_dc_debug_mask;
 uint amdgpu_dc_visual_confirm;
-int amdgpu_async_gfx_ring = 1;
 int amdgpu_mcbp = -1;
 int amdgpu_discovery = -1;
 int amdgpu_mes_log_enable;
@@ -669,14 +670,6 @@ MODULE_PARM_DESC(smu_memory_pool_size,
 module_param_named(smu_memory_pool_size, amdgpu_smu_memory_pool_size, uint, 0444);
 
 /**
- * DOC: async_gfx_ring (int)
- * It is used to enable gfx rings that could be configured with different prioritites or equal priorities
- */
-MODULE_PARM_DESC(async_gfx_ring,
-	"Asynchronous GFX rings that could be configured with either different priorities (HP3D ring and LP3D ring), or equal priorities (0 = disabled, 1 = enabled (default))");
-module_param_named(async_gfx_ring, amdgpu_async_gfx_ring, int, 0444);
-
-/**
  * DOC: mcbp (int)
  * It is used to enable mid command buffer preemption. (0 = disabled, 1 = enabled, -1 auto (default))
  */
@@ -872,7 +865,7 @@ module_param_named_unsafe(no_queue_eviction_on_vm_fault, amdgpu_no_queue_evictio
  * DOC: mtype_local (int)
  */
 int amdgpu_mtype_local = -1;
-MODULE_PARM_DESC(mtype_local, "MTYPE for local memory (default: ASIC dependent, 0 = MTYPE_RW, 1 = MTYPE_NC, 2 = MTYPE_CC)");
+MODULE_PARM_DESC(mtype_local, "MTYPE for local memory (default: ASIC dependent, 0 = MTYPE_RW, 1 = MTYPE_NC, 2 = MTYPE_CC or MTYPE_UC)");
 module_param_named_unsafe(mtype_local, amdgpu_mtype_local, int, 0444);
 
 /**
@@ -1092,6 +1085,7 @@ module_param_named(seamless, amdgpu_seamless, int, 0444);
  * - 0x20: Enable experimental resets
  * - 0x40: Disable ring resets
  * - 0x80: Use VRAM for SMU pool
+ * - 0x4000: Disable the 1GiB size limit of GEM_USERPTR
  */
 MODULE_PARM_DESC(debug_mask, "debug options for amdgpu, disabled by default");
 module_param_named_unsafe(debug_mask, amdgpu_debug_mask, uint, 0444);
@@ -2344,6 +2338,11 @@ static void amdgpu_init_debug_options(struct amdgpu_device *adev)
 	if (amdgpu_debug_mask & AMDGPU_DEBUG_SDMA_RB_CMD) {
 		pr_info("debug: enable SDMA RB command switch\n");
 		adev->sdma.sdma_debug = true;
+	}
+
+	if (amdgpu_debug_mask & AMDGPU_DEBUG_DISABLE_USERPTR_SIZE_LIMIT) {
+		pr_info("debug: userptr size limit disabled\n");
+		adev->debug_disable_userptr_size_limit = true;
 	}
 }
 

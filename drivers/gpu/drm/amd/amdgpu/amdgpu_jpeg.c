@@ -614,6 +614,12 @@ int amdgpu_jpeg_dec_parse_cs(struct amdgpu_cs_parser *parser,
 				return -EINVAL;
 			}
 			break;
+		case PACKETJ_TYPE4:
+			if (!amdgpu_jpeg_reg_valid(reg)) {
+				dev_err(adev->dev, "Invalid packet [0x%08x]!\n", ib->ptr[i]);
+				return -EINVAL;
+			}
+			break;
 		case PACKETJ_TYPE6:
 			if (ib->ptr[i] == CP_PACKETJ_NOP)
 				continue;

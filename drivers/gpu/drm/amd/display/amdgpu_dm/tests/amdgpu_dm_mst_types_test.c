@@ -3808,6 +3808,12 @@ dm_mst_test_alloc_dsc_link_ctx(struct kunit *test, int total_avail_slots)
 	KUNIT_ASSERT_EQ(test,
 			kunit_add_action_or_reset(test, dm_mst_test_dsc_link_drop_locks, ctx), 0);
 
+	/* Must be allocated prior to drm_kunit_helper_atomic_state_alloc to prevent
+	 * use-after-free on cleanup
+	 */
+	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
+	KUNIT_ASSERT_NOT_NULL(test, port);
+
 	ctx->state = drm_kunit_helper_atomic_state_alloc(test, ctx->drm, &ctx->acquire_ctx);
 	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, ctx->state);
 
@@ -3833,11 +3839,9 @@ dm_mst_test_alloc_dsc_link_ctx(struct kunit *test, int total_avail_slots)
 	link_srv = kunit_kzalloc(test, sizeof(*link_srv), GFP_KERNEL);
 	res_pool = kunit_kzalloc(test, sizeof(*res_pool), GFP_KERNEL);
 	sink = kunit_kzalloc(test, sizeof(*sink), GFP_KERNEL);
-	port = kunit_kzalloc(test, sizeof(*port), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, link_srv);
 	KUNIT_ASSERT_NOT_NULL(test, res_pool);
 	KUNIT_ASSERT_NOT_NULL(test, sink);
-	KUNIT_ASSERT_NOT_NULL(test, port);
 
 	link_srv->mst_decide_link_encoding_format = dm_mst_test_mst_encoding_format;
 

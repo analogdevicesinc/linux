@@ -2039,6 +2039,8 @@ static int gfx_v7_0_ring_test_ring(struct amdgpu_ring *ring)
 	int r;
 
 	WREG32(mmSCRATCH_REG0, 0xCAFEDEAD);
+	/* Flush the posted write before the CP writes the test value. */
+	RREG32(mmSCRATCH_REG0);
 	r = amdgpu_ring_alloc(ring, 3);
 	if (r)
 		return r;
@@ -2299,6 +2301,8 @@ static int gfx_v7_0_ring_test_ib(struct amdgpu_ring *ring, long timeout)
 	long r;
 
 	WREG32(mmSCRATCH_REG0, 0xCAFEDEAD);
+	/* Flush the posted write before the CP writes the test value. */
+	RREG32(mmSCRATCH_REG0);
 
 	r = amdgpu_job_alloc_with_ib(ring->adev, NULL, NULL, 256,
 				     AMDGPU_IB_POOL_DIRECT,

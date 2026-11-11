@@ -32,7 +32,7 @@
 #include "amdgpu.h"
 #include "amdgpu_trace.h"
 
-#define AMDGPU_USERQ_MAX_HANDLES	(1U << 16)
+#define AMDGPU_USERQ_MAX_HANDLES	BIT(16)
 
 static const struct dma_fence_ops amdgpu_userq_fence_ops;
 
@@ -130,8 +130,10 @@ static void
 amdgpu_userq_fence_put_fence_drv_array(struct amdgpu_userq_fence *userq_fence)
 {
 	unsigned long i;
+
 	for (i = 0; i < userq_fence->fence_drv_array_count; i++)
 		amdgpu_userq_fence_driver_put(userq_fence->fence_drv_array[i]);
+
 	userq_fence->fence_drv_array_count = 0;
 }
 
@@ -453,7 +455,6 @@ amdgpu_userq_fence_driver_force_completion(struct amdgpu_usermode_queue *userq)
 		amdgpu_userq_fence_driver_set_error(fence, -ECANCELED);
 		amdgpu_userq_fence_write(fence_drv, wptr);
 		amdgpu_userq_fence_driver_process(fence_drv);
-
 	}
 }
 
@@ -814,7 +815,6 @@ amdgpu_userq_wait_return_fence_info(struct drm_device *dev, struct drm_file *fil
 		dma_fence_put(fence);
 		if (r)
 			goto free_fences;
-
 	}
 
 	/* Lock all the GEM objects */

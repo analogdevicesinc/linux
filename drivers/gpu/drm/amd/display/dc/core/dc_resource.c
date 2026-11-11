@@ -1241,9 +1241,15 @@ static void calculate_recout(struct pipe_ctx *pipe_ctx)
 		pipe_ctx->plane_res.scl_data.recout = shift_rec(
 				&overlapping_area,
 				-odm_slice_src.x, -odm_slice_src.y);
-		adjust_recout_for_visual_confirm(
-				&pipe_ctx->plane_res.scl_data.recout,
-				pipe_ctx);
+		/* Non-SPL path: shrinking the recout here, before the viewport is
+		 * derived from it, shrinks the viewport too (legacy behavior). To keep
+		 * the HW viewport full, skip this and shrink the recout for HW only at
+		 * the tail of resource_build_scaling_params.
+		 */
+		if (!pipe_ctx->stream->ctx->dc->debug.visual_confirm_full_viewport)
+			adjust_recout_for_visual_confirm(
+					&pipe_ctx->plane_res.scl_data.recout,
+					pipe_ctx);
 	} else {
 		/* if there is no overlap, zero recout */
 		memset(&pipe_ctx->plane_res.scl_data.recout, 0,
@@ -1606,10 +1612,22 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 
 		// Convert pipe_ctx to respective input params for SPL
 		translate_SPL_in_params_from_pipe_ctx(pipe_ctx, spl_in);
-		/* Pass visual confirm debug information */
-		calculate_adjust_recout_for_visual_confirm(pipe_ctx,
-			&spl_in->debug.visual_confirm_base_offset,
-			&spl_in->debug.visual_confirm_dpp_offset);
+		/* Pass visual confirm debug information. These offsets are SPL inputs:
+		 * SPL subtracts them from the recout and then derives the viewport from
+		 * that shrunk recout, so the viewport shrinks together with the recout.
+		 */
+		if (pipe_ctx->stream->ctx->dc->debug.visual_confirm_full_viewport) {
+			/* pass 0 so SPL keeps both recout and viewport full; the recout is
+			 * shrunk for HW only at the tail of this function
+			 */
+			spl_in->debug.visual_confirm_base_offset = 0;
+			spl_in->debug.visual_confirm_dpp_offset = 0;
+		} else {
+			/* legacy: let SPL shrink both the recout and the viewport */
+			calculate_adjust_recout_for_visual_confirm(pipe_ctx,
+				&spl_in->debug.visual_confirm_base_offset,
+				&spl_in->debug.visual_confirm_dpp_offset);
+		}
 		// Set SPL output parameters to dscl_prog_data to be used for hw registers
 		spl_out->dscl_prog_data = resource_get_dscl_prog_data(pipe_ctx);
 		// Calculate scaler parameters from SPL
@@ -1723,6 +1741,21 @@ bool resource_build_scaling_params(struct pipe_ctx *pipe_ctx)
 #ifdef CONFIG_DRM_AMD_DC_FP
 	}
 #endif
+	/* Common tail for both paths (legacy and SPL): the viewport has now been derived from the
+	 * full recout, so shrink the recout for HW only. This runs only when
+	 * keeping the viewport full; the legacy paths above already shrank the
+	 * recout before the viewport was computed.
+	 */
+	if (pipe_ctx->stream->ctx->dc->debug.visual_confirm_full_viewport) {
+		adjust_recout_for_visual_confirm(
+				&pipe_ctx->plane_res.scl_data.recout, pipe_ctx);
+		/* SPL programs the HW recout from dscl_prog_data, not scl_data.recout */
+		if (pipe_ctx->stream->ctx->dc->config.use_spl &&
+				!pipe_ctx->stream->ctx->dc->debug.disable_spl)
+			adjust_recout_for_visual_confirm((struct rect *)
+					&pipe_ctx->plane_res.scl_data.dscl_prog_data.recout,
+					pipe_ctx);
+	}
 	DC_LOG_SCALER("%s pipe %d:\nViewport: height:%d width:%d x:%d y:%d  Recout: height:%d width:%d x:%d y:%d  HACTIVE:%d VACTIVE:%d\n"
 			"src_rect: height:%d width:%d x:%d y:%d  dst_rect: height:%d width:%d x:%d y:%d  clip_rect: height:%d width:%d x:%d y:%d\n",
 			__func__,

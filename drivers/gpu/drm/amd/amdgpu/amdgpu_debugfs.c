@@ -2133,9 +2133,336 @@ DEFINE_DEBUGFS_ATTRIBUTE(fops_ib_preempt, NULL,
 DEFINE_DEBUGFS_ATTRIBUTE(fops_sclk_set, NULL,
 			amdgpu_debugfs_sclk_set, "%llu\n");
 
+enum amdgpu_ualink_test_cmd {
+	UALINK_TEST_SW_INIT,
+	UALINK_TEST_SEND_HELLO,
+	UALINK_TEST_REMOTE_SHOOTDOWN,
+	UALINK_TEST_FLUSH_TLB,
+	UALINK_TEST_UPDATE_INTERRUPT_WB,
+	UALINK_TEST_UPDATE_SHOOTDOWN_WB,
+	UALINK_TEST_LSDMA_SELFTEST,
+};
+
+/* commands talking to a remote accelerator, remote_accel_id must be set */
+#define UALINK_TEST_NEEDS_ACCEL_ID					\
+	(BIT(UALINK_TEST_SEND_HELLO) | BIT(UALINK_TEST_REMOTE_SHOOTDOWN) | \
+	 BIT(UALINK_TEST_UPDATE_INTERRUPT_WB) |				\
+	 BIT(UALINK_TEST_UPDATE_SHOOTDOWN_WB))
+
+static int amdgpu_debugfs_ualink_test_run(struct amdgpu_device *adev,
+					  enum amdgpu_ualink_test_cmd cmd)
+{
+	u32 remote_accel_id = adev->ualink.test_remote_accel_id;
+	int r = 0;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	if ((BIT(cmd) & UALINK_TEST_NEEDS_ACCEL_ID) &&
+	    remote_accel_id >= AMDGPU_UALINK_ACCEL_MAX) {
+		dev_err(adev->dev, "set remote_accel_id first\n");
+		return -EINVAL;
+	}
+
+	adev->ualink.selftesting = true;
+
+	switch (cmd) {
+	case UALINK_TEST_SW_INIT:
+		if (adev->ualink.remote)
+			amdgpu_ualink_sw_fini(adev);
+
+		dev_dbg(adev->dev, "load metadata init MPNHT firmware\n");
+		r = amdgpu_ualink_sw_init(adev);
+		break;
+	case UALINK_TEST_SEND_HELLO:
+		r = ualink_test_send_hello(adev, remote_accel_id);
+		break;
+	case UALINK_TEST_REMOTE_SHOOTDOWN:
+		r = ualink_test_remote_shootdown(adev, remote_accel_id, 1UL << 30,
+						 1, TLB_FLUSH_HEAVYWEIGHT);
+		break;
+	case UALINK_TEST_FLUSH_TLB:
+		amdgpu_ualink_flush_tlb(adev, TLB_FLUSH_HEAVYWEIGHT);
+		break;
+	case UALINK_TEST_UPDATE_INTERRUPT_WB:
+		r = ualink_test_update_interrupt_wb(adev, remote_accel_id);
+		break;
+	case UALINK_TEST_UPDATE_SHOOTDOWN_WB:
+		r = ualink_test_update_shootdown_wb(adev, remote_accel_id);
+		break;
+	case UALINK_TEST_LSDMA_SELFTEST:
+		r = adev->lsdma.funcs ? amdgpu_lsdma_selftest(adev) : -EOPNOTSUPP;
+		break;
+	}
+
+	adev->ualink.selftesting = false;
+
+	dev_dbg(adev->dev, "ualink test cmd %d remote_accel_id %u ret %d\n",
+		cmd, remote_accel_id, r);
+
+	return r;
+}
+
+#define UALINK_TEST_CMD_NAME_MAX	32
+
+static const char * const amdgpu_ualink_test_cmd_name[] = {
+	[UALINK_TEST_SW_INIT]			= "sw_init",
+	[UALINK_TEST_SEND_HELLO]		= "send_hello",
+	[UALINK_TEST_REMOTE_SHOOTDOWN]		= "remote_shootdown",
+	[UALINK_TEST_FLUSH_TLB]			= "flush_tlb",
+	[UALINK_TEST_UPDATE_INTERRUPT_WB]	= "update_interrupt_wb",
+	[UALINK_TEST_UPDATE_SHOOTDOWN_WB]	= "update_shootdown_wb",
+	[UALINK_TEST_LSDMA_SELFTEST]		= "lsdma_selftest",
+};
+
+static ssize_t amdgpu_debugfs_ualink_command_read(struct file *file,
+						  char __user *ubuf,
+						  size_t len, loff_t *offp)
+{
+	char buf[UALINK_TEST_CMD_NAME_MAX * ARRAY_SIZE(amdgpu_ualink_test_cmd_name)];
+	unsigned int i;
+	int n = 0;
+
+	for (i = 0; i < ARRAY_SIZE(amdgpu_ualink_test_cmd_name); i++)
+		n += scnprintf(buf + n, sizeof(buf) - n, "%s\n",
+			       amdgpu_ualink_test_cmd_name[i]);
+
+	return simple_read_from_buffer(ubuf, len, offp, buf, n);
+}
+
+static ssize_t amdgpu_debugfs_ualink_command_write(struct file *file,
+						   const char __user *ubuf,
+						   size_t len, loff_t *offp)
+{
+	struct amdgpu_device *adev = file->private_data;
+	char buf[UALINK_TEST_CMD_NAME_MAX];
+	int cmd, r;
+
+	if (len >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, len))
+		return -EFAULT;
+
+	buf[len] = '\0';
+	cmd = sysfs_match_string(amdgpu_ualink_test_cmd_name, strim(buf));
+	if (cmd < 0) {
+		dev_err(adev->dev, "unknown ualink test command\n");
+		return cmd;
+	}
+
+	r = amdgpu_debugfs_ualink_test_run(adev, cmd);
+	if (r)
+		return r;
+
+	return len;
+}
+
+static const struct file_operations amdgpu_ualink_command_fops = {
+	.owner	 = THIS_MODULE,
+	.open	 = simple_open,
+	.read	 = amdgpu_debugfs_ualink_command_read,
+	.write	 = amdgpu_debugfs_ualink_command_write,
+	.llseek	 = default_llseek,
+};
+
+/* test data buffers, see amdgpu_debugfs_ualink_data_xfer() */
+enum amdgpu_ualink_test_buf {
+	UALINK_BUF_LOCAL,
+	UALINK_BUF_REMOTE_SDMA,
+	UALINK_BUF_REMOTE_LSDMA,
+};
+
+static int amdgpu_debugfs_ualink_data_xfer(struct amdgpu_device *adev,
+					   enum amdgpu_ualink_test_buf buf,
+					   u32 *data, u32 size, bool read)
+{
+	u32 remote_accel_id = adev->ualink.test_remote_accel_id;
+	int r;
+
+	if (remote_accel_id >= AMDGPU_UALINK_ACCEL_MAX) {
+		dev_err(adev->dev, "set remote_accel_id first\n");
+		return -EINVAL;
+	}
+
+	adev->ualink.selftesting = true;
+
+	if (buf == UALINK_BUF_LOCAL)
+		r = ualink_test_local_data(adev, remote_accel_id, data, size, read);
+	else
+		r = ualink_test_remote_rw(adev, remote_accel_id, data, size, read,
+					  buf == UALINK_BUF_REMOTE_LSDMA);
+
+	adev->ualink.selftesting = false;
+
+	return r;
+}
+
+static ssize_t amdgpu_debugfs_ualink_data_read(struct file *file,
+					       char __user *ubuf, size_t len,
+					       loff_t *offp,
+					       enum amdgpu_ualink_test_buf buf)
+{
+	struct amdgpu_device *adev = file->private_data;
+	ssize_t ret;
+	u32 size;
+	void *data;
+	int r;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	size = adev->ualink.test_size_dwords * 4;
+
+	data = kmalloc(size, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	r = amdgpu_debugfs_ualink_data_xfer(adev, buf, data, size, true);
+	ret = r ? r : simple_read_from_buffer(ubuf, len, offp, data, size);
+
+	kfree(data);
+
+	return ret;
+}
+
+static ssize_t amdgpu_debugfs_ualink_data_write(struct file *file,
+						const char __user *ubuf,
+						size_t len, loff_t *offp,
+						enum amdgpu_ualink_test_buf buf)
+{
+	struct amdgpu_device *adev = file->private_data;
+	u32 i, size;
+	void *data;
+	int r;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	size = adev->ualink.test_size_dwords * 4;
+
+	if (!len)
+		return -EINVAL;
+
+	len = min_t(size_t, len, size);
+
+	data = kmalloc(size, GFP_KERNEL);
+	if (!data)
+		return -ENOMEM;
+
+	if (copy_from_user(data, ubuf, len)) {
+		kfree(data);
+		return -EFAULT;
+	}
+
+	/* repeat a short pattern to fill the test size */
+	for (i = len; i < size; i += len)
+		memcpy(data + i, data, min_t(u32, len, size - i));
+
+	r = amdgpu_debugfs_ualink_data_xfer(adev, buf, data, size, false);
+
+	kfree(data);
+
+	return r ? r : len;
+}
+
+#define UALINK_TEST_DATA_ATTR(name, buf)				\
+static ssize_t amdgpu_debugfs_ualink_##name##_read(struct file *file,	\
+		char __user *ubuf, size_t len, loff_t *offp)		\
+{									\
+	return amdgpu_debugfs_ualink_data_read(file, ubuf, len, offp, buf); \
+}									\
+static ssize_t amdgpu_debugfs_ualink_##name##_write(struct file *file,	\
+		const char __user *ubuf, size_t len, loff_t *offp)	\
+{									\
+	return amdgpu_debugfs_ualink_data_write(file, ubuf, len, offp, buf); \
+}									\
+static const struct file_operations amdgpu_ualink_##name##_fops = {	\
+	.owner	 = THIS_MODULE,						\
+	.open	 = simple_open,						\
+	.read	 = amdgpu_debugfs_ualink_##name##_read,			\
+	.write	 = amdgpu_debugfs_ualink_##name##_write,		\
+	.llseek	 = default_llseek,					\
+}
+
+UALINK_TEST_DATA_ATTR(local_test_data, UALINK_BUF_LOCAL);
+UALINK_TEST_DATA_ATTR(remote_sdma, UALINK_BUF_REMOTE_SDMA);
+UALINK_TEST_DATA_ATTR(remote_lsdma, UALINK_BUF_REMOTE_LSDMA);
+
+static int amdgpu_debugfs_ualink_accel_id_get(void *data, u64 *val)
+{
+	struct amdgpu_device *adev = data;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	*val = adev->ualink.test_remote_accel_id;
+
+	return 0;
+}
+
+static int amdgpu_debugfs_ualink_accel_id_set(void *data, u64 val)
+{
+	struct amdgpu_device *adev = data;
+
+	if (!adev->ualink.info)
+		return -EOPNOTSUPP;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	if (val >= AMDGPU_UALINK_ACCEL_MAX ||
+	    !test_bit(val, adev->ualink.info->vpod.active_accel_bits)) {
+		dev_err(adev->dev, "invalid remote accel_id %llu\n", val);
+		return -EINVAL;
+	}
+
+	if (val == adev->ualink.info->ppod.accel_id) {
+		dev_err(adev->dev, "remote accel_id equals to local accel_id\n");
+		return -EINVAL;
+	}
+
+	adev->ualink.test_remote_accel_id = val;
+	dev_info(adev->dev, "set remote accel_id to %llu, local accel_id %u\n",
+		 val, adev->ualink.info->ppod.accel_id);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(amdgpu_ualink_accel_id_fops,
+			 amdgpu_debugfs_ualink_accel_id_get,
+			 amdgpu_debugfs_ualink_accel_id_set, "%llu\n");
+
+static int amdgpu_debugfs_ualink_test_size_get(void *data, u64 *val)
+{
+	struct amdgpu_device *adev = data;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	*val = adev->ualink.test_size_dwords * 4;
+
+	return 0;
+}
+
+static int amdgpu_debugfs_ualink_test_size_set(void *data, u64 val)
+{
+	struct amdgpu_device *adev = data;
+
+	if (val < 4 || val > AMDGPU_UALINK_RB_SIZE)
+		return -EINVAL;
+
+	guard(mutex)(&adev->ualink.selftest_mutex);
+
+	adev->ualink.test_size_dwords = val / 4;
+	dev_dbg(adev->dev, "test buffer size %u bytes\n",
+		adev->ualink.test_size_dwords * 4);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(amdgpu_ualink_test_size_fops,
+			 amdgpu_debugfs_ualink_test_size_get,
+			 amdgpu_debugfs_ualink_test_size_set, "%llu\n");
+
 int amdgpu_debugfs_init(struct amdgpu_device *adev)
 {
 	struct dentry *root = adev_to_drm(adev)->primary->debugfs_root;
+	struct dentry *ualink_test;
 	struct dentry *ent;
 	int r, i;
 
@@ -2245,6 +2572,25 @@ int amdgpu_debugfs_init(struct amdgpu_device *adev)
 	 */
 	debugfs_create_ulong("amdgpu_ualink_drop_msg_bitmap", 0600, root,
 			     &adev->ualink.drop_msg_bitmap);
+
+	mutex_init(&adev->ualink.selftest_mutex);
+	/* 64 bytes test size by default */
+	adev->ualink.test_size_dwords = 16;
+	adev->ualink.test_remote_accel_id = AMDGPU_UALINK_ACCEL_MAX;
+
+	ualink_test = debugfs_create_dir("amdgpu_ualink_test", root);
+	debugfs_create_file("command", 0600, ualink_test, adev,
+			    &amdgpu_ualink_command_fops);
+	debugfs_create_file("remote_accel_id", 0600, ualink_test, adev,
+			    &amdgpu_ualink_accel_id_fops);
+	debugfs_create_file("test_size", 0600, ualink_test, adev,
+			    &amdgpu_ualink_test_size_fops);
+	debugfs_create_file("local_test_data", 0600, ualink_test, adev,
+			    &amdgpu_ualink_local_test_data_fops);
+	debugfs_create_file("remote_sdma", 0600, ualink_test, adev,
+			    &amdgpu_ualink_remote_sdma_fops);
+	debugfs_create_file("remote_lsdma", 0600, ualink_test, adev,
+			    &amdgpu_ualink_remote_lsdma_fops);
 
 	adev->debugfs_vbios_blob.data = adev->bios;
 	adev->debugfs_vbios_blob.size = adev->bios_size;

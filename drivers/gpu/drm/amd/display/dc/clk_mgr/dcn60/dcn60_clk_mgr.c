@@ -21,7 +21,7 @@
 #include "dc_state_priv.h"
 #include "atomfirmware.h"
 
-#include "dcn401/dcn401_smu14_driver_if.h"
+#include "dcn60/dcn60_smu_driver_if.h"
 
 #include "dcn/dcn_6_0_0_offset.h"
 #include "dcn/dcn_6_0_0_sh_mask.h"
@@ -1458,7 +1458,9 @@ static unsigned int dcn60_build_bandwidth_clocks_block_sequence_with_action(
 				!action->alt_ch.disable
 				&& (action->alt_ch.enable
 						|| clk_mgr_base->clks.alt_ch_pstate_switch);
-		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp = false;
+		block_sequence[num_steps].params.indicate_pstate_status_params.wait_resp =
+				action->fams.enable
+				|| clk_mgr_base->clks.fw_based_mclk_switching;
 		block_sequence[num_steps].func = CLK_MGR60_INDICATE_PSTATE_STATUS;
 		num_steps++;
 	}
@@ -1778,6 +1780,35 @@ static void dcn60_execute_clk_mgr_block_sequence_bls(struct clk_mgr *clk_mgr_bas
 	dcn60_execute_block_sequence(clk_mgr_base, clk_mgr60->num_block_sequence_steps);
 }
 
+static unsigned int dcn60_get_max_clock_khz(struct clk_mgr *clk_mgr_base, enum clk_type clk_type)
+{
+	struct clk_mgr_internal *clk_mgr = TO_CLK_MGR_INTERNAL(clk_mgr_base);
+
+	unsigned int num_clk_levels;
+
+	switch (clk_type) {
+	case CLK_TYPE_DISPCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dispclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DISPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dispclk_mhz * 1000 :
+				clk_mgr->base.boot_snapshot.dispclk;
+	case CLK_TYPE_DPPCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dppclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DPPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dppclk_mhz * 1000 :
+				clk_mgr->base.boot_snapshot.dppclk;
+	case CLK_TYPE_DSCCLK:
+		num_clk_levels = clk_mgr->base.bw_params->clk_table.num_entries_per_clk.num_dispclk_levels;
+		return dcn60_is_ppclk_dpm_enabled(clk_mgr, PPCLK_DISPCLK) ?
+				clk_mgr->base.bw_params->clk_table.entries[num_clk_levels - 1].dispclk_mhz * 1000 / 6 :
+				clk_mgr->base.boot_snapshot.dispclk / 6;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static struct clk_mgr_funcs dcn60_funcs = {
 		.get_dp_ref_clk_frequency = dcn10_get_dp_ref_freq_khz,
 		.get_dtb_ref_clk_frequency = dcn60_get_dtb_ref_freq_khz,
@@ -1790,7 +1821,7 @@ static struct clk_mgr_funcs dcn60_funcs = {
 		.enable_pme_wa = dcn60_enable_pme_wa,
 		.is_smu_present = dcn60_is_smu_present,
 		.get_dispclk_from_dentist = NULL,
-		.get_max_clock_khz = dcn401_get_max_clock_khz,
+		.get_max_clock_khz = dcn60_get_max_clock_khz,
 		.override_memory_bandwidth_request = dcn60_override_memory_bandwidth_request,
 		.get_requested_memory_qos = dcn60_get_requested_memory_qos,
 		.set_idle_power_optimizations = dcn60_set_idle_power_optimizations,

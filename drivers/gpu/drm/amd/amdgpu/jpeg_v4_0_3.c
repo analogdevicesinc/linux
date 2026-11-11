@@ -886,14 +886,15 @@ void jpeg_v4_0_3_dec_ring_emit_ib(struct amdgpu_ring *ring,
 				uint32_t flags)
 {
 	unsigned int vmid = AMDGPU_JOB_GET_VMID(job);
+	uint32_t reg;
 
+	reg = (vmid << UVD_JMI0_UVD_LMI_JRBC_IB_VMID__IB_WR_VMID__SHIFT) |
+	      (vmid << UVD_JMI0_UVD_LMI_JRBC_IB_VMID__MEM_RD_VMID__SHIFT);
+	if (!ring->funcs->parse_cs)
+		reg |= (vmid << UVD_JMI0_UVD_LMI_JRBC_IB_VMID__IB_RD_VMID__SHIFT);
 	amdgpu_ring_write(ring, PACKETJ(regUVD_LMI_JRBC_IB_VMID_INTERNAL_OFFSET,
 		0, 0, PACKETJ_TYPE0));
-
-	if (ring->funcs->parse_cs)
-		amdgpu_ring_write(ring, 0);
-	else
-		amdgpu_ring_write(ring, (vmid | (vmid << 4) | (vmid << 8)));
+	amdgpu_ring_write(ring, reg);
 
 	amdgpu_ring_write(ring, PACKETJ(regUVD_LMI_JPEG_VMID_INTERNAL_OFFSET,
 		0, 0, PACKETJ_TYPE0));

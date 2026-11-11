@@ -361,8 +361,7 @@ static int smu_v15_0_0_get_metrics_table(struct smu_context *smu,
 	size_t table_size = metrics_info->table_size;
 	int ret;
 
-	if (smu_table->metrics_time &&
-	    !time_after(jiffies, smu_table->metrics_time + msecs_to_jiffies(1)))
+	if (!smu_ms_cache_expired(smu_table->metrics_time, 1))
 		return 1;
 
 	if (!cpu_addr)
@@ -386,7 +385,7 @@ static int smu_v15_0_0_get_metrics_table(struct smu_context *smu,
 			      cpu_addr, sizeof(MetricsTable_t));
 
 	metrics_info->active_idx = !metrics_info->active_idx;
-	smu_table->metrics_time = jiffies;
+	smu_table_metrics_update_time(smu_table);
 
 	return 0;
 }

@@ -23,9 +23,11 @@
 
 #include <linux/firmware.h>
 #include <linux/kthread.h>
+#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>
+#include <linux/bitmap.h>
 #include <linux/workqueue.h>
 #include <drm/drm_exec.h>
 
@@ -107,6 +109,7 @@ static inline u32 amdgpu_mes_get_hqd_mask(u32 num_pipe,
 }
 
 static void amdgpu_mes_userq_notify_unmap_work_handler(struct work_struct *work);
+static void amdgpu_mes_dbgext_work_fn(struct work_struct *work);
 
 int amdgpu_mes_init(struct amdgpu_device *adev)
 {
@@ -125,6 +128,10 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 	spin_lock_init(&adev->mes.queue_id_lock);
 	mutex_init(&adev->mes.mutex_hidden);
 	mutex_init(&adev->mes.dbgext_lock);
+	mutex_init(&adev->mes.dbgext_drain_lock);
+	spin_lock_init(&adev->mes.dbgext_notify_lock);
+	/* stopping the debug extension cancels it, even if it never started */
+	INIT_WORK(&adev->mes.dbgext_work, amdgpu_mes_dbgext_work_fn);
 
 	for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++)
 		spin_lock_init(&adev->mes.ring_lock[i]);
@@ -241,18 +248,16 @@ int amdgpu_mes_init(struct amdgpu_device *adev)
 	}
 
 	if (adev->mes.hung_queue_db_array_size) {
-		for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++) {
-			r = amdgpu_bo_create_kernel(adev,
-						    adev->mes.hung_queue_db_array_size * sizeof(u32),
-						    PAGE_SIZE,
-						    AMDGPU_GEM_DOMAIN_GTT,
-						    &adev->mes.hung_queue_db_array_gpu_obj[i],
-						    &adev->mes.hung_queue_db_array_gpu_addr[i],
-						    &adev->mes.hung_queue_db_array_cpu_addr[i]);
-			if (r) {
-				dev_warn(adev->dev, "failed to create MES hung db array buffer (%d)", r);
-				goto error_doorbell;
-			}
+		r = amdgpu_bo_create_kernel(adev,
+					    adev->mes.hung_queue_db_array_size * sizeof(u32),
+					    PAGE_SIZE,
+					    AMDGPU_GEM_DOMAIN_GTT,
+					    &adev->mes.hung_queue_db_array_gpu_obj,
+					    &adev->mes.hung_queue_db_array_gpu_addr,
+					    &adev->mes.hung_queue_db_array_cpu_addr);
+		if (r) {
+			dev_warn(adev->dev, "failed to create MES hung db array buffer (%d)", r);
+			goto error_doorbell;
 		}
 
 		adev->gfx.mec.mes_hung_db_array =
@@ -276,11 +281,11 @@ error:
 		if (adev->mes.query_status_fence_ptr[i])
 			amdgpu_wb_free(adev,
 				      adev->mes.query_status_fence_offs[i]);
-		if (adev->mes.hung_queue_db_array_gpu_obj[i])
-			amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj[i],
-					      &adev->mes.hung_queue_db_array_gpu_addr[i],
-					      &adev->mes.hung_queue_db_array_cpu_addr[i]);
 	}
+	if (adev->mes.hung_queue_db_array_gpu_obj)
+		amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj,
+				      &adev->mes.hung_queue_db_array_gpu_addr,
+				      &adev->mes.hung_queue_db_array_cpu_addr);
 
 	ida_destroy(&adev->mes.doorbell_ida);
 	mutex_destroy(&adev->mes.mutex_hidden);
@@ -300,11 +305,12 @@ void amdgpu_mes_fini(struct amdgpu_device *adev)
 			      &adev->mes.event_log_gpu_addr,
 			      &adev->mes.event_log_cpu_addr);
 
+	if (adev->mes.hung_queue_db_array_gpu_obj)
+		amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj,
+				      &adev->mes.hung_queue_db_array_gpu_addr,
+				      &adev->mes.hung_queue_db_array_cpu_addr);
+
 	for (i = 0; i < AMDGPU_MAX_MES_PIPES * num_xcc; i++) {
-		if (adev->mes.hung_queue_db_array_gpu_obj[i])
-			 amdgpu_bo_free_kernel(&adev->mes.hung_queue_db_array_gpu_obj[i],
-					 &adev->mes.hung_queue_db_array_gpu_addr[i],
-					 &adev->mes.hung_queue_db_array_cpu_addr[i]);
 		if (adev->mes.sch_ctx_ptr[i])
 			amdgpu_wb_free(adev, adev->mes.sch_ctx_offs[i]);
 		if (adev->mes.query_status_fence_ptr[i])
@@ -320,6 +326,7 @@ void amdgpu_mes_fini(struct amdgpu_device *adev)
 	ida_destroy(&adev->mes.doorbell_ida);
 	mutex_destroy(&adev->mes.mutex_hidden);
 	mutex_destroy(&adev->mes.dbgext_lock);
+	mutex_destroy(&adev->mes.dbgext_drain_lock);
 }
 
 int amdgpu_mes_suspend(struct amdgpu_device *adev, u32 xcc_id)
@@ -526,7 +533,7 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 					    uint32_t xcc_id)
 {
 	struct mes_detect_and_reset_queue_input input;
-	u32 *db_array = adev->mes.hung_queue_db_array_cpu_addr[xcc_id];
+	u32 *db_array = adev->mes.hung_queue_db_array_cpu_addr;
 	int hqd_info_offset = adev->mes.hung_queue_hqd_info_offset, r, i;
 
 	if (!hung_db_num || !hung_db_array)
@@ -538,7 +545,7 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 		return -EINVAL;
 
 	/* Clear the doorbell array before detection */
-	memset(adev->mes.hung_queue_db_array_cpu_addr[xcc_id], AMDGPU_MES_INVALID_DB_OFFSET,
+	memset(adev->mes.hung_queue_db_array_cpu_addr, AMDGPU_MES_INVALID_DB_OFFSET,
 		adev->mes.hung_queue_db_array_size * sizeof(u32));
 	input.queue_type = queue_type;
 	input.detect_only = detect_only;
@@ -557,6 +564,7 @@ int amdgpu_mes_detect_and_reset_hung_queues(struct amdgpu_device *adev,
 	for (i = 0; i < adev->mes.hung_queue_hqd_info_offset; i++) {
 		/* Finding hung queues where db_array[i] is a valid doorbell */
 		if (db_array[i] != AMDGPU_MES_INVALID_DB_OFFSET) {
+			dev_dbg(adev->dev, "MES: hung queue doorbell 0x%x\n", db_array[i]);
 			hung_db_array[i] = db_array[i];
 			*hung_db_num += 1;
 		}
@@ -1573,6 +1581,12 @@ static u32 mes_dbgext_num_regions(struct amdgpu_mes *mes)
 	       mes_dbgext_num_pipes(mes);
 }
 
+static u32 mes_dbgext_region(struct amdgpu_mes *mes, unsigned long xcc,
+			     u32 pipe)
+{
+	return xcc * mes_dbgext_num_pipes(mes) + pipe;
+}
+
 static void mes_dbgext_process_all(struct amdgpu_device *adev)
 {
 	struct amdgpu_mes *mes = &adev->mes;
@@ -1585,12 +1599,18 @@ static void mes_dbgext_process_all(struct amdgpu_device *adev)
 		return;
 
 	/*
-	 * Every armed (xcc, pipe) raises the same host interrupt, so drain all
-	 * regions; each is a no-op when it has no new data.
+	 * Every armed (xcc, pipe) raises the same host interrupt, so drain
+	 * every region that is still attached.  Regions cleared while an XCC's
+	 * MES is restarting are skipped until that XCC is rearmed.  Caller
+	 * holds dbgext_drain_lock.
 	 */
-	for (i = 0; i < num_regions; i++)
+	for (i = 0; i < num_regions; i++) {
+		if (!test_bit(i, mes->dbgext_armed_regions))
+			continue;
+
 		mes_dbgext_process_region(adev, buf + i * mes->dbgext_log_size,
 					  i / num_pipes, i % num_pipes);
+	}
 }
 
 static int amdgpu_mes_dbgext_reader(void *param)
@@ -1598,7 +1618,9 @@ static int amdgpu_mes_dbgext_reader(void *param)
 	struct amdgpu_device *adev = param;
 
 	while (!kthread_should_stop()) {
+		mutex_lock(&adev->mes.dbgext_drain_lock);
 		mes_dbgext_process_all(adev);
+		mutex_unlock(&adev->mes.dbgext_drain_lock);
 		msleep_interruptible(MES_DBGEXT_POLL_INTERVAL_MS);
 	}
 	return 0;
@@ -1612,7 +1634,9 @@ static void amdgpu_mes_dbgext_work_fn(struct work_struct *work)
 	struct amdgpu_device *adev =
 		container_of(mes, struct amdgpu_device, mes);
 
+	mutex_lock(&mes->dbgext_drain_lock);
 	mes_dbgext_process_all(adev);
+	mutex_unlock(&mes->dbgext_drain_lock);
 }
 
 /*
@@ -1623,6 +1647,7 @@ static void amdgpu_mes_dbgext_work_fn(struct work_struct *work)
 void amdgpu_mes_dbgext_notify(struct amdgpu_device *adev, u32 context_data)
 {
 	struct amdgpu_mes *mes = &adev->mes;
+	unsigned long flags;
 
 	/*
 	 * Caller has already matched MES_DBGMSG (type 7 in bits 31:26 of the
@@ -1634,12 +1659,13 @@ void amdgpu_mes_dbgext_notify(struct amdgpu_device *adev, u32 context_data)
 	 * Only the interrupt path may schedule the drain work.  In polling mode
 	 * the kthread owns rptr; honoring a stale/spurious interrupt here would
 	 * let the work item and the kthread drain concurrently and race on rptr.
+	 * The flag is published under dbgext_notify_lock so stop can pair this
+	 * check with cancel_work_sync and not lose a late schedule.
 	 */
-	if (!READ_ONCE(mes->dbgext_use_irq))
-		return;
-
-	if (READ_ONCE(mes->dbgext_log_cpu_addr))
+	spin_lock_irqsave(&mes->dbgext_notify_lock, flags);
+	if (mes->dbgext_use_irq && mes->dbgext_log_cpu_addr)
 		schedule_work(&mes->dbgext_work);
+	spin_unlock_irqrestore(&mes->dbgext_notify_lock, flags);
 }
 
 static int amdgpu_mes_dbgext_setup_fw(struct amdgpu_device *adev, u32 xcc_id,
@@ -1675,6 +1701,7 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 	u32 size;
 	u32 req_kb;
 	u32 num_xcc, num_pipes, num_regions, i;
+	unsigned long flags;
 	int r;
 
 	/*
@@ -1741,7 +1768,6 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 			return r;
 		}
 		mes->dbgext_log_size = size;
-		INIT_WORK(&mes->dbgext_work, amdgpu_mes_dbgext_work_fn);
 	} else {
 		/*
 		 * Resume: the log buffer is kept allocated across a suspend/
@@ -1784,7 +1810,9 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 		  mes->funcs->enable_dbgext_irq;
 	if (!use_irq)
 		mes->dbgext_log_options &= ~MES_DBGEXT_OPT_TRIGGER_INT_PER_MSG;
+	spin_lock_irqsave(&mes->dbgext_notify_lock, flags);
 	mes->dbgext_use_irq = use_irq;
+	spin_unlock_irqrestore(&mes->dbgext_notify_lock, flags);
 
 	/*
 	 * Translate the options to the mes_aux firmware layout: enable logging
@@ -1827,6 +1855,11 @@ static int amdgpu_mes_dbgext_start_locked(struct amdgpu_device *adev)
 			goto err_disable;
 		}
 	}
+
+	mutex_lock(&mes->dbgext_drain_lock);
+	for (i = 0; i < num_regions; i++)
+		set_bit(i, mes->dbgext_armed_regions);
+	mutex_unlock(&mes->dbgext_drain_lock);
 
 	if (!use_irq) {
 		/*
@@ -1873,10 +1906,15 @@ err_fw_detach:
 					   0, 0);
 err_disable:
 	/* Undo the early arming done before setup_fw(). */
+	spin_lock_irqsave(&mes->dbgext_notify_lock, flags);
 	mes->dbgext_active = false;
+	mes->dbgext_use_irq = false;
+	spin_unlock_irqrestore(&mes->dbgext_notify_lock, flags);
+	mutex_lock(&mes->dbgext_drain_lock);
+	bitmap_zero(mes->dbgext_armed_regions, AMDGPU_MAX_MES_INST_PIPES);
+	mutex_unlock(&mes->dbgext_drain_lock);
 	if (use_irq)
 		mes->funcs->enable_dbgext_irq(mes, false);
-	mes->dbgext_use_irq = false;
 	/* Never free a kernel BO while suspended; keep it for the next start. */
 	if (!adev->in_suspend) {
 		amdgpu_bo_free_kernel(&mes->dbgext_log_gpu_obj,
@@ -1901,27 +1939,40 @@ int amdgpu_mes_dbgext_start(struct amdgpu_device *adev)
 static void amdgpu_mes_dbgext_stop_locked(struct amdgpu_device *adev)
 {
 	struct amdgpu_mes *mes = &adev->mes;
-
-	mes->dbgext_active = false;
+	bool use_irq = mes->dbgext_use_irq;
+	unsigned long flags;
 
 	/*
-	 * Tear down the reader kthread and the host interrupt first, and do so
-	 * independently of the buffer state.  The kthread runs code that lives
-	 * in this module, so it must never be left alive past module unload -
-	 * otherwise it faults on an instruction fetch once the module text is
-	 * freed.  A second stop() in a teardown/reset sequence, or one reached
-	 * after the buffer was already freed on an error path, must still be
-	 * able to reap a stale reader; hence this runs before the buffer guard.
+	 * Publish "off" before cancelling the reader and work item.  notify()
+	 * checks these flags under the same lock, so a late interrupt cannot
+	 * schedule another drain after cancel_work_sync returns.
+	 */
+	spin_lock_irqsave(&mes->dbgext_notify_lock, flags);
+	mes->dbgext_active = false;
+	mes->dbgext_use_irq = false;
+	spin_unlock_irqrestore(&mes->dbgext_notify_lock, flags);
+
+	if (use_irq)
+		mes->funcs->enable_dbgext_irq(mes, false);
+
+	/*
+	 * Tear down the reader kthread independently of the buffer state.  The
+	 * kthread runs code that lives in this module, so it must never be
+	 * left alive past module unload.  It takes dbgext_drain_lock only
+	 * around one drain, so stopping it here does not invert that lock
+	 * with dbgext_lock.
 	 */
 	if (mes->dbgext_reader) {
 		kthread_stop(mes->dbgext_reader);
 		mes->dbgext_reader = NULL;
 	}
 
-	if (mes->dbgext_use_irq) {
-		mes->funcs->enable_dbgext_irq(mes, false);
-		mes->dbgext_use_irq = false;
-	}
+	cancel_work_sync(&mes->dbgext_work);
+
+	mutex_lock(&mes->dbgext_drain_lock);
+	mes_dbgext_process_all(adev);
+	bitmap_zero(mes->dbgext_armed_regions, AMDGPU_MAX_MES_INST_PIPES);
+	mutex_unlock(&mes->dbgext_drain_lock);
 
 	if (!mes->dbgext_log_gpu_obj)
 		return;
@@ -1942,12 +1993,6 @@ static void amdgpu_mes_dbgext_stop_locked(struct amdgpu_device *adev)
 						   i % num_pipes, 0, 0);
 	}
 
-	/* Make sure no drain work is still touching the buffer. */
-	cancel_work_sync(&mes->dbgext_work);
-
-	/* Drain anything the firmware wrote before we stopped. */
-	mes_dbgext_process_all(adev);
-
 	/*
 	 * Keep the buffer allocated across a suspend/resume cycle (freeing a
 	 * kernel BO while suspended is not allowed - it trips a WARN in
@@ -1967,6 +2012,131 @@ void amdgpu_mes_dbgext_stop(struct amdgpu_device *adev)
 	mutex_lock(&adev->mes.dbgext_lock);
 	amdgpu_mes_dbgext_stop_locked(adev);
 	mutex_unlock(&adev->mes.dbgext_lock);
+}
+
+void amdgpu_mes_dbgext_disarm_xcc(struct amdgpu_device *adev, u32 xcc_id)
+{
+	struct amdgpu_mes *mes = &adev->mes;
+	u32 num_pipes, pipe, index;
+
+	mutex_lock(&mes->dbgext_lock);
+	if (!mes->dbgext_active || !mes->dbgext_log_gpu_obj ||
+	    xcc_id >= mes->dbgext_num_xcc) {
+		mutex_unlock(&mes->dbgext_lock);
+		return;
+	}
+
+	/*
+	 * Drain this XCC's regions, then stop draining them, before its MES is
+	 * reset.  The bits are cleared under the drain lock, so an in-flight
+	 * reader finishes its current pass before the headers can be rebuilt
+	 * on rearm.  Rearm zeroes the region, so this is the last chance to
+	 * print what the firmware already wrote.
+	 */
+	num_pipes = mes_dbgext_num_pipes(mes);
+	mutex_lock(&mes->dbgext_drain_lock);
+	for (pipe = 0; pipe < num_pipes; pipe++) {
+		index = mes_dbgext_region(mes, xcc_id, pipe);
+		if (index >= AMDGPU_MAX_MES_INST_PIPES ||
+		    !test_bit(index, mes->dbgext_armed_regions))
+			continue;
+
+		if (mes->dbgext_log_cpu_addr && mes->dbgext_log_size)
+			mes_dbgext_process_region(adev,
+				(u8 *)mes->dbgext_log_cpu_addr +
+				index * mes->dbgext_log_size,
+				xcc_id, pipe);
+		clear_bit(index, mes->dbgext_armed_regions);
+	}
+	mutex_unlock(&mes->dbgext_drain_lock);
+
+	if (mes->dbgext_use_irq && mes->funcs &&
+	    mes->funcs->enable_dbgext_irq_xcc)
+		mes->funcs->enable_dbgext_irq_xcc(mes, false, xcc_id);
+
+	mutex_unlock(&mes->dbgext_lock);
+}
+
+int amdgpu_mes_dbgext_rearm_xcc(struct amdgpu_device *adev, u32 xcc_id)
+{
+	struct amdgpu_mes *mes = &adev->mes;
+	u32 num_pipes, pipe, index;
+	u64 fw_options;
+	bool xcc_ok = true;
+	int ret = 0;
+	int r;
+
+	mutex_lock(&mes->dbgext_lock);
+	if (!mes->dbgext_active || !mes->dbgext_log_cpu_addr ||
+	    !mes->dbgext_log_size || xcc_id >= mes->dbgext_num_xcc) {
+		mutex_unlock(&mes->dbgext_lock);
+		return 0;
+	}
+
+	fw_options = MES_DBGEXT_AUX_OPT_ENABLE_MES_LOG;
+	if (!mes->dbgext_use_irq)
+		fw_options |= MES_DBGEXT_AUX_OPT_HOST_POLL;
+
+	num_pipes = mes_dbgext_num_pipes(mes);
+	for (pipe = 0; pipe < num_pipes; pipe++) {
+		u8 *base;
+
+		index = mes_dbgext_region(mes, xcc_id, pipe);
+		if (index >= AMDGPU_MAX_MES_INST_PIPES) {
+			xcc_ok = false;
+			continue;
+		}
+
+		/*
+		 * Reseed only while the region is unarmed and the
+		 * drain lock is held, so the reader cannot parse a
+		 * half-rebuilt zone header.  Drop the lock before
+		 * submitting the MES packet: that waits for firmware
+		 * and must not block behind, or deadlock with, the
+		 * drain work.
+		 */
+		mutex_lock(&mes->dbgext_drain_lock);
+		clear_bit(index, mes->dbgext_armed_regions);
+		base = (u8 *)mes->dbgext_log_cpu_addr +
+		       index * mes->dbgext_log_size;
+		memset(base, 0, mes->dbgext_log_size);
+		*(u32 *)base = mes->dbgext_log_size;
+		mutex_unlock(&mes->dbgext_drain_lock);
+
+		r = amdgpu_mes_dbgext_setup_fw(adev, xcc_id, pipe,
+				mes->dbgext_log_gpu_addr +
+				index * mes->dbgext_log_size,
+				fw_options);
+		if (r) {
+			dev_err(adev->dev,
+				"failed to rearm mes_dbgext on xcc%u %s pipe (%d)\n",
+				xcc_id, mes_dbgext_pipe_name(pipe), r);
+			ret = r;
+			xcc_ok = false;
+			continue;
+		}
+
+		mutex_lock(&mes->dbgext_drain_lock);
+		set_bit(index, mes->dbgext_armed_regions);
+		mutex_unlock(&mes->dbgext_drain_lock);
+	}
+
+	/*
+	 * Disarm left this XCC's interrupt disabled.  Enable it only
+	 * after every pipe has attached, so a failed SETUP cannot
+	 * leave TIME_STAMP_INT_ENABLE set with the region unarmed.
+	 * The notify below collects the messages firmware wrote
+	 * during setup.
+	 */
+	if (xcc_ok && mes->dbgext_use_irq && mes->funcs &&
+	    mes->funcs->enable_dbgext_irq_xcc)
+		mes->funcs->enable_dbgext_irq_xcc(mes, true, xcc_id);
+
+	if (mes->dbgext_use_irq)
+		amdgpu_mes_dbgext_notify(adev, 0);
+
+	mutex_unlock(&mes->dbgext_lock);
+	return ret;
 }
 
 #if defined(CONFIG_DEBUG_FS)
@@ -2035,6 +2205,13 @@ static ssize_t amdgpu_debugfs_mes_dbgext_write(struct file *file,
 
 	if (!mes->funcs || !mes->funcs->misc_op)
 		return -EOPNOTSUPP;
+
+	/* Arming and detaching the firmware talks to the MES. */
+	PM_RUNTIME_ACQUIRE_IF_ENABLED_AUTOSUSPEND(adev->dev, pm);
+
+	r = PM_RUNTIME_ACQUIRE_ERR(&pm);
+	if (r)
+		return r;
 
 	mutex_lock(&mes->dbgext_lock);
 	if (enable) {

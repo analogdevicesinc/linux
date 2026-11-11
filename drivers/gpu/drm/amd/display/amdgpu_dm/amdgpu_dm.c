@@ -6852,3 +6852,36 @@ void dm_acpi_process_phy_transition_interlock(
 	// Not yet implemented
 }
 EXPORT_IF_KUNIT(dm_acpi_process_phy_transition_interlock);
+
+/**
+ * amdgpu_dm_update_memclk_states() - re-read the UCLK DPM levels from PMFW
+ * @adev: amdgpu device
+ *
+ * DC reads the UCLK DPM table from PMFW only in init_hw. An overdrive commit
+ * (or restoring the user OD table on resume) can change the UCLK levels, which
+ * leaves DC with a stale max_memclk_mhz and bounding box. On DCN3.2 the stale
+ * max is then used as the UCLK hard min when P-state switching is not
+ * supported by the current mode, so PMFW is free to switch UCLK outside of
+ * vblank and the display underflows or hangs.
+ */
+void amdgpu_dm_update_memclk_states(struct amdgpu_device *adev)
+{
+	struct dc *dc = adev->dm.dc;
+	unsigned int max_memclk_mhz;
+
+	if (!dc)
+		return;
+
+	if (dc->ctx->dce_version != DCN_VERSION_3_2 &&
+	    dc->ctx->dce_version != DCN_VERSION_3_21)
+		return;
+
+	mutex_lock(&adev->dm.dc_lock);
+	max_memclk_mhz = dc_refresh_memclk_states(dc);
+	mutex_unlock(&adev->dm.dc_lock);
+
+	if (max_memclk_mhz)
+		drm_info(adev_to_drm(adev),
+			 "DC memclk states refreshed, max UCLK %u MHz\n",
+			 max_memclk_mhz);
+}

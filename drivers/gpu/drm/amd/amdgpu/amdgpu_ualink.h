@@ -310,6 +310,9 @@ struct amdgpu_ualink_connection {
 	enum amdgpu_ualink_conn_state state;
 };
 
+/* UALINK ring buffer size, same for both remote shootdown and interrupt ring */
+#define AMDGPU_UALINK_RB_SIZE	4096
+
 struct amdgpu_ualink_remote;
 
 struct amdgpu_ualink_msg_ctl {
@@ -332,6 +335,13 @@ struct amdgpu_ualink_mgr {
 
 	/* For remote interrupt and shootdown */
 	struct amdgpu_ualink_remote *remote;
+
+	/* true for selftest driver path, ignore FW error */
+	bool selftesting;
+	/* serialize the selftest debugfs entries */
+	struct mutex selftest_mutex;
+	u32 test_size_dwords;
+	u32 test_remote_accel_id;
 
 	/* handle irq from ualink client of remote GPUs */
 	struct amdgpu_irq_src irq;
@@ -390,13 +400,21 @@ struct amdgpu_ualink_mgr {
 	unsigned long drop_msg_bitmap;
 };
 
+int ualink_test_local_data(struct amdgpu_device *adev, u32 remote_accel_id,
+			   void *data, u32 size, bool read);
+int ualink_test_remote_rw(struct amdgpu_device *adev, u32 remote_accel_id,
+			  void *data, u32 size, bool read, bool use_lsdma);
+int ualink_test_send_hello(struct amdgpu_device *adev, u32 remote_accel_id);
+int ualink_test_remote_shootdown(struct amdgpu_device *adev, u32 remote_accel_id,
+				 u64 addr, u32 size_in_pages, u32 flush_type);
+int ualink_test_update_interrupt_wb(struct amdgpu_device *adev, u32 remote_accel_id);
+int ualink_test_update_shootdown_wb(struct amdgpu_device *adev, u32 remote_accel_id);
+
 int amdgpu_ualink_init_interrupt(struct amdgpu_device *adev,
 				 unsigned int client_id, unsigned int src_id);
-
+void amdgpu_ualink_flush_tlb(struct amdgpu_device *adev, u32 flush_type);
 int amdgpu_ualink_sw_init(struct amdgpu_device *adev);
 void amdgpu_ualink_sw_fini(struct amdgpu_device *adev);
-
-int ualink_send_hello(struct amdgpu_device *adev, u32 remote_accel_id);
 
 int amdgpu_ualink_config_update_handler(struct amdgpu_device *adev);
 int amdgpu_ualink_pause_handler(struct amdgpu_device *adev);

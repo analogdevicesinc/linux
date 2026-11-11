@@ -27326,6 +27326,15 @@
 //ODM0_OPTC_INPUT_SPARE_REGISTER
 #define ODM0_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG__SHIFT                                           0x0
 #define ODM0_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG_MASK                                             0xFFFFFFFFL
+//ODM0_OPTC_RSMU_UNDERFLOW
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN__SHIFT                                           0x0
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS__SHIFT                                  0x1
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS__SHIFT                                       0x2
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR__SHIFT                                            0x3
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN_MASK                                             0x00000001L
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS_MASK                                    0x00000002L
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS_MASK                                         0x00000004L
+#define ODM0_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR_MASK                                              0x00000008L
 //ODM0_OPTC_UNDERFLOW_THRESHOLD
 #define ODM0_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD__SHIFT                                        0x0
 #define ODM0_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD_MASK                                          0x01FFFFFFL
@@ -27388,6 +27397,15 @@
 //ODM1_OPTC_INPUT_SPARE_REGISTER
 #define ODM1_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG__SHIFT                                           0x0
 #define ODM1_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG_MASK                                             0xFFFFFFFFL
+//ODM1_OPTC_RSMU_UNDERFLOW
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN__SHIFT                                           0x0
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS__SHIFT                                  0x1
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS__SHIFT                                       0x2
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR__SHIFT                                            0x3
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN_MASK                                             0x00000001L
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS_MASK                                    0x00000002L
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS_MASK                                         0x00000004L
+#define ODM1_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR_MASK                                              0x00000008L
 //ODM1_OPTC_UNDERFLOW_THRESHOLD
 #define ODM1_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD__SHIFT                                        0x0
 #define ODM1_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD_MASK                                          0x01FFFFFFL
@@ -27450,6 +27468,15 @@
 //ODM2_OPTC_INPUT_SPARE_REGISTER
 #define ODM2_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG__SHIFT                                           0x0
 #define ODM2_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG_MASK                                             0xFFFFFFFFL
+//ODM2_OPTC_RSMU_UNDERFLOW
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN__SHIFT                                           0x0
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS__SHIFT                                  0x1
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS__SHIFT                                       0x2
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR__SHIFT                                            0x3
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN_MASK                                             0x00000001L
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS_MASK                                    0x00000002L
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS_MASK                                         0x00000004L
+#define ODM2_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR_MASK                                              0x00000008L
 //ODM2_OPTC_UNDERFLOW_THRESHOLD
 #define ODM2_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD__SHIFT                                        0x0
 #define ODM2_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD_MASK                                          0x01FFFFFFL
@@ -27512,6 +27539,15 @@
 //ODM3_OPTC_INPUT_SPARE_REGISTER
 #define ODM3_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG__SHIFT                                           0x0
 #define ODM3_OPTC_INPUT_SPARE_REGISTER__OPTC_INPUT_SPARE_REG_MASK                                             0xFFFFFFFFL
+//ODM3_OPTC_RSMU_UNDERFLOW
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN__SHIFT                                           0x0
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS__SHIFT                                  0x1
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS__SHIFT                                       0x2
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR__SHIFT                                            0x3
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_EN_MASK                                             0x00000001L
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_OCCURRED_STATUS_MASK                                    0x00000002L
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_INT_STATUS_MASK                                         0x00000004L
+#define ODM3_OPTC_RSMU_UNDERFLOW__OPTC_RSMU_UNDERFLOW_CLEAR_MASK                                              0x00000008L
 //ODM3_OPTC_UNDERFLOW_THRESHOLD
 #define ODM3_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD__SHIFT                                        0x0
 #define ODM3_OPTC_UNDERFLOW_THRESHOLD__OPTC_UNDERFLOW_THRESHOLD_MASK                                          0x01FFFFFFL

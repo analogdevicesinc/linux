@@ -97,3 +97,52 @@ out_unlock:
 	mutex_unlock(&adev->lsdma.lock);
 	return ret;
 }
+
+int amdgpu_lsdma_selftest(struct amdgpu_device *adev)
+{
+	struct amdgpu_ib ib;
+	int i, r;
+	u64 gpu_addr;
+	char *p;
+	u32 size = 128;
+
+	memset(&ib, 0, sizeof(ib));
+	r = amdgpu_ib_get(adev, NULL, 2 * size, AMDGPU_IB_POOL_DIRECT, &ib);
+	if (r)
+		return r;
+
+	gpu_addr = ib.gpu_addr;
+	p = (char *)ib.ptr;
+	memset(p, 0, 2 * size);
+
+	for (i = 0; i < size; i++)
+		*(p + i) = i;
+
+	dev_dbg(adev->dev, "copy src 0x%llx dst 0x%llx size %d bytes\n",
+		gpu_addr, gpu_addr + size, size);
+
+	r = amdgpu_lsdma_copy_mem(adev, gpu_addr, gpu_addr + size, size);
+	if (r)
+		goto out;
+
+	p += size;
+	for (i = 0; i < size; i++) {
+		if (*(p + i) != i) {
+			dev_dbg(adev->dev, "data mismatch expecting 0x%x but read 0x%x\n",
+				i, *(p + i));
+			break;
+		}
+	}
+	if (i != size)
+		r = -EIO;
+
+out:
+	amdgpu_ib_free(&ib, NULL);
+
+	if (r)
+		dev_dbg(adev->dev, "lsdma selftest failed r=%d\n", r);
+	else
+		dev_dbg(adev->dev, "lsdma selftest passed\n");
+
+	return r;
+}

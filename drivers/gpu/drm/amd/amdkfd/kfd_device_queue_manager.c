@@ -346,29 +346,6 @@ static int remove_queue_mes_on_reset_option(struct device_queue_manager *dqm, st
 	return r;
 }
 
-static void set_perfcount(struct device_queue_manager *dqm, int enable)
-{
-	struct device_process_node *cur;
-	struct qcm_process_device *qpd;
-	struct queue *q;
-	struct mqd_update_info minfo = { 0 };
-
-	if (!dqm)
-		return;
-
-	minfo.update_flag = (enable == 1 ? UPDATE_FLAG_PERFCOUNT_ENABLE :
-						 UPDATE_FLAG_PERFCOUNT_DISABLE);
-	dqm_lock(dqm);
-	list_for_each_entry(cur, &dqm->queues, list) {
-		qpd = cur->qpd;
-		list_for_each_entry(q, &qpd->queues_list, list) {
-			pqm_update_mqd(qpd->pqm, q->properties.queue_id,
-						&minfo);
-		}
-	}
-	dqm_unlock(dqm);
-}
-
 static int remove_queue_mes(struct device_queue_manager *dqm, struct queue *q,
 			    struct qcm_process_device *qpd)
 {
@@ -506,7 +483,7 @@ static int reset_queues_mes(struct device_queue_manager *dqm, struct queue *q)
 	queue_input.remove_queue_after_reset = false;
 	queue_input.xcc_id = ffs(dqm->dev->xcc_mask) - 1;
 	/* pass the known bad queue info to the reset function */
-	r = amdgpu_gfx_reset_mes_compute(adev, NULL, NULL, NULL, &num_hung, &queue_input);
+	r = amdgpu_gfx_reset_mes_compute(adev, dqm->dev->xcp, NULL, NULL, NULL, &num_hung, &queue_input);
 	if (r)
 		goto fail;
 	pdd = kfd_get_process_device_data(q->device, q->process);
@@ -1116,7 +1093,42 @@ static int destroy_queue_nocpsch(struct device_queue_manager *dqm,
 	return retval;
 }
 
-static int update_queue(struct device_queue_manager *dqm, struct queue *q,
+/* Caller must hold the DQM lock and ensure the queue is unmapped. */
+static void update_queue_mqd(struct device_queue_manager *dqm, struct queue *q,
+			     struct qcm_process_device *qpd,
+			     struct mqd_update_info *minfo)
+{
+	struct mqd_manager *mqd_mgr =
+		dqm->mqd_mgrs[get_mqd_type_from_queue_type(q->properties.type)];
+	bool prev_active = q->properties.is_active;
+
+	mqd_mgr->update_mqd(mqd_mgr, q->mqd, &q->properties, minfo);
+
+	/*
+	 * Queue properties can change before the updater takes the DQM lock,
+	 * so even a perfcount update can change queue activity. Keep the
+	 * counters used to build the runlist in sync with the updated state.
+	 */
+	if (q->properties.is_active && !prev_active) {
+		increment_queue_count(dqm, qpd, q);
+	} else if (!q->properties.is_active && prev_active) {
+		decrement_queue_count(dqm, qpd, q);
+	} else if (q->gws && !q->properties.is_gws) {
+		if (q->properties.is_active) {
+			dqm->gws_queue_count++;
+			qpd->mapped_gws_queue = true;
+		}
+		q->properties.is_gws = true;
+	} else if (!q->gws && q->properties.is_gws) {
+		if (q->properties.is_active) {
+			dqm->gws_queue_count--;
+			qpd->mapped_gws_queue = false;
+		}
+		q->properties.is_gws = false;
+	}
+}
+
+static int update_queue_locked(struct device_queue_manager *dqm, struct queue *q,
 			struct mqd_update_info *minfo)
 {
 	int retval = 0;
@@ -1125,16 +1137,14 @@ static int update_queue(struct device_queue_manager *dqm, struct queue *q,
 	struct kfd_process_device *pdd;
 	bool prev_active = false;
 
-	dqm_lock(dqm);
 	pdd = kfd_get_process_device_data(q->device, q->process);
 	if (!pdd) {
-		retval = -ENODEV;
-		goto out_unlock;
+		return -ENODEV;
 	}
 	mqd_mgr = dqm->mqd_mgrs[get_mqd_type_from_queue_type(
 			q->properties.type)];
 
-	/* Save previous activity state for counters */
+	/* Save the activity state for queue removal. */
 	prev_active = q->properties.is_active;
 
 	/* Make sure the queue is unmapped before updating the MQD */
@@ -1147,13 +1157,12 @@ static int update_queue(struct device_queue_manager *dqm, struct queue *q,
 
 		/* queue is reset so inaccessable  */
 		if (pdd->has_reset_queue) {
-			retval = -EACCES;
-			goto out_unlock;
+			return -EACCES;
 		}
 
 		if (retval) {
 			dev_err(dev, "unmap queue failed\n");
-			goto out_unlock;
+			return retval;
 		}
 	} else if (prev_active &&
 		   (q->properties.type == KFD_QUEUE_TYPE_COMPUTE ||
@@ -1162,7 +1171,7 @@ static int update_queue(struct device_queue_manager *dqm, struct queue *q,
 
 		if (!dqm->sched_running) {
 			WARN_ONCE(1, "Update non-HWS queue while stopped\n");
-			goto out_unlock;
+			return retval;
 		}
 
 		retval = mqd_mgr->destroy_mqd(mqd_mgr, q->mqd,
@@ -1172,35 +1181,11 @@ static int update_queue(struct device_queue_manager *dqm, struct queue *q,
 				KFD_UNMAP_LATENCY_MS, q->pipe, q->queue);
 		if (retval) {
 			dev_err(dev, "destroy mqd failed\n");
-			goto out_unlock;
+			return retval;
 		}
 	}
 
-	mqd_mgr->update_mqd(mqd_mgr, q->mqd, &q->properties, minfo);
-
-	/*
-	 * check active state vs. the previous state and modify
-	 * counter accordingly. map_queues_cpsch uses the
-	 * dqm->active_queue_count to determine whether a new runlist must be
-	 * uploaded.
-	 */
-	if (q->properties.is_active && !prev_active) {
-		increment_queue_count(dqm, &pdd->qpd, q);
-	} else if (!q->properties.is_active && prev_active) {
-		decrement_queue_count(dqm, &pdd->qpd, q);
-	} else if (q->gws && !q->properties.is_gws) {
-		if (q->properties.is_active) {
-			dqm->gws_queue_count++;
-			pdd->qpd.mapped_gws_queue = true;
-		}
-		q->properties.is_gws = true;
-	} else if (!q->gws && q->properties.is_gws) {
-		if (q->properties.is_active) {
-			dqm->gws_queue_count--;
-			pdd->qpd.mapped_gws_queue = false;
-		}
-		q->properties.is_gws = false;
-	}
+	update_queue_mqd(dqm, q, &pdd->qpd, minfo);
 
 	if (dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS) {
 		if (!dqm->dev->kfd->shared_resources.enable_mes)
@@ -1220,9 +1205,61 @@ static int update_queue(struct device_queue_manager *dqm, struct queue *q,
 						   &q->properties, current->mm);
 	}
 
-out_unlock:
-	dqm_unlock(dqm);
 	return retval;
+}
+
+static int update_queue(struct device_queue_manager *dqm, struct queue *q,
+			struct mqd_update_info *minfo)
+{
+	int retval;
+
+	dqm_lock(dqm);
+	retval = update_queue_locked(dqm, q, minfo);
+	dqm_unlock(dqm);
+
+	return retval;
+}
+
+static void set_perfcount(struct device_queue_manager *dqm, int enable)
+{
+	struct device_process_node *cur;
+	struct qcm_process_device *qpd;
+	struct queue *q;
+	struct mqd_update_info minfo = { 0 };
+	bool batch;
+
+	if (!dqm)
+		return;
+
+	minfo.update_flag = (enable == 1 ? UPDATE_FLAG_PERFCOUNT_ENABLE :
+						 UPDATE_FLAG_PERFCOUNT_DISABLE);
+	/* Preempt the non-MES HWS runlist once for all compute MQD updates. */
+	batch = dqm->sched_policy != KFD_SCHED_POLICY_NO_HWS &&
+		!dqm->dev->kfd->shared_resources.enable_mes;
+
+	dqm_lock(dqm);
+	if (batch && unmap_queues_cpsch(dqm, KFD_UNMAP_QUEUES_FILTER_DYNAMIC_QUEUES,
+					0, USE_DEFAULT_GRACE_PERIOD, false))
+		goto out;
+
+	list_for_each_entry(cur, &dqm->queues, list) {
+		qpd = cur->qpd;
+		if (batch && qpd_to_pdd(qpd)->has_reset_queue)
+			continue;
+		list_for_each_entry(q, &qpd->queues_list, list) {
+			if (!batch) {
+				update_queue_locked(dqm, q, &minfo);
+				continue;
+			}
+			if (q->properties.type == KFD_QUEUE_TYPE_COMPUTE)
+				update_queue_mqd(dqm, q, qpd, &minfo);
+		}
+	}
+
+	if (batch)
+		map_queues_cpsch(dqm);
+out:
+	dqm_unlock(dqm);
 }
 
 /* suspend_single_queue does not lock the dqm like the

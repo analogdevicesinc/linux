@@ -1558,7 +1558,16 @@ struct kfd_ioctl_dbg_trap_args {
 	};
 };
 
-#define KFD_IOC_PROFILER_VERSION_NUM 1
+/*
+ * KFD_IOC_PROFILER_VERSION_NUM history:
+ * - 1 - initial version
+ * - 2 - KFD_IOC_PROFILER_PMC lock also forces the perfmon clock on until the
+ *       lock is released or the process exits. lock == 0 with
+ *       perfcount_enable == 1 forces it on without CAP_PERFMON and without
+ *       locking, until lock == 0 with perfcount_enable == 0 or the process
+ *       exits
+ */
+#define KFD_IOC_PROFILER_VERSION_NUM 2
 enum kfd_profiler_ops {
 	KFD_IOC_PROFILER_PMC = 0,
 	KFD_IOC_PROFILER_VERSION = 2,

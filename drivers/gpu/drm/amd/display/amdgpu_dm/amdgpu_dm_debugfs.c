@@ -3114,6 +3114,35 @@ static const struct file_operations dp_mst_link_settings_debugfs_fops = {
 	.llseek = default_llseek
 };
 
+/* 0: EDID behavior, 1: force HDMI VRR, 2: disable VRR. */
+static int vrr_override_set(void *data, u64 val)
+{
+	struct amdgpu_dm_connector *connector = data;
+
+	if (val > AMDGPU_DM_VRR_OVERRIDE_DISABLE_VRR)
+		return -EINVAL;
+
+	if (connector->vrr_override == val)
+		return 0;
+
+	connector->vrr_override = val;
+	drm_kms_helper_connector_hotplug_event(&connector->base);
+
+	return 0;
+}
+
+static int vrr_override_get(void *data, u64 *val)
+{
+	struct amdgpu_dm_connector *connector = data;
+
+	*val = connector->vrr_override;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(vrr_override_fops, vrr_override_get,
+			 vrr_override_set, "%llu\n");
+
 static const struct {
 	char *name;
 	const struct file_operations *fops;
@@ -3145,6 +3174,7 @@ static const struct {
 	char *name;
 	const struct file_operations *fops;
 } hdmi_debugfs_entries[] = {
+		{"vrr_override", &vrr_override_fops},
 		{"hdcp_sink_capability", &hdcp_sink_capability_fops},
 		{"hdmi_cec_state", &hdmi_cec_state_fops}
 };
@@ -3494,14 +3524,20 @@ static int disallow_edp_enter_replay_set(void *data, u64 val)
 static int dmub_trace_mask_set(void *data, u64 val)
 {
 	struct amdgpu_device *adev = data;
-	struct dmub_srv *srv = adev->dm.dc->ctx->dmub_srv->dmub;
+	struct dc_dmub_srv *dc_dmub_srv;
+	struct dmub_srv *srv;
 	enum dmub_gpint_command cmd;
 	u64 mask = 0xffff;
 	u8 shift = 0;
 	u32 res;
 	int i;
 
-	if (!srv->fw_version)
+	if (!adev->dm.dc || !adev->dm.dc->ctx || !adev->dm.dc->ctx->dmub_srv)
+		return -EINVAL;
+
+	dc_dmub_srv = adev->dm.dc->ctx->dmub_srv;
+	srv = dc_dmub_srv->dmub;
+	if (!srv || !srv->fw_version)
 		return -EINVAL;
 
 	for (i = 0;  i < 4; i++) {
@@ -3538,13 +3574,19 @@ static int dmub_trace_mask_show(void *data, u64 *val)
 {
 	enum dmub_gpint_command cmd = DMUB_GPINT__GET_TRACE_BUFFER_MASK_WORD0;
 	struct amdgpu_device *adev = data;
-	struct dmub_srv *srv = adev->dm.dc->ctx->dmub_srv->dmub;
+	struct dc_dmub_srv *dc_dmub_srv;
+	struct dmub_srv *srv;
 	u8 shift = 0;
 	u64 raw = 0;
 	u64 res = 0;
 	int i = 0;
 
-	if (!srv->fw_version)
+	if (!adev->dm.dc || !adev->dm.dc->ctx || !adev->dm.dc->ctx->dmub_srv)
+		return -EINVAL;
+
+	dc_dmub_srv = adev->dm.dc->ctx->dmub_srv;
+	srv = dc_dmub_srv->dmub;
+	if (!srv || !srv->fw_version)
 		return -EINVAL;
 
 	while (i < 4) {

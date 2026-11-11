@@ -1265,7 +1265,7 @@ svm_range_get_pte_flags(struct kfd_node *node, struct amdgpu_vm *vm,
 	bool coherent = flags & (KFD_IOCTL_SVM_FLAG_COHERENT | KFD_IOCTL_SVM_FLAG_EXT_COHERENT);
 	bool ext_coherent = flags & KFD_IOCTL_SVM_FLAG_EXT_COHERENT;
 	unsigned int mtype_local, mtype_remote;
-	bool is_aid_a1, is_local, is_spx;
+	bool is_aid_a1, is_xcd_a0, is_local, is_spx;
 
 	if (domain == SVM_RANGE_VRAM_DOMAIN)
 		bo_node = prange->svm_bo->node;
@@ -1354,12 +1354,15 @@ svm_range_get_pte_flags(struct kfd_node *node, struct amdgpu_vm *vm,
 		break;
 	case IP_VERSION(12, 1, 0):
 		is_aid_a1 = SOC_V1_0_DIE_REV_AID(node->adev->rev_id) == 1;
+		is_xcd_a0 = SOC_V1_0_DIE_REV_XCD(node->adev->rev_id) == 0;
 		is_local = (domain == SVM_RANGE_VRAM_DOMAIN) &&
 				(bo_node->adev == node->adev);
 
 		mtype_local = amdgpu_mtype_local == 0 ? AMDGPU_VM_MTYPE_RW :
 				amdgpu_mtype_local == 1 ? AMDGPU_VM_MTYPE_NC :
-				is_aid_a1 ? AMDGPU_VM_MTYPE_RW : AMDGPU_VM_MTYPE_NC;
+				amdgpu_mtype_local == 2 ? AMDGPU_VM_MTYPE_UC :
+				is_aid_a1 ? AMDGPU_VM_MTYPE_RW :
+				is_xcd_a0 ? AMDGPU_VM_MTYPE_NC : AMDGPU_VM_MTYPE_UC;
 		/* Remote memory defaults to MTYPE_UC on GFX 12.1 and can be
 		 * overridden through the amdgpu_mtype_remote module parameter
 		 * (0 = MTYPE_NC, 1 = MTYPE_UC).
@@ -1425,6 +1428,7 @@ svm_range_unmap_from_gpu(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 {
 	uint64_t init_pte_value = adev->gmc.init_pte_flags;
 	uint64_t gpu_start, gpu_end;
+	int ret;
 
 	/* Convert CPU page range to GPU page range */
 	gpu_start = start * AMDGPU_GPU_PAGES_IN_CPU_PAGE;
@@ -1433,14 +1437,13 @@ svm_range_unmap_from_gpu(struct amdgpu_device *adev, struct amdgpu_vm *vm,
 	pr_debug("CPU[0x%llx 0x%llx] -> GPU[0x%llx 0x%llx]\n", start, last,
 		gpu_start, gpu_end);
 
-	if (!amdgpu_vm_ready(vm)) {
-		pr_debug("VM not ready, canceling unmap\n");
-		return -EINVAL;
-	}
-
-	return amdgpu_vm_update_range(adev, vm, false, true, true, false, NULL, gpu_start,
+	ret = amdgpu_vm_update_range(adev, vm, false, true, true, false, NULL, gpu_start,
 				      gpu_end, init_pte_value, 0, 0, NULL, NULL,
 				      fence);
+	/* EBUSY here means "vm not ready for updates because it in the process of evicting."
+	 * If that is true, it's safe to not update the range now since the vm is not in use.
+	 */
+	return ret == -EBUSY ? 0 : ret;
 }
 
 static int
@@ -4245,14 +4248,13 @@ int kfd_criu_restore_svm(struct kfd_process *p,
 	svm_priv_data_size = sizeof(struct kfd_criu_svm_range_priv_data) +
 								svm_attrs_size;
 
+	if (*priv_data_offset + svm_priv_data_size > max_priv_data_size)
+		return -EINVAL;
+
 	criu_svm_md = kzalloc(svm_object_md_size, GFP_KERNEL);
 	if (!criu_svm_md) {
 		pr_err("failed to allocate memory to store svm metadata\n");
 		return -ENOMEM;
-	}
-	if (*priv_data_offset + svm_priv_data_size > max_priv_data_size) {
-		ret = -EINVAL;
-		goto exit;
 	}
 
 	ret = copy_from_user(&criu_svm_md->data, user_priv_ptr + *priv_data_offset,
