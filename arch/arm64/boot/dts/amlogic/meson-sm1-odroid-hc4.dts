@@ -21,6 +21,10 @@
 		#cooling-cells = <2>;
 		cooling-levels = <0 120 170 220>;
 		pwms = <&pwm_cd 1 40000 0>;
+		interrupt-parent = <&gpio_intc>;
+		interrupts = <IRQID_GPIOX_7 IRQ_TYPE_EDGE_FALLING>;
+		pinctrl-0 = <&fan_tach_pins>;
+		pinctrl-names = "default";
 	};
 
 	leds {
@@ -112,6 +116,17 @@
 &pcie {
 	status = "okay";
 	reset-gpios = <&gpio GPIOH_4 GPIO_ACTIVE_LOW>;
+};
+
+&periphs_pinctrl {
+	fan_tach_pins: fan-tach {
+		mux {
+			groups = "GPIOX_7";
+			function = "gpio_periphs";
+			bias-disable;
+			output-disable;
+		};
+	};
 };
 
 &pwm_cd {

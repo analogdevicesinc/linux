@@ -120,6 +120,7 @@ properties:
         items:
           - enum:
               - amlogic,p271
+              - xiaomi,mibox4
           - const: amlogic,s905l
           - const: amlogic,meson-gxlx
 
@@ -238,6 +239,7 @@ properties:
         items:
           - enum:
               - amlogic,by401
+              - khadas,vim-5
           - const: amlogic,a9
 
       - description: Boards with the Amlogic C3 C302X/C308L SoC
