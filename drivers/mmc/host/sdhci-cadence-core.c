@@ -5,6 +5,7 @@
  * Copyright (C) 2026 Altera Corporation
  */
 
+#include <linux/acpi.h>
 #include <linux/bitfield.h>
 #include <linux/bits.h>
 #include <linux/dma-mapping.h>
@@ -145,26 +146,26 @@ static int sdhci_cdns4_write_phy_reg(struct sdhci_cdns_priv *priv, u8 addr, u8 d
 	return ret;
 }
 
-static unsigned int sdhci_cdns4_phy_param_count(struct device_node *np)
+static unsigned int sdhci_cdns4_phy_param_count(struct device *dev)
 {
 	unsigned int count = 0;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(sdhci_cdns4_phy_cfgs); i++)
-		if (of_property_present(np, sdhci_cdns4_phy_cfgs[i].property))
+		if (device_property_present(dev, sdhci_cdns4_phy_cfgs[i].property))
 			count++;
 
 	return count;
 }
 
-static void sdhci_cdns4_phy_param_parse(struct device_node *np, struct sdhci_cdns4_phy *phy)
+static void sdhci_cdns4_phy_param_parse(struct device *dev, struct sdhci_cdns4_phy *phy)
 {
 	struct sdhci_cdns4_phy_param *p = phy->phy_params;
 	u32 val;
 	int ret, i;
 
 	for (i = 0; i < ARRAY_SIZE(sdhci_cdns4_phy_cfgs); i++) {
-		ret = of_property_read_u32(np, sdhci_cdns4_phy_cfgs[i].property, &val);
+		ret = device_property_read_u32(dev, sdhci_cdns4_phy_cfgs[i].property, &val);
 		if (ret)
 			continue;
 
@@ -204,7 +205,7 @@ static int sdhci_cdns_set_dma_mask(struct sdhci_host *host)
 	struct device *dev = mmc_dev(host->mmc);
 	int ret;
 
-	data = of_device_get_match_data(dev);
+	data = device_get_match_data(dev);
 	if (!data || !data->dma_mask)
 		return 0;
 
@@ -649,13 +650,13 @@ static int sdhci_cdns4_phy_probe(struct platform_device *pdev, struct sdhci_cdns
 	struct sdhci_cdns4_phy *phy;
 	unsigned int nr_phy_params;
 
-	nr_phy_params = sdhci_cdns4_phy_param_count(dev->of_node);
+	nr_phy_params = sdhci_cdns4_phy_param_count(dev);
 	phy = devm_kzalloc_flex(dev, *phy, phy_params, nr_phy_params);
 	if (!phy)
 		return -ENOMEM;
 
 	phy->nr_phy_params = nr_phy_params;
-	sdhci_cdns4_phy_param_parse(dev->of_node, phy);
+	sdhci_cdns4_phy_param_parse(dev, phy);
 	priv->phy = phy;
 
 	return sdhci_cdns4_phy_init(priv);
@@ -673,7 +674,8 @@ static int sdhci_cdns_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	static const u16 version = SDHCI_SPEC_400 << SDHCI_SPEC_VER_SHIFT;
 
-	if (of_device_is_compatible(dev->of_node, "cdns,sd6hc")) {
+	/* Note: ACPI only provides one unnamed clock */
+	if (!has_acpi_companion(dev) && device_is_compatible(dev, "cdns,sd6hc")) {
 		clk = devm_clk_get_enabled(dev, "ciu");
 		if (IS_ERR(clk))
 			return dev_err_probe(dev, PTR_ERR(clk), "failed to enable ciu clock\n");
@@ -687,7 +689,7 @@ static int sdhci_cdns_probe(struct platform_device *pdev)
 			return PTR_ERR(clk);
 	}
 
-	data = of_device_get_match_data(dev);
+	data = device_get_match_data(dev);
 	if (!data)
 		return dev_err_probe(dev, -EINVAL, "missing platform driver data\n");
 
@@ -723,7 +725,7 @@ static int sdhci_cdns_probe(struct platform_device *pdev)
 	 * For SD6HC, sdhci_add_host() will automatically read capabilities
 	 * and version from the host controller registers.
 	 */
-	if (of_device_is_compatible(dev->of_node, "cdns,sd4hc")) {
+	if (device_is_compatible(dev, "cdns,sd4hc")) {
 		__sdhci_read_caps(host, &version, NULL, NULL);
 		ret = sdhci_cdns4_phy_probe(pdev, priv);
 		if (ret)

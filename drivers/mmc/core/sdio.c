@@ -737,9 +737,11 @@ try_again:
 	 * 1.8v, the card sets S18A to 0 in the R4 response. So it will
 	 * fails to check rocr & R4_18V_PRESENT,  but we still need to
 	 * try to init uhs card. sdio_read_cccr will take over this task
-	 * to make sure which speed mode should work.
+	 * to make sure which speed mode should work. Some cards (RTL8822CS)
+	 * set S18A regardless, so don't send CMD11 if we are already at 1.8V.
 	 */
-	if (rocr & ocr & R4_18V_PRESENT) {
+	if ((rocr & ocr & R4_18V_PRESENT) &&
+	    host->ios.signal_voltage != MMC_SIGNAL_VOLTAGE_180) {
 		err = mmc_set_uhs_voltage(host, ocr_card);
 		if (err == -EAGAIN) {
 			mmc_sdio_pre_init(host, ocr_card, card);
@@ -867,8 +869,14 @@ try_again:
 	/* Only if card supports 1.8v and UHS signaling */
 	if ((ocr & R4_18V_PRESENT) && card->sw_caps.sd3_bus_mode) {
 		err = mmc_sdio_init_uhs_card(card);
-		if (err)
-			goto remove;
+		if (err) {
+			pr_warn("%s: UHS init failed (%d), retrying without UHS\n",
+				mmc_hostname(host), err);
+			mmc_sdio_pre_init(host, ocr_card,
+					  oldcard ? NULL : card);
+			retries = 0;
+			goto try_again;
+		}
 	} else {
 		/*
 		 * Switch to high-speed (if supported).

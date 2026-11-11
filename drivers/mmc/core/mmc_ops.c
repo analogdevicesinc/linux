@@ -319,7 +319,7 @@ int mmc_send_adtc_data(struct mmc_card *card, struct mmc_host *host, u32 opcode,
 
 	if (opcode == MMC_SEND_CSD || opcode == MMC_SEND_CID) {
 		/*
-		 * The spec states that CSR and CID accesses have a timeout
+		 * The spec states that CSD and CID accesses have a timeout
 		 * of 64 clock cycles.
 		 */
 		data.timeout_ns = 0;
@@ -815,11 +815,6 @@ mmc_send_bus_test(struct mmc_card *card, struct mmc_host *host, u8 opcode,
 	cmd.opcode = opcode;
 	cmd.arg = 0;
 
-	/* NOTE HACK:  the MMC_RSP_SPI_R1 is always correct here, but we
-	 * rely on callers to never use this with "native" calls for reading
-	 * CSD or CID.  Native versions of those commands use the R2 type,
-	 * not R1 plus a data block.
-	 */
 	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R1 | MMC_CMD_ADTC;
 
 	data.blksz = len;

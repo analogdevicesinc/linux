@@ -19,8 +19,8 @@
 /**
  * mmc_ocrbitnum_to_vdd - Convert a OCR bit number to its voltage
  * @vdd_bit:	OCR bit number
- * @min_uV:	minimum voltage value (mV)
- * @max_uV:	maximum voltage value (mV)
+ * @min_uV:	minimum voltage value (uV)
+ * @max_uV:	maximum voltage value (uV)
  *
  * This function returns the voltage range according to the provided OCR
  * bit number. If conversion is not possible a negative errno value returned.
@@ -197,7 +197,7 @@ int mmc_regulator_set_vqmmc(struct mmc_host *mmc, struct mmc_ios *ios)
 		return mmc_regulator_set_voltage_if_supported(mmc->supply.vqmmc,
 						1700000, 1800000, 1950000);
 	case MMC_SIGNAL_VOLTAGE_330:
-		ret = mmc_ocrbitnum_to_vdd(mmc->ios.vdd, &volt, &max_uV);
+		ret = mmc_ocrbitnum_to_vdd(ios->vdd, &volt, &max_uV);
 		if (ret < 0)
 			return ret;
 
@@ -418,7 +418,7 @@ EXPORT_SYMBOL_GPL(mmc_regulator_enable_vqmmc);
  * mmc_regulator_disable_vqmmc - disable VQMMC regulator for a host
  * @mmc: the host to regulate
  *
- * Returns 0 or errno. Disables the regulator for vqmmc.
+ * Disables the regulator for vqmmc.
  * Keeps track of the enable status for ensuring that calls to
  * regulator_enable/disable are balanced.
  */

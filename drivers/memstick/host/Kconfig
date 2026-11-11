@@ -53,3 +53,13 @@ config MEMSTICK_REALTEK_USB
 
 	  To compile this driver as a module, choose M here: the module will
 	  be called rts5139_ms.
+
+config MEMSTICK_BCM577X5
+	tristate "Broadcom BCM57765/BCM57785 MemoryStick interface support"
+	depends on PCI
+	help
+	  Say Y here if you want to access MemoryStick cards with the
+	  Broadcom BCM57765/BCM57785 PCI card reader (14e4:16be).
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called bcm577x5_ms.

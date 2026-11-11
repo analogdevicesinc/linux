@@ -162,7 +162,7 @@ static void owl_mmc_finish_request(struct owl_mmc_host *owl_host)
 	owl_host->mrq = NULL;
 
 	if (data)
-		dma_unmap_sg(owl_host->dma->device->dev, data->sg, data->sg_len,
+		dma_unmap_sg(dmaengine_get_dma_device(owl_host->dma), data->sg, data->sg_len,
 			     owl_host->dma_dir);
 
 	/* Finally finish request */
@@ -313,7 +313,7 @@ static int owl_mmc_prepare_data(struct owl_mmc_host *owl_host,
 		owl_host->dma_cfg.direction = DMA_DEV_TO_MEM;
 	}
 
-	dma_map_sg(owl_host->dma->device->dev, data->sg,
+	dma_map_sg(dmaengine_get_dma_device(owl_host->dma), data->sg,
 		   data->sg_len, owl_host->dma_dir);
 
 	dmaengine_slave_config(owl_host->dma, &owl_host->dma_cfg);
@@ -329,8 +329,7 @@ static int owl_mmc_prepare_data(struct owl_mmc_host *owl_host,
 
 	owl_host->data = data;
 
-	owl_host->desc->callback = owl_mmc_dma_complete;
-	owl_host->desc->callback_param = (void *)owl_host;
+	dmaengine_desc_set_callback(owl_host->desc, owl_mmc_dma_complete, NULL, (void *)owl_host);
 	data->error = 0;
 
 	return 0;

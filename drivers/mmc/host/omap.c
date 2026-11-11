@@ -431,7 +431,7 @@ mmc_omap_release_dma(struct mmc_omap_host *host, struct mmc_data *data,
 			/* Claim nothing transferred on error... */
 			data->bytes_xfered = 0;
 		}
-		dev = c->device->dev;
+		dev = dmaengine_get_dma_device(c);
 	}
 	dma_unmap_sg(dev, data->sg, host->sg_len, dma_data_dir);
 }
@@ -1037,7 +1037,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 			*bp = burst;
 		}
 
-		host->sg_len = dma_map_sg(c->device->dev, data->sg, sg_len,
+		host->sg_len = dma_map_sg(dmaengine_get_dma_device(c), data->sg, sg_len,
 					  dma_data_dir);
 		if (host->sg_len == 0)
 			goto use_pio;
@@ -1050,8 +1050,7 @@ mmc_omap_prepare_data(struct mmc_omap_host *host, struct mmc_request *req)
 
 		OMAP_MMC_WRITE(host, BUF, buf);
 
-		tx->callback = mmc_omap_dma_callback;
-		tx->callback_param = host;
+		dmaengine_desc_set_callback(tx, mmc_omap_dma_callback, NULL, host);
 		dmaengine_submit(tx);
 		host->brs_received = 0;
 		host->dma_done = 0;

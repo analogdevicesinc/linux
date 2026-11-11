@@ -606,8 +606,8 @@ static void tifm_ms_remove(struct tifm_dev *sock)
 		if (host->use_dma)
 			tifm_unmap_sg(sock, &host->req->sg, 1,
 				      host->req->data_dir == READ
-				      ? DMA_TO_DEVICE
-				      : DMA_FROM_DEVICE);
+				      ? DMA_FROM_DEVICE
+				      : DMA_TO_DEVICE);
 		host->req->error = -ETIME;
 
 		do {

@@ -961,7 +961,7 @@ static void atmci_dma_cleanup(struct atmel_mci *host)
 	struct mmc_data                 *data = host->data;
 
 	if (data)
-		dma_unmap_sg(host->dma.chan->device->dev,
+		dma_unmap_sg(dmaengine_get_dma_device(host->dma.chan),
 				data->sg, data->sg_len,
 				mmc_get_dma_dir(data));
 }
@@ -1116,6 +1116,7 @@ atmci_prepare_data_dma(struct atmel_mci *host, struct mmc_data *data)
 	unsigned int			sglen;
 	u32				maxburst;
 	u32 iflags;
+	struct device *dma_dev;
 
 	data->error = -EINPROGRESS;
 
@@ -1145,6 +1146,7 @@ atmci_prepare_data_dma(struct atmel_mci *host, struct mmc_data *data)
 		return -ENODEV;
 
 	chan = host->dma.chan;
+	dma_dev = dmaengine_get_dma_device(chan);
 	host->data_chan = chan;
 
 	if (data->flags & MMC_DATA_READ) {
@@ -1161,7 +1163,7 @@ atmci_prepare_data_dma(struct atmel_mci *host, struct mmc_data *data)
 		atmci_writel(host, ATMCI_DMA, ATMCI_DMA_CHKSIZE(maxburst) |
 			ATMCI_DMAEN);
 
-	sglen = dma_map_sg(chan->device->dev, data->sg,
+	sglen = dma_map_sg(dma_dev, data->sg,
 			data->sg_len, mmc_get_dma_dir(data));
 
 	dmaengine_slave_config(chan, &host->dma_conf);
@@ -1172,12 +1174,11 @@ atmci_prepare_data_dma(struct atmel_mci *host, struct mmc_data *data)
 		goto unmap_exit;
 
 	host->dma.data_desc = desc;
-	desc->callback = atmci_dma_complete;
-	desc->callback_param = host;
+	dmaengine_desc_set_callback(desc, atmci_dma_complete, NULL, host);
 
 	return iflags;
 unmap_exit:
-	dma_unmap_sg(chan->device->dev, data->sg, data->sg_len,
+	dma_unmap_sg(dma_dev, data->sg, data->sg_len,
 		     mmc_get_dma_dir(data));
 	return -ENOMEM;
 }
@@ -2589,9 +2590,6 @@ static void atmci_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(dev);
 
-	if (host->buffer)
-		dma_free_coherent(dev, host->buf_size, host->buffer, host->buf_phys_addr);
-
 	for (i = 0; i < ATMCI_MAX_NR_SLOTS; i++) {
 		if (host->slot[i])
 			atmci_cleanup_slot(host->slot[i], i);
@@ -2608,6 +2606,9 @@ static void atmci_remove(struct platform_device *pdev)
 	free_irq(platform_get_irq(pdev, 0), host);
 
 	cancel_work_sync(&host->bh_work);
+
+	if (host->buffer)
+		dma_free_coherent(dev, host->buf_size, host->buffer, host->buf_phys_addr);
 
 	clk_disable_unprepare(host->mck);
 

@@ -1298,8 +1298,7 @@ static int sdhci_external_dma_setup(struct sdhci_host *host,
 	if (!desc)
 		return -EINVAL;
 
-	desc->callback = NULL;
-	desc->callback_param = NULL;
+	dmaengine_desc_set_callback(desc, NULL, NULL, NULL);
 
 	cookie = dmaengine_submit(desc);
 	if (dma_submit_error(cookie))

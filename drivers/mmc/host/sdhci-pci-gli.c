@@ -248,6 +248,8 @@
 #define PCIE_GLI_9767_SD_EXPRESS_CTL			0x940
 #define   PCIE_GLI_9767_SD_EXPRESS_CTL_SDEI_EXE		  BIT(0)
 #define   PCIE_GLI_9767_SD_EXPRESS_CTL_SD_EXPRESS_MODE	  BIT(1)
+#define   PCIE_GLI_9767_SD_EXPRESS_CTL_DETECT_1		  BIT(2)
+#define   PCIE_GLI_9767_SD_EXPRESS_CTL_DETECT_2		  BIT(3)
 
 #define PCIE_GLI_9767_SD_DATA_MULTI_CTL				0x944
 #define   PCIE_GLI_9767_SD_DATA_MULTI_CTL_SELECT_UHS2		  BIT(5)
@@ -1380,6 +1382,11 @@ static void gl9767_hw_setting(struct sdhci_pci_slot *slot)
 		 PCIE_GLI_9767_SCR_CARD_DET_PWR_SAVING_EN |
 		 PCIE_GLI_9767_SCR_CORE_PWR_D3_OFF;
 	pci_write_config_dword(pdev, PCIE_GLI_9767_SCR, value);
+
+	pci_read_config_dword(pdev, PCIE_GLI_9767_SD_EXPRESS_CTL, &value);
+	value &= ~(PCIE_GLI_9767_SD_EXPRESS_CTL_DETECT_1 |
+		   PCIE_GLI_9767_SD_EXPRESS_CTL_DETECT_2);
+	pci_write_config_dword(pdev, PCIE_GLI_9767_SD_EXPRESS_CTL, value);
 
 	gl9767_vhs_read(pdev);
 }

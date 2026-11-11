@@ -262,6 +262,7 @@ static void moxart_transfer_dma(struct mmc_data *data, struct moxart_host *host)
 	u32 len, dir_slave;
 	struct dma_async_tx_descriptor *desc = NULL;
 	struct dma_chan *dma_chan;
+	struct device *dma_dev;
 	long timeout;
 
 	if (host->data_len == data->bytes_xfered)
@@ -275,7 +276,8 @@ static void moxart_transfer_dma(struct mmc_data *data, struct moxart_host *host)
 		dir_slave = DMA_DEV_TO_MEM;
 	}
 
-	len = dma_map_sg(dma_chan->device->dev, data->sg,
+	dma_dev = dmaengine_get_dma_device(dma_chan);
+	len = dma_map_sg(dma_dev, data->sg,
 			 data->sg_len, mmc_get_dma_dir(data));
 
 	if (len > 0) {
@@ -289,8 +291,7 @@ static void moxart_transfer_dma(struct mmc_data *data, struct moxart_host *host)
 
 	if (desc) {
 		host->tx_desc = desc;
-		desc->callback = moxart_dma_complete;
-		desc->callback_param = host;
+		dmaengine_desc_set_callback(desc, moxart_dma_complete, NULL, host);
 		dmaengine_submit(desc);
 		dma_async_issue_pending(dma_chan);
 	}
@@ -306,7 +307,7 @@ static void moxart_transfer_dma(struct mmc_data *data, struct moxart_host *host)
 	data->bytes_xfered = host->data_len;
 
 unmap:
-	dma_unmap_sg(dma_chan->device->dev,
+	dma_unmap_sg(dma_dev,
 		     data->sg, data->sg_len,
 		     mmc_get_dma_dir(data));
 }
@@ -642,8 +643,8 @@ static int moxart_probe(struct platform_device *pdev)
 		dmaengine_slave_config(host->dma_chan_rx, &cfg);
 
 		mmc->max_seg_size = min3(mmc->max_req_size,
-			dma_get_max_seg_size(host->dma_chan_rx->device->dev),
-			dma_get_max_seg_size(host->dma_chan_tx->device->dev));
+			dma_get_max_seg_size(dmaengine_get_dma_device(host->dma_chan_rx)),
+			dma_get_max_seg_size(dmaengine_get_dma_device(host->dma_chan_tx)));
 	}
 
 	if (readl(host->base + REG_BUS_WIDTH) & BUS_WIDTH_4_SUPPORT)
@@ -684,13 +685,25 @@ static void moxart_remove(struct platform_device *pdev)
 	struct mmc_host *mmc = dev_get_drvdata(&pdev->dev);
 	struct moxart_host *host = mmc_priv(mmc);
 
-	if (!IS_ERR_OR_NULL(host->dma_chan_tx))
-		dma_release_channel(host->dma_chan_tx);
-	if (!IS_ERR_OR_NULL(host->dma_chan_rx))
-		dma_release_channel(host->dma_chan_rx);
+	/*
+	 * Stop the MMC host before releasing DMA channels.
+	 * Keep controller interrupts enabled during MMC teardown.
+	 */
 	mmc_remove_host(mmc);
 
 	writel(0, host->base + REG_INTERRUPT_MASK);
+
+	if (!IS_ERR_OR_NULL(host->dma_chan_tx)) {
+		dmaengine_terminate_sync(host->dma_chan_tx);
+		dma_release_channel(host->dma_chan_tx);
+		host->dma_chan_tx = NULL;
+	}
+	if (!IS_ERR_OR_NULL(host->dma_chan_rx)) {
+		dmaengine_terminate_sync(host->dma_chan_rx);
+		dma_release_channel(host->dma_chan_rx);
+		host->dma_chan_rx = NULL;
+	}
+
 	writel(0, host->base + REG_POWER_CONTROL);
 	writel(readl(host->base + REG_CLOCK_CONTROL) | CLK_OFF,
 	       host->base + REG_CLOCK_CONTROL);

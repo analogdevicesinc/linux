@@ -880,17 +880,17 @@ int sdhci_cdns6_phy_probe(struct platform_device *pdev, struct sdhci_cdns_priv *
 	 * Cadence-recommended defaults (2500 ps IO-cell delays, 24 ps DLL
 	 * delay element) that are valid for typical SoC packaging.
 	 */
-	ret = of_property_read_u32(dev->of_node, "cdns,iocell-input-delay-ps",
-				   &phy->iocell_input_delay);
+	ret = device_property_read_u32(dev, "cdns,iocell-input-delay-ps",
+				       &phy->iocell_input_delay);
 	if (ret)
 		phy->iocell_input_delay = SDHCI_CDNS6_PHY_DEFAULT_IOCELL_DELAY;
 
-	ret = of_property_read_u32(dev->of_node, "cdns,iocell-output-delay-ps",
-				   &phy->iocell_output_delay);
+	ret = device_property_read_u32(dev, "cdns,iocell-output-delay-ps",
+				       &phy->iocell_output_delay);
 	if (ret)
 		phy->iocell_output_delay = SDHCI_CDNS6_PHY_DEFAULT_IOCELL_DELAY;
 
-	ret = of_property_read_u32(dev->of_node, "cdns,delay-element-ps", &phy->delay_element);
+	ret = device_property_read_u32(dev, "cdns,delay-element-ps", &phy->delay_element);
 	if (ret) {
 		phy->delay_element = SDHCI_CDNS6_PHY_DEFAULT_DELAY_ELEMENT;
 	} else if (!phy->delay_element) {
