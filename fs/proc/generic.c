@@ -260,6 +260,10 @@ struct dentry *proc_lookup_de(struct inode *dir, struct dentry *dentry,
 		if (de->flags & PROC_ENTRY_FORCE_LOOKUP)
 			return proc_splice_unmountable(inode, dentry,
 						       &proc_net_dentry_ops);
+		/* a mount on a link into /proc/self redirects every process */
+		if (de->flags & PROC_ENTRY_CANT_MOUNT)
+			return proc_splice_unmountable(inode, dentry,
+						       &proc_misc_dentry_ops);
 		return d_splice_alias_ops(inode, dentry,
 					  &proc_misc_dentry_ops);
 	}
@@ -487,8 +491,8 @@ out:
 	return ent;
 }
 
-struct proc_dir_entry *proc_symlink(const char *name,
-		struct proc_dir_entry *parent, const char *dest)
+static struct proc_dir_entry *__proc_symlink(const char *name,
+		struct proc_dir_entry *parent, const char *dest, u8 flags)
 {
 	struct proc_dir_entry *ent;
 
@@ -496,6 +500,7 @@ struct proc_dir_entry *proc_symlink(const char *name,
 			  (S_IFLNK | S_IRUGO | S_IWUGO | S_IXUGO),1);
 
 	if (ent) {
+		ent->flags |= flags;
 		ent->size = strlen(dest);
 		ent->data = kmemdup(dest, ent->size + 1, GFP_KERNEL);
 		if (ent->data) {
@@ -508,7 +513,24 @@ struct proc_dir_entry *proc_symlink(const char *name,
 	}
 	return ent;
 }
+
+struct proc_dir_entry *proc_symlink(const char *name,
+		struct proc_dir_entry *parent, const char *dest)
+{
+	return __proc_symlink(name, parent, dest, 0);
+}
 EXPORT_SYMBOL(proc_symlink);
+
+/*
+ * A link into /proc/self resolves differently for every process, so a
+ * mount on the link itself would redirect all of them.
+ */
+struct proc_dir_entry *proc_self_symlink(const char *name,
+		struct proc_dir_entry *parent, const char *dest)
+{
+	return __proc_symlink(name, parent, dest, PROC_ENTRY_CANT_MOUNT);
+}
+EXPORT_SYMBOL_GPL(proc_self_symlink);
 
 struct proc_dir_entry *_proc_mkdir(const char *name, umode_t mode,
 		struct proc_dir_entry *parent, void *data, bool force_lookup)

@@ -182,6 +182,10 @@ struct pid_entry {
 	NOD(NAME, (S_IFREG|(MODE)),			\
 		NULL, &proc_single_file_operations,	\
 		{ .proc_show = show } )
+#define ONE_EXEC(NAME, MODE, show)			\
+	NOD(NAME, (S_IFREG|(MODE)),			\
+		NULL, &proc_single_exec_file_operations,	\
+		{ .proc_show = show } )
 #define ATTR(LSMID, NAME, MODE)				\
 	NOD(NAME, (S_IFREG|(MODE)),			\
 		NULL, &proc_pid_attr_operations,	\
@@ -206,31 +210,10 @@ static unsigned int __init pid_entry_nlink(const struct pid_entry *entries,
 	return count;
 }
 
-static int get_task_root(struct task_struct *task, struct path *root)
-{
-	int result = -ENOENT;
-
-	task_lock(task);
-	if (task->real_fs) {
-		get_fs_root(task->real_fs, root);
-		result = 0;
-	}
-	task_unlock(task);
-	return result;
-}
-
 static int proc_cwd_link(struct dentry *dentry, struct path *path,
 			 struct task_struct *task)
 {
-	int result = -ENOENT;
-
-	task_lock(task);
-	if (task->real_fs) {
-		get_fs_pwd(task->real_fs, path);
-		result = 0;
-	}
-	task_unlock(task);
-	return result;
+	return get_task_pwd(task, path);
 }
 
 static int proc_root_link(struct dentry *dentry, struct path *path,
@@ -780,7 +763,7 @@ static const struct inode_operations proc_def_inode_operations = {
 
 static int proc_single_show(struct seq_file *m, void *v)
 {
-	struct inode *inode = m->private;
+	struct inode *inode = file_inode(m->file);
 	struct pid_namespace *ns = proc_pid_ns(inode->i_sb);
 	struct pid *pid = proc_pid(inode);
 	struct task_struct *task;
@@ -798,7 +781,7 @@ static int proc_single_show(struct seq_file *m, void *v)
 
 static int proc_single_open(struct inode *inode, struct file *filp)
 {
-	return single_open(filp, proc_single_show, inode);
+	return single_open(filp, proc_single_show, NULL);
 }
 
 static const struct file_operations proc_single_file_operations = {
@@ -1761,16 +1744,7 @@ static const struct file_operations proc_pid_set_comm_operations = {
 static int proc_exe_link(struct dentry *dentry, struct path *exe_path,
 			 struct task_struct *task)
 {
-	struct file *exe_file;
-
-	exe_file = get_task_exe_file(task);
-	if (exe_file) {
-		*exe_path = exe_file->f_path;
-		path_get(&exe_file->f_path);
-		fput(exe_file);
-		return 0;
-	} else
-		return -ENOENT;
+	return get_task_exe_path(task, exe_path);
 }
 
 static int call_proc_get_link(struct dentry *dentry, struct inode *inode, struct path *path_out)
@@ -2033,6 +2007,143 @@ void pid_update_inode(struct task_struct *task, struct inode *inode)
 
 	inode->i_mode &= ~(S_ISUID | S_ISGID);
 	security_task_to_inode(task, inode);
+}
+
+/*
+ * For files that check access when they're opened but look at the task whenever
+ * they're used. ->self_exec_id names the program: execve() bumps it under
+ * exec_update_lock and all threads share it, also the two that de_thread()
+ * swaps the pid between, so it doesn't matter which task get_proc_task()
+ * returns.
+ */
+
+/* Would the opener of @file be allowed to open it now? */
+static int proc_exec_id_permission(const struct file *file,
+				   struct task_struct *task)
+{
+	struct inode *inode = file_inode(file);
+	int mask = 0;
+
+	if (file->f_mode & FMODE_READ)
+		mask |= MAY_READ;
+	if (file->f_mode & FMODE_WRITE)
+		mask |= MAY_WRITE;
+
+	pid_update_inode(task, inode);
+	scoped_with_creds(file->f_cred)
+		return inode_permission(&nop_mnt_idmap, inode, mask);
+}
+
+/* For ->open(). ->permission() ran without exec_update_lock, so check again. */
+static u64 *proc_exec_id_open(struct inode *inode, struct file *file)
+{
+	struct task_struct *task __free(put_task) = NULL;
+	u64 *exec_id __free(kfree) = NULL;
+	int err;
+
+	exec_id = kzalloc_obj(*exec_id, GFP_KERNEL_ACCOUNT);
+	if (!exec_id)
+		return ERR_PTR(-ENOMEM);
+
+	/* The file won't find the task either, it never comes back. */
+	task = get_proc_task(inode);
+	if (!task)
+		return no_free_ptr(exec_id);
+
+	/* See proc_exec_id_lock(). */
+	if (same_thread_group(task, current)) {
+		*exec_id = task->self_exec_id;
+		return no_free_ptr(exec_id);
+	}
+
+	err = down_read_killable(&task->signal->exec_update_lock);
+	if (err)
+		return ERR_PTR(err);
+	*exec_id = task->self_exec_id;
+	err = proc_exec_id_permission(file, task);
+	up_read(&task->signal->exec_update_lock);
+	if (err)
+		return ERR_PTR(err);
+	return no_free_ptr(exec_id);
+}
+
+int proc_exec_id_single_open(struct inode *inode, struct file *file,
+			     int (*show)(struct seq_file *, void *))
+{
+	u64 *exec_id __free(kfree) = NULL;
+	int err;
+
+	exec_id = proc_exec_id_open(inode, file);
+	if (IS_ERR(exec_id))
+		return PTR_ERR(exec_id);
+
+	err = single_open(file, show, exec_id);
+	if (err)
+		return err;
+
+	retain_and_null_ptr(exec_id);
+	return 0;
+}
+
+int proc_exec_id_single_release(struct inode *inode, struct file *file)
+{
+	struct seq_file *m = file->private_data;
+
+	kfree(m->private);
+	return single_release(inode, file);
+}
+
+int proc_exec_id_dir_open(struct inode *inode, struct file *file)
+{
+	u64 *exec_id = proc_exec_id_open(inode, file);
+
+	if (IS_ERR(exec_id))
+		return PTR_ERR(exec_id);
+
+	file->private_data = exec_id;
+	return 0;
+}
+
+int proc_exec_id_dir_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+	return 0;
+}
+
+/*
+ * Pins the task's program until proc_exec_id_unlock(). If it changed since the
+ * open, the file only keeps working if its opener would be allowed to open it
+ * now. Whoever uses the file doesn't count. Our own threads need no lock,
+ * de_thread() waits for them before exec_update_lock is taken.
+ */
+int proc_exec_id_lock(const struct file *file, struct task_struct *task,
+		      u64 *exec_id)
+{
+	int err;
+
+	if (!same_thread_group(task, current)) {
+		err = down_read_killable(&task->signal->exec_update_lock);
+		if (err)
+			return err;
+	}
+
+	if (task->self_exec_id == READ_ONCE(*exec_id))
+		return 0;
+
+	err = proc_exec_id_permission(file, task);
+	if (err) {
+		proc_exec_id_unlock(task);
+		return err;
+	}
+
+	WRITE_ONCE(*exec_id, task->self_exec_id);
+	return 0;
+}
+
+void proc_exec_id_unlock(struct task_struct *task)
+{
+	if (!same_thread_group(task, current))
+		up_read(&task->signal->exec_update_lock);
 }
 
 /*
@@ -3222,12 +3333,42 @@ static int proc_pid_patch_state(struct seq_file *m, struct pid_namespace *ns,
 #endif /* CONFIG_LIVEPATCH */
 
 #ifdef CONFIG_KSM
+/* Like proc_single_file_operations, but the file keeps the exec id. */
+static int proc_single_exec_open(struct inode *inode, struct file *filp)
+{
+	return proc_exec_id_single_open(inode, filp, proc_single_show);
+}
+
+static const struct file_operations proc_single_exec_file_operations = {
+	.open		= proc_single_exec_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= proc_exec_id_single_release,
+};
+
+/* get_task_mm(), unless the task now runs a program the opener can't see */
+static struct mm_struct *proc_single_exec_mm(struct seq_file *m,
+					     struct task_struct *task)
+{
+	struct mm_struct *mm;
+	int err;
+
+	err = proc_exec_id_lock(m->file, task, m->private);
+	if (err)
+		return ERR_PTR(err);
+	mm = get_task_mm(task);
+	proc_exec_id_unlock(task);
+	return mm;
+}
+
 static int proc_pid_ksm_merging_pages(struct seq_file *m, struct pid_namespace *ns,
 				struct pid *pid, struct task_struct *task)
 {
 	struct mm_struct *mm;
 
-	mm = get_task_mm(task);
+	mm = proc_single_exec_mm(m, task);
+	if (IS_ERR(mm))
+		return PTR_ERR(mm);
 	if (mm) {
 		seq_printf(m, "%lu\n", mm->ksm_merging_pages);
 		mmput(mm);
@@ -3241,7 +3382,9 @@ static int proc_pid_ksm_stat(struct seq_file *m, struct pid_namespace *ns,
 	struct mm_struct *mm;
 	int ret = 0;
 
-	mm = get_task_mm(task);
+	mm = proc_single_exec_mm(m, task);
+	if (IS_ERR(mm))
+		return PTR_ERR(mm);
 	if (mm) {
 		seq_printf(m, "ksm_rmap_items %lu\n", mm->ksm_rmap_items);
 		seq_printf(m, "ksm_zero_pages %ld\n", mm_ksm_zero_pages(mm));
@@ -3394,8 +3537,8 @@ static const struct pid_entry tgid_base_stuff[] = {
 	ONE("seccomp_cache", S_IRUSR, proc_pid_seccomp_cache),
 #endif
 #ifdef CONFIG_KSM
-	ONE("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
-	ONE("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
+	ONE_EXEC("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
+	ONE_EXEC("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
 #endif
 };
 
@@ -3739,8 +3882,8 @@ static const struct pid_entry tid_base_stuff[] = {
 	ONE("seccomp_cache", S_IRUSR, proc_pid_seccomp_cache),
 #endif
 #ifdef CONFIG_KSM
-	ONE("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
-	ONE("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
+	ONE_EXEC("ksm_merging_pages",  S_IRUSR, proc_pid_ksm_merging_pages),
+	ONE_EXEC("ksm_stat",  S_IRUSR, proc_pid_ksm_stat),
 #endif
 };
 

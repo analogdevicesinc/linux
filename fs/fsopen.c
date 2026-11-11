@@ -267,9 +267,11 @@ static int vfs_cmd_reconfigure(struct fs_context *fc)
 		return -EPERM;
 	}
 
-	down_write(&sb->s_umount);
-	ret = reconfigure_super(fc);
-	up_write(&sb->s_umount);
+	ret = down_write_killable(&sb->s_umount);
+	if (!ret) {
+		ret = reconfigure_super(fc);
+		up_write(&sb->s_umount);
+	}
 	if (ret) {
 		fc->phase = FS_CONTEXT_FAILED;
 		return ret;

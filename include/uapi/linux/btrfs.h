@@ -732,6 +732,16 @@ struct btrfs_ioctl_logical_ino_args {
  */
 #define BTRFS_LOGICAL_INO_ARGS_IGNORE_OFFSET	(1ULL << 0)
 
+/*
+ * Resolve backrefs against the commit roots instead of the current trees.
+ *
+ * Resolving against the current trees is more expensive for the filesystem as
+ * a whole, not only for the caller. Callers that do not need to observe the
+ * currently running transaction should set this. The result can be up to one
+ * commit interval stale.
+ */
+#define BTRFS_LOGICAL_INO_ARGS_COMMIT_ROOT	(1ULL << 1)
+
 enum btrfs_dev_stat_values {
 	/* disk I/O failure stats */
 	BTRFS_DEV_STAT_WRITE_ERRS, /* EIO or EREMOTEIO from lower layers */

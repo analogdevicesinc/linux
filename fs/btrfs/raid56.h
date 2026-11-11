@@ -60,8 +60,6 @@ enum btrfs_rbio_ops {
  * stripe_pages[] array stores all the pages covering the full stripe, including
  * data and P/Q pages.
  * stripe_pages[0] is the first page of the first data stripe.
- * stripe_pages[BTRFS_STRIPE_LEN / PAGE_SIZE] is the first page of the second
- * data stripe.
  *
  * Some pointers inside stripe_pages[] can be NULL, e.g. for a full stripe write
  * (the bio covers all data stripes) there is no need to allocate pages for
@@ -81,7 +79,7 @@ enum btrfs_rbio_ops {
  *
  * - sector_nr
  *   Starts from 0 (representing the first sector of the stripe), ends
- *   at BTRFS_STRIPE_LEN / sectorsize - 1.
+ *   at stripe_len / sectorsize - 1.
  *
  * - step_nr
  *   A step is min(sector_size, PAGE_SIZE).
@@ -152,9 +150,6 @@ struct btrfs_raid_bio {
 
 	/* Number of all stripes (including P/Q) */
 	u8 real_stripes;
-
-	/* How many pages there are for each stripe */
-	u8 stripe_npages;
 
 	/* How many sectors there are for each stripe */
 	u8 stripe_nsectors;

@@ -314,9 +314,7 @@ struct ceph_osd_linger_request {
 	bool is_watch;                  /* watch or notify */
 
 	struct ceph_osd *osd;
-	struct ceph_osd_request *reg_req;
-	struct ceph_osd_request *ping_req;
-	unsigned long ping_sent;
+	struct list_head osd_reqs;	/* w/ r_private_item */
 	unsigned long watch_valid_thru;
 	struct list_head pending_lworks;
 

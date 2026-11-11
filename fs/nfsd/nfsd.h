@@ -46,7 +46,7 @@ enum {
 
 extern struct svc_program	nfsd_programs[];
 extern const struct svc_version	nfsd_version2, nfsd_version3, nfsd_version4;
-extern struct mutex		nfsd_mutex;
+extern struct mutex		nfsd_global_mutex;
 extern atomic_t			nfsd_th_cnt;		/* number of available threads */
 
 extern const struct seq_operations nfs_exports_op;
@@ -142,8 +142,6 @@ enum {
 
 extern u64 nfsd_io_cache_read __read_mostly;
 extern u64 nfsd_io_cache_write __read_mostly;
-
-extern int nfsd_max_blksize;
 
 bool nfsd_v4client(struct svc_rqst *rqstp);
 

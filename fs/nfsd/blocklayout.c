@@ -20,8 +20,8 @@
 
 
 /*
- * Get an extent from the file system that starts at offset or below
- * and may be shorter than the requested length.
+ * Get an extent from the file system that contains offset. It may start
+ * below offset and may end before or after offset + length.
  */
 static __be32
 nfsd4_block_map_extent(struct inode *inode, const struct svc_fh *fhp,
@@ -31,15 +31,29 @@ nfsd4_block_map_extent(struct inode *inode, const struct svc_fh *fhp,
 	struct super_block *sb = inode->i_sb;
 	struct iomap iomap;
 	u32 device_generation = 0;
+	bool write;
 	int error;
 
+	/*
+	 * An RW layout with a minlength of zero only gets extents that can
+	 * be returned as READ_WRITE_DATA (RFC 5663, section 2.3.1), so do
+	 * not have the filesystem allocate blocks that would be refused.
+	 */
+	write = iomode != IOMODE_READ && minlength != 0;
 	error = sb->s_export_op->block_ops->map_blocks(inode, offset, length,
-			&iomap, iomode != IOMODE_READ, &device_generation);
+			&iomap, write, &device_generation);
 	if (error) {
 		if (error == -ENXIO)
 			return nfserr_layoutunavailable;
 		return nfserrno(error);
 	}
+
+	if (WARN_ONCE(iomap.offset > offset ||
+		      offset - iomap.offset >= iomap.length,
+		      "pnfsd: %s ino %llu: filesystem returned extent %lld+%llu for offset %llu\n",
+		      sb->s_id, inode->i_ino, iomap.offset, iomap.length,
+		      offset))
+		return nfserr_layoutunavailable;
 
 	switch (iomap.type) {
 	case IOMAP_MAPPED:
@@ -69,6 +83,9 @@ nfsd4_block_map_extent(struct inode *inode, const struct svc_fh *fhp,
 			bex->es = PNFS_BLOCK_NONE_DATA;
 			break;
 		}
+		/* Not allocated for a minlength of zero, see above. */
+		if (minlength == 0)
+			return nfserr_layoutunavailable;
 		fallthrough;
 	case IOMAP_DELALLOC:
 	default:
@@ -146,6 +163,23 @@ nfsd4_block_proc_layoutget(struct svc_rqst *rqstp, struct inode *inode,
 				seg->iomode, args->lg_minlength, bex);
 		if (nfserr != nfs_ok)
 			goto out_error;
+
+		/*
+		 * Each extent after the first was mapped for the range that
+		 * starts where the previous extent ends, but the filesystem
+		 * may return a mapping that starts below that point. Trim
+		 * it, as RFC 5663 section 2.3.1 does not allow extents to
+		 * overlap. nfsd4_block_map_extent() made sure the mapping
+		 * contains offset. NONE_DATA extents have no volume offset.
+		 */
+		if (i > 0 && bex->foff < offset) {
+			u64 skip = offset - bex->foff;
+
+			bex->foff = offset;
+			bex->len -= skip;
+			if (bex->es != PNFS_BLOCK_NONE_DATA)
+				bex->soff += skip;
+		}
 
 		bex_length = bex->len - (offset - bex->foff);
 		if (bex_length >= length) {

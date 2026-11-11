@@ -800,12 +800,15 @@ pack_runs:
 			u16 le_sz = le16_to_cpu(le->size);
 
 			/*
-			 * NOTE: List entries for one attribute are always
-			 * the same size. We deal with last entry (vcn==0)
-			 * and it is not first in entries array
-			 * (list entry for std attribute always first).
-			 * So it is safe to step back.
+			 * List entries for one attribute are expected to have
+			 * the same size. Validate the on-disk size before using
+			 * it to step back.
 			 */
+			if (le_sz > PtrOffset(ni->attr_list.le, le)) {
+				err = -EINVAL;
+				goto bad_inode;
+			}
+
 			mi_remove_attr(NULL, mi, attr);
 
 			if (!al_remove_le(ni, le)) {
@@ -2291,6 +2294,12 @@ check_seg:
 				}
 				continue;
 			}
+
+			if (le_sz > PtrOffset(ni->attr_list.le, le)) {
+				err = -EINVAL;
+				goto out;
+			}
+
 			le = (struct ATTR_LIST_ENTRY *)((u8 *)le - le_sz);
 		}
 

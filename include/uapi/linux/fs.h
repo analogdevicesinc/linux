@@ -178,13 +178,22 @@ struct file_dedupe_range_info {
 	__u32 reserved;		/* must be zero */
 };
 
+/* flags for struct file_dedupe_range */
+/*
+ * Without this flag, bytes_deduped is the requested length on success,
+ * even if the filesystem deduplicated fewer bytes (e.g. after shortening
+ * the request to a block boundary).  With this flag, bytes_deduped is
+ * the number of bytes actually deduplicated.
+ */
+#define FILE_DEDUPE_RANGE_REPORT_PROGRESS (1U << 0)
+
 /* from struct btrfs_ioctl_file_extent_same_args */
 struct file_dedupe_range {
 	__u64 src_offset;	/* in - start of extent in source */
 	__u64 src_length;	/* in - length of extent */
 	__u16 dest_count;	/* in - total elements in info array */
 	__u16 reserved1;	/* must be zero */
-	__u32 reserved2;	/* must be zero */
+	__u32 flags;		/* in - FILE_DEDUPE_RANGE_* flags */
 	struct file_dedupe_range_info info[];
 };
 

@@ -1024,6 +1024,17 @@ void btrfs_check_nocow_unlock(struct btrfs_inode *inode)
 	btrfs_drew_write_unlock(&inode->root->snapshot_lock);
 }
 
+/*
+ * Return whether a modification through @file should update c/mtime. Like
+ * file_update_time(), skip it for S_NOCMTIME inodes and for files opened
+ * with FMODE_NOCMTIME (e.g. by nfsd while a client holds delegated
+ * timestamps).
+ */
+bool btrfs_should_update_cmtime(const struct file *file)
+{
+	return !IS_NOCMTIME(file_inode(file)) && !(file->f_mode & FMODE_NOCMTIME);
+}
+
 int btrfs_write_check(struct kiocb *iocb, size_t count)
 {
 	struct file *file = iocb->ki_filp;
@@ -1053,7 +1064,7 @@ int btrfs_write_check(struct kiocb *iocb, size_t count)
 	 * need to start yet another transaction to update the inode as we will
 	 * update the inode when we finish writing whatever data we write.
 	 */
-	if (!IS_NOCMTIME(inode)) {
+	if (btrfs_should_update_cmtime(file)) {
 		inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
 		inode_inc_iversion(inode);
 	}
@@ -2356,6 +2367,7 @@ static int btrfs_insert_replace_extent(struct btrfs_trans_handle *trans,
  * The end offset is inclusive (last byte of the range).
  * @extent_info is NULL for fallocate's hole punching and non-NULL when replacing
  * the file range with an extent.
+ * @update_times says whether to update the inode's mtime and ctime.
  * When not punching a hole, we don't want to end up in a state where we dropped
  * extents without inserting a new one, so we must abort the transaction to avoid
  * a corruption.
@@ -2364,6 +2376,7 @@ int btrfs_replace_file_extents(struct btrfs_inode *inode,
 			       struct btrfs_path *path, const u64 start,
 			       const u64 end,
 			       struct btrfs_replace_extent_info *extent_info,
+			       bool update_times,
 			       struct btrfs_trans_handle **trans_out)
 {
 	struct btrfs_drop_extents_args drop_args = { 0 };
@@ -2504,7 +2517,7 @@ int btrfs_replace_file_extents(struct btrfs_inode *inode,
 		 */
 		inode_inc_iversion(&inode->vfs_inode);
 
-		if (!extent_info || extent_info->update_times)
+		if (update_times)
 			inode_set_mtime_to_ts(&inode->vfs_inode,
 					      inode_set_ctime_current(&inode->vfs_inode));
 
@@ -2636,6 +2649,7 @@ static int btrfs_punch_hole(struct file *file, loff_t offset, loff_t len)
 	u64 ino_size;
 	bool truncated_block = false;
 	bool updated_inode = false;
+	const bool update_times = btrfs_should_update_cmtime(file);
 
 	btrfs_inode_lock(BTRFS_I(inode), BTRFS_ILOCK_MMAP);
 
@@ -2738,14 +2752,15 @@ static int btrfs_punch_hole(struct file *file, loff_t offset, loff_t len)
 	}
 
 	ret = btrfs_replace_file_extents(BTRFS_I(inode), path, lockstart,
-					 lockend, NULL, &trans);
+					 lockend, NULL, update_times, &trans);
 	btrfs_free_path(path);
 	if (ret)
 		goto out;
 
 	ASSERT(trans != NULL);
 	inode_inc_iversion(inode);
-	inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
+	if (update_times)
+		inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
 	ret = btrfs_update_inode(trans, BTRFS_I(inode));
 	updated_inode = true;
 	btrfs_end_transaction(trans);
@@ -2762,10 +2777,9 @@ out_only_mutex:
 		 * for detecting, at fsync time, if the inode isn't yet in the
 		 * log tree or it's there but not up to date.
 		 */
-		struct timespec64 now = inode_set_ctime_current(inode);
-
 		inode_inc_iversion(inode);
-		inode_set_mtime_to_ts(inode, now);
+		if (update_times)
+			inode_set_mtime_to_ts(inode, inode_set_ctime_current(inode));
 		trans = btrfs_start_transaction(root, 1);
 		if (IS_ERR(trans)) {
 			ret = PTR_ERR(trans);
@@ -2822,7 +2836,8 @@ static int add_falloc_range(struct list_head *head, u64 start, u64 len)
 
 static int btrfs_fallocate_update_isize(struct inode *inode,
 					const u64 end,
-					const int mode)
+					const int mode,
+					bool update_times)
 {
 	struct btrfs_trans_handle *trans;
 	struct btrfs_root *root = BTRFS_I(inode)->root;
@@ -2846,7 +2861,9 @@ static int btrfs_fallocate_update_isize(struct inode *inode,
 	if (IS_ERR(trans))
 		return PTR_ERR(trans);
 
-	inode_set_ctime_current(inode);
+	inode_inc_iversion(inode);
+	if (update_times)
+		inode_set_ctime_current(inode);
 	i_size_write(inode, end);
 	btrfs_inode_safe_disk_i_size_write(BTRFS_I(inode), 0);
 	ret = btrfs_update_inode(trans, BTRFS_I(inode));
@@ -2887,7 +2904,8 @@ static int btrfs_zero_range_check_range_boundary(struct btrfs_inode *inode,
 static int btrfs_zero_range(struct inode *inode,
 			    loff_t offset,
 			    loff_t len,
-			    const int mode)
+			    const int mode,
+			    bool update_times)
 {
 	struct btrfs_fs_info *fs_info = BTRFS_I(inode)->root->fs_info;
 	struct extent_map *em;
@@ -2928,7 +2946,7 @@ static int btrfs_zero_range(struct inode *inode,
 			 */
 			btrfs_free_extent_map(em);
 			ret = btrfs_fallocate_update_isize(inode, offset + len,
-							   mode);
+							   mode, update_times);
 			goto out;
 		}
 		/*
@@ -2954,7 +2972,7 @@ static int btrfs_zero_range(struct inode *inode,
 		if (em->flags & EXTENT_FLAG_PREALLOC) {
 			btrfs_free_extent_map(em);
 			ret = btrfs_fallocate_update_isize(inode, offset + len,
-							   mode);
+							   mode, update_times);
 			goto out;
 		}
 		if (len < sectorsize && em->disk_bytenr != EXTENT_MAP_HOLE) {
@@ -2964,7 +2982,8 @@ static int btrfs_zero_range(struct inode *inode,
 			if (!ret)
 				ret = btrfs_fallocate_update_isize(inode,
 								   offset + len,
-								   mode);
+								   mode,
+								   update_times);
 			return ret;
 		}
 		btrfs_free_extent_map(em);
@@ -3042,7 +3061,8 @@ reserve_space:
 		ret = btrfs_prealloc_file_range(inode, mode, alloc_start,
 						alloc_end - alloc_start,
 						fs_info->sectorsize,
-						offset + len, &alloc_hint);
+						offset + len, &alloc_hint,
+						update_times);
 		btrfs_unlock_extent(&BTRFS_I(inode)->io_tree, lockstart, lockend,
 				    &cached_state);
 		/* btrfs_prealloc_file_range releases reserved space on error */
@@ -3051,7 +3071,8 @@ reserve_space:
 			goto out;
 		}
 	}
-	ret = btrfs_fallocate_update_isize(inode, offset + len, mode);
+	ret = btrfs_fallocate_update_isize(inode, offset + len, mode,
+					   update_times);
  out:
 	if (ret && space_reserved)
 		btrfs_free_reserved_data_space(BTRFS_I(inode), data_reserved,
@@ -3082,6 +3103,7 @@ static long btrfs_fallocate(struct file *file, int mode,
 	u64 qgroup_reserved = 0;
 	struct extent_map *em;
 	int blocksize = BTRFS_I(inode)->root->fs_info->sectorsize;
+	const bool update_times = btrfs_should_update_cmtime(file);
 	int ret;
 
 	if (btrfs_is_shutdown(inode_to_fs_info(inode)))
@@ -3153,7 +3175,7 @@ static long btrfs_fallocate(struct file *file, int mode,
 		goto out;
 
 	if (mode & FALLOC_FL_ZERO_RANGE) {
-		ret = btrfs_zero_range(inode, offset, len, mode);
+		ret = btrfs_zero_range(inode, offset, len, mode, update_times);
 		btrfs_inode_unlock(BTRFS_I(inode), BTRFS_ILOCK_MMAP);
 		return ret;
 	}
@@ -3218,7 +3240,8 @@ static long btrfs_fallocate(struct file *file, int mode,
 			ret = btrfs_prealloc_file_range(inode, mode,
 					range->start,
 					range->len, blocksize,
-					offset + len, &alloc_hint);
+					offset + len, &alloc_hint,
+					update_times);
 			/*
 			 * btrfs_prealloc_file_range() releases space even
 			 * if it returns an error.
@@ -3246,7 +3269,8 @@ static long btrfs_fallocate(struct file *file, int mode,
 	 * We didn't need to allocate any more space, but we still extended the
 	 * size of the file so we need to update i_size and the inode item.
 	 */
-	ret = btrfs_fallocate_update_isize(inode, actual_end, mode);
+	ret = btrfs_fallocate_update_isize(inode, actual_end, mode,
+					   update_times);
 out_unlock:
 	btrfs_unlock_extent(&BTRFS_I(inode)->io_tree, alloc_start, locked_end,
 			    &cached_state);

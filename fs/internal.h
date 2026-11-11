@@ -136,6 +136,8 @@ extern int reconfigure_super(struct fs_context *);
 extern bool super_trylock_shared(struct super_block *sb);
 struct super_block *user_get_super(dev_t, bool excl);
 void put_super(struct super_block *sb);
+void iterate_supers_born(void (*f)(struct super_block *, void *), void *arg);
+int iterate_supers_sync(void (*f)(struct super_block *, void *), void *arg);
 extern bool mount_capable(struct fs_context *);
 
 /*
@@ -205,6 +207,7 @@ int do_fchownat(int dfd, const char __user *filename, uid_t user, gid_t group,
 int chown_common(const struct path *path, uid_t user, gid_t group);
 extern int vfs_open(const struct path *, struct file *);
 int vfs_open_consume(struct path *, struct file *);
+struct file *task_path_open(const struct path *path);
 
 /*
  * inode.c

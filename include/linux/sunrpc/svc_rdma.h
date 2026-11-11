@@ -117,6 +117,8 @@ struct svcxprt_rdma {
 	struct llist_head    sc_recv_ctxts;
 
 	struct llist_head    sc_send_release_list;
+	struct llist_head    sc_send_stranded_ctxts;
+	struct llist_head    sc_recv_stranded_ctxts;
 
 	atomic_t	     sc_completion_ids;
 };
@@ -262,6 +264,7 @@ extern void svc_rdma_handle_bc_reply(struct svc_rqst *rqstp,
 
 /* svc_rdma_recvfrom.c */
 extern void svc_rdma_recv_ctxts_destroy(struct svcxprt_rdma *rdma);
+extern void svc_rdma_recv_ctxts_stranded_release(struct svcxprt_rdma *rdma);
 extern bool svc_rdma_post_recvs(struct svcxprt_rdma *rdma);
 extern struct svc_rdma_recv_ctxt *
 		svc_rdma_recv_ctxt_get(struct svcxprt_rdma *rdma);
@@ -300,6 +303,7 @@ extern int svc_rdma_process_read_list(struct svcxprt_rdma *rdma,
 /* svc_rdma_sendto.c */
 extern void svc_rdma_send_ctxts_destroy(struct svcxprt_rdma *rdma);
 extern void svc_rdma_send_ctxts_drain(struct svcxprt_rdma *rdma);
+extern void svc_rdma_send_ctxts_stranded_release(struct svcxprt_rdma *rdma);
 extern struct svc_rdma_send_ctxt *
 		svc_rdma_send_ctxt_get(struct svcxprt_rdma *rdma);
 extern void svc_rdma_send_ctxt_put(struct svcxprt_rdma *rdma,

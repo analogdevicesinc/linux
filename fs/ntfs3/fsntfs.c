@@ -747,10 +747,19 @@ found:
 	}
 
 	/* We have found a record that are not reserved for next MFT. */
-	if (*rno >= MFT_REC_FREE)
-		wnd_set_used(wnd, *rno, 1);
-	else if (*rno >= MFT_REC_RESERVED && sbi->mft.reserved_bitmap_inited)
+	if (*rno >= MFT_REC_FREE) {
+		err = wnd_set_used(wnd, *rno, 1);
+		if (err) {
+			if (ni) {
+				ni_remove_mi(ni, *mi);
+				mi_put(*mi);
+				*mi = NULL;
+			}
+			goto out;
+		}
+	} else if (*rno >= MFT_REC_RESERVED && sbi->mft.reserved_bitmap_inited) {
 		__set_bit(*rno - MFT_REC_RESERVED, &sbi->mft.reserved_bitmap);
+	}
 
 out:
 	if (!mft)

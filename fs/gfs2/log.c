@@ -74,10 +74,13 @@ unsigned int gfs2_struct2blk(struct gfs2_sbd *sdp, unsigned int nstruct)
 
 static void gfs2_remove_from_ail(struct gfs2_bufdata *bd)
 {
+	struct gfs2_glock *gl = bd->bd_gl;
+
 	bd->bd_tr = NULL;
 	list_del_init(&bd->bd_ail_st_list);
 	list_del_init(&bd->bd_ail_gl_list);
-	atomic_dec(&bd->bd_gl->gl_ail_count);
+	if (atomic_dec_and_test(&gl->gl_ail_count))
+		gfs2_glock_put_async(gl);
 	brelse(bd->bd_bh);
 }
 
@@ -778,7 +781,7 @@ void gfs2_add_revoke(struct gfs2_sbd *sdp, struct gfs2_bufdata *bd)
 
 void gfs2_glock_remove_revoke(struct gfs2_glock *gl)
 {
-	if (atomic_dec_return(&gl->gl_revokes) == 0) {
+	if (atomic_dec_and_test(&gl->gl_revokes)) {
 		clear_bit(GLF_LFLUSH, &gl->gl_flags);
 		gfs2_glock_put_async(gl);
 	}

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+open_o_creat_o_dir
 dnotify_test
 devpts_pts
 fclog
@@ -7,3 +8,4 @@ kernfs_test
 idmapped_tmpfile
 ustat_test
 rw_hint_test
+fspick_reconfigure_test

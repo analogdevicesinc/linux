@@ -126,6 +126,9 @@ FIXTURE_SETUP(current_nsset)
 
 		self->child_pidfd_derived_nsfds[i] = ioctl(self->pidfd, info->pidfd_ioctl, 0);
 		if (self->child_pidfd_derived_nsfds[i] < 0) {
+			if (errno == ENOTTY)
+				SKIP(return,
+				     "Kernel does not support deriving namespaces from pidfds");
 			EXPECT_EQ(errno, EOPNOTSUPP) {
 				TH_LOG("%m - Failed to derive %s namespace from pidfd of process %d",
 				       info->name, self->pid);

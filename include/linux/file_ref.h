@@ -69,7 +69,11 @@ bool __file_ref_put(file_ref_t *ref, unsigned long cnt);
  *
  * Similar to atomic_inc_not_zero() but saturates at FILE_REF_MAXREF.
  *
- * Provides full memory ordering.
+ * Provides acquire memory ordering: loads after a successful get are
+ * ordered after the increment. That is what the pointer recheck of the
+ * fget-rcu pattern needs, the load of the pointer the reference is
+ * taken through is ordered before the increment by its address
+ * dependency.
  *
  * Return: False if the attempt to acquire a reference failed. This happens
  *         when the last reference has been put already. True if a reference
@@ -78,7 +82,7 @@ bool __file_ref_put(file_ref_t *ref, unsigned long cnt);
 static __always_inline __must_check bool file_ref_get(file_ref_t *ref)
 {
 	/*
-	 * Unconditionally increase the reference count with full
+	 * Unconditionally increase the reference count with acquire
 	 * ordering. The saturation and dead zones provide enough
 	 * tolerance for this.
 	 *
@@ -105,7 +109,7 @@ static __always_inline __must_check bool file_ref_get(file_ref_t *ref)
 	 * FILE_REF_ONEREF. It would need 2305843009213693952/2^61
 	 * file_ref_get()s to resurrect such a dead file.
 	 */
-	return !atomic_long_add_negative(1, &ref->refcnt);
+	return !atomic_long_add_negative_acquire(1, &ref->refcnt);
 }
 
 /**
@@ -128,6 +132,17 @@ static __always_inline void file_ref_inc(file_ref_t *ref)
  * Provides release memory ordering, such that prior loads and stores
  * are done before, and provides an acquire ordering on success such
  * that free() must come after.
+ *
+ * The decrement is fully ordered though and it has to stay that way.
+ * When the last reference goes synchronously, in __fput_sync() and on
+ * the fallback path of fput_close_sync(), the full barrier is what
+ * orders the caller's earlier stores, in close(2) the cleared slot in
+ * the descriptor table, before the slab handoff that lets another CPU
+ * reallocate the file. A lookup that increments the recycled counter
+ * then sees the cleared slot and fails its recheck. The deferred
+ * fput() has the cmpxchg() of task_work_add() for that, the
+ * synchronous paths have nothing else. So this is not a candidate for
+ * atomic_long_dec_return_release().
  *
  * Return: True if this was the last reference with no future references
  *         possible. This signals the caller that it can safely release
