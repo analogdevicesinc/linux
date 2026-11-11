@@ -62,8 +62,6 @@ KBUILD_CFLAGS += $(CFLAGS) $(CFLAGS-y) -D__arch_um__ \
 	-Din6addr_any=kernel_in6addr_any -Dstrrchr=kernel_strrchr \
 	-D__close_range=kernel__close_range
 
-KBUILD_RUSTFLAGS += -Crelocation-model=pie
-
 KBUILD_AFLAGS += $(ARCH_INCLUDE)
 
 USER_CFLAGS = $(patsubst $(KERNEL_DEFINES),,$(patsubst -I%,,$(KBUILD_CFLAGS))) \

@@ -108,7 +108,7 @@ static void vector_reset_stats(struct vector_private *vp)
 	/* We reuse the existing queue locks for stats */
 
 	/* RX stats are modified with RX head_lock held
-	 * in vector_poll.
+	 * in vector_poll when using vector RX.
 	 */
 
 	if (vp->rx_queue)
@@ -119,18 +119,15 @@ static void vector_reset_stats(struct vector_private *vp)
 	vp->estats.rx_encaps_errors = 0;
 	vp->estats.sg_ok = 0;
 	vp->estats.sg_linearized = 0;
-
 	if (vp->rx_queue)
 		spin_unlock(&vp->rx_queue->head_lock);
 
-
 	/* TX stats are modified with TX head_lock held
-	 * in vector_send.
+	 * in vector_send when doing vector TX.
 	 */
 
 	if (vp->tx_queue)
 		spin_lock(&vp->tx_queue->head_lock);
-
 	vp->estats.tx_timeout_count = 0;
 	vp->estats.tx_restart_queue = 0;
 	vp->estats.tx_kicks = 0;
@@ -138,7 +135,6 @@ static void vector_reset_stats(struct vector_private *vp)
 	vp->estats.tx_flow_control_xoff = 0;
 	vp->estats.tx_queue_max = 0;
 	vp->estats.tx_queue_running_average = 0;
-
 	if (vp->tx_queue)
 		spin_unlock(&vp->tx_queue->head_lock);
 
@@ -234,6 +230,11 @@ static int get_transport_options(struct arglist *def)
 				vec_tx = 0;
 			}
 		}
+	}
+
+	if (get_depth(def) <= 0) {
+		vec_rx = 0;
+		vec_tx = 0;
 	}
 
 	if (get_bpf_flash(def))
@@ -416,6 +417,7 @@ static int vector_send(struct vector_queue *qi)
 		/* update queue_depth to current value */
 		while (atomic_read(&qi->queue_depth) > 0) {
 			/* Calculate the start of the vector */
+			smp_rmb();
 			send_len = atomic_read(&qi->queue_depth);
 			send_from = qi->mmsg_vector;
 			send_from += qi->head;
@@ -872,18 +874,17 @@ static int vector_legacy_rx(struct vector_private *vp)
 	}
 
 	if (skb != NULL) {
-		if (pkt_len > vp->header_size) {
-			if (vp->header_size > 0) {
+		if (pkt_len > vp->rx_header_size) {
+			if (vp->rx_header_size > 0) {
 				header_check = vp->verify_header(
 					vp->header_rxbuffer, skb, vp);
 				if (header_check < 0) {
 					dev_kfree_skb_irq(skb);
 					vp->dev->stats.rx_dropped++;
-					vp->estats.rx_encaps_errors++;
+					dev_kfree_skb_irq(skb);
 					return 0;
 				}
 				if (header_check > 0) {
-					vp->estats.rx_csum_offload_good++;
 					skb->ip_summed = CHECKSUM_UNNECESSARY;
 				}
 			}
@@ -988,7 +989,7 @@ static int vector_mmsg_rx(struct vector_private *vp, int budget)
 
 	for (i = 0; i < packet_count; i++) {
 		skb = (*skbuff_vector);
-		if (mmsg_vector->msg_len > vp->header_size) {
+		if (mmsg_vector->msg_len > vp->rx_header_size) {
 			if (vp->header_size > 0) {
 				header_check = vp->verify_header(
 					mmsg_vector->msg_hdr.msg_iov->iov_base,
@@ -1119,7 +1120,8 @@ static int vector_net_close(struct net_device *dev)
 	struct vector_private *vp = netdev_priv(dev);
 
 	netif_stop_queue(dev);
-	timer_delete(&vp->tl);
+	if (vp->options & VECTOR_TX)
+		timer_shutdown_sync(&vp->tl);
 
 	vp->opened = false;
 
@@ -1250,9 +1252,13 @@ static int vector_net_open(struct net_device *dev)
 		if (vp->header_txbuffer == NULL)
 			goto out_close;
 	}
+	if ((vp->options & (VECTOR_TX | VECTOR_RX)) &&
+			(get_depth(vp->parsed) > (NAPI_POLL_WEIGHT << 2)))
+		netif_napi_add_weight(vp->dev, &vp->napi, vector_poll,
+				      get_depth(vp->parsed));
+	else
+		netif_napi_add_weight(vp->dev, &vp->napi, vector_poll, NAPI_POLL_WEIGHT);
 
-	netif_napi_add_weight(vp->dev, &vp->napi, vector_poll,
-			      get_depth(vp->parsed));
 	napi_enable(&vp->napi);
 
 	/* READ IRQ */
@@ -1310,6 +1316,7 @@ static int vector_net_open(struct net_device *dev)
 
 	if ((vp->options & VECTOR_TX) != 0)
 		add_timer(&vp->tl);
+
 	return 0;
 out_close:
 	vector_net_close(dev);
@@ -1477,11 +1484,15 @@ static void vector_get_ethtool_stats(struct net_device *dev,
 	 * to date.
 	 */
 
-	spin_lock(&vp->tx_queue->head_lock);
-	spin_lock(&vp->rx_queue->head_lock);
+	if (vp->tx_queue)
+		spin_lock(&vp->tx_queue->head_lock);
+	if (vp->rx_queue)
+		spin_lock(&vp->rx_queue->head_lock);
 	memcpy(tmp_stats, &vp->estats, sizeof(struct vector_estats));
-	spin_unlock(&vp->rx_queue->head_lock);
-	spin_unlock(&vp->tx_queue->head_lock);
+	if (vp->rx_queue)
+		spin_unlock(&vp->rx_queue->head_lock);
+	if (vp->tx_queue)
+		spin_unlock(&vp->tx_queue->head_lock);
 }
 
 static int vector_get_coalesce(struct net_device *netdev,
