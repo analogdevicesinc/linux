@@ -143,6 +143,7 @@ coresight_find_default_sink(struct coresight_device *csdev);
 struct coresight_path *coresight_build_path(struct coresight_device *csdev,
 					    struct coresight_device *sink);
 void coresight_release_path(struct coresight_path *path);
+void coresight_release_path_locked(struct coresight_path *path);
 int coresight_add_sysfs_link(struct coresight_sysfs_link *info);
 void coresight_remove_sysfs_link(struct coresight_sysfs_link *info);
 int coresight_create_conns_sysfs_group(struct coresight_device *csdev);

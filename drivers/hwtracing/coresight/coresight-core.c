@@ -30,8 +30,8 @@
 #include "coresight-trace-id.h"
 
 /*
- * Mutex used to lock all sysfs enable and disable actions and loading and
- * unloading devices by the Coresight core.
+ * Mutex used to serialize device registration and removal, sysfs enable and
+ * disable actions, and perf AUX setup and path release.
  */
 DEFINE_MUTEX(coresight_mutex);
 static DEFINE_PER_CPU(struct coresight_device *, csdev_sink);
@@ -910,6 +910,8 @@ static void coresight_drop_device(struct coresight_device *csdev)
 {
 	int i;
 
+	lockdep_assert_held(&coresight_mutex);
+
 	coresight_put_ref(csdev);
 	for (i = 0; i < csdev->pdata->nr_outconns; i++) {
 		struct coresight_device *child;
@@ -1031,8 +1033,10 @@ out:
 		return ret;
 
 	node = kzalloc_obj(struct coresight_node);
-	if (!node)
+	if (!node) {
+		coresight_drop_device(csdev);
 		return -ENOMEM;
+	}
 
 	node->csdev = csdev;
 	list_add(&node->link, &path->path_list);
@@ -1046,6 +1050,8 @@ struct coresight_path *coresight_build_path(struct coresight_device *source,
 	struct coresight_path *path;
 	int rc;
 
+	lockdep_assert_held(&coresight_mutex);
+
 	if (!sink)
 		return ERR_PTR(-EINVAL);
 
@@ -1057,7 +1063,7 @@ struct coresight_path *coresight_build_path(struct coresight_device *source,
 
 	rc = _coresight_build_path(source, source, sink, path);
 	if (rc) {
-		kfree(path);
+		coresight_release_path_locked(path);
 		return ERR_PTR(rc);
 	}
 
@@ -1065,16 +1071,18 @@ struct coresight_path *coresight_build_path(struct coresight_device *source,
 }
 
 /**
- * coresight_release_path - release a previously built path.
+ * coresight_release_path_locked - release a path with coresight_mutex held.
  * @path:	the path to release.
  *
  * Go through all the elements of a path and 1) removed it from the list and
  * 2) free the memory allocated for each node.
  */
-void coresight_release_path(struct coresight_path *path)
+void coresight_release_path_locked(struct coresight_path *path)
 {
 	struct coresight_device *csdev;
 	struct coresight_node *nd, *next;
+
+	lockdep_assert_held(&coresight_mutex);
 
 	list_for_each_entry_safe(nd, next, &path->path_list, link) {
 		csdev = nd->csdev;
@@ -1085,6 +1093,12 @@ void coresight_release_path(struct coresight_path *path)
 	}
 
 	kfree(path);
+}
+
+void coresight_release_path(struct coresight_path *path)
+{
+	guard(mutex)(&coresight_mutex);
+	coresight_release_path_locked(path);
 }
 
 /* return true if the device is a suitable type for a default sink */

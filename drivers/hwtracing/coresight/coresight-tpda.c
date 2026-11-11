@@ -360,10 +360,10 @@ static ssize_t global_flush_req_show(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
+	guard(spinlock)(&drvdata->spinlock);
 	if (!drvdata->csdev->refcnt)
 		return -EINVAL;
 
-	guard(spinlock)(&drvdata->spinlock);
 	val = readl_relaxed(drvdata->base + TPDA_CR);
 	/* read global_flush_req bit */
 	val &= TPDA_CR_FLREQ;
@@ -382,10 +382,13 @@ static ssize_t global_flush_req_store(struct device *dev,
 	if (kstrtoul(buf, 0, &val))
 		return -EINVAL;
 
-	if (!drvdata->csdev->refcnt || !val)
+	if (!val)
 		return -EINVAL;
 
 	guard(spinlock)(&drvdata->spinlock);
+	if (!drvdata->csdev->refcnt)
+		return -EINVAL;
+
 	val = readl_relaxed(drvdata->base + TPDA_CR);
 	/* set global_flush_req bit */
 	val |= TPDA_CR_FLREQ;
@@ -404,10 +407,10 @@ static ssize_t syncr_mode_show(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val, syncr_val;
 
+	guard(spinlock)(&drvdata->spinlock);
 	if (!drvdata->csdev->refcnt)
 		return -EINVAL;
 
-	guard(spinlock)(&drvdata->spinlock);
 	syncr_val = readl_relaxed(drvdata->base + TPDA_SYNCR);
 	val = FIELD_GET(TPDA_SYNCR_MODE_CTRL_MASK, syncr_val);
 
@@ -440,10 +443,10 @@ static ssize_t syncr_count_show(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
+	guard(spinlock)(&drvdata->spinlock);
 	if (!drvdata->csdev->refcnt)
 		return -EINVAL;
 
-	guard(spinlock)(&drvdata->spinlock);
 	val = readl_relaxed(drvdata->base + TPDA_SYNCR);
 	val &= TPDA_SYNCR_COUNT_MASK;
 
@@ -478,10 +481,10 @@ static ssize_t port_flush_req_show(struct device *dev,
 	struct tpda_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	unsigned long val;
 
+	guard(spinlock)(&drvdata->spinlock);
 	if (!drvdata->csdev->refcnt)
 		return -EINVAL;
 
-	guard(spinlock)(&drvdata->spinlock);
 	val = readl_relaxed(drvdata->base + TPDA_FLUSH_CR);
 
 	return sysfs_emit(buf, "0x%lx\n", val);
@@ -498,10 +501,13 @@ static ssize_t port_flush_req_store(struct device *dev,
 	if (kstrtou32(buf, 0, &val))
 		return -EINVAL;
 
-	if (!drvdata->csdev->refcnt || !val)
+	if (!val)
 		return -EINVAL;
 
 	guard(spinlock)(&drvdata->spinlock);
+	if (!drvdata->csdev->refcnt)
+		return -EINVAL;
+
 	CS_UNLOCK(drvdata->base);
 	writel_relaxed(val, drvdata->base + TPDA_FLUSH_CR);
 	CS_LOCK(drvdata->base);

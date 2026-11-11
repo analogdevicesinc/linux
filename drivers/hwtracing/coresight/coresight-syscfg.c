@@ -410,6 +410,8 @@ static void cscfg_remove_owned_csdev_features(struct coresight_device *csdev, vo
 	if (list_empty(&csdev->feature_csdev_list))
 		return;
 
+	guard(raw_spinlock_irqsave)(&csdev->cscfg_csdev_lock);
+
 	list_for_each_entry_safe(feat_csdev, tmp, &csdev->feature_csdev_list, node) {
 		if (feat_csdev->feat_desc->load_owner == load_owner)
 			list_del(&feat_csdev->node);
@@ -1210,8 +1212,12 @@ static int cscfg_create_device(void)
 	dev->init_name = "cs_system_cfg";
 
 	err = device_register(dev);
-	if (err)
+	if (err) {
+		/* cscfg_dev_release() takes cscfg_mutex */
+		mutex_unlock(&cscfg_mutex);
 		put_device(dev);
+		return err;
+	}
 
 create_dev_exit_unlock:
 	mutex_unlock(&cscfg_mutex);

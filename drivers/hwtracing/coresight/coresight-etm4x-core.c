@@ -2257,6 +2257,7 @@ static int etm4_add_coresight_dev(struct etm4_init_arg *init_arg)
 	/* register with config infrastructure & load any current features */
 	ret = etm4_cscfg_register(drvdata->csdev);
 	if (ret) {
+		etm_perf_symlink(drvdata->csdev, false);
 		coresight_unregister(drvdata->csdev);
 		return ret;
 	}
@@ -2467,9 +2468,18 @@ static void etm4_remove_platform_dev(struct platform_device *pdev)
 {
 	struct etmv4_drvdata *drvdata = dev_get_drvdata(&pdev->dev);
 
-	if (drvdata)
-		etm4_remove_dev(drvdata);
+	if (WARN_ON(!drvdata))
+		return;
+	/*
+	 * Resume the device so its clocks are enabled again, balancing the
+	 * clk_disable_unprepare() that devm runs when the driver detaches.
+	 * Then mark it suspended and drop the usage count taken here.
+	 */
+	pm_runtime_get_sync(&pdev->dev);
+	etm4_remove_dev(drvdata);
 	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 }
 
 static const struct amba_id etm4_ids[] = {

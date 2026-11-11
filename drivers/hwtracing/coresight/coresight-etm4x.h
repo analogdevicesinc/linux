@@ -874,7 +874,7 @@ struct etmv4_caps {
 	u8	nr_pe_cmp;
 	u8	nr_addr_cmp;
 	u8	nr_cntr;
-	u8	nr_ext_inp;
+	u16	nr_ext_inp;
 	u8	numcidc;
 	u8	numextinsel;
 	u8	numvmidc;

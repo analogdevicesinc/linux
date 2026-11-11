@@ -313,9 +313,6 @@ static int etm_parse_event_config(struct etm_drvdata *drvdata,
 	struct perf_event_attr *attr = &event->attr;
 	u8 ts_level;
 
-	if (!attr)
-		return -EINVAL;
-
 	/* Clear configuration from previous run */
 	memset(curr_config, 0, sizeof(struct etm_config));
 
@@ -487,7 +484,11 @@ static int etm_enable_perf(struct coresight_device *csdev,
 		return -EBUSY;
 
 	/* Configure the tracer based on the session's specifics */
-	etm_parse_event_config(drvdata, event);
+	ret = etm_parse_event_config(drvdata, event);
+	if (ret) {
+		coresight_set_mode(csdev, CS_MODE_DISABLED);
+		return ret;
+	}
 	drvdata->traceid = path->trace_id;
 
 	/* And enable it */
