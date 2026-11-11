@@ -697,27 +697,13 @@ static irqreturn_t adin1110_irq(int irq, void *p)
 static irqreturn_t adin1110_oa_irq(int irq, void *p)
 {
 	struct adin1110_priv *priv = p;
-	int ret;
-	u32 val;
 
 	mutex_lock(&priv->lock);
 
 	open_alliance_read_rxb(priv->oa);
-	ret = adin1110_get_tx_space(priv, &val);
-	if (ret < 0) {
-		mutex_unlock(&priv->lock);
-		return IRQ_HANDLED;
-	}
-
-	ret = adin1110_clear_irqs(priv);
+	adin1110_clear_irqs(priv);
 
 	mutex_unlock(&priv->lock);
-
-	if (ret < 0)
-		return IRQ_HANDLED;
-
-	if (val > 0)
-		adin1110_wake_queues(priv);
 
 	return IRQ_HANDLED;
 }
@@ -1046,6 +1032,17 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 
 	if (tx_space_needed > tx_space) {
 		netif_stop_queue(dev);
+
+		if (priv->oa) {
+			/* The SPI thread may have made room meanwhile. */
+			smp_mb__after_atomic();
+			tx_space = adin1110_oa_tx_space(priv);
+			if (tx_space_needed <= tx_space)
+				netif_start_queue(dev);
+		}
+	}
+
+	if (tx_space_needed > tx_space) {
 		netdev_ret = NETDEV_TX_BUSY;
 	} else {
 		if (priv->oa)
