@@ -79,7 +79,7 @@
 &gpio {
 	status = "okay";
 	gpio-line-names =
-	/*  A */ "input-locatorled-n", "", "", "", "", "", "", "",
+	/*  A */ "input-locatorled-n", "", "button-nmi-n", "control-nmi-n", "", "", "", "",
 	/*  B */ "input-bios-post-cmplt-n", "", "", "", "", "", "", "",
 	/*  C */ "", "", "", "", "", "", "control-locatorbutton-n", "",
 	/*  D */ "button-power-n", "control-power-n", "button-reset-n",
@@ -92,7 +92,7 @@
 	/*  H */ "", "", "", "", "input-mfg-mode-n", "",
 		 "led-heartbeat-n", "input-case-open-n",
 	/*  I */ "", "", "", "", "", "", "", "",
-	/*  J */ "output-bmc-ready-n", "", "", "", "", "", "", "",
+	/*  J */ "output-bmc-ready-n", "output-bios-cs-n", "", "output-lpc-reset", "", "", "", "",
 	/*  K */ "", "", "", "", "", "", "", "",
 	/*  L */ "", "", "", "", "", "", "", "",
 	/*  M */ "", "", "", "", "", "", "", "",
@@ -114,7 +114,7 @@
 		 "", "",
 	/* AA */ "input-cpu1-thermtrip-latch-n", "",
 		 "input-cpu1-prochot-n", "", "", "", "", "",
-	/* AB */ "", "input-power-good", "", "", "", "", "", "",
+	/* AB */ "", "input-power-good", "", "control-hard-power-off", "", "", "", "",
 	/* AC */ "", "", "", "", "", "", "", "";
 };
 
@@ -164,11 +164,6 @@
 &i2c1 {
 	/* Hardware monitoring SMBus */
 	status = "okay";
-
-	w83773g@4c {
-		compatible = "nuvoton,w83773g";
-		reg = <0x4c>;
-	};
 };
 
 &i2c2 {
@@ -238,11 +233,11 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			eth0_macaddress: macaddress@3f80 {
+			eth0_macaddress: eth0_macaddress@3f80 {
 				reg = <0x3f80 6>;
 			};
 
-			eth1_macaddress: macaddress@3f88 {
+			eth1_macaddress: eth1_macaddress@3f88 {
 				reg = <0x3f88 6>;
 			};
 		};
@@ -325,19 +320,19 @@
 	fan@3 {
 		/* FAN4 (6-pin) */
 		reg = <0x03>;
-		aspeed,fan-tach-ch = /bits/ 8 <0x04 0x0b>;
+		aspeed,fan-tach-ch = /bits/ 8 <0x03 0x0b>;
 	};
 
 	fan@4 {
-		/* FAN6 (6-pin) */
+		/* FAN6 (6-pin), wired to PWM5 */
 		reg = <0x04>;
-		aspeed,fan-tach-ch = /bits/ 8 <0x06 0x0d>;
+		aspeed,fan-tach-ch = /bits/ 8 <0x05 0x0d>;
 	};
 
 	fan@5 {
-		/* FAN5 (6-pin) */
+		/* FAN5 (6-pin), wired to PWM6 */
 		reg = <0x05>;
-		aspeed,fan-tach-ch = /bits/ 8 <0x05 0x0c>;
+		aspeed,fan-tach-ch = /bits/ 8 <0x04 0x0c>;
 	};
 };
 
