@@ -48,6 +48,8 @@ int proc_setup_self(struct super_block *s)
 			inode->i_uid = GLOBAL_ROOT_UID;
 			inode->i_gid = GLOBAL_ROOT_GID;
 			inode->i_op = &proc_self_inode_operations;
+			/* a mount here would redirect every process */
+			dont_mount(self);
 			d_make_persistent(self, inode);
 			ret = 0;
 		}

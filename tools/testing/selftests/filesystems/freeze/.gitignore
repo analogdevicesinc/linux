@@ -1,2 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-only
+quotactl_test
+bdev_freeze_test
+bdev_thaw_test
 shared_bdev_test

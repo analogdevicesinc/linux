@@ -176,6 +176,8 @@ extern struct kmem_cache *kernfs_node_cache, *kernfs_iattrs_cache;
  * inode.c
  */
 extern const struct xattr_handler * const kernfs_xattr_handlers[];
+struct inode *kernfs_get_inode_locked(struct inode *inode,
+				      struct kernfs_node *kn);
 void kernfs_evict_inode(struct inode *inode);
 int kernfs_iop_permission(const struct mnt_idmap *idmap,
 			  struct inode *inode, int mask);
@@ -194,6 +196,7 @@ extern const struct dentry_operations kernfs_dops;
 extern const struct file_operations kernfs_dir_fops;
 extern const struct inode_operations kernfs_dir_iops;
 
+bool kernfs_active(struct kernfs_node *kn);
 struct kernfs_node *kernfs_get_active(struct kernfs_node *kn);
 void kernfs_put_active(struct kernfs_node *kn);
 int kernfs_add_one(struct kernfs_node *kn);

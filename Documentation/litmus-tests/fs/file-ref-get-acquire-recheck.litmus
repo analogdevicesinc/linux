@@ -1,0 +1,66 @@
+C file-ref-get-acquire-recheck
+
+(*
+ * Result: Never
+ *
+ * __fget_files_rcu() loads the descriptor slot, takes a reference with
+ * file_ref_get() and reloads the slot to check that it still holds the
+ * same file.  Files are SLAB_TYPESAFE_BY_RCU, so between the first load
+ * and the increment the file can be closed, freed and handed out again
+ * by open(), and the increment then lands on the recycled file.  The
+ * recheck catches that only if the reload is ordered after the
+ * increment.
+ *
+ * P0 is the owner: close() clears the slot in file_close_fd_locked()
+ * with a plain store of NULL, fput() drops the last reference with the
+ * fully ordered decrement of file_ref_put() and the cmpxchg to DEAD of
+ * __file_ref_put(), __fput() frees the file, and open() gets the same
+ * object back: init_file() sets ONEREF with a plain store and
+ * fd_install() publishes it in another slot with a release store.  P1
+ * is the lookup with an acquire-ordered file_ref_get(), i.e.
+ * atomic_long_add_negative_acquire().
+ *
+ * The full ordering of the decrement orders the cleared slot before the
+ * counter's re-initialisation and the acquire orders the reload after
+ * the increment.  So once the increment has hit the recycled counter
+ * (1:r1=0 after the successful cmpxchg, 0:r1=-1) the reload sees the
+ * cleared slot and the lookup retries.
+ *)
+
+{
+	atomic_t cnt = ATOMIC_INIT(0);
+	slot=1;
+	slot2=0;
+	0:r1=-9;
+}
+
+P0(int *slot, int *slot2, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+
+	WRITE_ONCE(*slot, 0);
+	r0 = atomic_fetch_sub(1, cnt);
+	if (r0 == 0) {
+		r1 = atomic_cmpxchg_release(cnt, -1, -4);
+		if (r1 == -1) {
+			atomic_set(cnt, 0);
+			smp_store_release(slot2, 1);
+		}
+	}
+}
+
+P1(int *slot, atomic_t *cnt)
+{
+	int r0;
+	int r1;
+	int r2;
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*slot);
+	r1 = atomic_fetch_add_acquire(1, cnt);
+	r2 = READ_ONCE(*slot);
+	rcu_read_unlock();
+}
+
+exists (0:r1=-1 /\ 1:r0=1 /\ 1:r1=0 /\ 1:r2=1)

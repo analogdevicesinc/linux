@@ -171,6 +171,26 @@ extern int cred_fscmp(const struct cred *, const struct cred *);
 extern void __init cred_init(void);
 extern int set_cred_ucounts(struct cred *);
 
+/**
+ * enum cred_ids - which of its ids a subject acts with
+ * @CRED_IDS_REAL:      uid and gid
+ * @CRED_IDS_EFFECTIVE: euid and egid
+ * @CRED_IDS_FS:        fsuid and fsgid
+ */
+enum cred_ids {
+	CRED_IDS_REAL,
+	CRED_IDS_EFFECTIVE,
+	CRED_IDS_FS,
+};
+
+bool cred_ids_allow_signal(const struct cred *subj, const struct cred *obj);
+bool cred_ids_allow_sigio(const struct cred *subj, const struct cred *obj);
+bool cred_ids_allow_sched(const struct cred *subj, const struct cred *obj);
+bool cred_ids_allow_ioprio(const struct cred *subj, const struct cred *obj);
+bool cred_ids_allow_move(const struct cred *subj, const struct cred *obj);
+bool cred_ids_allow_control(const struct cred *subj, enum cred_ids which,
+			    const struct cred *obj);
+
 static inline bool cap_ambient_invariant_ok(const struct cred *cred)
 {
 	return cap_issubset(cred->cap_ambient,

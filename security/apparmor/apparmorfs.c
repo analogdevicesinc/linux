@@ -248,6 +248,7 @@ static int apparmorfs_fill_super(struct super_block *sb, struct fs_context *fc)
 	if (error)
 		return error;
 	sb->s_op = &aafs_super_ops;
+	sb->s_iflags |= SB_I_NO_ATOMIC_MKDIR;
 
 	return 0;
 }

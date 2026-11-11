@@ -1,0 +1,88 @@
+C mnt-walker-late-sees-new-pwd-nowmb
+
+(*
+ * Result: Sometimes
+ *
+ * mnt-walker-late-sees-new-pwd.litmus without the smp_wmb() of
+ * write_sequnlock() after the store of the new fs->pwd and without the
+ * smp_wmb() on the fast path of mntput_no_expire().  Nothing orders the
+ * new fs->pwd before the put: the sum can count the put while a walker
+ * that samples the seqcount after the sum still reads the old cwd.
+ *)
+
+{
+	mnt_ns=1;
+	pwd=0;
+	fseq=0;
+	gets_h=1;
+	puts_h=0;
+	gets_u=1;
+	puts_u=0;
+	seq=0;
+}
+
+P0(spinlock_t *fslock, int *fseq, int *pwd, int *mnt_ns, int *puts_h)
+{
+	int r0;
+
+	spin_lock(fslock);
+	WRITE_ONCE(*fseq, 1);
+	smp_wmb();
+	WRITE_ONCE(*pwd, 1);
+	WRITE_ONCE(*fseq, 2);
+	spin_unlock(fslock);
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*mnt_ns);
+	if (r0) {
+		WRITE_ONCE(*puts_h, 1);
+	}
+	rcu_read_unlock();
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *gets_h, int *puts_h, int *gets_u, int *puts_u)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	r1 = READ_ONCE(*puts_h);
+	r2 = READ_ONCE(*puts_u);
+	smp_mb();
+	r3 = READ_ONCE(*gets_h);
+	r4 = READ_ONCE(*gets_u);
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+P2(int *seq, int *fseq, int *pwd)
+{
+	int r5;
+	int r6;
+	int r7;
+	int r8;
+
+	r5 = READ_ONCE(*seq);
+	smp_rmb();
+	r7 = READ_ONCE(*fseq);
+	smp_rmb();
+	r6 = READ_ONCE(*pwd);
+	smp_rmb();
+	r8 = READ_ONCE(*fseq);
+}
+
+filter (2:r7=0 /\ 2:r8=0 \/ 2:r7=2 /\ 2:r8=2)
+exists (1:r1=1 /\ 2:r5=4 /\ 2:r6=0)

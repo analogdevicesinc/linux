@@ -48,6 +48,8 @@ int proc_setup_thread_self(struct super_block *s)
 			inode->i_uid = GLOBAL_ROOT_UID;
 			inode->i_gid = GLOBAL_ROOT_GID;
 			inode->i_op = &proc_thread_self_inode_operations;
+			/* a mount here would redirect every thread */
+			dont_mount(thread_self);
 			d_make_persistent(thread_self, inode);
 			ret = 0;
 		}

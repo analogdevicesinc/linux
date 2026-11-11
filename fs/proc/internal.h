@@ -265,6 +265,14 @@ int proc_nochmod_setattr(const struct mnt_idmap *idmap, struct dentry *dentry,
 extern void proc_pid_evict_inode(struct proc_inode *);
 extern struct inode *proc_pid_make_inode(struct super_block *, struct task_struct *, umode_t);
 extern void pid_update_inode(struct task_struct *, struct inode *);
+int proc_exec_id_single_open(struct inode *inode, struct file *file,
+			     int (*show)(struct seq_file *, void *));
+int proc_exec_id_single_release(struct inode *inode, struct file *file);
+int proc_exec_id_dir_open(struct inode *inode, struct file *file);
+int proc_exec_id_dir_release(struct inode *inode, struct file *file);
+int proc_exec_id_lock(const struct file *file, struct task_struct *task,
+		      u64 *exec_id);
+void proc_exec_id_unlock(struct task_struct *task);
 extern int pid_delete_dentry(const struct dentry *);
 extern int proc_pid_readdir(struct file *, struct dir_context *);
 struct dentry *proc_pid_lookup(struct dentry *, unsigned int);
@@ -424,9 +432,21 @@ static inline void pde_force_lookup(struct proc_dir_entry *pde)
 }
 
 /*
- * Add a new procfs dentry that can't serve as a mountpoint. That should
- * encompass anything that is ephemeral and can just disappear while the
- * process is still around.
+ * Add a new procfs dentry that can't serve as a mountpoint.
+ *
+ * If ->d_revalidate() fails the VFS calls d_invalidate() on the dentry. That
+ * detaches every mount on it and below it, in every mount namespace, locked
+ * mounts included, and the next lookup creates a new dentry without them. So
+ * nothing whose ->d_revalidate() can fail while the process is still around
+ * may be a mountpoint: the entries below fd/ and fdinfo/ once the fd is
+ * closed, the entries below map_files/ once the mapping is gone and
+ * everything below net/ where proc_net_d_revalidate() fails on every lookup.
+ * The links into /proc/self can't be mountpoints either. A mount on one of
+ * them would redirect every process that walks through it.
+ *
+ * The other entries of a process fail pid_revalidate() only once the task
+ * is gone and proc_flush_pid() invalidates them when it is reaped. Mounts
+ * on them go away together with the task.
  */
 static inline struct dentry *proc_splice_unmountable(struct inode *inode,
 		struct dentry *dentry, const struct dentry_operations *d_ops)

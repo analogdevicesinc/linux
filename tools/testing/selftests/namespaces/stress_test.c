@@ -124,7 +124,7 @@ TEST(many_concurrent_namespaces)
 
 		if (pids[i] == 0) {
 			/* Child: create user namespace and wait for parent signal */
-			char c;
+			char c = 'X';
 
 			close(sv[0]);
 
@@ -366,7 +366,7 @@ TEST(listns_pagination_stress)
 		ASSERT_GE(pids[i], 0);
 
 		if (pids[i] == 0) {
-			char c;
+			char c = 'X';
 			close(sv[0]);
 
 			if (setup_userns() < 0) {

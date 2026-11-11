@@ -806,7 +806,7 @@ int gfs2_thaw_super(struct super_block *sb, enum freeze_holder who,
 		return -EBUSY;
 	if (!test_bit(SDF_FREEZE_INITIATOR, &sdp->sd_flags)) {
 		mutex_unlock(&sdp->sd_freeze_mutex);
-		return -EINVAL;
+		return -EALREADY;
 	}
 
 	atomic_inc(&sb->s_active);

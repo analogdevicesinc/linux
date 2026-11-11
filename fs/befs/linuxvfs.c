@@ -862,6 +862,7 @@ befs_fill_super(struct super_block *sb, struct fs_context *fc)
 	/* Set real blocksize of fs */
 	if (!sb_set_blocksize(sb, (ulong) befs_sb->block_size))
 		goto unacquire_priv_sbp;
+	sb->s_maxbytes = MAX_LFS_FILESIZE;
 	sb->s_op = &befs_sops;
 	sb->s_export_op = &befs_export_operations;
 	sb->s_time_min = 0;

@@ -7129,6 +7129,7 @@ S:	Supported
 T:	git https://git.kernel.org/pub/scm/linux/kernel/git/pcmoore/lsm.git
 F:	include/linux/cred.h
 F:	kernel/cred.c
+F:	kernel/cred_kunit.c
 F:	rust/kernel/cred.rs
 F:	Documentation/security/credentials.rst
 
@@ -20662,13 +20663,6 @@ F:	drivers/regulator/twl-regulator.c
 F:	drivers/regulator/twl6030-regulator.c
 F:	include/linux/platform_data/i2c-omap.h
 F:	include/linux/platform_data/ti-sysc.h
-
-OMFS FILESYSTEM
-M:	Bob Copeland <me@bobcopeland.com>
-L:	linux-karma-devel@lists.sourceforge.net
-S:	Maintained
-F:	Documentation/filesystems/omfs.rst
-F:	fs/omfs/
 
 OMNIVISION OG01A1B SENSOR DRIVER
 M:	Sakari Ailus <sakari.ailus@linux.intel.com>

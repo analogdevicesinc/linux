@@ -1,0 +1,103 @@
+C mnt-walker-late-sees-new-pwd
+
+(*
+ * Result: Never
+ *
+ * A holder has its cwd on the mount and chdir()s away right before
+ * mntput_unheld() sums.  set_fs_pwd() stores the new fs->pwd under
+ * write_seqlock() of fs->seq and then drops the reference to the old cwd
+ * on the fast path of mntput_no_expire(): smp_wmb(), the put.
+ * umount_tree() clears ->mnt_ns under write_seqlock() of mount_lock and
+ * mntput_unheld() sums with mnt_get_count() under the lock: the puts
+ * pass, smp_mb(), the gets pass.  The sum counts the put (1:r1=1), comes
+ * out at one and finishes the mount off.  A walker whose path_init()
+ * samples the seqcount of mount_lock after that critical section
+ * (2:r5=4) and then reads fs->pwd must not read the old cwd (2:r6=0).
+ * Its seqcount sample would never change again and __legitimize_mnt()
+ * would hand it a reference to the finished mount.  The smp_wmb() of
+ * write_sequnlock() orders the new fs->pwd before the put and so does
+ * the smp_wmb() of the fast path, either one is enough.  The smp_mb() of
+ * mnt_get_count() orders the load of the put before the seqcount store
+ * of the unlock, and the walker orders its loads with smp_rmb().  A
+ * holder that already sees ->mnt_ns NULL puts under mount_lock, which
+ * orders the put anyway.
+ *)
+
+{
+	mnt_ns=1;
+	pwd=0;
+	fseq=0;
+	gets_h=1;
+	puts_h=0;
+	gets_u=1;
+	puts_u=0;
+	seq=0;
+}
+
+P0(spinlock_t *fslock, int *fseq, int *pwd, int *mnt_ns, int *puts_h)
+{
+	int r0;
+
+	spin_lock(fslock);
+	WRITE_ONCE(*fseq, 1);
+	smp_wmb();
+	WRITE_ONCE(*pwd, 1);
+	smp_wmb();
+	WRITE_ONCE(*fseq, 2);
+	spin_unlock(fslock);
+
+	rcu_read_lock();
+	r0 = READ_ONCE(*mnt_ns);
+	if (r0) {
+		smp_wmb();
+		WRITE_ONCE(*puts_h, 1);
+	}
+	rcu_read_unlock();
+}
+
+P1(spinlock_t *mlock, int *seq, int *mnt_ns, int *gets_h, int *puts_h, int *gets_u, int *puts_u)
+{
+	int r1;
+	int r2;
+	int r3;
+	int r4;
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 1);
+	smp_wmb();
+	WRITE_ONCE(*mnt_ns, 0);
+	smp_wmb();
+	WRITE_ONCE(*seq, 2);
+	spin_unlock(mlock);
+
+	spin_lock(mlock);
+	WRITE_ONCE(*seq, 3);
+	smp_wmb();
+	r1 = READ_ONCE(*puts_h);
+	r2 = READ_ONCE(*puts_u);
+	smp_mb();
+	r3 = READ_ONCE(*gets_h);
+	r4 = READ_ONCE(*gets_u);
+	smp_wmb();
+	WRITE_ONCE(*seq, 4);
+	spin_unlock(mlock);
+}
+
+P2(int *seq, int *fseq, int *pwd)
+{
+	int r5;
+	int r6;
+	int r7;
+	int r8;
+
+	r5 = READ_ONCE(*seq);
+	smp_rmb();
+	r7 = READ_ONCE(*fseq);
+	smp_rmb();
+	r6 = READ_ONCE(*pwd);
+	smp_rmb();
+	r8 = READ_ONCE(*fseq);
+}
+
+filter (2:r7=0 /\ 2:r8=0 \/ 2:r7=2 /\ 2:r8=2)
+exists (1:r1=1 /\ 2:r5=4 /\ 2:r6=0)
