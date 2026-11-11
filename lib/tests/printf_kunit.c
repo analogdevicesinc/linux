@@ -572,6 +572,21 @@ time_and_date(struct kunit *kunittest)
 
 	test("2019-01-04T15:32:23.011235813", "%ptS", &ts);
 	test("1546615943.011235813", "%ptSp", &ts);
+
+	ts.tv_sec = 0;
+	ts.tv_nsec = 0;
+	test("0.000000000", "%ptSp", &ts);
+
+	ts.tv_sec = -1;
+	test("-1.000000000", "%ptSp", &ts);
+	test("1969-12-31T23:59:59.000000000", "%ptS", &ts);
+	ts.tv_nsec = 999999999;
+	test("-1.999999999", "%ptSp", &ts);
+
+	ts.tv_sec = S64_MIN;
+	test("-9223372036854775808.999999999", "%ptSp", &ts);
+	ts.tv_sec = S64_MAX;
+	test("9223372036854775807.999999999", "%ptSp", &ts);
 }
 
 static void
