@@ -109,7 +109,7 @@ lbr_test() {
   sam_nr=$(echo "$out" | grep -c 'PERF_RECORD_SAMPLE' || true)
   echo "$test: $sam_nr samples"
 
-  bs_nr=$(echo "$out" | grep -c 'branch stack: nr:' || true)
+  bs_nr=$(echo "$out" | grep -cE 'branch (call)?stack: nr:' || true)
   if [ $sam_nr -ne $bs_nr ]
   then
     echo "$test [Failed samples missing branch stacks]"
@@ -146,6 +146,7 @@ lbr_test "-j ind_call" "any indirect call" 2
 lbr_test "-j ind_jmp" "any indirect jump" 100
 lbr_test "-j call" "direct calls" 2
 lbr_test "-j ind_call,u" "any indirect user call" 100
+lbr_test "-j stack" "call stack" 100
 if ! ParanoidAndNotRoot 1
 then
   lbr_test "-a -b" "system wide any branch" 2
@@ -177,8 +178,10 @@ else
   parallel_lbr_test "-a -j any_call" "parallel system wide any call" 100 &
   pid9=$!
 fi
+parallel_lbr_test "-j stack" "parallel call stack" 100 &
+pid10=$!
 
-for pid in $pid1 $pid2 $pid3 $pid4 $pid5 $pid6 $pid7 $pid8 $pid9
+for pid in $pid1 $pid2 $pid3 $pid4 $pid5 $pid6 $pid7 $pid8 $pid9 $pid10
 do
   set +e
   wait $pid

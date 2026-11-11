@@ -1,0 +1,62 @@
+[
+    {
+        "EventName": "inst.mispred.branch",
+        "EventCode": "0x00000018",
+        "BriefDescription": "Conditional branches that mispredicted"
+    },
+    {
+        "EventName": "inst.mispred.uncond_branch",
+        "EventCode": "0x00000019",
+        "BriefDescription": "Direct jumps that mispredicted"
+    },
+    {
+        "EventName": "inst.mispred.ind",
+        "EventCode": "0x0000001a",
+        "BriefDescription": "Indirect jumps that mispredicted"
+    },
+    {
+        "EventName": "inst.mispred.ret",
+        "EventCode": "0x0000001b",
+        "BriefDescription": "Function return instructions that mispredicted"
+    },
+    {
+        "EventName": "inst.brjmp.branch.spec",
+        "EventCode": "0x0000001c",
+        "BriefDescription": "Conditional branch instructions that speculatively executed"
+    },
+    {
+        "EventName": "inst.brjmp.uncond_branch.spec",
+        "EventCode": "0x0000001d",
+        "BriefDescription": "Direct jumps that speculatively executed"
+    },
+    {
+        "EventName": "inst.brjmp.ind.spec",
+        "EventCode": "0x0000001e",
+        "BriefDescription": "Indirect jumps that speculatively executed"
+    },
+    {
+        "EventName": "inst.brjmp.ret.spec",
+        "EventCode": "0x0000001f",
+        "BriefDescription": "Function return instructions that speculatively executed"
+    },
+    {
+        "EventName": "inst.brjmp.branch.tk",
+        "EventCode": "0x00000020",
+        "BriefDescription": "Branch instructions that resolved to be taken"
+    },
+    {
+        "EventName": "cache.l1i.rd.miss.latency",
+        "EventCode": "0x000000b8",
+        "BriefDescription": "Cycles where frontend issues no instructions due to L1 instruction cache miss"
+    },
+    {
+        "EventName": "tlb.l1i.miss.latency",
+        "EventCode": "0x000000b9",
+        "BriefDescription": "Cycles where frontend issues no instructions due to instruction TLB miss"
+    },
+    {
+        "EventName": "inst.mispred.brjmp.latency",
+        "EventCode": "0x000000ba",
+        "BriefDescription": "Cycles where frontend issues no instructions due to branch redirect"
+    }
+]

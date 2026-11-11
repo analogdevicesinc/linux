@@ -13,11 +13,11 @@
 #include "cloexec.h"
 #include "../perf-sys.h"
 
-#define WP_TEST_ASSERT_VAL(fd, text, val)       \
-do {                                            \
-	long long count;                        \
-	wp_read(fd, &count, sizeof(long long)); \
-	TEST_ASSERT_VAL(text, count == val);    \
+#define WP_TEST_ASSERT_EQUAL(fd, text, val)		\
+do {							\
+	long long count;				\
+	wp_read(fd, &count, sizeof(long long));		\
+	TEST_ASSERT_EQUAL(text, (int)count, (int)val);	\
 } while (0)
 
 #ifdef __i386__
@@ -87,10 +87,10 @@ static int test__wp_ro(struct test_suite *test __maybe_unused,
 		return fd == -ENODEV ? TEST_SKIP : -1;
 
 	tmp = data1;
-	WP_TEST_ASSERT_VAL(fd, "RO watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "RO watchpoint", 1);
 
 	data1 = tmp1 + tmp;
-	WP_TEST_ASSERT_VAL(fd, "RO watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "RO watchpoint", 1);
 
 	close(fd);
 	return 0;
@@ -111,10 +111,10 @@ static int test__wp_wo(struct test_suite *test __maybe_unused,
 		return fd == -ENODEV ? TEST_SKIP : -1;
 
 	tmp = data1;
-	WP_TEST_ASSERT_VAL(fd, "WO watchpoint", 0);
+	WP_TEST_ASSERT_EQUAL(fd, "WO watchpoint", 0);
 
 	data1 = tmp1 + tmp;
-	WP_TEST_ASSERT_VAL(fd, "WO watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "WO watchpoint", 1);
 
 	close(fd);
 	return 0;
@@ -136,10 +136,10 @@ static int test__wp_rw(struct test_suite *test __maybe_unused,
 		return fd == -ENODEV ? TEST_SKIP : -1;
 
 	tmp = data1;
-	WP_TEST_ASSERT_VAL(fd, "RW watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "RW watchpoint", 1);
 
 	data1 = tmp1 + tmp;
-	WP_TEST_ASSERT_VAL(fd, "RW watchpoint", 2);
+	WP_TEST_ASSERT_EQUAL(fd, "RW watchpoint", 2);
 
 	close(fd);
 	return 0;
@@ -160,7 +160,7 @@ static int test__wp_modify(struct test_suite *test __maybe_unused, int subtest _
 		return fd == -ENODEV ? TEST_SKIP : -1;
 
 	data1 = tmp;
-	WP_TEST_ASSERT_VAL(fd, "Modify watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "Modify watchpoint", 1);
 
 	/* Modify watchpoint with disabled = 1 */
 	get__perf_event_attr(&new_attr, HW_BREAKPOINT_W, (void *)&data2[0],
@@ -179,10 +179,10 @@ static int test__wp_modify(struct test_suite *test __maybe_unused, int subtest _
 	}
 
 	data2[1] = tmp; /* Not Counted */
-	WP_TEST_ASSERT_VAL(fd, "Modify watchpoint", 1);
+	WP_TEST_ASSERT_EQUAL(fd, "Modify watchpoint", 1);
 
 	/* Enable the event */
-	ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+	ret = ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
 	if (ret < 0) {
 		pr_debug("Failed to enable event\n");
 		close(fd);
@@ -190,10 +190,10 @@ static int test__wp_modify(struct test_suite *test __maybe_unused, int subtest _
 	}
 
 	data2[1] = tmp; /* Counted */
-	WP_TEST_ASSERT_VAL(fd, "Modify watchpoint", 2);
+	WP_TEST_ASSERT_EQUAL(fd, "Modify watchpoint", 2);
 
 	data2[2] = tmp; /* Not Counted */
-	WP_TEST_ASSERT_VAL(fd, "Modify watchpoint", 2);
+	WP_TEST_ASSERT_EQUAL(fd, "Modify watchpoint", 2);
 
 	close(fd);
 	return 0;

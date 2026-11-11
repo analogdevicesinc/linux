@@ -61,6 +61,14 @@ const char *cu_get_comp_dir(Dwarf_Die *cu_die)
 	return dwarf_formstring(&attr);
 }
 
+bool die_is_compound_type(Dwarf_Die *type_die)
+{
+	int tag = dwarf_tag(type_die);
+
+	return tag == DW_TAG_structure_type || tag == DW_TAG_union_type ||
+	       tag == DW_TAG_class_type;
+}
+
 /* Unlike dwarf_getsrc_die(), cu_getsrc_die() only returns statement line */
 static Dwarf_Line *cu_getsrc_die(Dwarf_Die *cu_die, Dwarf_Addr addr)
 {
@@ -2143,25 +2151,81 @@ int die_get_scopes(Dwarf_Die *cu_die, Dwarf_Addr pc, Dwarf_Die **scopes)
 	return data.nr;
 }
 
+struct __find_member_offset_param {
+	Dwarf_Word offset;
+	int depth;	/* nesting of base classes */
+	bool overflow;	/* depth limit reached, the result is not valid */
+};
+
 static int __die_find_member_offset_cb(Dwarf_Die *die_mem, void *arg)
 {
+	struct __find_member_offset_param *param = arg;
 	Dwarf_Die type_die;
 	Dwarf_Word size, loc;
-	Dwarf_Word offset = (long)arg;
+	Dwarf_Word offset = param->offset;
 	int tag = dwarf_tag(die_mem);
 
-	if (tag != DW_TAG_member)
+	if (tag != DW_TAG_member && tag != DW_TAG_inheritance)
 		return DIE_FIND_CB_SIBLING;
 
 	/* Unions might not have location */
 	if (die_get_data_member_location(die_mem, &loc) < 0) {
 		Dwarf_Attribute attr;
 
+		/*
+		 * A virtual base class (C++) has a location expression that
+		 * needs the vtable at runtime.  Skip it as it cannot be
+		 * resolved statically.
+		 */
+		if (tag == DW_TAG_inheritance)
+			return DIE_FIND_CB_SIBLING;
+
 		if (dwarf_attr_integrate(die_mem, DW_AT_data_bit_offset, &attr) &&
 		    dwarf_formudata(&attr, &loc) == 0)
 			loc /= 8;
 		else
 			loc = 0;
+	}
+
+	if (tag == DW_TAG_inheritance) {
+		struct __find_member_offset_param base_param = {
+			.offset = offset - loc,
+			.depth = param->depth + 1,
+		};
+		Dwarf_Die base_die, member_die;
+
+		/*
+		 * A base class subobject can be smaller than the size of the
+		 * class type: an empty base takes no space (EBO) and a member
+		 * of the derived class can be placed in the tail padding of
+		 * the base.  In both cases a member of the derived class is
+		 * at the same offset as the base, so only match the base if
+		 * it actually has a member at the offset.
+		 */
+		if (offset < loc)
+			return DIE_FIND_CB_SIBLING;
+
+		/*
+		 * Stop the search on broken debug info with cyclic
+		 * inheritance.  The callers check the overflow flag.
+		 */
+		if (param->depth >= MAX_TYPE_CHASE) {
+			pr_debug("DWARF: base class recursion limit reached at DIE 0x%lx\n",
+				 (unsigned long)dwarf_dieoffset(die_mem));
+			param->overflow = true;
+			return DIE_FIND_CB_END;
+		}
+
+		if (die_get_real_type(die_mem, &base_die) == NULL)
+			return DIE_FIND_CB_SIBLING;
+
+		if (die_find_child(&base_die, __die_find_member_offset_cb,
+				   &base_param, &member_die)) {
+			param->overflow = base_param.overflow;
+			return DIE_FIND_CB_END;
+		}
+
+		return DIE_FIND_CB_SIBLING;
 	}
 
 	if (offset == loc)
@@ -2195,13 +2259,14 @@ static int __die_find_member_offset_cb(Dwarf_Die *die_mem, void *arg)
 Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 			       Dwarf_Die *die_mem)
 {
+	struct __find_member_offset_param param = { .depth = 0 };
 	Dwarf_Die *member;
 	Dwarf_Die mb_type;
 	int tag;
 
 	tag = dwarf_tag(type_die);
 	/* If it's not a compound type, return the type directly */
-	if (tag != DW_TAG_structure_type && tag != DW_TAG_union_type) {
+	if (!die_is_compound_type(type_die)) {
 		Dwarf_Word size;
 
 		if (dwarf_aggregate_size(type_die, &size) < 0)
@@ -2216,10 +2281,11 @@ Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 
 	mb_type = *type_die;
 	/* TODO: Handle union types better? */
-	while (tag == DW_TAG_structure_type || tag == DW_TAG_union_type) {
+	while (die_is_compound_type(&mb_type)) {
+		param.offset = offset;
 		member = die_find_child(&mb_type, __die_find_member_offset_cb,
-					(void *)(long)offset, die_mem);
-		if (member == NULL)
+					&param, die_mem);
+		if (member == NULL || param.overflow)
 			return NULL;
 
 		if (die_get_real_type(member, &mb_type) == NULL)
@@ -2227,8 +2293,7 @@ Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 
 		tag = dwarf_tag(&mb_type);
 
-		if (tag == DW_TAG_structure_type || tag == DW_TAG_union_type ||
-		    tag == DW_TAG_array_type) {
+		if (die_is_compound_type(&mb_type) || tag == DW_TAG_array_type) {
 			Dwarf_Word loc;
 
 			/* Update offset for the start of the member struct */
@@ -2252,6 +2317,241 @@ Dwarf_Die *die_get_member_type(Dwarf_Die *type_die, int offset,
 	}
 	*die_mem = mb_type;
 	return die_mem;
+}
+
+/**
+ * die_get_vtable_index - Get the vtable slot index of a virtual function
+ * @func_die: a DW_TAG_subprogram DIE
+ *
+ * Returns the index of the slot of @func_die in the vtable of its class or
+ * -1 if it's not a virtual function.  DWARF defines the
+ * DW_AT_vtable_elem_location as a location description of the slot, but
+ * both GCC and Clang emit the slot index as a single DW_OP_constu (or
+ * DW_OP_litN) and it's what debuggers expect too.
+ */
+int die_get_vtable_index(Dwarf_Die *func_die)
+{
+	Dwarf_Attribute attr;
+	Dwarf_Op *expr;
+	size_t nexpr;
+
+	if (dwarf_attr_integrate(func_die, DW_AT_vtable_elem_location, &attr) == NULL)
+		return -1;
+
+	if (dwarf_getlocation(&attr, &expr, &nexpr) < 0 || nexpr != 1)
+		return -1;
+
+	if (expr[0].atom == DW_OP_constu)
+		return expr[0].number;
+
+	if (expr[0].atom >= DW_OP_lit0 && expr[0].atom <= DW_OP_lit31)
+		return expr[0].atom - DW_OP_lit0;
+
+	pr_debug("Unexpected vtable_elem_location OP %x\n", expr[0].atom);
+	return -1;
+}
+
+static int __die_find_virtual_func_cb(Dwarf_Die *die_mem, void *arg)
+{
+	int index = (long)arg;
+
+	if (dwarf_tag(die_mem) != DW_TAG_subprogram)
+		return DIE_FIND_CB_SIBLING;
+
+	if (die_get_vtable_index(die_mem) == index)
+		return DIE_FIND_CB_END;
+
+	return DIE_FIND_CB_SIBLING;
+}
+
+/*
+ * Find the primary base class: the first non-virtual base class at offset 0
+ * which has a vtable.  Note that an empty base class can also be placed at
+ * offset 0 (empty base optimization) before the primary base.
+ */
+static int __die_find_primary_base_cb(Dwarf_Die *die_mem, void *arg __maybe_unused)
+{
+	Dwarf_Attribute attr;
+	Dwarf_Die base_die, vptr_die;
+	Dwarf_Word loc, virtuality;
+
+	if (dwarf_tag(die_mem) != DW_TAG_inheritance)
+		return DIE_FIND_CB_SIBLING;
+
+	/* The attribute can be present with DW_VIRTUALITY_none */
+	if (dwarf_attr_integrate(die_mem, DW_AT_virtuality, &attr) &&
+	    dwarf_formudata(&attr, &virtuality) == 0 &&
+	    virtuality != DW_VIRTUALITY_none)
+		return DIE_FIND_CB_SIBLING;
+
+	if (die_get_data_member_location(die_mem, &loc) < 0 || loc != 0)
+		return DIE_FIND_CB_SIBLING;
+
+	if (die_get_real_type(die_mem, &base_die) == NULL)
+		return DIE_FIND_CB_SIBLING;
+
+	/* It should have the vtable pointer at offset 0 */
+	if (die_get_vptr_class(&base_die, 0, &vptr_die) == NULL)
+		return DIE_FIND_CB_SIBLING;
+
+	return DIE_FIND_CB_END;
+}
+
+/**
+ * die_find_virtual_func - Find a virtual function by its vtable slot index
+ * @class_die: a class type DIE
+ * @index: index of the slot in the vtable of @class_die
+ * @die_mem: a buffer for result DIE
+ *
+ * Search a DW_TAG_subprogram DIE at the slot @index of the vtable of
+ * @class_die and store the DIE to @die_mem and returns it if found.  The
+ * (primary) vtable of a class starts with the vtable of its primary base
+ * class, that is the first non-virtual base class at offset 0 which has a
+ * vtable, and virtual functions introduced by the class come after that.
+ * So if @class_die doesn't have a virtual function with the @index, it
+ * continues to the primary base.  Other (non-primary) base classes have
+ * their own secondary vtables where the index is different, so they are
+ * not searched.
+ *
+ * Returns NULL if not found.
+ */
+Dwarf_Die *die_find_virtual_func(Dwarf_Die *class_die, int index,
+				 Dwarf_Die *die_mem)
+{
+	Dwarf_Die cur_die = *class_die;
+	Dwarf_Die base_die;
+	int chase = 0;
+
+	while (die_is_compound_type(&cur_die)) {
+		if (++chase > MAX_TYPE_CHASE) {
+			pr_debug("DWARF: base class chase limit reached at DIE 0x%lx\n",
+				 (unsigned long)dwarf_dieoffset(class_die));
+			return NULL;
+		}
+
+		if (die_find_child(&cur_die, __die_find_virtual_func_cb,
+				   (void *)(long)index, die_mem))
+			return die_mem;
+
+		if (die_find_child(&cur_die, __die_find_primary_base_cb,
+				   NULL, &base_die) == NULL)
+			break;
+
+		if (die_get_real_type(&base_die, &cur_die) == NULL)
+			break;
+	}
+	return NULL;
+}
+
+/**
+ * die_is_vtbl_ptr_type - Check if the type is a C++ vtable pointer
+ * @type_die: a type DIE
+ *
+ * Compilers add the vtable pointer as an artificial member to the class
+ * that introduces virtual functions first.  Both GCC and Clang give it a
+ * type of pointer to a pointer type named "__vtbl_ptr_type", so it can
+ * be identified by the type without looking at the member name.
+ */
+bool die_is_vtbl_ptr_type(Dwarf_Die *type_die)
+{
+	Dwarf_Die ptr_die;
+	const char *name;
+
+	if (dwarf_tag(type_die) != DW_TAG_pointer_type)
+		return false;
+
+	if (die_get_real_type(type_die, &ptr_die) == NULL)
+		return false;
+
+	name = dwarf_diename(&ptr_die);
+	return name != NULL && !strcmp(name, "__vtbl_ptr_type");
+}
+
+/**
+ * die_get_vptr_class - Get the class of the vtable pointer at the offset
+ * @type_die: a class type DIE
+ * @offset: offset of the accessed member in @type_die
+ * @die_mem: a buffer for result DIE
+ *
+ * Check if the member at @offset in @type_die is a vtable pointer and
+ * return the class DIE whose vtable it points to.  The vtable pointer is
+ * a member of the class that introduces virtual functions first, so it
+ * follows DW_TAG_inheritance to look into the base class subobjects like
+ * die_get_member_type().
+ *
+ * Note that the vtable pointer at offset 0 belongs to the (primary) vtable
+ * of @type_die itself as it extends the one of the primary base class.
+ * Only when a non-primary base class subobject (at non-zero offset) is
+ * entered, it points to a separate vtable of the base class.
+ *
+ * Returns NULL if the member at @offset is not a vtable pointer.
+ */
+Dwarf_Die *die_get_vptr_class(Dwarf_Die *type_die, int offset,
+			      Dwarf_Die *die_mem)
+{
+	struct __find_member_offset_param param = { .depth = 0 };
+	Dwarf_Die class_die = *type_die;
+	Dwarf_Die vptr_class = *type_die;
+	Dwarf_Die member_die, mb_type;
+	Dwarf_Word loc;
+	int chase = 0;
+
+	while (die_is_compound_type(&class_die)) {
+		if (++chase > MAX_TYPE_CHASE) {
+			pr_debug("DWARF: base class chase limit reached at DIE 0x%lx\n",
+				 (unsigned long)dwarf_dieoffset(type_die));
+			return NULL;
+		}
+
+		param.offset = offset;
+		if (die_find_child(&class_die, __die_find_member_offset_cb,
+				   &param, &member_die) == NULL || param.overflow)
+			return NULL;
+
+		if (dwarf_tag(&member_die) == DW_TAG_member) {
+			if (die_get_real_type(&member_die, &mb_type) == NULL ||
+			    !die_is_vtbl_ptr_type(&mb_type))
+				return NULL;
+
+			*die_mem = vptr_class;
+			return die_mem;
+		}
+
+		/* DW_TAG_inheritance: go into the base class subobject */
+		if (die_get_data_member_location(&member_die, &loc) < 0)
+			return NULL;
+
+		if (die_get_real_type(&member_die, &class_die) == NULL)
+			return NULL;
+
+		offset -= loc;
+		if (loc != 0)
+			vptr_class = class_die;
+	}
+	return NULL;
+}
+
+/**
+ * die_deref_vptr_class - Get the class of the vtable pointer via pointer access
+ * @ptr_die: a pointer type DIE
+ * @offset: offset of the accessed member from the pointer
+ * @die_mem: a buffer for result DIE
+ *
+ * Same as die_get_vptr_class() but for an access through a pointer to the
+ * class, like die_deref_ptr_type().
+ */
+Dwarf_Die *die_deref_vptr_class(Dwarf_Die *ptr_die, int offset,
+				Dwarf_Die *die_mem)
+{
+	Dwarf_Die type_die;
+
+	if (dwarf_tag(ptr_die) != DW_TAG_pointer_type)
+		return NULL;
+
+	if (die_get_real_type(ptr_die, &type_die) == NULL)
+		return NULL;
+
+	return die_get_vptr_class(&type_die, offset, die_mem);
 }
 
 /**

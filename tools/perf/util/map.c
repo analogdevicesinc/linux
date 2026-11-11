@@ -538,13 +538,10 @@ u64 map__rip_2objdump(const struct map *map, u64 rip)
 	 */
 	if (kmap && is_entry_trampoline(kmap->name) && kmap->kmaps) {
 		struct machine *machine = maps__machine(kmap->kmaps);
+		struct map *kernel_map = machine__kernel_map(machine);
 
-		if (machine) {
-			struct map *kernel_map = machine__kernel_map(machine);
-
-			if (kernel_map)
-				map = kernel_map;
-		}
+		if (kernel_map)
+			map = kernel_map;
 	}
 
 	if (!dso__adjust_symbols(dso))

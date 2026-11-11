@@ -706,9 +706,6 @@ struct map *thread__find_map(struct thread *thread, u8 cpumode, u64 addr,
 	al->cpumode = cpumode;
 	al->filtered = 0;
 
-	if (machine == NULL)
-		return NULL;
-
 	if (cpumode == PERF_RECORD_MISC_KERNEL && perf_host) {
 		al->level = 'k';
 		maps = machine__kernel_maps(machine);

@@ -1,0 +1,137 @@
+[
+    {
+        "EventName": "inst.load.unalign",
+        "EventCode": "0x00000083",
+        "BriefDescription": "Unaligned load instructions"
+    },
+    {
+        "EventName": "inst.store.unalign",
+        "EventCode": "0x00000084",
+        "BriefDescription": "Unaligned cross-page store instructions"
+    },
+    {
+        "EventName": "cache.l1d.wr.access",
+        "EventCode": "0x0000008a",
+        "BriefDescription": "Data Cache store accesses"
+    },
+    {
+        "EventName": "cache.l1d.wr.miss",
+        "EventCode": "0x0000008b",
+        "BriefDescription": "Data Cache store misses"
+    },
+    {
+        "EventName": "cache.l1d.refill.inner",
+        "EventCode": "0x0000008c",
+        "BriefDescription": "Data Cache misses with L2C hit"
+    },
+    {
+        "EventName": "cache.l1d.refill.outer",
+        "EventCode": "0x0000008d",
+        "BriefDescription": "Data Cache misses with L2C miss"
+    },
+    {
+        "EventName": "cache.l1d.wb",
+        "EventCode": "0x0000008e",
+        "BriefDescription": "Data Cache dirty cache line evictions"
+    },
+    {
+        "EventName": "cache.l1d.wb.victim",
+        "EventCode": "0x0000008f",
+        "BriefDescription": "Data Cache dirty cache line evictions caused by new cache line refilling"
+    },
+    {
+        "EventName": "cache.l1d.wb.clean",
+        "EventCode": "0x00000090",
+        "BriefDescription": "Data Cache dirty cache line evictions caused by CMO from another CPU or snoop from another CPU"
+    },
+    {
+        "EventName": "cache.l1d.inval",
+        "EventCode": "0x00000091",
+        "BriefDescription": "Data Cache invalidations caused by CMO or snoops"
+    },
+    {
+        "EventName": "inst.ldst.load.spec",
+        "EventCode": "0x00000092",
+        "BriefDescription": "Completed load instructions (prefetch not included)"
+    },
+    {
+        "EventName": "inst.ldst.store.spec",
+        "EventCode": "0x00000093",
+        "BriefDescription": "Completed store instructions (CMO not included)"
+    },
+    {
+        "EventName": "inst.ldst.lr.spec",
+        "EventCode": "0x00000094",
+        "BriefDescription": "Completed lr instructions"
+    },
+    {
+        "EventName": "inst.ldst.sc",
+        "EventCode": "0x00000095",
+        "BriefDescription": "Completed sc instructions"
+    },
+    {
+        "EventName": "inst.ldst.sc.pass",
+        "EventCode": "0x00000096",
+        "BriefDescription": "Completed sc instructions that pass"
+    },
+    {
+        "EventName": "inst.ldst.sc.fail",
+        "EventCode": "0x00000097",
+        "BriefDescription": "Completed sc instructions that fail"
+    },
+    {
+        "EventName": "inst.ldst.amo",
+        "EventCode": "0x00000098",
+        "BriefDescription": "Completed AMO instructions"
+    },
+    {
+        "EventName": "inst.ldst.load_acquire.spec",
+        "EventCode": "0x00000099",
+        "BriefDescription": "Completed load acquire instructions"
+    },
+    {
+        "EventName": "inst.ldst.store_release.spec",
+        "EventCode": "0x0000009a",
+        "BriefDescription": "Completed store release instructions"
+    },
+    {
+        "EventName": "inst.ldst.fence",
+        "EventCode": "0x0000009b",
+        "BriefDescription": "Completed fence instructions"
+    },
+    {
+        "EventName": "inst.ldst.fencei",
+        "EventCode": "0x0000009c",
+        "BriefDescription": "Completed fencei instructions"
+    },
+    {
+        "EventName": "inst.ldst.dvm_sync",
+        "EventCode": "0x0000009d",
+        "BriefDescription": "Completed dvm sync instructions"
+    },
+    {
+        "EventName": "inst.ldst.vec_load.spec",
+        "EventCode": "0x0000009e",
+        "BriefDescription": "Completed vector load uops"
+    },
+    {
+        "EventName": "inst.ldst.vec_store.spec",
+        "EventCode": "0x0000009f",
+        "BriefDescription": "Completed vector store uops"
+    },
+    {
+        "EventName": "inst.ldst.float_load.spec",
+        "EventCode": "0x000000a0",
+        "BriefDescription": "Completed floating-point load uops"
+    },
+    {
+        "EventName": "inst.ldst.float_store.spec",
+        "EventCode": "0x000000a1",
+        "BriefDescription": "Completed floating-point store uops"
+    },
+    {
+        "EventName": "inst.ldst.spec",
+        "EventCode": "0x000000b3",
+        "BriefDescription": "Completed instructions executed by LSU"
+    }
+]

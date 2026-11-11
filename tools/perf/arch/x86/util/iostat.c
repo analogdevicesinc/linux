@@ -129,13 +129,13 @@ static int iio_root_ports_list_insert(struct iio_root_ports_list *list,
 	struct iio_root_port **tmp_buf;
 
 	if (list && rp) {
-		rp->idx = list->nr_entries++;
 		tmp_buf = realloc(list->rps,
-				  list->nr_entries * sizeof(*list->rps));
+				  (list->nr_entries + 1) * sizeof(*list->rps));
 		if (!tmp_buf) {
 			pr_err("Failed to realloc memory\n");
 			return -ENOMEM;
 		}
+		rp->idx = list->nr_entries++;
 		tmp_buf[rp->idx] = rp;
 		list->rps = tmp_buf;
 	}
@@ -233,9 +233,14 @@ static int iio_root_port_parse_str(u32 *domain, u8 *bus, char *str)
 	 * Valid bus range [0:ff]
 	 * Example: 0000:af, 0:3d, 01:7
 	 */
-	regcomp(&regex, "^([a-f0-9A-F]{1,}):([a-f0-9A-F]{1,2})", REG_EXTENDED);
+	ret = regcomp(&regex, "^([a-f0-9A-F]{1,4}):([a-f0-9A-F]{1,2})$",
+		      REG_EXTENDED);
+	if (ret)
+		return ret;
 	ret = regexec(&regex, str, 0, NULL, 0);
-	if (ret || sscanf(str, "%08x:%02hhx", domain, bus) != 2)
+	if (!ret && sscanf(str, "%04x:%02hhx", domain, bus) != 2)
+		ret = -EINVAL;
+	if (ret)
 		pr_warning("Unrecognized root port format: %s\n"
 			   "Please use the following format:\n"
 			   "\t [domain]:[bus]\n"

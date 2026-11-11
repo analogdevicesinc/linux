@@ -23,6 +23,27 @@ const char *cu_find_realpath(Dwarf_Die *cu_die, const char *fname);
 /* Get DW_AT_comp_dir (should be NULL with older gcc) */
 const char *cu_get_comp_dir(Dwarf_Die *cu_die);
 
+/* Check if DIE is a compound type (structure, union, or class) */
+bool die_is_compound_type(Dwarf_Die *type_die);
+
+/* Get the vtable slot index of a virtual function (-1 if not virtual) */
+int die_get_vtable_index(Dwarf_Die *func_die);
+
+/* Find the virtual function at the vtable slot index of a class */
+Dwarf_Die *die_find_virtual_func(Dwarf_Die *class_die, int index,
+				 Dwarf_Die *die_mem);
+
+/* Check if the type is a C++ vtable pointer (pointer to __vtbl_ptr_type) */
+bool die_is_vtbl_ptr_type(Dwarf_Die *type_die);
+
+/* Get the class of the vtable pointer at the offset of a type (or NULL) */
+Dwarf_Die *die_get_vptr_class(Dwarf_Die *type_die, int offset,
+			      Dwarf_Die *die_mem);
+
+/* Get the class of the vtable pointer at the offset from a pointer (or NULL) */
+Dwarf_Die *die_deref_vptr_class(Dwarf_Die *ptr_die, int offset,
+				Dwarf_Die *die_mem);
+
 /* Get a line number and file name for given address */
 int cu_find_lineinfo(Dwarf_Die *cudie, Dwarf_Addr addr,
 		     const char **fname, int *lineno);

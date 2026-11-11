@@ -107,7 +107,6 @@ static struct drm_pmu *add_drm_pmu(struct list_head *pmus, char *line, size_t li
 		type = PERF_PMU_TYPE_DRM_START;
 
 	if (type > PERF_PMU_TYPE_DRM_END) {
-		zfree(&drm);
 		pr_err("Unable to encode DRM PMU type for %s\n", name);
 		return NULL;
 	}

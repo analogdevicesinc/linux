@@ -1,0 +1,167 @@
+[
+    {
+        "EventName": "inst.sca.fp.arith.spec",
+        "EventCode": "0x0000005b",
+        "BriefDescription": "Completed scalar floating-point instructions"
+    },
+    {
+        "EventName": "inst.fp.arith.half.spec",
+        "EventCode": "0x0000005c",
+        "BriefDescription": "Completed half-precision floating-point instructions (both scalar and vector included)"
+    },
+    {
+        "EventName": "inst.fp.arith.single.spec",
+        "EventCode": "0x0000005d",
+        "BriefDescription": "Completed single-precision floating-point instructions (both scalar and vector included)"
+    },
+    {
+        "EventName": "inst.fp.arith.double.spec",
+        "EventCode": "0x0000005e",
+        "BriefDescription": "Completed double-precision floating-point instructions (both scalar and vector included)"
+    },
+    {
+        "EventName": "inst.rvv.arith.spec",
+        "EventCode": "0x0000005f",
+        "BriefDescription": "Completed vector arithmetic instructions"
+    },
+    {
+        "EventName": "uop.rvv.arith.spec",
+        "EventCode": "0x00000060",
+        "BriefDescription": "Completed vector arithmetic uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.fp.spec",
+        "EventCode": "0x00000061",
+        "BriefDescription": "Completed vector arithmetic floating-point uops"
+    },
+    {
+        "EventName": "inst.rvv.arith.fp.spec",
+        "EventCode": "0x00000062",
+        "BriefDescription": "Completed vector arithmetic floating-point instructions"
+    },
+    {
+        "EventName": "uop.sca.fp.arith.bf.spec",
+        "EventCode": "0x00000063",
+        "BriefDescription": "Completed scalar bf floating-point uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vint8.spec",
+        "EventCode": "0x00000064",
+        "BriefDescription": "Completed INT8 vector uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vint16.spec",
+        "EventCode": "0x00000065",
+        "BriefDescription": "Completed INT16 vector uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vint32.spec",
+        "EventCode": "0x00000066",
+        "BriefDescription": "Completed INT32 vector uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vint64.spec",
+        "EventCode": "0x00000067",
+        "BriefDescription": "Completed INT64 vector uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.fix_point.spec",
+        "EventCode": "0x00000068",
+        "BriefDescription": "Completed fixed-point vector uops"
+    },
+    {
+        "EventName": "uop.fp.arith.fdiv.spec",
+        "EventCode": "0x00000069",
+        "BriefDescription": "Completed floating-point division uops (both scalar and vector included)"
+    },
+    {
+        "EventName": "uop.rvv.arith.idiv.spec",
+        "EventCode": "0x0000006a",
+        "BriefDescription": "Completed vector integer division uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.zvkn.spec",
+        "EventCode": "0x0000006b",
+        "BriefDescription": "Completed zvkn-type uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.zvks.spec",
+        "EventCode": "0x0000006c",
+        "BriefDescription": "Completed zvks-type uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vmulu64.spec",
+        "EventCode": "0x0000006d",
+        "BriefDescription": "Completed UINT64 vector multiply uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vmulu.spec",
+        "EventCode": "0x0000006e",
+        "BriefDescription": "Completed UNIT vector multiply uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vdot.spec",
+        "EventCode": "0x0000006f",
+        "BriefDescription": "Completed vdot uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vfmul.spec",
+        "EventCode": "0x00000070",
+        "BriefDescription": "Completed vector floating-point multiply uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vfadd.spec",
+        "EventCode": "0x00000071",
+        "BriefDescription": "Completed vector floating-point add uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.perm.spec",
+        "EventCode": "0x00000072",
+        "BriefDescription": "Completed vector permutation uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.redu.spec",
+        "EventCode": "0x00000073",
+        "BriefDescription": "Completed vector integer reduction uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.fred.spec",
+        "EventCode": "0x00000074",
+        "BriefDescription": "Completed vector floating-point reduction uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.mask.spec",
+        "EventCode": "0x00000075",
+        "BriefDescription": "Completed vector arithmetic masked uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.vlmax.spec",
+        "EventCode": "0x00000076",
+        "BriefDescription": "Completed vlmax uops"
+    },
+    {
+        "EventName": "uop.rvv.arith.agnostic.spec",
+        "EventCode": "0x00000077",
+        "BriefDescription": "Completed vector arithmetic uops with agnostic strategy"
+    },
+    {
+        "EventName": "uop.rvv.arith.idiv_direct.spec",
+        "EventCode": "0x00000078",
+        "BriefDescription": "Completed vector integer division uops that produce special result"
+    },
+    {
+        "EventName": "uop.rvv.vadd.spec",
+        "EventCode": "0x000000ae",
+        "BriefDescription": "Completed vector integer add uops"
+    },
+    {
+        "EventName": "uop.rvv.vmacc.spec",
+        "EventCode": "0x000000af",
+        "BriefDescription": "Completed vector integer multiply-add uops"
+    },
+    {
+        "EventName": "uop.rvv.vfmacc.spec",
+        "EventCode": "0x000000b0",
+        "BriefDescription": "Completed vector floating-point multiply-add uops"
+    }
+]

@@ -368,9 +368,38 @@ cs_etm_decoder__reset_timestamp(struct cs_etm_packet_queue *packet_queue)
 	packet_queue->instr_count = 0;
 }
 
+static enum cs_etm_isa
+cs_etm_decoder__get_isa(const ocsd_generic_trace_elem *elem)
+{
+	/*
+	 * OpenCSD preserves ISA and context between output elements, including
+	 * exceptions after a context change with no intervening range.
+	 */
+	if (elem->elem_type != OCSD_GEN_TRC_ELEM_PE_CONTEXT &&
+	    elem->elem_type != OCSD_GEN_TRC_ELEM_INSTR_RANGE &&
+	    elem->elem_type != OCSD_GEN_TRC_ELEM_EXCEPTION)
+		return CS_ETM_ISA_UNKNOWN;
+
+	switch (elem->isa) {
+	case ocsd_isa_aarch64:
+		return CS_ETM_ISA_A64;
+	case ocsd_isa_arm:
+		return CS_ETM_ISA_A32;
+	case ocsd_isa_thumb2:
+		return CS_ETM_ISA_T32;
+	case ocsd_isa_tee:
+	case ocsd_isa_jazelle:
+	case ocsd_isa_custom:
+	case ocsd_isa_unknown:
+	default:
+		return CS_ETM_ISA_UNKNOWN;
+	}
+}
+
 static ocsd_datapath_resp_t
 cs_etm_decoder__buffer_packet(struct cs_etm_queue *etmq,
 			      struct cs_etm_packet_queue *packet_queue,
+			      const ocsd_generic_trace_elem *elem,
 			      const u8 trace_chan_id,
 			      enum cs_etm_sample_type sample_type)
 {
@@ -389,7 +418,7 @@ cs_etm_decoder__buffer_packet(struct cs_etm_queue *etmq,
 	packet_queue->packet_count++;
 
 	packet_queue->packet_buffer[et].sample_type = sample_type;
-	packet_queue->packet_buffer[et].isa = CS_ETM_ISA_UNKNOWN;
+	packet_queue->packet_buffer[et].isa = cs_etm_decoder__get_isa(elem);
 	packet_queue->packet_buffer[et].cpu = cpu;
 	packet_queue->packet_buffer[et].start_addr = CS_ETM_INVAL_ADDR;
 	packet_queue->packet_buffer[et].end_addr = CS_ETM_INVAL_ADDR;
@@ -420,30 +449,12 @@ cs_etm_decoder__buffer_range(struct cs_etm_queue *etmq,
 	int ret = 0;
 	struct cs_etm_packet *packet;
 
-	ret = cs_etm_decoder__buffer_packet(etmq, packet_queue, trace_chan_id,
-					    CS_ETM_RANGE);
+	ret = cs_etm_decoder__buffer_packet(etmq, packet_queue, elem,
+					    trace_chan_id, CS_ETM_RANGE);
 	if (ret != OCSD_RESP_CONT && ret != OCSD_RESP_WAIT)
 		return ret;
 
 	packet = &packet_queue->packet_buffer[packet_queue->tail];
-
-	switch (elem->isa) {
-	case ocsd_isa_aarch64:
-		packet->isa = CS_ETM_ISA_A64;
-		break;
-	case ocsd_isa_arm:
-		packet->isa = CS_ETM_ISA_A32;
-		break;
-	case ocsd_isa_thumb2:
-		packet->isa = CS_ETM_ISA_T32;
-		break;
-	case ocsd_isa_tee:
-	case ocsd_isa_jazelle:
-	case ocsd_isa_custom:
-	case ocsd_isa_unknown:
-	default:
-		packet->isa = CS_ETM_ISA_UNKNOWN;
-	}
 
 	packet->start_addr = elem->st_addr;
 	packet->end_addr = elem->en_addr;
@@ -483,6 +494,7 @@ out:
 static ocsd_datapath_resp_t
 cs_etm_decoder__buffer_discontinuity(struct cs_etm_queue *etmq,
 				     struct cs_etm_packet_queue *queue,
+				     const ocsd_generic_trace_elem *elem,
 				     const uint8_t trace_chan_id)
 {
 	/*
@@ -490,7 +502,7 @@ cs_etm_decoder__buffer_discontinuity(struct cs_etm_queue *etmq,
 	 * reset time statistics.
 	 */
 	cs_etm_decoder__reset_timestamp(queue);
-	return cs_etm_decoder__buffer_packet(etmq, queue, trace_chan_id,
+	return cs_etm_decoder__buffer_packet(etmq, queue, elem, trace_chan_id,
 					     CS_ETM_DISCONTINUITY);
 }
 
@@ -499,16 +511,48 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 				 struct cs_etm_packet_queue *queue,
 				 const ocsd_generic_trace_elem *elem,
 				 const uint8_t trace_chan_id)
-{	int ret = 0;
+{
+	int ret = 0;
 	struct cs_etm_packet *packet;
+	u8 last_instr_size = 0;
 
-	ret = cs_etm_decoder__buffer_packet(etmq, queue, trace_chan_id,
+	ret = cs_etm_decoder__buffer_packet(etmq, queue, elem, trace_chan_id,
 					    CS_ETM_EXCEPTION);
 	if (ret != OCSD_RESP_CONT && ret != OCSD_RESP_WAIT)
 		return ret;
 
 	packet = &queue->packet_buffer[queue->tail];
 	packet->exception_number = elem->exception_number;
+	if (elem->context.el_valid)
+		packet->el = elem->context.exception_level;
+
+	/* RESET has no defined preferred return address. */
+	if (!elem->excep_ret_addr ||
+	    packet->exception_number == CS_ETMV4_EXC_RESET)
+		return ret;
+
+	packet->pref_ret_addr = elem->en_addr;
+
+	/*
+	 * T32 calls can be two or four bytes, requiring an instruction read
+	 * before pref_ret_addr to determine their size. Keep it for the
+	 * frontend's SVC check and leave start_addr unknown for its fallback.
+	 */
+	if (packet->isa != CS_ETM_ISA_A32 && packet->isa != CS_ETM_ISA_A64)
+		return ret;
+
+	/*
+	 * For A32 and A64, exception calls execute a four-byte SVC, HVC or
+	 * SMC and save the following PC. Other exceptions use the interrupted
+	 * or faulting PC, including traps on those instructions.
+	 *
+	 * With a shared branch target, no instruction has completed
+	 * at the target, so last_instr_size remains zero.
+	 */
+	if (elem->exception_number == CS_ETMV4_EXC_CALL)
+		last_instr_size = 4;
+	packet->start_addr = packet->pref_ret_addr - last_instr_size;
+	packet->last_instr_size = last_instr_size;
 
 	return ret;
 }
@@ -516,9 +560,10 @@ cs_etm_decoder__buffer_exception(struct cs_etm_queue *etmq,
 static ocsd_datapath_resp_t
 cs_etm_decoder__buffer_exception_ret(struct cs_etm_queue *etmq,
 				     struct cs_etm_packet_queue *queue,
+				     const ocsd_generic_trace_elem *elem,
 				     const uint8_t trace_chan_id)
 {
-	return cs_etm_decoder__buffer_packet(etmq, queue, trace_chan_id,
+	return cs_etm_decoder__buffer_packet(etmq, queue, elem, trace_chan_id,
 					     CS_ETM_EXCEPTION_RET);
 }
 
@@ -555,8 +600,8 @@ cs_etm_decoder__set_tid(struct cs_etm_queue *etmq,
 				elem->context.exception_level, tid))
 		return OCSD_RESP_FATAL_SYS_ERR;
 
-	ret = cs_etm_decoder__buffer_packet(etmq, packet_queue, trace_chan_id,
-					    CS_ETM_CONTEXT);
+	ret = cs_etm_decoder__buffer_packet(etmq, packet_queue, elem,
+					    trace_chan_id, CS_ETM_CONTEXT);
 	if (ret != OCSD_RESP_CONT && ret != OCSD_RESP_WAIT)
 		return ret;
 
@@ -594,9 +639,10 @@ static ocsd_datapath_resp_t cs_etm_decoder__gen_trace_elem_printer(
 
 	if (type == OCSD_GEN_TRC_ELEM_EO_TRACE ||
 	    type == OCSD_GEN_TRC_ELEM_NO_SYNC ||
-	    type == OCSD_GEN_TRC_ELEM_TRACE_ON)
+	    type == OCSD_GEN_TRC_ELEM_TRACE_ON ||
+	    type == OCSD_GEN_TRC_ELEM_ADDR_NACC)
 		resp = cs_etm_decoder__buffer_discontinuity(etmq, packet_queue,
-							    trace_chan_id);
+							    elem, trace_chan_id);
 	else if (type == OCSD_GEN_TRC_ELEM_INSTR_RANGE)
 		resp = cs_etm_decoder__buffer_range(etmq, packet_queue, elem,
 						    trace_chan_id);
@@ -605,7 +651,7 @@ static ocsd_datapath_resp_t cs_etm_decoder__gen_trace_elem_printer(
 							trace_chan_id);
 	else if (type == OCSD_GEN_TRC_ELEM_EXCEPTION_RET)
 		resp = cs_etm_decoder__buffer_exception_ret(etmq, packet_queue,
-							    trace_chan_id);
+							    elem, trace_chan_id);
 	else if (type == OCSD_GEN_TRC_ELEM_TIMESTAMP)
 		resp = cs_etm_decoder__do_hard_timestamp(etmq, elem,
 							 trace_chan_id,

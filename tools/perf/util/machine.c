@@ -3324,22 +3324,25 @@ bool machine__is_lock_function(struct machine *machine, u64 addr)
 		struct map *kmap;
 		struct symbol *sym = machine__find_kernel_symbol_by_name(machine, "__sched_text_start", &kmap);
 
-		if (!sym) {
-			/* to avoid retry */
-			machine->sched.text_start = 1;
-			return false;
-		}
+		if (!sym)
+			goto fail;
 
 		machine->sched.text_start = map__unmap_ip(kmap, sym->start);
 
 		/* should not fail from here */
 		sym = machine__find_kernel_symbol_by_name(machine, "__sched_text_end", &kmap);
+		if (!sym)
+			goto fail;
 		machine->sched.text_end = map__unmap_ip(kmap, sym->start);
 
 		sym = machine__find_kernel_symbol_by_name(machine, "__lock_text_start", &kmap);
+		if (!sym)
+			goto fail;
 		machine->lock.text_start = map__unmap_ip(kmap, sym->start);
 
 		sym = machine__find_kernel_symbol_by_name(machine, "__lock_text_end", &kmap);
+		if (!sym)
+			goto fail;
 		machine->lock.text_end = map__unmap_ip(kmap, sym->start);
 
 		sym = machine__find_kernel_symbol_by_name(machine, "__traceiter_contention_begin", &kmap);
@@ -3379,6 +3382,11 @@ bool machine__is_lock_function(struct machine *machine, u64 addr)
 			return true;
 	}
 
+	return false;
+
+fail:
+	/* failed to get kernel symbols, to avoid retry */
+	machine->sched.text_start = 1;
 	return false;
 }
 

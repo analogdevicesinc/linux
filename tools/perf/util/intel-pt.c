@@ -1803,6 +1803,13 @@ static int intel_pt_synth_branch_sample(struct intel_pt_queue *ptq)
 	perf_sample__init(&sample, /*all=*/true);
 	intel_pt_prep_b_sample(pt, ptq, event, &sample);
 
+	/*
+	 * For asynchronous branches, use the sample IP as the return address
+	 * instead of advancing it during instruction decoding.
+	 */
+	if (sample.flags & PERF_IP_FLAG_ASYNC)
+		sample.ret_addr = sample.ip;
+
 	sample.id = ptq->pt->branches_id;
 	sample.stream_id = ptq->pt->branches_id;
 

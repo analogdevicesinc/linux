@@ -131,6 +131,11 @@ struct perf_sample {
 	u64 time;
 	/** @addr: The sample event PERF_SAMPLE_ADDR value. */
 	u64 addr;
+	/**
+	 * @ret_addr: Return address supplied by the decoder for a branch sample.
+	 *            Zero means use ip + insn_len.
+	 */
+	u64 ret_addr;
 	/** @id: The sample event PERF_SAMPLE_ID or PERF_SAMPLE_IDENTIFIER value. */
 	u64 id;
 	/** @stream_id: The sample event PERF_SAMPLE_STREAM_ID value. */

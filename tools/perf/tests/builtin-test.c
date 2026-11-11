@@ -132,6 +132,7 @@ static struct test_suite *generic_tests[] = {
 	&suite__hists_filter,
 	&suite__mmap_thread_lookup,
 	&suite__thread_maps_share,
+	&suite__thread_stack,
 	&suite__hists_output,
 	&suite__hists_cumulate,
 #ifdef HAVE_LIBTRACEEVENT
@@ -190,6 +191,8 @@ static struct test_workload *workloads[] = {
 	&workload__datasym,
 	&workload__landlock,
 	&workload__traploop,
+	&workload__branch_not_taken_loop,
+	&workload__page_fault_loop,
 	&workload__inlineloop,
 	&workload__jitdump,
 	&workload__context_switch_loop,

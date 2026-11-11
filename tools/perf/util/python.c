@@ -4536,7 +4536,7 @@ static PyObject *pyrf_call_return__new(struct call_return *cr)
 	if (cr->thread) {
 		struct maps *maps = thread__maps(cr->thread);
 
-		pevent->machine_pid = maps && maps__machine(maps) ? maps__machine(maps)->pid : 0;
+		pevent->machine_pid = maps ? maps__machine(maps)->pid : 0;
 		pevent->pid = thread__pid(cr->thread);
 		pevent->tid = thread__tid(cr->thread);
 	} else {

@@ -196,13 +196,15 @@ Elf_Scn *elf_section_by_name(Elf *elf, GElf_Ehdr *ep,
 	while ((sec = elf_nextscn(elf, sec)) != NULL) {
 		char *str;
 
-		gelf_getshdr(sec, shp);
+		if (!gelf_getshdr(sec, shp))
+			goto next;
 		str = elf_strptr(elf, ep->e_shstrndx, shp->sh_name);
 		if (str && !strcmp(name, str)) {
 			if (idx)
 				*idx = cnt;
 			return sec;
 		}
+next:
 		++cnt;
 	}
 
@@ -1789,21 +1791,6 @@ dso__load_sym_internal(struct dso *dso, struct map *map, struct symsrc *syms_ss,
 		nr++;
 	}
 	dso__put(curr_dso);
-
-	/*
-	 * For misannotated, zeroed, ASM function sizes.
-	 */
-	if (nr > 0) {
-		symbols__fixup_end(dso__symbols(dso), false);
-		symbols__fixup_duplicate(dso__symbols(dso));
-		if (kmap) {
-			/*
-			 * We need to fixup this here too because we create new
-			 * maps here, for things like vsyscall sections.
-			 */
-			maps__fixup_end(kmaps);
-		}
-	}
 	return nr;
 out_elf_end:
 	dso__put(curr_dso);
@@ -1862,6 +1849,27 @@ int dso__load_sym(struct dso *dso, struct map *map, struct symsrc *syms_ss,
 		if (err < 0)
 			return err;
 		nr += err;
+	}
+
+	/*
+	 * For misannotated, zeroed, ASM function sizes. Run after all symbol
+	 * tables (.symtab, .dynsym, .gnu_debugdata) have been loaded so a
+	 * zero-size symbol in .symtab ends at the next symbol across all
+	 * tables rather than overlapping a .dynsym-only function.
+	 */
+	if (nr > 0) {
+		struct kmap *kmap = dso__kernel(dso) ? map__kmap(map) : NULL;
+		struct maps *kmaps = kmap ? map__kmaps(map) : NULL;
+
+		symbols__fixup_end(dso__symbols(dso), false);
+		symbols__fixup_duplicate(dso__symbols(dso));
+		if (kmap) {
+			/*
+			 * We need to fixup this here too because we create new
+			 * maps here, for things like vsyscall sections.
+			 */
+			maps__fixup_end(kmaps);
+		}
 	}
 
 	return nr;

@@ -340,11 +340,19 @@ static int browser__show(struct ui_browser *uib)
 	struct hist_entry *he = uib->priv;
 	struct annotated_data_type *adt = he->mem_type;
 	struct annotated_data_browser *browser = get_browser(uib);
+	struct evsel *evsel = hists_to_evsel(he->hists);
 	const char *help = "Press 'h' for help on key bindings";
-	char title[256];
+	const char *evsel_name = evsel__name(evsel);
+	char buf[512];
+	char title[sizeof(buf) + 256];
 
-	snprintf(title, sizeof(title), "Annotate type: '%s' (%d samples)",
-		 adt->self.type_name, he->stat.nr_events);
+	if (evsel__is_group_event(evsel)) {
+		evsel__group_desc(evsel, buf, sizeof(buf));
+		evsel_name = buf;
+	}
+
+	snprintf(title, sizeof(title), "Annotate type: '%s' for %s (%d samples)",
+		 adt->self.type_name, evsel_name, he->stat.nr_events);
 
 	if (ui_browser__show(uib, title, help) < 0)
 		return -1;

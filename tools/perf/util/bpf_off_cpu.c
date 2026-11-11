@@ -95,7 +95,7 @@ static void off_cpu_start(void *arg)
 		int cpu_nr = pcpu.cpu;
 
 		err = bpf_map__update_elem(skel->maps.offcpu_output, &cpu_nr, sizeof(int),
-					   xyarray__entry(evsel->core.fd, cpu_nr, 0),
+					   xyarray__entry(evsel->core.fd, i, 0),
 					   sizeof(int), BPF_ANY);
 		if (err) {
 			pr_err("Failed to update perf event map for direct off-cpu dumping\n");
@@ -151,9 +151,10 @@ int off_cpu_prepare(struct evlist *evlist, struct target *target,
 		    struct record_opts *opts)
 {
 	int err, fd, i;
-	int ncpus = 1, ntasks = 1, ncgrps = 1;
+	int ncpus = 1, ntasks = 1, ncgrps = 0;
 	struct strlist *pid_slist = NULL;
 	struct str_node *pos;
+	struct evsel *evsel;
 
 	if (off_cpu_config(evlist) < 0) {
 		pr_err("Failed to config off-cpu BPF event\n");
@@ -208,8 +209,12 @@ int off_cpu_prepare(struct evlist *evlist, struct target *target,
 		skel->rodata->uses_tgid = 1;
 	}
 
-	if (evlist__first(evlist)->cgrp) {
-		ncgrps = evlist__nr_entries(evlist) - 1; /* excluding a dummy */
+	evlist__for_each_entry(evlist, evsel) {
+		if (evsel->cgrp)
+			ncgrps++;
+	}
+
+	if (ncgrps > 0) {
 		bpf_map__set_max_entries(skel->maps.cgroup_filter, ncgrps);
 
 		if (!cgroup_is_v2("perf_event"))
@@ -274,8 +279,7 @@ int off_cpu_prepare(struct evlist *evlist, struct target *target,
 		}
 	}
 
-	if (evlist__first(evlist)->cgrp) {
-		struct evsel *evsel;
+	if (ncgrps > 0) {
 		u8 val = 1;
 
 		fd = bpf_map__fd(skel->maps.cgroup_filter);
@@ -373,6 +377,8 @@ int off_cpu_write(struct perf_session *session)
 			data.array[n++] = 0;
 		if (sample_type & PERF_SAMPLE_TIME)
 			data.array[n++] = tstamp;
+		if (sample_type & PERF_SAMPLE_ID)
+			data.array[n++] = sid;
 		if (sample_type & PERF_SAMPLE_CPU)
 			data.array[n++] = 0;
 		if (sample_type & PERF_SAMPLE_PERIOD)
