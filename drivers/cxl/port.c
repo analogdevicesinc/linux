@@ -61,6 +61,47 @@ static int discover_region(struct device *dev, void *unused)
 	return 0;
 }
 
+static void devm_cxl_port_bi_setup(struct cxl_port *port)
+{
+	struct cxl_register_map *map = &port->reg_map;
+	struct cxl_dport *parent_dport = port->parent_dport;
+	struct device *udev;
+	int cap_id;
+
+	/* no upstream BI registers above host bridges or the cxl_root */
+	if (!parent_dport || is_cxl_root(parent_dport->port))
+		return;
+
+	udev = is_cxl_endpoint(port) ?
+		port->uport_dev->parent : port->uport_dev;
+	if (!dev_is_pci(udev))
+		return;
+
+	/* BI requires 256B Flit on the upstream link */
+	if (!cxl_pci_flit_256(to_pci_dev(udev)))
+		return;
+
+	/* map this port's own BI capability */
+	if (is_cxl_endpoint(port)) {
+		if (!map->component_map.bi_decoder.valid) {
+			dev_dbg(&port->dev, "BI Decoder registers not found\n");
+			return;
+		}
+		cap_id = CXL_CM_CAP_CAP_ID_BI_DECODER;
+	} else {
+		if (!map->component_map.bi_rt.valid) {
+			dev_dbg(&port->dev, "BI RT registers not found\n");
+			return;
+		}
+		cap_id = CXL_CM_CAP_CAP_ID_BI_RT;
+	}
+
+	map->host = &port->dev;
+	if (cxl_map_component_regs(map, &port->regs, BIT(cap_id)))
+		dev_dbg(&port->dev, "Failed to map BI capability 0x%x\n",
+			cap_id);
+}
+
 static int cxl_switch_port_probe(struct cxl_port *port)
 {
 	/* Reset nr_dports for rebind of driver */
@@ -72,19 +113,21 @@ static int cxl_switch_port_probe(struct cxl_port *port)
 	return 0;
 }
 
-static int cxl_ras_unmask(struct cxl_port *port)
+static int cxl_endpoint_ras_unmask(struct cxl_port *endpoint)
 {
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct device *parent = cxlmd->dev.parent;
 	struct pci_dev *pdev;
 	void __iomem *addr;
 	u32 orig_val, val, mask;
 	u16 cap;
 	int rc;
 
-	if (!dev_is_pci(port->uport_dev))
+	if (!dev_is_pci(parent))
 		return 0;
-	pdev = to_pci_dev(port->uport_dev);
+	pdev = to_pci_dev(parent);
 
-	if (!port->regs.ras) {
+	if (!endpoint->regs.ras) {
 		pci_dbg(pdev, "No RAS registers.\n");
 		return 0;
 	}
@@ -98,7 +141,7 @@ static int cxl_ras_unmask(struct cxl_port *port)
 		return rc;
 
 	if (cap & PCI_EXP_DEVCTL_URRE) {
-		addr = port->regs.ras + CXL_RAS_UNCORRECTABLE_MASK_OFFSET;
+		addr = endpoint->regs.ras + CXL_RAS_UNCORRECTABLE_MASK_OFFSET;
 		orig_val = readl(addr);
 
 		mask = CXL_RAS_UNCORRECTABLE_MASK_MASK |
@@ -110,7 +153,7 @@ static int cxl_ras_unmask(struct cxl_port *port)
 	}
 
 	if (cap & PCI_EXP_DEVCTL_CERE) {
-		addr = port->regs.ras + CXL_RAS_CORRECTABLE_MASK_OFFSET;
+		addr = endpoint->regs.ras + CXL_RAS_CORRECTABLE_MASK_OFFSET;
 		orig_val = readl(addr);
 		val = orig_val & ~CXL_RAS_CORRECTABLE_MASK_MASK;
 		writel(val, addr);
@@ -130,6 +173,9 @@ static int cxl_endpoint_port_probe(struct cxl_port *port)
 	/* Cache the data early to ensure is_visible() works */
 	read_cdat_data(port);
 	cxl_endpoint_parse_cdat(port);
+
+	devm_cxl_port_bi_setup(port);
+	cxl_bi_probe_capable(port);
 
 	get_device(&cxlmd->dev);
 	rc = devm_add_action_or_reset(&port->dev, schedule_detach, cxlmd);
@@ -152,7 +198,7 @@ static int cxl_endpoint_port_probe(struct cxl_port *port)
 		devm_cxl_dport_rch_ras_setup(dport);
 
 	devm_cxl_port_ras_setup(port);
-	if (cxl_ras_unmask(port))
+	if (cxl_endpoint_ras_unmask(port))
 		dev_dbg(&port->dev, "failed to unmask RAS interrupts\n");
 
 	/*
@@ -255,6 +301,8 @@ static struct cxl_dport *cxl_port_add_dport(struct cxl_port *port,
 		 * on failure, or the device does not implement RAS registers.
 		 */
 		devm_cxl_port_ras_setup(port);
+
+		devm_cxl_port_bi_setup(port);
 	}
 
 	dport = devm_cxl_add_dport_by_dev(port, dport_dev);

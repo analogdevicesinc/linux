@@ -243,4 +243,20 @@ config CXL_ATL
 	depends on CXL_REGION
 	depends on ACPI_PRMT && AMD_NB
 
+config CXL_KUNIT_TEST
+	tristate "KUnit tests for CXL" if !KUNIT_ALL_TESTS
+	depends on KUNIT
+	default KUNIT_ALL_TESTS
+	help
+	  This builds the KUnit tests for the CXL subsystem. When built
+	  as a module, each test suite is its own cxl_<name>_kunit
+	  module. This one option covers every CXL KUnit test, so new
+	  tests need no new configuration.
+
+	  For more information on KUnit and unit tests in general,
+	  please refer to the KUnit documentation in
+	  Documentation/dev-tools/kunit/.
+
+	  If unsure, say N.
+
 endif

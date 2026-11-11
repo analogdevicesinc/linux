@@ -185,12 +185,24 @@ static struct {
 	} cfmws6;
 	struct {
 		struct acpi_cedt_cfmws cfmws;
-		u32 target[2];
+		u32 target[1];
 	} cfmws7;
 	struct {
 		struct acpi_cedt_cfmws cfmws;
-		u32 target[3];
+		u32 target[1];
 	} cfmws8;
+	struct {
+		struct acpi_cedt_cfmws cfmws;
+		u32 target[2];
+	} cfmws9;
+	struct {
+		struct acpi_cedt_cfmws cfmws;
+		u32 target[3];
+	} cfmws10;
+	struct {
+		struct acpi_cedt_cfmws cfmws;
+		u32 target[1];
+	} cfmws_bi;
 	struct {
 		struct acpi_cedt_cxims cxims;
 		u64 xormap_list[2];
@@ -325,12 +337,43 @@ static struct {
 		},
 		.target = { 3 },
 	},
-	/* .cfmws6,7,8 use ACPI_CEDT_CFMWS_ARITHMETIC_XOR */
 	.cfmws6 = {
 		.cfmws = {
 			.header = {
 				.type = ACPI_CEDT_TYPE_CFMWS,
 				.length = sizeof(mock_cedt.cfmws6),
+			},
+			.interleave_ways = 0,
+			.granularity = 4,
+			.restrictions = ACPI_CEDT_CFMWS_RESTRICT_HOSTONLYMEM |
+					ACPI_CEDT_CFMWS_RESTRICT_PMEM,
+			.qtg_id = FAKE_QTG_ID,
+			.window_size = SZ_256M * 4UL,
+		},
+		.target = { 2 },
+	},
+	.cfmws7 = {
+		.cfmws = {
+			.header = {
+				.type = ACPI_CEDT_TYPE_CFMWS,
+				.length = sizeof(mock_cedt.cfmws7),
+			},
+			.interleave_ways = 0,
+			.granularity = 4,
+			.restrictions = ACPI_CEDT_CFMWS_RESTRICT_HOSTONLYMEM |
+					ACPI_CEDT_CFMWS_RESTRICT_VOLATILE |
+					ACPI_CEDT_CFMWS_RESTRICT_PMEM,
+			.qtg_id = FAKE_QTG_ID,
+			.window_size = SZ_256M * 4UL,
+		},
+		.target = { 1 },
+	},
+	/* .cfmws8,9,10 use ACPI_CEDT_CFMWS_ARITHMETIC_XOR */
+	.cfmws8 = {
+		.cfmws = {
+			.header = {
+				.type = ACPI_CEDT_TYPE_CFMWS,
+				.length = sizeof(mock_cedt.cfmws8),
 			},
 			.interleave_arithmetic = ACPI_CEDT_CFMWS_ARITHMETIC_XOR,
 			.interleave_ways = 0,
@@ -342,11 +385,11 @@ static struct {
 		},
 		.target = { 0, },
 	},
-	.cfmws7 = {
+	.cfmws9 = {
 		.cfmws = {
 			.header = {
 				.type = ACPI_CEDT_TYPE_CFMWS,
-				.length = sizeof(mock_cedt.cfmws7),
+				.length = sizeof(mock_cedt.cfmws9),
 			},
 			.interleave_arithmetic = ACPI_CEDT_CFMWS_ARITHMETIC_XOR,
 			.interleave_ways = 1,
@@ -358,11 +401,11 @@ static struct {
 		},
 		.target = { 0, 1, },
 	},
-	.cfmws8 = {
+	.cfmws10 = {
 		.cfmws = {
 			.header = {
 				.type = ACPI_CEDT_TYPE_CFMWS,
-				.length = sizeof(mock_cedt.cfmws8),
+				.length = sizeof(mock_cedt.cfmws10),
 			},
 			.interleave_arithmetic = ACPI_CEDT_CFMWS_ARITHMETIC_XOR,
 			.interleave_ways = 8,
@@ -373,6 +416,22 @@ static struct {
 			.window_size = SZ_512M * 6UL,
 		},
 		.target = { 0, 1, 2, },
+	},
+	.cfmws_bi = {
+		.cfmws = {
+			.header = {
+				.type = ACPI_CEDT_TYPE_CFMWS,
+				.length = sizeof(mock_cedt.cfmws_bi),
+			},
+			.interleave_ways = 0,
+			.granularity = 4,
+			.restrictions = ACPI_CEDT_CFMWS_RESTRICT_BI |
+					ACPI_CEDT_CFMWS_RESTRICT_DEVMEM |
+					ACPI_CEDT_CFMWS_RESTRICT_VOLATILE,
+			.qtg_id = FAKE_QTG_ID,
+			.window_size = SZ_256M * 4UL,
+		},
+		.target = { 0 },
 	},
 	.cxims0 = {
 		.cxims = {
@@ -407,22 +466,36 @@ struct acpi_cedt_cfmws *mock_cfmws[] = {
 	[3] = &mock_cedt.cfmws3.cfmws,
 	[4] = &mock_cedt.cfmws4.cfmws,
 	[5] = &mock_cedt.cfmws5.cfmws,
-	/* Modulo Math above, XOR Math below */
 	[6] = &mock_cedt.cfmws6.cfmws,
 	[7] = &mock_cedt.cfmws7.cfmws,
+	/* Modulo Math above, XOR Math below */
 	[8] = &mock_cedt.cfmws8.cfmws,
+	[9] = &mock_cedt.cfmws9.cfmws,
+	[10] = &mock_cedt.cfmws10.cfmws,
 };
 
 static int cfmws_start;
 static int cfmws_end;
 #define CFMWS_MOD_ARRAY_START 0
-#define CFMWS_MOD_ARRAY_END   5
-#define CFMWS_XOR_ARRAY_START 6
-#define CFMWS_XOR_ARRAY_END   8
+#define CFMWS_MOD_ARRAY_END   7
+#define CFMWS_XOR_ARRAY_START 8
+#define CFMWS_XOR_ARRAY_END   10
 
 struct acpi_cedt_cxims *mock_cxims[1] = {
 	[0] = &mock_cedt.cxims0.cxims,
 };
+
+static struct acpi_cedt_cfmws *mock_auto_region_cfmws(void)
+{
+	for (int i = cfmws_start; i <= cfmws_end; i++) {
+		struct acpi_cedt_cfmws *window = mock_cfmws[i];
+
+		if (window->restrictions & ACPI_CEDT_CFMWS_RESTRICT_VOLATILE)
+			return window;
+	}
+
+	return NULL;
+}
 
 struct cxl_mock_res {
 	struct list_head list;
@@ -535,6 +608,12 @@ static int populate_cedt(void)
 		window->base_hpa = res->range.start;
 	}
 
+	res = alloc_mock_res(mock_cedt.cfmws_bi.cfmws.window_size,
+			     max_t(int, SZ_256M, PMD_SIZE));
+	if (!res)
+		return -ENOMEM;
+	mock_cedt.cfmws_bi.cfmws.base_hpa = res->range.start;
+
 	return 0;
 }
 
@@ -570,12 +649,17 @@ static int mock_acpi_table_parse_cedt(enum acpi_cedt_type id,
 			handler_arg(h, arg, end);
 		}
 
-	if (id == ACPI_CEDT_TYPE_CFMWS)
+	if (id == ACPI_CEDT_TYPE_CFMWS) {
 		for (i = cfmws_start; i <= cfmws_end; i++) {
 			h = (union acpi_subtable_headers *) mock_cfmws[i];
 			end = (unsigned long) h + mock_cfmws[i]->header.length;
 			handler_arg(h, arg, end);
 		}
+		/* one HDM-DB window in every topology */
+		h = (union acpi_subtable_headers *)&mock_cedt.cfmws_bi.cfmws;
+		end = (unsigned long)h + mock_cedt.cfmws_bi.cfmws.header.length;
+		handler_arg(h, arg, end);
+	}
 
 	if (id == ACPI_CEDT_TYPE_CXIMS)
 		for (i = 0; i < ARRAY_SIZE(mock_cxims); i++) {
@@ -737,8 +821,41 @@ static struct cxl_hdm *mock_cxl_setup_hdm(struct cxl_port *port,
 	cxlhdm->port = port;
 	cxlhdm->interleave_mask = ~0U;
 	cxlhdm->iw_cap_mask = ~0UL;
+
+	/* a page stands in for the endpoint's BI Decoder block, Enable set */
+	if (is_cxl_endpoint(port)) {
+		void __iomem *bi = (void __iomem *)
+			devm_get_free_pages(dev, GFP_KERNEL | __GFP_ZERO, 0);
+
+		if (!bi)
+			return ERR_PTR(-ENOMEM);
+		writel(CXL_BI_DECODER_CTRL_BI_ENABLE,
+		       bi + CXL_BI_DECODER_CTRL_OFFSET);
+		port->regs.bi_decoder = bi;
+	}
+
 	dev_set_drvdata(dev, cxlhdm);
 	return cxlhdm;
+}
+
+/* HPA-based, so replay after cxl_acpi rebind can re-derive it */
+static bool mock_hpa_is_bi(u64 hpa)
+{
+	struct acpi_cedt_cfmws *bi = &mock_cedt.cfmws_bi.cfmws;
+
+	return hpa >= bi->base_hpa && hpa < bi->base_hpa + bi->window_size;
+}
+
+/* committed BI state is a decoder flag, so no register to emulate */
+static void mock_decoder_set_bi(struct cxl_decoder *cxld, bool bi)
+{
+	if (!is_endpoint_decoder(&cxld->dev))
+		return;
+
+	if (bi)
+		cxld->flags |= CXL_DECODER_F_BI;
+	else
+		cxld->flags &= ~CXL_DECODER_F_BI;
 }
 
 struct target_map_ctx {
@@ -913,15 +1030,13 @@ static void __cxld_registry_save(struct cxl_test_decoder *td,
 
 		cxld_copy(&td->cxled.cxld, cxld);
 		td->cxled.state = cxled->state;
-		td->cxled.skip = cxled->skip;
 
-		if (!(cxld->flags & CXL_DECODER_F_ENABLE)) {
-			td->dpa_range.start = 0;
-			td->dpa_range.end = -1;
-		} else if (cxled->dpa_res) {
+		if ((cxld->flags & CXL_DECODER_F_ENABLE) && cxled->dpa_res) {
+			td->cxled.skip = cxled->skip;
 			td->dpa_range.start = cxled->dpa_res->start;
 			td->dpa_range.end = cxled->dpa_res->end;
 		} else {
+			td->cxled.skip = 0;
 			td->dpa_range.start = 0;
 			td->dpa_range.end = -1;
 		}
@@ -974,6 +1089,7 @@ static int mock_decoder_commit(struct cxl_decoder *cxld)
 
 		cxled->state = CXL_DECODER_STATE_AUTO;
 	}
+	mock_decoder_set_bi(cxld, mock_hpa_is_bi(cxld->hpa_range.start));
 	cxld_registry_update(cxld);
 
 	return 0;
@@ -1001,8 +1117,8 @@ static void mock_decoder_reset(struct cxl_decoder *cxld)
 			to_cxl_endpoint_decoder(&cxld->dev);
 
 		cxled->state = CXL_DECODER_STATE_MANUAL;
-		cxled->skip = 0;
 	}
+	mock_decoder_set_bi(cxld, false);
 	if (decoder_reset_preserve_registry)
 		dev_dbg(port->uport_dev, "decoder%d: skip registry update\n",
 			cxld->id);
@@ -1127,7 +1243,8 @@ enum cxld_init_type {
 static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 						 struct platform_device *pdev,
 						 bool hb0,
-						 struct cxl_test_decoder **td)
+						 struct cxl_test_decoder **td,
+						 struct acpi_cedt_cfmws **window)
 {
 	struct cxl_test_decoder *found_td = cxld_registry_find(cxld);
 
@@ -1137,6 +1254,7 @@ static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 	}
 
 	*td = NULL;
+	*window = NULL;
 
 	/*
 	 * The first decoder on the first 2 devices on the first switch
@@ -1148,6 +1266,11 @@ static enum cxld_init_type get_decoder_init_type(struct cxl_decoder *cxld,
 	 */
 	if (!is_endpoint_decoder(&cxld->dev) || !hb0 || pdev->id % 4 ||
 	    pdev->id > 4 || cxld->id > (mock_zero_size_decoders ? 2 : 0))
+		return MOCK_DECODER_INIT_DEFAULT;
+
+	/* XOR windows are all pmem, no window to host the RAM region */
+	*window = mock_auto_region_cfmws();
+	if (!*window)
 		return MOCK_DECODER_INIT_DEFAULT;
 
 	return type2_test ? MOCK_DECODER_INIT_TYPE2_AUTO :
@@ -1163,17 +1286,22 @@ static bool mock_decoder_handle_saved(struct cxl_decoder *cxld, struct cxl_test_
 	else
 		enabled = td->cxled.cxld.flags & CXL_DECODER_F_ENABLE;
 
-	if (enabled)
-		return !cxld_registry_restore(cxld, td);
+	if (enabled) {
+		if (cxld_registry_restore(cxld, td))
+			return false;
+		mock_decoder_set_bi(cxld,
+				    mock_hpa_is_bi(cxld->hpa_range.start));
+		return true;
+	}
 
 	init_disabled_mock_decoder(cxld);
 	return false;
 }
 
 static void mock_init_hdm_type2_cxled(struct cxl_endpoint_decoder *cxled,
-				      struct cxl_port *port)
+				      struct cxl_port *port,
+				      struct acpi_cedt_cfmws *window)
 {
-	struct acpi_cedt_cfmws *window = mock_cfmws[0];
 	struct cxl_decoder *cxld = &cxled->cxld;
 	struct cxl_switch_decoder *cxlsd;
 	struct cxl_dport *dport;
@@ -1246,9 +1374,9 @@ static void mock_init_hdm_type2_cxled(struct cxl_endpoint_decoder *cxled,
 static void mock_init_hdm_type3_cxled(struct cxl_endpoint_decoder *cxled,
 				      struct cxl_port *port,
 				      struct platform_device *pdev,
-				      bool hb0)
+				      bool hb0,
+				      struct acpi_cedt_cfmws *window)
 {
-	struct acpi_cedt_cfmws *window = mock_cfmws[0];
 	struct cxl_decoder *cxld = &cxled->cxld;
 	struct cxl_switch_decoder *cxlsd;
 	struct cxl_dport *dport;
@@ -1399,6 +1527,7 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 {
 	struct cxl_endpoint_decoder *cxled = NULL;
 	struct platform_device *pdev = NULL;
+	struct acpi_cedt_cfmws *window;
 	struct cxl_test_decoder *td;
 	struct cxl_memdev *cxlmd;
 	struct cxl_port *port;
@@ -1427,7 +1556,7 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 		port = to_cxl_port(cxld->dev.parent);
 	}
 
-	switch (get_decoder_init_type(cxld, pdev, hb0, &td)) {
+	switch (get_decoder_init_type(cxld, pdev, hb0, &td, &window)) {
 	case MOCK_DECODER_INIT_SAVED:
 		if (WARN_ON(!td))
 			return false;
@@ -1440,10 +1569,10 @@ static bool mock_init_hdm_decoder(struct cxl_decoder *cxld)
 		default_mock_decoder(cxld);
 		return false;
 	case MOCK_DECODER_INIT_TYPE3_AUTO:
-		mock_init_hdm_type3_cxled(cxled, port, pdev, hb0);
+		mock_init_hdm_type3_cxled(cxled, port, pdev, hb0, window);
 		return false;
 	case MOCK_DECODER_INIT_TYPE2_AUTO:
-		mock_init_hdm_type2_cxled(cxled, port);
+		mock_init_hdm_type2_cxled(cxled, port, window);
 		return false;
 	default:
 		return false;
@@ -1523,15 +1652,25 @@ static int mock_cxl_enumerate_decoders(struct cxl_hdm *cxlhdm,
 	return 0;
 }
 
+static int mock_cxl_bi_setup(struct cxl_port *endpoint);
+
 static int __mock_cxl_decoders_setup(struct cxl_port *port)
 {
 	struct cxl_hdm *cxlhdm;
+	int rc;
 
 	cxlhdm = mock_cxl_setup_hdm(port, NULL);
 	if (IS_ERR(cxlhdm)) {
 		if (PTR_ERR(cxlhdm) != -ENODEV)
 			dev_err(&port->dev, "Failed to map HDM decoder capability\n");
 		return PTR_ERR(cxlhdm);
+	}
+
+	/* as the real setup: BI between the HDM state and the decoders */
+	if (is_cxl_endpoint(port)) {
+		rc = mock_cxl_bi_setup(port);
+		if (rc)
+			dev_dbg(&port->dev, "BI setup failed rc=%d\n", rc);
 	}
 
 	return mock_cxl_enumerate_decoders(cxlhdm, NULL);
@@ -1629,18 +1768,29 @@ static struct cxl_dport *mock_cxl_add_dport_by_dev(struct cxl_port *port,
 }
 
 /*
- * Faking the cxl_dpa_perf for the memdev when appropriate.
+ * Derive mock performance data from the memdev id so tests can identify
+ * each memdev's contribution to region performance.
+ *
+ *   latency   = 100 + 10 * id     (nanoseconds)
+ *   bandwidth = 1000 + 100 * id   (MB/s)
+ *
+ * Keep the values nonzero so the region access attributes are visible.
+ * The ndctl cxl-perf-data.sh test relies on these formulas.
  */
 static void dpa_perf_setup(struct cxl_port *endpoint, struct range *range,
 			   struct cxl_dpa_perf *dpa_perf)
 {
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	unsigned int bandwidth = 1000 + 100 * cxlmd->id;
+	unsigned int latency = 100 + 10 * cxlmd->id;
+
 	dpa_perf->qos_class = FAKE_QTG_ID;
 	dpa_perf->dpa_range = *range;
 	for (int i = 0; i < ACCESS_COORDINATE_MAX; i++) {
-		dpa_perf->coord[i].read_latency = 500;
-		dpa_perf->coord[i].write_latency = 500;
-		dpa_perf->coord[i].read_bandwidth = 1000;
-		dpa_perf->coord[i].write_bandwidth = 1000;
+		dpa_perf->coord[i].read_latency = latency;
+		dpa_perf->coord[i].write_latency = latency;
+		dpa_perf->coord[i].read_bandwidth = bandwidth;
+		dpa_perf->coord[i].write_bandwidth = bandwidth;
 	}
 }
 
@@ -1722,6 +1872,67 @@ mock_region_intersects_soft_reserve(resource_size_t start, size_t size)
 	return -1;
 }
 
+/*
+ * All-software mirror of the BI enable path: no BI RT registers exist
+ * on mock devices, so capability and enablement are asserted directly
+ * while the dport nr_bi accounting - the part with driver-visible
+ * semantics (shared transit dports, teardown order) - follows the same
+ * walk the real cxl_bi_enable_path() takes.
+ */
+static void mock_cxl_bi_probe_capable(struct cxl_port *endpoint)
+{
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+
+	/* BI is VH-only, mirroring cxl_bi_probe_capable() */
+	cxlds->bi_capable = !cxlds->rcd;
+}
+
+static void mock_cxl_bi_dealloc(void *data)
+{
+	struct cxl_port *endpoint = data;
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	struct cxl_dport *dport_iter;
+	struct cxl_port *port_iter;
+
+	cxlds->bi = false;
+	dport_iter = endpoint->parent_dport;
+	port_iter = dport_iter->port;
+	while (port_iter->parent_dport) {
+		scoped_guard(mutex, &port_iter->bi_lock) {
+			if (!WARN_ON_ONCE(dport_iter->nr_bi == 0))
+				dport_iter->nr_bi--;
+		}
+		dport_iter = port_iter->parent_dport;
+		port_iter = dport_iter->port;
+	}
+}
+
+static int mock_cxl_bi_setup(struct cxl_port *endpoint)
+{
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	struct cxl_dport *dport_iter;
+	struct cxl_port *port_iter;
+
+	if (!cxlds->bi_capable)
+		return 0;
+
+	dport_iter = endpoint->parent_dport;
+	port_iter = dport_iter->port;
+	while (port_iter->parent_dport) {
+		scoped_guard(mutex, &port_iter->bi_lock)
+			dport_iter->nr_bi++;
+		dport_iter = port_iter->parent_dport;
+		port_iter = dport_iter->port;
+	}
+	cxlds->bi = true;
+
+	return devm_add_action_or_reset(&endpoint->dev, mock_cxl_bi_dealloc,
+					endpoint);
+}
+
 static struct cxl_mock_ops cxl_mock_ops = {
 	.is_mock_adev = is_mock_adev,
 	.is_mock_bridge = is_mock_bridge,
@@ -1740,6 +1951,7 @@ static struct cxl_mock_ops cxl_mock_ops = {
 	.walk_hmem_resources = mock_walk_hmem_resources,
 	.region_intersects = mock_region_intersects,
 	.region_intersects_soft_reserve = mock_region_intersects_soft_reserve,
+	.cxl_bi_probe_capable = mock_cxl_bi_probe_capable,
 	.list = LIST_HEAD_INIT(cxl_mock_ops.list),
 };
 

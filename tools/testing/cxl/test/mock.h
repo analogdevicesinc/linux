@@ -35,6 +35,7 @@ struct cxl_mock_ops {
 				 unsigned long flags, unsigned long desc);
 	int (*region_intersects_soft_reserve)(resource_size_t start,
 					      size_t size);
+	void (*cxl_bi_probe_capable)(struct cxl_port *endpoint);
 };
 
 int hmem_test_init(void);

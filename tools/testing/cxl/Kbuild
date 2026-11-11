@@ -14,6 +14,7 @@ wrap_cxl_core += --wrap=devm_cxl_add_dport_by_dev
 wrap_cxl_core += --wrap=devm_cxl_switch_port_decoders_setup
 wrap_cxl_core += --wrap=devm_cxl_endpoint_decoders_setup
 wrap_cxl_core += --wrap=cxl_endpoint_parse_cdat
+wrap_cxl_core += --wrap=cxl_bi_probe_capable
 LDFLAGS_cxl_acpi.o += $(wrap_cxl_core)
 LDFLAGS_cxl_pmem.o += $(wrap_cxl_core)
 LDFLAGS_cxl_port.o += $(wrap_cxl_core)

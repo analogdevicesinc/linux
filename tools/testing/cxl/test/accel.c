@@ -31,7 +31,7 @@ static int cxl_mock_accel_probe(struct platform_device *pdev)
 
 	cxlds = &cxl_accel->cxlds;
 	cxlds->media_ready = true;
-	rc = cxl_set_capacity(cxlds, SZ_512M);
+	rc = cxl_set_capacity(cxlds, SZ_1G);
 	if (rc)
 		return rc;
 

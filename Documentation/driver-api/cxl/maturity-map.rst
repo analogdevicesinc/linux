@@ -63,6 +63,11 @@ in place, but there are several corner cases that are pending closure.
 
   * [0] Decoder target and granularity constraints
 
+* [1] :ref:`Back-Invalidate (HDM-DB) <back-invalidate>`
+
+  * [3] BI topology enable / disable (endpoint, DSP, USP route table, RP)
+  * [3] Firmware-enabled path adoption
+
 * [2] Performance enumeration
 
   * [3] Endpoint CDAT
@@ -170,7 +175,7 @@ Accelerator
 -----------
 
 * [0] Accelerator memory enumeration HDM-D (CXL 1.1/2.0 Type-2)
-* [0] Accelerator memory enumeration HDM-DB (CXL 3.0 Type-2)
+* [1] Accelerator memory enumeration HDM-DB (CXL 3.0 Type-2)
 * [0] CXL.cache 68b (CXL 2.0)
 * [0] CXL.cache 256b Cache IDs (CXL 3.0)
 
@@ -195,6 +200,15 @@ Details
 * **RCH Link Status**: RCH (Restricted CXL Host) topologies, end up
   hiding some standard registers like PCIe Link Status / Capabilities in
   the CXL RCRB (Root Complex Register Block).
+
+.. _back-invalidate:
+
+* **Back-Invalidate**: HDM-DB lets a device snoop the host over the
+  CXL.mem BISnp channel instead of CXL.cache. The kernel enables BI on
+  every port between a device and its root port, requires 256B Flit
+  mode on the path, adopts paths firmware already enabled, and creates
+  HDM-DB regions under CFMWS windows carrying the Back-Invalidate
+  restriction for Type 3 and Type 2 devices alike.
 
 .. _background-commands:
 

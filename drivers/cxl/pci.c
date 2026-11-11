@@ -1117,8 +1117,12 @@ static void cxl_reset_done(struct pci_dev *pdev)
 	if (!cxlmd->dev.driver)
 		return;
 
-	if (cxlmd->endpoint &&
-	    cxl_endpoint_decoder_reset_detected(cxlmd->endpoint)) {
+	if (!cxlmd->endpoint)
+		return;
+
+	cxl_bi_reset_detected(cxlmd->endpoint);
+
+	if (cxl_endpoint_decoder_reset_detected(cxlmd->endpoint)) {
 		device_for_each_child(&cxlmd->endpoint->dev, NULL,
 				      cxl_endpoint_decoder_clear_reset_flags);
 

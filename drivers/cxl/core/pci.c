@@ -2,12 +2,14 @@
 /* Copyright(c) 2021 Intel Corporation. All rights reserved. */
 #include <linux/units.h>
 #include <linux/io-64-nonatomic-lo-hi.h>
+#include <linux/iopoll.h>
 #include <linux/device.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/pci-doe.h>
 #include <cxl/pci.h>
 #include <linux/aer.h>
+#include <linux/string_choices.h>
 #include <cxlpci.h>
 #include <cxlmem.h>
 #include <cxl.h>
@@ -949,3 +951,584 @@ int cxl_port_get_possible_dports(struct cxl_port *port)
 
 	return ctx.count;
 }
+
+static void cxl_dport_map_bi(struct cxl_dport *dport)
+{
+	struct cxl_register_map *map = &dport->reg_map;
+	struct device *dev = dport->dport_dev;
+
+	if (!map->component_map.bi_decoder.valid) {
+		dev_dbg(dev, "BI Decoder registers not found\n");
+		return;
+	}
+
+	if (cxl_map_component_regs(map, &dport->regs.component,
+				   BIT(CXL_CM_CAP_CAP_ID_BI_DECODER)))
+		dev_dbg(dev, "Failed to map BI Decoder capability\n");
+}
+
+/**
+ * devm_cxl_dport_bi_setup - Map BI Decoder registers on a CXL dport
+ * @dport: the cxl_dport that needs to be initialized
+ *
+ * Must be called while the dport's devres group is open so iomap
+ * allocations are released on dport removal.
+ */
+void devm_cxl_dport_bi_setup(struct cxl_dport *dport)
+{
+	if (!dev_is_pci(dport->dport_dev))
+		return;
+
+	switch (pci_pcie_type(to_pci_dev(dport->dport_dev))) {
+	case PCI_EXP_TYPE_ROOT_PORT:
+	case PCI_EXP_TYPE_DOWNSTREAM:
+		dport->reg_map.host = dport_to_host(dport);
+		cxl_dport_map_bi(dport);
+		break;
+	default:
+		break;
+	}
+}
+
+/*
+ * BI requires 256B Flit operation on the link. RP/DSP/endpoint must
+ * also have the BI Decoder cap mapped (@bi); for USPs the BI RT cap
+ * is optional per CXL 4.0 8.2.4.26, so absent @bi is allowed.
+ */
+static bool cxl_is_bi_capable(struct pci_dev *pdev, void __iomem *bi)
+{
+	if (!cxl_pci_flit_256(pdev))
+		return false;
+
+	if (pci_pcie_type(pdev) != PCI_EXP_TYPE_UPSTREAM && !bi) {
+		dev_dbg(&pdev->dev, "No BI Decoder registers.\n");
+		return false;
+	}
+
+	return true;
+}
+
+/* limit any insane timeouts from hw */
+#define CXL_BI_COMMIT_MAXTMO_US (20 * USEC_PER_SEC)
+
+static unsigned long __cxl_bi_get_timeout_us(struct device *dev,
+					     unsigned int scale,
+					     unsigned int base)
+{
+	static const unsigned long scale_tbl[] = {
+		1, 10, 100, 1000, 10000, 100000, 1000000, 10000000,
+	};
+
+	if (scale >= ARRAY_SIZE(scale_tbl) || !base) {
+		dev_dbg(dev, "Invalid BI commit timeout: scale=%u base=%u\n",
+			scale, base);
+		return CXL_BI_COMMIT_MAXTMO_US;
+	}
+
+	return scale_tbl[scale] * base;
+}
+
+static int __cxl_bi_wait_commit(struct device *dev, void __iomem *status_reg,
+				u32 committed_bit, u32 err_bit,
+				unsigned int scale, unsigned int base)
+{
+	unsigned long tmo_us, poll_us;
+	ktime_t start;
+	u32 status;
+	int rc;
+
+	tmo_us = min_t(unsigned long, CXL_BI_COMMIT_MAXTMO_US,
+		       __cxl_bi_get_timeout_us(dev, scale, base));
+	poll_us = max_t(unsigned long, tmo_us / 10, 1); /* ~10% */
+	start = ktime_get();
+
+	rc = readx_poll_timeout(readl, status_reg, status,
+				status & (committed_bit | err_bit),
+				poll_us, tmo_us);
+	if (rc) {
+		dev_err(dev, "BI-ID commit timed out (%luus)\n", tmo_us);
+		return rc; /* -ETIMEDOUT */
+	}
+
+	if (status & err_bit) {
+		dev_err(dev, "BI-ID commit rejected by hardware\n");
+		return -EIO;
+	}
+
+	dev_dbg(dev, "BI-ID commit wait took %lluus\n",
+		ktime_to_us(ktime_sub(ktime_get(), start)));
+	return 0;
+}
+
+/* BI RT only exists on switch upstream ports. */
+static int __cxl_bi_commit_rt(struct device *dev, void __iomem *bi)
+{
+	u32 status, ctrl;
+	unsigned int scale, base;
+
+	if (!FIELD_GET(CXL_BI_RT_CAPS_EXPLICIT_COMMIT_REQ,
+		       readl(bi + CXL_BI_RT_CAPS_OFFSET)))
+		return 0;
+
+	ctrl = readl(bi + CXL_BI_RT_CTRL_OFFSET);
+	writel(ctrl & ~CXL_BI_RT_CTRL_BI_COMMIT, bi + CXL_BI_RT_CTRL_OFFSET);
+	writel(ctrl | CXL_BI_RT_CTRL_BI_COMMIT, bi + CXL_BI_RT_CTRL_OFFSET);
+
+	status = readl(bi + CXL_BI_RT_STATUS_OFFSET);
+	scale = FIELD_GET(CXL_BI_RT_STATUS_BI_COMMIT_TM_SCALE, status);
+	base = FIELD_GET(CXL_BI_RT_STATUS_BI_COMMIT_TM_BASE, status);
+
+	return __cxl_bi_wait_commit(dev, bi + CXL_BI_RT_STATUS_OFFSET,
+				    CXL_BI_RT_STATUS_BI_COMMITTED,
+				    CXL_BI_RT_STATUS_BI_ERR_NOT_COMMITTED,
+				    scale, base);
+}
+
+static int __cxl_bi_commit_decoder(struct device *dev, void __iomem *bi)
+{
+	u32 status, ctrl;
+	unsigned int scale, base;
+
+	if (!FIELD_GET(CXL_BI_DECODER_CAPS_EXPLICIT_COMMIT_REQ,
+		       readl(bi + CXL_BI_DECODER_CAPS_OFFSET)))
+		return 0;
+
+	ctrl = readl(bi + CXL_BI_DECODER_CTRL_OFFSET);
+	writel(ctrl & ~CXL_BI_DECODER_CTRL_BI_COMMIT,
+	       bi + CXL_BI_DECODER_CTRL_OFFSET);
+	writel(ctrl | CXL_BI_DECODER_CTRL_BI_COMMIT,
+	       bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	status = readl(bi + CXL_BI_DECODER_STATUS_OFFSET);
+	scale = FIELD_GET(CXL_BI_DECODER_STATUS_BI_COMMIT_TM_SCALE, status);
+	base = FIELD_GET(CXL_BI_DECODER_STATUS_BI_COMMIT_TM_BASE, status);
+
+	return __cxl_bi_wait_commit(dev, bi + CXL_BI_DECODER_STATUS_OFFSET,
+				    CXL_BI_DECODER_STATUS_BI_COMMITTED,
+				    CXL_BI_DECODER_STATUS_BI_ERR_NOT_COMMITTED,
+				    scale, base);
+}
+
+/* Committed, or no explicit commit required */
+static bool __cxl_bi_committed(void __iomem *caps_reg, void __iomem *status_reg,
+			       u32 req_bit, u32 committed_bit)
+{
+	if (!(readl(caps_reg) & req_bit))
+		return true;
+
+	return readl(status_reg) & committed_bit;
+}
+
+static bool cxl_bi_rt_committed(void __iomem *bi)
+{
+	return __cxl_bi_committed(bi + CXL_BI_RT_CAPS_OFFSET,
+				  bi + CXL_BI_RT_STATUS_OFFSET,
+				  CXL_BI_RT_CAPS_EXPLICIT_COMMIT_REQ,
+				  CXL_BI_RT_STATUS_BI_COMMITTED);
+}
+
+static bool cxl_bi_decoder_committed(void __iomem *bi)
+{
+	return __cxl_bi_committed(bi + CXL_BI_DECODER_CAPS_OFFSET,
+				  bi + CXL_BI_DECODER_STATUS_OFFSET,
+				  CXL_BI_DECODER_CAPS_EXPLICIT_COMMIT_REQ,
+				  CXL_BI_DECODER_STATUS_BI_COMMITTED);
+}
+
+static int cxl_bi_commit_dport(struct cxl_dport *dport)
+{
+	struct cxl_port *port = dport->port;
+	int rc;
+
+	lockdep_assert_held(&port->bi_lock);
+
+	/* root ports never require the explicit commit */
+	if (pci_pcie_type(to_pci_dev(dport->dport_dev)) !=
+	    PCI_EXP_TYPE_DOWNSTREAM)
+		return 0;
+
+	rc = __cxl_bi_commit_decoder(dport->dport_dev, dport->regs.bi_decoder);
+	if (rc)
+		return rc;
+
+	if (port->regs.bi_rt)
+		rc = __cxl_bi_commit_rt(&port->dev, port->regs.bi_rt);
+
+	return rc;
+}
+
+/*
+ * Enable BI-ID changes in the given level of the topology.
+ * @direct says the device is connected directly to this dport, which
+ * takes BI Enable; every dport above it takes BI Forward.
+ */
+static int cxl_bi_ctrl_dport_enable(struct cxl_dport *dport, bool direct,
+				    bool *adopt)
+{
+	struct cxl_port *port = dport->port;
+	u32 ctrl, value, set, clr;
+	void __iomem *bi;
+	int rc;
+
+	guard(mutex)(&port->bi_lock);
+
+	bi = dport->regs.bi_decoder;
+	if (!bi)
+		return -EINVAL;
+
+	ctrl = readl(bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	/*
+	 * First reference through a level already up: firmware brought
+	 * it up, or this driver did for a device it let go of while it
+	 * still decoded with BI, which a dport re-created since cannot
+	 * otherwise know. Either way it is not this driver's to take
+	 * down: only a level it brought up from zero is ever cleared.
+	 */
+	if (!dport->nr_bi &&
+	    (ctrl & (CXL_BI_DECODER_CTRL_BI_FW | CXL_BI_DECODER_CTRL_BI_ENABLE)))
+		dport->bi_held = true;
+
+	set = direct ? CXL_BI_DECODER_CTRL_BI_ENABLE :
+		       CXL_BI_DECODER_CTRL_BI_FW;
+	clr = direct ? CXL_BI_DECODER_CTRL_BI_FW :
+		       CXL_BI_DECODER_CTRL_BI_ENABLE;
+
+	value = (ctrl | set) & ~clr;
+
+	/*
+	 * Adopt this level as firmware left it: nothing below it that
+	 * firmware did not account for, nothing this driver has routed
+	 * through it, the value this walk would write already in place,
+	 * and the decoder (and route table) committed.
+	 */
+	if (*adopt && !dport->nr_bi && value == ctrl &&
+	    cxl_bi_decoder_committed(bi) &&
+	    (!port->regs.bi_rt || cxl_bi_rt_committed(port->regs.bi_rt)))
+		goto done;
+	/* firmware did not bring this level up, so nothing above may */
+	*adopt = false;
+
+	if (value != ctrl)
+		writel(value, bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	/* owed per new device below, not per register change */
+	rc = cxl_bi_commit_dport(dport);
+	if (rc) {
+		if (value != ctrl) {
+			/* the undo is a BI-ID change owing its own commit */
+			writel(ctrl, bi + CXL_BI_DECODER_CTRL_OFFSET);
+			cxl_bi_commit_dport(dport);
+		}
+		return rc;
+	}
+done:
+	dport->nr_bi++;
+
+	return 0;
+}
+
+/*
+ * Dealloc BI-ID changes in the given level of the topology. Called
+ * once per endpoint that enabled this level: on teardown, or to
+ * unwind a path that failed partway up. @hold marks the level for a
+ * device below that still decodes with BI, so that no teardown
+ * reaching zero clears it.
+ */
+static int cxl_bi_ctrl_dport_disable(struct cxl_dport *dport, bool hold)
+{
+	struct cxl_port *port = dport->port;
+	void __iomem *bi;
+	u32 ctrl;
+
+	guard(mutex)(&port->bi_lock);
+
+	bi = dport->regs.bi_decoder;
+	if (!bi)
+		return -EINVAL;
+
+	if (WARN_ON_ONCE(dport->nr_bi == 0))
+		return -EINVAL;
+
+	if (hold)
+		dport->bi_held = true;
+
+	/* others below still need this level */
+	if (--dport->nr_bi > 0)
+		return 0;
+
+	/* found up, or a device below still decodes with BI */
+	if (dport->bi_held)
+		return 0;
+
+	ctrl = readl(bi + CXL_BI_DECODER_CTRL_OFFSET);
+	writel(ctrl & ~(CXL_BI_DECODER_CTRL_BI_FW |
+			CXL_BI_DECODER_CTRL_BI_ENABLE),
+	       bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	return cxl_bi_commit_dport(dport);
+}
+
+static int __cxl_bi_ctrl_endpoint(struct cxl_dev_state *cxlds, bool enable)
+{
+	struct cxl_port *endpoint = cxlds->cxlmd->endpoint;
+	void __iomem *bi = endpoint->regs.bi_decoder;
+	u32 ctrl;
+
+	if (!bi)
+		return -EINVAL;
+
+	ctrl = readl(bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	if (enable) {
+		if (FIELD_GET(CXL_BI_DECODER_CTRL_BI_ENABLE, ctrl)) {
+			if (!cxlds->bi) /* adopt firmware enabled */
+				dev_dbg(cxlds->dev,
+					"adopting firmware-enabled BI\n");
+			goto done;
+		}
+	} else {
+		if (!FIELD_GET(CXL_BI_DECODER_CTRL_BI_ENABLE, ctrl)) {
+			if (!cxlds->bi)
+				return 0;
+			dev_err(cxlds->dev,
+				"BI already disabled in hardware\n");
+			return -EBUSY;
+		}
+	}
+
+	FIELD_MODIFY(CXL_BI_DECODER_CTRL_BI_ENABLE, &ctrl, enable);
+	writel(ctrl, bi + CXL_BI_DECODER_CTRL_OFFSET);
+
+	dev_dbg(cxlds->dev, "BI requests %s\n", str_enabled_disabled(enable));
+done:
+	cxlds->bi = enable;
+	return 0;
+}
+
+static int cxl_bi_ctrl_endpoint_enable(struct cxl_dev_state *cxlds)
+{
+	return __cxl_bi_ctrl_endpoint(cxlds, true);
+}
+
+static int cxl_bi_ctrl_endpoint_disable(struct cxl_dev_state *cxlds)
+{
+	return __cxl_bi_ctrl_endpoint(cxlds, false);
+}
+
+/*
+ * Release the device's BI, then each dport up the path short of @stop,
+ * following the deallocate sequence in the implementation notes of
+ * CXL 4.0 9.14.2. Setup's unwind and teardown alike: a level the
+ * walk adopted was found up and is held, so the unwind leaves its
+ * register as it found it.
+ *
+ * A decoder that still decodes with its BI bit set needs BI Enable,
+ * the device-wide permission behind it, so the device keeps it. The
+ * references are still released - @nr_bi has to stay true to the
+ * endpoints below - and each level is held instead, so a later
+ * teardown reaching zero leaves it alone. An unwind never holds: the
+ * walk failed before the device's BI was taken up, so no path is left
+ * to keep up for it.
+ */
+static void cxl_bi_release(struct cxl_dev_state *cxlds, struct cxl_dport *stop)
+{
+	struct cxl_port *endpoint = cxlds->cxlmd->endpoint;
+	bool live = cxl_hdm_bi_committed(endpoint);
+	bool hold = live && cxlds->bi;
+	struct cxl_dport *dport_iter;
+	struct cxl_port *port_iter;
+
+	/* only the binding that took up the device's BI releases it */
+	if (cxlds->bi && !live)
+		cxl_bi_ctrl_endpoint_disable(cxlds);
+	cxlds->bi = false;
+
+	/*
+	 * Walk the same parent_dport chain that enabled the path. A bus
+	 * lookup cannot stand in for it: an ancestor-driven teardown
+	 * delists the parent port before this devres action runs.
+	 */
+	dport_iter = endpoint->parent_dport;
+	port_iter = dport_iter->port;
+	while (!is_cxl_root(port_iter) && dport_iter != stop) {
+		int rc = cxl_bi_ctrl_dport_disable(dport_iter, hold);
+
+		/* best effort */
+		if (rc)
+			dev_dbg(&port_iter->dev,
+				"BI dport disable failed: %d\n", rc);
+
+		dport_iter = port_iter->parent_dport;
+		port_iter = dport_iter->port;
+	}
+}
+
+/*
+ * devm teardown on endpoint port destruction. Registered before the
+ * decoders, so devres runs it after them: regions are detached and
+ * decoders unregistered by the time BI comes down.
+ */
+static void cxl_bi_dealloc(void *data)
+{
+	struct cxl_port *endpoint = data;
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+
+	cxl_bi_release(cxlmd->cxlds, NULL);
+}
+
+/*
+ * Enable BI on every dport in the path, then on the device itself,
+ * following the allocate sequence in the implementation notes of
+ * CXL 4.0 9.14.2. On failure, unwind only the dports that enabled.
+ */
+static int cxl_bi_enable_path(struct cxl_dev_state *cxlds,
+			      struct cxl_port *port, struct cxl_dport *dport)
+{
+	struct cxl_port *endpoint = cxlds->cxlmd->endpoint;
+	struct cxl_dport *dport_iter;
+	struct cxl_port *port_iter;
+	bool adopt;
+	int rc;
+
+	/*
+	 * Adoption is a path property, not a per-dport one: only when
+	 * firmware enabled the device itself does a dport's committed
+	 * state cover this device's BI-ID.
+	 */
+	adopt = cxl_bi_decoder_enabled(endpoint);
+
+	port_iter = port;
+	dport_iter = dport;
+	while (!is_cxl_root(port_iter)) {
+		rc = cxl_bi_ctrl_dport_enable(dport_iter, dport_iter == dport,
+					      &adopt);
+		if (rc)
+			goto err_rollback;
+
+		dport_iter = port_iter->parent_dport;
+		port_iter = dport_iter->port;
+	}
+
+	rc = cxl_bi_ctrl_endpoint_enable(cxlds);
+	if (rc)
+		goto err_rollback;
+
+	return 0;
+
+err_rollback:
+	/* the failed level, and any above it, took no reference */
+	cxl_bi_release(cxlds, dport_iter);
+	return rc;
+}
+
+/*
+ * An SBR wipes the device's BI Enable; an FLR leaves it alone.
+ * The check is against the hardware, not decoder state: BI is
+ * enabled at probe, so it can be wiped with no decoder ever
+ * committed. A wipe invalidates the software state; BI is never
+ * re-enabled here.
+ */
+void cxl_bi_reset_detected(struct cxl_port *endpoint)
+{
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+
+	/*
+	 * The BI Decoder mapping belongs to the endpoint port, and an
+	 * unbind of that port alone releases it: hold the port while it
+	 * is read, and read nothing once the port driver is gone.
+	 */
+	guard(device)(&endpoint->dev);
+	if (!endpoint->dev.driver)
+		return;
+
+	if (!READ_ONCE(cxlds->bi))
+		return;
+
+	if (cxl_bi_decoder_enabled(endpoint))
+		return;
+
+	dev_warn(cxlds->dev, "BI disabled by reset\n");
+	WRITE_ONCE(cxlds->bi, false);
+}
+EXPORT_SYMBOL_NS_GPL(cxl_bi_reset_detected, "CXL");
+
+/*
+ * Verify the device and every component in the path up to the root
+ * are BI capable.
+ */
+void cxl_bi_probe_capable(struct cxl_port *endpoint)
+{
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	struct cxl_dport *dport_iter;
+	struct cxl_port *port_iter;
+
+	cxlds->bi_capable = false;
+
+	if (!dev_is_pci(cxlds->dev))
+		return;
+
+	/* BI is VH-only */
+	if (cxlds->rcd)
+		return;
+
+	if (!cxl_is_bi_capable(to_pci_dev(cxlds->dev),
+			       endpoint->regs.bi_decoder))
+		return;
+
+	dport_iter = endpoint->parent_dport;
+	port_iter = dport_iter->port;
+	while (!is_cxl_root(port_iter)) {
+		/* check rp, dsp */
+		if (!cxl_is_bi_capable(to_pci_dev(dport_iter->dport_dev),
+				       dport_iter->regs.bi_decoder)) {
+			dev_dbg(cxlds->dev, "BI not supported by topology\n");
+			return;
+		}
+
+		/* check usp */
+		if (dev_is_pci(port_iter->uport_dev) &&
+		    pci_pcie_type(to_pci_dev(port_iter->uport_dev)) ==
+			    PCI_EXP_TYPE_UPSTREAM) {
+			if (!cxl_is_bi_capable(to_pci_dev(port_iter->uport_dev),
+					       NULL)) {
+				dev_dbg(cxlds->dev,
+					"BI not supported by USP\n");
+				return;
+			}
+			if (port_iter->reg_map.component_map.bi_rt.valid &&
+			    !port_iter->regs.bi_rt) {
+				dev_dbg(cxlds->dev,
+					"BI RT advertised but unmapped\n");
+				return;
+			}
+		}
+
+		dport_iter = port_iter->parent_dport;
+		port_iter = dport_iter->port;
+	}
+
+	cxlds->bi_capable = true;
+}
+EXPORT_SYMBOL_NS_GPL(cxl_bi_probe_capable, "CXL");
+
+int cxl_bi_setup(struct cxl_port *endpoint)
+{
+	struct cxl_memdev *cxlmd = to_cxl_memdev(endpoint->uport_dev);
+	struct cxl_dport *dport = endpoint->parent_dport;
+	struct cxl_dev_state *cxlds = cxlmd->cxlds;
+	int rc;
+
+	if (!cxlds->bi_capable)
+		return 0;
+
+	rc = cxl_bi_enable_path(cxlds, dport->port, dport);
+	if (rc)
+		return rc;
+
+	return devm_add_action_or_reset(&endpoint->dev, cxl_bi_dealloc,
+					endpoint);
+}
+EXPORT_SYMBOL_NS_GPL(cxl_bi_setup, "CXL");

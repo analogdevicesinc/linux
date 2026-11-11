@@ -1124,8 +1124,8 @@ void cxl_region_shared_upstream_bandwidth_update(struct cxl_region *cxlr)
 	cxl_region_update_bandwidth(cxlr, usp_xa);
 }
 
-void cxl_region_perf_data_calculate(struct cxl_region *cxlr,
-				    struct cxl_endpoint_decoder *cxled)
+static void cxl_region_perf_data_add(struct cxl_region *cxlr,
+				     struct cxl_endpoint_decoder *cxled)
 {
 	struct cxl_dpa_perf *perf;
 
@@ -1146,4 +1146,19 @@ void cxl_region_perf_data_calculate(struct cxl_region *cxlr,
 		cxlr->coord[i].read_bandwidth += perf->coord[i].read_bandwidth;
 		cxlr->coord[i].write_bandwidth += perf->coord[i].write_bandwidth;
 	}
+}
+
+/**
+ * cxl_region_perf_data_update - Recalculate region performance data
+ * @cxlr: region with all targets attached
+ *
+ * Reset the access coordinates and calculate them from the current targets.
+ */
+void cxl_region_perf_data_update(struct cxl_region *cxlr)
+{
+	struct cxl_region_params *p = &cxlr->params;
+
+	memset(cxlr->coord, 0, sizeof(cxlr->coord));
+	for (int i = 0; i < p->nr_targets; i++)
+		cxl_region_perf_data_add(cxlr, p->targets[i]);
 }

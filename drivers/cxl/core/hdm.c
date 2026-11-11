@@ -90,6 +90,8 @@ static void parse_hdm_decoder_caps(struct cxl_hdm *cxlhdm)
 		cxlhdm->iw_cap_mask |= BIT(3) | BIT(6) | BIT(12);
 	if (FIELD_GET(CXL_HDM_DECODER_INTERLEAVE_16_WAY, hdm_cap))
 		cxlhdm->iw_cap_mask |= BIT(16);
+	cxlhdm->supported_coherency =
+		FIELD_GET(CXL_HDM_DECODER_SUPPORTED_COHERENCY_MASK, hdm_cap);
 }
 
 static bool should_emulate_decoders(struct cxl_endpoint_dvsec_info *info)
@@ -189,6 +191,38 @@ static struct cxl_hdm *devm_cxl_setup_hdm(struct cxl_port *port,
 	}
 
 	return cxlhdm;
+}
+
+/*
+ * Whether any of the endpoint's HDM decoders still decodes with its BI
+ * bit set, read from the hardware: a decoder can outlive the driver's
+ * teardown committed, whether locked, in a region that is never reset,
+ * or never in a region at all.
+ */
+bool cxl_hdm_bi_committed(struct cxl_port *endpoint)
+{
+	struct cxl_hdm *cxlhdm = dev_get_drvdata(&endpoint->dev);
+	void __iomem *hdm;
+	u32 ctrl;
+	int i;
+
+	if (!cxlhdm || !cxlhdm->regs.hdm_decoder)
+		return false;
+	hdm = cxlhdm->regs.hdm_decoder;
+
+	/* nothing decodes with decoding off, emulated, or the device gone */
+	ctrl = readl(hdm + CXL_HDM_DECODER_CTRL_OFFSET);
+	if (ctrl == U32_MAX || !(ctrl & CXL_HDM_DECODER_ENABLE))
+		return false;
+
+	for (i = 0; i < cxlhdm->decoder_count; i++) {
+		ctrl = readl(hdm + CXL_HDM_DECODER0_CTRL_OFFSET(i));
+		if ((ctrl & CXL_HDM_DECODER0_CTRL_COMMITTED) &&
+		    (ctrl & CXL_HDM_DECODER0_CTRL_BI))
+			return true;
+	}
+
+	return false;
 }
 
 static void __cxl_dpa_debug(struct seq_file *file, struct resource *r, int depth)
@@ -756,9 +790,26 @@ static void cxld_set_interleave(struct cxl_decoder *cxld, u32 *ctrl)
 
 static void cxld_set_type(struct cxl_decoder *cxld, u32 *ctrl)
 {
+	bool bi = cxld->target_type == CXL_DECODER_DEVMEM &&
+		  cxld->region && cxl_root_decoder_is_bi(cxld->region->cxlrd);
+
 	u32p_replace_bits(ctrl,
 			  !!(cxld->target_type == CXL_DECODER_HOSTONLYMEM),
 			  CXL_HDM_DECODER0_CTRL_HOSTONLY);
+	u32p_replace_bits(ctrl, bi, CXL_HDM_DECODER0_CTRL_BI);
+
+	/*
+	 * Interleave Set Position: the endpoint's position in the
+	 * interleave set, RWL for a BI-capable device and reserved
+	 * otherwise (CXL 4.0 Table 8-123).
+	 */
+	if (bi && is_endpoint_decoder(&cxld->dev)) {
+		struct cxl_endpoint_decoder *cxled =
+			to_cxl_endpoint_decoder(&cxld->dev);
+
+		u32p_replace_bits(ctrl, cxled->pos,
+				  CXL_HDM_DECODER0_CTRL_ISP_MASK);
+	}
 }
 
 static void cxlsd_set_targets(struct cxl_switch_decoder *cxlsd, u64 *tgt)
@@ -856,6 +907,7 @@ static int cxl_decoder_commit(struct cxl_decoder *cxld)
 	struct cxl_hdm *cxlhdm = dev_get_drvdata(&port->dev);
 	void __iomem *hdm = cxlhdm->regs.hdm_decoder;
 	int id = cxld->id, rc;
+	u32 ctrl;
 
 	if (cxld->flags & CXL_DECODER_F_ENABLE)
 		return 0;
@@ -898,6 +950,10 @@ static int cxl_decoder_commit(struct cxl_decoder *cxld)
 	}
 	port->commit_end++;
 	cxld->flags |= CXL_DECODER_F_ENABLE;
+
+	ctrl = readl(hdm + CXL_HDM_DECODER0_CTRL_OFFSET(id));
+	if (ctrl & CXL_HDM_DECODER0_CTRL_BI)
+		cxld->flags |= CXL_DECODER_F_BI;
 
 	return 0;
 }
@@ -969,7 +1025,7 @@ static void cxl_decoder_reset(struct cxl_decoder *cxld)
 	writel(0, hdm + CXL_HDM_DECODER0_BASE_HIGH_OFFSET(id));
 	writel(0, hdm + CXL_HDM_DECODER0_BASE_LOW_OFFSET(id));
 
-	cxld->flags &= ~CXL_DECODER_F_ENABLE;
+	cxld->flags &= ~(CXL_DECODER_F_ENABLE | CXL_DECODER_F_BI);
 
 	/* Userspace is now responsible for reconfiguring this decoder */
 	if (is_endpoint_decoder(&cxld->dev)) {
@@ -1022,6 +1078,26 @@ static int cxl_setup_hdm_decoder_from_dvsec(
 	return 0;
 }
 
+/*
+ * HDMs that advertise support for both coherency modes
+ * (CXL_HDM_DECODER_COHERENCY_BOTH) default to host-only; the region
+ * attach path switches target_type to device-coherent if the region's
+ * root decoder has the CFMWS BI bit set. Only HDMs that strictly
+ * support device-coherent mode default to HDM-DB.
+ */
+enum cxl_decoder_type cxled_default_type(struct cxl_endpoint_decoder *cxled)
+{
+	struct cxl_dev_state *cxlds = cxled_to_memdev(cxled)->cxlds;
+	struct cxl_port *port = cxled_to_port(cxled);
+	struct cxl_hdm *cxlhdm = dev_get_drvdata(&port->dev);
+
+	if (cxlds->type == CXL_DEVTYPE_CLASSMEM &&
+	    cxlhdm->supported_coherency != CXL_HDM_DECODER_COHERENCY_DEV)
+		return CXL_DECODER_HOSTONLYMEM;
+
+	return CXL_DECODER_DEVMEM;
+}
+
 static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 			    void __iomem *hdm, int which,
 			    u64 *dpa_base, struct cxl_endpoint_dvsec_info *info)
@@ -1069,10 +1145,31 @@ static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 		cxld->flags |= CXL_DECODER_F_ENABLE;
 		if (ctrl & CXL_HDM_DECODER0_CTRL_LOCK)
 			cxld->flags |= CXL_DECODER_F_LOCK;
+		if (ctrl & CXL_HDM_DECODER0_CTRL_BI)
+			cxld->flags |= CXL_DECODER_F_BI;
+
 		if (FIELD_GET(CXL_HDM_DECODER0_CTRL_HOSTONLY, ctrl))
 			cxld->target_type = CXL_DECODER_HOSTONLYMEM;
 		else
 			cxld->target_type = CXL_DECODER_DEVMEM;
+
+		if (FIELD_GET(CXL_HDM_DECODER0_CTRL_BI, ctrl)) {
+			struct cxl_dev_state *cxlds = cxled ?
+				cxled_to_memdev(cxled)->cxlds : NULL;
+
+			if (cxld->target_type == CXL_DECODER_HOSTONLYMEM) {
+				dev_warn(&port->dev,
+					 "decoder%d.%d: BI with host-only\n",
+					 port->id, cxld->id);
+				return -ENXIO;
+			}
+			if (cxlds && !cxlds->bi_capable) {
+				dev_warn(&port->dev,
+					 "decoder%d.%d: path not BI capable\n",
+					 port->id, cxld->id);
+				return -ENXIO;
+			}
+		}
 
 		guard(rwsem_write)(&cxl_rwsem.region);
 		if (cxld->id != cxl_num_decoders_committed(port)) {
@@ -1085,17 +1182,7 @@ static int init_hdm_decoder(struct cxl_port *port, struct cxl_decoder *cxld,
 		port->commit_end = cxld->id;
 	} else {
 		if (cxled) {
-			struct cxl_memdev *cxlmd = cxled_to_memdev(cxled);
-			struct cxl_dev_state *cxlds = cxlmd->cxlds;
-
-			/*
-			 * Default by devtype until a device arrives that needs
-			 * more precision.
-			 */
-			if (cxlds->type == CXL_DEVTYPE_CLASSMEM)
-				cxld->target_type = CXL_DECODER_HOSTONLYMEM;
-			else
-				cxld->target_type = CXL_DECODER_DEVMEM;
+			cxld->target_type = cxled_default_type(cxled);
 		} else {
 			/* To be overridden by region type at commit time */
 			cxld->target_type = CXL_DECODER_HOSTONLYMEM;
@@ -1357,6 +1444,17 @@ int devm_cxl_endpoint_decoders_setup(struct cxl_port *port)
 	rc = cxl_hdm_decode_init(cxlds, cxlhdm, &info);
 	if (rc)
 		return rc;
+
+	/*
+	 * Between the port's HDM state and its decoders: devres,
+	 * unwinding in reverse, brings BI down only after the decoders
+	 * quiesce, while its slow walk still precedes the HDM state
+	 * free. Must also precede region discovery, where HDM-DB
+	 * assembly requires cxlds->bi.
+	 */
+	rc = cxl_bi_setup(port);
+	if (rc)
+		dev_dbg(&port->dev, "BI setup failed rc=%d\n", rc);
 
 	return devm_cxl_enumerate_decoders(cxlhdm, &info);
 }
