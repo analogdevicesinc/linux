@@ -1087,14 +1087,13 @@ __be32 nfsd_splice_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
  *
  * Note that a direct read can be done only when the xdr_buf containing
  * the NFS READ reply does not already have contents in its .pages array.
- * This is due to potentially restrictive alignment requirements on the
- * read buffer. When .page_len and @base are zero, the .pages array is
- * guaranteed to be page-aligned.
+ * Direct I/O alignment can be restrictive, and with .page_len zero the
+ * read buffer starts on a page boundary.
  */
 static noinline_for_stack __be32
 nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		 struct nfsd_file *nf, loff_t offset, unsigned long *count,
-		 u32 *eof)
+		 struct page **page, u32 *eof)
 {
 	u64 dio_start, dio_end;
 	unsigned long v, total;
@@ -1114,16 +1113,15 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 
 	v = 0;
 	total = dio_end - dio_start;
-	while (total && v < rqstp->rq_maxpages &&
-	       rqstp->rq_next_page < rqstp->rq_page_end) {
+	while (total && v < rqstp->rq_maxpages && page < rqstp->rq_page_end) {
 		len = min_t(size_t, total, PAGE_SIZE);
-		bvec_set_page(&rqstp->rq_bvec[v], *rqstp->rq_next_page,
-			      len, 0);
+		bvec_set_page(&rqstp->rq_bvec[v], *page, len, 0);
 
 		total -= len;
-		++rqstp->rq_next_page;
+		++page;
 		++v;
 	}
+	rqstp->rq_next_page = page;
 
 	trace_nfsd_read_direct(rqstp, fhp, offset, *count - total);
 	iov_iter_bvec(&iter, ITER_DEST, rqstp->rq_bvec, v,
@@ -1133,9 +1131,6 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (host_err >= 0) {
 		unsigned int pad = offset - dio_start;
 
-		/* The returned payload starts after the pad */
-		rqstp->rq_res.page_base = pad;
-
 		/* Compute the count of bytes to be returned */
 		if (host_err > pad + *count)
 			host_err = *count;
@@ -1143,6 +1138,10 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			host_err -= pad;
 		else
 			host_err = 0;
+
+		/* The returned payload starts after the pad */
+		if (host_err)
+			rqstp->rq_res.page_base = pad;
 	} else if (unlikely(host_err == -EINVAL)) {
 		struct inode *inode = d_inode(fhp->fh_dentry);
 
@@ -1162,19 +1161,24 @@ nfsd_direct_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
  * @nf: opened struct nfsd_file of file to be read
  * @offset: starting byte offset
  * @count: IN: requested number of bytes; OUT: number of bytes read
- * @base: offset in first page of read buffer
  * @eof: OUT: set non-zero if operation reached the end of the file
  *
  * Some filesystems or situations cannot use nfsd_splice_read. This
  * function is the slightly less-performant fallback for those cases.
+ * File data lands in @rqstp->rq_res.pages at the offset .page_len
+ * records. On return, @rqstp->rq_next_page points past the last page
+ * offered to the read.
  *
  * Returns nfs_ok on success, otherwise an nfserr stat value is
  * returned.
  */
 __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		      struct nfsd_file *nf, loff_t offset, unsigned long *count,
-		      unsigned int base, u32 *eof)
+		      u32 *eof)
 {
+	struct xdr_buf *buf = &rqstp->rq_res;
+	struct page **page = buf->pages + (buf->page_len >> PAGE_SHIFT);
+	unsigned int base = buf->page_len & ~PAGE_MASK;
 	struct file *file = nf->nf_file;
 	unsigned long v, total;
 	struct iov_iter iter;
@@ -1191,7 +1195,7 @@ __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 		/* When dio_read_offset_align is zero, dio is not supported */
 		if (nf->nf_dio_read_offset_align && !rqstp->rq_res.page_len)
 			return nfsd_direct_read(rqstp, fhp, nf, offset,
-						count, eof);
+						count, page, eof);
 		fallthrough;
 	case NFSD_IO_DONTCACHE:
 		if (file->f_op->fop_flags & FOP_DONTCACHE)
@@ -1203,17 +1207,16 @@ __be32 nfsd_iter_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 
 	v = 0;
 	total = *count;
-	while (total && v < rqstp->rq_maxpages &&
-	       rqstp->rq_next_page < rqstp->rq_page_end) {
+	while (total && v < rqstp->rq_maxpages && page < rqstp->rq_page_end) {
 		len = min_t(size_t, total, PAGE_SIZE - base);
-		bvec_set_page(&rqstp->rq_bvec[v], *rqstp->rq_next_page,
-			      len, base);
+		bvec_set_page(&rqstp->rq_bvec[v], *page, len, base);
 
 		total -= len;
-		++rqstp->rq_next_page;
+		++page;
 		++v;
 		base = 0;
 	}
+	rqstp->rq_next_page = page;
 
 	trace_nfsd_read_vector(rqstp, fhp, offset, *count - total);
 	iov_iter_bvec(&iter, ITER_DEST, rqstp->rq_bvec, v, *count - total);
@@ -1570,7 +1573,7 @@ __be32 nfsd_read(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	if (file->f_op->splice_read && nfsd_read_splice_ok(rqstp))
 		err = nfsd_splice_read(rqstp, fhp, file, offset, count, eof);
 	else
-		err = nfsd_iter_read(rqstp, fhp, nf, offset, count, 0, eof);
+		err = nfsd_iter_read(rqstp, fhp, nf, offset, count, eof);
 
 	nfsd_file_put(nf);
 	trace_nfsd_read_done(rqstp, fhp, offset, *count);
@@ -2367,6 +2370,33 @@ static bool nfsd_buffered_filldir(struct dir_context *ctx, const char *name,
 	return true;
 }
 
+/*
+ * Read the next batch of entries.  Returns false at end of directory
+ * (@iter->eof set) or on a filesystem error (@iter->host_err set).
+ */
+static bool nfsd_readdir_fill(struct nfsd_readdir_iter *iter)
+{
+	/* Between batches the resume cookie advances past the last. */
+	if (iter->batched)
+		iter->offset = vfs_llseek(iter->file, 0, SEEK_CUR);
+
+	iter->used = 0;
+	iter->full = 0;
+	iter->host_err = iterate_dir(iter->file, &iter->ctx);
+	if (iter->full)
+		iter->host_err = 0;
+	if (iter->host_err < 0)
+		return false;
+	if (!iter->used) {
+		iter->eof = true;
+		return false;
+	}
+	iter->batched = true;
+	iter->pos = iter->page;
+	iter->remaining = iter->used;
+	return true;
+}
+
 /**
  * nfsd_readdir_open - open a directory for streaming readdir
  * @rqstp: RPC transaction context
@@ -2374,13 +2404,15 @@ static bool nfsd_buffered_filldir(struct dir_context *ctx, const char *name,
  * @offsetp: seek offset at which to resume reading
  * @iter: OUT: directory reader to initialize
  *
- * On success the directory is open and positioned at @offsetp, and
- * @iter is ready for nfsd_readdir_next().  The caller must release
- * @iter with nfsd_readdir_close() once done, including on error paths
- * that follow a successful open.
+ * On success the directory is open and positioned at @offsetp, the
+ * first batch of entries has been read, and @iter is ready for
+ * nfsd_readdir_next().  The caller must release @iter with
+ * nfsd_readdir_close() once done, including on error paths that
+ * follow a successful open.
  *
- * Return: nfs_ok on success, otherwise an nfsstat code.  On error @iter
- * is left safe to pass to nfsd_readdir_close().
+ * Return: nfs_ok on success, otherwise an nfsstat code, including the
+ * error from reading the first batch.  On error @iter is left safe to
+ * pass to nfsd_readdir_close().
  */
 __be32 nfsd_readdir_open(struct svc_rqst *rqstp, struct svc_fh *fhp,
 			 loff_t *offsetp, struct nfsd_readdir_iter *iter)
@@ -2416,6 +2448,17 @@ __be32 nfsd_readdir_open(struct svc_rqst *rqstp, struct svc_fh *fhp,
 	iter->file = file;
 	iter->fhp = fhp;
 	iter->offset = offset;
+
+	/*
+	 * The first batch is read here so a filesystem error surfaces
+	 * in the reply status.  Once the encoder has committed nfs_ok,
+	 * an error can only be reported as a short list.
+	 */
+	if (!nfsd_readdir_fill(iter) && iter->host_err) {
+		err = nfserrno(iter->host_err);
+		nfsd_readdir_close(iter);
+		return err;
+	}
 	return nfs_ok;
 
 out_close:
@@ -2440,26 +2483,10 @@ struct buffered_dirent *nfsd_readdir_next(struct nfsd_readdir_iter *iter)
 	struct buffered_dirent *de;
 	unsigned int reclen;
 
-	while (iter->remaining <= 0) {
-		/* Between batches the resume cookie advances past the last. */
-		if (iter->batched)
-			iter->offset = vfs_llseek(iter->file, 0, SEEK_CUR);
-
-		iter->used = 0;
-		iter->full = 0;
-		iter->host_err = iterate_dir(iter->file, &iter->ctx);
-		if (iter->full)
-			iter->host_err = 0;
-		if (iter->host_err < 0)
-			return NULL;
-		if (!iter->used) {
-			iter->eof = true;
-			return NULL;
-		}
-		iter->batched = true;
-		iter->pos = iter->page;
-		iter->remaining = iter->used;
-	}
+	if (iter->eof || iter->host_err)
+		return NULL;
+	if (iter->remaining <= 0 && !nfsd_readdir_fill(iter))
+		return NULL;
 
 	de = (struct buffered_dirent *)iter->pos;
 	iter->offset = de->offset;

@@ -704,7 +704,8 @@ static struct svc_program	nlmsvc_program = {
  * @info: netlink metadata and command arguments
  *
  * This updates the per-net values. When updating the values in the init_net
- * namespace, also update the "legacy" global values.
+ * namespace, also update the "legacy" global values. Every attribute is
+ * optional; only the ones present in @info are changed.
  *
  * Return 0 on success or a negative errno.
  */
@@ -714,38 +715,31 @@ int lockd_nl_server_set_doit(struct sk_buff *skb, struct genl_info *info)
 	struct lockd_net *ln = net_generic(net, lockd_net_id);
 	const struct nlattr *attr;
 
-	if (GENL_REQ_ATTR_CHECK(info, LOCKD_A_SERVER_GRACETIME))
-		return -EINVAL;
+	attr = info->attrs[LOCKD_A_SERVER_GRACETIME];
+	if (attr) {
+		u32 gracetime = nla_get_u32(attr);
 
-	if (info->attrs[LOCKD_A_SERVER_GRACETIME] ||
-	    info->attrs[LOCKD_A_SERVER_TCP_PORT] ||
-	    info->attrs[LOCKD_A_SERVER_UDP_PORT]) {
-		attr = info->attrs[LOCKD_A_SERVER_GRACETIME];
-		if (attr) {
-			u32 gracetime = nla_get_u32(attr);
+		if (gracetime > nlm_grace_period_max)
+			return -EINVAL;
 
-			if (gracetime > nlm_grace_period_max)
-				return -EINVAL;
+		ln->gracetime = gracetime;
 
-			ln->gracetime = gracetime;
+		if (net == &init_net)
+			nlm_grace_period = gracetime;
+	}
 
-			if (net == &init_net)
-				nlm_grace_period = gracetime;
-		}
+	attr = info->attrs[LOCKD_A_SERVER_TCP_PORT];
+	if (attr) {
+		ln->tcp_port = nla_get_u16(attr);
+		if (net == &init_net)
+			nlm_tcpport = ln->tcp_port;
+	}
 
-		attr = info->attrs[LOCKD_A_SERVER_TCP_PORT];
-		if (attr) {
-			ln->tcp_port = nla_get_u16(attr);
-			if (net == &init_net)
-				nlm_tcpport = ln->tcp_port;
-		}
-
-		attr = info->attrs[LOCKD_A_SERVER_UDP_PORT];
-		if (attr) {
-			ln->udp_port = nla_get_u16(attr);
-			if (net == &init_net)
-				nlm_udpport = ln->udp_port;
-		}
+	attr = info->attrs[LOCKD_A_SERVER_UDP_PORT];
+	if (attr) {
+		ln->udp_port = nla_get_u16(attr);
+		if (net == &init_net)
+			nlm_udpport = ln->udp_port;
 	}
 	return 0;
 }

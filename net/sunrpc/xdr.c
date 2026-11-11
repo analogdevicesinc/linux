@@ -160,8 +160,8 @@ int xdr_buf_to_bvec(struct bio_vec *bvec, unsigned int bvec_size,
 	}
 
 	if (xdr->page_len) {
+		struct page **pages = xdr->pages + (xdr->page_base >> PAGE_SHIFT);
 		unsigned int offset, len, remaining;
-		struct page **pages = xdr->pages;
 
 		offset = offset_in_page(xdr->page_base);
 		remaining = xdr->page_len;

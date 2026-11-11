@@ -44,6 +44,8 @@ struct exportfs_block_ops {
 	/*
 	 * Map blocks for direct block access.
 	 * If @write is %true, also allocate the blocks for the range if needed.
+	 * The mapping returned must contain @offset. It may start before
+	 * @offset and may end before or after @offset + @len.
 	 */
 	int (*map_blocks)(struct inode *inode, loff_t offset, u64 len,
 			struct iomap *iomap, bool write,
