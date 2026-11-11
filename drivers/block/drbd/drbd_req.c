@@ -1,14 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-   drbd_req.c
-
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
-
+ * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+ * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+ * Copyright (C) 2008, LINBIT HA-Solutions GmbH.
  */
 
 #include <linux/module.h>
@@ -40,8 +35,7 @@ static struct drbd_request *drbd_req_new(struct drbd_device *device, struct bio 
 	drbd_clear_interval(&req->i);
 	req->i.sector     = bio_src->bi_iter.bi_sector;
 	req->i.size      = bio_src->bi_iter.bi_size;
-	req->i.local = true;
-	req->i.waiting = false;
+	req->i.type = bio_data_dir(bio_src) == WRITE ? INTERVAL_LOCAL_WRITE : INTERVAL_LOCAL_READ;
 
 	INIT_LIST_HEAD(&req->tl_requests);
 	INIT_LIST_HEAD(&req->w.list);
@@ -64,7 +58,7 @@ static void drbd_remove_request_interval(struct rb_root *root,
 	drbd_remove_interval(root, i);
 
 	/* Wake up any processes waiting for this request to complete.  */
-	if (i->waiting)
+	if (test_bit(INTERVAL_WAITING, &i->flags))
 		wake_up(&device->misc_wait);
 }
 
@@ -145,7 +139,7 @@ void drbd_req_destroy(struct kref *kref)
 			if (get_ldev_if_state(device, D_FAILED)) {
 				drbd_al_complete_io(device, &req->i);
 				put_ldev(device);
-			} else if (drbd_ratelimit()) {
+			} else if (drbd_device_ratelimit(device, BACKEND)) {
 				drbd_warn(device, "Should have called drbd_al_complete_io(, %llu, %u), "
 					 "but my Disk seems to have failed :(\n",
 					 (unsigned long long) req->i.sector, req->i.size);
@@ -275,10 +269,10 @@ void drbd_req_complete(struct drbd_request *req, struct bio_and_error *m)
 		 * write-acks in protocol != C during resync.
 		 * But we mark it as "complete", so it won't be counted as
 		 * conflict in a multi-primary setup. */
-		req->i.completed = true;
+		set_bit(INTERVAL_COMPLETED, &req->i.flags);
 	}
 
-	if (req->i.waiting)
+	if (test_bit(INTERVAL_WAITING, &req->i.flags))
 		wake_up(&device->misc_wait);
 
 	/* Either we are about to complete to upper layers,
@@ -510,7 +504,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 	/* potentially complete and destroy */
 
 	/* If we made progress, retry conflicting peer requests, if any. */
-	if (req->i.waiting)
+	if (test_bit(INTERVAL_WAITING, &req->i.flags))
 		wake_up(&device->misc_wait);
 
 	drbd_req_put_completion_ref(req, m, c_put);
@@ -519,7 +513,7 @@ static void mod_rq_state(struct drbd_request *req, struct bio_and_error *m,
 
 static void drbd_report_io_error(struct drbd_device *device, struct drbd_request *req)
 {
-	if (!drbd_ratelimit())
+	if (!drbd_device_ratelimit(device, BACKEND))
 		return;
 
 	drbd_warn(device, "local %s IO error sector %llu+%u on %pg\n",
@@ -791,7 +785,7 @@ int __req_mod(struct drbd_request *req, enum drbd_req_event what,
 		 */
 		D_ASSERT(device, req->rq_state & RQ_NET_PENDING);
 		req->rq_state |= RQ_POSTPONED;
-		if (req->i.waiting)
+		if (test_bit(INTERVAL_WAITING, &req->i.flags))
 			wake_up(&device->misc_wait);
 		/* Do not clear RQ_NET_PENDING. This request will make further
 		 * progress via restart_conflicting_writes() or
@@ -962,7 +956,7 @@ static void complete_conflicting_writes(struct drbd_request *req)
 	for (;;) {
 		drbd_for_each_overlap(i, &device->write_requests, sector, size) {
 			/* Ignore, if already completed to upper layers. */
-			if (i->completed)
+			if (test_bit(INTERVAL_COMPLETED, &i->flags))
 				continue;
 			/* Handle the first found overlap.  After the schedule
 			 * we have to restart the tree walk. */
@@ -973,7 +967,7 @@ static void complete_conflicting_writes(struct drbd_request *req)
 
 		/* Indicate to wake up device->misc_wait on progress.  */
 		prepare_to_wait(&device->misc_wait, &wait, TASK_UNINTERRUPTIBLE);
-		i->waiting = true;
+		set_bit(INTERVAL_WAITING, &i->flags);
 		spin_unlock_irq(&device->resource->req_lock);
 		schedule();
 		spin_lock_irq(&device->resource->req_lock);
@@ -1409,9 +1403,9 @@ static void drbd_send_and_submit(struct drbd_device *device, struct drbd_request
 		submit_private_bio = true;
 	} else if (no_remote) {
 nodata:
-		if (drbd_ratelimit())
-			drbd_err(device, "IO ERROR: neither local nor remote data, sector %llu+%u\n",
-					(unsigned long long)req->i.sector, req->i.size >> 9);
+		drbd_err_ratelimit(device,
+				   "IO ERROR: neither local nor remote data, sector %llu+%u\n",
+				   (unsigned long long)req->i.sector, req->i.size >> 9);
 		/* A write may have been queued for send_oos, however.
 		 * So we can not simply free it, we must go through drbd_req_put_completion_ref() */
 	}

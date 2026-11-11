@@ -1,16 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later WITH Linux-syscall-note */
 /*
-  drbd.h
-  Kernel module for 2.6.x Kernels
+ * Copyright (C) 2014, LINBIT HA-Solutions GmbH.
+ */
 
-  This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-  Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-  Copyright (C) 2001-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-  Copyright (C) 2001-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
-
-*/
 #ifndef _UAPI_LINUX_DRBD_H
 #define _UAPI_LINUX_DRBD_H
 #include <linux/types.h>

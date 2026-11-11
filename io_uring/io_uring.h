@@ -140,6 +140,7 @@ struct io_wait_queue {
 
 #ifdef CONFIG_NET_RX_BUSY_POLL
 	ktime_t napi_busy_poll_dt;
+	ktime_t napi_busy_poll_end;
 	bool napi_prefer_busy_poll;
 #endif
 };
@@ -338,17 +339,23 @@ static inline ssize_t io_fixup_restart_res(ssize_t ret)
 	}
 }
 
-static inline void *io_uring_alloc_async_data(struct io_alloc_cache *cache,
-					      struct io_kiocb *req)
+static inline bool
+io_uring_alloc_cached_async_data(struct io_alloc_cache *cache,
+				 struct io_kiocb *req)
 {
-	if (cache) {
-		req->async_data = io_cache_alloc(cache, GFP_KERNEL);
-	} else {
-		const struct io_issue_def *def = &io_issue_defs[req->opcode];
+	if (!io_cache_alloc(cache, GFP_KERNEL, &req->async_data))
+		return false;
 
-		WARN_ON_ONCE(!def->async_size);
-		req->async_data = kmalloc(def->async_size, GFP_KERNEL);
-	}
+	req->flags |= REQ_F_ASYNC_DATA;
+	return true;
+}
+
+static inline void *io_uring_alloc_async_data(struct io_kiocb *req)
+{
+	const struct io_issue_def *def = &io_issue_defs[req->opcode];
+
+	WARN_ON_ONCE(!def->async_size);
+	req->async_data = kmalloc(def->async_size, GFP_KERNEL);
 	if (req->async_data)
 		req->flags |= REQ_F_ASYNC_DATA;
 	return req->async_data;

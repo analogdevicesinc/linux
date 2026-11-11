@@ -1,14 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-   drbd_nl.c
-
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
-
+ * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+ * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+ * Copyright (C) 2008, LINBIT HA-Solutions GmbH.
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
@@ -4502,6 +4497,7 @@ static enum drbd_ret_code adm_del_minor(struct drbd_device *device)
 		notify_device_state(NULL, 0, device, NULL, NOTIFY_DESTROY);
 		mutex_unlock(&notification_mutex);
 
+		set_bit(UNREGISTERED, &device->flags);
 		drbd_delete_device(device);
 		return NO_ERROR;
 	} else
@@ -4546,6 +4542,7 @@ static int adm_del_resource(struct drbd_resource *resource)
 	mutex_unlock(&notification_mutex);
 
 	mutex_lock(&resources_mutex);
+	set_bit(R_UNREGISTERED, &resource->flags);
 	list_del_rcu(&resource->resources);
 	mutex_unlock(&resources_mutex);
 	/* Make sure all threads have actually stopped: state handling only

@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-   drbd_receiver.c
-
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
+ * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+ * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+ * Copyright (C) 2008, LINBIT HA-Solutions GmbH.
  */
-
 
 #include <linux/module.h>
 
@@ -1545,7 +1540,7 @@ static void drbd_remove_epoch_entry_interval(struct drbd_device *device,
 	drbd_clear_interval(i);
 
 	/* Wake up any processes waiting for this peer request to complete.  */
-	if (i->waiting)
+	if (test_bit(INTERVAL_WAITING, &i->flags))
 		wake_up(&device->misc_wait);
 }
 
@@ -1883,6 +1878,8 @@ static int recv_resync_read(struct drbd_peer_device *peer_device, sector_t secto
 	if (!peer_req)
 		goto fail;
 
+	peer_req->i.type = INTERVAL_RESYNC_WRITE;
+
 	dec_rs_pending(peer_device);
 
 	inc_unacked(device);
@@ -1921,7 +1918,7 @@ find_request(struct drbd_device *device, struct rb_root *root, u64 id,
 
 	/* Request object according to our peer */
 	req = (struct drbd_request *)(unsigned long)id;
-	if (drbd_contains_interval(root, sector, &req->i) && req->i.local)
+	if (drbd_contains_interval(root, sector, &req->i) && drbd_interval_is_local(&req->i))
 		return req;
 	if (!missing_ok) {
 		drbd_err(device, "%s: failed to find request 0x%lx, sector %llus\n", func,
@@ -1984,8 +1981,7 @@ static int receive_RSDataReply(struct drbd_connection *connection, struct packet
 		 * or in drbd_peer_request_endio. */
 		err = recv_resync_read(peer_device, sector, pi);
 	} else {
-		if (drbd_ratelimit())
-			drbd_err(device, "Can not write resync data to local disk.\n");
+		drbd_err_ratelimit(device, "Can not write resync data to local disk.\n");
 
 		err = drbd_drain_block(peer_device, pi->size);
 
@@ -2004,7 +2000,7 @@ static void restart_conflicting_writes(struct drbd_device *device,
 	struct drbd_request *req;
 
 	drbd_for_each_overlap(i, &device->write_requests, sector, size) {
-		if (!i->local)
+		if (!drbd_interval_is_local(i))
 			continue;
 		req = container_of(i, struct drbd_request, i);
 		if (req->rq_state & RQ_LOCAL_PENDING ||
@@ -2244,7 +2240,7 @@ static void fail_postponed_requests(struct drbd_device *device, sector_t sector,
 		struct drbd_request *req;
 		struct bio_and_error m;
 
-		if (!i->local)
+		if (!drbd_interval_is_local(i))
 			continue;
 		req = container_of(i, struct drbd_request, i);
 		if (!(req->rq_state & RQ_POSTPONED))
@@ -2280,10 +2276,10 @@ static int handle_write_conflicts(struct drbd_device *device,
 	drbd_for_each_overlap(i, &device->write_requests, sector, size) {
 		if (i == &peer_req->i)
 			continue;
-		if (i->completed)
+		if (test_bit(INTERVAL_COMPLETED, &i->flags))
 			continue;
 
-		if (!i->local) {
+		if (!drbd_interval_is_local(i)) {
 			/*
 			 * Our peer has sent a conflicting remote request; this
 			 * should not happen in a two-node setup.  Wait for the
@@ -2414,6 +2410,7 @@ static int receive_Data(struct drbd_connection *connection, struct packet_info *
 		return -EIO;
 	}
 
+	peer_req->i.type = INTERVAL_PEER_WRITE;
 	peer_req->w.cb = e_end_block;
 	peer_req->submit_jif = jiffies;
 	peer_req->flags |= EE_APPLICATION;
@@ -2671,9 +2668,9 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		default:
 			BUG();
 		}
-		if (verb && drbd_ratelimit())
-			drbd_err(device, "Can not satisfy peer's read request, "
-			    "no local data.\n");
+		if (verb)
+			drbd_err_ratelimit(device,
+					   "Can not satisfy peer's read request, no local data.\n");
 
 		/* drain possibly payload */
 		return drbd_drain_block(peer_device, pi->size);
@@ -2692,6 +2689,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 
 	switch (pi->cmd) {
 	case P_DATA_REQUEST:
+		peer_req->i.type = INTERVAL_PEER_READ;
 		peer_req->w.cb = w_e_end_data_req;
 		/* application IO, don't drbd_rs_begin_io */
 		peer_req->flags |= EE_APPLICATION;
@@ -2705,6 +2703,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		peer_req->flags |= EE_RS_THIN_REQ;
 		fallthrough;
 	case P_RS_DATA_REQUEST:
+		peer_req->i.type = INTERVAL_RESYNC_READ;
 		peer_req->w.cb = w_e_end_rsdata_req;
 		/* used in the sector offset progress display */
 		device->bm_resync_fo = BM_SECT_TO_BIT(sector);
@@ -2727,6 +2726,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 
 		if (pi->cmd == P_CSUM_RS_REQUEST) {
 			D_ASSERT(device, peer_device->connection->agreed_pro_version >= 89);
+			peer_req->i.type = INTERVAL_RESYNC_READ;
 			peer_req->w.cb = w_e_end_csum_rs_req;
 			/* used in the sector offset progress display */
 			device->bm_resync_fo = BM_SECT_TO_BIT(sector);
@@ -2735,6 +2735,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 		} else if (pi->cmd == P_OV_REPLY) {
 			/* track progress, we may need to throttle */
 			atomic_add(size >> 9, &device->rs_sect_in);
+			peer_req->i.type = INTERVAL_OV_READ_SOURCE;
 			peer_req->w.cb = w_e_end_ov_reply;
 			dec_rs_pending(peer_device);
 			/* drbd_rs_begin_io done when we sent this request,
@@ -2759,6 +2760,7 @@ static int receive_DataRequest(struct drbd_connection *connection, struct packet
 			drbd_info(device, "Online Verify start sector: %llu\n",
 					(unsigned long long)sector);
 		}
+		peer_req->i.type = INTERVAL_OV_READ_TARGET;
 		peer_req->w.cb = w_e_end_ov_req;
 		break;
 
@@ -3652,7 +3654,7 @@ static int ignore_remaining_packet(struct drbd_connection *connection, struct pa
 static int config_unknown_volume(struct drbd_connection *connection, struct packet_info *pi)
 {
 	drbd_warn(connection, "%s packet received for volume %u, which is not configured locally\n",
-		  cmdname(pi->cmd), pi->vnr);
+		  drbd_packet_name(pi->cmd), pi->vnr);
 	return ignore_remaining_packet(connection, pi);
 }
 
@@ -4793,6 +4795,7 @@ static int receive_rs_deallocated(struct drbd_connection *connection, struct pac
 			return -ENOMEM;
 		}
 
+		peer_req->i.type = INTERVAL_RESYNC_WRITE;
 		peer_req->w.cb = e_end_resync_block;
 		peer_req->opf = REQ_OP_DISCARD;
 		peer_req->submit_jif = jiffies;
@@ -4885,7 +4888,7 @@ static void drbdd(struct drbd_connection *connection)
 		cmd = &drbd_cmd_handler[pi.cmd];
 		if (unlikely(pi.cmd >= ARRAY_SIZE(drbd_cmd_handler) || !cmd->fn)) {
 			drbd_err(connection, "Unexpected data packet %s (0x%04x)",
-				 cmdname(pi.cmd), pi.cmd);
+				 drbd_packet_name(pi.cmd), pi.cmd);
 			goto err_out;
 		}
 
@@ -4894,12 +4897,12 @@ static void drbdd(struct drbd_connection *connection)
 			shs += sizeof(struct o_qlim);
 		if (pi.size > shs && !cmd->expect_payload) {
 			drbd_err(connection, "No payload expected %s l:%d\n",
-				 cmdname(pi.cmd), pi.size);
+				 drbd_packet_name(pi.cmd), pi.size);
 			goto err_out;
 		}
 		if (pi.size < shs) {
 			drbd_err(connection, "%s: unexpected packet size, expected:%d received:%d\n",
-				 cmdname(pi.cmd), (int)shs, pi.size);
+				 drbd_packet_name(pi.cmd), (int)shs, pi.size);
 			goto err_out;
 		}
 
@@ -4915,7 +4918,7 @@ static void drbdd(struct drbd_connection *connection)
 		err = cmd->fn(connection, &pi);
 		if (err) {
 			drbd_err(connection, "error receiving %s, e: %d l: %d!\n",
-				 cmdname(pi.cmd), err, pi.size);
+				 drbd_packet_name(pi.cmd), err, pi.size);
 			goto err_out;
 		}
 	}
@@ -5108,7 +5111,7 @@ static int drbd_do_features(struct drbd_connection *connection)
 
 	if (pi.cmd != P_CONNECTION_FEATURES) {
 		drbd_err(connection, "expected ConnectionFeatures packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		return -1;
 	}
 
@@ -5231,7 +5234,7 @@ static int drbd_do_auth(struct drbd_connection *connection)
 
 	if (pi.cmd != P_AUTH_CHALLENGE) {
 		drbd_err(connection, "expected AuthChallenge packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		rv = -1;
 		goto fail;
 	}
@@ -5297,7 +5300,7 @@ static int drbd_do_auth(struct drbd_connection *connection)
 
 	if (pi.cmd != P_AUTH_RESPONSE) {
 		drbd_err(connection, "expected AuthResponse packet, received: %s (0x%04x)\n",
-			 cmdname(pi.cmd), pi.cmd);
+			 drbd_packet_name(pi.cmd), pi.cmd);
 		rv = 0;
 		goto fail;
 	}
@@ -5857,7 +5860,7 @@ int drbd_ack_receiver(struct drbd_thread *thi)
 			cmd = &ack_receiver_tbl[pi.cmd];
 			if (pi.cmd >= ARRAY_SIZE(ack_receiver_tbl) || !cmd->fn) {
 				drbd_err(connection, "Unexpected meta packet %s (0x%04x)\n",
-					 cmdname(pi.cmd), pi.cmd);
+					 drbd_packet_name(pi.cmd), pi.cmd);
 				goto disconnect;
 			}
 			expect = header_size + cmd->pkt_size;

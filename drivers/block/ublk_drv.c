@@ -119,17 +119,14 @@ struct ublk_batch_fetch_cmd {
 
 struct ublk_uring_cmd_pdu {
 	/*
-	 * Store requests in same batch temporarily for queuing them to
-	 * daemon context.
+	 * For ublk_cmd_list_tw_cb(), a list of batched requests queued to
+	 * daemon context. For ublk_cmd_tw_cb(), a single request.
 	 *
 	 * It should have been stored to request payload, but we do want
 	 * to avoid extra pre-allocation, and uring_cmd payload is always
 	 * free for us
 	 */
-	union {
-		struct request *req;
-		struct request *req_list;
-	};
+	struct request *req;
 
 	/*
 	 * The following two are valid in this cmd whole lifetime, and
@@ -881,7 +878,8 @@ static ssize_t ublk_batch_copy_io_tags(struct ublk_batch_fetch_cmd *fcmd,
  * by cgroup.
  */
 static unsigned int unprivileged_ublks_max = 64;
-static unsigned int unprivileged_ublks_added; /* protected by ublk_ctl_mutex */
+/* checked and incremented under ublk_ctl_mutex, decremented without it */
+static atomic_t unprivileged_ublks_added = ATOMIC_INIT(0);
 
 static struct miscdevice ublk_misc;
 
@@ -2106,7 +2104,7 @@ static void ublk_cmd_list_tw_cb(struct io_tw_req tw_req, io_tw_token_t tw)
 {
 	struct io_uring_cmd *cmd = io_uring_cmd_from_tw(tw_req);
 	struct ublk_uring_cmd_pdu *pdu = ublk_get_uring_cmd_pdu(cmd);
-	struct request *rq = pdu->req_list;
+	struct request *rq = pdu->req;
 	struct request *next;
 
 	do {
@@ -2121,10 +2119,12 @@ static void ublk_queue_cmd_list(struct ublk_io *io, struct rq_list *l)
 {
 	struct io_uring_cmd *cmd = io->cmd;
 	struct ublk_uring_cmd_pdu *pdu = ublk_get_uring_cmd_pdu(cmd);
+	io_req_tw_func_t tw_cb;
 
-	pdu->req_list = rq_list_peek(l);
+	tw_cb = l->head == l->tail ? ublk_cmd_tw_cb : ublk_cmd_list_tw_cb;
+	pdu->req = rq_list_peek(l);
 	rq_list_init(l);
-	io_uring_cmd_complete_in_task(cmd, ublk_cmd_list_tw_cb);
+	io_uring_cmd_complete_in_task(cmd, tw_cb);
 }
 
 static enum blk_eh_timer_return ublk_timeout(struct request *rq)
@@ -4405,14 +4405,18 @@ static int ublk_alloc_dev_number(struct ublk_device *ub, int idx)
 	int i = idx;
 	int err;
 
+	/*
+	 * Only reserve the id: the device is published by
+	 * ublk_publish_dev_number() once it is fully set up.
+	 */
 	spin_lock(&ublk_idr_lock);
 	/* allocate id, if @id >= 0, we're requesting that specific id */
 	if (i >= 0) {
-		err = idr_alloc(&ublk_index_idr, ub, i, i + 1, GFP_NOWAIT);
+		err = idr_alloc(&ublk_index_idr, NULL, i, i + 1, GFP_NOWAIT);
 		if (err == -ENOSPC)
 			err = -EEXIST;
 	} else {
-		err = idr_alloc(&ublk_index_idr, ub, 0, UBLK_MAX_UBLKS,
+		err = idr_alloc(&ublk_index_idr, NULL, 0, UBLK_MAX_UBLKS,
 				GFP_NOWAIT);
 	}
 	spin_unlock(&ublk_idr_lock);
@@ -4421,6 +4425,19 @@ static int ublk_alloc_dev_number(struct ublk_device *ub, int idx)
 		ub->ub_number = err;
 
 	return err;
+}
+
+/*
+ * Make the device visible to control commands by its id. Before its char
+ * device is added, DEL_DEV could find it and remove a char device that was
+ * never added, and drop the reference that ublk_add_chdev() drops on
+ * failure.
+ */
+static void ublk_publish_dev_number(struct ublk_device *ub)
+{
+	spin_lock(&ublk_idr_lock);
+	WARN_ON_ONCE(idr_replace(&ublk_index_idr, ub, ub->ub_number) != NULL);
+	spin_unlock(&ublk_idr_lock);
 }
 
 static void ublk_free_dev_number(struct ublk_device *ub)
@@ -4469,7 +4486,7 @@ static int ublk_add_chdev(struct ublk_device *ub)
 		goto fail;
 
 	if (ub->dev_info.flags & UBLK_F_UNPRIVILEGED_DEV)
-		unprivileged_ublks_added++;
+		atomic_inc(&unprivileged_ublks_added);
 	return 0;
  fail:
 	put_device(dev);
@@ -4501,15 +4518,9 @@ static int ublk_add_tag_set(struct ublk_device *ub)
 
 static void ublk_remove(struct ublk_device *ub)
 {
-	bool unprivileged;
-
 	ublk_stop_dev(ub);
 	cdev_device_del(&ub->cdev, &ub->cdev_dev);
-	unprivileged = ub->dev_info.flags & UBLK_F_UNPRIVILEGED_DEV;
 	ublk_put_device(ub);
-
-	if (unprivileged)
-		unprivileged_ublks_added--;
 }
 
 static struct ublk_device *ublk_get_device_from_id(int idx)
@@ -4899,7 +4910,7 @@ static int ublk_ctrl_add_dev(const struct ublksrv_ctrl_cmd *header)
 
 	ret = -EACCES;
 	if ((info.flags & UBLK_F_UNPRIVILEGED_DEV) &&
-	    unprivileged_ublks_added >= unprivileged_ublks_max)
+	    atomic_read(&unprivileged_ublks_added) >= unprivileged_ublks_max)
 		goto out_unlock;
 
 	ret = -ENOMEM;
@@ -4991,6 +5002,8 @@ static int ublk_ctrl_add_dev(const struct ublksrv_ctrl_cmd *header)
 	 * ublk_add_chdev() will cleanup everything if it fails.
 	 */
 	ret = ublk_add_chdev(ub);
+	if (!ret)
+		ublk_publish_dev_number(ub);
 	goto out_unlock;
 
 out_deinit_queues:
@@ -5023,23 +5036,23 @@ static int ublk_ctrl_del_dev(struct ublk_device **p_ub, bool wait)
 {
 	struct ublk_device *ub = *p_ub;
 	int idx = ub->ub_number;
-	int ret;
-
-	ret = mutex_lock_killable(&ublk_ctl_mutex);
-	if (ret)
-		return ret;
-
-	if (!test_bit(UB_STATE_DELETED, &ub->state)) {
-		ublk_remove(ub);
-		set_bit(UB_STATE_DELETED, &ub->state);
-	}
-
-	mutex_unlock(&ublk_ctl_mutex);
+	bool unprivileged = ub->dev_info.flags & UBLK_F_UNPRIVILEGED_DEV;
 
 	/*
-	 * Drop the reference outside ublk_ctl_mutex: if it is the last one,
-	 * the release frees the tag set, which waits for an SRCU grace period,
-	 * and holding the mutex would serialize concurrent deletions on it.
+	 * Don't take ublk_ctl_mutex: stopping the device may wait for the
+	 * filesystem on its disk indefinitely, and ADD_DEV and DEL_DEV of all
+	 * other ublk devices would wait for that too. ADD_DEV is done with the
+	 * device, it is found by its id only then.
+	 */
+	if (!test_and_set_bit(UB_STATE_DELETED, &ub->state)) {
+		ublk_remove(ub);
+		if (unprivileged)
+			atomic_dec(&unprivileged_ublks_added);
+	}
+
+	/*
+	 * If this is the last reference, the release frees the tag set, which
+	 * waits for an SRCU grace period.
 	 */
 	*p_ub = NULL;
 	ublk_put_device(ub);

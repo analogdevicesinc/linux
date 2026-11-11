@@ -1,17 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-   drbd.c
-
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
-   Thanks to Carter Burden, Bart Grantham and Gennadiy Nerubayev
-   from Logicworks, Inc. for making SDP replication support possible.
-
-
+ * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+ * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+ * Copyright (C) 2008, LINBIT HA-Solutions GmbH.
  */
 
 #define pr_fmt(fmt)	KBUILD_MODNAME ": " fmt
@@ -2296,6 +2288,7 @@ void drbd_free_resource(struct drbd_resource *resource)
 	struct drbd_connection *connection, *tmp;
 
 	for_each_connection_safe(connection, tmp, resource) {
+		set_bit(C_UNREGISTERED, &connection->flags);
 		list_del(&connection->connections);
 		drbd_debugfs_connection_cleanup(connection);
 		kref_put(&connection->kref, drbd_destroy_connection);
@@ -2523,6 +2516,7 @@ struct drbd_resource *drbd_create_resource(const char *name)
 	if (!zalloc_cpumask_var(&resource->cpu_mask, GFP_KERNEL))
 		goto fail_free_name;
 	kref_init(&resource->kref);
+	ratelimit_state_init(&resource->ratelimit[D_RL_R_GENERIC], 5 * HZ, 10);
 	idr_init(&resource->devices);
 	INIT_LIST_HEAD(&resource->connections);
 	resource->write_ordering = WO_BDEV_FLUSH;
@@ -2591,6 +2585,7 @@ struct drbd_connection *conn_create(const char *name, struct res_opts *res_opts)
 	connection->ack_receiver.connection = connection;
 
 	kref_init(&connection->kref);
+	ratelimit_state_init(&connection->ratelimit[D_RL_C_GENERIC], 5 * HZ, /* no burst */ 1);
 
 	connection->resource = resource;
 
@@ -2675,6 +2670,10 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 		return ERR_NOMEM;
 	kref_init(&device->kref);
 
+	ratelimit_state_init(&device->ratelimit[D_RL_D_GENERIC], 5 * HZ, /* no burst */ 1);
+	ratelimit_state_init(&device->ratelimit[D_RL_D_METADATA], 5 * HZ, 10);
+	ratelimit_state_init(&device->ratelimit[D_RL_D_BACKEND], 5 * HZ, 10);
+
 	kref_get(&resource->kref);
 	device->resource = resource;
 	device->minor = minor;
@@ -2734,6 +2733,8 @@ enum drbd_ret_code drbd_create_device(struct drbd_config_context *adm_ctx, unsig
 			goto out_idr_remove_from_resource;
 		peer_device->connection = connection;
 		peer_device->device = device;
+		ratelimit_state_init(&peer_device->ratelimit[D_RL_PD_GENERIC],
+				     5 * HZ, /* no burst */ 1);
 
 		list_add(&peer_device->peer_devices, &device->peer_devices);
 		kref_get(&device->kref);
@@ -3568,80 +3569,6 @@ static void md_sync_timer_fn(struct timer_list *t)
 	drbd_device_post_work(device, MD_SYNC);
 }
 
-const char *cmdname(enum drbd_packet cmd)
-{
-	/* THINK may need to become several global tables
-	 * when we want to support more than
-	 * one PRO_VERSION */
-	static const char *cmdnames[] = {
-
-		[P_DATA]	        = "Data",
-		[P_DATA_REPLY]	        = "DataReply",
-		[P_RS_DATA_REPLY]	= "RSDataReply",
-		[P_BARRIER]	        = "Barrier",
-		[P_BITMAP]	        = "ReportBitMap",
-		[P_BECOME_SYNC_TARGET]  = "BecomeSyncTarget",
-		[P_BECOME_SYNC_SOURCE]  = "BecomeSyncSource",
-		[P_UNPLUG_REMOTE]	= "UnplugRemote",
-		[P_DATA_REQUEST]	= "DataRequest",
-		[P_RS_DATA_REQUEST]     = "RSDataRequest",
-		[P_SYNC_PARAM]	        = "SyncParam",
-		[P_PROTOCOL]            = "ReportProtocol",
-		[P_UUIDS]	        = "ReportUUIDs",
-		[P_SIZES]	        = "ReportSizes",
-		[P_STATE]	        = "ReportState",
-		[P_SYNC_UUID]           = "ReportSyncUUID",
-		[P_AUTH_CHALLENGE]      = "AuthChallenge",
-		[P_AUTH_RESPONSE]	= "AuthResponse",
-		[P_STATE_CHG_REQ]       = "StateChgRequest",
-		[P_PING]		= "Ping",
-		[P_PING_ACK]	        = "PingAck",
-		[P_RECV_ACK]	        = "RecvAck",
-		[P_WRITE_ACK]	        = "WriteAck",
-		[P_RS_WRITE_ACK]	= "RSWriteAck",
-		[P_SUPERSEDED]          = "Superseded",
-		[P_NEG_ACK]	        = "NegAck",
-		[P_NEG_DREPLY]	        = "NegDReply",
-		[P_NEG_RS_DREPLY]	= "NegRSDReply",
-		[P_BARRIER_ACK]	        = "BarrierAck",
-		[P_STATE_CHG_REPLY]     = "StateChgReply",
-		[P_OV_REQUEST]          = "OVRequest",
-		[P_OV_REPLY]            = "OVReply",
-		[P_OV_RESULT]           = "OVResult",
-		[P_CSUM_RS_REQUEST]     = "CsumRSRequest",
-		[P_RS_IS_IN_SYNC]	= "CsumRSIsInSync",
-		[P_SYNC_PARAM89]	= "SyncParam89",
-		[P_COMPRESSED_BITMAP]   = "CBitmap",
-		[P_DELAY_PROBE]         = "DelayProbe",
-		[P_OUT_OF_SYNC]		= "OutOfSync",
-		[P_RS_CANCEL]		= "RSCancel",
-		[P_CONN_ST_CHG_REQ]	= "conn_st_chg_req",
-		[P_CONN_ST_CHG_REPLY]	= "conn_st_chg_reply",
-		[P_PROTOCOL_UPDATE]	= "protocol_update",
-		[P_TRIM]	        = "Trim",
-		[P_RS_THIN_REQ]         = "rs_thin_req",
-		[P_RS_DEALLOCATED]      = "rs_deallocated",
-		[P_WSAME]	        = "WriteSame",
-		[P_ZEROES]		= "Zeroes",
-
-		/* enum drbd_packet, but not commands - obsoleted flags:
-		 *	P_MAY_IGNORE
-		 *	P_MAX_OPT_CMD
-		 */
-	};
-
-	/* too big for the array: 0xfffX */
-	if (cmd == P_INITIAL_META)
-		return "InitialMeta";
-	if (cmd == P_INITIAL_DATA)
-		return "InitialData";
-	if (cmd == P_CONNECTION_FEATURES)
-		return "ConnectionFeatures";
-	if (cmd >= ARRAY_SIZE(cmdnames))
-		return "Unknown";
-	return cmdnames[cmd];
-}
-
 /**
  * drbd_wait_misc  -  wait for a request to make progress
  * @device:	device associated with the request
@@ -3664,7 +3591,7 @@ int drbd_wait_misc(struct drbd_device *device, struct drbd_interval *i)
 	rcu_read_unlock();
 
 	/* Indicate to wake up device->misc_wait on progress.  */
-	i->waiting = true;
+	set_bit(INTERVAL_WAITING, &i->flags);
 	prepare_to_wait(&device->misc_wait, &wait, TASK_INTERRUPTIBLE);
 	spin_unlock_irq(&device->resource->req_lock);
 	timeout = schedule_timeout(timeout);
@@ -3759,9 +3686,8 @@ _drbd_insert_fault(struct drbd_device *device, unsigned int type)
 	if (ret) {
 		drbd_fault_count++;
 
-		if (drbd_ratelimit())
-			drbd_warn(device, "***Simulating %s failure\n",
-				_drbd_fault_str(type));
+		drbd_warn_ratelimit(device, "***Simulating %s failure\n",
+				    _drbd_fault_str(type));
 	}
 
 	return ret;

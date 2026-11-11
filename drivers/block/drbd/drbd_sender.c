@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
-   drbd_worker.c
-
-   This file is part of DRBD by Philipp Reisner and Lars Ellenberg.
-
-   Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
-   Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
-   Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
-
-
-*/
+ * Copyright (C) 1999-2008, Philipp Reisner <philipp.reisner@linbit.com>.
+ * Copyright (C) 2002-2008, Lars Ellenberg <lars.ellenberg@linbit.com>.
+ * Copyright (C) 2001-2008, LINBIT Information Technologies GmbH.
+ * Copyright (C) 2008, LINBIT HA-Solutions GmbH.
+ */
 
 #include <linux/module.h>
 #include <linux/drbd.h>
@@ -176,7 +171,7 @@ void drbd_peer_request_endio(struct bio *bio)
 	bool is_discard = bio_op(bio) == REQ_OP_WRITE_ZEROES ||
 			  bio_op(bio) == REQ_OP_DISCARD;
 
-	if (bio->bi_status && drbd_ratelimit())
+	if (bio->bi_status && drbd_device_ratelimit(device, BACKEND))
 		drbd_warn(device, "%s: error=%d s=%llus\n",
 				is_write ? (is_discard ? "discard" : "write")
 					: "read", bio->bi_status,
@@ -240,7 +235,7 @@ void drbd_request_endio(struct bio *bio)
 	 * though we still will complain noisily about it.
 	 */
 	if (unlikely(req->rq_state & RQ_LOCAL_ABORTED)) {
-		if (drbd_ratelimit())
+		if (drbd_device_ratelimit(device, BACKEND))
 			drbd_emerg(device, "delayed completion of aborted local request; disk-timeout may be too aggressive\n");
 
 		if (!bio->bi_status)
@@ -399,6 +394,11 @@ static int read_for_csum(struct drbd_peer_device *peer_device, sector_t sector, 
 	if (!peer_req)
 		goto defer;
 
+	/*
+	 * This will be a resync write once we receive the data back from the
+	 * peer, assuming the checksums differ.
+	 */
+	peer_req->i.type = INTERVAL_RESYNC_WRITE;
 	peer_req->w.cb = w_e_send_csum;
 	peer_req->opf = REQ_OP_READ;
 	spin_lock_irq(&device->resource->req_lock);
@@ -1049,9 +1049,8 @@ int w_e_end_data_req(struct drbd_work *w, int cancel)
 	if (likely((peer_req->flags & EE_WAS_ERROR) == 0)) {
 		err = drbd_send_block(peer_device, P_DATA_REPLY, peer_req);
 	} else {
-		if (drbd_ratelimit())
-			drbd_err(device, "Sending NegDReply. sector=%llus.\n",
-			    (unsigned long long)peer_req->i.sector);
+		drbd_err_ratelimit(peer_device, "Sending NegDReply. sector=%llus.\n",
+				   (unsigned long long)peer_req->i.sector);
 
 		err = drbd_send_ack(peer_device, P_NEG_DREPLY, peer_req);
 	}
@@ -1121,15 +1120,13 @@ int w_e_end_rsdata_req(struct drbd_work *w, int cancel)
 			else
 				err = drbd_send_block(peer_device, P_RS_DATA_REPLY, peer_req);
 		} else {
-			if (drbd_ratelimit())
-				drbd_err(device, "Not sending RSDataReply, "
-				    "partner DISKLESS!\n");
+			drbd_err_ratelimit(peer_device,
+					   "Not sending RSDataReply, partner DISKLESS!\n");
 			err = 0;
 		}
 	} else {
-		if (drbd_ratelimit())
-			drbd_err(device, "Sending NegRSDReply. sector %llus.\n",
-			    (unsigned long long)peer_req->i.sector);
+		drbd_err_ratelimit(peer_device, "Sending NegRSDReply. sector %llus.\n",
+				   (unsigned long long)peer_req->i.sector);
 
 		err = drbd_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
 
@@ -1196,8 +1193,7 @@ int w_e_end_csum_rs_req(struct drbd_work *w, int cancel)
 		}
 	} else {
 		err = drbd_send_ack(peer_device, P_NEG_RS_DREPLY, peer_req);
-		if (drbd_ratelimit())
-			drbd_err(device, "Sending NegDReply. I guess it gets messy.\n");
+		drbd_err_ratelimit(device, "Sending NegDReply. I guess it gets messy.\n");
 	}
 	if (unlikely(err))
 		drbd_err(device, "drbd_send_block/ack() failed\n");
