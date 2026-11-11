@@ -66,6 +66,7 @@ TARGETS += intel_pstate
 TARGETS += iommu
 TARGETS += ipc
 TARGETS += ir
+TARGETS += kapi
 TARGETS += kcmp
 TARGETS += kexec
 TARGETS += kselftest_harness
