@@ -1376,8 +1376,14 @@ static __always_inline
 ssize_t cpumap_print_bitmask_to_buf(char *buf, const struct cpumask *mask,
 				    loff_t off, size_t count)
 {
-	return bitmap_print_bitmask_to_buf(buf, cpumask_bits(mask),
-				   nr_cpu_ids, off, count) - 1;
+	ssize_t n;
+
+	n = bitmap_print_bitmask_to_buf(buf, cpumask_bits(mask),
+					nr_cpu_ids, off, count);
+	if (n > 0 && buf[n - 1] == '\0')
+		n--;
+
+	return n;
 }
 
 /**
@@ -1398,8 +1404,14 @@ static __always_inline
 ssize_t cpumap_print_list_to_buf(char *buf, const struct cpumask *mask,
 				 loff_t off, size_t count)
 {
-	return bitmap_print_list_to_buf(buf, cpumask_bits(mask),
-				   nr_cpu_ids, off, count) - 1;
+	ssize_t n;
+
+	n = bitmap_print_list_to_buf(buf, cpumask_bits(mask),
+				     nr_cpu_ids, off, count);
+	if (n > 0 && buf[n - 1] == '\0')
+		n--;
+
+	return n;
 }
 
 #if NR_CPUS <= BITS_PER_LONG

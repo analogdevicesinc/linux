@@ -49,14 +49,7 @@ static __always_inline __attribute_const__ int fls(unsigned int x)
 	return (32 - x);
 }
 
-/*
- * asm-generic/bitops/__fls.h
- */
-static __always_inline __attribute_const__ unsigned long __fls(unsigned long x)
-{
-	return fls(x) - 1;
-}
-
+#include <asm-generic/bitops/builtin-__fls.h>
 #include <asm-generic/bitops/ffz.h>
 #include <asm-generic/bitops/fls64.h>
 
