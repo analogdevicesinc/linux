@@ -237,6 +237,8 @@ struct xe_device {
 		 * state the firmware or bootloader left it in.
 		 */
 		u8 probe_display:1;
+		/** @info.require_force_probe: platform requires force_probe */
+		u8 require_force_probe:1;
 		/** @info.skip_guc_pc: Skip GuC based PM feature init */
 		u8 skip_guc_pc:1;
 		/** @info.skip_pcode: skip access to PCODE uC */

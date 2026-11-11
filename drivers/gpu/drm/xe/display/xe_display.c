@@ -195,7 +195,24 @@ void xe_display_irq_handler(struct xe_device *xe, u32 master_ctl)
 		intel_display_irq_handler(display, NULL);
 }
 
-void xe_display_irq_enable(struct xe_device *xe, u32 gu_misc_iir)
+u32 xe_display_gse_irq_bit(struct xe_device *xe)
+{
+	struct intel_display *display = xe->display;
+
+	if (!xe->info.probe_display)
+		return 0;
+
+	if (!intel_display_device_present(display))
+		return 0;
+
+	/*
+	 * ASLE backlight operations are reported via GUnit GSE interrupts
+	 * on the root tile.
+	 */
+	return GU_MISC_GSE;
+}
+
+void xe_display_gse_irq_handler(struct xe_device *xe, u32 gu_misc_iir)
 {
 	struct intel_display *display = xe->display;
 

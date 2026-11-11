@@ -40,10 +40,12 @@ static int pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 	int result = 0;
 	int err;
 
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
 	for_each_gt(gt, xe, id) {
-		err = xe_gt_sriov_pf_config_set_fair_sched(gt, num_vfs);
+		err = xe_gt_sriov_pf_config_set_fair_sched_locked(gt, num_vfs);
 		result = result ?: err;
-		err = xe_gt_sriov_pf_config_set_fair(gt, VFID(1), num_vfs);
+		err = xe_gt_sriov_pf_config_set_fair_locked(gt, VFID(1), num_vfs);
 		result = result ?: err;
 	}
 
@@ -56,9 +58,11 @@ static void pf_unprovision_vfs(struct xe_device *xe, unsigned int num_vfs)
 	unsigned int id;
 	unsigned int n;
 
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
 	for_each_gt(gt, xe, id)
 		for (n = 1; n <= num_vfs; n++)
-			xe_gt_sriov_pf_config_release(gt, n, true);
+			xe_gt_sriov_pf_config_release_locked(gt, n, true);
 }
 
 static void pf_unprovision_all_vfs(struct xe_device *xe)
@@ -79,6 +83,8 @@ int xe_sriov_pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
 
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
+
 	if (!pf_auto_provisioning_mode(xe))
 		return 0;
 
@@ -97,6 +103,8 @@ int xe_sriov_pf_provision_vfs(struct xe_device *xe, unsigned int num_vfs)
 int xe_sriov_pf_unprovision_vfs(struct xe_device *xe, unsigned int num_vfs)
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
+
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
 	if (!pf_auto_provisioning_mode(xe))
 		return 0;
@@ -146,6 +154,29 @@ int xe_sriov_pf_reprovision_default(struct xe_device *xe)
 	return pf_reprovision_default(xe);
 }
 
+static int pf_change_mode(struct xe_device *xe, enum xe_sriov_provisioning_mode mode, void *who)
+{
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
+	if (mode == xe->sriov.pf.provision.mode)
+		return 0;
+
+	if (mode == XE_SRIOV_PROVISIONING_MODE_AUTO) {
+		if (xe_sriov_pf_num_vfs(xe)) {
+			xe_sriov_dbg(xe, "can't restore %s: VFs must be disabled!\n",
+				     mode_to_string(mode));
+			return -EBUSY;
+		}
+		pf_unprovision_all_vfs(xe);
+	}
+
+	xe_sriov_dbg(xe, "mode %s changed to %s by %ps\n",
+		     mode_to_string(xe->sriov.pf.provision.mode),
+		     mode_to_string(mode), who);
+	xe->sriov.pf.provision.mode = mode;
+	return 0;
+}
+
 /**
  * xe_sriov_pf_provision_set_mode() - Change VFs provision mode.
  * @xe: the PF &xe_device
@@ -166,23 +197,9 @@ int xe_sriov_pf_provision_set_mode(struct xe_device *xe, enum xe_sriov_provision
 {
 	xe_assert(xe, IS_SRIOV_PF(xe));
 
-	if (mode == xe->sriov.pf.provision.mode)
-		return 0;
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
-	if (mode == XE_SRIOV_PROVISIONING_MODE_AUTO) {
-		if (xe_sriov_pf_num_vfs(xe)) {
-			xe_sriov_dbg(xe, "can't restore %s: VFs must be disabled!\n",
-				     mode_to_string(mode));
-			return -EBUSY;
-		}
-		pf_unprovision_all_vfs(xe);
-	}
-
-	xe_sriov_dbg(xe, "mode %s changed to %s by %ps\n",
-		     mode_to_string(xe->sriov.pf.provision.mode),
-		     mode_to_string(mode), __builtin_return_address(0));
-	xe->sriov.pf.provision.mode = mode;
-	return 0;
+	return pf_change_mode(xe, mode, __builtin_return_address(0));
 }
 
 /**
@@ -376,6 +393,31 @@ int xe_sriov_pf_provision_query_vf_pt(struct xe_device *xe, unsigned int vfid, u
 	return !count ? -ENODATA : 0;
 }
 
+static int pf_bulk_apply_priority(struct xe_device *xe, u32 prio)
+{
+	bool sched_if_idle;
+	struct xe_gt *gt;
+	unsigned int id;
+	int result = 0;
+	int err;
+
+	lockdep_assert_held(xe_sriov_pf_master_mutex(xe));
+
+	/*
+	 * Currently, priority changes that involves VFs are only allowed using
+	 * the 'sched_if_idle' policy KLV, so only LOW and NORMAL are supported.
+	 */
+	xe_assert(xe, prio < GUC_SCHED_PRIORITY_HIGH);
+	sched_if_idle = prio == GUC_SCHED_PRIORITY_NORMAL;
+
+	for_each_gt(gt, xe, id) {
+		err = xe_gt_sriov_pf_policy_set_sched_if_idle_locked(gt, sched_if_idle);
+		result = result ?: err;
+	}
+
+	return result;
+}
+
 /**
  * xe_sriov_pf_provision_bulk_apply_priority() - Change scheduling priority of all VFs and PF.
  * @xe: the PF &xe_device
@@ -389,25 +431,9 @@ int xe_sriov_pf_provision_query_vf_pt(struct xe_device *xe, unsigned int vfid, u
  */
 int xe_sriov_pf_provision_bulk_apply_priority(struct xe_device *xe, u32 prio)
 {
-	bool sched_if_idle;
-	struct xe_gt *gt;
-	unsigned int id;
-	int result = 0;
-	int err;
+	guard(mutex)(xe_sriov_pf_master_mutex(xe));
 
-	/*
-	 * Currently, priority changes that involves VFs are only allowed using
-	 * the 'sched_if_idle' policy KLV, so only LOW and NORMAL are supported.
-	 */
-	xe_assert(xe, prio < GUC_SCHED_PRIORITY_HIGH);
-	sched_if_idle = prio == GUC_SCHED_PRIORITY_NORMAL;
-
-	for_each_gt(gt, xe, id) {
-		err = xe_gt_sriov_pf_policy_set_sched_if_idle(gt, sched_if_idle);
-		result = result ?: err;
-	}
-
-	return result;
+	return pf_bulk_apply_priority(xe, prio);
 }
 
 /**

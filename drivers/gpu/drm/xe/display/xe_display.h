@@ -33,7 +33,8 @@ void xe_display_shutdown(struct xe_device *xe);
 void xe_display_shutdown_late(struct xe_device *xe);
 
 void xe_display_irq_handler(struct xe_device *xe, u32 master_ctl);
-void xe_display_irq_enable(struct xe_device *xe, u32 gu_misc_iir);
+u32 xe_display_gse_irq_bit(struct xe_device *xe);
+void xe_display_gse_irq_handler(struct xe_device *xe, u32 gu_misc_iir);
 void xe_display_irq_reset(struct xe_device *xe);
 void xe_display_irq_postinstall(struct xe_device *xe);
 
@@ -71,7 +72,8 @@ static inline void xe_display_shutdown(struct xe_device *xe) {}
 static inline void xe_display_shutdown_late(struct xe_device *xe) {}
 
 static inline void xe_display_irq_handler(struct xe_device *xe, u32 master_ctl) {}
-static inline void xe_display_irq_enable(struct xe_device *xe, u32 gu_misc_iir) {}
+static inline u32 xe_display_gse_irq_bit(struct xe_device *xe) { return 0; }
+static inline void xe_display_gse_irq_handler(struct xe_device *xe, u32 gu_misc_iir) {}
 static inline void xe_display_irq_reset(struct xe_device *xe) {}
 static inline void xe_display_irq_postinstall(struct xe_device *xe) {}
 

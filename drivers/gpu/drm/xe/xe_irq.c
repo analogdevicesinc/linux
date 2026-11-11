@@ -435,7 +435,7 @@ static irqreturn_t xelp_irq_handler(int irq, void *arg)
 
 	xelp_intr_enable(xe, false);
 
-	xe_display_irq_enable(xe, gu_misc_iir);
+	xe_display_gse_irq_handler(xe, gu_misc_iir);
 
 	return IRQ_HANDLED;
 }
@@ -533,7 +533,8 @@ static irqreturn_t dg1_irq_handler(int irq, void *arg)
 	}
 
 	dg1_intr_enable(xe, false);
-	xe_display_irq_enable(xe, gu_misc_iir);
+
+	xe_display_gse_irq_handler(xe, gu_misc_iir);
 
 	return IRQ_HANDLED;
 }
@@ -644,6 +645,12 @@ static void vf_irq_reset(struct xe_device *xe)
 	}
 }
 
+static void xe_gu_misc_irq_reset(struct xe_device *xe)
+{
+	mask_and_disable(xe_device_get_root_tile(xe),
+			 GU_MISC_IRQ_OFFSET);
+}
+
 static void xe_irq_reset(struct xe_device *xe)
 {
 	struct xe_tile *tile;
@@ -664,8 +671,7 @@ static void xe_irq_reset(struct xe_device *xe)
 			xelp_irq_reset(tile);
 	}
 
-	tile = xe_device_get_root_tile(xe);
-	mask_and_disable(tile, GU_MISC_IRQ_OFFSET);
+	xe_gu_misc_irq_reset(xe);
 	xe_display_irq_reset(xe);
 	xe_i2c_irq_reset(xe);
 
@@ -695,6 +701,13 @@ static void vf_irq_postinstall(struct xe_device *xe)
 		xe_assert(xe, xe_device_has_memirq(xe));
 }
 
+static void xe_gu_misc_irq_postinstall(struct xe_device *xe)
+{
+	unmask_and_enable(xe_device_get_root_tile(xe),
+			  GU_MISC_IRQ_OFFSET,
+			  xe_display_gse_irq_bit(xe));
+}
+
 static void xe_irq_postinstall(struct xe_device *xe)
 {
 	if (IS_SRIOV_VF(xe))
@@ -710,13 +723,7 @@ static void xe_irq_postinstall(struct xe_device *xe)
 
 	xe_display_irq_postinstall(xe);
 	xe_i2c_irq_postinstall(xe);
-
-	/*
-	 * ASLE backlight operations are reported via GUnit GSE interrupts
-	 * on the root tile.
-	 */
-	unmask_and_enable(xe_device_get_root_tile(xe),
-			  GU_MISC_IRQ_OFFSET, GU_MISC_GSE);
+	xe_gu_misc_irq_postinstall(xe);
 
 	/* Enable top-level interrupts */
 	if (GRAPHICS_VERx100(xe) >= 1210)

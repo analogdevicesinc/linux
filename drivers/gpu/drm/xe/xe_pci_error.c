@@ -9,6 +9,7 @@
 #include "xe_gt.h"
 #include "xe_log.h"
 #include "xe_pci.h"
+#include "xe_pcode.h"
 #include "xe_pm.h"
 #include "xe_printk.h"
 #include "xe_ras.h"
@@ -111,6 +112,11 @@ static pci_ers_result_t xe_pci_error_slot_reset(struct pci_dev *pdev)
 		xe_log_err_fatal(xe, PCI, err, "Cannot re-enable PCI device after reset\n");
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
+
+	err = xe_pcode_ready(xe, true);
+	/* TODO: dump survivability info on pcode init failure */
+	if (err)
+		return PCI_ERS_RESULT_DISCONNECT;
 
 	/*
 	 * Secondary Bus Reset causes all VRAM state to be lost along with

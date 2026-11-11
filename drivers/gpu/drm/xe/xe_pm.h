@@ -13,7 +13,7 @@
 
 struct xe_device;
 
-int xe_pm_suspend(struct xe_device *xe);
+int xe_pm_suspend(struct xe_device *xe, bool hibernate);
 int xe_pm_resume(struct xe_device *xe);
 
 int xe_pm_init_early(struct xe_device *xe);

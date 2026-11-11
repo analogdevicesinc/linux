@@ -109,6 +109,7 @@
 #define GAMSTLB_CTRL2				XE_REG_MCR(0x4788)
 #define   STLB_SINGLE_BANK_MODE			REG_BIT(11)
 
+#define XE2_LMEM_CFG_MCR			XE_REG_MCR(0x48b0)
 #define XE2_LMEM_CFG				XE_REG(0x48b0)
 
 #define XE2_GAMWALK_CTRL			0x47e4
@@ -525,7 +526,7 @@
 #define   INVALIDATION_BROADCAST_MODE_DIS	REG_BIT(12)
 #define   GLOBAL_INVALIDATION_MODE		REG_BIT(2)
 
-#define LMEM_CFG				XE_REG(0xcf58)
+#define LMEM_CFG_MCR				XE_REG_MCR(0xcf58)
 #define   LMEM_EN				REG_BIT(31)
 #define   LMTT_DIR_PTR				REG_GENMASK(30, 0) /* in multiples of 64KB */
 

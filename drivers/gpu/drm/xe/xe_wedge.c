@@ -105,9 +105,11 @@ void xe_wedge_declare(struct xe_device *xe, unsigned long method)
 
 	xe_log_err_fatal(xe, WEDGED, -EIO, "Device declared wedged!\n");
 	xe_err_once(xe, "IOCTLs and executions are now blocked!\n"
-			"For recovery procedure, refer to %s\n"
-			"Please file a _new_ bug report at %s\n",
-			WEDGED_URL, XE_BUG_URL);
+			"For recovery procedure, refer to %s\n",
+			WEDGED_URL);
+	if (!xe->info.require_force_probe)
+		xe_err_once(xe, "Please file a _new_ bug report at %s\n",
+			    XE_BUG_URL);
 
 	for_each_initialized_gt(gt, xe, id)
 		xe_gt_wedge_declare(gt);

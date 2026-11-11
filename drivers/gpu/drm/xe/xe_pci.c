@@ -824,6 +824,7 @@ static int xe_info_init_early(struct xe_device *xe,
 		desc->has_sriov;
 	xe->info.has_sysctrl = desc->has_sysctrl;
 	xe->info.has_temp_sentinel = desc->has_temp_sentinel;
+	xe->info.require_force_probe = desc->require_force_probe;
 	xe->info.skip_guc_pc = desc->skip_guc_pc;
 	xe->info.skip_pcode = desc->skip_pcode;
 	xe->info.needs_scratch = desc->needs_scratch;
@@ -1334,7 +1335,7 @@ static void d3cold_toggle(struct pci_dev *pdev, enum toggle_d3cold toggle)
 	}
 }
 
-static int xe_pci_suspend(struct device *dev)
+static int __xe_pci_suspend(struct device *dev, bool hibernate)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct xe_device *xe = pdev_to_xe_device(pdev);
@@ -1343,7 +1344,7 @@ static int xe_pci_suspend(struct device *dev)
 	if (xe_survivability_mode_is_boot_enabled(xe))
 		return -EBUSY;
 
-	err = xe_pm_suspend(xe);
+	err = xe_pm_suspend(xe, hibernate);
 	if (err)
 		return err;
 
@@ -1359,6 +1360,16 @@ static int xe_pci_suspend(struct device *dev)
 	pci_set_power_state(pdev, PCI_D3cold);
 
 	return 0;
+}
+
+static int xe_pci_suspend(struct device *dev)
+{
+	return __xe_pci_suspend(dev, false);
+}
+
+static int xe_pci_freeze(struct device *dev)
+{
+	return __xe_pci_suspend(dev, true);
 }
 
 static int xe_pci_resume(struct device *dev)
@@ -1490,7 +1501,12 @@ static int xe_pci_runtime_idle(struct device *dev)
 }
 
 static const struct dev_pm_ops xe_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(xe_pci_suspend, xe_pci_resume)
+	.suspend = pm_sleep_ptr(xe_pci_suspend),
+	.resume = pm_sleep_ptr(xe_pci_resume),
+	.freeze = pm_sleep_ptr(xe_pci_freeze),
+	.thaw = pm_sleep_ptr(xe_pci_resume),
+	.poweroff = pm_sleep_ptr(xe_pci_suspend),
+	.restore = pm_sleep_ptr(xe_pci_resume),
 	SET_RUNTIME_PM_OPS(xe_pci_runtime_suspend, xe_pci_runtime_resume, xe_pci_runtime_idle)
 };
 #endif
