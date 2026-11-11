@@ -7,6 +7,7 @@
  * Datasheet: http://cds.linear.com/docs/en/datasheet/2497fd.pdf
  */
 
+#include <linux/bitfield.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/driver.h>
@@ -18,6 +19,7 @@
 #include "ltc2497.h"
 
 enum ltc2497_chip_type {
+	TYPE_LTC2493,
 	TYPE_LTC2497,
 	TYPE_LTC2499,
 };
@@ -85,32 +87,34 @@ static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
 	}
 
 	/*
-	 * Parts with a second config byte (LTC2499: internal PTAT sensor and/or
-	 * the 2x speed mode) latch their converter configuration from that byte
-	 * and only re-evaluate it when EN2 is set; a single byte, or a second
-	 * byte with EN2 = 0, means "keep previous".  A one-byte channel select
-	 * therefore cannot pull the device back out of temperature mode, so a
-	 * voltage read after a temperature read would keep returning the PTAT
-	 * result.  Always drive the second byte with EN2 set on these parts:
+	 * Parts with a second config byte (LTC2499: internal PTAT sensor, the 2x
+	 * speed mode and/or the line-rejection selection) latch their converter
+	 * configuration from that byte and only re-evaluate it when EN2 is set;
+	 * a single byte, or a second byte with EN2 = 0, means "keep previous".
+	 * A one-byte channel select therefore cannot pull the device back out of
+	 * temperature mode, so a voltage read after a temperature read would
+	 * keep returning the PTAT result.  Always drive the second byte with EN2
+	 * set on these parts:
 	 *   - temperature read: IM = 1 (SPD is ignored by the part in
-	 *     temperature mode and is left 0 here);
-	 *   - voltage read: IM = 0 (external input), plus SPD when 2x is
-	 *     selected.
-	 * FA = FB = 0 keeps the power-on simultaneous 50/60Hz rejection, whose
-	 * worst-case conversion time the driver's wait already covers.
+	 *     temperature mode and is left 0 here), plus the rejection select,
+	 *     which the part does honour while measuring temperature;
+	 *   - voltage read: IM = 0 (external input), plus the rejection select,
+	 *     plus SPD when 2x is selected.
 	 *
 	 * The byte could be skipped while the latched configuration is already
 	 * the one wanted; it is sent on every conversion for simplicity.
 	 */
-	if (ddata->chip_info->has_temp || ddata->chip_info->has_speed_mode) {
+	if (ddata->chip_info->has_temp || ddata->chip_info->has_speed_mode ||
+	    ddata->chip_info->has_rejection_mode) {
+		u8 reject = FIELD_PREP(LTC2499_REJECT, ddata->rejection);
 		u8 cmd[2];
 
 		if (address == LTC2497_TEMP_ADDR) {
 			cmd[0] = LTC2497_ENABLE | LTC2497_CONFIG_DEFAULT;
-			cmd[1] = LTC2499_EN2 | LTC2499_IM;
+			cmd[1] = LTC2499_EN2 | LTC2499_IM | reject;
 		} else {
 			cmd[0] = LTC2497_ENABLE | address;
-			cmd[1] = LTC2499_EN2;
+			cmd[1] = LTC2499_EN2 | reject;
 			if (ddata->speed_2x)
 				cmd[1] |= LTC2499_SPD;
 		}
@@ -170,19 +174,31 @@ static void ltc2497_remove(struct i2c_client *client)
 }
 
 static const struct ltc2497_chip_info ltc2497_info[] = {
+	[TYPE_LTC2493] = {
+		.resolution = 24,
+		.name = "ltc2493",
+		.channel_set = &ltc2497_chanset_ltc2493,
+		.has_temp = true,
+		.has_speed_mode = true,
+		.has_rejection_mode = true,
+	},
 	[TYPE_LTC2497] = {
 		.resolution = 16,
 		.name = NULL,
+		.channel_set = &ltc2497_chanset_ltc2497,
 	},
 	[TYPE_LTC2499] = {
 		.resolution = 24,
 		.name = "ltc2499",
+		.channel_set = &ltc2497_chanset_ltc2499,
 		.has_temp = true,
 		.has_speed_mode = true,
+		.has_rejection_mode = true,
 	},
 };
 
 static const struct i2c_device_id ltc2497_id[] = {
+	{ .name = "ltc2493", .driver_data = (kernel_ulong_t)&ltc2497_info[TYPE_LTC2493] },
 	{ .name = "ltc2497", .driver_data = (kernel_ulong_t)&ltc2497_info[TYPE_LTC2497] },
 	{ .name = "ltc2499", .driver_data = (kernel_ulong_t)&ltc2497_info[TYPE_LTC2499] },
 	{ }
@@ -190,6 +206,7 @@ static const struct i2c_device_id ltc2497_id[] = {
 MODULE_DEVICE_TABLE(i2c, ltc2497_id);
 
 static const struct of_device_id ltc2497_of_match[] = {
+	{ .compatible = "lltc,ltc2493", .data = &ltc2497_info[TYPE_LTC2493] },
 	{ .compatible = "lltc,ltc2497", .data = &ltc2497_info[TYPE_LTC2497] },
 	{ .compatible = "lltc,ltc2499", .data = &ltc2497_info[TYPE_LTC2499] },
 	{ }

@@ -1543,8 +1543,8 @@ static irqreturn_t bno055_trigger_handler(int irq, void *p)
 			       mask, priv->buf.chans, &buf_idx);
 
 	if (!ret)
-		iio_push_to_buffers_with_timestamp(iio_dev,
-						   &priv->buf, pf->timestamp);
+		iio_push_to_buffers_with_ts(iio_dev, &priv->buf,
+					    sizeof(priv->buf), pf->timestamp);
 done:
 	mutex_unlock(&priv->lock);
 	iio_trigger_notify_done(iio_dev->trig);

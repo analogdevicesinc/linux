@@ -25,6 +25,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
+#include <linux/overflow.h>
 #include <linux/poll.h>
 #include <linux/property.h>
 #include <linux/sched.h>
@@ -1027,7 +1028,12 @@ static int __iio_str_to_fixpoint(const char *str, int fract_mult,
 	while (*str) {
 		if ('0' <= *str && *str <= '9') {
 			if (integer_part) {
-				i = i * 10 + *str - '0';
+				int digit = *str - '0';
+
+				/* Accumulate with the sign applied so INT_MIN fits */
+				if (check_mul_overflow(i, 10, &i) ||
+				    check_add_overflow(i, negative ? -digit : digit, &i))
+					return -ERANGE;
 			} else {
 				f += fract_mult * (*str - '0');
 				fract_mult /= 10;
@@ -1052,12 +1058,8 @@ static int __iio_str_to_fixpoint(const char *str, int fract_mult,
 		str++;
 	}
 
-	if (negative) {
-		if (i)
-			i = -i;
-		else
-			f = -f;
-	}
+	if (negative && !i)
+		f = -f;
 
 	*integer = i;
 	*fract = f;
@@ -2252,6 +2254,7 @@ EXPORT_SYMBOL_GPL(__devm_iio_device_register);
  * iio_device_try_claim_buffer_mode() pairs or related helpers instead.
  */
 void __iio_dev_mode_lock(struct iio_dev *indio_dev)
+	__context_unsafe(/* returns with mlock held */)
 {
 	mutex_lock(&to_iio_dev_opaque(indio_dev)->mlock);
 }
@@ -2262,6 +2265,7 @@ EXPORT_SYMBOL_GPL(__iio_dev_mode_lock);
  * @indio_dev: the iio_dev associated with the device
  */
 void __iio_dev_mode_unlock(struct iio_dev *indio_dev)
+	__context_unsafe(/* releases mlock */)
 {
 	mutex_unlock(&to_iio_dev_opaque(indio_dev)->mlock);
 }

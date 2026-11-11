@@ -798,8 +798,9 @@ static irqreturn_t ad74413r_trigger_handler(int irq, void *p)
 	for (i = 0; i < st->adc_active_channels; i++)
 		ad74413r_crc_check(st, &rx_buf[i * AD74413R_FRAME_SIZE]);
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->adc_samples_buf,
-					   iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &st->adc_samples_buf,
+				    sizeof(st->adc_samples_buf),
+				    iio_get_time_ns(indio_dev));
 
 out:
 	iio_trigger_notify_done(indio_dev->trig);

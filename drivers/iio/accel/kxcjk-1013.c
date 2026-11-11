@@ -1650,19 +1650,19 @@ static const struct of_device_id kxcjk1013_of_match[] = {
 MODULE_DEVICE_TABLE(of, kxcjk1013_of_match);
 
 static const struct acpi_device_id kx_acpi_match[] = {
-	{ "KIOX0008", (kernel_ulong_t)&kxcj91008_info },
-	{ "KIOX0009", (kernel_ulong_t)&kxtj21009_info },
-	{ "KIOX000A", (kernel_ulong_t)&kxcj91008_info },
+	{ .id = "KIOX0008", .driver_data = (kernel_ulong_t)&kxcj91008_info },
+	{ .id = "KIOX0009", .driver_data = (kernel_ulong_t)&kxtj21009_info },
+	{ .id = "KIOX000A", .driver_data = (kernel_ulong_t)&kxcj91008_info },
 	/* KXCJ91008 in the display of a yoga 2-in-1 */
-	{ "KIOX010A", (kernel_ulong_t)&kxcj91008_kiox010a_info },
+	{ .id = "KIOX010A", .driver_data = (kernel_ulong_t)&kxcj91008_kiox010a_info },
 	/* KXCJ91008 in the base of a yoga 2-in-1 */
-	{ "KIOX020A", (kernel_ulong_t)&kxcj91008_kiox020a_info },
-	{ "KXCJ1008", (kernel_ulong_t)&kxcj91008_info },
-	{ "KXCJ1013", (kernel_ulong_t)&kxcjk1013_info },
-	{ "KXCJ9000", (kernel_ulong_t)&kxcj91008_info },
-	{ "KXJ2109",  (kernel_ulong_t)&kxtj21009_info },
-	{ "KXTJ1009", (kernel_ulong_t)&kxtj21009_info },
-	{ "SMO8500",  (kernel_ulong_t)&kxcj91008_smo8500_info },
+	{ .id = "KIOX020A", .driver_data = (kernel_ulong_t)&kxcj91008_kiox020a_info },
+	{ .id = "KXCJ1008", .driver_data = (kernel_ulong_t)&kxcj91008_info },
+	{ .id = "KXCJ1013", .driver_data = (kernel_ulong_t)&kxcjk1013_info },
+	{ .id = "KXCJ9000", .driver_data = (kernel_ulong_t)&kxcj91008_info },
+	{ .id = "KXJ2109", .driver_data = (kernel_ulong_t)&kxtj21009_info },
+	{ .id = "KXTJ1009", .driver_data = (kernel_ulong_t)&kxtj21009_info },
+	{ .id = "SMO8500", .driver_data = (kernel_ulong_t)&kxcj91008_smo8500_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, kx_acpi_match);

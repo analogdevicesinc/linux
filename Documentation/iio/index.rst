@@ -23,6 +23,7 @@ Industrial I/O Kernel Drivers
    ad4000
    ad4030
    ad4062
+   ad4134
    ad4691
    ad4695
    ad7191
@@ -37,9 +38,11 @@ Industrial I/O Kernel Drivers
    adis16475
    adis16480
    adis16550
+   ads112c14
    adxl313
    adxl380
    adxl345
    bno055
    ep93xx_adc
+   open-sensor-fusion
    opt4060

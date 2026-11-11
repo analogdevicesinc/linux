@@ -637,7 +637,7 @@ static irqreturn_t mpu3050_trigger_handler(int irq, void *p)
 		goto out_trigger_unlock;
 	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &scan, timestamp);
+	iio_push_to_buffers_with_ts(indio_dev, &scan, sizeof(scan), timestamp);
 
 out_trigger_unlock:
 	mutex_unlock(&mpu3050->lock);

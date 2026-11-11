@@ -126,7 +126,7 @@ static const struct of_device_id ad5593r_of_match[] = {
 MODULE_DEVICE_TABLE(of, ad5593r_of_match);
 
 static const struct acpi_device_id ad5593r_acpi_match[] = {
-	{"ADS5593", },
+	{ .id = "ADS5593" },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, ad5593r_acpi_match);

@@ -28,6 +28,8 @@ properties:
       - st,stm32h7-adc-core
       - st,stm32mp1-adc-core
       - st,stm32mp13-adc-core
+      - st,stm32mp23-adc-core
+      - st,stm32mp25-adc-core
 
   reg:
     maxItems: 1
@@ -77,6 +79,9 @@ properties:
     description:
       Phandle to the vdd input voltage. It can be used to supply ADC analog
       input switches on stm32mp1.
+
+  power-domains:
+    maxItems: 1
 
   st,syscfg:
     description:
@@ -215,6 +220,33 @@ allOf:
           maximum: 75000000
           default: 75000000
 
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - st,stm32mp23-adc-core
+              - st,stm32mp25-adc-core
+
+    then:
+      properties:
+        clocks:
+          maxItems: 1
+
+        clock-names:
+          const: adc
+
+        interrupts:
+          items:
+            - description: interrupt line for ADC1 or ADC3
+            - description: interrupt line for ADC2
+          minItems: 1
+
+        st,max-clk-rate-hz:
+          minimum: 700000
+          maximum: 70000000
+          default: 70000000
+
 additionalProperties: false
 
 required:
@@ -244,6 +276,12 @@ patternProperties:
           - st,stm32h7-adc
           - st,stm32mp1-adc
           - st,stm32mp13-adc
+          - st,stm32mp23-adc1
+          - st,stm32mp23-adc2
+          - st,stm32mp23-adc3
+          - st,stm32mp25-adc1
+          - st,stm32mp25-adc2
+          - st,stm32mp25-adc3
 
       reg:
         description: |
@@ -486,6 +524,39 @@ patternProperties:
               maxItems: 19
               items:
                 minimum: 40
+
+      - if:
+          properties:
+            compatible:
+              contains:
+                enum:
+                  - st,stm32mp23-adc1
+                  - st,stm32mp23-adc2
+                  - st,stm32mp23-adc3
+                  - st,stm32mp25-adc1
+                  - st,stm32mp25-adc2
+                  - st,stm32mp25-adc3
+
+        then:
+          properties:
+            reg:
+              enum:
+                - 0x0
+                - 0x100
+
+            interrupts:
+              minimum: 0
+              maximum: 1
+
+            assigned-resolution-bits:
+              enum: [6, 8, 10, 12]
+              default: 12
+
+            channel@19: false
+            st,adc-channels: false
+            st,adc-diff-channels: false
+            st,min-sample-time-nsecs: false
+
     additionalProperties: false
 
     required:

@@ -93,7 +93,7 @@ static int inv_mpu_i2c_aux_setup(struct iio_dev *indio_dev)
  *  inv_mpu_probe() - probe function.
  *  @client:          i2c client.
  *
- *  Returns 0 on success, a negative error code otherwise.
+ *  Return: 0 on success, a negative error code otherwise.
  */
 static int inv_mpu_probe(struct i2c_client *client)
 {
@@ -274,7 +274,7 @@ static const struct of_device_id inv_of_match[] = {
 MODULE_DEVICE_TABLE(of, inv_of_match);
 
 static const struct acpi_device_id inv_acpi_match[] = {
-	{"INVN6500", INV_MPU6500},
+	{ .id = "INVN6500", .driver_data = INV_MPU6500 },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, inv_acpi_match);

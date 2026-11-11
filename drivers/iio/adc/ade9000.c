@@ -290,6 +290,7 @@ enum ade9000_wfb_cfg {
  * @rms_full_scale_codes: digital code produced at full-scale RMS input
  * @watt_full_scale_codes: digital code produced at full-scale power input
  * @pcf_full_scale_codes: digital code produced at full-scale xI_PCF/xV_PCF input
+ * @has_digital_integrator: part has an on-chip digital integrator (DICOEFF)
  *
  * The full-scale codes are taken from the respective datasheets and are used to
  * derive the IIO scale of the raw measurement channels.
@@ -301,6 +302,7 @@ struct ade9000_chip_info {
 	unsigned int rms_full_scale_codes;
 	unsigned int watt_full_scale_codes;
 	unsigned int pcf_full_scale_codes;
+	bool has_digital_integrator;
 };
 
 struct ade9000_state {
@@ -559,6 +561,15 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 	.scan_index = -1						\
 }
 
+/*
+ * The entry macros below carry their own trailing comma so that parts without
+ * a total reactive power register can expand to nothing.
+ */
+#define ADE9000_POWER_REACTIVE_ENTRY(num)				\
+	ADE9000_POWER_REACTIVE_CHANNEL(num),
+
+#define ADE9000_NO_POWER_REACTIVE_ENTRY(num)
+
 #define ADE9000_POWER_APPARENT_CHANNEL(num) {				\
 	.type = IIO_POWER,						\
 	.channel = num,							\
@@ -616,8 +627,10 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 /*
  * Declare a full channel array. @altvoltage_rms picks the RMS voltage channel
  * variant so parts without dip/swell hardware (e.g. ADE9078) omit those events.
+ * @power_reactive picks the total reactive power entry so parts that only
+ * compute fundamental reactive power omit that channel.
  */
-#define ADE9000_DECLARE_CHANNELS(_name, altvoltage_rms)			      \
+#define ADE9000_DECLARE_CHANNELS(_name, altvoltage_rms, power_reactive)	      \
 	static const struct iio_chan_spec _name[] = {			      \
 		/* Phase A channels */					      \
 		ADE9000_CURRENT_CHANNEL(ADE9000_PHASE_A_NR),		      \
@@ -625,7 +638,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_A_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_A_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_A_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_A_NR),	      \
+		power_reactive(ADE9000_PHASE_A_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_A_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_A_NR,	      \
 					      ADE9000_REG_AWATTHR_LO),	      \
@@ -640,7 +653,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_B_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_B_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_B_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_B_NR),	      \
+		power_reactive(ADE9000_PHASE_B_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_B_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_B_NR,	      \
 					      ADE9000_REG_BWATTHR_LO),	      \
@@ -655,7 +668,7 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_ALTCURRENT_RMS_CHANNEL(ADE9000_PHASE_C_NR),	      \
 		altvoltage_rms(ADE9000_PHASE_C_NR),			      \
 		ADE9000_POWER_ACTIVE_CHANNEL(ADE9000_PHASE_C_NR),	      \
-		ADE9000_POWER_REACTIVE_CHANNEL(ADE9000_PHASE_C_NR),	      \
+		power_reactive(ADE9000_PHASE_C_NR)			      \
 		ADE9000_POWER_APPARENT_CHANNEL(ADE9000_PHASE_C_NR),	      \
 		ADE9000_ENERGY_ACTIVE_CHANNEL(ADE9000_PHASE_C_NR,	      \
 					      ADE9000_REG_CWATTHR_LO),	      \
@@ -666,8 +679,12 @@ static const struct iio_chan_spec_ext_info ade9000_ext_info[] = {
 		ADE9000_POWER_FACTOR_CHANNEL(ADE9000_PHASE_C_NR),	      \
 	}
 
-ADE9000_DECLARE_CHANNELS(ade9000_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL);
-ADE9000_DECLARE_CHANNELS(ade9078_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL_NO_EVENTS);
+ADE9000_DECLARE_CHANNELS(ade9000_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL,
+			 ADE9000_POWER_REACTIVE_ENTRY);
+ADE9000_DECLARE_CHANNELS(ade9039_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL,
+			 ADE9000_NO_POWER_REACTIVE_ENTRY);
+ADE9000_DECLARE_CHANNELS(ade9078_channels, ADE9000_ALTVOLTAGE_RMS_CHANNEL_NO_EVENTS,
+			 ADE9000_POWER_REACTIVE_ENTRY);
 
 /*
  * Full-scale codes referred from the respective datasheets. These are the
@@ -677,9 +694,20 @@ static const struct ade9000_chip_info ade9000_chip_info = {
 	.name = "ade9000",
 	.channels = ade9000_channels,
 	.num_channels = ARRAY_SIZE(ade9000_channels),
-	.rms_full_scale_codes = 52866837,
+	.rms_full_scale_codes = 52702092,
 	.watt_full_scale_codes = 20694066,
-	.pcf_full_scale_codes = 74770000,
+	.pcf_full_scale_codes = 74532013,
+	.has_digital_integrator = true,
+};
+
+static const struct ade9000_chip_info ade9039_chip_info = {
+	.name = "ade9039",
+	.channels = ade9039_channels,
+	.num_channels = ARRAY_SIZE(ade9039_channels),
+	.rms_full_scale_codes = 52866837,
+	.watt_full_scale_codes = 20823646,
+	.pcf_full_scale_codes = 74680000,
+	.has_digital_integrator = true,
 };
 
 static const struct ade9000_chip_info ade9078_chip_info = {
@@ -689,6 +717,17 @@ static const struct ade9000_chip_info ade9078_chip_info = {
 	.rms_full_scale_codes = 52866837,
 	.watt_full_scale_codes = 20823646,
 	.pcf_full_scale_codes = 74680000,
+	.has_digital_integrator = true,
+};
+
+static const struct ade9000_chip_info ade9430_chip_info = {
+	.name = "ade9430",
+	.channels = ade9078_channels,
+	.num_channels = ARRAY_SIZE(ade9078_channels),
+	.rms_full_scale_codes = 52702092,
+	.watt_full_scale_codes = 20694066,
+	.pcf_full_scale_codes = 74532013,
+	.has_digital_integrator = false, /* no on-chip digital integrator */
 };
 
 static const struct reg_sequence ade9000_initialization_sequence[] = {
@@ -704,13 +743,11 @@ static const struct reg_sequence ade9000_initialization_sequence[] = {
 	{ ADE9000_REG_EVENT_MASK, ADE9000_EVENT_DISABLE },
 	{ ADE9000_REG_WFB_CFG, ADE9000_WFB_CFG },
 	{ ADE9000_REG_VLEVEL, ADE9000_VLEVEL },
-	{ ADE9000_REG_DICOEFF, ADE9000_DICOEFF },
 	{ ADE9000_REG_EGY_TIME, ADE9000_EGY_TIME },
 	{ ADE9000_REG_EP_CFG, ADE9000_EP_CFG },
 	/* Clear all pending status bits by writing 1s */
 	{ ADE9000_REG_STATUS0, GENMASK(31, 0) },
 	{ ADE9000_REG_STATUS1, GENMASK(31, 0) },
-	{ ADE9000_REG_RUN, ADE9000_RUN_ON }
 };
 
 static int ade9000_spi_write_reg(void *context, unsigned int reg,
@@ -1672,6 +1709,21 @@ static int ade9000_setup(struct ade9000_state *st)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to write register sequence");
 
+	/*
+	 * DICOEFF must be configured before the DSP is started. Parts without
+	 * an on-chip digital integrator lack this register, so skip it there.
+	 */
+	if (st->info->has_digital_integrator) {
+		ret = regmap_write(st->regmap, ADE9000_REG_DICOEFF,
+				   ADE9000_DICOEFF);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to set DICOEFF\n");
+	}
+
+	ret = regmap_write(st->regmap, ADE9000_REG_RUN, ADE9000_RUN_ON);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to start DSP\n");
+
 	fsleep(2000);
 
 	return 0;
@@ -1843,14 +1895,18 @@ static int ade9000_probe(struct spi_device *spi)
 
 static const struct spi_device_id ade9000_id[] = {
 	{ .name = "ade9000", .driver_data = (kernel_ulong_t)&ade9000_chip_info },
+	{ .name = "ade9039", .driver_data = (kernel_ulong_t)&ade9039_chip_info },
 	{ .name = "ade9078", .driver_data = (kernel_ulong_t)&ade9078_chip_info },
+	{ .name = "ade9430", .driver_data = (kernel_ulong_t)&ade9430_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ade9000_id);
 
 static const struct of_device_id ade9000_of_match[] = {
 	{ .compatible = "adi,ade9000", .data = &ade9000_chip_info },
+	{ .compatible = "adi,ade9039", .data = &ade9039_chip_info },
 	{ .compatible = "adi,ade9078", .data = &ade9078_chip_info },
+	{ .compatible = "adi,ade9430", .data = &ade9430_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ade9000_of_match);

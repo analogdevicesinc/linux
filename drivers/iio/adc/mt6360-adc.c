@@ -275,7 +275,8 @@ static irqreturn_t mt6360_adc_trigger_handler(int irq, void *p)
 
 		data.values[i++] = val;
 	}
-	iio_push_to_buffers_with_timestamp(indio_dev, &data, iio_get_time_ns(indio_dev));
+	iio_push_to_buffers_with_ts(indio_dev, &data, sizeof(data),
+				    iio_get_time_ns(indio_dev));
 out:
 	iio_trigger_notify_done(indio_dev->trig);
 

@@ -8,7 +8,7 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Microchip MCP47A1 DAC
 
 maintainers:
-  - Joshua Crofts <joshua.crofts1@gmail.com>
+  - Joshua Crofts <crofts@kernel.org>
 
 description: |
   The Microchip MCP47A1 is a 6-bit single output volatile DAC.

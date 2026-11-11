@@ -42,6 +42,7 @@ properties:
       - adi,ad4883
       - adi,ad4884
       - adi,ad4885
+      - adi,ad4886
 
   reg:
     minItems: 1
@@ -107,6 +108,7 @@ allOf:
               - adi,ad4883
               - adi,ad4884
               - adi,ad4885
+              - adi,ad4886
     then:
       properties:
         reg:

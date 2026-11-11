@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/acpi.h>
+#include <linux/cleanup.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/iio/iio.h>
@@ -154,46 +155,37 @@ static inline int pa12203001_px_enable(struct pa12203001_data *data, u8 enable)
 	return 0;
 }
 
-static int pa12203001_set_power_state(struct pa12203001_data *data, bool on,
-				      u8 mask)
+static int pa12203001_runtime_resume_and_get(struct pa12203001_data *data, u8 mask)
 {
 #ifdef CONFIG_PM
 	int ret;
 
-	if (on && (mask & PA12203001_ALS_EN_MASK)) {
-		mutex_lock(&data->lock);
+	if (mask & PA12203001_ALS_EN_MASK) {
+		guard(mutex)(&data->lock);
+
 		if (data->px_enabled) {
 			ret = pa12203001_als_enable(data,
 						    PA12203001_ALS_EN_MASK);
 			if (ret < 0)
-				goto err;
+				return ret;
 		} else {
 			data->als_needs_enable = true;
 		}
-		mutex_unlock(&data->lock);
 	}
 
-	if (on && (mask & PA12203001_PX_EN_MASK)) {
-		mutex_lock(&data->lock);
+	if (mask & PA12203001_PX_EN_MASK) {
+		guard(mutex)(&data->lock);
+
 		if (data->als_enabled) {
 			ret = pa12203001_px_enable(data, PA12203001_PX_EN_MASK);
 			if (ret < 0)
-				goto err;
+				return ret;
 		} else {
 			data->px_needs_enable = true;
 		}
-		mutex_unlock(&data->lock);
 	}
 
-	if (on)
-		return pm_runtime_resume_and_get(&data->client->dev);
-
-	return pm_runtime_put_autosuspend(&data->client->dev);
-
-err:
-	mutex_unlock(&data->lock);
-	return ret;
-
+	return pm_runtime_resume_and_get(&data->client->dev);
 #endif
 	return 0;
 }
@@ -213,7 +205,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 		switch (chan->type) {
 		case IIO_LIGHT:
 			dev_mask = PA12203001_ALS_EN_MASK;
-			ret = pa12203001_set_power_state(data, true, dev_mask);
+			ret = pa12203001_runtime_resume_and_get(data, dev_mask);
 			if (ret < 0)
 				return ret;
 			/*
@@ -226,13 +218,11 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 				goto reg_err;
 
 			*val = le16_to_cpu(reg_word);
-			ret = pa12203001_set_power_state(data, false, dev_mask);
-			if (ret < 0)
-				return ret;
+			pm_runtime_put_autosuspend(&data->client->dev);
 			break;
 		case IIO_PROXIMITY:
 			dev_mask = PA12203001_PX_EN_MASK;
-			ret = pa12203001_set_power_state(data, true, dev_mask);
+			ret = pa12203001_runtime_resume_and_get(data, dev_mask);
 			if (ret < 0)
 				return ret;
 			ret = regmap_read(data->map, PA12203001_REG_PDH,
@@ -241,9 +231,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 				goto reg_err;
 
 			*val = reg_byte;
-			ret = pa12203001_set_power_state(data, false, dev_mask);
-			if (ret < 0)
-				return ret;
+			pm_runtime_put_autosuspend(&data->client->dev);
 			break;
 		default:
 			return -EINVAL;
@@ -262,7 +250,7 @@ static int pa12203001_read_raw(struct iio_dev *indio_dev,
 	}
 
 reg_err:
-	pa12203001_set_power_state(data, false, dev_mask);
+	pm_runtime_put_autosuspend(&data->client->dev);
 	return ret;
 }
 
@@ -321,16 +309,13 @@ static int pa12203001_power_chip(struct iio_dev *indio_dev, u8 state)
 	struct pa12203001_data *data = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	ret = pa12203001_als_enable(data, state);
 	if (ret < 0)
-		goto out;
+		return ret;
 
-	ret = pa12203001_px_enable(data, state);
-
-out:
-	mutex_unlock(&data->lock);
-	return ret;
+	return pa12203001_px_enable(data, state);
 }
 
 static int pa12203001_probe(struct i2c_client *client)
@@ -429,7 +414,8 @@ static int pa12203001_runtime_resume(struct device *dev)
 
 	data = iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
+
 	if (data->als_needs_enable) {
 		pa12203001_als_enable(data, PA12203001_ALS_EN_MASK);
 		data->als_needs_enable = false;
@@ -438,7 +424,6 @@ static int pa12203001_runtime_resume(struct device *dev)
 		pa12203001_px_enable(data, PA12203001_PX_EN_MASK);
 		data->px_needs_enable = false;
 	}
-	mutex_unlock(&data->lock);
 
 	return 0;
 }
@@ -450,7 +435,7 @@ static const struct dev_pm_ops pa12203001_pm_ops = {
 };
 
 static const struct acpi_device_id pa12203001_acpi_match[] = {
-	{ "TXCPA122", 0 },
+	{ .id = "TXCPA122" },
 	{ }
 };
 

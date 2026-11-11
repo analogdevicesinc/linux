@@ -123,8 +123,16 @@ config AD4130
 config AD4134
 	tristate "Analog Devices AD4134 ADC Driver"
 	depends on SPI
+	depends on PWM
 	select REGMAP_SPI
+	select SPI_OFFLOAD
+	select SPI_OFFLOAD_TRIGGER_PWM
 	select CRC8
+	select IIO_BUFFER
+	select IIO_BUFFER_DMA
+	select IIO_BUFFER_DMAENGINE
+	select IIO_TRIGGERED_BUFFER
+	select MULTIPLEXER
 	help
 	  Say yes here to build support for Analog Devices AD4134 SPI analog to
 	  digital converters (ADC).
@@ -601,7 +609,9 @@ config ADE9000
 	  highly accurate, multiphase energy and power quality monitoring
 	  integrated circuits:
 	    - ADE9000
+	    - ADE9039
 	    - ADE9078
+	    - ADE9430
 
 	  The devices feature high-precision analog-to-digital converters
 	  and digital signal processing to compute RMS values, power factor,
@@ -1272,6 +1282,17 @@ config MEDIATEK_MT6370_ADC
 	  This driver can also be built as a module. If so, the module
 	  will be called "mt6370-adc".
 
+config MEDIATEK_MT6397_AUXADC
+	tristate "MediaTek MT6397 PMIC AUXADC driver"
+	depends on MFD_MT6397
+	help
+	  Say yes here to enable support for MediaTek MT6397 PMIC Auxiliary ADC.
+	  This driver provides the battery voltage and battery temperature
+	  channels used by the fuel gauge on boards built around this PMIC.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called mt6397-auxadc.
+
 config MEDIATEK_MT6577_AUXADC
 	tristate "MediaTek AUXADC driver"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
@@ -1587,14 +1608,18 @@ config RZN1_ADC
 	  module will be called rzn1-adc.
 
 config RZT2H_ADC
-	tristate "Renesas RZ/T2H / RZ/N2H ADC driver"
+	tristate "Renesas RZ/T2H / RZ/N2H (and similar SoCs) ADC driver"
 	depends on ARCH_RENESAS || COMPILE_TEST
 	select IIO_ADC_HELPER
 	select IIO_BUFFER
 	select IIO_KFIFO_BUF
+	select POWER_SEQUENCING
 	help
-	  Say yes here to build support for the ADC found in Renesas
-	  RZ/T2H / RZ/N2H SoCs.
+	  Say yes here to build support for the ADC found in Renesas SoCs:
+	  - RZ/N2H
+	  - RZ/T2H
+	  - RZ/V2H(P)
+	  - RZ/V2N
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called rzt2h_adc.
@@ -1899,6 +1924,20 @@ config TI_ADS124S08
 
 	  This driver can also be built as a module. If so, the module will be
 	  called ti-ads124s08.
+
+config TI_ADS1262
+	tristate "Texas Instruments ADS1262"
+	depends on SPI
+	select REGMAP
+	select REGULATOR
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	help
+	  If you say yes here you get support for Texas Instruments ADS1262 and
+	  ADS1263 ADC chips.
+
+	  This driver can also be built as a module. If so, the module will be
+	  called ti-ads1262.
 
 config TI_ADS1298
 	tristate "Texas Instruments ADS1298"
