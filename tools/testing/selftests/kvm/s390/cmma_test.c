@@ -18,6 +18,9 @@
 #include "kselftest.h"
 #include "ucall_common.h"
 #include "processor.h"
+#include "sie.h"
+
+#define UNMAPPED_GFN		0xffff000UL
 
 #define MAIN_PAGE_COUNT 512
 
@@ -644,6 +647,71 @@ static void test_get_skip_holes(void)
 	assert_no_pages_cmma_dirty(vm);
 }
 
+static void pgm_handler_c(void)
+{
+	uint16_t pgm_code;
+
+	memcpy(&pgm_code, (void *)__LC_PGM_INT_CODE, sizeof(pgm_code));
+	GUEST_SYNC(pgm_code);
+	for (;;)
+		;
+}
+
+static void guest_essa_unmapped(void)
+{
+	unsigned long addr = UNMAPPED_GFN << PAGE_SHIFT;
+
+	asm volatile(
+		"	lg   2,%[addr]\n"
+		/* ESSA r1,r2,orc=1 */
+		"	.insn rrf,0xb9ab0000,1,2,1,0\n"
+		:
+		: [addr] "Q"(addr)
+		: "r1", "r2", "cc", "memory"
+	);
+
+	GUEST_SYNC(0);
+}
+
+static void test_essa_migration_pgm(void)
+{
+	struct kvm_vcpu *vcpu;
+	struct kvm_vm *vm;
+	struct ucall uc;
+	char *lowcore;
+	u64 pgm_psw[2] = {};
+
+	vm = __vm_create(VM_SHAPE_DEFAULT, 1, 0);
+
+	enable_cmma(vm);
+
+	vcpu = vm_vcpu_add(vm, 0, guest_essa_unmapped);
+
+	/* The guest runs with DAT on; map the lowcore so the handler can read it. */
+	virt_map(vm, 0, 0, 1);
+
+	lowcore = addr_gpa2hva(vm, 0);
+	pgm_psw[0] = vcpu->run->psw_mask;
+	pgm_psw[1] = (u64)pgm_handler_c;
+	memcpy(lowcore + __LC_PGM_NEW_PSW, pgm_psw, 16);
+
+	vm_mem_region_set_flags(vm, 0, KVM_MEM_LOG_DIRTY_PAGES);
+	enable_migration_mode(vm);
+
+	vcpu_run(vcpu);
+
+	TEST_ASSERT_EQ(vcpu->run->exit_reason, KVM_EXIT_S390_SIEIC);
+	TEST_ASSERT_EQ(vcpu->run->s390_sieic.icptcode, ICPT_INST);
+	TEST_ASSERT_EQ(vcpu->run->s390_sieic.ipa & 0xff00, 0x8300);   /* DIAG */
+	TEST_ASSERT_EQ(vcpu->run->s390_sieic.ipb >> 16, 0x501);
+
+	get_ucall(vcpu, &uc);
+	TEST_ASSERT_EQ(uc.cmd, UCALL_SYNC);
+	TEST_ASSERT_EQ(uc.args[1], PGM_ADDRESSING);
+
+	kvm_vm_free(vm);
+}
+
 struct testdef {
 	const char *name;
 	void (*test)(void);
@@ -652,6 +720,7 @@ struct testdef {
 	{ "GET_CMMA_BITS: basic calls", test_get_cmma_basic },
 	{ "GET_CMMA_BITS: all pages are dirty initially", test_get_initial_dirty },
 	{ "GET_CMMA_BITS: holes are skipped", test_get_skip_holes },
+	{ "ESSA migration mode: PGM_ADDRESSING injected on unmapped GFN", test_essa_migration_pgm },
 };
 
 /**

@@ -901,10 +901,9 @@ int kvm_s390_pv_dump_cpu(struct kvm_vcpu *vcpu, void *buff, u16 *rc, u16 *rrc)
  *
  * Stores buff_len bytes of tweak component values to buff_user
  * starting with the 1MB block specified by the absolute guest address
- * (gaddr). The gaddr pointer will be updated with the last address
- * for which data was written when returning to userspace. buff_user
- * might be written to even if an error rc is returned. For instance
- * if we encounter a fault after writing the first page of data.
+ * (gaddr). buff_user might be written to even if an error rc is
+ * returned. For instance if we encounter a fault after writing the
+ * first page of data.
  *
  * Context: kvm->lock needs to be held
  *
@@ -917,13 +916,13 @@ int kvm_s390_pv_dump_cpu(struct kvm_vcpu *vcpu, void *buff, u16 *rc, u16 *rrc)
  *  -EFAULT if copying the result to buff_user failed
  */
 int kvm_s390_pv_dump_stor_state(struct kvm *kvm, void __user *buff_user,
-				u64 *gaddr, u64 buff_user_len, u16 *rc, u16 *rrc)
+				u64 gaddr, u64 buff_user_len, u16 *rc, u16 *rrc)
 {
 	struct uv_cb_dump_stor_state uvcb = {
 		.header.cmd = UVC_CMD_DUMP_CONF_STOR_STATE,
 		.header.len = sizeof(uvcb),
 		.config_handle = kvm->arch.pv.handle,
-		.gaddr = *gaddr,
+		.gaddr = gaddr,
 		.dump_area_origin = 0,
 	};
 	const u64 increment_len = uv_info.conf_dump_storage_state_len;
@@ -934,7 +933,7 @@ int kvm_s390_pv_dump_stor_state(struct kvm *kvm, void __user *buff_user,
 
 	ret = -EINVAL;
 	/* UV call processes 1MB guest storage chunks at a time */
-	if (!IS_ALIGNED(*gaddr, HPAGE_SIZE))
+	if (!IS_ALIGNED(gaddr, HPAGE_SIZE))
 		goto out;
 
 	/*
@@ -988,9 +987,6 @@ int kvm_s390_pv_dump_stor_state(struct kvm *kvm, void __user *buff_user,
 			uvcb.dump_area_origin = (u64)buff_kvm;
 		}
 	} while (buff_user_len);
-
-	/* Report back where we ended dumping */
-	*gaddr = uvcb.gaddr;
 
 	/* Lets only log errors, we don't want to spam */
 out:

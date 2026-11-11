@@ -26,6 +26,13 @@
 #define PAGE_SIZE BIT_ULL(PAGE_SHIFT)
 #define PAGE_MASK (~(PAGE_SIZE - 1))
 
+/* Program interruption codes */
+#define PGM_ADDRESSING		0x05
+
+/* Lowcore offsets */
+#define __LC_PGM_INT_CODE	0x8e
+#define __LC_PGM_NEW_PSW	0x1d0
+
 /* Is there a portable way to do this? */
 static inline void cpu_relax(void)
 {
