@@ -47,6 +47,13 @@ impl FalconEngine for Gsp {
 }
 
 impl<'a> Falcon<'a, Gsp> {
+    /// Returns `true` if GSP-RM has suspended the RISC-V core.
+    pub(crate) fn is_processor_suspended(&self) -> bool {
+        self.pfalcon
+            .read(regs::NV_PFALCON_FALCON_MAILBOX0_LIBOS)
+            .processor_suspended()
+    }
+
     /// Clears the SWGEN0 latch in the GSP falcon.
     ///
     /// While the latch is set, no later message signals the tree, so a caller that consumed a

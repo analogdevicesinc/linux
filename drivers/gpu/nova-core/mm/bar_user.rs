@@ -195,6 +195,7 @@ pub(crate) fn run_self_test(
         },
         ptr::Alignment,
         sizes::{
+            SizeConstants,
             SZ_16K,
             SZ_32K,
             SZ_4K,
@@ -222,7 +223,7 @@ pub(crate) fn run_self_test(
         mm.buddy().alloc_blocks(
             GpuBuddyAllocMode::Simple,
             SZ_4K.into_safe_cast(),
-            Alignment::new::<SZ_4K>(),
+            Alignment::SZ_4K,
             GpuBuddyAllocFlags::default(),
         ),
         GFP_KERNEL,
@@ -299,7 +300,7 @@ pub(crate) fn run_self_test(
         mm.buddy().alloc_blocks(
             GpuBuddyAllocMode::Range(range_base + sz_16k..range_base + sz_16k + sz_4k),
             SZ_4K.into_safe_cast(),
-            Alignment::new::<SZ_4K>(),
+            Alignment::SZ_4K,
             GpuBuddyAllocFlags::default(),
         ),
         GFP_KERNEL,
@@ -311,7 +312,7 @@ pub(crate) fn run_self_test(
         mm.buddy().alloc_blocks(
             GpuBuddyAllocMode::Range(range_base..range_base + sz_32k_4k),
             SZ_32K.into_safe_cast(),
-            Alignment::new::<SZ_4K>(),
+            Alignment::SZ_4K,
             GpuBuddyAllocFlags::default(),
         ),
         GFP_KERNEL,

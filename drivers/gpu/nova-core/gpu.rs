@@ -12,10 +12,7 @@ use kernel::{
     pci,
     prelude::*,
     ptr::Alignment,
-    sizes::{
-        SizeConstants,
-        SZ_4K, //
-    },
+    sizes::SizeConstants,
     uapi, //
 };
 
@@ -35,7 +32,7 @@ use crate::{
     gsp::{
         self,
         cmdq::Cmdq,
-        commands::GetGspStaticInfoReply,
+        commands::rpc::GetGspStaticInfoReply,
         Gsp,
         GspBootContext, //
     },
@@ -568,7 +565,7 @@ impl<'gpu> Gpu<'gpu> {
                 let buddy_params = GpuBuddyParams {
                     base_offset: usable_vram.start,
                     size: usable_vram.end - usable_vram.start,
-                    chunk_size: Alignment::new::<SZ_4K>(),
+                    chunk_size: Alignment::SZ_4K,
                 };
 
                 GpuMm::new(

@@ -317,7 +317,7 @@ pub(crate) mod selftest {
 
         let base = usable_fb_regions.iter().find_map(|region| {
             // Tests rely on this being 8 byte aligned for checking misalignment handling.
-            let base = region.start.align_up(Alignment::new::<8>())?;
+            let base = region.start.align_up(Alignment::SZ_8)?;
             (base.checked_add(SELFTEST_SPAN)? <= region.end).then_some(base)
         });
         let Some(base) = base else {

@@ -28,8 +28,8 @@ use crate::{
     },
     gsp::{
         cmdq::{
-            Cmdq,
-            MessageFromGsp, //
+            rpc::MessageFromGsp,
+            Cmdq, //
         },
         fw,
         GspBootContext,
@@ -343,7 +343,7 @@ impl<'a> GspSequencer<'a> {
         libos: &'a Coherent<'a, [LibosMemoryRegionInitArgument]>,
         bootloader_app_version: u32,
     ) -> Result {
-        let seq_info = cmdq.await_msg::<GspSequence>()?;
+        let seq_info = cmdq.await_rpc_msg::<GspSequence>()?;
 
         let sequencer = GspSequencer {
             bar: ctx.bar,

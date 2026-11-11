@@ -19,8 +19,8 @@ use kernel::{
         Alignment, //
     },
     sizes::{
-        SZ_1M,
-        SZ_64K, //
+        SizeConstants,
+        SZ_1M, //
     },
 };
 
@@ -103,7 +103,7 @@ where
 
 impl<'gpu> Pramin<'gpu> {
     /// Alignment required by the PRAMIN window.
-    const BASE_ALIGN: Alignment = Alignment::new::<SZ_64K>();
+    const BASE_ALIGN: Alignment = Alignment::SZ_64K;
 
     /// Creates the window manager for the given VRAM region.
     pub(super) fn new(
