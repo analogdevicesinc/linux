@@ -9,6 +9,7 @@
 #include <linux/types.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include <linux/pgtable.h>
 
 #include <asm/io.h>
 
@@ -31,6 +32,14 @@ static inline int pcibus_to_node(struct pci_bus *bus)
 				 cpumask_of_node(pcibus_to_node(bus)))
 #endif
 #endif /* defined(CONFIG_PCI) && defined(CONFIG_NUMA) */
+
+/*
+ * resourceN_wc is mapped with pgprot_writecombine(), which gives the NC
+ * memory type only with Svpbmt or XTheadMae. With neither it changes
+ * nothing and resourceN_wc would be no different from resourceN, so only
+ * offer WC mmap when there is an NC type to use.
+ */
+#define arch_can_pci_mmap_wc()	(_PAGE_NOCACHE != 0)
 
 /* Generic PCI */
 #include <asm-generic/pci.h>
