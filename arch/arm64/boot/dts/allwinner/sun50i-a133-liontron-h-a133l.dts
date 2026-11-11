@@ -16,6 +16,7 @@
 	compatible = "liontron,h-a133l", "allwinner,sun50i-a100";
 
 	aliases {
+		ethernet0 = &emac0;
 		serial0 = &uart0;
 	};
 
