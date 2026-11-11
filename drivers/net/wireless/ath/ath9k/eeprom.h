@@ -680,7 +680,7 @@ bool ath9k_hw_nvram_read(struct ath_hw *ah, u32 off, u16 *data);
 int ath9k_hw_nvram_swap_data(struct ath_hw *ah, bool *swap_needed, int size);
 bool ath9k_hw_nvram_validate_checksum(struct ath_hw *ah, int size);
 bool ath9k_hw_nvram_check_version(struct ath_hw *ah, int version, int minrev);
-void ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
+bool ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
 				  int eep_start_loc, int size);
 void ath9k_hw_fill_vpd_table(u8 pwrMin, u8 pwrMax, u8 *pPwrList,
 			     u8 *pVpdList, u16 numIntercepts,

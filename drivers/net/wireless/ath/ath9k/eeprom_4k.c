@@ -53,9 +53,7 @@ static bool __ath9k_hw_usb_4k_fill_eeprom(struct ath_hw *ah)
 {
 	u16 *eep_data = (u16 *)&ah->eeprom.map4k;
 
-	ath9k_hw_usb_gen_fill_eeprom(ah, eep_data, 64, SIZE_EEPROM_4K);
-
-	return true;
+	return ath9k_hw_usb_gen_fill_eeprom(ah, eep_data, 64, SIZE_EEPROM_4K);
 }
 
 static bool ath9k_hw_4k_fill_eeprom(struct ath_hw *ah)

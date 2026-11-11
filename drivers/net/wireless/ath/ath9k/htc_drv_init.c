@@ -252,8 +252,8 @@ static unsigned int ath9k_regread(void *hw_priv, u32 reg_offset)
 	return be32_to_cpu(val);
 }
 
-static void ath9k_multi_regread(void *hw_priv, u32 *addr,
-				u32 *val, u16 count)
+static int ath9k_multi_regread(void *hw_priv, u32 *addr,
+			       u32 *val, u16 count)
 {
 	struct ath_hw *ah = hw_priv;
 	struct ath_common *common = ath9k_hw_common(ah);
@@ -273,11 +273,14 @@ static void ath9k_multi_regread(void *hw_priv, u32 *addr,
 	if (unlikely(ret)) {
 		ath_dbg(common, WMI,
 			"Multiple REGISTER READ FAILED (count: %d)\n", count);
+		return ret;
 	}
 
 	for (i = 0; i < count; i++) {
 		val[i] = be32_to_cpu(tmpval[i]);
 	}
+
+	return 0;
 }
 
 static void ath9k_regwrite_multi(struct ath_common *common)
@@ -405,7 +408,7 @@ static void ath9k_reg_rmw_buffer(void *hw_priv,
 	if (priv->wmi->multi_rmw_idx == MAX_RMW_CMD_NUMBER) {
 		r = ath9k_wmi_cmd(priv->wmi, WMI_REG_RMW_CMDID,
 			  (u8 *) &priv->wmi->multi_rmw,
-			  sizeof(struct register_write) * priv->wmi->multi_rmw_idx,
+			  sizeof(priv->wmi->multi_rmw),
 			  (u8 *) &rsp_status, sizeof(rsp_status),
 			  100);
 		if (unlikely(r)) {

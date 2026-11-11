@@ -126,7 +126,7 @@ enum ath_cipher {
  */
 struct ath_ops {
 	unsigned int (*read)(void *, u32 reg_offset);
-	void (*multi_read)(void *, u32 *addr, u32 *val, u16 count);
+	int (*multi_read)(void *hw_priv, u32 *addr, u32 *val, u16 count);
 	void (*write)(void *, u32 val, u32 reg_offset);
 	void (*enable_write_buffer)(void *);
 	void (*write_flush) (void *);

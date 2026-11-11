@@ -111,7 +111,9 @@ static void ath9k_hw_update_mibstats(struct ath_hw *ah,
 		       AR_FCS_FAIL, AR_BEACON_CNT};
 	u32 data[5];
 
-	REG_READ_MULTI(ah, &addr[0], &data[0], 5);
+	if (REG_READ_MULTI(ah, &addr[0], &data[0], 5))
+		return;
+
 	/* AR_RTS_OK */
 	stats->rts_good += data[0];
 	/* AR_RTS_FAIL */

@@ -112,9 +112,8 @@ static bool __ath9k_hw_usb_def_fill_eeprom(struct ath_hw *ah)
 {
 	u16 *eep_data = (u16 *)&ah->eeprom.def;
 
-	ath9k_hw_usb_gen_fill_eeprom(ah, eep_data,
-				     0x100, SIZE_EEPROM_DEF);
-	return true;
+	return ath9k_hw_usb_gen_fill_eeprom(ah, eep_data,
+					    0x100, SIZE_EEPROM_DEF);
 }
 
 static bool ath9k_hw_def_fill_eeprom(struct ath_hw *ah)

@@ -200,7 +200,7 @@ static void wil_print_sring(struct seq_file *s, struct wil6210_priv *wil,
 	seq_printf(s, "Status Ring %s [ %d ] = {\n",
 		   sring->is_rx ? "RX" : "TX", sring_idx);
 	seq_printf(s, "  pa     = %pad\n", &sring->pa);
-	seq_printf(s, "  va     = 0x%pK\n", sring->va);
+	seq_printf(s, "  va     = 0x%p\n", sring->va);
 	seq_printf(s, "  size   = %d\n", sring->size);
 	seq_printf(s, "  elem_size   = %zu\n", sring->elem_size);
 	seq_printf(s, "  swhead = %d\n", sring->swhead);

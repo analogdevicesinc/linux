@@ -126,7 +126,7 @@ enum wmi_event_id {
 };
 
 #define MAX_CMD_NUMBER 62
-#define MAX_RMW_CMD_NUMBER 15
+#define MAX_RMW_CMD_NUMBER 14
 
 struct register_write {
 	__be32 reg;

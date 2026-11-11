@@ -744,7 +744,7 @@ int ath12k_hal_srng_init(struct ath12k_base *ab)
 
 	ret = ath12k_hal_alloc_cont_rdp(hal);
 	if (ret)
-		goto err_hal;
+		goto err_free_config;
 
 	ret = ath12k_hal_alloc_cont_wrp(hal);
 	if (ret)
@@ -756,7 +756,9 @@ int ath12k_hal_srng_init(struct ath12k_base *ab)
 
 err_free_cont_rdp:
 	ath12k_hal_free_cont_rdp(hal);
-
+err_free_config:
+	kfree(hal->srng_config);
+	hal->srng_config = NULL;
 err_hal:
 	return ret;
 }

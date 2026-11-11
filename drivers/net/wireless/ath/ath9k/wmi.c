@@ -202,12 +202,35 @@ void ath9k_fatal_work(struct work_struct *work)
 	ath9k_htc_reset(priv);
 }
 
+/* No command is pending: drop all responses until the next one is issued. */
+static void ath9k_wmi_cmd_disarm(struct wmi *wmi)
+{
+	lockdep_assert_held(&wmi->wmi_lock);
+
+	wmi->last_seq_id = 0;
+	wmi->cmd_rsp_buf = NULL;
+	wmi->cmd_rsp_len = 0;
+}
+
 static void ath9k_wmi_rsp_callback(struct wmi *wmi, struct sk_buff *skb)
 {
+	u32 len;
+
 	skb_pull(skb, sizeof(struct wmi_cmd_hdr));
 
-	if (wmi->cmd_rsp_buf != NULL && wmi->cmd_rsp_len != 0)
-		memcpy(wmi->cmd_rsp_buf, skb->data, wmi->cmd_rsp_len);
+	if (wmi->cmd_rsp_buf != NULL && wmi->cmd_rsp_len != 0) {
+		/*
+		 * The firmware may send a shorter (even empty) response than
+		 * the caller's buffer, e.g. for commands that return nothing.
+		 * Copy only what was received and zero the rest.
+		 */
+		len = min(skb->len, wmi->cmd_rsp_len);
+		memcpy(wmi->cmd_rsp_buf, skb->data, len);
+		memset(wmi->cmd_rsp_buf + len, 0, wmi->cmd_rsp_len - len);
+	}
+
+	/* The command is done; drop any further (duplicate) response. */
+	ath9k_wmi_cmd_disarm(wmi);
 
 	complete(&wmi->cmd_wait);
 }
@@ -238,9 +261,10 @@ static void ath9k_wmi_ctrl_rx(void *priv, struct sk_buff *skb,
 		return;
 	}
 
-	/* Check if there has been a timeout. */
+	/* Only accept the response to the pending command, if any. */
 	spin_lock_irqsave(&wmi->wmi_lock, flags);
-	if (be16_to_cpu(hdr->seq_no) != wmi->last_seq_id) {
+	if (!wmi->last_seq_id ||
+	    be16_to_cpu(hdr->seq_no) != wmi->last_seq_id) {
 		spin_unlock_irqrestore(&wmi->wmi_lock, flags);
 		goto free_skb;
 	}
@@ -293,7 +317,10 @@ static int ath9k_wmi_cmd_issue(struct wmi *wmi,
 
 	hdr = skb_push(skb, sizeof(struct wmi_cmd_hdr));
 	hdr->command_id = cpu_to_be16(cmd);
-	hdr->seq_no = cpu_to_be16(++wmi->tx_seq_id);
+	/* Sequence number 0 means "no command pending", so never send it. */
+	if (++wmi->tx_seq_id == 0)
+		wmi->tx_seq_id = 1;
+	hdr->seq_no = cpu_to_be16(wmi->tx_seq_id);
 
 	spin_lock_irqsave(&wmi->wmi_lock, flags);
 
@@ -301,6 +328,8 @@ static int ath9k_wmi_cmd_issue(struct wmi *wmi,
 	wmi->cmd_rsp_buf = rsp_buf;
 	wmi->cmd_rsp_len = rsp_len;
 
+	/* Drop any completion left over from an earlier response. */
+	reinit_completion(&wmi->cmd_wait);
 	wmi->last_seq_id = wmi->tx_seq_id;
 	spin_unlock_irqrestore(&wmi->wmi_lock, flags);
 
@@ -342,15 +371,19 @@ int ath9k_wmi_cmd(struct wmi *wmi, enum wmi_cmd_id cmd_id,
 	}
 
 	ret = ath9k_wmi_cmd_issue(wmi, skb, cmd_id, cmd_len, rsp_buf, rsp_len);
-	if (ret)
+	if (ret) {
+		spin_lock_irqsave(&wmi->wmi_lock, flags);
+		ath9k_wmi_cmd_disarm(wmi);
+		spin_unlock_irqrestore(&wmi->wmi_lock, flags);
 		goto out;
+	}
 
 	time_left = wait_for_completion_timeout(&wmi->cmd_wait, timeout);
 	if (!time_left) {
 		ath_dbg(common, WMI, "Timeout waiting for WMI command: %s\n",
 			wmi_cmd_to_name(cmd_id));
 		spin_lock_irqsave(&wmi->wmi_lock, flags);
-		wmi->last_seq_id = 0;
+		ath9k_wmi_cmd_disarm(wmi);
 		spin_unlock_irqrestore(&wmi->wmi_lock, flags);
 		mutex_unlock(&wmi->op_mutex);
 		return -ETIMEDOUT;

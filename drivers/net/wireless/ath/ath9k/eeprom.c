@@ -76,7 +76,7 @@ bool ath9k_hw_get_lower_upper_index(u8 target, u8 *pList, u16 listSize,
 	return false;
 }
 
-void ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
+bool ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
 				  int eep_start_loc, int size)
 {
 	int i = 0, j, addr;
@@ -88,7 +88,8 @@ void ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
 			((addr + eep_start_loc) << AR5416_EEPROM_S);
 		i++;
 		if (i == 8) {
-			REG_READ_MULTI(ah, addrdata, data, i);
+			if (REG_READ_MULTI(ah, addrdata, data, i))
+				return false;
 
 			for (j = 0; j < i; j++) {
 				*eep_data = data[j];
@@ -99,13 +100,16 @@ void ath9k_hw_usb_gen_fill_eeprom(struct ath_hw *ah, u16 *eep_data,
 	}
 
 	if (i != 0) {
-		REG_READ_MULTI(ah, addrdata, data, i);
+		if (REG_READ_MULTI(ah, addrdata, data, i))
+			return false;
 
 		for (j = 0; j < i; j++) {
 			*eep_data = data[j];
 			eep_data++;
 		}
 	}
+
+	return true;
 }
 
 static bool ath9k_hw_nvram_read_array(u16 *blob, size_t blob_size,

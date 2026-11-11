@@ -55,10 +55,9 @@ static bool __ath9k_hw_usb_ar9287_fill_eeprom(struct ath_hw *ah)
 {
 	u16 *eep_data = (u16 *)&ah->eeprom.map9287;
 
-	ath9k_hw_usb_gen_fill_eeprom(ah, eep_data,
-				     AR9287_HTC_EEP_START_LOC,
-				     SIZE_EEPROM_AR9287);
-	return true;
+	return ath9k_hw_usb_gen_fill_eeprom(ah, eep_data,
+					    AR9287_HTC_EEP_START_LOC,
+					    SIZE_EEPROM_AR9287);
 }
 
 static bool ath9k_hw_ar9287_fill_eeprom(struct ath_hw *ah)
