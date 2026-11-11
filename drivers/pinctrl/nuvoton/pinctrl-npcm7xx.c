@@ -2,6 +2,7 @@
 // Copyright (c) 2016-2018 Nuvoton Technology corporation.
 // Copyright (c) 2016, Dell Inc
 
+#include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/gpio/driver.h>
 #include <linux/gpio/generic.h>
@@ -1826,7 +1827,7 @@ static int npcm7xx_gpio_of(struct npcm7xx_pinctrl *pctrl)
 	int ret = -ENXIO;
 	struct device *dev = pctrl->dev;
 	struct fwnode_reference_args args;
-	struct fwnode_handle *child;
+	struct fwnode_handle *child __free(fwnode_handle) = NULL;
 	int id = 0;
 
 	for_each_gpiochip_node(dev, child) {
@@ -1854,6 +1855,7 @@ static int npcm7xx_gpio_of(struct npcm7xx_pinctrl *pctrl)
 			dev_err(dev, "gpio-ranges fail for GPIO bank %u\n", id);
 			return ret;
 		}
+		fwnode_handle_put(args.fwnode);
 
 		ret = fwnode_irq_get(child, 0);
 		if (!ret) {

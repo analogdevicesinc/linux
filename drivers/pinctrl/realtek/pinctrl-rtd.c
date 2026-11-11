@@ -252,6 +252,9 @@ static const struct pinctrl_pin_desc
 static const struct rtd_pin_config_desc
 	*rtd_pinctrl_find_config(struct rtd_pinctrl *data, unsigned int pin)
 {
+	if (pin >= data->info->num_configs)
+		return NULL;
+
 	if (data->info->configs[pin].name)
 		return &data->info->configs[pin];
 
@@ -438,7 +441,7 @@ static int rtd_pconf_parse_conf(struct rtd_pinctrl *data,
 		sr_off = config_desc->base_bit + config_desc->slew_rate_offset;
 		reg_off = config_desc->reg_offset;
 		mask = 0x3 << sr_off;
-		val = arg << sr_off;
+		val = set_val << sr_off;
 		break;
 
 	case PIN_CONFIG_INPUT_VOLTAGE_UV:
@@ -470,7 +473,7 @@ static int rtd_pconf_parse_conf(struct rtd_pinctrl *data,
 		hvil_off = config_desc->base_bit + config_desc->hvil_offset;
 		reg_off = config_desc->reg_offset;
 		mask = BIT(hvil_off);
-		val = 1;
+		val = BIT(hvil_off);
 		break;
 
 	case RTD_DRIVE_STRENGTH_P:
