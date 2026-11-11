@@ -61,8 +61,8 @@
 
 /* Memory Page Selection */
 #define LP55xx_REG_PROG_PAGE_SEL	0x4f
-/* If supported, each ENGINE have an equal amount of pages offset from page 0 */
-#define LP55xx_PAGE_OFFSET(n, pages)	(((n) - 1) * (pages))
+/* If supported, each ENGINE have an equal amount of pages offset from base */
+#define LP55xx_PAGE_OFFSET(n, pages, base)	((base) + ((n) - 1) * (pages))
 
 #define LED_ACTIVE(mux, led)		(!!((mux) & (0x0001 << (led))))
 
@@ -131,7 +131,8 @@ void lp55xx_load_engine(struct lp55xx_chip *chip)
 	/* Setup PAGE if supported (pages_per_engine not 0)*/
 	if (cfg->pages_per_engine)
 		lp55xx_write(chip, LP55xx_REG_PROG_PAGE_SEL,
-			     LP55xx_PAGE_OFFSET(idx, cfg->pages_per_engine));
+			     LP55xx_PAGE_OFFSET(idx, cfg->pages_per_engine,
+						cfg->prog_page_base));
 }
 EXPORT_SYMBOL_GPL(lp55xx_load_engine);
 
@@ -176,6 +177,8 @@ int lp55xx_update_program_memory(struct lp55xx_chip *chip,
 	const struct lp55xx_device_config *cfg = chip->cfg;
 	u8 pattern[LP55xx_MAX_PROGRAM_LENGTH] = { };
 	u8 start_addr = cfg->prog_mem_base.addr;
+	int first_page = LP55xx_PAGE_OFFSET(idx, cfg->pages_per_engine,
+					    cfg->prog_page_base);
 	int page, i = 0, offset = 0;
 	int program_length, ret;
 
@@ -218,7 +221,7 @@ int lp55xx_update_program_memory(struct lp55xx_chip *chip,
 		/* Write to the next page each 32 bytes (if supported) */
 		if (cfg->pages_per_engine)
 			lp55xx_write(chip, LP55xx_REG_PROG_PAGE_SEL,
-				     LP55xx_PAGE_OFFSET(idx, cfg->pages_per_engine) + page);
+				     first_page + page);
 
 		for (i = 0; i < LP55xx_BYTES_PER_PAGE; i++) {
 			ret = lp55xx_write(chip, start_addr + i,
@@ -768,8 +771,7 @@ static int lp55xx_load_mux(struct lp55xx_chip *chip, u16 mux, int nr)
 
 	lp55xx_load_engine(chip);
 
-	/* Derive the MUX page offset by starting at the end of the ENGINE pages */
-	mux_page = cfg->pages_per_engine * LP55XX_ENGINE_MAX + (nr - 1);
+	mux_page = cfg->mux_page_base + (nr - 1);
 	ret = lp55xx_write(chip, LP55xx_REG_PROG_PAGE_SEL, mux_page);
 	if (ret)
 		return ret;

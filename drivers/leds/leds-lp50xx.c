@@ -507,6 +507,14 @@ static int lp50xx_probe_dt(struct lp50xx *priv)
 
 		fwnode_for_each_child_node(child, led_node) {
 			int multi_index;
+
+			if (num_colors >= LP50XX_LEDS_PER_MODULE) {
+				fwnode_handle_put(led_node);
+				return dev_err_probe(priv->dev, -EINVAL,
+						     "Too many sub-LEDs (max %d)\n",
+						     LP50XX_LEDS_PER_MODULE);
+			}
+
 			ret = fwnode_property_read_u32(led_node, "color",
 						       &color_id);
 			if (ret) {

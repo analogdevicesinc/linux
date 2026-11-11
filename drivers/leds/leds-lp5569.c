@@ -21,15 +21,21 @@
 
 #define LP5569_MAX_LEDS			9
 
-/* Memory is used like this:
- * 0x00 engine 1 program (4 pages)
- * 0x40 engine 2 program (4 pages)
- * 0x80 engine 3 program (4 pages)
- * 0xc0 engine 1 muxing info (1 page)
- * 0xd0 engine 2 muxing info (1 page)
- * 0xe0 engine 3 muxing info (1 page)
+/*
+ * Memory is used like this (a page is 16 instructions).
+ * The LED mapping rows must be in the lower half of the SRAM (0x00-0x7f) to be
+ * reachable by the map_* instructions, so they are placed before the engine
+ * programs:
+ * 0x00 engine 1 muxing info (1 page)
+ * 0x10 engine 2 muxing info (1 page)
+ * 0x20 engine 3 muxing info (1 page)
+ * 0x30 engine 1 program (4 pages)
+ * 0x70 engine 2 program (4 pages)
+ * 0xb0 engine 3 program (4 pages)
  */
 #define LP5569_PAGES_PER_ENGINE		4
+#define LP5569_MUX_PAGE_BASE		0
+#define LP5569_PROG_PAGE_BASE		3
 
 #define LP5569_REG_ENABLE		0x00
 #define   LP5569_ENABLE			BIT(6)
@@ -86,12 +92,12 @@
 #define   LP5569_LED_FAULT1		BIT(1)
 #define   LP5569_LED_FAULT0		BIT(0)
 
-#define LP5569_ENG1_PROG_ADDR		0x0
-#define LP5569_ENG2_PROG_ADDR		0x40
-#define LP5569_ENG3_PROG_ADDR		0x80
-#define LP5569_ENG1_MUX_ADDR		0xc0
-#define LP5569_ENG2_MUX_ADDR		0xd0
-#define LP5569_ENG3_MUX_ADDR		0xe0
+#define LP5569_ENG1_MUX_ADDR		0x00
+#define LP5569_ENG2_MUX_ADDR		0x10
+#define LP5569_ENG3_MUX_ADDR		0x20
+#define LP5569_ENG1_PROG_ADDR		0x30
+#define LP5569_ENG2_PROG_ADDR		0x70
+#define LP5569_ENG3_PROG_ADDR		0xb0
 
 #define LP5569_STARTUP_SLEEP		500
 
@@ -117,11 +123,22 @@ static int lp5569_init_program_engine(struct lp55xx_chip *chip)
 	int j;
 	int ret;
 	u8 status;
-	/* Precompiled pattern per ENGINE setting LED MUX start and stop addresses */
+	/*
+	 * Precompiled program run by each ENGINE, setting the start and end of
+	 * the LED mapping table to the row of the engine (bit 7 of the operand
+	 * selects load_end instead of map_start):
+	 *   map_start MUX_ADDR
+	 *   load_end  MUX_ADDR
+	 *   map_next
+	 *   end
+	 */
 	static const u8 pattern[][LP55xx_BYTES_PER_PAGE] =  {
-		{ 0x9c, LP5569_ENG1_MUX_ADDR, 0x9c, 0xb0, 0x9d, 0x80, 0xd8, 0x00, 0},
-		{ 0x9c, LP5569_ENG2_MUX_ADDR, 0x9c, 0xc0, 0x9d, 0x80, 0xd8, 0x00, 0},
-		{ 0x9c, LP5569_ENG3_MUX_ADDR, 0x9c, 0xd0, 0x9d, 0x80, 0xd8, 0x00, 0},
+		{ 0x9c, LP5569_ENG1_MUX_ADDR, 0x9c, 0x80 | LP5569_ENG1_MUX_ADDR,
+		  0x9d, 0x80, 0xd8, 0x00, 0},
+		{ 0x9c, LP5569_ENG2_MUX_ADDR, 0x9c, 0x80 | LP5569_ENG2_MUX_ADDR,
+		  0x9d, 0x80, 0xd8, 0x00, 0},
+		{ 0x9c, LP5569_ENG3_MUX_ADDR, 0x9c, 0x80 | LP5569_ENG3_MUX_ADDR,
+		  0x9d, 0x80, 0xd8, 0x00, 0},
 	};
 
 	/* Setup each ENGINE program start address */
@@ -503,6 +520,8 @@ static struct lp55xx_device_config lp5569_cfg = {
 		.addr = LP5569_REG_LED_CTRL_BASE,
 	},
 	.pages_per_engine   = LP5569_PAGES_PER_ENGINE,
+	.prog_page_base     = LP5569_PROG_PAGE_BASE,
+	.mux_page_base      = LP5569_MUX_PAGE_BASE,
 	.max_channel  = LP5569_MAX_LEDS,
 	.post_init_device   = lp5569_post_init_device,
 	.brightness_fn      = lp55xx_led_brightness,

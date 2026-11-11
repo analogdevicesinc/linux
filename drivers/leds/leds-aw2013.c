@@ -271,8 +271,6 @@ static int aw2013_probe_dt(struct aw2013 *chip)
 	if (!count || count > AW2013_MAX_LEDS)
 		return -EINVAL;
 
-	regmap_write(chip->regmap, AW2013_RSTR, AW2013_RSTR_RESET);
-
 	for_each_available_child_of_node_scoped(np, child) {
 		struct led_init_data init_data = {};
 		u32 source;
@@ -285,6 +283,9 @@ static int aw2013_probe_dt(struct aw2013 *chip)
 			count--;
 			continue;
 		}
+
+		if (i >= AW2013_MAX_LEDS)
+			return -EINVAL;
 
 		led = &chip->leds[i];
 		led->num = source;
@@ -302,18 +303,28 @@ static int aw2013_probe_dt(struct aw2013 *chip)
 		led->cdev.brightness_set_blocking = aw2013_brightness_set;
 		led->cdev.blink_set = aw2013_blink_set;
 
+		mutex_lock(&chip->mutex);
+		chip->num_leds = ++i;
+		if (chip->enabled) {
+			ret = regmap_update_bits(chip->regmap,
+						 AW2013_LCFG(led->num),
+						 AW2013_LCFG_IMAX_MASK,
+						 led->imax);
+			if (ret) {
+				mutex_unlock(&chip->mutex);
+				return ret;
+			}
+		}
+		mutex_unlock(&chip->mutex);
+
 		ret = devm_led_classdev_register_ext(&chip->client->dev,
 						     &led->cdev, &init_data);
 		if (ret < 0)
 			return ret;
-
-		i++;
 	}
 
 	if (!count)
 		return -EINVAL;
-
-	chip->num_leds = i;
 
 	return 0;
 }
@@ -390,13 +401,11 @@ static int aw2013_probe(struct i2c_client *client)
 		goto error_reg;
 	}
 
-	ret = devm_add_action(&client->dev, aw2013_chip_disable_action, chip);
-	if (ret)
+	ret = regmap_write(chip->regmap, AW2013_RSTR, AW2013_RSTR_RESET);
+	if (ret) {
+		dev_err(&client->dev, "Failed to reset chip: %d\n", ret);
 		goto error_reg;
-
-	ret = aw2013_probe_dt(chip);
-	if (ret < 0)
-		goto error_reg;
+	}
 
 	ret = regulator_bulk_disable(ARRAY_SIZE(chip->regulators),
 				     chip->regulators);
@@ -408,7 +417,11 @@ static int aw2013_probe(struct i2c_client *client)
 
 	mutex_unlock(&chip->mutex);
 
-	return 0;
+	ret = devm_add_action(&client->dev, aw2013_chip_disable_action, chip);
+	if (ret)
+		return ret;
+
+	return aw2013_probe_dt(chip);
 
 error_reg:
 	regulator_bulk_disable(ARRAY_SIZE(chip->regulators),

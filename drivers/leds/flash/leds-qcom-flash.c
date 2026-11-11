@@ -923,7 +923,6 @@ static int qcom_flash_led_probe(struct platform_device *pdev)
 	devm_kfree(dev, regs); /* devm_regmap_field_bulk_alloc() makes copies */
 
 	platform_set_drvdata(pdev, flash_data);
-	mutex_init(&flash_data->lock);
 
 	count = device_get_child_node_count(dev);
 	if (count == 0 || count > flash_data->max_channels) {
@@ -935,6 +934,10 @@ static int qcom_flash_led_probe(struct platform_device *pdev)
 						   count);
 	if (!flash_data->v4l2_flash)
 		return -ENOMEM;
+
+	rc = devm_mutex_init(dev, &flash_data->lock);
+	if (rc)
+		return rc;
 
 	device_for_each_child_node_scoped(dev, child) {
 		led = devm_kzalloc_obj(dev, *led);
@@ -951,10 +954,15 @@ static int qcom_flash_led_probe(struct platform_device *pdev)
 		flash_data->leds_count++;
 	}
 
-	return regmap_field_write(flash_data->r_fields[REG_TORCH_CLAMP], flash_data->torch_clamp);
+	rc = regmap_field_write(flash_data->r_fields[REG_TORCH_CLAMP],
+				flash_data->torch_clamp);
+	if (rc)
+		goto release;
+
+	return 0;
 release:
-	while (flash_data->v4l2_flash[flash_data->leds_count] && flash_data->leds_count)
-		v4l2_flash_release(flash_data->v4l2_flash[flash_data->leds_count--]);
+	while (flash_data->leds_count)
+		v4l2_flash_release(flash_data->v4l2_flash[--flash_data->leds_count]);
 	return rc;
 }
 
@@ -962,10 +970,8 @@ static void qcom_flash_led_remove(struct platform_device *pdev)
 {
 	struct qcom_flash_data *flash_data = platform_get_drvdata(pdev);
 
-	while (flash_data->v4l2_flash[flash_data->leds_count] && flash_data->leds_count)
-		v4l2_flash_release(flash_data->v4l2_flash[flash_data->leds_count--]);
-
-	mutex_destroy(&flash_data->lock);
+	while (flash_data->leds_count)
+		v4l2_flash_release(flash_data->v4l2_flash[--flash_data->leds_count]);
 }
 
 static const struct of_device_id qcom_flash_led_match_table[] = {

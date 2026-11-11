@@ -273,6 +273,8 @@ static void led_flash_init_sysfs_groups(struct led_classdev_flash *fled_cdev)
 	if (ops->fault_get)
 		flash_groups[num_sysfs_groups++] = &led_flash_fault_group;
 
+	flash_groups[num_sysfs_groups] = NULL;
+
 	led_cdev->groups = flash_groups;
 }
 
@@ -374,6 +376,11 @@ EXPORT_SYMBOL_GPL(devm_led_classdev_flash_unregister);
 static void led_clamp_align(struct led_flash_setting *s)
 {
 	u32 v, offset;
+
+	if (!s->step) {
+		s->val = clamp(s->val, s->min, s->max);
+		return;
+	}
 
 	v = s->val + s->step / 2;
 	v = clamp(v, s->min, s->max);

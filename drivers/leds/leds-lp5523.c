@@ -31,6 +31,8 @@
  * 0x50 engine 3 muxing info
  */
 #define LP5523_PAGES_PER_ENGINE		1
+#define LP5523_PROG_PAGE_BASE		0
+#define LP5523_MUX_PAGE_BASE		3
 #define LP5523_MAX_LEDS			9
 
 /* Registers */
@@ -335,6 +337,8 @@ static struct lp55xx_device_config lp5523_cfg = {
 		.addr = LP5523_REG_LED_CTRL_BASE,
 	},
 	.pages_per_engine   = LP5523_PAGES_PER_ENGINE,
+	.prog_page_base     = LP5523_PROG_PAGE_BASE,
+	.mux_page_base      = LP5523_MUX_PAGE_BASE,
 	.max_channel  = LP5523_MAX_LEDS,
 	.post_init_device   = lp5523_post_init_device,
 	.brightness_fn      = lp55xx_led_brightness,

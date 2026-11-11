@@ -532,6 +532,9 @@ int led_classdev_register_ext(struct device *parent,
 	if (led_cdev->color >= LED_COLOR_ID_MAX)
 		dev_warn(parent, "LED %s color identifier out of range\n", final_name);
 
+#ifdef CONFIG_LEDS_TRIGGERS
+	init_rwsem(&led_cdev->trigger_lock);
+#endif
 	mutex_init(&led_cdev->led_access);
 	mutex_lock(&led_cdev->led_access);
 	led_cdev->dev = device_create_with_groups(&leds_class, parent, 0,
@@ -546,17 +549,15 @@ int led_classdev_register_ext(struct device *parent,
 	if (led_cdev->flags & LED_BRIGHT_HW_CHANGED) {
 		ret = led_add_brightness_hw_changed(led_cdev);
 		if (ret) {
+			led_sysfs_disable(led_cdev);
+			mutex_unlock(&led_cdev->led_access);
 			device_unregister(led_cdev->dev);
 			led_cdev->dev = NULL;
-			mutex_unlock(&led_cdev->led_access);
 			return ret;
 		}
 	}
 
 	led_cdev->work_flags = 0;
-#ifdef CONFIG_LEDS_TRIGGERS
-	init_rwsem(&led_cdev->trigger_lock);
-#endif
 #ifdef CONFIG_LEDS_BRIGHTNESS_HW_CHANGED
 	led_cdev->brightness_hw_changed = -1;
 #endif

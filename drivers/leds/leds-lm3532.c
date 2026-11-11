@@ -570,7 +570,7 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 
 	priv->regulator = devm_regulator_get(&priv->client->dev, "vin");
 	if (IS_ERR(priv->regulator))
-		priv->regulator = NULL;
+		return PTR_ERR(priv->regulator);
 
 	ret = device_property_read_u32(&priv->client->dev, "ramp-up-us",
 				       &ramp_time);
@@ -615,14 +615,16 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 			return ret;
 		}
 
-		if (fwnode_property_present(child, "led-max-microamp") &&
-		    fwnode_property_read_u32(child, "led-max-microamp",
-					     &led->full_scale_current))
-			dev_err(&priv->client->dev,
-				"Failed getting led-max-microamp\n");
-		else
-			led->full_scale_current = min(led->full_scale_current,
-						      LM3532_FS_CURR_MAX);
+		if (fwnode_property_present(child, "led-max-microamp")) {
+			if (fwnode_property_read_u32(child, "led-max-microamp",
+						     &led->full_scale_current))
+				dev_err(&priv->client->dev,
+					"Failed getting led-max-microamp\n");
+			else
+				led->full_scale_current = clamp(led->full_scale_current,
+								LM3532_FS_CURR_MIN,
+								LM3532_FS_CURR_MAX);
+		}
 
 		if (led->mode == LM3532_BL_MODE_ALS) {
 			led->mode = LM3532_ALS_CTRL;
@@ -647,6 +649,11 @@ static int lm3532_parse_node(struct lm3532_data *priv)
 		if (ret) {
 			dev_err(&priv->client->dev, "led-sources property missing\n");
 			return ret;
+		}
+
+		for (int j = 0; j < led->num_leds; j++) {
+			if (led->led_strings[j] >= LM3532_MAX_LED_STRINGS)
+				return -EINVAL;
 		}
 
 		led->priv = priv;
@@ -706,12 +713,10 @@ static int lm3532_probe(struct i2c_client *client)
 	i2c_set_clientdata(client, drvdata);
 
 	ret = lm3532_parse_node(drvdata);
-	if (ret) {
-		dev_err(&client->dev, "Failed to parse node\n");
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&client->dev, ret, "Failed to parse node\n");
 
-	return ret;
+	return 0;
 }
 
 static const struct of_device_id of_lm3532_leds_match[] = {

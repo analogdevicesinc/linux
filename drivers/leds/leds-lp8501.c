@@ -21,6 +21,7 @@
 #include "leds-lp55xx-common.h"
 
 #define LP8501_PAGES_PER_ENGINE		1
+#define LP8501_PROG_PAGE_BASE		0
 #define LP8501_MAX_LEDS			9
 
 /* Registers */
@@ -121,6 +122,7 @@ static struct lp55xx_device_config lp8501_cfg = {
 		.addr = LP8501_REG_LED_CURRENT_BASE,
 	},
 	.pages_per_engine   = LP8501_PAGES_PER_ENGINE,
+	.prog_page_base     = LP8501_PROG_PAGE_BASE,
 	.max_channel  = LP8501_MAX_LEDS,
 	.post_init_device   = lp8501_post_init_device,
 	.brightness_fn      = lp55xx_led_brightness,

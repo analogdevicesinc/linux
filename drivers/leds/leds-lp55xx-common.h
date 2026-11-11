@@ -125,6 +125,10 @@ struct lp55xx_reg {
  * @reg_led_ctrl_base  : Chip specific base reg address for LED ctrl base
  * @pages_per_engine   : Assigned pages for each engine
  *                       (if not set chip doesn't support pages)
+ * @prog_page_base     : First page of the engine 1 program, the programs of
+ *                       the other engines follow one after another
+ * @mux_page_base      : First page of the engine 1 LED mapping row, the rows
+ *                       of the other engines are in the next pages
  * @max_channel        : Maximum number of channels
  * @post_init_device   : Chip specific initialization code
  * @brightness_fn      : Brightness function
@@ -146,6 +150,8 @@ struct lp55xx_device_config {
 	const struct lp55xx_reg reg_master_fader_base;
 	const struct lp55xx_reg reg_led_ctrl_base;
 	const int pages_per_engine;
+	const u8 prog_page_base;
+	const u8 mux_page_base;
 	const int max_channel;
 
 	/* define if the device has specific initialization process */

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (C) 2020 Luca Weiss <luca@z3ntu.xyz>
 
+#include <linux/devm-helpers.h>
 #include <linux/gpio/consumer.h>
 #include <linux/led-class-flash.h>
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
+#include <linux/workqueue.h>
 
 #include <media/v4l2-flash-led-class.h>
 
@@ -16,7 +18,7 @@ struct sgm3140 {
 	struct led_classdev_flash fled_cdev;
 	struct v4l2_flash *v4l2_flash;
 
-	struct timer_list powerdown_timer;
+	struct delayed_work powerdown_work;
 
 	struct gpio_desc *flash_gpio;
 	struct gpio_desc *enable_gpio;
@@ -52,10 +54,10 @@ static int sgm3140_strobe_set(struct led_classdev_flash *fled_cdev, bool state)
 		}
 		gpiod_set_value_cansleep(priv->flash_gpio, 1);
 		gpiod_set_value_cansleep(priv->enable_gpio, 1);
-		mod_timer(&priv->powerdown_timer,
-			  jiffies + usecs_to_jiffies(priv->timeout));
+		schedule_delayed_work(&priv->powerdown_work,
+				      usecs_to_jiffies(priv->timeout));
 	} else {
-		timer_delete_sync(&priv->powerdown_timer);
+		cancel_delayed_work_sync(&priv->powerdown_work);
 		gpiod_set_value_cansleep(priv->enable_gpio, 0);
 		gpiod_set_value_cansleep(priv->flash_gpio, 0);
 		ret = regulator_disable(priv->vin_regulator);
@@ -75,7 +77,7 @@ static int sgm3140_strobe_get(struct led_classdev_flash *fled_cdev, bool *state)
 {
 	struct sgm3140 *priv = flcdev_to_sgm3140(fled_cdev);
 
-	*state = timer_pending(&priv->powerdown_timer);
+	*state = delayed_work_pending(&priv->powerdown_work);
 
 	return 0;
 }
@@ -117,7 +119,7 @@ static int sgm3140_brightness_set(struct led_classdev *led_cdev,
 		gpiod_set_value_cansleep(priv->flash_gpio, 0);
 		gpiod_set_value_cansleep(priv->enable_gpio, 1);
 	} else {
-		timer_delete_sync(&priv->powerdown_timer);
+		cancel_delayed_work_sync(&priv->powerdown_work);
 		gpiod_set_value_cansleep(priv->flash_gpio, 0);
 		gpiod_set_value_cansleep(priv->enable_gpio, 0);
 		ret = regulator_disable(priv->vin_regulator);
@@ -133,12 +135,13 @@ static int sgm3140_brightness_set(struct led_classdev *led_cdev,
 	return 0;
 }
 
-static void sgm3140_powerdown_timer(struct timer_list *t)
+static void sgm3140_powerdown_work(struct work_struct *work)
 {
-	struct sgm3140 *priv = timer_container_of(priv, t, powerdown_timer);
+	struct sgm3140 *priv = container_of(work, struct sgm3140,
+					    powerdown_work.work);
 
-	gpiod_set_value(priv->enable_gpio, 0);
-	gpiod_set_value(priv->flash_gpio, 0);
+	gpiod_set_value_cansleep(priv->enable_gpio, 0);
+	gpiod_set_value_cansleep(priv->flash_gpio, 0);
 	regulator_disable(priv->vin_regulator);
 
 	priv->enabled = false;
@@ -235,7 +238,10 @@ static int sgm3140_probe(struct platform_device *pdev)
 	 */
 	priv->timeout = min(priv->max_timeout, FLASH_TIMEOUT_DEFAULT);
 
-	timer_setup(&priv->powerdown_timer, sgm3140_powerdown_timer, 0);
+	ret = devm_delayed_work_autocancel(&pdev->dev, &priv->powerdown_work,
+					   sgm3140_powerdown_work);
+	if (ret)
+		goto err;
 
 	fled_cdev = &priv->fled_cdev;
 	led_cdev = &fled_cdev->led_cdev;
@@ -283,8 +289,6 @@ err:
 static void sgm3140_remove(struct platform_device *pdev)
 {
 	struct sgm3140 *priv = platform_get_drvdata(pdev);
-
-	timer_delete_sync(&priv->powerdown_timer);
 
 	v4l2_flash_release(priv->v4l2_flash);
 }

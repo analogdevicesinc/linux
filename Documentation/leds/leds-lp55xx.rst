@@ -161,6 +161,30 @@ Ex 2) Engine 2 and 3 are used at the same time::
 	sleep 1
 	echo 1 > /sys/class/leds/d1/device/run_engine
 
+Here is another example for LP5569.
+
+Three engines run at the same time on different channels:
+
+  - channel 0 blinking every ~1 second
+  - channel 4 pulsing from 0 to 255
+  - channel 8 blinking every ~500ms
+
+Load a program and select the LED(s) of each engine, then run them::
+
+	cd /sys/bus/i2c/devices/xxxx
+	echo "load" > engine1_mode
+	echo "load" > engine2_mode
+	echo "load" > engine3_mode
+	echo "100000000" > engine1_leds
+	echo "000010000" > engine2_leds
+	echo "000000001" > engine3_leds
+	echo "9D8040FF7E007E0040007E007E00A001C000" > engine1_load
+	echo "9D80400010FF11FFA002C000" > engine2_load
+	echo "9D8040FF7E0040007E00A001C000" > engine3_load
+	echo "run" > engine1_mode
+	echo "run" > engine2_mode
+	echo "run" > engine3_mode
+
 ( 'run_engine' and 'firmware_cb' )
 
 The sequence of running the program data is common.

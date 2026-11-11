@@ -203,14 +203,26 @@ static int mlxreg_led_config(struct mlxreg_led_priv_data *priv)
 				dev_err(&priv->pdev->dev, "Failed to query capability register\n");
 				return err;
 			}
-			if (!(regval & data->bit))
-				continue;
 			/*
-			 * Field "bit" can contain one capability bit in 0 byte
-			 * and offset bit in 1-3 bytes. Clear capability bit and
-			 * keep only offset bit.
+			 * The capability register reports unit presence either
+			 * as a bitmap, or as a count of the units present when
+			 * platform data assigns a slot number to the LED.
 			 */
-			data->bit &= MLXREG_LED_CAPABILITY_CLEAR;
+			if (data->slot) {
+				if (data->slot > regval)
+					continue;
+			} else {
+				if (!(regval & data->bit))
+					continue;
+				/*
+				 * Byte 0 of "bit" is the capability bit just
+				 * tested, while bytes 1-3 hold the shift that
+				 * positions the LED's nibble within its
+				 * register. Clear the capability bit so that
+				 * only the shift remains.
+				 */
+				data->bit &= MLXREG_LED_CAPABILITY_CLEAR;
+			}
 		}
 
 		led_cdev = &led_data->led_cdev;
