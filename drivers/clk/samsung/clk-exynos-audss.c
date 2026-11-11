@@ -149,7 +149,25 @@ static int exynos_audss_clk_probe(struct platform_device *pdev)
 	clk_table = clk_data->hws;
 
 	pll_ref = devm_clk_get(dev, "pll_ref");
+	if (PTR_ERR(pll_ref) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
 	pll_in = devm_clk_get(dev, "pll_in");
+	if (PTR_ERR(pll_in) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	cdclk = devm_clk_get(dev, "cdclk");
+	if (PTR_ERR(cdclk) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	sclk_audio = devm_clk_get(dev, "sclk_audio");
+	if (PTR_ERR(sclk_audio) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
+	sclk_pcm_in = devm_clk_get(dev, "sclk_pcm_in");
+	if (PTR_ERR(sclk_pcm_in) == -EPROBE_DEFER)
+		return -EPROBE_DEFER;
+
 	if (!IS_ERR(pll_ref))
 		mout_audss_p[0] = __clk_get_name(pll_ref);
 	if (!IS_ERR(pll_in)) {
@@ -166,6 +184,12 @@ static int exynos_audss_clk_probe(struct platform_device *pdev)
 			}
 		}
 	}
+	if (!IS_ERR(cdclk))
+		mout_i2s_p[1] = __clk_get_name(cdclk);
+	if (!IS_ERR(sclk_audio))
+		mout_i2s_p[2] = __clk_get_name(sclk_audio);
+	if (!IS_ERR(sclk_pcm_in))
+		sclk_pcm_p = __clk_get_name(sclk_pcm_in);
 
 	/*
 	 * Enable runtime PM here to allow the clock core using runtime PM
@@ -182,12 +206,6 @@ static int exynos_audss_clk_probe(struct platform_device *pdev)
 				CLK_SET_RATE_NO_REPARENT | CLK_SET_RATE_PARENT,
 				reg_base + ASS_CLK_SRC, 0, 1, 0, &lock);
 
-	cdclk = devm_clk_get(dev, "cdclk");
-	sclk_audio = devm_clk_get(dev, "sclk_audio");
-	if (!IS_ERR(cdclk))
-		mout_i2s_p[1] = __clk_get_name(cdclk);
-	if (!IS_ERR(sclk_audio))
-		mout_i2s_p[2] = __clk_get_name(sclk_audio);
 	clk_table[EXYNOS_MOUT_I2S] = clk_hw_register_mux(dev, "mout_i2s",
 				mout_i2s_p, ARRAY_SIZE(mout_i2s_p),
 				CLK_SET_RATE_NO_REPARENT,
@@ -221,9 +239,6 @@ static int exynos_audss_clk_probe(struct platform_device *pdev)
 				 "sclk_pcm", CLK_SET_RATE_PARENT,
 				reg_base + ASS_CLK_GATE, 4, 0, &lock);
 
-	sclk_pcm_in = devm_clk_get(dev, "sclk_pcm_in");
-	if (!IS_ERR(sclk_pcm_in))
-		sclk_pcm_p = __clk_get_name(sclk_pcm_in);
 	clk_table[EXYNOS_SCLK_PCM] = clk_hw_register_gate(dev, "sclk_pcm",
 				sclk_pcm_p, CLK_SET_RATE_PARENT,
 				reg_base + ASS_CLK_GATE, 5, 0, &lock);

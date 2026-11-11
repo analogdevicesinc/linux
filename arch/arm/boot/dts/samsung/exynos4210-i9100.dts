@@ -97,31 +97,31 @@
 
 		key-vol-down {
 			gpios = <&gpx2 1 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOLUMEDOWN>;
 			label = "volume down";
 			debounce-interval = <10>;
+			linux,code = <KEY_VOLUMEDOWN>;
 		};
 
 		key-vol-up {
 			gpios = <&gpx2 0 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_VOLUMEUP>;
 			label = "volume up";
 			debounce-interval = <10>;
+			linux,code = <KEY_VOLUMEUP>;
 		};
 
 		key-power {
 			gpios = <&gpx2 7 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_POWER>;
 			label = "power";
 			debounce-interval = <10>;
 			wakeup-source;
+			linux,code = <KEY_POWER>;
 		};
 
 		key-ok {
 			gpios = <&gpx3 5 GPIO_ACTIVE_LOW>;
-			linux,code = <KEY_OK>;
 			label = "ok";
 			debounce-interval = <10>;
+			linux,code = <KEY_OK>;
 		};
 	};
 
@@ -141,6 +141,7 @@
 
 		battery@36 {
 			compatible = "maxim,max17042";
+			reg = <0x36>;
 
 			interrupt-parent = <&gpx2>;
 			interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
@@ -148,7 +149,6 @@
 			pinctrl-0 = <&max17042_fuel_irq>;
 			pinctrl-names = "default";
 
-			reg = <0x36>;
 			maxim,over-heat-temp = <700>;
 			maxim,over-volt = <4500>;
 		};
@@ -284,21 +284,24 @@
 &camera {
 	pinctrl-0 = <&cam_port_a_clk_active>;
 	pinctrl-names = "default";
-	status = "okay";
 	assigned-clocks = <&clock CLK_MOUT_CAM0>, <&clock CLK_MOUT_CAM1>;
 	assigned-clock-parents = <&clock CLK_XUSBXTI>, <&clock CLK_XUSBXTI>;
+
+	status = "okay";
 };
 
 &csis_1 {
-	status = "okay";
 	vddcore-supply = <&vusb_reg>;
 	vddio-supply = <&vmipi_reg>;
 	clock-frequency = <160000000>;
 	#address-cells = <1>;
 	#size-cells = <0>;
 
+	status = "okay";
+
 	port@4 {
 		reg = <4>;
+
 		csis1_ep: endpoint {
 			remote-endpoint = <&s5k5bafx_ep>;
 			data-lanes = <1>;
@@ -317,6 +320,7 @@
 			/* Corresponds to 800MHz */
 			cooling-device = <&cpu0 2 2>;
 		};
+
 		map1 {
 			/* Corresponds to 200MHz */
 			cooling-device = <&cpu0 4 4>;
@@ -325,62 +329,63 @@
 };
 
 &ehci {
-	status = "okay";
-
 	phys = <&exynos_usbphy 1>;
 	phy-names = "host";
+
+	status = "okay";
 };
 
 &exynos_usbphy {
-	status = "okay";
-
 	vbus-supply = <&safe1_sreg>;
+
+	status = "okay";
 };
 
 &fimc_0 {
-	status = "okay";
-
 	assigned-clocks = <&clock CLK_MOUT_FIMC0>, <&clock CLK_SCLK_FIMC0>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimc_1 {
-	/* Back camera not implemented */
-	status = "disabled";
-
 	assigned-clocks = <&clock CLK_MOUT_FIMC1>, <&clock CLK_SCLK_FIMC1>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	/* Back camera not implemented */
+	status = "disabled";
 };
 
 &fimc_2 {
-	status = "okay";
-
 	assigned-clocks = <&clock CLK_MOUT_FIMC2>, <&clock CLK_SCLK_FIMC2>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	status = "okay";
 };
 
 &fimc_3 {
-	/* Back camera not implemented */
-	status = "disabled";
-
 	assigned-clocks = <&clock CLK_MOUT_FIMC3>, <&clock CLK_SCLK_FIMC3>;
 	assigned-clock-parents = <&clock CLK_SCLK_MPLL>;
 	assigned-clock-rates = <0>, <160000000>;
+
+	/* Back camera not implemented */
+	status = "disabled";
 };
 
 &fimd {
-	status = "okay";
 	#address-cells = <1>;
 	#size-cells = <0>;
+
+	pinctrl-0 = <&lcd_clk>, <&lcd_data24>;
+	pinctrl-names = "default";
 
 	samsung,invert-vden;
 	samsung,invert-vclk;
 
-	pinctrl-0 = <&lcd_clk>, <&lcd_data24>;
-	pinctrl-names = "default";
+	status = "okay";
 
 	port@3 {
 		reg = <3>;
@@ -392,25 +397,25 @@
 };
 
 &gpu {
-	status = "okay";
-
 	mali-supply = <&vg3d_breg>;
+
+	status = "okay";
 };
 
 &hsotg {
-	status = "okay";
-
 	dr_mode = "otg";
 	vusb_d-supply = <&vusb_reg>;
 	vusb_a-supply = <&vusbdac_reg>;
+
+	status = "okay";
 };
 
 &i2c_1 {
-	status = "okay";
-
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <100000>;
+
+	status = "okay";
 
 	lis3dh: accelerometer@19 {
 		compatible = "st,lis3dh-accel";
@@ -423,14 +428,14 @@
 };
 
 &i2c_3 {
-	status = "okay";
+	pinctrl-0 = <&i2c3_bus>;
+	pinctrl-names = "default";
 
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <100000>;
 
-	pinctrl-0 = <&i2c3_bus>;
-	pinctrl-names = "default";
+	status = "okay";
 
 	touchscreen@4a {
 		compatible = "atmel,maxtouch";
@@ -442,14 +447,14 @@
 };
 
 &i2c_5 {
-	status = "okay";
+	pinctrl-0 = <&i2c5_bus>;
+	pinctrl-names = "default";
 
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <100000>;
 
-	pinctrl-0 = <&i2c5_bus>;
-	pinctrl-names = "default";
+	status = "okay";
 
 	pmic@66 {
 		compatible = "maxim,max8997-pmic";
@@ -457,6 +462,11 @@
 
 		interrupts-extended = <&gpx0 7 IRQ_TYPE_NONE>,
 				      <&gpx2 3 IRQ_TYPE_EDGE_FALLING>;
+
+		pinctrl-0 = <&max8997_irq>, <&otg_gp>, <&usb_sel>;
+		pinctrl-names = "default";
+
+		charger-supply = <&charger_reg>;
 
 		max8997,pmic-buck1-uses-gpio-dvs;
 		max8997,pmic-buck2-uses-gpio-dvs;
@@ -475,19 +485,14 @@
 						 <1000000>, <950000>;
 
 		max8997,pmic-buck2-dvs-voltage = <1100000>, <1000000>,
-						 <950000>,  <900000>,
+						 <950000>, <900000>,
 						 <1100000>, <1000000>,
-						 <950000>,  <900000>;
+						 <950000>, <900000>;
 
 		max8997,pmic-buck5-dvs-voltage = <1200000>, <1200000>,
 						 <1200000>, <1200000>,
 						 <1200000>, <1200000>,
 						 <1200000>, <1200000>;
-
-		pinctrl-0 = <&max8997_irq>, <&otg_gp>, <&usb_sel>;
-		pinctrl-names = "default";
-
-		charger-supply = <&charger_reg>;
 
 		regulators {
 			vadc_reg: LDO1 {
@@ -495,14 +500,13 @@
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
 				regulator-always-on;
-
 			};
+
 			valive_reg: LDO2 {
 				regulator-name = "VALIVE_1.1V_C210";
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1100000>;
 				regulator-always-on;
-
 			};
 
 			vusb_reg: LDO3 {
@@ -706,14 +710,14 @@
 };
 
 &i2c_7 {
-	status = "okay";
+	pinctrl-0 = <&i2c7_bus>;
+	pinctrl-names = "default";
 
 	samsung,i2c-sda-delay = <100>;
 	samsung,i2c-slave-addr = <0x10>;
 	samsung,i2c-max-bus-freq = <400000>;
 
-	pinctrl-0 = <&i2c7_bus>;
-	pinctrl-names = "default";
+	status = "okay";
 
 	magnetometer@c {
 		compatible = "asahi-kasei,ak8975";
@@ -724,8 +728,8 @@
 };
 
 &pinctrl_0 {
-	pinctrl-names = "default";
 	pinctrl-0 = <&sleep0>;
+	pinctrl-names = "default";
 
 	sleep0: sleep-state {
 		gpa0-0-pin {
@@ -822,36 +826,35 @@
 };
 
 &rtc {
-	status = "okay";
 	clocks = <&clock CLK_RTC>, <&pmic_ap_clk>;
 	clock-names = "rtc", "rtc_src";
+
+	status = "okay";
 };
 
 &sdhci_0 {
-	status = "okay";
-
 	bus-width = <8>;
 	non-removable;
 	vmmc-supply = <&vemmc_reg>;
 
 	pinctrl-0 = <&sd0_clk>, <&sd0_cmd>, <&sd0_bus8>;
 	pinctrl-names = "default";
+
+	status = "okay";
 };
 
 &sdhci_2 {
-	status = "okay";
-
 	bus-width = <4>;
 	cd-gpios = <&gpx3 4 GPIO_ACTIVE_LOW>;
 	vmmc-supply = <&vtf_reg>;
 
 	pinctrl-0 = <&sd2_clk>, <&sd2_cmd>, <&sd2_bus4>;
 	pinctrl-names = "default";
+
+	status = "okay";
 };
 
 &sdhci_3 {
-	status = "okay";
-
 	#address-cells = <1>;
 	#size-cells = <0>;
 
@@ -861,8 +864,10 @@
 	mmc-pwrseq = <&wlan_pwrseq>;
 	vmmc-supply = <&vtf_reg>;
 
-	pinctrl-names = "default";
 	pinctrl-0 = <&sd3_clk>, <&sd3_cmd>, <&sd3_bus4>;
+	pinctrl-names = "default";
+
+	status = "okay";
 
 	brcmf: wifi@1 {
 		compatible = "brcm,bcm4330-fmac", "brcm,bcm4329-fmac";
@@ -875,12 +880,12 @@
 };
 
 &serial_0 {
-	status = "okay";
-
-	pinctrl-names = "default";
 	pinctrl-0 = <&bt_en>, <&bt_res>, <&uart0_data>, <&uart0_fctl>;
+	pinctrl-names = "default";
 
 	uart-has-rtscts;
+
+	status = "okay";
 
 	bluetooth {
 		compatible = "brcm,bcm4330-bt";
