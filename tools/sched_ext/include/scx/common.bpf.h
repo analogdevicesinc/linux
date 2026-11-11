@@ -29,6 +29,8 @@
 #include "bpf_arena_common.bpf.h"
 #include "const-defs.h"
 
+#define div_round_up(a, b) (((a) + (b) - 1) / (b))
+
 #define PF_IDLE				0x00000002	/* I am an IDLE thread */
 #define PF_IO_WORKER			0x00000010	/* Task is an IO worker */
 #define PF_WQ_WORKER			0x00000020	/* I'm a workqueue worker */
@@ -124,6 +126,9 @@ s32 scx_bpf_sub_grant(u64 cgroup_id, u64 caps, const struct scx_cmask __arena *c
 void scx_bpf_sub_revoke(u64 cgroup_id, u64 caps, const struct scx_cmask __arena *cmask__arena) __ksym __weak;
 s32 scx_bpf_sub_caps(u64 cgroup_id, u64 caps, struct scx_cmask __arena *out__arena) __ksym __weak;
 s32 scx_bpf_sub_kill_bstr(u64 cgroup_id, char *fmt, unsigned long long *data, u32 data__sz) __ksym __weak;
+
+int bpf_call_rcu(struct bpf_rcu_head *rh, void *map__const_map,
+		 bpf_rcu_callback_t callback) __ksym __weak;
 
 /*
  * Use the following as @it__iter when calling scx_bpf_dsq_move[_vtime]() from
@@ -642,6 +647,10 @@ static inline bool is_migration_disabled(const struct task_struct *p)
 /* rcu */
 void bpf_rcu_read_lock(void) __ksym;
 void bpf_rcu_read_unlock(void) __ksym;
+
+/* irq */
+void bpf_local_irq_save(unsigned long *flags) __ksym __weak;
+void bpf_local_irq_restore(unsigned long *flags) __ksym __weak;
 
 /* resilient qspinlock */
 int bpf_res_spin_lock(struct bpf_res_spin_lock *lock) __ksym __weak;

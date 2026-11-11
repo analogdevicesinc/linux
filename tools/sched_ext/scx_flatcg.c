@@ -140,6 +140,7 @@ int main(int argc, char **argv)
 	signal(SIGINT, sigint_handler);
 	signal(SIGTERM, sigint_handler);
 restart:
+	memset(last_stats, 0, sizeof(last_stats));
 	optind = 1;
 	skel = SCX_OPS_OPEN(flatcg_ops, scx_flatcg);
 

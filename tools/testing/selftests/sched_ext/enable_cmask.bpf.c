@@ -104,6 +104,7 @@ void BPF_STRUCT_OPS(enable_cmask_enable, struct task_struct *p, struct scx_enabl
 	int ret;
 
 	asm volatile("" :: "r"(&arena));
+	cast_kern(m);
 	tctx = lookup_task_ctx(p);
 	if (!tctx)
 		return;
