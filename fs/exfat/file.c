@@ -586,8 +586,8 @@ static int exfat_ioctl_fitrim(struct inode *inode, unsigned long arg)
 	if (copy_from_user(&range, (struct fstrim_range __user *)arg, sizeof(range)))
 		return -EFAULT;
 
-	range.minlen = max_t(unsigned int, range.minlen,
-				bdev_discard_granularity(inode->i_sb->s_bdev));
+	range.minlen = max_t(u64, range.minlen,
+			     bdev_discard_granularity(inode->i_sb->s_bdev));
 
 	ret = exfat_trim_fs(inode, &range);
 	if (ret < 0)
@@ -975,6 +975,9 @@ static vm_fault_t exfat_page_mkwrite(struct vm_fault *vmf)
 	vm_fault_t ret;
 	loff_t new_valid_size, mmap_valid_size, fault_page_start;
 
+	if (exfat_forced_shutdown(inode->i_sb))
+		return vmf_fs_error(-EIO);
+
 	if (!inode_trylock(inode))
 		return VM_FAULT_RETRY;
 
@@ -1104,6 +1107,7 @@ const struct file_operations exfat_file_operations = {
 	.splice_write	= iter_file_splice_write,
 	.fallocate	= exfat_fallocate,
 	.setlease	= generic_setlease,
+	.fop_flags	= FOP_DONTCACHE,
 };
 
 const struct inode_operations exfat_file_inode_operations = {

@@ -283,9 +283,6 @@ static int exfat_writepages(struct address_space *mapping,
 		.ops		= &exfat_writeback_ops,
 	};
 
-	if (unlikely(exfat_forced_shutdown(mapping->host->i_sb)))
-		return -EIO;
-
 	return iomap_writepages(&wpc);
 }
 
