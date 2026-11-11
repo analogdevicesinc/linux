@@ -1407,7 +1407,7 @@ omap_i2c_probe(struct platform_device *pdev)
 	case OMAP_I2C_SCHEME_0:
 		omap->regs = (u8 *)reg_map_ip_v1;
 		omap->rev = omap_i2c_read_reg(omap, OMAP_I2C_REV_REG);
-		minor = OMAP_I2C_REV_SCHEME_0_MAJOR(omap->rev);
+		minor = OMAP_I2C_REV_SCHEME_0_MINOR(omap->rev);
 		major = OMAP_I2C_REV_SCHEME_0_MAJOR(omap->rev);
 		break;
 	case OMAP_I2C_SCHEME_1:
