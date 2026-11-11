@@ -106,6 +106,12 @@
 	amdgpu_ip_map_logical_to_dev_mask(&adev->ip_map, ip##_HWIP, mask); \
 })
 
+#define RAS_DEV_IS_APP_APU(dev) \
+({ \
+	struct amdgpu_device *adev = (struct amdgpu_device *)dev; \
+	adev->gmc.is_app_apu; \
+})
+
 static inline void *ras_radix_tree_delete_iter(struct radix_tree_root *root, void *iter)
 {
 	return radix_tree_delete(root, ((struct radix_tree_iter *)iter)->index);

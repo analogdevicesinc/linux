@@ -346,6 +346,7 @@ static bool is_svp_dst_in_next_frame(
 	uint16_t vstartup)
 {
 	uint32_t dst_deadline;
+	uint32_t dst_deadline_frame_count;
 
 	dst_deadline = calculate_swath_deadline_dst(
 		swath_index,
@@ -355,7 +356,15 @@ static bool is_svp_dst_in_next_frame(
 		pre_hdl_delta_x1000,
 		rec_hdl_delta_x1000);
 
-	if ((swath_index < END_SWATH_REC && is_dst_in_next_frame(curr_otg_line, curr_frame_count, dst_deadline, target_frame_count, vstartup)) ||
+	// Special case for when prefetch_start (i.e., vblank_end - dst_y_prefetch) is in the previous frame,
+	// but the actual prefetch deadline is in the next frame. We must increment the frame count to ensure
+	// the swath is marked with "next frame" correctly.
+	if (swath_index == 0 && pre_swath_incl_boundary > (pre_first_hdl_x1000 / 1000) && dst_deadline < dst_line)
+		dst_deadline_frame_count = target_frame_count == MAX_FRAME_COUNT ? 0 : target_frame_count + 1;
+	else
+		dst_deadline_frame_count = target_frame_count;
+
+	if ((swath_index < END_SWATH_REC && is_dst_in_next_frame(curr_otg_line, curr_frame_count, dst_deadline, dst_deadline_frame_count, vstartup)) ||
 		(swath_index >= END_SWATH_REC && is_end_swath_in_next_frame(target_frame_count, curr_frame_count, curr_otg_line, dst_line, pre_swath_incl_boundary, vstartup))) {
 		return true;
 	}

@@ -80,6 +80,7 @@ static void dp_retrain_link_dp_test(struct dc_link *link,
 	struct dc_stream_state *streams_on_link[MAX_PIPES];
 	int num_streams_on_link = 0;
 	struct dc *dc = (struct dc *)link->dc;
+	struct dc_surface_update *srf_updates;
 
 	needs_divider_update = (link->dc->link_srv->dp_get_encoding_format(link_setting) !=
 		link->dc->link_srv->dp_get_encoding_format((const struct dc_link_settings *) &link->cur_link_settings))
@@ -151,13 +152,29 @@ static void dp_retrain_link_dp_test(struct dc_link *link,
 			streams_on_link[num_streams_on_link++] = state->streams[i];
 	}
 
+	srf_updates = kcalloc(MAX_SURFACES, sizeof(*srf_updates), GFP_KERNEL);
+
 	for (i = 0; i < num_streams_on_link; i++) {
 		if (streams_on_link[i] && streams_on_link[i]->link && streams_on_link[i]->link == link) {
+			struct dc_stream_status *stream_status = dc_stream_get_status(streams_on_link[i]);
+			int surface_count = 0;
+			int j;
+
+			if (srf_updates && stream_status) {
+				memset(srf_updates, 0, MAX_SURFACES * sizeof(*srf_updates));
+				for (j = 0; j < stream_status->plane_count; j++)
+					srf_updates[j].surface = stream_status->plane_states[j];
+				surface_count = stream_status->plane_count;
+			}
+
 			stream_update.stream = streams_on_link[i];
 			stream_update.dpms_off = &dpms_off;
-			dc_update_planes_and_stream(dc, NULL, 0, streams_on_link[i], &stream_update);
+			dc_update_planes_and_stream(dc, srf_updates, surface_count,
+					streams_on_link[i], &stream_update);
 		}
 	}
+
+	kfree(srf_updates);
 }
 
 static void dp_test_send_link_training(struct dc_link *link)

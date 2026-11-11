@@ -172,15 +172,7 @@ static int wuxga_nt_panel_add(struct wuxga_nt_panel *wuxga_nt)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&wuxga_nt->base);
-
-	return 0;
-}
-
-static void wuxga_nt_panel_del(struct wuxga_nt_panel *wuxga_nt)
-{
-	if (wuxga_nt->base.dev)
-		drm_panel_remove(&wuxga_nt->base);
+	return devm_drm_panel_add(dev, &wuxga_nt->base);
 }
 
 static int wuxga_nt_panel_probe(struct mipi_dsi_device *dsi)
@@ -210,25 +202,7 @@ static int wuxga_nt_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		wuxga_nt_panel_del(wuxga_nt);
-		return ret;
-	}
-
-	return 0;
-}
-
-static void wuxga_nt_panel_remove(struct mipi_dsi_device *dsi)
-{
-	struct wuxga_nt_panel *wuxga_nt = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", ret);
-
-	wuxga_nt_panel_del(wuxga_nt);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver wuxga_nt_panel_driver = {
@@ -237,7 +211,6 @@ static struct mipi_dsi_driver wuxga_nt_panel_driver = {
 		.of_match_table = wuxga_nt_of_match,
 	},
 	.probe = wuxga_nt_panel_probe,
-	.remove = wuxga_nt_panel_remove,
 };
 module_mipi_dsi_driver(wuxga_nt_panel_driver);
 

@@ -7,11 +7,15 @@
 
 #include "dc.h"
 #include "inc/dc_core_interface.h"
+#include "bls_builder/dmub_abi.h"
 
 struct dc2 {
 	/* First member: TO_DC2 is a typed upcast, not container_of. */
 	struct dc dc;
 	enum dc2_selection selection;
+	/* Resolved by hardware init; later builds take it as dmub_abi. */
+	struct dmub_abi dmub_abi;
+	bool dmub_abi_resolved;
 };
 
 #define TO_DC2(ptr) ((struct dc2 *)(ptr))

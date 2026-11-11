@@ -836,16 +836,14 @@ void gfx_v9_4_2_init_sq(struct amdgpu_device *adev)
 	}
 }
 
-void gfx_v9_4_2_debug_trap_config_init(struct amdgpu_device *adev,
-				uint32_t first_vmid,
-				uint32_t last_vmid)
+void gfx_v9_4_2_debug_trap_config_init(struct amdgpu_device *adev)
 {
 	uint32_t data;
 	int i;
 
 	mutex_lock(&adev->srbm_mutex);
 
-	for (i = first_vmid; i < last_vmid; i++) {
+	for_each_uq_gfx_vmid(i, adev) {
 		data = 0;
 		soc15_grbm_select(adev, 0, 0, 0, i, 0);
 		data = REG_SET_FIELD(data, SPI_GDBG_PER_VMID_CNTL, TRAP_EN, 1);

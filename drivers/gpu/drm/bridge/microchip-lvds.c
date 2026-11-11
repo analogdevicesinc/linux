@@ -26,7 +26,6 @@
 #include <drm/drm_of.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
-#include <drm/drm_simple_kms_helper.h>
 
 #define LVDS_POLL_TIMEOUT_MS 1000
 

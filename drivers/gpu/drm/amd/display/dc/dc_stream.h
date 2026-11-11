@@ -336,6 +336,9 @@ struct dc_stream_state {
 	enum dc_blending_linearity blending_linearity;
 	struct dc_update_scratch_space *update_scratch;
 	bool firmware_controlled_hdr_info_packet;
+
+	/* timing adjust has not been propagated to hardware yet. */
+	bool timing_adjust_pending;
 };
 
 #define ABM_LEVEL_IMMEDIATE_DISABLE 255

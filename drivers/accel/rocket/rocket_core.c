@@ -33,22 +33,19 @@ int rocket_core_init(struct rocket_core *core)
 		return dev_err_probe(dev, err, "failed to get clocks for core %d\n", core->index);
 
 	core->pc_iomem = devm_platform_ioremap_resource_byname(pdev, "pc");
-	if (IS_ERR(core->pc_iomem)) {
-		dev_err(dev, "couldn't find PC registers %ld\n", PTR_ERR(core->pc_iomem));
-		return PTR_ERR(core->pc_iomem);
-	}
+	if (IS_ERR(core->pc_iomem))
+		return dev_err_probe(dev, PTR_ERR(core->pc_iomem),
+				     "couldn't find PC registers\n");
 
 	core->cna_iomem = devm_platform_ioremap_resource_byname(pdev, "cna");
-	if (IS_ERR(core->cna_iomem)) {
-		dev_err(dev, "couldn't find CNA registers %ld\n", PTR_ERR(core->cna_iomem));
-		return PTR_ERR(core->cna_iomem);
-	}
+	if (IS_ERR(core->cna_iomem))
+		return dev_err_probe(dev, PTR_ERR(core->cna_iomem),
+				     "couldn't find CNA registers\n");
 
 	core->core_iomem = devm_platform_ioremap_resource_byname(pdev, "core");
-	if (IS_ERR(core->core_iomem)) {
-		dev_err(dev, "couldn't find CORE registers %ld\n", PTR_ERR(core->core_iomem));
-		return PTR_ERR(core->core_iomem);
-	}
+	if (IS_ERR(core->core_iomem))
+		return dev_err_probe(dev, PTR_ERR(core->core_iomem),
+				     "couldn't find CORE registers\n");
 
 	dma_set_max_seg_size(dev, UINT_MAX);
 

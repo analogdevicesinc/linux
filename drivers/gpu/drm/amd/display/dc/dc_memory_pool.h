@@ -19,6 +19,8 @@
 
 #include "os_types.h"
 
+#include <linux/compiler_attributes.h>
+
 /**
  * Non-resizable lock-free memory pool with fixed capacity.
  *

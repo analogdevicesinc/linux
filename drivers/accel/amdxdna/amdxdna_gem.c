@@ -12,6 +12,7 @@
 #include <drm/gpu_scheduler.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-direct.h>
+#include <linux/dma-resv.h>
 #include <linux/iosys-map.h>
 #include <linux/pagemap.h>
 #include <linux/swap.h>
@@ -249,8 +250,12 @@ static bool amdxdna_hmm_invalidate(struct mmu_interval_notifier *mni,
 	mmu_interval_set_seq(&mapp->notifier, cur_seq);
 	up_write(&xdna->notifier_lock);
 
-	if (xdna->dev_info->ops->hmm_invalidate)
-		xdna->dev_info->ops->hmm_invalidate(abo, cur_seq);
+	/*
+	 * The pages must not be released while the device may still access
+	 * them, so this wait must be neither interruptible nor time limited.
+	 */
+	dma_resv_wait_timeout(to_gobj(abo)->resv, DMA_RESV_USAGE_BOOKKEEP,
+			      false, MAX_SCHEDULE_TIMEOUT);
 
 	if (range->event == MMU_NOTIFY_UNMAP) {
 		down_write(&xdna->notifier_lock);
@@ -318,6 +323,7 @@ static void amdxdna_umap_release(struct kref *ref)
 	struct amdxdna_umap *mapp = container_of(ref, struct amdxdna_umap, refcnt);
 
 	mmu_interval_notifier_remove(&mapp->notifier);
+	mutex_destroy(&mapp->lock);
 	kvfree(mapp->range.hmm_pfns);
 	kfree(mapp);
 }
@@ -325,6 +331,84 @@ static void amdxdna_umap_release(struct kref *ref)
 void amdxdna_umap_put(struct amdxdna_umap *mapp)
 {
 	kref_put(&mapp->refcnt, amdxdna_umap_release);
+}
+
+int amdxdna_populate_range(struct amdxdna_gem_obj *abo)
+{
+	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
+	struct amdxdna_umap *mapp;
+	unsigned long timeout;
+	struct mm_struct *mm;
+	bool found;
+	int ret;
+
+	timeout = msecs_to_jiffies(HMM_RANGE_DEFAULT_TIMEOUT);
+again:
+	found = false;
+	down_write(&xdna->notifier_lock);
+	list_for_each_entry(mapp, &abo->mem.umap_list, node) {
+		/*
+		 * Skip entries that have already been unmapped.
+		 *
+		 * If userspace unmaps the address and later submits I/O using
+		 * it, the IOMMU will reject the access and report a fault.
+		 * Ignore such entries here.
+		 */
+		if (mapp->unmapped)
+			continue;
+
+		if (mapp->invalid && kref_get_unless_zero(&mapp->refcnt)) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		/*
+		 * This also covers the case where all mappings have been
+		 * removed. There are no invalid mappings left to process.
+		 * Any subsequent I/O using the unmapped address will be
+		 * rejected by the IOMMU.
+		 */
+		abo->mem.map_invalid = false;
+		up_write(&xdna->notifier_lock);
+		return 0;
+	}
+
+	up_write(&xdna->notifier_lock);
+
+	mm = mapp->notifier.mm;
+	if (!mmget_not_zero(mm)) {
+		amdxdna_umap_put(mapp);
+		return -EFAULT;
+	}
+
+	mutex_lock(&mapp->lock);
+	ret = hmm_range_fault_unlocked_timeout(&mapp->range, timeout);
+	if (ret) {
+		mutex_unlock(&mapp->lock);
+		goto put_mm;
+	}
+
+	down_write(&xdna->notifier_lock);
+	if (mmu_interval_read_retry(&mapp->notifier, mapp->range.notifier_seq)) {
+		up_write(&xdna->notifier_lock);
+		mutex_unlock(&mapp->lock);
+		amdxdna_umap_put(mapp);
+		mmput(mm);
+		goto again;
+	}
+	mapp->invalid = false;
+	up_write(&xdna->notifier_lock);
+	mutex_unlock(&mapp->lock);
+	amdxdna_umap_put(mapp);
+	mmput(mm);
+	goto again;
+
+put_mm:
+	amdxdna_umap_put(mapp);
+	mmput(mm);
+	return ret == -EBUSY ? -ETIME : ret;
 }
 
 static void amdxdna_hmm_unreg_work(struct work_struct *work)
@@ -402,6 +486,7 @@ static int amdxdna_hmm_register(struct amdxdna_gem_obj *abo,
 		goto free_pfns;
 	}
 
+	mutex_init(&mapp->lock);
 	down_write(&xdna->notifier_lock);
 	if (list_empty(&abo->mem.umap_list))
 		abo->mem.uva = addr;
@@ -479,11 +564,51 @@ static void amdxdna_mark_mapp_invalid(struct amdxdna_gem_obj *abo,
 	up_write(&xdna->notifier_lock);
 }
 
+static int amdxdna_remap_pages(struct amdxdna_gem_obj *abo,
+			       struct vm_area_struct *vma)
+{
+	unsigned long num_pages = vma_pages(vma);
+	struct page **pages = abo->base.pages;
+	unsigned long i, nr;
+	int ret;
+
+	for (i = 0; i < num_pages; i += nr) {
+		unsigned long pfn = page_to_pfn(pages[i]);
+
+		for (nr = 1; i + nr < num_pages; nr++) {
+			if (page_to_pfn(pages[i + nr]) != pfn + nr)
+				break;
+		}
+
+		ret = remap_pfn_range(vma, vma->vm_start + (i << PAGE_SHIFT), pfn,
+				      nr << PAGE_SHIFT, vma->vm_page_prot);
+		if (ret) {
+			zap_special_vma_range(vma, vma->vm_start, i << PAGE_SHIFT);
+			return ret;
+		}
+	}
+
+	/*
+	 * The page tables are populated upfront, thus the CPU never takes a
+	 * write fault and drm_gem_shmem_vm_ops.pfn_mkwrite() never marks the
+	 * folios dirty. The device writes to the pages through the IOMMU
+	 * without any notification either. And the PTEs are special in a
+	 * VM_PFNMAP VMA, so unmapping does not transfer their dirty bits
+	 * back to the folios. Mark the pages dirty when they are released,
+	 * the same way drm_gem_shmem_vmap() does.
+	 */
+	dma_resv_lock(to_gobj(abo)->resv, NULL);
+	abo->base.pages_mark_dirty_on_put = true;
+	abo->base.pages_mark_accessed_on_put = true;
+	dma_resv_unlock(to_gobj(abo)->resv);
+
+	return 0;
+}
+
 static int amdxdna_insert_pages(struct amdxdna_gem_obj *abo,
 				struct vm_area_struct *vma)
 {
 	struct amdxdna_dev *xdna = to_xdna_dev(to_gobj(abo)->dev);
-	unsigned long num_pages = vma_pages(vma);
 	int ret;
 
 	/*
@@ -502,7 +627,8 @@ static int amdxdna_insert_pages(struct amdxdna_gem_obj *abo,
 			return ret;
 		}
 
-		amdxdna_mark_mapp_invalid(abo, vma);
+		if (!(vma->vm_flags & VM_PFNMAP))
+			amdxdna_mark_mapp_invalid(abo, vma);
 
 		/* Drop the reference drm_gem_mmap_obj() acquired.*/
 		drm_gem_object_put(to_gobj(abo));
@@ -515,10 +641,9 @@ static int amdxdna_insert_pages(struct amdxdna_gem_obj *abo,
 		return ret;
 	}
 
-	vm_flags_mod(vma, VM_MIXEDMAP, VM_PFNMAP);
-	ret = vm_insert_pages(vma, vma->vm_start, abo->base.pages, &num_pages);
+	ret = amdxdna_remap_pages(abo, vma);
 	if (ret) {
-		XDNA_ERR(xdna, "Failed to insert pages %d", ret);
+		XDNA_ERR(xdna, "Failed to remap pages %d", ret);
 		dma_resv_lock(to_gobj(abo)->resv, NULL);
 		drm_gem_shmem_put_pages_locked(&abo->base);
 		dma_resv_unlock(to_gobj(abo)->resv);
@@ -556,99 +681,21 @@ hmm_unreg:
 	return ret;
 }
 
-/*
- * VM operations for amdxdna shmem VMAs that use VM_MIXEDMAP.
- *
- * drm_gem_shmem_vm_ops cannot be used on VM_MIXEDMAP VMAs because its fault
- * handler calls vmf_insert_pfn() → vmf_insert_pfn_prot() which contains:
- *   BUG_ON((vma->vm_flags & VM_MIXEDMAP) && pfn_valid(pfn))
- * All amdxdna shmem pages are ordinary struct pages so pfn_valid() is always
- * true, making the combination fatal.
- *
- * These ops use vmf_insert_page() (struct-page based) instead, which is the
- * correct API for VM_MIXEDMAP VMAs backed by real struct pages.  The open and
- * close handlers replicate drm_gem_shmem_vm_open/close using only exported
- * symbols.
- */
-static vm_fault_t amdxdna_gem_mixedmap_fault(struct vm_fault *vmf)
-{
-	struct vm_area_struct *vma = vmf->vma;
-	struct drm_gem_object *gobj = vma->vm_private_data;
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(gobj);
-	loff_t num_pages = gobj->size >> PAGE_SHIFT;
-	vm_fault_t ret = VM_FAULT_SIGBUS;
-	pgoff_t page_offset;
-	struct page *page;
-
-	/*
-	 * Partial free of vma is unexpected. Otherwise, the wrong page
-	 * will be faulted in and the user application may crash itself.
-	 */
-	page_offset = linear_page_delta(vma, vmf->address);
-
-	dma_resv_lock(gobj->resv, NULL);
-
-	if (!shmem->pages || shmem->madv < 0 || page_offset >= num_pages)
-		goto out;
-
-	page = shmem->pages[page_offset];
-	if (WARN_ON_ONCE(!page))
-		goto out;
-
-	/*
-	 * Use vmf_insert_page() (struct-page path) not vmf_insert_pfn()
-	 * (PFN path) because this VMA carries VM_MIXEDMAP.
-	 */
-	ret = vmf_insert_page(vma, vmf->address, page);
-	if (ret == VM_FAULT_NOPAGE)
-		folio_mark_accessed(page_folio(page));
-
-out:
-	dma_resv_unlock(gobj->resv);
-	return ret;
-}
-
-static void amdxdna_gem_mixedmap_vm_open(struct vm_area_struct *vma)
-{
-	struct drm_gem_object *gobj = vma->vm_private_data;
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(gobj);
-
-	/*
-	 * Bump pages_use_count so the page array stays alive for the new
-	 * mapping copy created by fork().  Mirrors drm_gem_shmem_vm_open().
-	 */
-	dma_resv_lock(gobj->resv, NULL);
-	drm_WARN_ON_ONCE(gobj->dev, !refcount_inc_not_zero(&shmem->pages_use_count));
-	dma_resv_unlock(gobj->resv);
-
-	drm_gem_vm_open(vma);
-}
-
-static void amdxdna_gem_mixedmap_vm_close(struct vm_area_struct *vma)
-{
-	struct drm_gem_object *gobj = vma->vm_private_data;
-	struct drm_gem_shmem_object *shmem = to_drm_gem_shmem_obj(gobj);
-
-	dma_resv_lock(gobj->resv, NULL);
-	drm_gem_shmem_put_pages_locked(shmem);
-	dma_resv_unlock(gobj->resv);
-
-	drm_gem_vm_close(vma);
-}
-
-static const struct vm_operations_struct amdxdna_gem_mixedmap_vm_ops = {
-	.fault  = amdxdna_gem_mixedmap_fault,
-	.open   = amdxdna_gem_mixedmap_vm_open,
-	.close  = amdxdna_gem_mixedmap_vm_close,
-};
-
 static int amdxdna_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struct *vma)
 {
 	struct drm_gem_object *gobj = dma_buf->priv;
 	struct amdxdna_gem_obj *abo = to_xdna_obj(gobj);
 	int ret;
 
-	vma->vm_ops = &amdxdna_gem_mixedmap_vm_ops;
+	/*
+	 * vm_pgoff is the page offset within the dma-buf, see dma_buf_mmap().
+	 * drm_gem_shmem_vm_ops indexes the BO pages by the page offset within
+	 * the VMA. Thus the mapping has to start at the beginning of the BO.
+	 */
+	if (vma->vm_pgoff)
+		return -EINVAL;
+
+	vma->vm_ops = &drm_gem_shmem_vm_ops;
 	vma->vm_private_data = gobj;
 
 	drm_gem_object_get(gobj);
@@ -656,11 +703,16 @@ static int amdxdna_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struc
 	if (ret)
 		goto put_obj;
 
-	/* The buffer is based on memory pages. Fix the flag. */
-	vm_flags_mod(vma, VM_MIXEDMAP, VM_PFNMAP);
+	ret = amdxdna_remap_pages(abo, vma);
+	if (ret)
+		goto put_pages;
 
 	return 0;
 
+put_pages:
+	dma_resv_lock(gobj->resv, NULL);
+	drm_gem_shmem_put_pages_locked(&abo->base);
+	dma_resv_unlock(gobj->resv);
 put_obj:
 	drm_gem_object_put(gobj);
 	return ret;
@@ -958,7 +1010,7 @@ static const struct drm_gem_object_funcs amdxdna_gem_shmem_funcs = {
 	.vmap = amdxdna_gem_obj_vmap,
 	.vunmap = amdxdna_gem_obj_vunmap,
 	.mmap = amdxdna_gem_obj_mmap,
-	.vm_ops = &amdxdna_gem_mixedmap_vm_ops,
+	.vm_ops = &drm_gem_shmem_vm_ops,
 	.export = amdxdna_gem_prime_export,
 };
 

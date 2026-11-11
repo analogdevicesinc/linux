@@ -1235,6 +1235,15 @@ static void gpu_test_buddy_alloc_contiguous(struct kunit *test)
 							    GPU_BUDDY_CONTIGUOUS_ALLOCATION),
 			       "buddy_alloc hit an error size=%lu\n", 2 * ps);
 
+	/*
+	 * A failed contiguous allocation with a non-empty blocks list
+	 * must NOT corrupt or free pre-existing blocks.
+	 */
+	KUNIT_EXPECT_TRUE(test, gpu_buddy_alloc_blocks(&mm, 0, mm_size,
+						       3 * ps, ps, &allocated,
+						       GPU_BUDDY_CONTIGUOUS_ALLOCATION));
+	KUNIT_EXPECT_FALSE(test, list_empty(&allocated));
+
 	gpu_buddy_free_list(&mm, &left, 0);
 	KUNIT_ASSERT_FALSE_MSG(test, gpu_buddy_alloc_blocks(&mm, 0, mm_size,
 							    3 * ps, ps, &allocated,

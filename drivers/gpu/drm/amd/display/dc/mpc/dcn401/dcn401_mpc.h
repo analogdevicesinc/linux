@@ -275,4 +275,9 @@ void mpc401_update_3dlut_fast_load_select(
 	int mpcc_id,
 	int hubp_idx);
 
+void mpc401_read_mpcc_state(
+	struct mpc *mpc,
+	int mpcc_inst,
+	struct mpcc_state *s);
+
 #endif

@@ -54,7 +54,12 @@ mes_userq_create_wptr_mapping(struct amdgpu_device *adev,
 			goto fail_lock;
 
 		wptr_mapping = amdgpu_vm_bo_lookup_mapping(vm, wptr);
-		if (!wptr_mapping || !wptr_mapping->bo_va->base.bo) {
+		/*
+		 * The WPTR is read through a kernel CPU mapping, which imported
+		 * dma-bufs don't support.
+		 */
+		if (!wptr_mapping || !wptr_mapping->bo_va->base.bo ||
+		    drm_gem_is_imported(&wptr_mapping->bo_va->base.bo->tbo.base)) {
 			ret = -EINVAL;
 			goto fail_lock;
 		}

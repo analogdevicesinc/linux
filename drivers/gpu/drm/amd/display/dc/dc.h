@@ -30,6 +30,7 @@
 #include "dc_state.h"
 #include "dc_plane.h"
 #include "dc_probe.h"
+#include "dc_memory_pool.h"
 #include "grph_object_defs.h"
 #include "logger_types.h"
 #include "hdcp_msg_types.h"
@@ -68,7 +69,7 @@ struct dcn_dsc_reg_state;
 struct dcn_optc_reg_state;
 struct dcn_dccg_reg_state;
 
-#define DC_VER "3.2.401"
+#define DC_VER "3.2.404"
 
 /**
  * MAX_SURFACES - representative of the upper bound of surfaces that can be piped to a single CRTC
@@ -635,6 +636,15 @@ struct dc_config {
 	struct spl_sharpness_range dcn_sharpness_range;
 	struct spl_sharpness_range dcn_override_sharpness_range;
 	bool no_native422_support;
+
+	// Pre-allocate dc_state buffers at dc_construct time so that a commit can
+	// run on a code path where allocation is not permitted.
+	bool preallocate_scratch_state;
+
+	// Build commits into the pre-allocated buffers instead of allocating.
+	// Set by the DM around a commit that runs where allocation is not
+	// permitted; requires preallocate_scratch_state.
+	bool use_preallocated_state;
 };
 
 enum visual_confirm {
@@ -811,9 +821,6 @@ struct dc_clocks {
 	int idle_fclk_khz;
 	int subvp_prefetch_dramclk_khz;
 	int subvp_prefetch_fclk_khz;
-	/* deprecated: use _KBps variants — will be removed after DML update */
-	unsigned int utm_urgent_bandwidth_lb_Kbps;
-	unsigned int utm_nominal_bandwidth_lb_Kbps;
 	unsigned int utm_urgent_bandwidth_lb_KBps;
 	unsigned int utm_nominal_bandwidth_lb_KBps;
 	unsigned int utm_latency_ub_index;
@@ -1104,6 +1111,12 @@ struct dc_debug_options {
 	 */
 	enum pipe_split_policy pipe_split_policy;
 	bool force_single_disp_pipe_split;
+	/*
+	 * @force_mpc_combine: Override the DML2.1 per-plane MPC combine
+	 * decision. 0 = auto (default), 1 = force single DPP (no MPC combine),
+	 * 2 = force 2:1 MPC combine.
+	 */
+	uint8_t force_mpc_combine;
 	bool voltage_align_fclk;
 	bool disable_min_fclk;
 
@@ -1188,6 +1201,7 @@ struct dc_debug_options {
 	bool enable_dmcub_surface_flip;
 	bool usbc_combo_phy_reset_wa;
 	bool force_fva;
+	bool force_dpg_on_flip;
 	int max_frl_rate;
 	unsigned int  force_frl_rate;
 	bool ignore_ffe;
@@ -1320,17 +1334,18 @@ struct dc_debug_options {
 	unsigned int urgent_watermark_override;
 	bool enable_block_sequence_programming;
 	uint32_t custom_psp_footer_size;
+	uint32_t dmcub_fw_load_type;
 	bool disable_deferred_minimal_transitions;
 	unsigned int num_fast_flips_to_steady_state_override;
 	bool enable_dmu_recovery;
 	unsigned int force_vmin_threshold;
 	bool enable_otg_frame_sync_pwa;
 	unsigned int min_deep_sleep_dcfclk_khz;
-	unsigned int force_odm2to1_for_edp_pixclk_mhz;
 	bool enable_replay_esd_recovery;
 	uint8_t iommu_mismatch_temp_wka;
 	bool disable_dynamic_expansion_for_test_pattern;
 	bool psr_phy_force_phy_power_down_up_level_2;
+	bool dmub_send_az_pme_restore;
 	uint32_t dml21_custom_derate_num_dpms;
 	uint32_t dml21_custom_derate_at_dpm[DML2_MAX_NUM_DPM_LVL];
 	bool override_utm_client_qc_profile;
@@ -2021,13 +2036,19 @@ struct dc {
 	struct link_service *link_srv;
 
 	struct dc_state *current_state;
+	/**
+	 * @scratch_dc_context: Pre-allocated states for the no-allocation update
+	 * path, created only when dc_config.preallocate_scratch_state is set.
+	 * Two are kept because the commit path installs the new context as
+	 * @current_state, so a single buffer would alias it and self-copy.
+	 */
+	struct dc_state *scratch_dc_context[2];
 	struct resource_pool *res_pool;
 
 	/**
 	 * @update_scratch_pool: Per-commit scratch buffers for dc_update_state.
 	 */
-	struct dc_update_scratch_space *update_scratch_pool[MAX_STREAMS + 1];
-	bool update_scratch_in_use[MAX_STREAMS + 1];
+	struct dc_memory_pool *update_scratch_pool;  // MAX_STREAMS + 1
 
 	struct clk_mgr *clk_mgr;
 

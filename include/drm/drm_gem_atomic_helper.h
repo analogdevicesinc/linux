@@ -9,8 +9,6 @@
 #include <drm/drm_fourcc.h>
 #include <drm/drm_plane.h>
 
-struct drm_simple_display_pipe;
-
 /*
  * Plane Helpers
  */
@@ -125,31 +123,5 @@ void drm_gem_end_shadow_fb_access(struct drm_plane *plane, struct drm_plane_stat
 #define DRM_GEM_SHADOW_PLANE_HELPER_FUNCS \
 	.begin_fb_access = drm_gem_begin_shadow_fb_access, \
 	.end_fb_access = drm_gem_end_shadow_fb_access
-
-int drm_gem_simple_kms_begin_shadow_fb_access(struct drm_simple_display_pipe *pipe,
-					      struct drm_plane_state *plane_state);
-void drm_gem_simple_kms_end_shadow_fb_access(struct drm_simple_display_pipe *pipe,
-					     struct drm_plane_state *plane_state);
-struct drm_plane_state *
-drm_gem_simple_kms_create_shadow_plane_state(struct drm_simple_display_pipe *pipe);
-struct drm_plane_state *
-drm_gem_simple_kms_duplicate_shadow_plane_state(struct drm_simple_display_pipe *pipe);
-void drm_gem_simple_kms_destroy_shadow_plane_state(struct drm_simple_display_pipe *pipe,
-						   struct drm_plane_state *plane_state);
-
-/**
- * DRM_GEM_SIMPLE_DISPLAY_PIPE_SHADOW_PLANE_FUNCS -
- *	Initializes struct drm_simple_display_pipe_funcs for shadow-buffered planes
- *
- * Drivers may use GEM BOs as shadow buffers over the framebuffer memory. This
- * macro initializes struct drm_simple_display_pipe_funcs to use the rsp helper
- * functions.
- */
-#define DRM_GEM_SIMPLE_DISPLAY_PIPE_SHADOW_PLANE_FUNCS \
-	.begin_fb_access = drm_gem_simple_kms_begin_shadow_fb_access, \
-	.end_fb_access = drm_gem_simple_kms_end_shadow_fb_access, \
-	.create_plane_state = drm_gem_simple_kms_create_shadow_plane_state, \
-	.duplicate_plane_state = drm_gem_simple_kms_duplicate_shadow_plane_state, \
-	.destroy_plane_state = drm_gem_simple_kms_destroy_shadow_plane_state
 
 #endif /* __DRM_GEM_ATOMIC_HELPER_H__ */

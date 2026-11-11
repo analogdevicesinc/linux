@@ -30,6 +30,7 @@
 #include "amdgpu_vram_mgr.h"
 #include "amdgpu_hmm.h"
 #include "amdgpu_gmc.h"
+#include "amdgpu_sdma_types.h"
 
 #define AMDGPU_PL_GDS		(TTM_PL_PRIV + 0)
 #define AMDGPU_PL_GWS		(TTM_PL_PRIV + 1)
@@ -89,7 +90,7 @@ struct amdgpu_mman {
 
 	/* buffer handling */
 	const struct amdgpu_buffer_funcs	*buffer_funcs;
-	struct drm_gpu_scheduler		*buffer_funcs_scheds[AMDGPU_MAX_RINGS];
+	struct drm_gpu_scheduler		*buffer_funcs_scheds[AMDGPU_MAX_SDMA_INSTANCES];
 	u32					num_buffer_funcs_scheds;
 	bool					buffer_funcs_enabled;
 

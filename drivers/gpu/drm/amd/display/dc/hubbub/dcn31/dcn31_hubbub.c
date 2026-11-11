@@ -838,9 +838,12 @@ static bool hubbub31_get_dcc_compression_cap(struct hubbub *hubbub,
 		else
 			dcc_control = dcc_control__256_64_64;
 	} else if (input->scan == SCAN_DIRECTION_VERTICAL) {
-		if (!req128_vert_wc)
-			dcc_control = dcc_control__256_256_xxx;
-		else if (segment_order_vert == segment_order__contiguous)
+		if (!req128_vert_wc) {
+			if (segment_order_vert == segment_order__non_contiguous)
+				dcc_control = dcc_control__256_64_64;
+			else
+				dcc_control = dcc_control__256_256_xxx;
+		} else if (segment_order_vert == segment_order__contiguous)
 			dcc_control = dcc_control__128_128_xxx;
 		else
 			dcc_control = dcc_control__256_64_64;

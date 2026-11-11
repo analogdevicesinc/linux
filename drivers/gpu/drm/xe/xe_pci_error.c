@@ -13,6 +13,7 @@
 #include "xe_printk.h"
 #include "xe_ras.h"
 #include "xe_survivability_mode.h"
+#include "xe_wedge.h"
 
 static void prepare_device_for_reset(struct pci_dev *pdev)
 {
@@ -22,7 +23,7 @@ static void prepare_device_for_reset(struct pci_dev *pdev)
 
 	/*
 	 * Wedge the device to prevent userspace access but do not send the uevent.
-	 * xe_device_wedged_fini() releases runtime pm if wedged flag is set, so acquire a runtime
+	 * xe_wedge_fini() releases runtime pm if wedged flag is set, so acquire a runtime
 	 * pm reference to avoid underflow.
 	 */
 	if (!atomic_xchg(&xe->wedged.flag, 1))
@@ -30,8 +31,10 @@ static void prepare_device_for_reset(struct pci_dev *pdev)
 
 	xe_device_set_in_reset(xe);
 
-	for_each_gt(gt, xe, id)
-		xe_gt_declare_wedged(gt);
+	for_each_gt(gt, xe, id) {
+		xe_gt_wedge_declare(gt);
+		flush_work(&gt->wedge.worker);
+	}
 
 	pci_disable_device(pdev);
 }
@@ -61,7 +64,7 @@ static pci_ers_result_t xe_pci_error_detected(struct pci_dev *pdev, pci_channel_
 		return PCI_ERS_RESULT_DISCONNECT;
 
 	/* If the device is already wedged or in survivability mode, do not attempt recovery */
-	if (xe_survivability_mode_is_boot_enabled(xe) || xe_device_wedged(xe))
+	if (xe_survivability_mode_is_boot_enabled(xe) || xe_wedged(xe))
 		return PCI_ERS_RESULT_DISCONNECT;
 
 	switch (state) {
@@ -86,7 +89,7 @@ static pci_ers_result_t xe_pci_error_mmio_enabled(struct pci_dev *pdev)
 
 	/* User wants to debug the error, prevent reset */
 	if (xe->wedged.mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET) {
-		xe_device_declare_wedged(xe);
+		xe_wedge_declare(xe, DRM_WEDGE_RECOVERY_NONE);
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 

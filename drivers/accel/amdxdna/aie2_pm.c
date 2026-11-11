@@ -23,7 +23,7 @@ static int aie2_pm_set_clk_gating(struct amdxdna_dev_hdl *ndev, u32 val)
 	if (ret)
 		return ret;
 
-	ndev->clk_gating = val;
+	ndev->aie.clk_gating = val;
 	return 0;
 }
 
@@ -35,7 +35,7 @@ int aie2_pm_set_dpm(struct amdxdna_dev_hdl *ndev, u32 dpm_level)
 	if (ret)
 		return ret;
 
-	ret = ndev->priv->hw_ops->set_dpm(ndev, dpm_level);
+	ret = ndev->priv->hw_ops->set_dpm(&ndev->aie, dpm_level);
 	if (!ret)
 		ndev->dpm_level = dpm_level;
 	amdxdna_pm_suspend_put(ndev->aie.xdna);
@@ -49,11 +49,11 @@ int aie2_pm_init(struct amdxdna_dev_hdl *ndev)
 
 	if (ndev->dev_status != AIE2_DEV_UNINIT) {
 		/* Resume device */
-		ret = ndev->priv->hw_ops->set_dpm(ndev, ndev->dpm_level);
+		ret = ndev->priv->hw_ops->set_dpm(&ndev->aie, ndev->dpm_level);
 		if (ret)
 			return ret;
 
-		ret = aie2_pm_set_clk_gating(ndev, ndev->clk_gating);
+		ret = aie2_pm_set_clk_gating(ndev, ndev->aie.clk_gating);
 		if (ret)
 			return ret;
 
@@ -64,7 +64,7 @@ int aie2_pm_init(struct amdxdna_dev_hdl *ndev)
 		ndev->max_dpm_level++;
 	ndev->max_dpm_level--;
 
-	ret = ndev->priv->hw_ops->set_dpm(ndev, ndev->max_dpm_level);
+	ret = ndev->priv->hw_ops->set_dpm(&ndev->aie, ndev->max_dpm_level);
 	if (ret)
 		return ret;
 	ndev->dpm_level = ndev->max_dpm_level;

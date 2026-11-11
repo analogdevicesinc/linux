@@ -107,7 +107,7 @@ static int hqd_dump_v12_1(struct amdgpu_device *adev,
 			uint32_t (**dump)[2], uint32_t *n_regs, uint32_t inst)
 {
 	uint32_t i = 0, reg;
-#define HQD_N_REGS 56
+#define HQD_N_REGS (regCP_HQD_PQ_WPTR_HI - regCP_MQD_BASE_ADDR + 1)
 #define DUMP_REG(addr) do {				\
 		if (WARN_ON_ONCE(i >= HQD_N_REGS))	\
 			break;				\
@@ -331,13 +331,9 @@ static uint32_t kgd_gfx_v12_1_set_address_watch(struct amdgpu_device *adev,
 					uint32_t debug_vmid,
 					uint32_t inst)
 {
-	uint32_t watch_address_high;
-	uint32_t watch_address_low;
 	uint32_t watch_address_cntl;
 
 	watch_address_cntl = 0;
-	watch_address_low = lower_32_bits(watch_address);
-	watch_address_high = upper_32_bits(watch_address) & 0x1ffffff;
 
 	watch_address_cntl = REG_SET_FIELD(watch_address_cntl,
 			TCP_WATCH0_CNTL,
@@ -353,14 +349,6 @@ static uint32_t kgd_gfx_v12_1_set_address_watch(struct amdgpu_device *adev,
 			TCP_WATCH0_CNTL,
 			VALID,
 			1);
-
-	WREG32_XCC((SOC15_REG_OFFSET(GC, GET_INST(GC, inst), regTCP_WATCH0_ADDR_H) +
-			(watch_id * TCP_WATCH_STRIDE)),
-			watch_address_high, inst);
-
-	WREG32_XCC((SOC15_REG_OFFSET(GC, GET_INST(GC, inst), regTCP_WATCH0_ADDR_L) +
-			(watch_id * TCP_WATCH_STRIDE)),
-			watch_address_low, inst);
 
 	return watch_address_cntl;
 }

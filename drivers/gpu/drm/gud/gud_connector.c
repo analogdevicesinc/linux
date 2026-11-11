@@ -347,16 +347,24 @@ static void gud_connector_destroy(struct drm_connector *connector)
 	kfree(gconn);
 }
 
-static void gud_connector_reset(struct drm_connector *connector)
+static struct drm_connector_state *
+gud_connector_create_state(struct drm_connector *connector)
 {
+	struct drm_connector_state *connector_state;
 	struct gud_connector *gconn = to_gud_connector(connector);
 
-	drm_atomic_helper_connector_reset(connector);
-	connector->state->tv = gconn->initial_tv_state;
+	connector_state = drm_atomic_helper_connector_create_state(connector);
+	if (IS_ERR(connector_state))
+		return connector_state;
+
+	connector_state->tv = gconn->initial_tv_state;
 	/* Set margins from command line */
-	drm_atomic_helper_connector_tv_margins_reset(connector);
+	drm_atomic_helper_connector_tv_margins_state_init(connector_state,
+							  connector);
 	if (gconn->initial_brightness >= 0)
-		connector->state->tv.brightness = gconn->initial_brightness;
+		connector_state->tv.brightness = gconn->initial_brightness;
+
+	return connector_state;
 }
 
 static const struct drm_connector_funcs gud_connector_funcs = {
@@ -364,7 +372,7 @@ static const struct drm_connector_funcs gud_connector_funcs = {
 	.late_register = gud_connector_late_register,
 	.early_unregister = gud_connector_early_unregister,
 	.destroy = gud_connector_destroy,
-	.reset = gud_connector_reset,
+	.atomic_create_state = gud_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };

@@ -40,6 +40,7 @@
 #include "mcif_wb.h"
 #include "panel_cntl.h"
 #include "dmub/inc/dmub_cmd.h"
+#include "bls_builder/bls_builder_legacy_init.h"
 #include "pg_cntl.h"
 #include "sspl/dc_spl.h"
 
@@ -722,6 +723,12 @@ struct dc_state {
 	} perf_params;
 
 	enum dc_power_source_type power_source;
+
+	/**
+	 * @hw_init_info: DC2_DC1_Wrapped hardware init progress and the
+	 * outputs of each stage run so far
+	 */
+	struct bls_builder_legacy_hw_init_info hw_init_info;
 };
 
 struct replay_context {

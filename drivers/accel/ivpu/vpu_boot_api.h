@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /*
- * Copyright (c) 2020-2025, Intel Corporation.
+ * Copyright (c) 2020-2026, Intel Corporation.
  */
 
 /**
@@ -36,12 +36,12 @@
  * Minor version changes when API backward compatibility is preserved.
  * Resets to 0 if Major version is incremented.
  */
-#define VPU_BOOT_API_VER_MINOR 29
+#define VPU_BOOT_API_VER_MINOR 39
 
 /**
  * API header changed (field names, documentation, formatting) but API itself has not been changed
  */
-#define VPU_BOOT_API_VER_PATCH 5
+#define VPU_BOOT_API_VER_PATCH 1
 
 /**
  * Index in the API version table
@@ -74,6 +74,10 @@ struct vpu_firmware_header {
 	/** Size of memory require for firmware execution */
 	u32 runtime_size;
 	u32 shave_nn_fw_size;
+	/*
+	 * Preemption buffer sizes in image header are deprecated post NPU50xx.
+	 * Use vpu_boot_params::preemption_buffer_size instead.
+	 */
 	/**
 	 * Size of primary preemption buffer, assuming a 2-job submission queue.
 	 * NOTE: host driver is expected to adapt size accordingly to actual
@@ -199,7 +203,7 @@ struct vpu_boot_l2_cache_config {
  * Macros to enable various power profiles within the NPU.
  * To be defined as part of 32 bit mask.
  */
-#define POWER_PROFILE_SURVIVABILITY 0x1
+#define POWER_PROFILE_SURVIVABILITY BIT(0)
 
 /**
  * Enum for dvfs_mode boot param.
@@ -209,7 +213,9 @@ enum vpu_governor {
 	VPU_GOV_MAX_PERFORMANCE = 1, /** Maximum performance governor */
 	VPU_GOV_ON_DEMAND = 2, /** On Demand frequency control governor */
 	VPU_GOV_POWER_SAVE = 3, /** Power save governor */
-	VPU_GOV_ON_DEMAND_PRIORITY_AWARE = 4 /** On Demand priority based governor */
+	VPU_GOV_ON_DEMAND_PRIORITY_AWARE = 4, /** On Demand priority based governor */
+	VPU_GOV_ON_DEMAND_PER_PRIORITY = 5, /** On Demand frequency per-priority governor */
+	VPU_GOV_ON_DEMAND_QOS = 6 /** On Demand QOS based governor */
 };
 
 struct vpu_boot_params {
@@ -239,8 +245,20 @@ struct vpu_boot_params {
 	 * On VPU2.7 HW this address must be within 2GB range starting from L2C_PAGE_TABLE base
 	 */
 	u64 shave_nn_fw_base;
-	u64 save_restore_ret_address; /** stores the address of FW's restore entry point */
-	u32 reserved_4[43];
+	/**
+	 * Firmware restore entry point used to resume from D0i3.
+	 * Set before entering D0i3 and cleared during the resume sequence.
+	 * Deprecated on NPU60xx and later; boot_type selects the warmboot path.
+	 */
+	u64 save_restore_ret_address;
+	/**
+	 * Required preemption buffer size in bytes.
+	 * Firmware writes this before signaling cold-boot completion to the host;
+	 * it is not updated afterward.
+	 * Available since NPU50xx.
+	 */
+	u32 preemption_buffer_size;
+	u32 reserved_4[42];
 	/** IRQ re-direct numbers: 0x200 - 0x2FF */
 	s32 watchdog_irq_mss;
 	s32 watchdog_irq_nce;
@@ -268,6 +286,10 @@ struct vpu_boot_params {
 	 * TODO: EISW-33556: Move log level definition (mvLog_t) to this file.
 	 */
 	u32 default_trace_level;
+	/**
+	 * Boot mode requested by the host: VPU_BOOT_TYPE_COLDBOOT or
+	 * VPU_BOOT_TYPE_WARMBOOT. Used by the boot loader on NPU60xx+.
+	 */
 	u32 boot_type;
 	u64 punit_telemetry_sram_base;
 	u64 punit_telemetry_sram_size;

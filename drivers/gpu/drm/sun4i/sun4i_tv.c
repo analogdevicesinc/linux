@@ -408,7 +408,7 @@ static const struct drm_connector_helper_funcs sun4i_tv_comp_connector_helper_fu
 static void sun4i_tv_connector_reset(struct drm_connector *connector)
 {
 	drm_atomic_helper_connector_reset(connector);
-	drm_atomic_helper_connector_tv_reset(connector);
+	drm_atomic_helper_connector_tv_state_init(connector->state, connector);
 }
 
 static const struct drm_connector_funcs sun4i_tv_comp_connector_funcs = {

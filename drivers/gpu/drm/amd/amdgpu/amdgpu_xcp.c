@@ -413,7 +413,6 @@ int amdgpu_xcp_dev_register(struct amdgpu_device *adev,
 
 void amdgpu_xcp_dev_unplug(struct amdgpu_device *adev)
 {
-	struct drm_device *p_ddev;
 	int i;
 
 	if (!adev->xcp_mgr)
@@ -423,12 +422,39 @@ void amdgpu_xcp_dev_unplug(struct amdgpu_device *adev)
 		if (!adev->xcp_mgr->xcp[i].ddev)
 			break;
 
-		p_ddev = adev->xcp_mgr->xcp[i].ddev;
-		drm_dev_unplug(p_ddev);
-		p_ddev->render->dev = adev->xcp_mgr->xcp[i].rdev;
-		p_ddev->primary->dev = adev->xcp_mgr->xcp[i].pdev;
-		p_ddev->driver =  adev->xcp_mgr->xcp[i].driver;
-		p_ddev->vma_offset_manager = adev->xcp_mgr->xcp[i].vma_offset_manager;
+		drm_dev_unplug(adev->xcp_mgr->xcp[i].ddev);
+	}
+}
+
+void amdgpu_xcp_dev_fini(struct amdgpu_device *adev)
+{
+	struct amdgpu_xcp *xcp;
+	struct drm_device *p_ddev;
+	int i;
+
+	if (!adev->xcp_mgr)
+		return;
+
+	for (i = 1; i < MAX_XCP; i++) {
+		xcp = &adev->xcp_mgr->xcp[i];
+		if (!xcp->ddev)
+			break;
+
+		p_ddev = xcp->ddev;
+
+		/* Unregister devices on paths that did not unplug them earlier. */
+		if (p_ddev->registered)
+			drm_dev_unplug(p_ddev);
+
+		/*
+		 * All XCP minor files have been released, so it is now safe to
+		 * restore the partition device and free it.
+		 */
+		p_ddev->render->dev = xcp->rdev;
+		p_ddev->primary->dev = xcp->pdev;
+		p_ddev->driver = xcp->driver;
+		p_ddev->vma_offset_manager = xcp->vma_offset_manager;
+		xcp->ddev = NULL;
 		amdgpu_xcp_drm_dev_free(p_ddev);
 	}
 }

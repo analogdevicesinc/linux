@@ -260,7 +260,8 @@ void dccg35_set_dpstreamclk_root_clock_gating(struct dccg *dccg, int dp_hpo_inst
 
 void dccg35_set_hdmistreamclk_root_clock_gating(struct dccg *dccg, bool enable);
 
-void dccg35_dpp_root_clock_control(struct dccg *dccg, unsigned int dpp_inst, bool clock_on);
+void dccg35_dpp_root_clock_control(struct dccg *dccg, unsigned int dpp_inst, bool clock_on,
+		bool root_clock_optimization_dpp);
 
 void dccg35_disable_symclk32_se(struct dccg *dccg, int hpo_se_inst);
 

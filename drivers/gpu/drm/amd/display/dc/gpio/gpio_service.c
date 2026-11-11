@@ -552,6 +552,25 @@ void dal_gpio_destroy_ddc(
 	*ddc = NULL;
 }
 
+/* Switch the DDC pad to AUX mode, one time only. */
+void dal_gpio_ddc_open_aux_once(
+	struct gpio_service *service,
+	uint32_t offset,
+	uint32_t mask,
+	const struct gpio_ddc_hw_info *info)
+{
+	struct gpio_ddc_hw_info hw_info = *info;
+	struct ddc *ddc_pin;
+
+	ddc_pin = dal_gpio_create_ddc(service, offset, mask, &hw_info);
+	if (!ddc_pin)
+		return;
+
+	dal_ddc_open(ddc_pin, GPIO_MODE_HARDWARE,
+			GPIO_DDC_CONFIG_TYPE_MODE_AUX);
+	dal_gpio_destroy_ddc(&ddc_pin);
+}
+
 enum gpio_result dal_ddc_open(
 	struct ddc *ddc,
 	enum gpio_mode mode,

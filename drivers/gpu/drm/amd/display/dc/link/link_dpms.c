@@ -805,8 +805,7 @@ void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 										dsc_optc_cfg.slice_width);
 
 			/* PPS SDP is set elsewhere because it has to be done after DIG FE is connected to DIG BE */
-		}
-		else if (dc_is_hdmi_frl_signal(stream->signal)) {
+		} else if (dc_is_hdmi_frl_signal(stream->signal)) {
 			uint8_t dsc_packed_pps[128];
 			struct dc_crtc_timing patched_crtc_timing = stream->timing;
 
@@ -852,8 +851,7 @@ void link_set_dsc_on_stream(struct pipe_ctx *pipe_ctx, bool enable)
 				pipe_ctx->stream_res.stream_enc->funcs->dp_set_dsc_pps_info_packet(
 							pipe_ctx->stream_res.stream_enc, false, NULL, true);
 			}
-		}
-		else if (dc_is_hdmi_frl_signal(stream->signal))
+		} else if (dc_is_hdmi_frl_signal(stream->signal))
 			pipe_ctx->stream_res.hpo_frl_stream_enc->funcs->hdmi_frl_set_dsc_config(
 					pipe_ctx->stream_res.hpo_frl_stream_enc, &stream->timing, NULL);
 

@@ -26,7 +26,7 @@ static int aie4_destroy_vfs(struct amdxdna_dev_hdl *ndev)
 	return ret;
 }
 
-static int aie4_create_vfs(struct amdxdna_dev_hdl *ndev, int num_vfs)
+int aie4_create_vfs(struct amdxdna_dev_hdl *ndev, int num_vfs)
 {
 	DECLARE_AIE_MSG(aie4_msg_create_vfs, AIE4_MSG_OP_CREATE_VFS);
 	int ret;
@@ -37,6 +37,59 @@ static int aie4_create_vfs(struct amdxdna_dev_hdl *ndev, int num_vfs)
 		XDNA_ERR(ndev->aie.xdna, "create vfs op failed: %d", ret);
 
 	return ret;
+}
+
+static int aie4_for_each_vfs(struct amdxdna_dev *xdna,
+			     int (*cb)(struct amdxdna_dev *, struct pci_dev *))
+{
+	struct pci_dev *pdev_pf = to_pci_dev(xdna->ddev.dev);
+	struct pci_dev *pdev_vf;
+	int pos, ret;
+	u16 vf_did;
+
+	pos = pci_find_ext_capability(pdev_pf, PCI_EXT_CAP_ID_SRIOV);
+	if (!pos)
+		return 0;
+	ret = pci_read_config_word(pdev_pf, pos + PCI_SRIOV_VF_DID, &vf_did);
+	if (ret) {
+		XDNA_ERR(xdna, "read VF Device ID failed %d", ret);
+		return -ENODEV;
+	}
+
+	for (pdev_vf = pci_get_device(pdev_pf->vendor, vf_did, NULL);
+	     pdev_vf;
+	     pdev_vf = pci_get_device(pdev_pf->vendor, vf_did, pdev_vf)) {
+		if (!pdev_vf->is_virtfn || pdev_vf->physfn != pdev_pf)
+			continue;
+
+		ret = cb(xdna, pdev_vf);
+		if (ret) {
+			/* Release reference on early return. */
+			pci_dev_put(pdev_vf);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static int aie4_link_vf(struct amdxdna_dev *xdna, struct pci_dev *pdev_vf)
+{
+	struct pci_dev *pdev_pf = to_pci_dev(xdna->ddev.dev);
+
+	/* Stateless so the link survives VF driver rebind. */
+	if (!device_link_add(&pdev_vf->dev, &pdev_pf->dev, DL_FLAG_STATELESS)) {
+		XDNA_ERR(xdna, "Failed to link VF %s", pci_name(pdev_vf));
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int aie4_unlink_vf(struct amdxdna_dev *xdna, struct pci_dev *pdev_vf)
+{
+	device_link_remove(&pdev_vf->dev, xdna->ddev.dev);
+	return 0;
 }
 
 int aie4_sriov_stop(struct amdxdna_dev_hdl *ndev)
@@ -54,7 +107,9 @@ int aie4_sriov_stop(struct amdxdna_dev_hdl *ndev)
 		return -EPERM;
 	}
 
+	aie4_for_each_vfs(xdna, aie4_unlink_vf);
 	pci_disable_sriov(pdev);
+	ndev->num_vfs = 0;
 	return aie4_destroy_vfs(ndev);
 }
 
@@ -75,6 +130,15 @@ static int aie4_sriov_start(struct amdxdna_dev_hdl *ndev, int num_vfs)
 		return ret;
 	}
 
+	ret = aie4_for_each_vfs(xdna, aie4_link_vf);
+	if (ret) {
+		aie4_for_each_vfs(xdna, aie4_unlink_vf);
+		pci_disable_sriov(pdev);
+		aie4_destroy_vfs(ndev);
+		return ret;
+	}
+
+	ndev->num_vfs = num_vfs;
 	return num_vfs;
 }
 

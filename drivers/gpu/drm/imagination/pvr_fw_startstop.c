@@ -110,9 +110,11 @@ rogue_slc_init(struct pvr_device *pvr_dev)
 int
 pvr_fw_start(struct pvr_device *pvr_dev)
 {
-	bool has_reset2 = PVR_HAS_FEATURE(pvr_dev, xe_tpu2);
 	u64 soft_reset_mask;
 	int err;
+
+	/* No Rogue cores should have this feature which requires additional reset steps. */
+	WARN_ON_ONCE(PVR_HAS_FEATURE(pvr_dev, s7_top_infrastructure));
 
 	if (PVR_HAS_FEATURE(pvr_dev, pbe2_in_xe))
 		soft_reset_mask = ROGUE_CR_SOFT_RESET__PBE2_XE__MASKFULL;
@@ -124,41 +126,21 @@ pvr_fw_start(struct pvr_device *pvr_dev)
 		 * Disable the default sys_bus_secure protection to perform
 		 * minimal setup.
 		 */
-		pvr_cr_write32(pvr_dev, ROGUE_CR_SYS_BUS_SECURE, 0);
-		(void)pvr_cr_read32(pvr_dev, ROGUE_CR_SYS_BUS_SECURE); /* Fence write */
+		pvr_cr_write_fenced32(pvr_dev, ROGUE_CR_SYS_BUS_SECURE, 0);
 	}
 
 	if (pvr_dev->fw_dev.processor_type == PVR_FW_PROCESSOR_TYPE_RISCV)
 		pvr_cr_write32(pvr_dev, ROGUE_CR_FWCORE_BOOT, 0);
 
 	/* Set Rogue in soft-reset. */
-	pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET, soft_reset_mask);
-	if (has_reset2)
-		pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET2, ROGUE_CR_SOFT_RESET2_MASKFULL);
-
-	/* Read soft-reset to fence previous write in order to clear the SOCIF pipeline. */
-	(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET);
-	if (has_reset2)
-		(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET2);
+	pvr_cr_write_fenced64(pvr_dev, ROGUE_CR_SOFT_RESET, soft_reset_mask);
 
 	/* Take Rascal and Dust out of reset. */
-	pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET,
-		       soft_reset_mask ^ ROGUE_CR_SOFT_RESET_RASCALDUSTS_EN);
-	if (has_reset2)
-		pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET2, 0);
-
-	(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET);
-	if (has_reset2)
-		(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET2);
+	pvr_cr_write_fenced64(pvr_dev, ROGUE_CR_SOFT_RESET,
+			      soft_reset_mask ^ ROGUE_CR_SOFT_RESET_RASCALDUSTS_EN);
 
 	/* Take everything out of reset but the FW processor. */
-	pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET, ROGUE_CR_SOFT_RESET_GARTEN_EN);
-	if (has_reset2)
-		pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET2, 0);
-
-	(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET);
-	if (has_reset2)
-		(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET2);
+	pvr_cr_write_fenced64(pvr_dev, ROGUE_CR_SOFT_RESET, ROGUE_CR_SOFT_RESET_GARTEN_EN);
 
 	err = rogue_slc_init(pvr_dev);
 	if (err)
@@ -178,8 +160,7 @@ pvr_fw_start(struct pvr_device *pvr_dev)
 	/* Need to wait for at least 16 cycles before taking the FW processor out of reset ... */
 	udelay(3);
 
-	pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET, 0x0);
-	(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET);
+	pvr_cr_write_fenced64(pvr_dev, ROGUE_CR_SOFT_RESET, 0x0);
 
 	/* ... and afterwards. */
 	udelay(3);

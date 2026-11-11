@@ -38,7 +38,8 @@
 /* SSID 1 is used by the VPU to represent reserved context */
 #define IVPU_RESERVED_CONTEXT_MMU_SSID 1
 #define IVPU_USER_CONTEXT_MIN_SSID     2
-#define IVPU_USER_CONTEXT_MAX_SSID     (IVPU_USER_CONTEXT_MIN_SSID + 128)
+#define IVPU_USER_CONTEXT_MAX_SSID     127
+#define IVPU_NON_ROOT_USER_MAX_CONTEXTS 64
 
 #define IVPU_MIN_DB 1
 #define IVPU_MAX_DB 255
@@ -238,12 +239,13 @@ extern bool ivpu_force_snoop;
 #define IVPU_TEST_MODE_CLK_RELINQ_DISABLE BIT(11)
 #define IVPU_TEST_MODE_CLK_RELINQ_ENABLE  BIT(12)
 #define IVPU_TEST_MODE_D0I2_DISABLE       BIT(13)
+#define IVPU_TEST_MODE_PROF_FREQ_HIGH     BIT(14)
 extern int ivpu_test_mode;
 
 struct ivpu_file_priv *ivpu_file_priv_get(struct ivpu_file_priv *file_priv);
 void ivpu_file_priv_put(struct ivpu_file_priv **link);
 
-int ivpu_boot(struct ivpu_device *vdev);
+int ivpu_boot(struct ivpu_device *vdev, bool device_init);
 int ivpu_shutdown(struct ivpu_device *vdev);
 void ivpu_prepare_for_reset(struct ivpu_device *vdev);
 bool ivpu_is_capable(struct ivpu_device *vdev, u32 capability);

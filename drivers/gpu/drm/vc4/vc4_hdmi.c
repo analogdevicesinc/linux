@@ -41,7 +41,6 @@
 #include <drm/drm_edid.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
-#include <drm/drm_simple_kms_helper.h>
 #include <linux/clk.h>
 #include <linux/component.h>
 #include <linux/gpio/consumer.h>
@@ -505,18 +504,28 @@ static int vc4_hdmi_connector_atomic_check(struct drm_connector *connector,
 	return drm_atomic_helper_connector_hdmi_check(connector, state);
 }
 
-static void vc4_hdmi_connector_reset(struct drm_connector *connector)
+static struct drm_connector_state *
+vc4_hdmi_connector_create_state(struct drm_connector *connector)
 {
-	drm_atomic_helper_connector_reset(connector);
-	__drm_atomic_helper_connector_hdmi_state_init(connector, connector->state);
-	drm_atomic_helper_connector_tv_margins_reset(connector);
+	struct drm_connector_state *connector_state;
+
+	connector_state = drm_atomic_helper_connector_create_state(connector);
+	if (IS_ERR(connector_state))
+		return connector_state;
+
+	__drm_atomic_helper_connector_hdmi_state_init(connector_state, connector);
+
+	drm_atomic_helper_connector_tv_margins_state_init(connector_state,
+							  connector);
+
+	return connector_state;
 }
 
 static const struct drm_connector_funcs vc4_hdmi_connector_funcs = {
 	.debugfs_init = drm_hdmi_connector_debugfs_init,
 	.force = drm_atomic_helper_connector_hdmi_force,
 	.fill_modes = drm_helper_probe_single_connector_modes,
-	.reset = vc4_hdmi_connector_reset,
+	.atomic_create_state = vc4_hdmi_connector_create_state,
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
@@ -567,8 +576,15 @@ static int vc4_hdmi_connector_init(struct drm_device *dev,
 	 * Some of the properties below require access to state, like bpc.
 	 * Allocate some default initial connector state with our reset helper.
 	 */
-	if (connector->funcs->reset)
-		connector->funcs->reset(connector);
+	if (!connector->state) {
+		struct drm_connector_state *conn_state;
+
+		conn_state = vc4_hdmi_connector_create_state(connector);
+		if (IS_ERR(conn_state))
+			return PTR_ERR(conn_state);
+
+		connector->state = conn_state;
+	}
 
 	/* Create and attach TV margin props to this connector. */
 	ret = drm_mode_create_tv_margin_properties(dev);

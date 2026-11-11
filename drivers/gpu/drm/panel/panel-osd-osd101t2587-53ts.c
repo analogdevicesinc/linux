@@ -134,7 +134,9 @@ static int osd101t2587_panel_add(struct osd101t2587_panel *osd101t2587)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&osd101t2587->base);
+	ret = devm_drm_panel_add(dev, &osd101t2587->base);
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -172,23 +174,7 @@ static int osd101t2587_panel_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return ret;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret)
-		drm_panel_remove(&osd101t2587->base);
-
-	return ret;
-}
-
-static void osd101t2587_panel_remove(struct mipi_dsi_device *dsi)
-{
-	struct osd101t2587_panel *osd101t2587 = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	drm_panel_remove(&osd101t2587->base);
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", ret);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver osd101t2587_panel_driver = {
@@ -197,7 +183,6 @@ static struct mipi_dsi_driver osd101t2587_panel_driver = {
 		.of_match_table = osd101t2587_of_match,
 	},
 	.probe = osd101t2587_panel_probe,
-	.remove = osd101t2587_panel_remove,
 };
 module_mipi_dsi_driver(osd101t2587_panel_driver);
 

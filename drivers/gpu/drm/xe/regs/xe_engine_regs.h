@@ -60,6 +60,8 @@
 
 #define RING_START_UDW(base)			XE_REG((base) + 0x48)
 
+#define RING_CSFE_GLB_CHICKEN3(base)		XE_REG((base) + 0x4c)
+
 #define RING_PSMI_CTL(base)			XE_REG((base) + 0x50, XE_REG_OPTION_MASKED)
 #define   RC_SEMA_IDLE_MSG_DISABLE		REG_BIT(12)
 #define   WAIT_FOR_EVENT_POWER_DOWN_DISABLE	REG_BIT(7)
@@ -72,6 +74,7 @@
 #define RING_DMA_FADD_UDW(base)			XE_REG((base) + 0x60)
 #define RING_IPEHR(base)			XE_REG((base) + 0x68)
 #define RING_INSTDONE(base)			XE_REG((base) + 0x6c)
+#define RING_INSTPS(base)			XE_REG((base) + 0x70)
 #define RING_ACTHD(base)			XE_REG((base) + 0x74)
 #define RING_DMA_FADD(base)			XE_REG((base) + 0x78)
 #define RING_HWS_PGA(base)			XE_REG((base) + 0x80)
@@ -102,6 +105,8 @@
 #define   SELECTIVE_READ_GROUP			REG_GENMASK(29, 23)
 #define   SELECTIVE_READ_INSTANCE		REG_GENMASK(22, 16)
 
+#define RESET_CTRL(base)			XE_REG((base) + 0xd0)
+
 /*
  * CMD_CCTL read/write fields take a MOCS value and _not_ a table index.
  * The lsb of each can be considered a separate enabling bit for encryption.
@@ -123,14 +128,22 @@
 #define FF_SLICE_CS_CHICKEN1(base)		XE_REG((base) + 0xe0, XE_REG_OPTION_MASKED)
 #define   FFSC_PERCTX_PREEMPT_CTRL		REG_BIT(14)
 
+#define FF_SLICE_CS_CHICKEN2(base)		XE_REG((base) + 0xe4, XE_REG_OPTION_MASKED)
+
 #define CS_DEBUG_MODE1(base)			XE_REG((base) + 0xec, XE_REG_OPTION_MASKED)
 #define   FF_DOP_CLOCK_GATE_DISABLE		REG_BIT(1)
 #define   REPLAY_MODE_GRANULARITY		REG_BIT(0)
 
 #define INDIRECT_RING_STATE(base)		XE_REG((base) + 0x108)
 
+#define RING_BB_STATE(base)			XE_REG((base) + 0x110)
+
 #define RING_BBADDR(base)			XE_REG((base) + 0x140)
 #define RING_BBADDR_UDW(base)			XE_REG((base) + 0x168)
+#define RING_BUFFER_HEAD_PREEMPT_REG(base)	XE_REG((base) + 0x14c)
+#define BB_START_ADDR(base)			XE_REG((base) + 0x150)
+#define RING_BB_ADDR_DIFF(base)			XE_REG((base) + 0x154)
+#define BB_START_ADDR_UDW(base)			XE_REG((base) + 0x170)
 
 #define PR_CTR_CTRL(base)			XE_REG((base) + 0x178)
 #define   CTR_COUNT_SELECT_FF			REG_BIT(31)
@@ -147,6 +160,8 @@
 #define BLIT_CCTL(base)				XE_REG((base) + 0x204)
 #define   BLIT_CCTL_DST_MOCS_MASK		REG_GENMASK(14, 9)
 #define   BLIT_CCTL_SRC_MOCS_MASK		REG_GENMASK(6, 1)
+
+#define RING_CSBEFSM3(base)			XE_REG((base) + 0x224)
 
 #define RING_EXECLIST_STATUS_LO(base)		XE_REG((base) + 0x234)
 #define RING_EXECLIST_STATUS_HI(base)		XE_REG((base) + 0x234 + 4)
@@ -169,8 +184,15 @@
 #define   GFX_MSIX_INTERRUPT_ENABLE		REG_BIT(13)
 #define   GFX_DISABLE_LEGACY_MODE		REG_BIT(3)
 
+#define RING_CSFESM(base)			XE_REG((base) + 0x2a0)
+#define RING_CSFESM2(base)			XE_REG((base) + 0x2a4)
+#define RING_CSFESM3(base)			XE_REG((base) + 0x2a8)
+#define RING_CSPWRFSM(base)			XE_REG((base) + 0x2ac)
+
 #define RING_CSMQDEBUG(base)			XE_REG((base) + 0x2b0)
 #define   CURRENT_ACTIVE_QUEUE_ID_MASK		REG_GENMASK(7, 0)
+
+#define RING_CSBEFSM(base)			XE_REG((base) + 0x2bc)
 
 #define RING_QUEUE_TIMESTAMP(base)		XE_REG((base) + 0x4c0)
 #define RING_QUEUE_TIMESTAMP_UDW(base)		XE_REG((base) + 0x4c0 + 4)
@@ -216,6 +238,8 @@
 #define   PREEMPT_GPGPU_COMMAND_LEVEL		PREEMPT_GPGPU_LEVEL(1, 0)
 #define   PREEMPT_GPGPU_LEVEL_MASK		PREEMPT_GPGPU_LEVEL(1, 1)
 #define   PREEMPT_3D_OBJECT_LEVEL		REG_BIT(0)
+
+#define CS_PREEMPTION_STATUS(base)		XE_REG((base) + 0x5ac)
 
 #define CS_GPR_DATA(base, n)			XE_REG((base) + 0x600 + (n) * 4)
 #define CS_GPR_REG(base, n)			CS_GPR_DATA((base), (n) * 2)

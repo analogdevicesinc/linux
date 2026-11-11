@@ -848,7 +848,7 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	int r, vram_width = 0, vram_type = 0, vram_vendor = 0, dma_addr_bits;
 	struct amdgpu_device *adev = ip_block->adev;
 	uint64_t pte_addr_mask = 0;
-	u32 mmhub_vmid_mask;
+	unsigned int last_kq_vmid;
 	int i;
 
 	adev->mmhub.funcs->init(adev);
@@ -990,32 +990,29 @@ static int gmc_v12_0_sw_init(struct amdgpu_ip_block *ip_block)
 	/*
 	 * number of VMs
 	 * VMID 0 is reserved for System
-	 * amdgpu graphics/compute will use VMIDs 1-7
-	 * amdkfd will use VMIDs 8-15.
-	 * On GFX 12.1, amdkfd will use VMIDs 3-15, with VMID 15 reserved
-	 * for NPA and therefore excluded from the MMHUB VMID pool.
+	 * amdgpu graphics/compute kernel queues will use VMIDs 1-7
+	 * amdkfd/MES user queues will use VMIDs 8-15.
+	 * On GFX 12.1, amdkfd/MES user queues will use VMIDs 3-15, with
+	 * VMID 15 reserved for NPA and therefore excluded from the
+	 * MMHUB VMID pool.
 	 */
-	mmhub_vmid_mask = GENMASK(AMDGPU_NUM_VMID - 1, 1);
 	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 1, 0)) {
-		adev->vm_manager.first_kfd_vmid = 3;
+		last_kq_vmid = 2;
 		adev->vm_manager.npa_vmid = 15;
-		mmhub_vmid_mask &= ~BIT(adev->vm_manager.npa_vmid);
 	} else {
-		adev->vm_manager.first_kfd_vmid = 8;
+		last_kq_vmid = 7;
 	}
 
 	if (adev->gfx.disable_kq)
-		adev->vm_manager.first_kfd_vmid = 1;
+		last_kq_vmid = 0;
 
-	amdgpu_vmid_mgr_set_vmid_mask(adev, mmhub_vmid_mask, true);
-	amdgpu_vmid_mgr_set_vmid_mask(adev,
-				      GENMASK(adev->vm_manager.first_kfd_vmid - 1, 1),
-				      false);
+	/* Reserve the last VMID for SPM */
+	adev->vm_manager.spm_vmid = AMDGPU_NUM_VMID - 1;
+
+	amdgpu_vmid_mgr_set_vmid_mask(adev, GENMASK(last_kq_vmid, 1),
+				      GENMASK(AMDGPU_NUM_VMID - 1, 1));
 
 	amdgpu_vm_manager_init(adev);
-
-	if (adev->vm_manager.npa_vmid)
-		adev->vm_manager.vmid_uq_mask_mmhub &= ~BIT(adev->vm_manager.npa_vmid);
 
 	r = amdgpu_gmc_ras_sw_init(adev);
 	if (r)

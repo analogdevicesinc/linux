@@ -18,23 +18,24 @@
 #include "xe_force_wake.h"
 #include "xe_gt.h"
 #include "xe_gt_debugfs.h"
-#include "xe_gt_printk.h"
-#include "xe_guc_ads.h"
 #include "xe_hw_engine.h"
 #include "xe_mmio.h"
 #include "xe_pagefault.h"
 #include "xe_pcode.h"
 #include "xe_pm.h"
+#include "xe_printk.h"
 #include "xe_psmi.h"
 #include "xe_pxp_debugfs.h"
 #include "xe_sriov.h"
 #include "xe_sriov_pf_debugfs.h"
 #include "xe_sriov_vf.h"
 #include "xe_step.h"
+#include "xe_sysctrl_debugfs.h"
 #include "xe_tile_debugfs.h"
 #include "xe_ttm_vram_mgr.h"
 #include "xe_vsec.h"
 #include "xe_wa.h"
+#include "xe_wedge.h"
 
 #ifdef CONFIG_DRM_XE_DEBUG
 #include "xe_bo_evict.h"
@@ -423,58 +424,6 @@ static ssize_t wedged_mode_show(struct file *f, char __user *ubuf,
 	return simple_read_from_buffer(ubuf, size, pos, buf, len);
 }
 
-static int __wedged_mode_set_reset_policy(struct xe_gt *gt, enum xe_wedged_mode mode)
-{
-	bool enable_engine_reset;
-	int ret;
-
-	enable_engine_reset = (mode != XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET);
-	ret = xe_guc_ads_scheduler_policy_toggle_reset(&gt->uc.guc.ads,
-						       enable_engine_reset);
-	if (ret)
-		xe_gt_err(gt, "Failed to update GuC ADS scheduler policy (%pe)\n", ERR_PTR(ret));
-
-	return ret;
-}
-
-static int wedged_mode_set_reset_policy(struct xe_device *xe, enum xe_wedged_mode mode)
-{
-	struct xe_gt *gt;
-	int ret;
-	u8 id;
-
-	guard(xe_pm_runtime)(xe);
-	for_each_gt(gt, xe, id) {
-		ret = __wedged_mode_set_reset_policy(gt, mode);
-		if (ret) {
-			if (id > 0) {
-				xe->wedged.inconsistent_reset = true;
-				drm_err(&xe->drm, "Inconsistent reset policy state between GTs\n");
-			}
-			return ret;
-		}
-	}
-
-	xe->wedged.inconsistent_reset = false;
-
-	return 0;
-}
-
-static bool wedged_mode_needs_policy_update(struct xe_device *xe, enum xe_wedged_mode mode)
-{
-	if (xe->wedged.inconsistent_reset)
-		return true;
-
-	if (xe->wedged.mode == mode)
-		return false;
-
-	if (xe->wedged.mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET ||
-	    mode == XE_WEDGED_MODE_UPON_ANY_HANG_NO_RESET)
-		return true;
-
-	return false;
-}
-
 static ssize_t wedged_mode_set(struct file *f, const char __user *ubuf,
 			       size_t size, loff_t *pos)
 {
@@ -486,17 +435,9 @@ static ssize_t wedged_mode_set(struct file *f, const char __user *ubuf,
 	if (ret)
 		return ret;
 
-	ret = xe_device_validate_wedged_mode(xe, wedged_mode);
+	ret = xe_wedge_set_mode(xe, wedged_mode);
 	if (ret)
 		return ret;
-
-	if (wedged_mode_needs_policy_update(xe, wedged_mode)) {
-		ret = wedged_mode_set_reset_policy(xe, wedged_mode);
-		if (ret)
-			return ret;
-	}
-
-	xe->wedged.mode = wedged_mode;
 
 	return size;
 }
@@ -835,6 +776,9 @@ void xe_debugfs_register(struct xe_device *xe)
 	xe_psmi_debugfs_register(xe);
 
 	xe_fault_inject_debugfs_register(xe, root);
+
+	if (xe->info.has_sysctrl)
+		xe_sysctrl_debugfs_register(&xe->sc, root);
 
 	if (IS_SRIOV_PF(xe))
 		xe_sriov_pf_debugfs_register(xe, root);

@@ -596,18 +596,12 @@ static u64 pack_region_range(struct panthor_device *ptdev, u64 *region_start, u6
 	return region_width | *region_start;
 }
 
-static u32 panthor_mmu_as_fault_mask(struct panthor_device *ptdev, u32 as)
-{
-	return BIT(as);
-}
-
 static int panthor_mmu_as_enable(struct panthor_device *ptdev, u32 as_nr,
 				 u64 transtab, u64 transcfg, u64 memattr)
 {
 	struct panthor_mmu *mmu = ptdev->mmu;
 
-	panthor_irq_enable_events(&ptdev->mmu->irq,
-				  panthor_mmu_as_fault_mask(ptdev, as_nr));
+	panthor_irq_enable_events(&ptdev->mmu->irq, MMU_INT_AS_FAULT(as_nr));
 
 	gpu_write64(mmu->iomem, AS_TRANSTAB(as_nr), transtab);
 	gpu_write64(mmu->iomem, AS_MEMATTR(as_nr), memattr);
@@ -624,8 +618,7 @@ static int panthor_mmu_as_disable(struct panthor_device *ptdev, u32 as_nr)
 
 	lockdep_assert_held(&ptdev->mmu->as.slots_lock);
 
-	panthor_irq_disable_events(&ptdev->mmu->irq,
-				   panthor_mmu_as_fault_mask(ptdev, as_nr));
+	panthor_irq_disable_events(&ptdev->mmu->irq, MMU_INT_AS_FAULT(as_nr));
 
 	if (vm && vm->locked_region.size) {
 		/* Unlock the region if there's a lock pending. */
@@ -743,7 +736,7 @@ int panthor_vm_active(struct panthor_vm *vm)
 		/* Unhandled pagefault on this AS, the MMU was disabled. We need to
 		 * re-enable the MMU after clearing+unmasking the AS interrupts.
 		 */
-		if (ptdev->mmu->as.faulty_mask & panthor_mmu_as_fault_mask(ptdev, as))
+		if (ptdev->mmu->as.faulty_mask & MMU_INT_AS_FAULT(as))
 			goto out_enable_as;
 
 		goto out_make_active;
@@ -798,7 +791,7 @@ out_enable_as:
 	/* Unhandled pagefault on this AS, clear the fault and enable the AS,
 	 * which re-enables interrupts.
 	 */
-	fault_mask = panthor_mmu_as_fault_mask(ptdev, as);
+	fault_mask = MMU_INT_AS_FAULT(as);
 	if (ptdev->mmu->as.faulty_mask & fault_mask) {
 		gpu_write(ptdev->mmu->irq.iomem, INT_CLEAR, fault_mask);
 		ptdev->mmu->as.faulty_mask &= ~fault_mask;
@@ -1861,7 +1854,7 @@ static void panthor_mmu_irq_handler(struct panthor_irq *pirq, u32 status)
 	status = panthor_mmu_fault_mask(ptdev, status);
 	while (status) {
 		u32 as = ffs(status | (status >> 16)) - 1;
-		u32 mask = panthor_mmu_as_fault_mask(ptdev, as);
+		u32 mask = MMU_INT_AS_FAULT(as);
 		u64 addr;
 		u32 fault_status;
 		u32 exception_type;
@@ -3255,6 +3248,26 @@ int panthor_vm_unmap_range(struct panthor_vm *vm, u64 va, u64 size)
  * need to reserve a slot on all BOs mapped to a VM and update this slot with
  * the job fence after its submission.
  *
+ * When something is evicted the locks are taken in two passes; when nothing
+ * is, a single pass is used, as before. The early pass only takes the external
+ * objects which actually need validating, i.e. the evicted ones, and swaps
+ * them back in. Private objects are covered by the VM resv, which is held
+ * from the start, so they are validated here too. The late pass then takes
+ * the external objects the early pass left out, which were resident and so
+ * normally need no swapping in; it still validates, since one of them may
+ * have been evicted in the meantime.
+ *
+ * The point is that panthor_vm_bo_validate() swaps pages back in, which is
+ * slow, and an external object is one which can be shared with another
+ * process. Doing that while holding the resv of a resident shared BO would
+ * stall whoever else needs it, for no benefit, since a resident object is
+ * ready to use as it is.
+ *
+ * Both passes run in the same drm_exec transaction: nothing is unlocked in
+ * between and the late pass only ever adds locks. The passes take disjoint
+ * sets of objects, so reserving @slot_count in each still reserves it
+ * exactly once per object.
+ *
  * Return: 0 on success, a negative error code otherwise.
  */
 int panthor_vm_prepare_mapped_bos_resvs(struct drm_exec *exec, struct panthor_vm *vm,
@@ -3267,11 +3280,42 @@ int panthor_vm_prepare_mapped_bos_resvs(struct drm_exec *exec, struct panthor_vm
 	if (ret)
 		return ret;
 
-	ret = drm_gpuvm_prepare_objects(&vm->base, exec, slot_count);
+	/*
+	 * With nothing evicted there is no validation to keep the resident
+	 * objects unlocked for, so do not pay for the second walk.
+	 */
+	if (!drm_gpuvm_exec_pass_needs_split(&vm->base)) {
+		ret = drm_gpuvm_prepare_objects(&vm->base, exec, slot_count);
+		if (ret)
+			return ret;
+
+		return drm_gpuvm_validate(&vm->base, exec);
+	}
+
+	ret = drm_gpuvm_exec_pass_prepare_objects(&vm->base, exec,
+						  slot_count,
+						  DRM_GPUVM_EXEC_PASS_EARLY);
 	if (ret)
 		return ret;
 
-	return drm_gpuvm_validate(&vm->base, exec);
+	ret = drm_gpuvm_exec_pass_validate(&vm->base, exec,
+					   DRM_GPUVM_EXEC_PASS_EARLY);
+	if (ret)
+		return ret;
+
+	ret = drm_gpuvm_exec_pass_prepare_objects(&vm->base, exec,
+						  slot_count,
+						  DRM_GPUVM_EXEC_PASS_LATE);
+	if (ret)
+		return ret;
+
+	/*
+	 * Objects the early pass skipped were resident then, but another
+	 * process may have evicted one since. Now that everything is locked,
+	 * pick up whatever is left.
+	 */
+	return drm_gpuvm_exec_pass_validate(&vm->base, exec,
+					    DRM_GPUVM_EXEC_PASS_LATE);
 }
 
 unsigned long

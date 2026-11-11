@@ -24,7 +24,8 @@ void dpp60_dpp_setup(
 	enum expansion_mode mode,
 	struct dc_csc_transform input_csc_color_matrix,
 	enum dc_color_space input_color_space,
-	struct cnv_alpha_2bit_lut *alpha_2bit_lut)
+	struct cnv_alpha_2bit_lut *alpha_2bit_lut,
+	enum upsp_mode upsp_mode)
 {
 	struct dcn60_dpp *dpp = TO_DCN60_DPP(dpp_base);
 	uint32_t pixel_format = 8;
@@ -249,25 +250,47 @@ void dpp60_dpp_setup(
 		PRE_REALPHA_EN, realpha_en,
 		PRE_REALPHA_ABLND_EN, realpha_ablnd_en);
 
-	if (format < SURFACE_PIXEL_FORMAT_VIDEO_BEGIN ||
-			format >= SURFACE_PIXEL_FORMAT_SUBSAMPLE_END ||
-			color_space != COLOR_SPACE_SRGB) {
-		/* If input adjustment exists, program the ICSC with those values. */
+	// color matrix applied PreCSC for upsp mode
+	if (upsp_mode) {
 		if (input_csc_color_matrix.enable_adjustment == true) {
 			for (i = 0; i < 12; i++)
 				tbl_entry.regval[i] = input_csc_color_matrix.matrix[i];
 
 			tbl_entry.color_space = input_color_space;
 
+			// Re-use post csc function to program pre csc as
+			// the programming is same for both
 			if (dpp3_should_bypass_post_csc_for_colorspace(color_space))
 				select = INPUT_CSC_SELECT_BYPASS;
 			else
 				select = INPUT_CSC_SELECT_ICSC;
 
-			dpp3_program_post_csc(dpp_base, color_space, select,
+			dpp3_program_pre_csc(dpp_base, color_space, select,
 				&tbl_entry);
 		} else {
-			dpp3_program_post_csc(dpp_base, color_space, select, NULL);
+			dpp3_program_pre_csc(dpp_base, color_space, select, NULL);
+		}
+	} else {
+		if (format < SURFACE_PIXEL_FORMAT_VIDEO_BEGIN ||
+			format >= SURFACE_PIXEL_FORMAT_SUBSAMPLE_END ||
+			color_space != COLOR_SPACE_SRGB) {
+			/* If input adjustment exists, program the ICSC with those values. */
+			if (input_csc_color_matrix.enable_adjustment == true) {
+				for (i = 0; i < 12; i++)
+					tbl_entry.regval[i] = input_csc_color_matrix.matrix[i];
+
+				tbl_entry.color_space = input_color_space;
+
+				if (dpp3_should_bypass_post_csc_for_colorspace(color_space))
+					select = INPUT_CSC_SELECT_BYPASS;
+				else
+					select = INPUT_CSC_SELECT_ICSC;
+
+				dpp3_program_post_csc(dpp_base, color_space,
+						select, &tbl_entry);
+			} else {
+				dpp3_program_post_csc(dpp_base, color_space, select, NULL);
+			}
 		}
 	}
 }
@@ -293,10 +316,25 @@ void dpp60_full_bypass(struct dpp *dpp_base)
 		REG_SET(CM_CONTROL, 0, CM_BYPASS, 1);
 }
 
+void dcn6_dpp_reset(struct dpp *dpp_base)
+{
+	struct dcn60_dpp *dpp = TO_DCN60_DPP(dpp_base);
+
+	if (dpp->scl_data.upsp) {
+		if (dpp->tf_mask->UPSP_MODE) {
+			// Reset dpp registers used for upsp, lls
+			REG_WRITE(CNVC_UPSP_MODE, 0);
+			REG_WRITE(PRE_CSC_MODE, 0);
+		}
+	}
+
+	dpp_reset(dpp_base);
+}
+
 static struct dpp_funcs dcn60_dpp_funcs = {
 	.dpp_program_gamcor_lut		= dpp6_program_gamcor_lut,
 	.dpp_read_state				= dpp401_read_state,
-	.dpp_reset					= dpp_reset,
+	.dpp_reset					= dcn6_dpp_reset,
 	.dpp_set_scaler				= dpp60_dscl_set_scaler_manual_scale,
 	.dpp_get_optimal_number_of_taps	= dpp3_get_optimal_number_of_taps,
 	.dpp_set_pre_degam			= NULL,
@@ -317,6 +355,7 @@ static struct dpp_funcs dcn60_dpp_funcs = {
 	.dpp_cm_hist_read			= dpp42_dpp_cm_hist_read,
 	.dpp_read_reg_state			= dpp30_read_reg_state,
 	.dpp_set_pregam_state		= dpp50_set_pregam_state,
+	.dpp_program_upsp			= dpp60_dscl_program_upsp
 };
 
 static struct dpp_caps dcn60_dpp_cap = {

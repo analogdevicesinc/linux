@@ -777,11 +777,13 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 	if (!cursor_plane)
 		goto fail;
 
-	cursor_plane->type = DRM_PLANE_TYPE_CURSOR;
-	res = amdgpu_dm_plane_init(dm, cursor_plane, 0, NULL);
-
 	acrtc = kzalloc_obj(struct amdgpu_crtc);
 	if (!acrtc)
+		goto fail;
+
+	cursor_plane->type = DRM_PLANE_TYPE_CURSOR;
+	res = amdgpu_dm_plane_init(dm, cursor_plane, 0, NULL);
+	if (res)
 		goto fail;
 
 	res = drm_crtc_init_with_planes(
@@ -792,7 +794,7 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 			&amdgpu_dm_crtc_funcs, NULL);
 
 	if (res)
-		goto fail;
+		goto fail_crtc_init;
 
 	amdgpu_dm_ism_init(&acrtc->ism, &default_ism_config);
 
@@ -844,6 +846,8 @@ int amdgpu_dm_crtc_init(struct amdgpu_display_manager *dm,
 error_ism_fini:
 	amdgpu_dm_ism_flush(&acrtc->ism);
 	drm_crtc_cleanup(&acrtc->base);
+fail_crtc_init:
+	drm_plane_cleanup(cursor_plane);
 fail:
 	kfree(acrtc);
 	kfree(cursor_plane);

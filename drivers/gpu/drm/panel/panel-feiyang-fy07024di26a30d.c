@@ -13,8 +13,6 @@
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
 
-#define FEIYANG_INIT_CMD_LEN	2
-
 struct feiyang {
 	struct drm_panel	panel;
 	struct mipi_dsi_device	*dsi;
@@ -29,25 +27,21 @@ static inline struct feiyang *panel_to_feiyang(struct drm_panel *panel)
 	return container_of(panel, struct feiyang, panel);
 }
 
-struct feiyang_init_cmd {
-	u8 data[FEIYANG_INIT_CMD_LEN];
-};
-
-static const struct feiyang_init_cmd feiyang_init_cmds[] = {
-	{ .data = { 0x80, 0x58 } },
-	{ .data = { 0x81, 0x47 } },
-	{ .data = { 0x82, 0xD4 } },
-	{ .data = { 0x83, 0x88 } },
-	{ .data = { 0x84, 0xA9 } },
-	{ .data = { 0x85, 0xC3 } },
-	{ .data = { 0x86, 0x82 } },
-};
+static void feiyang_init(struct mipi_dsi_multi_context *dsi_ctx)
+{
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x80, 0x58);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x81, 0x47);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x82, 0xd4);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x83, 0x88);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x84, 0xa9);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x85, 0xc3);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, 0x86, 0x82);
+}
 
 static int feiyang_prepare(struct drm_panel *panel)
 {
 	struct feiyang *ctx = panel_to_feiyang(panel);
-	struct mipi_dsi_device *dsi = ctx->dsi;
-	unsigned int i;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 	int ret;
 
 	ret = regulator_enable(ctx->dvdd);
@@ -59,7 +53,7 @@ static int feiyang_prepare(struct drm_panel *panel)
 
 	ret = regulator_enable(ctx->avdd);
 	if (ret)
-		return ret;
+		goto disable_dvdd;
 
 	/* T3 (dvdd rise + avdd start + avdd rise) T3 >= 20ms */
 	msleep(20);
@@ -77,48 +71,63 @@ static int feiyang_prepare(struct drm_panel *panel)
 	/* T12 (video & logic signal rise + backlight rise) T12 >= 200ms */
 	msleep(200);
 
-	for (i = 0; i < ARRAY_SIZE(feiyang_init_cmds); i++) {
-		const struct feiyang_init_cmd *cmd =
-						&feiyang_init_cmds[i];
-
-		ret = mipi_dsi_dcs_write_buffer(dsi, cmd->data,
-						FEIYANG_INIT_CMD_LEN);
-		if (ret < 0)
-			return ret;
-	}
+	feiyang_init(&dsi_ctx);
+	ret = dsi_ctx.accum_err;
+	if (ret < 0)
+		goto assert_reset;
 
 	return 0;
+
+assert_reset:
+	gpiod_set_value(ctx->reset, 0);
+	regulator_disable(ctx->avdd);
+
+	/* Preserve the AVDD-to-DVDD shutdown delay from unprepare(). */
+	msleep(10);
+
+disable_dvdd:
+	regulator_disable(ctx->dvdd);
+	return ret;
 }
 
 static int feiyang_enable(struct drm_panel *panel)
 {
 	struct feiyang *ctx = panel_to_feiyang(panel);
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
 	/* T12 (video & logic signal rise + backlight rise) T12 >= 200ms */
 	msleep(200);
 
-	return mipi_dsi_dcs_set_display_on(ctx->dsi);
+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
+
+	return dsi_ctx.accum_err;
 }
 
 static int feiyang_disable(struct drm_panel *panel)
 {
 	struct feiyang *ctx = panel_to_feiyang(panel);
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	return mipi_dsi_dcs_set_display_off(ctx->dsi);
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+
+	/*
+	 * Returning an error would leave panel->enabled set, causing the
+	 * next enable to be skipped even after unprepare powers off the panel.
+	 * The helper above already logs any command failure.
+	 */
+	return 0;
 }
 
 static int feiyang_unprepare(struct drm_panel *panel)
 {
 	struct feiyang *ctx = panel_to_feiyang(panel);
-	int ret;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	ret = mipi_dsi_dcs_set_display_off(ctx->dsi);
-	if (ret < 0)
-		dev_err(panel->dev, "failed to set display off: %d\n", ret);
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
 
-	ret = mipi_dsi_dcs_enter_sleep_mode(ctx->dsi);
-	if (ret < 0)
-		dev_err(panel->dev, "failed to enter sleep mode: %d\n", ret);
+	/* Attempt to enter sleep mode even if display off failed. */
+	dsi_ctx.accum_err = 0;
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 
 	/* T13 (backlight fall + video & logic signal fall) T13 >= 200ms */
 	msleep(200);
@@ -213,27 +222,19 @@ static int feiyang_dsi_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(&dsi->dev, &ctx->panel);
+	if (ret)
+		return ret;
 
 	dsi->mode_flags = MIPI_DSI_MODE_VIDEO_BURST;
 	dsi->format = MIPI_DSI_FMT_RGB888;
 	dsi->lanes = 4;
 
-	ret = mipi_dsi_attach(dsi);
-	if (ret < 0) {
-		drm_panel_remove(&ctx->panel);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
+	if (ret < 0)
 		return ret;
-	}
 
 	return 0;
-}
-
-static void feiyang_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	struct feiyang *ctx = mipi_dsi_get_drvdata(dsi);
-
-	mipi_dsi_detach(dsi);
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct of_device_id feiyang_of_match[] = {
@@ -244,7 +245,6 @@ MODULE_DEVICE_TABLE(of, feiyang_of_match);
 
 static struct mipi_dsi_driver feiyang_driver = {
 	.probe = feiyang_dsi_probe,
-	.remove = feiyang_dsi_remove,
 	.driver = {
 		.name = "feiyang-fy07024di26a30d",
 		.of_match_table = feiyang_of_match,

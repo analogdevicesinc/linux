@@ -627,7 +627,7 @@ void mpc401_get_lut_mode(struct mpc *mpc,
 	}
 }
 
-static void mpc401_read_mpcc_state(
+void mpc401_read_mpcc_state(
 		struct mpc *mpc,
 		int mpcc_inst,
 		struct mpcc_state *s)

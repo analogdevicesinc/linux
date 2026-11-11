@@ -46,7 +46,7 @@ static void dm_test_subconnector_type_none(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_NONE;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_Native);
@@ -60,7 +60,7 @@ static void dm_test_subconnector_type_vga(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_VGA_CONVERTER;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_VGA);
@@ -74,7 +74,7 @@ static void dm_test_subconnector_type_dvi_converter(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_DVI_CONVERTER;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_DVID);
@@ -88,7 +88,7 @@ static void dm_test_subconnector_type_dvi_dongle(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_DVI_DONGLE;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_DVID);
@@ -102,7 +102,7 @@ static void dm_test_subconnector_type_hdmi_converter(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_HDMI_CONVERTER;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_HDMIA);
@@ -116,7 +116,7 @@ static void dm_test_subconnector_type_hdmi_dongle(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_HDMI_DONGLE;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_HDMIA);
@@ -130,7 +130,7 @@ static void dm_test_subconnector_type_mismatched(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = DISPLAY_DONGLE_DP_HDMI_MISMATCHED_DONGLE;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_Unknown);
@@ -144,7 +144,7 @@ static void dm_test_subconnector_type_default_unknown(struct kunit *test)
 {
 	struct dc_link *link = kunit_kzalloc(test, sizeof(*link), GFP_KERNEL);
 
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, link);
+	KUNIT_ASSERT_NOT_NULL(test, link);
 
 	link->dpcd_caps.dongle_type = (typeof(link->dpcd_caps.dongle_type))0x7f;
 	KUNIT_EXPECT_EQ(test, (int)get_subconnector_type(link), (int)DRM_MODE_SUBCONNECTOR_Unknown);
@@ -842,7 +842,7 @@ static void dm_test_color_depth_from_info_bpc8(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.bpc = 8;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, false, 0),
@@ -858,7 +858,7 @@ static void dm_test_color_depth_from_info_bpc10(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.bpc = 10;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, false, 0),
@@ -875,7 +875,7 @@ static void dm_test_color_depth_from_info_zero_bpc_defaults_888(struct kunit *te
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.bpc = 0;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, false, 0),
@@ -891,7 +891,7 @@ static void dm_test_color_depth_from_info_requested_bpc_caps(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	/* Display supports 12bpc but user requests max 10 */
 	connector->display_info.bpc = 12;
@@ -908,7 +908,7 @@ static void dm_test_color_depth_from_info_y420_default(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	/* No Y420 DC modes set → 8bpc */
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, true, 0),
@@ -924,7 +924,7 @@ static void dm_test_color_depth_from_info_y420_10bpc(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.hdmi.y420_dc_modes = DRM_EDID_YCBCR420_DC_30;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, true, 0),
@@ -940,7 +940,7 @@ static void dm_test_color_depth_from_info_y420_12bpc(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.hdmi.y420_dc_modes = DRM_EDID_YCBCR420_DC_36;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, true, 0),
@@ -956,7 +956,7 @@ static void dm_test_color_depth_from_info_y420_16bpc(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.hdmi.y420_dc_modes = DRM_EDID_YCBCR420_DC_48;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, true, 0),
@@ -972,7 +972,7 @@ static void dm_test_color_depth_from_info_requested_odd_bpc(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.bpc = 12;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, false, 11),
@@ -988,7 +988,7 @@ static void dm_test_color_depth_from_info_unsupported_bpc(struct kunit *test)
 	struct drm_connector *connector;
 
 	connector = kunit_kzalloc(test, sizeof(*connector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, connector);
+	KUNIT_ASSERT_NOT_NULL(test, connector);
 
 	connector->display_info.bpc = 9;
 	KUNIT_EXPECT_EQ(test, (int)amdgpu_dm_convert_color_depth_from_display_info(connector, false, 0),
@@ -1133,7 +1133,7 @@ static void dm_test_is_duplicate_mode_empty_list(struct kunit *test)
 	struct drm_display_mode mode = {};
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	mode.hdisplay = 1920;
@@ -1153,7 +1153,7 @@ static void dm_test_is_duplicate_mode_match(struct kunit *test)
 	struct drm_display_mode candidate = {};
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	existing.hdisplay = 1920;
@@ -1179,7 +1179,7 @@ static void dm_test_is_duplicate_mode_no_match(struct kunit *test)
 	struct drm_display_mode candidate = {};
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	existing.hdisplay = 1920;
@@ -1206,7 +1206,7 @@ static void dm_test_is_duplicate_mode_same_size_different_clock(struct kunit *te
 	struct drm_display_mode candidate = {};
 
 	aconnector = kunit_kzalloc(test, sizeof(*aconnector), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, aconnector);
 
 	INIT_LIST_HEAD(&aconnector->base.probed_modes);
 	existing.hdisplay = 1920;
@@ -1232,7 +1232,7 @@ static void dm_test_encoder_crtc_mask_1(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 1;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0x1);
@@ -1247,7 +1247,7 @@ static void dm_test_encoder_crtc_mask_2(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 2;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0x3);
@@ -1262,7 +1262,7 @@ static void dm_test_encoder_crtc_mask_3(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 3;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0x7);
@@ -1277,7 +1277,7 @@ static void dm_test_encoder_crtc_mask_4(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 4;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0xf);
@@ -1292,7 +1292,7 @@ static void dm_test_encoder_crtc_mask_5(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 5;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0x1f);
@@ -1307,7 +1307,7 @@ static void dm_test_encoder_crtc_mask_6(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	adev->mode_info.num_crtc = 6;
 	KUNIT_EXPECT_EQ(test, amdgpu_dm_get_encoder_crtc_mask(adev), 0x3f);
@@ -1322,7 +1322,7 @@ static void dm_test_encoder_crtc_mask_default(struct kunit *test)
 	struct amdgpu_device *adev;
 
 	adev = kunit_kzalloc(test, sizeof(*adev), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, adev);
+	KUNIT_ASSERT_NOT_NULL(test, adev);
 
 	/* Values > 6 use the default case */
 	adev->mode_info.num_crtc = 8;
@@ -1799,7 +1799,7 @@ static void dm_test_atomic_dup_state_copies_fields(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, new_dm_state->vcpi_slots, 4);
 	KUNIT_EXPECT_EQ(test, (int)new_dm_state->pbn, 1234);
 
-	kfree(new_dm_state);
+	connector->funcs->atomic_destroy_state(connector, new_state);
 }
 
 /* Tests for amdgpu_dm_fill_hdr_info_packet() */
@@ -2527,9 +2527,9 @@ static void setup_cacp_fixture(struct kunit *test,
 	fixture->aconnector = kunit_kzalloc(test, sizeof(*fixture->aconnector),
 					    GFP_KERNEL);
 	fixture->link = kunit_kzalloc(test, sizeof(*fixture->link), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->adev);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->aconnector);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->link);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->adev);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->link);
 
 	fixture->aconnector->dc_link = fixture->link;
 	fixture->aconnector->base.dev = &fixture->adev->ddev;
@@ -2675,11 +2675,11 @@ static void setup_panel_type_fixture(struct kunit *test,
 
 	fixture->aconnector = drmm_kzalloc(fixture->drm, sizeof(*fixture->aconnector),
 					   GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->aconnector);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->aconnector);
 	fixture->link = kunit_kzalloc(test, sizeof(*fixture->link), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->link);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->link);
 	fixture->sink = kunit_kzalloc(test, sizeof(*fixture->sink), GFP_KERNEL);
-	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, fixture->sink);
+	KUNIT_ASSERT_NOT_NULL(test, fixture->sink);
 
 	fixture->aconnector->dc_link = fixture->link;
 	drmm_connector_init(fixture->drm, &fixture->aconnector->base,
@@ -7398,8 +7398,7 @@ static void dm_test_conn_ac_bind_crtc(struct kunit *test,
 	ctx->crtc_state = kunit_kzalloc(test, sizeof(*ctx->crtc_state), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->crtc_state);
 
-	ctx->state->crtcs = kunit_kcalloc(test, 1, sizeof(*ctx->state->crtcs),
-					  GFP_KERNEL);
+	ctx->state->crtcs = kunit_kzalloc(test, sizeof(*ctx->state->crtcs), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, ctx->state->crtcs);
 	ctx->state->crtcs[0].ptr = ctx->crtc;
 	ctx->state->crtcs[0].new_state = ctx->crtc_state;
@@ -7710,6 +7709,8 @@ static void dm_test_update_after_detect_connect_edid(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, sink);
 	KUNIT_EXPECT_NOT_NULL(test, ctx->aconnector->timing_requested);
 
+	drm_edid_free(ctx->aconnector->drm_edid);
+	ctx->aconnector->drm_edid = NULL;
 	kfree(ctx->aconnector->timing_requested);
 	ctx->aconnector->timing_requested = NULL;
 }
@@ -7744,6 +7745,9 @@ static void dm_test_update_after_detect_replace_no_edid(struct kunit *test)
 	KUNIT_EXPECT_PTR_EQ(test, ctx->aconnector->dc_sink, new_sink);
 	KUNIT_EXPECT_EQ(test, (int)new_sink->sink_signal,
 			(int)SIGNAL_TYPE_HDMI_FRL);
+
+	kfree(ctx->aconnector->timing_requested);
+	ctx->aconnector->timing_requested = NULL;
 }
 
 /**

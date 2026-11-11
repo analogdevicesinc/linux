@@ -1263,7 +1263,6 @@ static void st7701_cleanup(void *data)
 {
 	struct st7701 *st7701 = (struct st7701 *)data;
 
-	drm_panel_remove(&st7701->panel);
 	drm_panel_disable(&st7701->panel);
 	drm_panel_unprepare(&st7701->panel);
 }
@@ -1318,7 +1317,9 @@ static int st7701_probe(struct device *dev, int connector_type)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&st7701->panel);
+	ret = devm_drm_panel_add(dev, &st7701->panel);
+	if (ret)
+		return ret;
 
 	dev_set_drvdata(dev, st7701);
 	st7701->desc = desc;
@@ -1347,7 +1348,7 @@ static int st7701_dsi_probe(struct mipi_dsi_device *dsi)
 	dsi->format = st7701->desc->format;
 	dsi->lanes = st7701->desc->lanes;
 
-	err = mipi_dsi_attach(dsi);
+	err = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (err)
 		return dev_err_probe(&dsi->dev, err, "Failed to init MIPI DSI\n");
 
@@ -1379,11 +1380,6 @@ static int st7701_spi_probe(struct spi_device *spi)
 	return 0;
 }
 
-static void st7701_dsi_remove(struct mipi_dsi_device *dsi)
-{
-	mipi_dsi_detach(dsi);
-}
-
 static const struct of_device_id st7701_dsi_of_match[] = {
 	{ .compatible = "anbernic,rg-arc-panel", .data = &rg_arc_desc },
 	{ .compatible = "densitron,dmt028vghmcmi-1a", .data = &dmt028vghmcmi_1a_desc },
@@ -1408,7 +1404,6 @@ MODULE_DEVICE_TABLE(spi, st7701_spi_ids);
 
 static struct mipi_dsi_driver st7701_dsi_driver = {
 	.probe		= st7701_dsi_probe,
-	.remove		= st7701_dsi_remove,
 	.driver = {
 		.name		= "st7701",
 		.of_match_table	= st7701_dsi_of_match,

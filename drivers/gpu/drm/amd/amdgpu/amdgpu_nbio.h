@@ -55,6 +55,82 @@ struct amdgpu_nbio_ras {
 	int (*init_ras_err_event_athub_interrupt)(struct amdgpu_device *adev);
 };
 
+enum amdgpu_nbio_doorbell_client {
+	AMDGPU_NBIO_DOORBELL_CLIENT_CP,
+	AMDGPU_NBIO_DOORBELL_CLIENT_IH,
+	AMDGPU_NBIO_DOORBELL_CLIENT_SDMA,
+	AMDGPU_NBIO_DOORBELL_CLIENT_RLC,
+	AMDGPU_NBIO_DOORBELL_CLIENT_VCN,
+	AMDGPU_NBIO_DOORBELL_CLIENT_VPE,
+	AMDGPU_NBIO_DOORBELL_CLIENT_COUNT,
+};
+
+struct amdgpu_nbio_doorbell_ctrl_layout {
+	u32 enable;
+	u32 awid;
+	u32 fence_enable;
+	u32 range_offset;
+	u32 range_size;
+	u32 disable_64bit;
+	u32 deduct_range_offset;
+	u32 drop;
+	u32 awaddr_31_28;
+};
+
+struct amdgpu_nbio_doorbell_ctrl1_layout {
+	u32 target_port_type;
+	u32 target_die_id;
+	u32 target_port_id;
+	u32 override_poison_data;
+	u32 disable_4k_page_decode;
+};
+
+struct amdgpu_nbio_doorbell_layout {
+	struct amdgpu_nbio_doorbell_ctrl_layout ctrl;
+	struct amdgpu_nbio_doorbell_ctrl1_layout ctrl1;
+	bool has_ctrl1;
+};
+
+struct amdgpu_nbio_doorbell_fields {
+	bool enable;
+	u32 awid;
+	u32 range_offset;
+	u32 range_size;
+	u32 awaddr_31_28;
+	u32 target_port_type;
+	u32 target_die_id;
+	u32 target_port_id;
+	bool fence_enable;
+	bool disable_64bit;
+	bool deduct_range_offset;
+	bool drop;
+	bool override_poison_data;
+	bool disable_4k_page_decode;
+};
+
+#define AMDGPU_NBIO_MAX_DOORBELL_INSTANCES 16
+
+struct amdgpu_nbio_doorbell_entry {
+	u32 port;
+	u32 ctrl_reg;
+	u32 ctrl1_reg;
+	/*
+	 * Some NBIO generations expose each register instance through a global
+	 * SMN address. The caller invokes the doorbell callback for each required
+	 * instance across the die; reg_inst identifies the instance represented
+	 * by this entry. Extended entries only support a CTRL register.
+	 */
+	bool use_ext;
+	u32 reg_inst;
+	u32 ctrl_reg_base_idx;
+};
+
+struct amdgpu_nbio_doorbell_entries {
+	u32 num_entries;
+	struct amdgpu_nbio_doorbell_entry
+		entry[AMDGPU_NBIO_MAX_DOORBELL_INSTANCES];
+};
+
 struct amdgpu_nbio_funcs {
 	const struct nbio_hdp_flush_reg *hdp_flush_reg;
 	u32 (*get_hdp_flush_req_offset)(struct amdgpu_device *adev);
@@ -113,6 +189,9 @@ struct amdgpu_nbio {
 	struct ras_common_if *ras_if;
 	const struct amdgpu_nbio_funcs *funcs;
 	struct amdgpu_nbio_ras  *ras;
+	const struct amdgpu_nbio_doorbell_layout *doorbell_layout;
+	struct amdgpu_nbio_doorbell_entries
+		doorbell_entries[AMDGPU_NBIO_DOORBELL_CLIENT_COUNT];
 };
 
 int amdgpu_nbio_ras_sw_init(struct amdgpu_device *adev);
@@ -122,5 +201,14 @@ u64 amdgpu_nbio_get_pcie_replay_count(struct amdgpu_device *adev);
 bool amdgpu_nbio_is_replay_cnt_supported(struct amdgpu_device *adev);
 
 void amdgpu_nbio_program_aspm(struct amdgpu_device *adev);
+
+int amdgpu_nbio_build_doorbell_entry(
+	struct amdgpu_device *adev,
+	const struct amdgpu_nbio_doorbell_fields *fields,
+	u32 *ctrl, u32 *ctrl1);
+void amdgpu_nbio_program_doorbell_entry(
+	struct amdgpu_device *adev,
+	enum amdgpu_nbio_doorbell_client client,
+	u32 instance, const u32 *ctrl, const u32 *ctrl1);
 
 #endif

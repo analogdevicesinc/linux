@@ -31,6 +31,7 @@
 #include "xe_exec_queue.h"
 #include "xe_gt.h"
 #include "xe_migrate.h"
+#include "xe_module.h"
 #include "xe_pagefault.h"
 #include "xe_pat.h"
 #include "xe_pm.h"
@@ -272,8 +273,15 @@ int xe_vm_add_compute_exec_queue(struct xe_vm *vm, struct xe_exec_queue *q)
 	 * Check to see if a preemption on VM is in flight or userptr
 	 * invalidation, if so trigger this preempt fence to sync state with
 	 * other preempt fences on the VM.
+	 *
+	 * Also trigger it if eviction or rebinding is pending. BOs evicted
+	 * before the first exec queue was added had no preempt fence to
+	 * trigger. Suspend this queue until the rebind worker restores
+	 * the mappings.
 	 */
-	wait = __xe_vm_userptr_needs_repin(vm) || preempt_fences_waiting(vm);
+	wait = __xe_vm_userptr_needs_repin(vm) || preempt_fences_waiting(vm) ||
+		!list_empty(&vm->gpuvm.evict.list) ||
+		!list_empty(&vm->rebind_list);
 	if (wait)
 		dma_fence_enable_signaling(pfence);
 
@@ -358,7 +366,7 @@ static int xe_gpuvm_validate(struct drm_gpuvm_bo *vm_bo, struct drm_exec *exec)
 
 	/* Skip re-populating purged BOs, rebind maps scratch pages. */
 	if (xe_bo_is_purged(bo)) {
-		vm_bo->evicted = false;
+		drm_gpuvm_bo_evict(vm_bo, false);
 		return 0;
 	}
 
@@ -369,7 +377,7 @@ static int xe_gpuvm_validate(struct drm_gpuvm_bo *vm_bo, struct drm_exec *exec)
 	if (ret)
 		return ret;
 
-	vm_bo->evicted = false;
+	drm_gpuvm_bo_evict(vm_bo, false);
 	return 0;
 }
 
@@ -378,31 +386,59 @@ static int xe_gpuvm_validate(struct drm_gpuvm_bo *vm_bo, struct drm_exec *exec)
  * @vm: The vm for which we are rebinding.
  * @exec: The struct drm_exec with the locked GEM objects.
  * @num_fences: The number of fences to reserve for the operation, not
- * including rebinds and validations.
+ * including rebinds and validations. Zero reserves none, which is what the
+ * %DRM_GPUVM_EXEC_PASS_EARLY pass wants.
+ * @pass: The &enum drm_gpuvm_exec_pass @exec was locked for.
  *
  * Validates all evicted gem objects and rebinds their vmas. Note that
  * rebindings may cause evictions and hence the validation-rebind
  * sequence is rerun until there are no more objects to validate.
+ *
+ * In the %DRM_GPUVM_EXEC_PASS_EARLY pass only the validation is done, and
+ * only for the objects whose dma-resv @exec holds. The rest, along with the
+ * rebind and the fence reservation, is left to the
+ * %DRM_GPUVM_EXEC_PASS_LATE pass of the same transaction, which locks
+ * everything.
  *
  * Return: 0 on success, negative error code on error. In particular,
  * may return -EINTR or -ERESTARTSYS if interrupted, and -EDEADLK if
  * the drm_exec transaction needs to be restarted.
  */
 int xe_vm_validate_rebind(struct xe_vm *vm, struct drm_exec *exec,
-			  unsigned int num_fences)
+			  unsigned int num_fences,
+			  enum drm_gpuvm_exec_pass pass)
 {
 	struct drm_gem_object *obj;
 	int ret;
 
 	do {
-		ret = drm_gpuvm_validate(&vm->gpuvm, exec);
+		ret = drm_gpuvm_exec_pass_validate(&vm->gpuvm, exec, pass);
 		if (ret)
 			return ret;
+
+		/*
+		 * xe_vm_rebind() rebinds the whole rebind list in one go and
+		 * attaches a fence to the dma-resv of every BO on it, so it
+		 * needs all of them locked. The early pass deliberately does
+		 * not lock the resident ones, so leave the rebind to the late
+		 * pass, which holds everything.
+		 */
+		if (pass == DRM_GPUVM_EXEC_PASS_EARLY)
+			continue;
 
 		ret = xe_vm_rebind(vm, false);
 		if (ret)
 			return ret;
-	} while (!list_empty(&vm->gpuvm.evict.list));
+	} while (drm_gpuvm_exec_pass_has_evicted(&vm->gpuvm, pass));
+
+	/*
+	 * The early pass reserves nothing. It attaches no fence itself, and
+	 * the objects it locks are still locked in the late pass, whose own
+	 * reservation below walks every object the transaction has
+	 * accumulated and so covers them too.
+	 */
+	if (!num_fences)
+		return 0;
 
 	drm_exec_for_each_locked_object(exec, obj) {
 		ret = dma_resv_reserve_fences(obj->resv, num_fences);
@@ -474,7 +510,8 @@ static int xe_preempt_work_begin(struct drm_exec *exec, struct xe_vm *vm,
 	 * The fence reservation here is intended for the new preempt fences
 	 * we attach at the end of the rebind work.
 	 */
-	return xe_vm_validate_rebind(vm, exec, vm->preempt.num_exec_queues);
+	return xe_vm_validate_rebind(vm, exec, vm->preempt.num_exec_queues,
+				     DRM_GPUVM_EXEC_PASS_ALL);
 }
 
 static bool vm_suspend_rebind_worker(struct xe_vm *vm)
@@ -701,7 +738,7 @@ static void xe_vm_clear_fault_entries(struct xe_vm *vm)
 	vm->faults.len = 0;
 }
 
-static int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
+static noinline int xe_vma_ops_alloc(struct xe_vma_ops *vops, bool array_of_binds)
 {
 	int i;
 
@@ -1269,7 +1306,14 @@ static void vma_destroy_cb(struct dma_fence *fence,
 	struct xe_vma *vma = container_of(cb, struct xe_vma, destroy_cb);
 
 	INIT_WORK(&vma->destroy_work, vma_destroy_work_func);
-	queue_work(system_dfl_wq, &vma->destroy_work);
+
+	/*
+	 * The destroy work puts a vm reference which may put the last
+	 * device reference. Hence we can't queue this work on the device
+	 * destroy queue since that may deadlock. Use the module-wide
+	 * destroy queue.
+	 */
+	xe_destroy_wq_queue(&vma->destroy_work);
 }
 
 static void xe_vm_assert_write_mode_or_garbage_collector(struct xe_vm *vm)
@@ -2071,8 +2115,12 @@ static void xe_vm_free(struct drm_gpuvm *gpuvm)
 {
 	struct xe_vm *vm = container_of(gpuvm, struct xe_vm, gpuvm);
 
-	/* To destroy the VM we need to be able to sleep */
-	queue_work(system_dfl_wq, &vm->destroy_work);
+	/*
+	 * To destroy the VM we need to be able to sleep.
+	 * drm_gpuvm keeps at least one device reference at this
+	 * point so xe->destroy_wq must still be alive.
+	 */
+	queue_work(vm->xe->destroy_wq, &vm->destroy_work);
 }
 
 struct xe_vm *xe_vm_lookup(struct xe_file *xef, u32 id)
@@ -3800,14 +3848,15 @@ static int vm_bind_ioctl_check_args(struct xe_device *xe, struct xe_vm *vm,
 
 		pat_index = array_index_nospec(pat_index, xe->pat.n_entries);
 		(*bind_ops)[i].pat_index = pat_index;
-		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
-		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
-		if (XE_IOCTL_DBG(xe, !coh_mode)) { /* hw reserved */
+		if (XE_IOCTL_DBG(xe, !xe_pat_index_is_valid(xe, pat_index))) {
 			err = -EINVAL;
 			goto free_bind_ops;
 		}
 
-		if (XE_WARN_ON(coh_mode > XE_COH_2WAY)) {
+		coh_mode = xe_pat_index_get_coh_mode(xe, pat_index);
+		comp_en = xe_pat_index_get_comp_en(xe, pat_index);
+
+		if (XE_IOCTL_DBG(xe, xe_pat_wa_14026539277_reserved(xe, pat_index))) {
 			err = -EINVAL;
 			goto free_bind_ops;
 		}

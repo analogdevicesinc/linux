@@ -238,8 +238,8 @@ drm_bridge_connector_create_state(struct drm_connector *connector)
 		return conn_state;
 
 	if (bridge_connector->bridge_hdmi)
-		__drm_atomic_helper_connector_hdmi_state_init(connector,
-							      conn_state);
+		__drm_atomic_helper_connector_hdmi_state_init(conn_state,
+							      connector);
 
 	return conn_state;
 }

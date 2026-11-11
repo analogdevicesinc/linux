@@ -768,13 +768,107 @@ static const struct st7703_panel_desc ayaneo_pocket_ds_lower_desc = {
 	.init_sequence = ayaneo_pocket_ds_lower_init_sequence,
 };
 
+static void dcltek_dt300248_init_sequence(struct mipi_dsi_multi_context *dsi_ctx)
+{
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETEXTC, 0xf1, 0x12, 0x87);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETDISP, 0xe0, 0x05, 0xf8);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETRGBIF, 0x10, 0x10, 0x28,
+				     0x28, 0x03, 0xff, 0x00, 0x00, 0x00, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETCYC, 0x80);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETBGP, 0x0d, 0x0b);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETVCOM, 0x6d, 0x6d);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETPOWER_EXT, 0x25, 0x62,
+				     0x20, 0x03);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETMIPI,
+				     0x33, 0x81, 0x05, 0xf9, 0x0e, 0x0e, 0x20, 0x00,
+				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x44, 0x25,
+				     0x00, 0x91, 0x0a, 0x00, 0x00, 0x01, 0x4f, 0x01,
+				     0x00, 0x00, 0x37);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETVDC, 0x47);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_UNKNOWN_BF,
+				     0x02, 0x10, 0x00, 0x80, 0x04);
+
+	mipi_dsi_msleep(dsi_ctx, 20);
+
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETSCR,
+				     0x73, 0x73, 0x50, 0x50, 0xa0, 0x00, 0x12, 0x53,
+				     0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETPOWER,
+				     0x25, 0x00, 0x32, 0x32, 0x77, 0xe4, 0x77, 0x77,
+				     0xcc, 0xcc, 0xff, 0xff, 0x11, 0x11, 0x00, 0x00,
+				     0x32);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETIO,
+				     0x10, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, 0x00,
+				     0xed, 0xc5, 0x00, 0xa5);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETCABC,
+				     0x10, 0x40, 0x1e, 0x03);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETPANEL, 0x07);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETGAMMA,
+				     0x00, 0x13, 0x1a, 0x2c, 0x34, 0x3f, 0x4f, 0x3f,
+				     0x06, 0x0c, 0x0d, 0x14, 0x15, 0x13, 0x13, 0x11,
+				     0x19, 0x00, 0x13, 0x1a, 0x2c, 0x34, 0x3f, 0x4f,
+				     0x3f, 0x06, 0x0c, 0x0d, 0x14, 0x15, 0x13, 0x13,
+				     0x11, 0x19);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_UNKNOWN_E1,
+				     0x11, 0x11, 0x91, 0x00, 0x00, 0x00, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETEQ,
+				     0x07, 0x07, 0x0b, 0x0b, 0x0b, 0x0b, 0x00, 0x00,
+				     0x00, 0x00, 0x2f, 0x04, 0xc0, 0x10);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETGIP1,
+				     0xc8, 0x10, 0x0a, 0x10, 0x0e, 0x80, 0x38, 0x12,
+				     0x31, 0x23, 0x4f, 0x86, 0x80, 0x38, 0x47, 0x08,
+				     0x00, 0x0c, 0x04, 0x00, 0x00, 0x00, 0x00, 0x0c,
+				     0x04, 0x00, 0x00, 0x00, 0x8f, 0x44, 0x60, 0x28,
+				     0xba, 0x02, 0x88, 0x88, 0x88, 0x88, 0x88, 0x8f,
+				     0x45, 0x71, 0x38, 0xba, 0x13, 0x88, 0x88, 0x88,
+				     0x88, 0x88, 0x00, 0x00, 0x00, 0x01, 0x00, 0x80,
+				     0x38, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_SETGIP2,
+				     0x96, 0x18, 0x00, 0x00, 0x00, 0xb4, 0x01, 0x0b,
+				     0x41, 0x01, 0x02, 0x00, 0xf8, 0x43, 0x17, 0x58,
+				     0xba, 0x31, 0x88, 0x88, 0x88, 0x88, 0x88, 0xf8,
+				     0x42, 0x06, 0x48, 0xba, 0x20, 0x88, 0x88, 0x88,
+				     0x88, 0x88, 0x23, 0x00, 0x00, 0x00, 0xd7, 0x00,
+				     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				     0x00, 0x00, 0x07, 0x8b, 0x00, 0x00, 0x40, 0x80,
+				     0x81, 0x40, 0x80, 0x81, 0x00);
+	mipi_dsi_dcs_write_seq_multi(dsi_ctx, ST7703_CMD_UNKNOWN_EF,
+				     0xff, 0xff, 0x01);
+}
+
+static const struct drm_display_mode dcltek_dt300248_mode = {
+	.clock		= (440 + 8 + 32 + 40) * (1920 + 41 + 8 + 6) * 60 / 1000,
+
+	.hdisplay	= 440,
+	.hsync_start	= 440 + 8,
+	.hsync_end	= 440 + 8 + 32,
+	.htotal		= 440 + 8 + 32 + 40,
+
+	.vdisplay	= 1920,
+	.vsync_start	= 1920 + 41,
+	.vsync_end	= 1920 + 41 + 8,
+	.vtotal		= 1920 + 41 + 8 + 6,
+
+	.width_mm	= 58,
+	.height_mm	= 253,
+	.flags		= DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
+};
+
+static const struct st7703_panel_desc dcltek_dt300248_desc = {
+	.mode = &dcltek_dt300248_mode,
+	.lanes = 4,
+	.mode_flags = MIPI_DSI_MODE_VIDEO |
+		MIPI_DSI_MODE_VIDEO_BURST | MIPI_DSI_MODE_VIDEO_SYNC_PULSE |
+		MIPI_DSI_MODE_LPM,
+	.format = MIPI_DSI_FMT_RGB888,
+	.init_sequence = dcltek_dt300248_init_sequence,
+};
+
 static int st7703_enable(struct drm_panel *panel)
 {
 	struct st7703 *ctx = panel_to_st7703(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
 	struct mipi_dsi_multi_context dsi_ctx = {.dsi = dsi};
-
-	ctx->desc->init_sequence(&dsi_ctx);
 
 	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
 
@@ -784,7 +878,7 @@ static int st7703_enable(struct drm_panel *panel)
 	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
 
 	if (!dsi_ctx.accum_err)
-		dev_dbg(ctx->dev, "Panel init sequence done\n");
+		dev_dbg(ctx->dev, "Panel enable done\n");
 
 	return dsi_ctx.accum_err;
 }
@@ -819,6 +913,8 @@ static int st7703_unprepare(struct drm_panel *panel)
 static int st7703_prepare(struct drm_panel *panel)
 {
 	struct st7703 *ctx = panel_to_st7703(panel);
+	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	struct mipi_dsi_multi_context dsi_ctx = {.dsi = dsi};
 	int ret;
 
 	dev_dbg(ctx->dev, "Resetting the panel\n");
@@ -842,6 +938,18 @@ static int st7703_prepare(struct drm_panel *panel)
 
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
 	usleep_range(15000, 20000);
+
+	ctx->desc->init_sequence(&dsi_ctx);
+
+	if (dsi_ctx.accum_err) {
+		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		regulator_disable(ctx->iovcc);
+		regulator_disable(ctx->vcc);
+
+		return dsi_ctx.accum_err;
+	}
+
+	dev_dbg(ctx->dev, "Panel init sequence done\n");
 
 	return 0;
 }
@@ -973,16 +1081,19 @@ static int st7703_probe(struct mipi_dsi_device *dsi)
 	if (ret < 0)
 		return dev_err_probe(&dsi->dev, ret, "Failed to get orientation\n");
 
+	ctx->panel.prepare_prev_first = true;
+
 	ret = drm_panel_of_backlight(&ctx->panel);
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed (%d). Is host ready?\n", ret);
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
@@ -998,13 +1109,6 @@ static int st7703_probe(struct mipi_dsi_device *dsi)
 static void st7703_remove(struct mipi_dsi_device *dsi)
 {
 	struct st7703 *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 
 	st7703_debugfs_remove(ctx);
 }
@@ -1012,6 +1116,7 @@ static void st7703_remove(struct mipi_dsi_device *dsi)
 static const struct of_device_id st7703_of_match[] = {
 	{ .compatible = "anbernic,rg353v-panel-v2", .data = &rg353v2_desc },
 	{ .compatible = "ayaneo,pocket-ds-lower-panel", .data = &ayaneo_pocket_ds_lower_desc },
+	{ .compatible = "dcltek,dt300248", .data = &dcltek_dt300248_desc },
 	{ .compatible = "gameforce,chi-panel", .data = &gameforcechi_desc },
 	{ .compatible = "powkiddy,rgb10max3-panel", .data = &rgb10max3_panel_desc },
 	{ .compatible = "powkiddy,rgb30-panel", .data = &rgb30panel_desc },

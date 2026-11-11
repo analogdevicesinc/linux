@@ -453,6 +453,8 @@ void mpc1_read_mpcc_state(
 			MPCC_BLND_ACTIVE_OVERLAP_ONLY, &s->overlap_only);
 	REG_GET_2(MPCC_STATUS[mpcc_inst], MPCC_IDLE, &s->idle,
 			MPCC_BUSY, &s->busy);
+	if (s->opp_id < MAX_OPP && mpc10->mpc_regs->CUR[s->opp_id])
+		REG_GET(CUR[s->opp_id], CUR_VUPDATE_LOCK_SET, &s->cur_vupdate_lock);
 }
 
 void mpc1_cursor_lock(struct mpc *mpc, int opp_id, bool lock)

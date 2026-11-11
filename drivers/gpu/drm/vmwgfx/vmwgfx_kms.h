@@ -425,7 +425,8 @@ struct drm_crtc_state *vmw_du_crtc_create_state(struct drm_crtc *crtc);
 struct drm_crtc_state *vmw_du_crtc_duplicate_state(struct drm_crtc *crtc);
 void vmw_du_crtc_destroy_state(struct drm_crtc *crtc,
 				struct drm_crtc_state *state);
-void vmw_du_connector_reset(struct drm_connector *connector);
+struct drm_connector_state *
+vmw_du_connector_create_state(struct drm_connector *connector);
 struct drm_connector_state *
 vmw_du_connector_duplicate_state(struct drm_connector *connector);
 

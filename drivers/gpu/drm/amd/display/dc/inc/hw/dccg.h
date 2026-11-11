@@ -314,10 +314,8 @@ struct dccg_funcs {
 	void (*trigger_dio_fifo_resync)(
 			struct dccg *dccg);
 
-	void (*dpp_root_clock_control)(
-			struct dccg *dccg,
-			unsigned int dpp_inst,
-			bool clock_on);
+	void (*dpp_root_clock_control)(struct dccg *dccg, unsigned int dpp_inst, bool clock_on,
+			bool root_clock_optimization_dpp);
 
 	void (*enable_symclk_se)(
 			struct dccg *dccg,

@@ -2018,10 +2018,16 @@ int gpu_buddy_alloc_blocks(struct gpu_buddy *mm,
 
 	if (order > mm->max_order || size > mm->size) {
 		if ((flags & GPU_BUDDY_CONTIGUOUS_ALLOCATION) &&
-		    !(flags & GPU_BUDDY_RANGE_ALLOCATION))
-			return __alloc_contig_try_harder(mm, original_size,
-							 original_min_size,
-							 flags, blocks);
+		    !(flags & GPU_BUDDY_RANGE_ALLOCATION)) {
+			err = __alloc_contig_try_harder(mm, original_size,
+							original_min_size,
+							flags, &allocated);
+			if (err)
+				return err;
+
+			list_splice_tail(&allocated, blocks);
+			return 0;
+		}
 
 		return -EINVAL;
 	}
@@ -2060,9 +2066,11 @@ int gpu_buddy_alloc_blocks(struct gpu_buddy *mm,
 								original_size,
 								original_min_size,
 								flags,
-								blocks);
-				if (!err)
+								&allocated);
+				if (!err) {
+					list_splice_tail(&allocated, blocks);
 					return 0;
+				}
 				if (err != -ENOSPC)
 					return err;
 				goto err_free;

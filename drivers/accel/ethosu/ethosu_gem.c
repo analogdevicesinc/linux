@@ -712,8 +712,8 @@ static int ethosu_gem_cmdstream_copy_and_validate(struct drm_device *ddev,
  * ethosu_gem_cmdstream_create() - Create a GEM object and attach it to a handle.
  * @file: DRM file.
  * @ddev: DRM device.
- * @exclusive_vm: Exclusive VM. Not NULL if the GEM object can't be shared.
  * @size: Size of the GEM object to allocate.
+ * @data: User pointer to the command stream contents.
  * @flags: Combination of drm_ethosu_bo_flags flags.
  * @handle: Pointer holding the handle pointing to the new GEM object.
  *

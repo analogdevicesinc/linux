@@ -120,11 +120,10 @@ void dc_fpu_end(const char *function_name, const int line)
 	int depth;
 
 	depth = this_cpu_dec_return(fpu_recursion_depth);
-	if (depth == 0) {
+	if (depth == 0)
 		kernel_fpu_end();
-	} else {
+	else
 		WARN_ON_ONCE(depth < 0);
-	}
 
 	TRACE_DCN_FPU(false, function_name, line, depth);
 	preempt_enable();

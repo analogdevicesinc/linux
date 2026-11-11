@@ -747,13 +747,9 @@ static uint32_t kgd_gfx_v11_set_address_watch(struct amdgpu_device *adev,
 					uint32_t debug_vmid,
 					uint32_t inst)
 {
-	uint32_t watch_address_high;
-	uint32_t watch_address_low;
 	uint32_t watch_address_cntl;
 
 	watch_address_cntl = 0;
-	watch_address_low = lower_32_bits(watch_address);
-	watch_address_high = upper_32_bits(watch_address) & 0xffff;
 
 	watch_address_cntl = REG_SET_FIELD(watch_address_cntl,
 			TCP_WATCH0_CNTL,
@@ -769,14 +765,6 @@ static uint32_t kgd_gfx_v11_set_address_watch(struct amdgpu_device *adev,
 			TCP_WATCH0_CNTL,
 			VALID,
 			1);
-
-	WREG32_RLC((SOC15_REG_OFFSET(GC, 0, regTCP_WATCH0_ADDR_H) +
-			(watch_id * TCP_WATCH_STRIDE)),
-			watch_address_high);
-
-	WREG32_RLC((SOC15_REG_OFFSET(GC, 0, regTCP_WATCH0_ADDR_L) +
-			(watch_id * TCP_WATCH_STRIDE)),
-			watch_address_low);
 
 	return watch_address_cntl;
 }

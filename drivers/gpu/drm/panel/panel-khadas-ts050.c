@@ -825,7 +825,9 @@ static int khadas_ts050_panel_add(struct khadas_ts050_panel *khadas_ts050)
 	if (err)
 		return err;
 
-	drm_panel_add(&khadas_ts050->base);
+	err = devm_drm_panel_add(dev, &khadas_ts050->base);
+	if (err)
+		return err;
 
 	return 0;
 }
@@ -862,23 +864,7 @@ static int khadas_ts050_panel_probe(struct mipi_dsi_device *dsi)
 	if (err < 0)
 		return err;
 
-	err = mipi_dsi_attach(dsi);
-	if (err)
-		drm_panel_remove(&khadas_ts050->base);
-
-	return err;
-}
-
-static void khadas_ts050_panel_remove(struct mipi_dsi_device *dsi)
-{
-	struct khadas_ts050_panel *khadas_ts050 = mipi_dsi_get_drvdata(dsi);
-	int err;
-
-	err = mipi_dsi_detach(dsi);
-	if (err < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", err);
-
-	drm_panel_remove(&khadas_ts050->base);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver khadas_ts050_panel_driver = {
@@ -887,7 +873,6 @@ static struct mipi_dsi_driver khadas_ts050_panel_driver = {
 		.of_match_table = khadas_ts050_of_match,
 	},
 	.probe = khadas_ts050_panel_probe,
-	.remove = khadas_ts050_panel_remove,
 };
 module_mipi_dsi_driver(khadas_ts050_panel_driver);
 

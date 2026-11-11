@@ -28,8 +28,45 @@ struct aie_device {
 	struct psp_device *psp_hdl;
 	struct smu_device *smu_hdl;
 
+	struct amdxdna_drm_query_aie_version version;
 	struct amdxdna_drm_query_aie_metadata metadata;
+
+	u32 clk_gating;
+	u32 npuclk_freq;
+	u32 hclk_freq;
+	u32 max_tops;
+	u32 curr_tops;
 };
+
+struct aie_hw_ops {
+	int (*set_dpm)(struct aie_device *aie, u32 dpm_level);
+	int (*update_counters)(struct aie_device *aie);
+};
+
+#define aie_update_counters(ndev)					\
+({									\
+	typeof(ndev) _ndev = ndev;					\
+	if ((_ndev)->priv->hw_ops && (_ndev)->priv->hw_ops->update_counters) \
+		(_ndev)->priv->hw_ops->update_counters(&(_ndev)->aie);	\
+})
+
+struct dpm_clk_freq {
+	u32	npuclk;
+	u32	hclk;
+};
+
+#include <linux/amd-pmf-io.h>
+
+#if IS_ENABLED(CONFIG_AMD_PMF)
+#define AIE_GET_PMF_NPU_METRICS(metrics) amd_pmf_get_npu_data(metrics)
+#else
+#define AIE_GET_PMF_NPU_METRICS(metrics)				\
+({									\
+	typeof(metrics) _m = metrics;					\
+	memset(_m, 0xff, sizeof(*_m));					\
+	(-EOPNOTSUPP);							\
+})
+#endif
 
 #define DECLARE_AIE_MSG(name, op) \
 	DECLARE_XDNA_MSG_COMMON(name, op, -1)
@@ -95,7 +132,8 @@ struct amdxdna_rev_vbnv {
 void aie_dump_mgmt_chann_debug(struct aie_device *aie);
 void aie_destroy_chann(struct aie_device *aie, struct mailbox_channel **chann);
 int aie_send_mgmt_msg_wait(struct aie_device *aie, struct xdna_mailbox_msg *msg);
-int aie_check_protocol(struct aie_device *aie, u32 fw_major, u32 fw_minor);
+int aie_check_protocol(struct aie_device *aie, u32 fw_major, u32 fw_minor,
+		       const struct amdxdna_fw_feature_tbl *feature);
 void amdxdna_vbnv_init(struct amdxdna_dev *xdna);
 int amdxdna_get_metadata(struct aie_device *aie, struct amdxdna_client *client,
 			 struct amdxdna_drm_get_info *args);
@@ -103,7 +141,12 @@ void *amdxdna_alloc_msg_buffer(struct amdxdna_dev *xdna, u32 *size,
 			       dma_addr_t *dma_addr);
 void amdxdna_free_msg_buffer(struct amdxdna_dev *xdna, size_t size,
 			     void *cpu_addr, dma_addr_t dma_addr);
-
+int amdxdna_get_aie_version(struct amdxdna_client *client,
+			    struct amdxdna_drm_get_info *args,
+			    struct amdxdna_drm_query_aie_version *version);
+int amdxdna_get_firmware_version(struct amdxdna_client *client,
+				 struct amdxdna_drm_get_info *args,
+				 struct amdxdna_drm_query_firmware_version *version);
 /* aie_psp.c */
 struct psp_device *aiem_psp_create(struct drm_device *ddev, struct psp_config *conf);
 int aie_psp_start(struct psp_device *psp);

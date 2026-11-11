@@ -247,19 +247,14 @@ static int panel_nv3051d_unprepare(struct drm_panel *panel)
 {
 	struct panel_nv3051d *ctx = panel_to_panelnv3051d(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
-	int ret;
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = dsi };
 
-	ret = mipi_dsi_dcs_set_display_off(dsi);
-	if (ret < 0)
-		dev_err(ctx->dev, "failed to set display off: %d\n", ret);
-
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+	/* Reset error to continue power-down sequence even if display off failed */
+	dsi_ctx.accum_err = 0;
 	msleep(20);
-
-	ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(ctx->dev, "failed to enter sleep mode: %d\n", ret);
-		return ret;
-	}
+	/* Enter sleep mode; error does not prevent power-off */
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 
 	usleep_range(10000, 15000);
 
@@ -274,6 +269,7 @@ static int panel_nv3051d_prepare(struct drm_panel *panel)
 {
 	struct panel_nv3051d *ctx = panel_to_panelnv3051d(panel);
 	struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = dsi };
 	int ret;
 
 	dev_dbg(ctx->dev, "Resetting the panel\n");
@@ -295,21 +291,15 @@ static int panel_nv3051d_prepare(struct drm_panel *panel)
 		goto disable_vdd;
 	}
 
-	ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
-	if (ret < 0) {
-		dev_err(ctx->dev, "Failed to exit sleep mode: %d\n", ret);
+	mipi_dsi_dcs_exit_sleep_mode_multi(&dsi_ctx);
+	mipi_dsi_msleep(&dsi_ctx, 200);
+	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
+	mipi_dsi_usleep_range(&dsi_ctx, 10000, 15000);
+
+	if (dsi_ctx.accum_err) {
+		ret = dsi_ctx.accum_err;
 		goto disable_vdd;
 	}
-
-	msleep(200);
-
-	ret = mipi_dsi_dcs_set_display_on(dsi);
-	if (ret < 0) {
-		dev_err(ctx->dev, "Failed to set display on: %d\n", ret);
-		goto disable_vdd;
-	}
-
-	usleep_range(10000, 15000);
 
 	return 0;
 
@@ -397,12 +387,13 @@ static int panel_nv3051d_probe(struct mipi_dsi_device *dsi)
 	if (ret)
 		return ret;
 
-	drm_panel_add(&ctx->panel);
+	ret = devm_drm_panel_add(dev, &ctx->panel);
+	if (ret)
+		return ret;
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(&dsi->dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "mipi_dsi_attach failed: %d\n", ret);
-		drm_panel_remove(&ctx->panel);
 		return ret;
 	}
 
@@ -416,20 +407,6 @@ static void panel_nv3051d_shutdown(struct mipi_dsi_device *dsi)
 	drm_panel_unprepare(&ctx->panel);
 
 	drm_panel_disable(&ctx->panel);
-}
-
-static void panel_nv3051d_remove(struct mipi_dsi_device *dsi)
-{
-	struct panel_nv3051d *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	panel_nv3051d_shutdown(dsi);
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
-
-	drm_panel_remove(&ctx->panel);
 }
 
 static const struct drm_display_mode nv3051d_rgxx3_modes[] = {
@@ -531,7 +508,6 @@ static struct mipi_dsi_driver newvision_nv3051d_driver = {
 		.of_match_table = newvision_nv3051d_of_match,
 	},
 	.probe	= panel_nv3051d_probe,
-	.remove = panel_nv3051d_remove,
 	.shutdown = panel_nv3051d_shutdown,
 };
 module_mipi_dsi_driver(newvision_nv3051d_driver);

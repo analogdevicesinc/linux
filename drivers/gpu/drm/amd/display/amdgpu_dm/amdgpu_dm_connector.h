@@ -214,7 +214,7 @@ bool adjust_colour_depth_from_display_info(struct dc_crtc_timing *timing_out,
 					   const struct drm_display_info *info);
 
 int to_drm_connector_type(enum signal_type st, uint32_t connector_id);
-bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector, struct drm_display_mode *mode);
+bool is_duplicate_mode(struct amdgpu_dm_connector *aconnector, const struct drm_display_mode *mode);
 enum dc_aspect_ratio get_aspect_ratio(const struct drm_display_mode *mode_in);
 void copy_crtc_timing_for_drm_display_mode(const struct drm_display_mode *src_mode,
 					   struct drm_display_mode *dst_mode);

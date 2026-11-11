@@ -2091,7 +2091,7 @@ int kfd_topology_add_device(struct kfd_node *gpu)
 	 * needed for the topology
 	 */
 	for (i = 0; i < KFD_TOPOLOGY_PUBLIC_NAME_SIZE-1; i++) {
-		dev->node_props.name[i] = __tolower(asic_name[i]);
+		dev->node_props.name[i] = tolower(asic_name[i]);
 		if (asic_name[i] == '\0')
 			break;
 	}

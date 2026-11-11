@@ -150,7 +150,9 @@ static int tdo_tl070wsh30_panel_add(struct tdo_tl070wsh30_panel *tdo_tl070wsh30)
 	if (err)
 		return err;
 
-	drm_panel_add(&tdo_tl070wsh30->base);
+	err = devm_drm_panel_add(dev, &tdo_tl070wsh30->base);
+	if (err)
+		return err;
 
 	return 0;
 }
@@ -179,19 +181,7 @@ static int tdo_tl070wsh30_panel_probe(struct mipi_dsi_device *dsi)
 	if (err < 0)
 		return err;
 
-	return mipi_dsi_attach(dsi);
-}
-
-static void tdo_tl070wsh30_panel_remove(struct mipi_dsi_device *dsi)
-{
-	struct tdo_tl070wsh30_panel *tdo_tl070wsh30 = mipi_dsi_get_drvdata(dsi);
-	int err;
-
-	err = mipi_dsi_detach(dsi);
-	if (err < 0)
-		dev_err(&dsi->dev, "failed to detach from DSI host: %d\n", err);
-
-	drm_panel_remove(&tdo_tl070wsh30->base);
+	return devm_mipi_dsi_attach(&dsi->dev, dsi);
 }
 
 static struct mipi_dsi_driver tdo_tl070wsh30_panel_driver = {
@@ -200,7 +190,6 @@ static struct mipi_dsi_driver tdo_tl070wsh30_panel_driver = {
 		.of_match_table = tdo_tl070wsh30_of_match,
 	},
 	.probe = tdo_tl070wsh30_panel_probe,
-	.remove = tdo_tl070wsh30_panel_remove,
 };
 module_mipi_dsi_driver(tdo_tl070wsh30_panel_driver);
 

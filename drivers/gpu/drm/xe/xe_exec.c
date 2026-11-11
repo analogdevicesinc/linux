@@ -79,8 +79,10 @@
  *	<----------------------------------------------------------------------|
  *	Lock global VM lock in read mode                                       |
  *	Pin userptrs (also finds userptr invalidated since last exec)          |
- *	Lock exec (VM dma-resv lock, external BOs dma-resv locks)              |
+ *	Lock exec early pass (VM and evicted external BOs dma-resv locks)      |
  *	Validate BOs that have been evicted                                    |
+ *	Lock exec late pass (the external BOs left out above)                  |
+ *	Validate any BO evicted since the early pass looked at it              |
  *	Create job                                                             |
  *	Rebind invalidated userptrs + evicted BOs (non-compute-mode)           |
  *	Add rebind fence dependency to job                                     |
@@ -95,15 +97,22 @@
 /*
  * Add validation and rebinding to the drm_exec locking loop, since both can
  * trigger eviction which may require sleeping dma_resv locks.
+ *
+ * Called once per pass, see xe_exec_ioctl(). The fence slot is intended for
+ * the exec sched job and is only reserved in the pass which holds every lock
+ * the transaction is going to hold, so that it is reserved exactly once.
  */
 static int xe_exec_fn(struct drm_gpuvm_exec *vm_exec)
 {
 	struct xe_vm *vm = container_of(vm_exec->vm, struct xe_vm, gpuvm);
+	unsigned int num_fences;
 	int ret;
 
-	/* The fence slot added here is intended for the exec sched job. */
+	num_fences = vm_exec->pass == DRM_GPUVM_EXEC_PASS_EARLY ? 0 : 1;
+
 	xe_vm_set_validation_exec(vm, &vm_exec->exec);
-	ret = xe_vm_validate_rebind(vm, &vm_exec->exec, 1);
+	ret = xe_vm_validate_rebind(vm, &vm_exec->exec, num_fences,
+				    vm_exec->pass);
 	xe_vm_set_validation_exec(vm, NULL);
 	return ret;
 }
@@ -268,6 +277,14 @@ retry:
 	if (!xe_vm_in_lr_mode(vm)) {
 		vm_exec.vm = &vm->gpuvm;
 		vm_exec.flags = DRM_EXEC_INTERRUPTIBLE_WAIT;
+		/*
+		 * Only the evicted BOs need validating, so lock those first,
+		 * validate them, and only then lock the resident ones. A
+		 * client faulting in a huge buffer of its own then no longer
+		 * holds, for the duration of that, the dma-resv of a BO it
+		 * shares with the compositor it presents to.
+		 */
+		vm_exec.two_pass = true;
 		err = xe_validation_exec_lock(&ctx, &vm_exec, &xe->val);
 		if (err)
 			goto err_unlock_list;

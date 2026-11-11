@@ -643,7 +643,7 @@ struct dml2_optimization_worksheet {
 	} dcfclk_vmin;
 
 	struct {
-		bool is_attempted;
+		unsigned int index;
 	} fclk_ppt_temp_read_pstate;
 
 	/*

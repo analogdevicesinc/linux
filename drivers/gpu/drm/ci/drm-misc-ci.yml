@@ -1,0 +1,147 @@
+# CI pipeline for drm-misc-next, drm-misc-fixes, and drm-misc-next-fixes.
+#
+# Runs on pushes to drm-misc-next, drm-misc-fixes, and
+# drm-misc-next-fixes. Compiles the kernel for arm, arm64, and
+# x86_64, runs the DRM KUnit tests, and checks device tree bindings.
+#
+# A single container image is built using freedesktop ci-templates with
+# the packages needed for kernel compilation and LLVM for
+# cross-compilation. QEMU is installed at runtime by the KUnit jobs.
+#
+# check-devicetrees.yml and kunit.yml are included directly. build.yml
+# and the Mesa container/build pipelines are not:
+# they pull in hundreds of Mesa-specific jobs and templates that would
+# each need to be individually stubbed or disabled. The build templates
+# (.build:arm32, .build:arm64, .build:x86_64) are defined inline.
+
+variables:
+  CI_TEMPLATES_COMMIT: &ci-templates-commit aec7a6ce7bb38902c70641526f6611e27141784a
+  # Project whose container registry stores the built images
+  FDO_UPSTREAM_REPO: drm/misc/kernel
+  KERNEL_BUILD_CONTAINER_TAG: "2026-10-20-01"
+  LLVM_VERSION: "19"
+
+default:
+  before_script: []
+
+include:
+  - project: 'freedesktop/ci-templates'
+    ref: *ci-templates-commit
+    file:
+      - '/templates/debian.yml'
+  - local: drivers/gpu/drm/ci/check-devicetrees.yml
+  - local: drivers/gpu/drm/ci/kunit.yml
+
+stages:
+  - container
+  - build
+  - static-checks
+  - kunit
+
+# --- Pipeline rules ---
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH =~ /^drm-misc-(next|fixes|next-fixes)$/
+      when: always
+
+# kunit.yml's jobs inherit .build-rules through the .build:* chain.
+# Pass everything through since the pipeline is already gated by
+# workflow:rules.
+.build-rules:
+  rules:
+    - when: on_success
+
+# --- Container build job ---
+# Single container with all build tools. LLVM handles cross-compilation
+# to arm and arm64, so no architecture-specific containers are needed.
+debian/kernel-build:
+  extends: .fdo.container-build@debian
+  stage: container
+  variables:
+    FDO_DISTRIBUTION_VERSION: trixie
+    FDO_DISTRIBUTION_TAG: "${KERNEL_BUILD_CONTAINER_TAG}"
+    FDO_DISTRIBUTION_PACKAGES: >-
+      bc bison ca-certificates cpio curl
+      clang-${LLVM_VERSION} flex gcc gzip
+      lld-${LLVM_VERSION} llvm-${LLVM_VERSION}
+      libelf-dev libssl-dev
+      make perl pkg-config
+      python3 python3-dev python3-pip python3-venv
+      swig xz-utils yamllint
+
+# --- Build templates ---
+# Stubs for templates referenced by check-devicetrees.yml. The
+# originals live in build.yml and container.yml which we do not
+# include.
+.build:
+  extends: .build-rules
+
+.use-debian/x86_64_build:
+  extends: .build-base
+
+.build-base:
+  image: "${CI_REGISTRY}/${FDO_UPSTREAM_REPO}/debian/trixie:${KERNEL_BUILD_CONTAINER_TAG}"
+  needs: ["debian/kernel-build"]
+
+.build:arm32:
+  extends: .build-base
+  variables:
+    KERNEL_ARCH: "arm"
+    DEFCONFIG_ARCH: "arm"
+
+.build:arm64:
+  extends: .build-base
+  variables:
+    KERNEL_ARCH: "arm64"
+    DEFCONFIG_ARCH: "arm64"
+
+.build:x86_64:
+  extends: .build-base
+  variables:
+    KERNEL_ARCH: "x86_64"
+    DEFCONFIG_ARCH: "x86"
+
+# --- Kernel-wide build jobs (LLVM) ---
+.kernel-build:
+  stage: build
+  timeout: 45m
+  variables:
+    GIT_DEPTH: 1
+    DEFCONFIG_URL: https://gitlab.freedesktop.org/drm/tip/-/raw/rerere-cache/drm-misc-${DEFCONFIG_ARCH}_defconfig
+  artifacts: {}
+  before_script:
+    - drivers/gpu/drm/ci/setup-llvm-links.sh
+    - curl -L --retry 4 -f --retry-all-errors --retry-delay 60 -o .config "${DEFCONFIG_URL}"
+
+kernel-build:arm32:
+  extends: [.build:arm32, .kernel-build]
+  script:
+    - make ARCH=arm LLVM=1 olddefconfig
+    - make ARCH=arm LLVM=1 -j$(nproc)
+
+kernel-build:arm64:
+  extends: [.build:arm64, .kernel-build]
+  script:
+    - make ARCH=arm64 LLVM=1 olddefconfig
+    - make ARCH=arm64 LLVM=1 -j$(nproc)
+
+kernel-build:x86_64:
+  extends: [.build:x86_64, .kernel-build]
+  script:
+    - make ARCH=x86 LLVM=1 olddefconfig
+    - make ARCH=x86 LLVM=1 -j$(nproc)
+
+# --- Disable dtbs-check jobs ---
+# dtbs-check validates compiled DTBs which may produce warnings from
+# code we are not responsible for. Keep dt-binding-check only.
+dtbs-check:arm32:
+  rules:
+    - when: never
+
+dtbs-check:arm64:
+  rules:
+    - when: never
+
+# --- KUnit jobs ---
+# kunit:arm32, kunit:arm64, and kunit:x86_64 are defined in kunit.yml
+# and implicitly enabled here through the .build:* templates above.

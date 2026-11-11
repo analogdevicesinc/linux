@@ -11,6 +11,7 @@ struct hdlcd_drm_private {
 	void __iomem			*mmio;
 	struct clk			*clk;
 	struct drm_crtc			crtc;
+	struct drm_encoder		encoder;
 	struct drm_plane		*plane;
 	unsigned int			irq;
 #ifdef CONFIG_DEBUG_FS

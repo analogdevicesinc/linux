@@ -5,6 +5,7 @@
 #include "pvr_device_info.h"
 
 #include "pvr_fw.h"
+#include "pvr_mmu.h"
 #include "pvr_power.h"
 #include "pvr_queue.h"
 #include "pvr_rogue_cr_defs.h"
@@ -647,6 +648,36 @@ pvr_set_dma_info(struct pvr_device *pvr_dev)
 }
 
 /**
+ * pvr_device_info_validate() - Validate PowerVR device information, read from
+ * the firmware binary, against what is supported by the driver.
+ * @pvr_dev: Target PowerVR device.
+ *
+ * Returns:
+ *  * 0 on success, or
+ *  * -%EINVAL if the validation failed.
+ */
+static int
+pvr_device_info_validate(struct pvr_device *pvr_dev)
+{
+	struct drm_device *drm_dev = from_pvr_device(pvr_dev);
+	u16 device_addr_bits;
+	int err;
+
+	err = PVR_FEATURE_VALUE(pvr_dev, virtual_address_space_bits, &device_addr_bits);
+	if (err) {
+		drm_err(drm_dev, "Failed to get device virtual address space bits\n");
+		return err;
+	}
+
+	if (device_addr_bits != PVR_PAGE_TABLE_ADDR_BITS) {
+		drm_err(drm_dev, "Device has unsupported virtual address space size\n");
+		return -EINVAL;
+	}
+
+	return err;
+}
+
+/**
  * pvr_device_gpu_init() - GPU-specific initialization for a PowerVR device
  * @pvr_dev: Target PowerVR device.
  *
@@ -661,9 +692,11 @@ pvr_set_dma_info(struct pvr_device *pvr_dev)
  * Return:
  *  * 0 on success,
  *  * -%ENODEV if the GPU is not supported,
- *  * Any error returned by pvr_set_dma_info(),
- *  * Any error returned by pvr_memory_context_init(), or
- *  * Any error returned by pvr_request_firmware().
+ *  * Any error returned by pvr_request_firmware(),
+ *  * Any error returned by pvr_fw_validate_init_device_info(),
+ *  * Any error returned by pvr_device_info_validate(),
+ *  * Any error returned by pvr_set_dma_info(), or
+ *  * Any error returned by pvr_fw_init().
  */
 static int
 pvr_device_gpu_init(struct pvr_device *pvr_dev)
@@ -690,6 +723,10 @@ pvr_device_gpu_init(struct pvr_device *pvr_dev)
 		pvr_dev->fw_dev.processor_type = PVR_FW_PROCESSOR_TYPE_RISCV;
 	else
 		return -EINVAL;
+
+	err = pvr_device_info_validate(pvr_dev);
+	if (err)
+		return err;
 
 	pvr_stream_create_musthave_masks(pvr_dev);
 

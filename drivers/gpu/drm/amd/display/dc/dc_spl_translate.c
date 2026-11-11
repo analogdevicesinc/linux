@@ -209,21 +209,27 @@ void translate_SPL_in_params_from_pipe_ctx(struct pipe_ctx *pipe_ctx, struct spl
 		}
 	}
 	// Translate linear light scaling preference
-	if (pipe_ctx->stream->ctx->dc->debug.force_lls > 0)
+	if (pipe_ctx->stream->ctx->dc->debug.force_lls > 0) {
 		spl_in->lls_pref = pipe_ctx->stream->ctx->dc->debug.force_lls;
-	else
+		spl_in->upsp_mode = pipe_ctx->plane_res.scl_data.upsp;
+	} else {
 		if ((plane_state->ctx->dce_version == DCN_VERSION_4_01) ||
 			(plane_state->ctx->dce_version == DCN_VERSION_4_2) ||
-			(plane_state->ctx->dce_version == DCN_VERSION_4_2B))
+			(plane_state->ctx->dce_version == DCN_VERSION_4_2B)) {
 			spl_in->lls_pref = LLS_PREF_DONT_CARE;
-		else
+			spl_in->upsp_mode = UPSP_BYPASS;
+		} else {
 			set_linear_light_scaling_preference(plane_state, spl_in);
-	/* Translate upsampling mode*/
-	spl_in->upsp_mode = pipe_ctx->plane_res.scl_data.upsp;
+			/* Translate upsampling mode*/
+			spl_in->upsp_mode = pipe_ctx->plane_res.scl_data.upsp;
+		}
+	}
 	/* Translate chroma subsampling offset ( cositing ) */
-	if (pipe_ctx->stream->ctx->dc->debug.force_cositing)
+	if (pipe_ctx->stream->ctx->dc->debug.force_cositing) {
 		spl_in->basic_in.cositing = pipe_ctx->stream->ctx->dc->debug.force_cositing - 1;
-	else
+		if (spl_in->upsp_mode && spl_in->basic_in.cositing == CHROMA_COSITING_NONE)
+			spl_in->basic_in.cositing = CHROMA_COSITING_TOPLEFT;
+	} else
 		spl_in->basic_in.cositing = plane_state->cositing;
 	/* Translate transfer function */
 	spl_in->basic_in.tf_type = (enum spl_transfer_func_type) plane_state->in_transfer_func.type;

@@ -745,8 +745,8 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.clock_trace = true,
 	.disable_pplib_clock_request = false,
 	.ignore_pg = false,
-	.disable_dpp_power_gate = false,
-	.disable_hubp_power_gate = false,
+	.disable_dpp_power_gate = true,
+	.disable_hubp_power_gate = true,
 	.disable_optc_power_gate = true,
 	.disable_dsc_power_gate = false,
 	.disable_dio_power_gate = true,
@@ -816,7 +816,6 @@ static const struct dc_debug_options debug_defaults_drv = {
 	.min_deep_sleep_dcfclk_khz = 8000,
 	.replay_skip_crtc_disabled = true,
 	.psr_skip_crtc_disable = true,
-	.force_odm2to1_for_edp_pixclk_mhz = 0, // disable the policy for now
 	.iommu_mismatch_temp_wka = 0x7,
 };
 
@@ -1885,10 +1884,6 @@ enum dc_status dcn42_validate_bandwidth(struct dc *dc,
 	bool out = false;
 
 	DC_FP_START();
-	if (validate_mode == DC_VALIDATE_MODE_AND_PROGRAMMING) {
-		/*only do this when programing HW*/
-		dcn42_decide_odm_override(dc, context);
-	}
 
 	out = dml2_validate(dc, context, context->bw_ctx.dml2,
 						validate_mode);
