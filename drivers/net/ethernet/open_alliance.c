@@ -481,11 +481,28 @@ static void open_alliance_rx_irq_masked(struct open_alliance *oa, bool mask)
 	schedule_work(&oa->irq_rx_work);
 }
 
+static bool open_alliance_get_tx_chunk(struct open_alliance *oa,
+				       struct open_alliance_data_tx_chunk *chunk)
+{
+	while (kfifo_out_spinlocked(&oa->tx_chunks_kfifo, chunk, 1, &oa->tx_lock)) {
+		/* Chunks of this frame were lost in a failed transfer. */
+		if (oa->tx_drop_frame && !chunk->sv)
+			continue;
+
+		oa->tx_drop_frame = false;
+
+		return true;
+	}
+
+	return false;
+}
+
 static int open_alliance_transfer(struct open_alliance *oa)
 {
 	struct open_alliance_data_rx_chunk rx_data;
 	struct open_alliance_data_tx_chunk tx_data;
 	struct spi_transfer t = {0};
+	bool tx_frame_open = false;
 	u32 chunks_to_receive;
 	u32 transfer_size;
 	int port_nr = 0;
@@ -512,14 +529,10 @@ static int open_alliance_transfer(struct open_alliance *oa)
 		/* To talk to device, host needs some data TX chunks or empty.
 		 * Send data to the device only if TX credits are available.
 		 */
-		if (!kfifo_is_empty(&oa->tx_chunks_kfifo) && oa->txc) {
-			ret = kfifo_out_spinlocked(&oa->tx_chunks_kfifo, &tx_data, 1,
-						   &oa->tx_lock);
-			if (ret < 0)
-				return ret;
-
+		if (oa->txc && open_alliance_get_tx_chunk(oa, &tx_data)) {
 			oa->statistics[OA_TX_CHUNKS_SENT]++;
 			oa->txc--;
+			tx_frame_open = !tx_data.ev;
 		} else {
 			memset(&tx_data, 0, sizeof(struct open_alliance_data_tx_chunk));
 			tx_data.dnc = 1;
@@ -542,8 +555,13 @@ static int open_alliance_transfer(struct open_alliance *oa)
 	t.len = transfer_size;
 
 	ret = spi_sync_transfer(oa->spidev, &t, 1);
-	if (ret < 0)
+	if (ret < 0) {
+		/* The chunks taken from the TX fifo are lost: skip the rest of their frame. */
+		if (tx_frame_open)
+			oa->tx_drop_frame = true;
+
 		return ret;
+	}
 
 	oa->statistics[OA_CHUNKS_TRANSFERED] += chunks_to_receive;
 
@@ -663,7 +681,15 @@ static int open_alliance_spi_transfer(void *pv)
 		mutex_lock(&oa->spi_lock);
 		while (oa->rca || kfifo_len(&oa->tx_chunks_kfifo)) {
 
-			open_alliance_transfer(oa);
+			ret = open_alliance_transfer(oa);
+			if (ret < 0) {
+				dev_err_ratelimited(&oa->spidev->dev,
+						    "Data transfer error: %d\n", ret);
+				oa->rca = 0;
+				oa->txc = 0;
+				sleep_ms = OPEN_ALLIANCE_RETRY_MS;
+				break;
+			}
 
 			if (kthread_should_stop())
 				break;

@@ -164,6 +164,7 @@ struct open_alliance {
 	u32			txc;
 	u32			rca;
 	bool			rx_irq_masked;
+	bool			tx_drop_frame; /* skip TX chunks up to the next start of frame */
 	DECLARE_KFIFO_PTR(tx_chunks_kfifo, struct open_alliance_data_tx_chunk);
 	DECLARE_KFIFO_PTR(rx_ports_fifo, struct open_alliance_rx_frame);
 	DECLARE_KFIFO_PTR(rx_chunks_fifos, struct open_alliance_data_rx_chunk)[OPEN_ALLIANCE_MAX_PORTS];
