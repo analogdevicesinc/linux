@@ -198,7 +198,7 @@ class VMAList:
         self.vmas = []
         with open(f'/proc/{pid}/smaps', 'r') as file:
             for line in file:
-                elements = line.split()
+                elements = line.rstrip('\n').split(maxsplit=5)
                 if '-' in elements[0]:
                     start, end = map(lambda x: int(x, 16), elements[0].split('-'))
                     major, minor = map(lambda x: int(x, 16), elements[3].split(':'))
@@ -263,8 +263,8 @@ def thp_parse(vma, kpageflags, ranges, indexes, vfns, pfns, anons, heads):
             if flags & KPF_COMPOUND_TAIL:
                 nr = index_end - int(folios[-1])
                 folios = folios[:-1]
-                index_end -= nr
                 stats['anon' if anons[index_end - 1] else 'file']['partial'] += nr
+                index_end -= nr
 
         # Account fully mapped THPs in the middle of the range.
         if len(folios):
@@ -295,7 +295,7 @@ def thp_parse(vma, kpageflags, ranges, indexes, vfns, pfns, anons, heads):
 
     def flatten_sub(type, subtype, stats):
         param = f"{type}-thp-pte-{subtype}-{{}}kB"
-        for od, nr in enumerate(stats[2:], 2):
+        for od, nr in enumerate(stats[1:], 1):
             rstats[param.format(odkb(od))] = {'type': type, 'value': nrkb(nr)}
 
     def flatten_type(type, stats):

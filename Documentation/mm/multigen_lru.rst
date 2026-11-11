@@ -234,9 +234,7 @@ the active/inactive LRU (of folios):
 1. It has the young and the old (generations), i.e., the counterparts
    to the active and the inactive;
 2. The increment of ``max_seq`` triggers promotion, i.e., the
-   counterpart to activation;
-3. Other events trigger similar operations, e.g., offlining an memcg
-   triggers demotion, i.e., the counterpart to deactivation.
+   counterpart to activation.
 
 In terms of global reclaim, it has two distinct features:
 

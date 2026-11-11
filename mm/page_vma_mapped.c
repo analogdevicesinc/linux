@@ -6,6 +6,7 @@
 #include <linux/leafops.h>
 
 #include "internal.h"
+#include "memory-failure.h"
 
 static inline bool not_found(struct page_vma_mapped_walk *pvmw)
 {

@@ -953,23 +953,25 @@ static void collapse_compound_extreme(struct collapse_context *c, struct mem_ops
 	void *p;
 	int i;
 
-	/*
-	 * This needs hpage_pmd_nr PMD-order allocations in a row, which the
-	 * allocator will not supply if the PMD is very large.
-	 */
-	if (hpage_pmd_size > (32UL << 20)) {
-		ksft_test_result_skip("%s: PMD too large for fault-time THP construction\n",
-				      __func__);
-		return;
-	}
-
 	p = ops->setup_area(1);
 	ksft_print_msg("Construct PTE page table full of different PTE-mapped compound pages\n");
 	for (i = 0; i < hpage_pmd_nr; i++) {
 		madvise(BASE_ADDR, hpage_pmd_size, MADV_HUGEPAGE);
 		ops->fault(BASE_ADDR, 0, hpage_pmd_size);
-		if (!ops->check_huge(BASE_ADDR, hpage_pmd_size, 1, hpage_pmd_size))
-			ksft_exit_fail_msg("Failed to allocate huge page\n");
+		if (!ops->check_huge(BASE_ADDR, hpage_pmd_size, 1, hpage_pmd_size)) {
+			/*
+			 * Constructing the PTE table requires hpage_pmd_nr
+			 * PMD-order allocations in a row.  Whether the
+			 * allocator can supply them depends on the memory
+			 * available on the machine, not on the kernel: skip
+			 * instead of failing the test run.
+			 */
+			ops->cleanup_area(BASE_ADDR - i * page_size,
+					  i * page_size + hpage_pmd_size);
+			ksft_test_result_skip("%s: Failed to allocate huge page\n",
+					      __func__);
+			return;
+		}
 		madvise(BASE_ADDR, hpage_pmd_size, MADV_NOHUGEPAGE);
 
 		p = mremap(BASE_ADDR - i * page_size,
@@ -1004,9 +1006,44 @@ static void collapse_compound_extreme(struct collapse_context *c, struct mem_ops
 	ksft_test_result_report(exit_status, "%s\n", __func__);
 }
 
-static void collapse_fork(struct collapse_context *c, struct mem_ops *ops)
+static int get_child_status(int wstatus)
+{
+	char buf[64];
+
+	if (WIFEXITED(wstatus))
+		return WEXITSTATUS(wstatus);
+
+	if (WIFSIGNALED(wstatus)) {
+		snprintf(buf, sizeof(buf), "Child killed by signal %d",
+			 WTERMSIG(wstatus));
+		fail(buf);
+	} else {
+		fail("Child terminated abnormally");
+	}
+
+	return KSFT_FAIL;
+}
+
+static int wait_for_child(pid_t pid)
 {
 	int wstatus;
+
+	if (pid < 0) {
+		fail("fork() failed");
+		return KSFT_FAIL;
+	}
+
+	if (waitpid(pid, &wstatus, 0) == -1) {
+		fail("waitpid() failed");
+		return KSFT_FAIL;
+	}
+
+	return get_child_status(wstatus);
+}
+
+static void collapse_fork(struct collapse_context *c, struct mem_ops *ops)
+{
+	pid_t pid;
 	void *p;
 
 	p = ops->setup_area(1);
@@ -1019,7 +1056,8 @@ static void collapse_fork(struct collapse_context *c, struct mem_ops *ops)
 		fail("Fail");
 
 	ksft_print_msg("Share small page over fork()...");
-	if (!fork()) {
+	pid = fork();
+	if (pid == 0) {
 		/* Do not touch settings on child exit */
 		if (ops->check_huge(p, hpage_pmd_size, 0, hpage_pmd_size))
 			success("OK");
@@ -1035,8 +1073,7 @@ static void collapse_fork(struct collapse_context *c, struct mem_ops *ops)
 		_exit(exit_status);
 	}
 
-	wait(&wstatus);
-	exit_status = WEXITSTATUS(wstatus);
+	exit_status = wait_for_child(pid);
 	if (exit_status == KSFT_FAIL)
 		goto out;
 
@@ -1053,12 +1090,13 @@ out:
 
 static void collapse_fork_compound(struct collapse_context *c, struct mem_ops *ops)
 {
-	int wstatus;
+	pid_t pid;
 	void *p;
 
 	p = alloc_hpage(ops);
 	ksft_print_msg("Share huge page over fork()...");
-	if (!fork()) {
+	pid = fork();
+	if (pid == 0) {
 		/* Do not touch settings on child exit */
 		if (ops->check_huge(p, hpage_pmd_size, 1, hpage_pmd_size))
 			success("OK");
@@ -1085,8 +1123,7 @@ static void collapse_fork_compound(struct collapse_context *c, struct mem_ops *o
 		_exit(exit_status);
 	}
 
-	wait(&wstatus);
-	exit_status = WEXITSTATUS(wstatus);
+	exit_status = wait_for_child(pid);
 	if (exit_status == KSFT_FAIL)
 		goto out;
 
@@ -1104,12 +1141,13 @@ out:
 static void collapse_max_ptes_shared(struct collapse_context *c, struct mem_ops *ops)
 {
 	int max_ptes_shared = thp_read_num("khugepaged/max_ptes_shared");
-	int wstatus;
+	pid_t pid;
 	void *p;
 
 	p = alloc_hpage(ops);
 	ksft_print_msg("Share huge page over fork()...");
-	if (!fork()) {
+	pid = fork();
+	if (pid == 0) {
 		/* Do not touch settings on child exit */
 		if (ops->check_huge(p, hpage_pmd_size, 1, hpage_pmd_size))
 			success("OK");
@@ -1146,8 +1184,7 @@ static void collapse_max_ptes_shared(struct collapse_context *c, struct mem_ops 
 		_exit(exit_status);
 	}
 
-	wait(&wstatus);
-	exit_status = WEXITSTATUS(wstatus);
+	exit_status = wait_for_child(pid);
 	if (exit_status == KSFT_FAIL)
 		goto out;
 
@@ -1248,7 +1285,7 @@ static void collapse_fork_cow_race(struct collapse_context *c, struct mem_ops *o
 	for (; i < n; i++)
 		ip[i * stride] = i + 0xbeef0000;
 	/* A child that died reading the racing pages is a failure, not a zero */
-	child_status = WIFEXITED(wstatus) ? WEXITSTATUS(wstatus) : KSFT_FAIL;
+	child_status = get_child_status(wstatus);
 
 	ksft_print_msg("Check the parent sees only its own writes...");
 	for (i = 0; i < n; i++)
@@ -1684,7 +1721,7 @@ int main(int argc, char **argv)
 		ksft_exit_skip("Transparent Hugepages not available\n");
 
 	page_size = getpagesize();
-	hpage_pmd_size = read_pmd_pagesize();
+	hpage_pmd_size = pmd_psize();
 	if (!hpage_pmd_size)
 		ksft_exit_fail_msg("Reading PMD pagesize failed\n");
 	hpage_pmd_nr = hpage_pmd_size / page_size;

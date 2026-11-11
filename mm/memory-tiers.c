@@ -378,7 +378,11 @@ static void disable_all_demotion_targets(void)
 	struct memory_tier *memtier;
 	int node;
 
-	for_each_node_state(node, N_MEMORY) {
+	/*
+	 * When the NODE_REMOVED_LAST_MEMORY event fires, N_MEMORY has already
+	 * been dropped from the node, so we must walk every node instead.
+	 */
+	for_each_node(node) {
 		node_demotion[node].preferred = NODE_MASK_NONE;
 		/*
 		 * We are holding memory_tier_lock, it is safe

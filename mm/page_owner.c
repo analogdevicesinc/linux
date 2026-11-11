@@ -1089,7 +1089,7 @@ static int stack_print(struct seq_file *m, void *v)
 			seq_printf(m, " %pS\n", (void *)entries[i]);
 	}
 	if (ctx->flags & STACK_PRINT_FLAG_HANDLE)
-		seq_printf(m, "handle: %d\n", stack_record->handle.handle);
+		seq_printf(m, "handle: %u\n", stack_record->handle.handle);
 	if (ctx->flags & STACK_PRINT_FLAG_PAGES)
 		seq_printf(m, "nr_base_pages: %d\n", nr_base_pages);
 	seq_putc(m, '\n');

@@ -56,6 +56,8 @@ static inline unsigned long find_zero(unsigned long mask)
 #include <asm-generic/word-at-a-time.h>
 #endif
 
+#include <linux/instrumented.h>
+
 #ifdef CONFIG_DCACHE_WORD_ACCESS
 
 /*
@@ -68,6 +70,9 @@ static inline unsigned long find_zero(unsigned long mask)
 static inline unsigned long load_unaligned_zeropad(const void *addr)
 {
 	unsigned long ret, tmp;
+
+	/* Check only the first byte, the rest may lie past the object */
+	instrument_read(addr, 1);
 
 	/* Load word from unaligned pointer addr */
 	asm(

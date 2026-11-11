@@ -610,12 +610,15 @@ int main(int argc, char **argv)
 	if (!thp_is_enabled())
 		ksft_exit_skip("Transparent Hugepages not available\n");
 
+	if (access(SPLIT_DEBUGFS, W_OK))
+		ksft_exit_skip("%s: %s\n", SPLIT_DEBUGFS, strerror(errno));
+
 	if (argc > 1)
 		optional_xfs_path = argv[1];
 
 	pagesize = getpagesize();
 	pageshift = ffs(pagesize) - 1;
-	pmd_pagesize = read_pmd_pagesize();
+	pmd_pagesize = pmd_psize();
 	if (!pmd_pagesize)
 		ksft_exit_fail_msg("Reading PMD pagesize failed\n");
 

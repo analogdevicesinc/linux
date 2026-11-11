@@ -15,7 +15,7 @@ static int pagemap_fd;
 static int nr_pagesizes = 1;
 static unsigned long pagesize;
 static int nr_thpsizes;
-static size_t thpsizes[20];
+static unsigned long thpsizes[20];
 static int nr_hugetlbsizes;
 static unsigned long hugetlbsizes[10];
 
@@ -30,7 +30,7 @@ static void check_uffd_wp_feature_supported(void)
 		ksft_exit_skip("uffd-wp feature not supported\n");
 }
 
-static int detect_thp_sizes(size_t sizes[], int max)
+static int detect_thp_sizes(unsigned long sizes[], int max)
 {
 	int count = 0;
 	unsigned long orders;
@@ -38,7 +38,7 @@ static int detect_thp_sizes(size_t sizes[], int max)
 	int i;
 
 	/* thp not supported at all. */
-	if (!read_pmd_pagesize())
+	if (!pmd_psize())
 		return 0;
 
 	orders = thp_supported_orders();
