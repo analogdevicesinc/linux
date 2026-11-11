@@ -53,6 +53,7 @@ static int eject_tray(struct ata_device *dev)
 static enum odd_mech_type zpodd_get_mech_type(struct ata_device *dev)
 {
 	char *buf;
+	enum odd_mech_type type;
 	unsigned int ret;
 	struct rm_feature_desc *desc;
 	struct ata_taskfile tf;
@@ -78,26 +79,25 @@ static enum odd_mech_type zpodd_get_mech_type(struct ata_device *dev)
 	ret = ata_exec_internal(dev, &tf, cdb, DMA_FROM_DEVICE,
 				buf, 16, 0);
 	if (ret) {
-		kfree(buf);
-		return ODD_MECH_TYPE_UNSUPPORTED;
+		type = ODD_MECH_TYPE_UNSUPPORTED;
+		goto out;
 	}
 
 	if (be16_to_cpu(desc->feature_code) != 3) {
-		kfree(buf);
-		return ODD_MECH_TYPE_UNSUPPORTED;
+		type = ODD_MECH_TYPE_UNSUPPORTED;
+		goto out;
 	}
 
-	if (desc->mech_type == 0 && desc->load == 0 && desc->eject == 1) {
-		kfree(buf);
-		return ODD_MECH_TYPE_SLOT;
-	} else if (desc->mech_type == 1 && desc->load == 0 &&
-		   desc->eject == 1) {
-		kfree(buf);
-		return ODD_MECH_TYPE_DRAWER;
-	} else {
-		kfree(buf);
-		return ODD_MECH_TYPE_UNSUPPORTED;
-	}
+	if (desc->mech_type == 0 && desc->load == 0 && desc->eject == 1)
+		type = ODD_MECH_TYPE_SLOT;
+	else if (desc->mech_type == 1 && desc->load == 0 &&
+		 desc->eject == 1)
+		type = ODD_MECH_TYPE_DRAWER;
+	else
+		type = ODD_MECH_TYPE_UNSUPPORTED;
+out:
+	kfree(buf);
+	return type;
 }
 
 /* Test if ODD is zero power ready by sense code */

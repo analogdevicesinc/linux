@@ -60,8 +60,7 @@ static enum ata_completion_errors pxa_qc_prep(struct ata_queued_cmd *qc)
 		ata_dev_err(qc->dev, "prep_slave_sg() failed\n");
 		return AC_ERR_OK;
 	}
-	tx->callback = pxa_ata_dma_irq;
-	tx->callback_param = pd;
+	dmaengine_desc_set_callback(tx, pxa_ata_dma_irq, NULL, pd);
 	pd->dma_cookie = dmaengine_submit(tx);
 
 	return AC_ERR_OK;
@@ -96,7 +95,7 @@ static void pxa_bmdma_stop(struct ata_queued_cmd *qc)
 
 	status = dmaengine_tx_status(pd->dma_chan, pd->dma_cookie, NULL);
 	if (status != DMA_ERROR && status != DMA_COMPLETE &&
-	    wait_for_completion_timeout(&pd->dma_done, HZ))
+	    !wait_for_completion_timeout(&pd->dma_done, HZ))
 		ata_dev_err(qc->dev, "Timeout waiting for DMA completion!");
 
 	dmaengine_terminate_all(pd->dma_chan);

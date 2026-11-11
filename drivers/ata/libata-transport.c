@@ -447,8 +447,6 @@ show_ata_dev_gscr(struct device *dev,
 				    ata_dev->gscr[i],
 				    ((i+1) & 3) ? ' ' : '\n');
 	}
-	if (SATA_PMP_GSCR_DWORDS & 3)
-		buf[written-1] = '\n';
 	return written;
 }
 
