@@ -532,6 +532,7 @@ enum ionic_v1_op {
 	IONIC_V1_FLAG_SOL		= BIT(1),
 	IONIC_V1_FLAG_INL		= BIT(2),
 	IONIC_V1_FLAG_SIG		= BIT(3),
+	IONIC_V1_FLAG_COLOR		= BIT(4),
 
 	/* flags last four bits for sgl spec format */
 	IONIC_V1_FLAG_SPEC32		= (1u << 12),

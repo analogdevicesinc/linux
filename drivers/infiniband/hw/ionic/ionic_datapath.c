@@ -53,7 +53,7 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ib_wc *wc)
 
 	/* wqe_idx must indicate a request that is outstanding */
 	meta = &qp->rq.meta[wqe_idx];
-	if (unlikely(meta->next != IONIC_META_POSTED)) {
+	if (unlikely(!meta->posted)) {
 		ibdev_warn(qp->ibqp.device,
 			   "flush qp %u recv index %llu not posted\n",
 			   qp->qpid, (unsigned long long)wqe_idx);
@@ -68,8 +68,7 @@ static int ionic_flush_recv(struct ionic_qp *qp, struct ib_wc *wc)
 	wc->wr_id = meta->wrid;
 	wc->qp = &qp->ibqp;
 
-	meta->next = qp->rq.meta_head;
-	qp->rq.meta_head = meta;
+	meta->posted = false;
 
 	return 1;
 }
@@ -172,14 +171,13 @@ static int ionic_poll_recv(struct ionic_ibdev *dev, struct ionic_cq *cq,
 
 	/* wqe_idx must indicate a request that is outstanding */
 	meta = &qp->rq.meta[wqe_idx];
-	if (unlikely(meta->next != IONIC_META_POSTED)) {
+	if (unlikely(!meta->posted)) {
 		ibdev_warn(&dev->ibdev,
 			   "qp %u recv index %u not posted\n", qp->qpid, wqe_idx);
 		return -EIO;
 	}
 
-	meta->next = qp->rq.meta_head;
-	qp->rq.meta_head = meta;
+	meta->posted = false;
 
 	memset(wc, 0, sizeof(*wc));
 
@@ -820,6 +818,9 @@ static void ionic_prep_base(struct ionic_qp *qp,
 
 	wqe->base.wqe_idx = cpu_to_le64(qp->sq.prod);
 
+	if (qp->sq_color)
+		wqe->base.flags |= cpu_to_be16(IONIC_V1_FLAG_COLOR);
+
 	if (wr->send_flags & IB_SEND_FENCE)
 		wqe->base.flags |= cpu_to_be16(IONIC_V1_FLAG_FENCE);
 
@@ -843,6 +844,7 @@ static void ionic_prep_base(struct ionic_qp *qp,
 	}
 
 	ionic_queue_produce(&qp->sq);
+	qp->sq_color = ionic_color_wrap(qp->sq.prod, qp->sq_color);
 }
 
 static int ionic_prep_common(struct ionic_qp *qp,
@@ -1195,9 +1197,12 @@ static int ionic_prep_recv(struct ionic_qp *qp,
 	if (wqe->base.flags & cpu_to_be16(IONIC_V1_FLAG_FENCE))
 		return -EAGAIN;
 
-	meta = qp->rq.meta_head;
-	if (unlikely(meta == IONIC_META_LAST) ||
-	    unlikely(meta == IONIC_META_POSTED))
+	/*
+	 * The completion carries this producer index, so the wr_id
+	 * lives in the meta slot at the same index.
+	 */
+	meta = &qp->rq.meta[qp->rq.q.prod];
+	if (unlikely(meta->posted))
 		return -EIO;
 
 	ionic_prep_rq_wqe(qp, wqe);
@@ -1212,7 +1217,7 @@ static int ionic_prep_recv(struct ionic_qp *qp,
 
 	meta->wrid = wr->wr_id;
 
-	wqe->base.wqe_idx = cpu_to_le64(meta - qp->rq.meta);
+	wqe->base.wqe_idx = cpu_to_le64(qp->rq.q.prod);
 	wqe->base.num_sge_key = wr->num_sge;
 
 	/* total length for recv goes in base imm_data_key */
@@ -1220,8 +1225,7 @@ static int ionic_prep_recv(struct ionic_qp *qp,
 
 	ionic_queue_produce(&qp->rq.q);
 
-	qp->rq.meta_head = meta->next;
-	meta->next = IONIC_META_POSTED;
+	meta->posted = true;
 
 	return 0;
 }
