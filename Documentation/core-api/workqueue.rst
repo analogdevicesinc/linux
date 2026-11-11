@@ -225,6 +225,13 @@ resources, scheduled and executed.
   each other.  Each maintains its separate pool of workers and
   implements concurrency management among its workers.
 
+``WQ_RT``
+  Real-time priority workqueues must be created as unbound. Their worker threads
+  use the FIFO scheduling policy with the lowest applicable priority.
+
+  To be used sparingly for use cases such as the real-time GPU rendering
+  contexts accessible to privileged clients.
+
 ``WQ_CPU_INTENSIVE``
   Work items of a CPU intensive wq do not contribute to the
   concurrency level.  In other words, runnable CPU intensive
