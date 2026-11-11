@@ -265,6 +265,7 @@ properties:
           - amlogic,meson8b-smp
           - arm,realview-smp
           - aspeed,ast2600-smp
+          - brcm,bca-smp
           - brcm,bcm11351-cpu-method
           - brcm,bcm23550
           - brcm,bcm2836-smp
@@ -481,6 +482,30 @@ allOf:
     then:
       required:
         - secondary-boot-reg
+  - if:
+      properties:
+        enable-method:
+          const: brcm,bca-smp
+      required:
+        - enable-method
+    then:
+      properties:
+        cpu-release-addr:
+          $ref: /schemas/types.yaml#/definitions/uint32
+          description:
+            Physical address of the 32-bit MMIO mailbox read by CFE after
+            a wakeup interrupt. Required on CPU1, which CFE leaves in
+            a holding pen. The kernel writes the ARM-state entry address
+            before sending the interrupt. CPU0 is already running.
+      if:
+        properties:
+          reg:
+            items:
+              - items:
+                  - const: 1
+      then:
+        required:
+          - cpu-release-addr
   - if:
       properties:
         enable-method:
@@ -720,6 +745,27 @@ examples:
         reg = <0x1 0x10101>;
         enable-method = "spin-table";
         cpu-release-addr = <0 0x20000000>;
+      };
+    };
+  - |
+    // Example 5 (Broadcom BCMBCA with CFE):
+    cpus {
+      #size-cells = <0>;
+      #address-cells = <1>;
+
+      cpu@0 {
+        device_type = "cpu";
+        compatible = "arm,cortex-a7";
+        reg = <0>;
+        enable-method = "brcm,bca-smp";
+      };
+
+      cpu@1 {
+        device_type = "cpu";
+        compatible = "arm,cortex-a7";
+        reg = <1>;
+        enable-method = "brcm,bca-smp";
+        cpu-release-addr = <0xff800568>;
       };
     };
 ...

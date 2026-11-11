@@ -7,6 +7,10 @@
 
 / {
 	model = "Raspberry Pi Compute Module 4 IO Board";
+
+	aliases {
+		rtc0 = &pcf85063;
+	};
 };
 
 &ddc0 {
@@ -103,11 +107,26 @@
 };
 
 &i2c0_1 {
-	rtc@51 {
+	emc2301: fan-controller@2f {
+		compatible = "microchip,emc2301", "microchip,emc2305";
+		reg = <0x2f>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#pwm-cells = <3>;
+
+		fan@0 {
+			reg = <0x0>;
+			pwms = <&emc2301 26000 0 1>;
+			#cooling-cells = <2>;
+		};
+	};
+
+	pcf85063: rtc@51 {
 		/* Attention: An alarm resets the machine */
 		compatible = "nxp,pcf85063a";
 		reg = <0x51>;
 		quartz-load-femtofarads = <7000>;
+		wakeup-source;
 	};
 };
 
