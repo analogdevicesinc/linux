@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+#include <inttypes.h>
 #include <stdbool.h>
 #include <stdlib.h>
+
+typedef int64_t s64;
 
 #ifndef BUF_SIZE
 #define BUF_SIZE 4096
@@ -27,26 +30,27 @@
 /*
  * Checks if two given values differ by less than err% of their sum.
  */
-static inline int values_close(long a, long b, int err)
+static inline int values_close(s64 a, s64 b, int err)
 {
-	return labs(a - b) <= (a + b) / 100 * err;
+	return llabs(a - b) <= (a + b) / 100 * err;
 }
 
 /*
  * Checks if two given values differ by less than err% of their sum and assert
  * with detailed debug info if not.
  */
-static inline int values_close_report(long a, long b, int err)
+static inline int values_close_report(s64 a, s64 b, int err)
 {
-	long diff  = labs(a - b);
-	long limit = (a + b) / 100 * err;
+	s64 diff  = llabs(a - b);
+	s64 limit = (a + b) / 100 * err;
 	double actual_err = (a + b) ? (100.0 * diff / (a + b)) : 0.0;
 	int close = diff <= limit;
 
 	if (!close)
 		fprintf(stderr,
-			"[FAIL] actual=%ld expected=%ld | diff=%ld | limit=%ld | "
-			"tolerance=%d%% | actual_error=%.2f%%\n",
+			"[FAIL] actual=%" PRId64 " expected=%" PRId64
+			" | diff=%" PRId64 " | limit=%" PRId64
+			" | tolerance=%d%% | actual_error=%.2f%%\n",
 			a, b, diff, limit, err, actual_err);
 
 	return close;
@@ -70,16 +74,16 @@ extern int cg_read_strcmp_wait(const char *cgroup, const char *control,
 				   const char *expected);
 extern int cg_read_strstr(const char *cgroup, const char *control,
 			  const char *needle);
-extern long cg_read_long(const char *cgroup, const char *control);
-extern long cg_read_long_fd(int fd);
-long cg_read_key_long(const char *cgroup, const char *control, const char *key);
-long cg_read_key_long_poll(const char *cgroup, const char *control,
-			   const char *key, long expected, int retries,
-			   useconds_t wait_interval_us);
+s64 cg_read_s64(const char *cgroup, const char *control);
+s64 cg_read_s64_fd(int fd);
+s64 cg_read_key_s64(const char *cgroup, const char *control, const char *key);
+s64 cg_read_key_s64_poll(const char *cgroup, const char *control,
+			 const char *key, s64 expected, int retries,
+			 useconds_t wait_interval_us);
 extern long cg_read_lc(const char *cgroup, const char *control);
 extern int cg_write(const char *cgroup, const char *control, char *buf);
 extern int cg_open(const char *cgroup, const char *control, int flags);
-int cg_write_numeric(const char *cgroup, const char *control, long value);
+int cg_write_numeric(const char *cgroup, const char *control, s64 value);
 extern int cg_run(const char *cgroup,
 		  int (*fn)(const char *cgroup, void *arg),
 		  void *arg);

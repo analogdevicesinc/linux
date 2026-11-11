@@ -96,16 +96,17 @@ static int hugetlb_test_program(const char *cgroup, void *arg)
 {
 	char *test_group = (char *)arg;
 	void *addr;
-	long old_current, expected_current, current;
+	s64 old_current, expected_current, current;
 	int ret = EXIT_FAILURE;
 
-	old_current = cg_read_long(test_group, "memory.current");
+	old_current = cg_read_s64(test_group, "memory.current");
 	set_nr_hugepages(20);
-	current = cg_read_long(test_group, "memory.current");
+	current = cg_read_s64(test_group, "memory.current");
 	if (current - old_current >= MB(2)) {
 		ksft_print_msg(
 			"setting nr_hugepages should not increase hugepage usage.\n");
-		ksft_print_msg("before: %ld, after: %ld\n", old_current, current);
+		ksft_print_msg("before: %" PRId64 ", after: %" PRId64 "\n",
+			       old_current, current);
 		return EXIT_FAILURE;
 	}
 
@@ -114,10 +115,11 @@ static int hugetlb_test_program(const char *cgroup, void *arg)
 		ksft_print_msg("fail to mmap.\n");
 		return EXIT_FAILURE;
 	}
-	current = cg_read_long(test_group, "memory.current");
+	current = cg_read_s64(test_group, "memory.current");
 	if (current - old_current >= MB(2)) {
 		ksft_print_msg("mmap should not increase hugepage usage.\n");
-		ksft_print_msg("before: %ld, after: %ld\n", old_current, current);
+		ksft_print_msg("before: %" PRId64 ", after: %" PRId64 "\n",
+			       old_current, current);
 		goto out_failed_munmap;
 	}
 	old_current = current;
@@ -125,35 +127,35 @@ static int hugetlb_test_program(const char *cgroup, void *arg)
 	/* read the first page */
 	check_first(addr);
 	expected_current = old_current + MB(2);
-	current = cg_read_long(test_group, "memory.current");
+	current = cg_read_s64(test_group, "memory.current");
 	if (!values_close(expected_current, current, 5)) {
 		ksft_print_msg("memory usage should increase by around 2MB.\n");
 		ksft_print_msg(
-			"expected memory: %ld, actual memory: %ld\n",
+			"expected memory: %" PRId64 ", actual memory: %" PRId64 "\n",
 			expected_current, current);
 		goto out_failed_munmap;
 	}
 
 	/* write to the whole range */
 	write_data(addr);
-	current = cg_read_long(test_group, "memory.current");
+	current = cg_read_s64(test_group, "memory.current");
 	expected_current = old_current + MB(8);
 	if (!values_close(expected_current, current, 5)) {
 		ksft_print_msg("memory usage should increase by around 8MB.\n");
 		ksft_print_msg(
-			"expected memory: %ld, actual memory: %ld\n",
+			"expected memory: %" PRId64 ", actual memory: %" PRId64 "\n",
 			expected_current, current);
 		goto out_failed_munmap;
 	}
 
 	/* unmap the whole range */
 	munmap(addr, LENGTH);
-	current = cg_read_long(test_group, "memory.current");
+	current = cg_read_s64(test_group, "memory.current");
 	expected_current = old_current;
 	if (!values_close(expected_current, current, 5)) {
 		ksft_print_msg("memory usage should go back down.\n");
 		ksft_print_msg(
-			"expected memory: %ld, actual memory: %ld\n",
+			"expected memory: %" PRId64 ", actual memory: %" PRId64 "\n",
 			expected_current, current);
 		return ret;
 	}

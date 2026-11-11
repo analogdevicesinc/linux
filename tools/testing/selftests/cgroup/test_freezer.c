@@ -807,10 +807,9 @@ cleanup:
 /*
  * Get the current frozen_usec for the cgroup.
  */
-static long cg_check_freezetime(const char *cgroup)
+static s64 cg_check_freezetime(const char *cgroup)
 {
-	return cg_read_key_long(cgroup, "cgroup.stat.local",
-				"frozen_usec ");
+	return cg_read_key_s64(cgroup, "cgroup.stat.local", "frozen_usec ");
 }
 
 /*
@@ -820,7 +819,7 @@ static int test_cgfreezer_time_empty(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *cgroup = NULL;
-	long prev, curr;
+	s64 prev, curr;
 
 	cgroup = cg_name(root, "cg_time_test_empty");
 	if (!cgroup)
@@ -839,7 +838,7 @@ static int test_cgfreezer_time_empty(const char *root)
 		goto cleanup;
 	}
 	if (curr > 0) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -853,7 +852,7 @@ static int test_cgfreezer_time_empty(const char *root)
 	usleep(1000);
 	curr = cg_check_freezetime(cgroup);
 	if (curr < 1000) {
-		debug("Expect time (%ld) to be at least 1000 us\n",
+		debug("Expect time (%" PRId64 ") to be at least 1000 us\n",
 		      curr);
 		goto cleanup;
 	}
@@ -867,7 +866,7 @@ static int test_cgfreezer_time_empty(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -879,8 +878,8 @@ static int test_cgfreezer_time_empty(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr != prev) {
-		debug("Expect time (%ld) to be unchanged from previous check (%ld)\n",
-		      curr, prev);
+		debug("Expect time (%" PRId64 ") to be unchanged from previous check (%"
+		      PRId64 ")\n", curr, prev);
 		goto cleanup;
 	}
 
@@ -902,7 +901,7 @@ static int test_cgfreezer_time_simple(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *cgroup = NULL;
-	long prev, curr;
+	s64 prev, curr;
 
 	cgroup = cg_name(root, "cg_time_test_simple");
 	if (!cgroup)
@@ -920,7 +919,7 @@ static int test_cgfreezer_time_simple(const char *root)
 		goto cleanup;
 	}
 	if (curr > 0) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -932,7 +931,7 @@ static int test_cgfreezer_time_simple(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr > prev) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -947,7 +946,7 @@ static int test_cgfreezer_time_simple(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr < 1000) {
-		debug("Expect time (%ld) to be at least 1000 us\n",
+		debug("Expect time (%" PRId64 ") to be at least 1000 us\n",
 		      curr);
 		goto cleanup;
 	}
@@ -961,7 +960,7 @@ static int test_cgfreezer_time_simple(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -974,8 +973,8 @@ static int test_cgfreezer_time_simple(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr != prev) {
-		debug("Expect time (%ld) to be unchanged from previous check (%ld)\n",
-		      curr, prev);
+		debug("Expect time (%" PRId64 ") to be unchanged from previous check (%"
+		      PRId64 ")\n", curr, prev);
 		goto cleanup;
 	}
 
@@ -996,7 +995,7 @@ static int test_cgfreezer_time_populate(const char *root)
 {
 	int ret = KSFT_FAIL;
 	char *cgroup = NULL;
-	long prev, curr;
+	s64 prev, curr;
 	int i;
 
 	cgroup = cg_name(root, "cg_time_test_populate");
@@ -1012,7 +1011,7 @@ static int test_cgfreezer_time_populate(const char *root)
 		goto cleanup;
 	}
 	if (curr > 0) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -1025,7 +1024,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr != prev) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -1038,7 +1037,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr != prev) {
-		debug("Expect time (%ld) to be 0\n", curr);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr);
 		goto cleanup;
 	}
 
@@ -1051,7 +1050,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -1061,7 +1060,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -1075,7 +1074,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -1089,7 +1088,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -1103,8 +1102,8 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr != prev) {
-		debug("Expect time (%ld) to be unchanged from previous check (%ld)\n",
-		      curr, prev);
+		debug("Expect time (%" PRId64 ") to be unchanged from previous check (%"
+		      PRId64 ")\n", curr, prev);
 		goto cleanup;
 	}
 
@@ -1119,7 +1118,7 @@ static int test_cgfreezer_time_populate(const char *root)
 	prev = curr;
 	curr = cg_check_freezetime(cgroup);
 	if (curr <= prev) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr, prev);
 		goto cleanup;
 	}
@@ -1140,7 +1139,7 @@ cleanup:
  */
 static int test_cgfreezer_time_migrate(const char *root)
 {
-	long prev_A, curr_A, curr_B;
+	s64 prev_A, curr_A, curr_B;
 	char *cgroup[2] = {0};
 	int ret = KSFT_FAIL;
 	int pid;
@@ -1173,12 +1172,12 @@ static int test_cgfreezer_time_migrate(const char *root)
 
 	curr_A = cg_check_freezetime(cgroup[0]);
 	if (curr_A) {
-		debug("Expect time (%ld) to be 0\n", curr_A);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr_A);
 		goto cleanup;
 	}
 	curr_B = cg_check_freezetime(cgroup[1]);
 	if (curr_B) {
-		debug("Expect time (%ld) to be 0\n", curr_B);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr_B);
 		goto cleanup;
 	}
 
@@ -1190,7 +1189,7 @@ static int test_cgfreezer_time_migrate(const char *root)
 	prev_A = curr_A;
 	curr_A = cg_check_freezetime(cgroup[0]);
 	if (curr_A <= prev_A) {
-		debug("Expect time (%ld) to be > 0\n", curr_A);
+		debug("Expect time (%" PRId64 ") to be > 0\n", curr_A);
 		goto cleanup;
 	}
 
@@ -1203,14 +1202,14 @@ static int test_cgfreezer_time_migrate(const char *root)
 	usleep(1000);
 	curr_B = cg_check_freezetime(cgroup[1]);
 	if (curr_B) {
-		debug("Expect time (%ld) to be 0\n", curr_B);
+		debug("Expect time (%" PRId64 ") to be 0\n", curr_B);
 		goto cleanup;
 	}
 
 	prev_A = curr_A;
 	curr_A = cg_check_freezetime(cgroup[0]);
 	if (curr_A <= prev_A) {
-		debug("Expect time (%ld) to be more than previous check (%ld)\n",
+		debug("Expect time (%" PRId64 ") to be more than previous check (%" PRId64 ")\n",
 		      curr_A, prev_A);
 		goto cleanup;
 	}
@@ -1238,7 +1237,7 @@ static int test_cgfreezer_time_parent(const char *root)
 {
 	char *parent, *child = NULL;
 	int ret = KSFT_FAIL;
-	long ptime, ctime;
+	s64 ptime, ctime;
 
 	parent = cg_name(root, "cg_test_parent_A");
 	if (!parent)
@@ -1277,7 +1276,8 @@ static int test_cgfreezer_time_parent(const char *root)
 	ptime = cg_check_freezetime(parent);
 	ctime = cg_check_freezetime(child);
 	if (ptime <= ctime) {
-		debug("Expect ptime (%ld) > ctime (%ld)\n", ptime, ctime);
+		debug("Expect ptime (%" PRId64 ") > ctime (%" PRId64 ")\n",
+		      ptime, ctime);
 		goto cleanup;
 	}
 
@@ -1296,7 +1296,8 @@ static int test_cgfreezer_time_parent(const char *root)
 	ptime = cg_check_freezetime(parent);
 
 	if (ctime <= ptime) {
-		debug("Expect ctime (%ld) > ptime (%ld)\n", ctime, ptime);
+		debug("Expect ctime (%" PRId64 ") > ptime (%" PRId64 ")\n",
+		      ctime, ptime);
 		goto cleanup;
 	}
 
@@ -1321,7 +1322,7 @@ static int test_cgfreezer_time_child(const char *root)
 {
 	char *parent, *child = NULL;
 	int ret = KSFT_FAIL;
-	long ptime, ctime;
+	s64 ptime, ctime;
 
 	parent = cg_name(root, "cg_test_child_A");
 	if (!parent)
@@ -1348,12 +1349,13 @@ static int test_cgfreezer_time_child(const char *root)
 	ctime = cg_check_freezetime(child);
 	ptime = cg_check_freezetime(parent);
 	if (ptime != 0) {
-		debug("Expect ptime (%ld) to be 0\n", ptime);
+		debug("Expect ptime (%" PRId64 ") to be 0\n", ptime);
 		goto cleanup;
 	}
 
 	if (ctime <= ptime) {
-		debug("Expect ctime (%ld) > ptime (%ld)\n", ctime, ptime);
+		debug("Expect ctime (%" PRId64 ") > ptime (%" PRId64 ")\n",
+		      ctime, ptime);
 		goto cleanup;
 	}
 
@@ -1386,7 +1388,7 @@ static int test_cgfreezer_time_nested(const char *root)
 {
 	char *cgroup[3] = {0};
 	int ret = KSFT_FAIL;
-	long time[3] = {0};
+	s64 time[3] = {0};
 	int i;
 
 	cgroup[0] = cg_name(root, "cg_test_time_A");
@@ -1440,12 +1442,14 @@ static int test_cgfreezer_time_nested(const char *root)
 	time[0] = cg_check_freezetime(cgroup[0]);
 
 	if (time[2] <= time[1]) {
-		debug("Expect C's time (%ld) > B's time (%ld)", time[2], time[1]);
+		debug("Expect C's time (%" PRId64 ") > B's time (%" PRId64 ")",
+		      time[2], time[1]);
 		goto cleanup;
 	}
 
 	if (time[1] <= time[0]) {
-		debug("Expect B's time (%ld) > A's time (%ld)", time[1], time[0]);
+		debug("Expect B's time (%" PRId64 ") > A's time (%" PRId64 ")",
+		      time[1], time[0]);
 		goto cleanup;
 	}
 
