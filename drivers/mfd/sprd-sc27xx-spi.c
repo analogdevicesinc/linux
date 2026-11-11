@@ -156,7 +156,7 @@ static int sprd_pmic_spi_read(void *context,
 
 	/* Copy address to read from into first element of SPI buffer. */
 	memcpy(rx_buf, reg, sizeof(u32));
-	ret = spi_read(spi, rx_buf, 1);
+	ret = spi_read(spi, rx_buf, sizeof(u32));
 	if (ret < 0)
 		return ret;
 

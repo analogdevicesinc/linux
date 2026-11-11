@@ -153,13 +153,15 @@ struct twl_mapping {
 	unsigned char base;	/* base address */
 };
 
+#define TWL_MAX_SLAVES	4
+
 struct twl_private {
 	bool ready; /* The core driver is ready to be used */
 	u32 twl_idcode; /* TWL IDCODE Register value */
 	unsigned int twl_id;
 
 	struct twl_mapping *twl_map;
-	struct twl_client *twl_modules;
+	struct twl_client twl_modules[TWL_MAX_SLAVES];
 };
 
 static struct twl_private *twl_priv;
@@ -787,13 +789,6 @@ twl_probe(struct i2c_client *client)
 	}
 
 	num_slaves = twl_get_num_slaves();
-	twl_priv->twl_modules = devm_kzalloc_objs(&client->dev,
-						  struct twl_client, num_slaves);
-	if (!twl_priv->twl_modules) {
-		status = -ENOMEM;
-		goto out;
-	}
-
 	for (i = 0; i < num_slaves; i++) {
 		struct twl_client *twl = &twl_priv->twl_modules[i];
 

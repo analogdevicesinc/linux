@@ -513,7 +513,7 @@ static void twl4030_sih_bus_sync_unlock(struct irq_data *data)
 		if (status) {
 			pr_err("twl4030: %s, %s --> %d\n", __func__,
 					"read", status);
-			return;
+			goto unlock;
 		}
 
 		/* Modify only the bits we know must change */
@@ -542,6 +542,7 @@ static void twl4030_sih_bus_sync_unlock(struct irq_data *data)
 					"write", status);
 	}
 
+unlock:
 	mutex_unlock(&agent->irq_lock);
 }
 
