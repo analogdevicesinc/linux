@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_development_posting:
+
 Enviando patches
 ================
 
@@ -10,8 +12,8 @@ conjunto de convenções e procedimentos que são usados no envio de patches;
 segui-los tornará a vida muito mais fácil para todos os envolvidos. Este
 documento tentará cobrir essas expectativas em detalhes razoáveis; mais
 informações também podem ser encontradas nos arquivos
-:ref:`Documentation/process/submitting-patches.rst <submittingpatches>`
-e :ref:`Documentation/process/submit-checklist.rst <submitchecklist>`.
+:ref:`Documentation/process/submitting-patches.rst <pt_BR_submittingpatches>`
+e :ref:`Documentation/process/submit-checklist.rst <pt_BR_submitchecklist>`.
 
 
 Quando enviar
@@ -201,7 +203,8 @@ a alteração em um sistema de controle de versão. Ele será seguido por:
 
 Os marcadores (tags) já mencionados brevemente acima são usados para fornecer
 informações sobre como o patch surgiu. Eles são descritos em detalhes no
-documento :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`;
+documento :ref:`Documentation/process/submitting-patches.rst
+<pt_BR_submittingpatches>`;
 o que se segue aqui é um breve resumo.
 
 Um marcador é usado para se referir a commits anteriores que introduziram os
@@ -240,15 +243,17 @@ Os marcadores de uso comum são:
    tem o direito de enviar o patch para inclusão no kernel. É um acordo com o
    Developer's Certificate of Origin (Certificado de Origem do Desenvolvedor),
    cujo texto completo pode ser encontrado em
-   :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`.
+   :ref:`Documentation/process/submitting-patches.rst
+   <pt_BR_submittingpatches>`.
    Códigos sem um signoff adequado não podem ser mesclados (merged) no mainline.
 
  - Co-developed-by: afirma que o patch foi criado em coautoria por vários
    desenvolvedores; é usado para dar atribuição aos coautores (além do autor
    atribuído pelo marcador From:) quando várias pessoas trabalham em um único
-   patch. Cada Co-developed-by: deve ser imediatamente seguido por um
-   Signed-off-by: do coautor associado. Detalhes e exemplos podem ser encontrados
-   em :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`.
+   patch. Cada Co-developed-by: deve ser imediatamente seguido por
+   um Signed-off-by: do coautor associado. Detalhes e exemplos podem ser
+   encontrados em :ref:`Documentation/process/submitting-patches.rst
+   <pt_BR_submittingpatches>`.
 
  - Acked-by: indica o acordo de outro desenvolvedor (frequentemente um
    mantenedor do código relevante) de que o patch é apropriado para inclusão
@@ -259,7 +264,7 @@ Os marcadores de uso comum são:
 
  - Reviewed-by: o desenvolvedor nomeado revisou o patch para verificar sua
    correção; veja a declaração do revisor em
-   :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`
+   :ref:`Documentation/process/submitting-patches.rst <pt_BR_submittingpatches>`
    para mais detalhes.
 
  - Reported-by: nomeia um usuário que relatou o problema que é corrigido por este
@@ -300,7 +305,8 @@ você deve se preocupar:
    e, frequentemente, não serão examinados em detalhes. Se houver qualquer
    dúvida, envie o patch para você mesmo e certifique-se de que ele chegue intacto.
 
-   O documento :ref:`Documentation/process/email-clients.rst <email_clients>`
+   O documento :ref:`Documentation/process/email-clients.rst
+   <pt_BR_email_clients>`
    possui algumas dicas úteis sobre como fazer clientes de e-mail específicos
    funcionarem para o envio de patches.
 

@@ -97,7 +97,7 @@ de antemão que você não tem a menor ideia, e dizendo às pessoas antes do fat
 que sua decisão é puramente preliminar, e pode ser a coisa errada. Você deve
 sempre reservar o direito de mudar de ideia, e fazer com que as pessoas estejam
 muito **cientes** disso. E é muito mais fácil admitir que você é estúpido quando
-você ainda não fez a coisa realmente estúpida.
+você **ainda** não fez a coisa realmente estúpida.
 
 Então, quando realmente se revela estúpido, as pessoas apenas reviram os olhos
 e dizem "Ops, não de novo".
@@ -149,7 +149,7 @@ um imbecil" de milhões de maneiras diferentes [#f2]_, às vezes sem nem percebe
 e quase sempre com uma convicção ardente de que você está certo.
 
 E quanto mais convencido você estiver de que está certo (e vamos encarar, você
-pode chamar praticamente qualquer pessoa de imbecil, e muitas vezes você **vai**
+pode chamar praticamente **qualquer pessoa** de imbecil, e muitas vezes você **vai**
 estar certo), mais difícil acaba sendo se desculpar depois.
 
 Para resolver esse problema, você realmente só tem duas opções:
@@ -230,7 +230,7 @@ desculpar, o segundo você realmente não terá a chance. Eles provavelmente nã
 estarão mais ouvindo, mesmo que você faça um bom trabalho de outra forma.
 
 Todos nós pensamos que somos melhores do que qualquer outra pessoa, o que significa
-que quando alguém posa de superior, isso realmente nos irrita. Você pode ser moral
+que quando alguém posa de superior, isso **realmente** nos irrita. Você pode ser moral
 e intelectualmente superior a todos ao seu redor, mas não tente tornar isso muito
 óbvio, a menos que você realmente **pretenda** irritar alguém [#f3]_.
 

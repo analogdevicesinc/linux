@@ -155,7 +155,7 @@ Identificadores de Licença
 As licenças atualmente em uso, bem como as licenças para código adicionado ao
 kernel, podem ser divididas em:
 
-4. _`Licenças preferenciais`:
+1. _`Licenças preferenciais`:
 
    Sempre que possível, estas licenças devem ser utilizadas, pois são conhecidas
    por serem totalmente compatíveis e amplamente usadas. Estas licenças estão
@@ -234,7 +234,7 @@ kernel, podem ser divididas em:
       License-Text:
         Texto completo da licença
 
-5. Licenças obsoletas:
+2. Licenças obsoletas:
 
    Estas licenças devem ser utilizadas apenas para código já existente ou para
    a importação de código de outros projetos. Estas licenças estão disponíveis
@@ -279,7 +279,7 @@ kernel, podem ser divididas em:
       License-Text:
         Texto completo da licença
 
-6. Apenas Licenciamento Duplo
+3. Apenas Licenciamento Duplo
 
    Estas licenças devem ser usadas apenas para o licenciamento duplo de código
    com outra licença, além de uma licença preferencial. Estas licenças estão
@@ -329,11 +329,11 @@ kernel, podem ser divididas em:
 
 |
 
-7. _`Exceções`:
+4. _`Exceções`:
 
-Algumas licenças podem ser alteradas com exceções que concedem certos direitos
-   que a licença original não concede. Estas exceções estão disponíveis no
-   diretório::
+   Algumas licenças podem ser alteradas com exceções que concedem certos
+   direitos que a licença original não concede. Estas exceções estão
+   disponíveis no diretório::
 
       LICENSES/exceptions/
 
@@ -402,7 +402,7 @@ Algumas licenças podem ser alteradas com exceções que concedem certos direito
       Exception-Text:
         Texto completo da exceção
 
-Exemplos de formato de arquivo::
+   ::
 
       SPDX-Exception-Identifier: GCC-exception-2.0
       SPDX-URL: https://spdx.org/licenses/GCC-exception-2.0.html
@@ -436,7 +436,7 @@ _`MODULE_LICENSE`
    de módulos do kernel e às ferramentas de espaço do usuário sobre o módulo ser
    software livre ou proprietário.
 
-   As strings de licença válidas para MODULE_LICENSE() são::
+   As strings de licença válidas para MODULE_LICENSE() são:
 
       ============================= =============================================
       "GPL"                         O módulo está licenciado sob a GPL versão 2.

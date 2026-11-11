@@ -608,6 +608,14 @@ which stable kernel versions should receive your fix. This is the preferred
 method for indicating a bug fixed by the patch. See :ref:`describe_changes`
 for more details.
 
+Name the commit that introduced the bug. When using ``git blame`` to find it,
+do not settle on a commit that only moved the code. If a later commit exposed
+an older bug, add a Fixes: tag for that commit too. If the same bug was
+introduced separately by more than one commit, add a Fixes: tag for each. Do
+not add tags for commits that are only suspected. The Fixes: tags tell the
+stable team which trees need the fix: those that contain one of the tagged
+commits. Trees that contain none of them do not need it.
+
 Note: Attaching a Fixes: tag does not subvert the stable kernel rules
 process nor the requirement to Cc: stable@vger.kernel.org on all stable
 patch candidates. For more information, please read

@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_development_coding:
+
 Escrever o código corretamente
 ==============================
 
@@ -22,7 +24,8 @@ Estilo de Codificação
 *********************
 
 O kernel há muito possui um estilo de codificação padrão, descrito em
-:ref:`Documentation/process/coding-style.rst <codingstyle>`. Por grande parte
+:ref:`Documentation/process/coding-style.rst
+<pt_BR_codingstyle>`. Por grande parte
 desse tempo, as políticas descritas naquele arquivo eram consideradas, no
 máximo, como recomendações. Como resultado, há uma quantidade substancial
 de código no kernel que não cumpre as diretrizes de estilo de codificação.
@@ -322,7 +325,8 @@ https://sparse.wiki.kernel.org/index.php/Main_Page se a sua distribuição não 
 incluir como pacote); ele pode então ser executado no código adicionando "C=1"
 ao seu comando make.
 
-A ferramenta "Coccinelle" (http://coccinelle.lip6.fr/) é capaz de encontrar uma
+A ferramenta "Coccinelle"
+(https://coccinelle.gitlabpages.inria.fr/website) é capaz de encontrar uma
 ampla variedade de potenciais problemas de codificação; ela também pode propor
 correções para esses problemas. Uma quantidade considerável de "patches
 semânticos" para o kernel foi empacotada sob o diretório scripts/coccinelle;

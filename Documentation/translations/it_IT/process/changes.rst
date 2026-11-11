@@ -57,7 +57,7 @@ mcelog                 0.6              mcelog --version
 mkimage (opzionale)    2017.01          mkimage --version
 nfs-utils              1.0.5            showmount --version
 openssl & libcrypto    1.0.0            openssl version
-pahole                 1.26             pahole --version
+pahole                 1.22             pahole --version
 pcmciautils            004              pccardctl -V
 PPP                    2.4.0            pppd --version
 procps                 3.2.0            ps --version
@@ -148,12 +148,6 @@ pahole
 Dalla versione 5.2, quando viene impostato CONFIG_DEBUG_INFO_BTF, il sistema di
 compilazione genera BTF (BPF Type Format) a partire da DWARF per vmlinux. Più
 tardi anche per i moduli. Questo richiede pahole v1.22 o successivo.
-
-Dalla versione 7.0, le kfunc annotate con KF_IMPLICIT_ARGS richiedono pahole
-v1.26 o successivo. Senza questa versione, tali kfunc avranno prototipi BTF
-errati in vmlinux, causando il fallimento del caricamento dei programmi BPF con
-l'errore "func_proto incompatible with vmlinux". Molte kfunc in sched_ext sono
-interessate da questo problema.
 
 A seconda della distribuzione, lo si può trovare nei pacchetti 'dwarves' o
 'pahole'. Oppure lo si può trovare qui: https://fedorapeople.org/~acme/dwarves/.

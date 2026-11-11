@@ -1,5 +1,7 @@
 .. SPDX-License-Identifier: GPL-2.0
 
+.. _pt_BR_stable_api_nonsense:
+
 A interface de drivers do kernel Linux
 =======================================
 

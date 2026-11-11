@@ -7,8 +7,7 @@ Rules on what kind of patches are accepted, and which ones are not, into the
 "-stable" tree:
 
 - It or an equivalent fix must already exist in Linux mainline (upstream).
-- It must be obviously correct and tested.
-- It cannot be bigger than 100 lines, with context.
+- It must be correct and tested.
 - It must follow the
   :ref:`Documentation/process/submitting-patches.rst <submittingpatches>`
   rules.
@@ -24,9 +23,6 @@ Rules on what kind of patches are accepted, and which ones are not, into the
     regression they should only be submitted by a distribution kernel
     maintainer and include an addendum linking to a bugzilla entry if it
     exists and additional information on the user-visible impact.
-  - No "This could be a problem..." type of things like a "theoretical race
-    condition", unless an explanation of how the bug can be exploited is also
-    provided.
   - No "trivial" fixes without benefit for users (spelling changes, whitespace
     cleanups, etc).
 

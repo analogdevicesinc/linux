@@ -14,7 +14,7 @@ O subsistema SoC é um local de agregação para códigos específicos de SoC
 * Arquivos de placa (board files) ARM de 32 bits (arch/arm/mach*).
 * Defconfigs ARM de 32 e 64 bits.
 * Drivers específicos de SoC em diversas arquiteturas, em particular para ARM de
-* 32 e 64 bits, RISC-V e Loongarch.
+  32 e 64 bits, RISC-V e Loongarch.
 
 Estes "drivers específicos de SoC" não incluem drivers de clock, GPIO, etc., que
 possuem outros mantenedores de alto nível. O diretório ``drivers/soc/`` é
@@ -102,7 +102,7 @@ Estabilidade da ABI do Devicetree
 
 Talvez um dos pontos mais importantes a destacar é que os *dt-bindings*
 documentam a ABI entre o devicetree e o kernel. Por favor, leia
-``Documentation/devicetree/bindings/ABI.rst``.
+Documentation/devicetree/bindings/ABI.rst.
 
 Se estiverem sendo feitas alterações em um DTS que sejam incompatíveis com
 kernels antigos, o patch do DTS não deve ser aplicado até que o driver seja, ou
@@ -163,7 +163,7 @@ Algumas plataformas também possuem *System on Modules* (SoM), contendo um SoC,
 que são então integrados em diversas placas diferentes. Para essas plataformas,
 ``$soc-$som.dtsi`` e ``$soc-$som-$board.dts`` são típicos.
 
-Os diretórios geralmente são nomeados após o fornecedor do SoC no momento de sua
+Os diretórios geralmente recebem o nome do fornecedor do SoC no momento de sua
 inclusão, o que leva a alguns nomes de diretórios históricos na árvore.
 
 Validando Arquivos de Devicetree
@@ -171,14 +171,16 @@ Validando Arquivos de Devicetree
 
 ``make dtbs_check`` pode ser usado para validar se os arquivos de devicetree
 estão em conformidade com os *dt-bindings* que descrevem a ABI. Por favor, leia
-a seção "Running checks" de ``Documentation/devicetree/bindings/writing-schema.rst``
+a seção "Running checks" de Documentation/devicetree/bindings/writing-schema.rst
 para mais informações sobre a validação de devicetrees.
 
 Para novas plataformas, ou adições a plataformas existentes, ``make dtbs_check``
 não deve adicionar nenhum aviso (*warning*) novo. Para SoCs RISC-V e Samsung, é
 exigido que ``make dtbs_check W=1`` não adicione nenhum novo aviso.
-Se houver qualquer dúvida sobre uma alteração de devicetree, entre em contato
-com os mantenedores de devicetree.
+
+Além disso, código novo não deve ter nenhum aviso do
+``scripts/dtc/dt-check-style`` no modo 'relaxed' e deve ter resolvido a maioria
+dos avisos no modo 'strict' (este último modo pode produzir falsos positivos).
 
 Branches e Pull Requests
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -219,7 +221,7 @@ melhor do que tentar combinar muitos patches em um único pull request.
 A linha de assunto de um pull request deve começar com "[GIT PULL]" e ser feita
 usando uma tag assinada, em vez de um branch. Esta tag deve conter uma breve
 descrição resumindo as alterações no pull request. Para mais detalhes sobre o
-envio de pull requests, consulte ``Documentation/maintainer/pull-requests.rst``.
+envio de pull requests, consulte Documentation/maintainer/pull-requests.rst.
 
 Propósito dos Defconfigs
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -228,5 +230,5 @@ Defconfigs são usados principalmente pelos desenvolvedores do kernel, porque as
 distribuições têm suas próprias configurações. Uma mudança que adiciona novas
 opções CONFIG a um defconfig deve explicar por que os desenvolvedores do kernel
 em geral gostariam de tal opção, por exemplo, fornecendo o nome de uma máquina/placa
-suportada usando essa nova opção. Isso implica que habilitar opções em defconfig
-para máquinas não upstream não deve ser aceito.
+suportada no upstream usando essa nova opção. Isso implica que habilitar
+opções em defconfig para máquinas não upstream não deve ser aceito.
