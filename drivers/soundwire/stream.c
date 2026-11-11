@@ -1374,7 +1374,9 @@ static int sdw_config_stream(struct device *dev,
 		return -EINVAL;
 	}
 
-	if (stream->params.bps &&
+	/* PDM streams have no stream-wide bps; skip the match for them. */
+	if (stream_config->type != SDW_STREAM_PDM &&
+	    stream->params.bps &&
 	    stream->params.bps != stream_config->bps) {
 		dev_err(dev, "bps not matching, stream:%s\n", stream->name);
 		return -EINVAL;
