@@ -1243,7 +1243,14 @@ int configfs_depend_item_unlocked(struct configfs_subsystem *caller_subsys,
 	if (configfs_is_root(target))
 		return -EINVAL;
 
-	parent = target->ci_group;
+	/*
+	 * The target may not be linked into the tree yet (mkdir in progress)
+	 * or may already have been unlinked (rmdir in progress).
+	 */
+	parent = READ_ONCE(target->ci_group);
+	if (!parent)
+		return -ENOENT;
+
 	/*
 	 * This may happen when someone is trying to depend root
 	 * directory of some subsystem
