@@ -10,6 +10,7 @@
  */
 
 #include <linux/cpu.h>
+#include <linux/entry-common.h>
 #include <linux/errno.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -136,7 +137,7 @@ common_shutdown_1(void *generic_ptr)
 		/* If we've gotten here after SysRq-b, leave interrupt
 		   context before taking over the console. */
 		if (in_hardirq())
-			irq_exit();
+			irq_exit_rcu();
 		/* This has the effect of resetting the VGA video origin.  */
 		console_lock();
 		do_take_over_console(&dummy_con, 0, MAX_NR_CONSOLES-1, 1);
@@ -224,6 +225,21 @@ flush_thread(void)
 
 	/* Clean slate for TLS.  */
 	current_thread_info()->pcb.unique = 0;
+}
+
+/* The assembly stub keeps the complete user switch_stack below regs. */
+asmlinkage noinstr void alpha_ret_from_fork(struct task_struct *prev,
+					 struct pt_regs *regs,
+					 int (*fn)(void *), void *fn_arg)
+{
+	instrumentation_begin();
+	schedule_tail(prev);
+	if (fn)
+		fn(fn_arg);
+	instrumentation_end();
+
+	/* A kernel thread may return after a successful kernel_execve(). */
+	syscall_exit_to_user_mode(regs);
 }
 
 /*
@@ -327,20 +343,6 @@ dump_elf_thread(elf_greg_t *dest, struct pt_regs *pt, struct thread_info *ti)
 	dest[32] = ti->pcb.unique;
 }
 EXPORT_SYMBOL(dump_elf_thread);
-
-int
-dump_elf_task(elf_greg_t *dest, struct task_struct *task)
-{
-	dump_elf_thread(dest, task_pt_regs(task), task_thread_info(task));
-	return 1;
-}
-EXPORT_SYMBOL(dump_elf_task);
-
-int elf_core_copy_task_fpregs(struct task_struct *t, elf_fpregset_t *fpu)
-{
-	memcpy(fpu, task_thread_info(t)->fp, 32 * 8);
-	return 1;
-}
 
 /*
  * Return saved PC of a blocked thread.  This assumes the frame

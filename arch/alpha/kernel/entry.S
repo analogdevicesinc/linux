@@ -8,9 +8,6 @@
 #include <asm/asm-offsets.h>
 #include <asm/thread_info.h>
 #include <asm/pal.h>
-#include <asm/errno.h>
-#include <asm/unistd.h>
-#include <linux/errno.h>
 
 	.text
 	.set noat
@@ -186,79 +183,33 @@
 
 /*
  * Non-syscall kernel entry points.
+ *
+ * Between __entry_save_start and __entry_save_end the frame at task_pt_regs()
+ * may not be complete. perf uses these to avoid reading it.
  */
 
-CFI_START_OSF_FRAME entInt
-	SAVE_ALL
-	lda	$8, 0x3fff
-	lda	$26, ret_from_exception
-	bic	$sp, $8, $8
-	mov	$sp, $19
-	jsr	$31, do_entInt
-CFI_END_OSF_FRAME entInt
+	.globl	__entry_save_start
+__entry_save_start:
 
-CFI_START_OSF_FRAME entArith
+/* Keep the switch_stack available to generic exit work and fault fixups. */
+.macro EXCEPTION_ENTRY name, handler, regs_arg
+CFI_START_OSF_FRAME \name
 	SAVE_ALL
-	lda	$8, 0x3fff
-	lda	$26, ret_from_exception
-	bic	$sp, $8, $8
-	mov	$sp, $18
-	jsr	$31, do_entArith
-CFI_END_OSF_FRAME entArith
-
-CFI_START_OSF_FRAME entMM
-	SAVE_ALL
-/* save $9 - $15 so the inline exception code can manipulate them.  */
-	subq	$sp, 64, $sp
-	.cfi_adjust_cfa_offset	64
-	stq	$9, 0($sp)
-	stq	$10, 8($sp)
-	stq	$11, 16($sp)
-	stq	$12, 24($sp)
-	stq	$13, 32($sp)
-	stq	$14, 40($sp)
-	stq	$15, 48($sp)
-	.cfi_rel_offset	$9, 0
-	.cfi_rel_offset	$10, 8
-	.cfi_rel_offset	$11, 16
-	.cfi_rel_offset	$12, 24
-	.cfi_rel_offset	$13, 32
-	.cfi_rel_offset	$14, 40
-	.cfi_rel_offset	$15, 48
-	addq	$sp, 64, $19
-/* handle the fault */
+	mov	$sp, \regs_arg
+	DO_SWITCH_STACK
 	lda	$8, 0x3fff
 	bic	$sp, $8, $8
-	jsr	$26, do_page_fault
-/* reload the registers after the exception code played.  */
-	ldq	$9, 0($sp)
-	ldq	$10, 8($sp)
-	ldq	$11, 16($sp)
-	ldq	$12, 24($sp)
-	ldq	$13, 32($sp)
-	ldq	$14, 40($sp)
-	ldq	$15, 48($sp)
-	addq	$sp, 64, $sp
-	.cfi_restore	$9
-	.cfi_restore	$10
-	.cfi_restore	$11
-	.cfi_restore	$12
-	.cfi_restore	$13
-	.cfi_restore	$14
-	.cfi_restore	$15
-	.cfi_adjust_cfa_offset	-64
-/* finish up the syscall as normal.  */
+	jsr	$26, \handler
+	ldgp	$gp, 0($26)
+	UNDO_SWITCH_STACK
 	br	ret_from_exception
-CFI_END_OSF_FRAME entMM
+CFI_END_OSF_FRAME \name
+.endm
 
-CFI_START_OSF_FRAME entIF
-	SAVE_ALL
-	lda	$8, 0x3fff
-	lda	$26, ret_from_exception
-	bic	$sp, $8, $8
-	mov	$sp, $17
-	jsr	$31, do_entIF
-CFI_END_OSF_FRAME entIF
+EXCEPTION_ENTRY entInt, do_entInt, $19
+EXCEPTION_ENTRY entArith, do_entArith, $18
+EXCEPTION_ENTRY entMM, do_page_fault, $19
+EXCEPTION_ENTRY entIF, do_entIF, $17
 
 CFI_START_OSF_FRAME entUna
 	lda	$sp, -256($sp)
@@ -394,53 +345,17 @@ entUnaUser:
 	.cfi_restore	$0
 	.cfi_adjust_cfa_offset	-256
 	SAVE_ALL		/* setup normal kernel stack */
-	lda	$sp, -64($sp)
-	.cfi_adjust_cfa_offset	64
-	stq	$9, 0($sp)
-	stq	$10, 8($sp)
-	stq	$11, 16($sp)
-	stq	$12, 24($sp)
-	stq	$13, 32($sp)
-	stq	$14, 40($sp)
-	stq	$15, 48($sp)
-	.cfi_rel_offset	$9, 0
-	.cfi_rel_offset	$10, 8
-	.cfi_rel_offset	$11, 16
-	.cfi_rel_offset	$12, 24
-	.cfi_rel_offset	$13, 32
-	.cfi_rel_offset	$14, 40
-	.cfi_rel_offset	$15, 48
+	mov	$sp, $19
+	DO_SWITCH_STACK
 	lda	$8, 0x3fff
-	addq	$sp, 64, $19
 	bic	$sp, $8, $8
 	jsr	$26, do_entUnaUser
-	ldq	$9, 0($sp)
-	ldq	$10, 8($sp)
-	ldq	$11, 16($sp)
-	ldq	$12, 24($sp)
-	ldq	$13, 32($sp)
-	ldq	$14, 40($sp)
-	ldq	$15, 48($sp)
-	lda	$sp, 64($sp)
-	.cfi_restore	$9
-	.cfi_restore	$10
-	.cfi_restore	$11
-	.cfi_restore	$12
-	.cfi_restore	$13
-	.cfi_restore	$14
-	.cfi_restore	$15
-	.cfi_adjust_cfa_offset	-64
+	ldgp	$gp, 0($26)
+	UNDO_SWITCH_STACK
 	br	ret_from_exception
 CFI_END_OSF_FRAME entUna
 
-CFI_START_OSF_FRAME entDbg
-	SAVE_ALL
-	lda	$8, 0x3fff
-	lda	$26, ret_from_exception
-	bic	$sp, $8, $8
-	mov	$sp, $16
-	jsr	$31, do_entDbg
-CFI_END_OSF_FRAME entDbg
+EXCEPTION_ENTRY entDbg, do_entDbg, $16
 
 
 /*
@@ -473,57 +388,23 @@ CFI_END_OSF_FRAME entDbg
 	.cfi_rel_offset	$gp, 16
 entSys:
 	SAVE_ALL
-	ldq	$1, 0($sp)	/* syscall nr from saved r0 */
-	stq	$1, 8($sp)	/* regs->r1 = shadow syscall nr */
-
 	lda	$8, 0x3fff
 	bic	$sp, $8, $8
 
+	/* PAL_callsys does not save these, unlike the other entries. */
 	stq	$16, SP_OFF+24($sp)
 	stq	$17, SP_OFF+32($sp)
 	stq	$18, SP_OFF+40($sp)
+	.globl	__entry_save_end
+__entry_save_end:
 
-	mov	$0, $1
 	lda	$16, 7
 	call_pal PAL_swpipl
-	mov	$1, $0
 	mov	$sp, $16
-	mov	$0, $17	 /* pv = selected syscall function */
 
+	/* Keep the complete user context above all C call frames. */
 	DO_SWITCH_STACK
-	jsr	$26, alpha_syscall_enter_select
-	ldgp	$gp, 0($26)
-	UNDO_SWITCH_STACK
-
-	/*
-	 * C returned syscall function pointer in $0.
-	 * It also stored SKIP in TI_SYSCALL_META if dispatch is skipped.
-	 */
-	lda	$8, 0x3fff
-	bic	$sp, $8, $8
-	ldq	$3, TI_SYSCALL_META($8)
-	lda	$6, ALPHA_SYSCALL_META_SKIP
-	and	$3, $6, $6
-	bne	$6, skip_dispatch
-
-
-	mov	$0, $27
-	ldq	$16, SP_OFF+24($sp)
-	ldq	$17, SP_OFF+32($sp)
-	ldq	$18, SP_OFF+40($sp)
-	ldq	$19, 72($sp)
-	ldq	$20, 80($sp)
-	ldq	$21, 88($sp)
-
-	jsr	$26, ($27), sys_ni_syscall
-	ldgp	$gp, 0($26)
-
-skip_dispatch:
-	mov	$0, $17		/* raw ret; ignored if SKIP is set */
-	mov	$sp, $16	/* regs */
-
-	DO_SWITCH_STACK
-	jsr	$26, alpha_finish_syscall_to_user_mode
+	jsr	$26, alpha_syscall
 	ldgp	$gp, 0($26)
 	UNDO_SWITCH_STACK
 
@@ -538,46 +419,21 @@ restore_other:
 	RESTORE_ALL
 	call_pal PAL_rti
 
-ret_to_user_from_syscall:
-	lda	$8, 0x3fff
-	bic	$sp, $8, $8
-
-	mov	$sp, $16
-	DO_SWITCH_STACK
-	jsr	$26, alpha_syscall_exit_to_user_mode
-	ldgp	$gp, 0($26)
-	UNDO_SWITCH_STACK
-	br	restore_all
-
-	.align	4
-	.globl	ret_from_sys_call
-ret_from_sys_call:
-	ldq	$0, SP_OFF($sp)
-	and	$0, 8, $0
-	beq	$0, ret_to_kernel
-	br	ret_to_user_from_syscall
-
 ret_from_exception:
+	.cfi_restore_state
 	ldq	$0, SP_OFF($sp)
 	and	$0, 8, $0
-	beq	$0, ret_to_kernel
-	br	ret_to_user_from_exception
+	beq	$0, restore_other
+	br	restore_all
 
-ret_to_user_from_exception:
-
-	mov	$sp, $16
+ret_from_fork_common:
+	mov	$17, $16
+	mov	$sp, $17
 	DO_SWITCH_STACK
-	jsr	$26, alpha_exit_to_user_mode
+	jsr	$26, alpha_ret_from_fork
 	ldgp	$gp, 0($26)
 	UNDO_SWITCH_STACK
 	br	restore_all
-
-ret_to_kernel:
-	.cfi_restore_state
-	lda	$16, 7
-	call_pal PAL_swpipl
-	LOCKDEP_HARDIRQS_ON_RESTORE SP_OFF($sp)
-	br restore_other
 
 CFI_END_OSF_FRAME entSys
 
@@ -701,9 +557,9 @@ alpha_switch_to:
 	.align	4
 	.ent	ret_from_fork
 ret_from_fork:
-	lda	$26, ret_to_user_from_exception
-	mov	$17, $16
-	jmp	$31, schedule_tail
+	mov	$31, $18
+	mov	$31, $19
+	br	$31, ret_from_fork_common
 .end ret_from_fork
 
 /*
@@ -713,79 +569,7 @@ ret_from_fork:
 	.globl	ret_from_kernel_thread
 	.ent	ret_from_kernel_thread
 ret_from_kernel_thread:
-	mov	$17, $16
-	jsr	$26, schedule_tail
-	mov	$9, $27
-	mov	$10, $16
-	jsr	$26, ($9)
-	br	$31, ret_to_user_from_exception
+	mov	$9, $18
+	mov	$10, $19
+	br	$31, ret_from_fork_common
 .end ret_from_kernel_thread
-
-
-/*
- * Special system calls.  Most of these are special in that they either
- * have to play switch_stack games.
- */
-
-.macro	fork_like name
-	.align	4
-	.globl	alpha_\name
-	.ent	alpha_\name
-alpha_\name:
-	.prologue 0
-	bsr	$1, do_switch_stack
-	// NB: if anyone adds preemption, this block will need to be protected
-	ldl	$1, TI_STATUS($8)
-	and	$1, TS_SAVED_FP, $3
-	or	$1, TS_SAVED_FP, $2
-	bne	$3, 1f
-	stl	$2, TI_STATUS($8)
-	bsr	$26, __save_fpu
-1:
-	jsr	$26, sys_\name
-	ldq	$26, 56($sp)
-	lda	$sp, SWITCH_STACK_SIZE($sp)
-	ret
-.end	alpha_\name
-.endm
-
-fork_like fork
-fork_like vfork
-fork_like clone
-fork_like clone3
-
-.macro	sigreturn_like name
-	.align	4
-	.globl	sys_\name
-	.ent	sys_\name
-sys_\name:
-	.prologue 0
-	mov	$sp, $10
-	lda	$sp, -SWITCH_STACK_SIZE($sp)
-	jsr	$26, do_\name
-1:	br	$1, undo_switch_stack
-	br	ret_from_sys_call
-.end sys_\name
-.endm
-
-sigreturn_like sigreturn
-sigreturn_like rt_sigreturn
-
-	.align	4
-	.globl	alpha_syscall_zero
-	.ent	alpha_syscall_zero
-alpha_syscall_zero:
-	.prologue 0
-	/* Special because it needs to do something opposite to
-	   force_successful_syscall_return().  We use the saved
-	   syscall number for that, zero meaning "not an error".
-	   That works nicely, but for real syscall 0 we need to
-	   make sure that this logics doesn't get confused.
-	   Store a non-zero there - -ENOSYS we need in register
-	   for our return value will do just fine.
-	  */
-	lda	$0, -ENOSYS
-	unop
-	stq	$0, 0($sp)
-	ret
-.end alpha_syscall_zero

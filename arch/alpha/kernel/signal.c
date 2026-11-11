@@ -34,8 +34,6 @@
 
 #define _BLOCKABLE (~(sigmask(SIGKILL) | sigmask(SIGSTOP)))
 
-asmlinkage void ret_from_sys_call(void);
-
 /*
  * The OSF/1 sigprocmask calling sequence is different from the
  * C sigprocmask() sequence..
@@ -154,9 +152,8 @@ restore_sigcontext(struct sigcontext __user *sc, struct pt_regs *regs)
 	struct switch_stack *sw = (struct switch_stack *)regs - 1;
 
 	current->restart_block.fn = do_no_restart_syscall;
+	current_thread_info()->syscall_saved_nr = 0;
 	current_thread_info()->status |= TS_SAVED_FP | TS_RESTORE_FP;
-
-	sw->r26 = (unsigned long) ret_from_sys_call;
 
 	scoped_user_read_access(sc, Efault) {
 		unsafe_get_user(regs->pc, &sc->sc_pc, Efault);
@@ -206,11 +203,13 @@ Efault:
    a given sigcontext.  This because it's impossible to set *all*
    registers and transfer control from userland.  */
 
-asmlinkage void
-do_sigreturn(struct sigcontext __user *sc)
+SYSCALL_DEFINE1(sigreturn, struct sigcontext __user *, sc)
 {
 	struct pt_regs *regs = current_pt_regs();
 	sigset_t set;
+
+	/* The restored r0/r19 are user state, not a syscall result. */
+	current_thread_info()->syscall_meta |= ALPHA_SYSCALL_META_RESTORED;
 
 	scoped_user_read_access(sc, give_sigsegv)
 		unsafe_get_user(set.sig[0], &sc->sc_mask, give_sigsegv);
@@ -225,17 +224,20 @@ do_sigreturn(struct sigcontext __user *sc)
 		send_sig_fault(SIGTRAP, TRAP_BRKPT, (void __user *) regs->pc,
 			       current);
 	}
-	return;
+	return 0;
 
 give_sigsegv:
 	force_sig(SIGSEGV);
+	return 0;
 }
 
-asmlinkage void
-do_rt_sigreturn(struct rt_sigframe __user *frame)
+SYSCALL_DEFINE1(rt_sigreturn, struct rt_sigframe __user *, frame)
 {
 	struct pt_regs *regs = current_pt_regs();
 	sigset_t set;
+
+	/* The restored r0/r19 are user state, not a syscall result. */
+	current_thread_info()->syscall_meta |= ALPHA_SYSCALL_META_RESTORED;
 
 	/* Verify that it's a good ucontext_t before using it */
 	if (!access_ok(&frame->uc, sizeof(frame->uc)))
@@ -253,10 +255,11 @@ do_rt_sigreturn(struct rt_sigframe __user *frame)
 		send_sig_fault(SIGTRAP, TRAP_BRKPT, (void __user *) regs->pc,
 			       current);
 	}
-	return;
+	return 0;
 
 give_sigsegv:
 	force_sig(SIGSEGV);
+	return 0;
 }
 
 
@@ -497,17 +500,20 @@ do_signal(struct pt_regs *regs, unsigned long r0, unsigned long r19)
 	unsigned long single_stepping = ptrace_cancel_bpt(current);
 	struct ksignal ksig;
 
+	/* Consume restart state once, even if the exit loop repeats. */
+	current_thread_info()->syscall_saved_nr = 0;
+
 	/* This lets the debugger run, ... */
 	if (get_signal(&ksig)) {
 		/* ... so re-check the single stepping. */
 		single_stepping |= ptrace_cancel_bpt(current);
 		/* Whee!  Actually deliver the signal.  */
-		if (r0)
+		if (r0 && regs->r19)
 			syscall_restart(r0, r19, regs, &ksig.ka);
 		handle_signal(&ksig, regs);
 	} else {
 		single_stepping |= ptrace_cancel_bpt(current);
-		if (r0) {
+		if (r0 && regs->r19) {
 			switch (regs->r0) {
 			case ERESTARTNOHAND:
 			case ERESTARTSYS:
@@ -532,23 +538,6 @@ do_signal(struct pt_regs *regs, unsigned long r0, unsigned long r19)
 		ptrace_set_bpt(current);	/* re-set breakpoint */
 }
 
-asmlinkage void alpha_exit_to_user_mode(struct pt_regs *regs)
-{
-	local_irq_disable();
-	irqentry_exit_to_user_mode_prepare(regs);
-	exit_to_user_mode();
-}
-
-/*
- * Syscall return reaches here after Alpha-specific r0/a3 result encoding.
- * Delegate syscall-exit work and final exit-to-user handling to generic
- * entry code; low-level PAL restore remains in assembly.
- */
-asmlinkage void alpha_syscall_exit_to_user_mode(struct pt_regs *regs)
-{
-	syscall_exit_to_user_mode(regs);
-}
-
 void arch_do_signal_or_restart(struct pt_regs *regs)
 {
 	struct thread_info *ti = current_thread_info();
@@ -557,108 +546,4 @@ void arch_do_signal_or_restart(struct pt_regs *regs)
 	save_fpu();
 	preempt_enable();
 	do_signal(regs, ti->syscall_saved_nr, ti->syscall_saved_r19);
-}
-
-asmlinkage unsigned long
-alpha_syscall_enter_select(struct pt_regs *regs, long syscall)
-{
-	struct thread_info *ti = current_thread_info();
-	unsigned long saved_r0 = regs->r0;
-	unsigned long saved_r19 = regs->r19;
-	unsigned long fn = (unsigned long)sys_ni_syscall;
-	long nr = syscall;
-	bool permit;
-
-	ti->syscall_meta = 0;
-	ti->syscall_saved_nr = syscall;
-
-	if (!(ti->status & TS_SAVED_FP)) {
-		ti->status |= TS_SAVED_FP;
-		__save_fpu();
-	}
-
-	permit = syscall_enter_from_user_mode_randomize_stack(regs, &nr);
-
-	/*
-	 * Alpha cannot preset the full -ENOSYS return state before generic
-	 * entry handling, because r19 is still syscall argument 4 on the
-	 * normal dispatch path. So provide the default -ENOSYS result only
-	 * here, after we know no real syscall will be invoked, and only if
-	 * entry work did not already change the return state.
-	 */
-	if (unlikely(!permit || (unsigned long)nr >= NR_syscalls)) {
-		if (regs->r0 == saved_r0 && regs->r19 == saved_r19)
-			syscall_set_return_value(current, regs, -ENOSYS, 0);
-
-		ti->syscall_meta = ALPHA_SYSCALL_META_SKIP;
-		return fn;	/* ignored by asm when SKIP is set */
-	}
-
-	instrumentation_begin();
-	{
-		unsigned long index;
-
-		index = array_index_nospec((unsigned long)nr, NR_syscalls);
-		fn = (unsigned long)sys_call_table[index];
-	}
-	instrumentation_end();
-
-	return fn;
-}
-
-asmlinkage noinstr void
-alpha_finish_syscall_to_user_mode(struct pt_regs *regs, long ret)
-{
-	struct thread_info *ti = current_thread_info();
-	unsigned long meta = ti->syscall_meta;
-
-	ti->syscall_meta = 0;
-	ti->syscall_saved_r19 = regs->r19;
-
-	instrumentation_begin();
-
-	if (meta & ALPHA_SYSCALL_META_SKIP) {
-	/*
-	 * Skip-dispatch path: ptrace/seccomp may already have installed
-	 * the return state in r0/r19. Preserve it unless the syscall was
-	 * skipped with no explicit return value.
-	 *
-	 * Generic PTRACE_SET_SYSCALL_INFO changes only the syscall-number
-	 * shadow, so r1 == -1 while r0 still contains the original Alpha
-	 * syscall number. Legacy PTRACE_POKEUSR based skipping can leave
-	 * r0 == -1 with a3/r19 still indicating success. Both represent
-	 * an unhandled skipped syscall and should become ENOSYS/a3=1.
-	 */
-		if (regs->r1 == (unsigned long)-1 &&
-		   (regs->r0 == ti->syscall_saved_nr ||
-		    regs->r0 == (unsigned long)-1)) {
-			regs->r0 = ENOSYS;
-			regs->r19 = 1;
-		}
-
-		instrumentation_end();
-
-		syscall_exit_to_user_mode(regs);
-		return;
-	}
-
-	/*
-	 * Some successful syscalls, notably legacy ptrace PEEK requests,
-	 * return arbitrary data in r0.  That data may have the bit pattern
-	 * of a negative errno, so do not infer failure from ret < 0 when
-	 * arch code explicitly requested a successful Alpha return.
-	 */
-	if (meta & ALPHA_SYSCALL_META_FORCE_SUCCESS) {
-		regs->r0 = ret;
-		regs->r19 = 0;
-	} else if (ret < 0) {
-		regs->r0 = -ret;
-		regs->r19 = 1;
-	} else {
-		regs->r0 = ret;
-		regs->r19 = 0;
-	}
-
-	instrumentation_end();
-	syscall_exit_to_user_mode(regs);
 }

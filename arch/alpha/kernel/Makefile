@@ -8,7 +8,7 @@ asflags-y	:= $(KBUILD_CFLAGS)
 ccflags-y	:= -Wno-sign-compare
 
 obj-y    := head.o entry.o traps.o process.o osf_sys.o irq.o \
-	    irq_alpha.o signal.o setup.o ptrace.o time.o \
+	    irq_alpha.o signal.o syscall.o setup.o ptrace.o time.o \
 	    systbls.o err_common.o io.o bugs.o termios.o \
 	    stacktrace.o
 
@@ -20,7 +20,6 @@ obj-$(CONFIG_MODULES)	+= module.o
 obj-$(CONFIG_PERF_EVENTS) += perf_event.o
 obj-$(CONFIG_HAVE_PERF_REGS) += perf_regs.o
 obj-$(CONFIG_RTC_DRV_ALPHA) += rtc.o
-obj-$(CONFIG_AUDIT)	+= audit.o
 
 ifdef CONFIG_ALPHA_GENERIC
 

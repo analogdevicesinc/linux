@@ -14,6 +14,18 @@
 #define task_pt_regs(task) \
   ((struct pt_regs *) (task_stack_page(task) + 2*PAGE_SIZE) - 1)
 
+/*
+ * Whether pc is in entry code that may not have completed the frame at
+ * task_pt_regs(). See entry.S.
+ */
+static inline bool in_entry_save_code(unsigned long pc)
+{
+	extern char __entry_save_start[], __entry_save_end[];
+
+	return pc >= (unsigned long)__entry_save_start &&
+	       pc < (unsigned long)__entry_save_end;
+}
+
 #define current_pt_regs() \
   ((struct pt_regs *) ((char *)current_thread_info() + 2*PAGE_SIZE) - 1)
 
@@ -21,9 +33,18 @@
 	(current_thread_info()->syscall_meta \
 	|= ALPHA_SYSCALL_META_FORCE_SUCCESS)
 
-static inline unsigned long regs_return_value(struct pt_regs *regs)
+#define is_syscall_success is_syscall_success
+static inline int is_syscall_success(struct pt_regs *regs)
 {
-	return regs->r0;
+	return !regs->r19;
+}
+
+static inline long regs_return_value(struct pt_regs *regs)
+{
+	/* For user-mode registers, a3 is an error flag only at syscall exit. */
+	if (is_syscall_success(regs) || !user_mode(regs))
+		return regs->r0;
+	return -regs->r0;
 }
 
 unsigned long user_stack_pointer(struct pt_regs *regs);

@@ -280,21 +280,6 @@ static void alpha_elf_gregs_set(struct task_struct *child,
 
 	if (nwords > 32)
 		ti->pcb.unique = src[32];
-
-/*
- * PTRACE_SETREGSET can be used at a syscall-entry stop to skip the
- * syscall by setting the syscall number to -1.  The seccomp/ptrace
- * selftests use this to synthesize errno returns.
- *
- * Alpha uses r19/a3 as the error flag, so a skipped syscall with a
- * small positive r0 and a clear r19 must be normalized to an error
- * return.
- */
-	if (pt->r1 == (unsigned long)-1 &&
-	    pt->r19 == 0 &&
-	    pt->r0 > 0 &&
-	    pt->r0 < MAX_ERRNO)
-		pt->r19 = 1;
 }
 
 static int
@@ -328,7 +313,8 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 	 * mutable syscall number in regs->r1.
 	 */
 
-	if (regno == 0 && regs->r1 == old_r0 &&
+	if (regno == 0 && regs->r1 != (unsigned long)-1 &&
+	    regs->r1 == old_r0 &&
 		(data == (unsigned long)-1 ||
 		(regs->r19 == 0 && data < NR_syscalls))) {
 		regs->r1 = data;
@@ -339,6 +325,9 @@ put_reg(struct task_struct *task, unsigned long regno, unsigned long data)
 	 */
 		if (data == (unsigned long)-1)
 			regs->r19 = 0;
+	} else if (regno == 0) {
+		/* Once dispatch is cancelled, even -1 is a valid result. */
+		task_thread_info(task)->syscall_meta |= ALPHA_SYSCALL_META_RESULT;
 	}
 	return 0;
 }
@@ -500,12 +489,6 @@ long arch_ptrace(struct task_struct *child, long request,
 
 		force_successful_syscall_return();
 		break;
-	/* When I and D space are separate, this will have to be fixed.  */
-	case PTRACE_POKETEXT: /* write the word at location addr. */
-	case PTRACE_POKEDATA:
-		ret = generic_ptrace_pokedata(child, addr, data);
-		break;
-
 	case PTRACE_POKEUSR: /* write the specified register */
 		DBG(DBG_MEM, ("poke $%lu<-%#lx\n", addr, data));
 		ret = put_reg(child, addr, data);
@@ -517,16 +500,7 @@ long arch_ptrace(struct task_struct *child, long request,
 	return ret;
 }
 
-/*
- * Minimal regset support for Alpha.
- *
- * Alpha-specific notes:
- *  - Do NOT use ELF_CORE_COPY_REGS(): it uses current_thread_info(),
- *    which is wrong for non-current tasks.
- *  - dump_elf_task() returns 1 unconditionally in this tree, while
- *    regset_get should return 0 on success. So call dump_elf_thread()
- *    directly and return membuf_write()'s result.
- */
+/* Ptrace and ELF core dumps share the same Alpha register layouts. */
 static int alpha_regset_set(struct task_struct *target,
 			    const struct user_regset *regset,
 			    unsigned int pos, unsigned int count,
@@ -535,6 +509,7 @@ static int alpha_regset_set(struct task_struct *target,
 {
 	elf_gregset_t gregs;
 	unsigned int nwords;
+	bool writes_r0 = count && pos < sizeof(elf_greg_t);
 
 	if (pos + count > sizeof(gregs))
 		return -EIO;
@@ -551,6 +526,9 @@ static int alpha_regset_set(struct task_struct *target,
 
 	nwords = sizeof(gregs) / sizeof(elf_greg_t);
 	alpha_elf_gregs_set(target, gregs, nwords);
+	/* Only count r0 bytes actually supplied, not the preserved registers. */
+	if (writes_r0)
+		task_thread_info(target)->syscall_meta |= ALPHA_SYSCALL_META_RESULT;
 
 	return 0;
 }
@@ -595,10 +573,8 @@ static int alpha_fpregset_get(struct task_struct *target,
 			      const struct user_regset *regset,
 			      struct membuf to)
 {
-	elf_fpregset_t fpregs;
-
-	alpha_elf_fpregs_get(target, fpregs);
-	return membuf_write(&to, fpregs, sizeof(fpregs));
+	return membuf_write(&to, task_thread_info(target)->fp,
+			    sizeof(elf_fpregset_t));
 }
 
 enum alpha_regset {

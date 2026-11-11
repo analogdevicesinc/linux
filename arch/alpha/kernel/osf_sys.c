@@ -15,7 +15,7 @@
 #include <linux/sched/signal.h>
 #include <linux/sched/mm.h>
 #include <linux/sched/task_stack.h>
-#include <linux/sched/cputime.h>
+#include <linux/resource.h>
 #include <linux/kernel.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
@@ -960,13 +960,6 @@ put_tv_to_tv32(struct timeval32 __user *o, struct __kernel_old_timeval *i)
 			    sizeof(struct timeval32));
 }
 
-static inline void
-jiffies_to_timeval32(unsigned long jiffies, struct timeval32 *value)
-{
-	value->tv_usec = (jiffies % HZ) * (1000000L / HZ);
-	value->tv_sec = jiffies / HZ;
-}
-
 SYSCALL_DEFINE2(osf_gettimeofday, struct timeval32 __user *, tv,
 		struct timezone __user *, tz)
 {
@@ -1062,37 +1055,27 @@ struct rusage32 {
 	long	ru_nivcsw;		/* involuntary " */
 };
 
+static int put_rusage32(struct rusage32 __user *ru, struct rusage *r)
+{
+	if (put_tv_to_tv32(&ru->ru_utime, &r->ru_utime))
+		return -EFAULT;
+	if (put_tv_to_tv32(&ru->ru_stime, &r->ru_stime))
+		return -EFAULT;
+	if (copy_to_user(&ru->ru_maxrss, &r->ru_maxrss,
+			 sizeof(*ru) - offsetof(struct rusage32, ru_maxrss)))
+		return -EFAULT;
+	return 0;
+}
+
 SYSCALL_DEFINE2(osf_getrusage, int, who, struct rusage32 __user *, ru)
 {
-	struct rusage32 r;
-	u64 utime, stime;
-	unsigned long utime_jiffies, stime_jiffies;
+	struct rusage r;
 
 	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN)
 		return -EINVAL;
 
-	memset(&r, 0, sizeof(r));
-	switch (who) {
-	case RUSAGE_SELF:
-		task_cputime(current, &utime, &stime);
-		utime_jiffies = nsecs_to_jiffies(utime);
-		stime_jiffies = nsecs_to_jiffies(stime);
-		jiffies_to_timeval32(utime_jiffies, &r.ru_utime);
-		jiffies_to_timeval32(stime_jiffies, &r.ru_stime);
-		r.ru_minflt = current->min_flt;
-		r.ru_majflt = current->maj_flt;
-		break;
-	case RUSAGE_CHILDREN:
-		utime_jiffies = nsecs_to_jiffies(current->signal->cutime);
-		stime_jiffies = nsecs_to_jiffies(current->signal->cstime);
-		jiffies_to_timeval32(utime_jiffies, &r.ru_utime);
-		jiffies_to_timeval32(stime_jiffies, &r.ru_stime);
-		r.ru_minflt = current->signal->cmin_flt;
-		r.ru_majflt = current->signal->cmaj_flt;
-		break;
-	}
-
-	return copy_to_user(ru, &r, sizeof(r)) ? -EFAULT : 0;
+	getrusage(current, who, &r);
+	return put_rusage32(ru, &r);
 }
 
 SYSCALL_DEFINE4(osf_wait4, pid_t, pid, int __user *, ustatus, int, options,
@@ -1104,12 +1087,7 @@ SYSCALL_DEFINE4(osf_wait4, pid_t, pid, int __user *, ustatus, int, options,
 		return err;
 	if (!ur)
 		return err;
-	if (put_tv_to_tv32(&ur->ru_utime, &r.ru_utime))
-		return -EFAULT;
-	if (put_tv_to_tv32(&ur->ru_stime, &r.ru_stime))
-		return -EFAULT;
-	if (copy_to_user(&ur->ru_maxrss, &r.ru_maxrss,
-	      sizeof(struct rusage32) - offsetof(struct rusage32, ru_maxrss)))
+	if (put_rusage32(ur, &r))
 		return -EFAULT;
 	return err;
 }

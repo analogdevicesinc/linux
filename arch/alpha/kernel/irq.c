@@ -86,9 +86,7 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 }
 
 /*
- * handle_irq handles all normal device IRQ's (the special
- * SMP cross-CPU interrupts have their own specific
- * handlers).
+ * Device IRQs use this path. do_entInt() handles hardirq accounting.
  */
 
 #define MAX_ILLEGAL_IRQS 16
@@ -109,8 +107,6 @@ handle_irq(int irq)
 	static unsigned int illegal_count=0;
 	struct irq_desc *desc;
 
-	irq_enter();
-
 	desc = irq_to_desc(irq);
 	if (!desc || ((unsigned) irq > ACTUAL_NR_IRQS &&
 	    illegal_count < MAX_ILLEGAL_IRQS)) {
@@ -118,10 +114,8 @@ handle_irq(int irq)
 		illegal_count++;
 		printk(KERN_CRIT "device_interrupt: invalid interrupt %d\n",
 		       irq);
-		irq_exit();
 		return;
 	}
 
 	generic_handle_irq_desc(desc);
-	irq_exit();
 }
