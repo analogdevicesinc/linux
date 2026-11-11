@@ -213,6 +213,7 @@ superio_exit(int ioreg)
 #define NCT6683_CUSTOMER_ID_ASROCK5	0x1621
 #define NCT6683_CUSTOMER_ID_ASROCK6	0x1633
 #define NCT6683_CUSTOMER_ID_ASROCK7	0x163d
+#define NCT6683_CUSTOMER_ID_ASROCK8	0x164a
 
 #define NCT6683_REG_BUILD_YEAR		0x604
 #define NCT6683_REG_BUILD_MONTH		0x605
@@ -1853,6 +1854,8 @@ static int nct6683_probe(struct platform_device *pdev)
 	case NCT6683_CUSTOMER_ID_ASROCK6:
 		break;
 	case NCT6683_CUSTOMER_ID_ASROCK7:
+		break;
+	case NCT6683_CUSTOMER_ID_ASROCK8:
 		break;
 	default:
 		if (!force)
