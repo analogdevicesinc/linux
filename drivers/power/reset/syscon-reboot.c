@@ -31,16 +31,12 @@ struct syscon_reboot_context {
 
 	const struct reboot_data *rd; /* from of match data, if any */
 	struct reboot_mode_bits catchall; /* from DT */
-
-	struct notifier_block restart_handler;
 };
 
-static int syscon_restart_handle(struct notifier_block *this,
-					unsigned long mode, void *cmd)
+static int syscon_restart_handle(struct sys_off_data *data)
 {
-	struct syscon_reboot_context *ctx =
-			container_of(this, struct syscon_reboot_context,
-					restart_handler);
+	struct syscon_reboot_context *ctx = data->cb_data;
+	unsigned int mode = data->mode;
 	const struct reboot_mode_bits *mode_bits;
 
 	if (ctx->rd) {
@@ -113,11 +109,11 @@ static int syscon_reboot_probe(struct platform_device *pdev)
 		}
 	}
 
-	ctx->restart_handler.notifier_call = syscon_restart_handle;
-	ctx->restart_handler.priority = priority;
-	err = register_restart_handler(&ctx->restart_handler);
+	err = devm_register_sys_off_handler(dev, SYS_OFF_MODE_RESTART,
+					    priority, syscon_restart_handle,
+					    ctx);
 	if (err)
-		dev_err(dev, "can't register restart notifier (err=%d)\n", err);
+		dev_err(dev, "can't register restart handler (err=%d)\n", err);
 
 	return err;
 }

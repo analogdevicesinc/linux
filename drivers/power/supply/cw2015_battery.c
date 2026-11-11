@@ -603,7 +603,7 @@ static const struct regmap_range regmap_ranges_rd_yes[] = {
 
 static const struct regmap_access_table regmap_rd_table = {
 	.yes_ranges = regmap_ranges_rd_yes,
-	.n_yes_ranges = 4,
+	.n_yes_ranges = ARRAY_SIZE(regmap_ranges_rd_yes),
 };
 
 static const struct regmap_range regmap_ranges_wr_yes[] = {
@@ -615,7 +615,7 @@ static const struct regmap_range regmap_ranges_wr_yes[] = {
 
 static const struct regmap_access_table regmap_wr_table = {
 	.yes_ranges = regmap_ranges_wr_yes,
-	.n_yes_ranges = 3,
+	.n_yes_ranges = ARRAY_SIZE(regmap_ranges_wr_yes),
 };
 
 static const struct regmap_range regmap_ranges_vol_yes[] = {
@@ -624,7 +624,7 @@ static const struct regmap_range regmap_ranges_vol_yes[] = {
 
 static const struct regmap_access_table regmap_vol_table = {
 	.yes_ranges = regmap_ranges_vol_yes,
-	.n_yes_ranges = 1,
+	.n_yes_ranges = ARRAY_SIZE(regmap_ranges_vol_yes),
 };
 
 static const struct regmap_config cw2015_regmap_config = {
