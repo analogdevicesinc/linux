@@ -47,6 +47,7 @@ mandatory-y += percpu.h
 mandatory-y += percpu_types.h
 mandatory-y += pgalloc.h
 mandatory-y += preempt.h
+mandatory-y += ptr_eq.h
 mandatory-y += rqspinlock.h
 mandatory-y += runtime-const.h
 mandatory-y += rwonce.h
