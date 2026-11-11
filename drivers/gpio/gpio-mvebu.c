@@ -973,28 +973,29 @@ static void mvebu_gpio_dbg_show(struct seq_file *s, struct gpio_chip *chip)
 static const struct of_device_id mvebu_gpio_of_match[] = {
 	{
 		.compatible = "marvell,orion-gpio",
-		.data	    = (void *) MVEBU_GPIO_SOC_VARIANT_ORION,
+		.data	    = (void *)MVEBU_GPIO_SOC_VARIANT_ORION,
 	},
 	{
 		.compatible = "marvell,mv78200-gpio",
-		.data	    = (void *) MVEBU_GPIO_SOC_VARIANT_MV78200,
+		.data	    = (void *)MVEBU_GPIO_SOC_VARIANT_MV78200,
 	},
 	{
 		.compatible = "marvell,armadaxp-gpio",
-		.data	    = (void *) MVEBU_GPIO_SOC_VARIANT_ARMADAXP,
+		.data	    = (void *)MVEBU_GPIO_SOC_VARIANT_ARMADAXP,
 	},
 	{
 		.compatible = "marvell,armada-370-gpio",
-		.data	    = (void *) MVEBU_GPIO_SOC_VARIANT_ORION,
+		.data	    = (void *)MVEBU_GPIO_SOC_VARIANT_ORION,
 	},
 	{
 		.compatible = "marvell,armada-8k-gpio",
-		.data       = (void *) MVEBU_GPIO_SOC_VARIANT_A8K,
+		.data	    = (void *)MVEBU_GPIO_SOC_VARIANT_A8K,
 	},
 	{
 		/* sentinel */
-	},
+	}
 };
+MODULE_DEVICE_TABLE(of, mvebu_gpio_of_match);
 
 static int mvebu_gpio_suspend(struct platform_device *pdev, pm_message_t state)
 {

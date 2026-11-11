@@ -115,8 +115,4 @@ static struct platform_driver tps6586x_gpio_driver = {
 	.probe		= tps6586x_gpio_probe,
 };
 
-static int __init tps6586x_gpio_init(void)
-{
-	return platform_driver_register(&tps6586x_gpio_driver);
-}
-subsys_initcall(tps6586x_gpio_init);
+subsys_platform_driver(tps6586x_gpio_driver);

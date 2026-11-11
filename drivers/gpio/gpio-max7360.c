@@ -234,12 +234,12 @@ static int max7360_gpio_probe(struct platform_device *pdev)
 static const struct of_device_id max7360_gpio_of_match[] = {
 	{
 		.compatible = "maxim,max7360-gpo",
-		.data = &max7360_gpio_col_plat
+		.data = &max7360_gpio_col_plat,
 	}, {
 		.compatible = "maxim,max7360-gpio",
-		.data = &max7360_gpio_port_plat
-	}, {
-	}
+		.data = &max7360_gpio_port_plat,
+	},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, max7360_gpio_of_match);
 

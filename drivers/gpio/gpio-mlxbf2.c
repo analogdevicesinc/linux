@@ -450,9 +450,9 @@ static int mlxbf2_gpio_resume(struct device *dev)
 }
 static DEFINE_SIMPLE_DEV_PM_OPS(mlxbf2_pm_ops, mlxbf2_gpio_suspend, mlxbf2_gpio_resume);
 
-static const struct acpi_device_id __maybe_unused mlxbf2_gpio_acpi_match[] = {
-	{ "MLNXBF22", 0 },
-	{},
+static const struct acpi_device_id mlxbf2_gpio_acpi_match[] = {
+	{ .id = "MLNXBF22" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, mlxbf2_gpio_acpi_match);
 

@@ -228,7 +228,7 @@ static int sama5d2_piobu_probe(struct platform_device *pdev)
 
 static const struct of_device_id sama5d2_piobu_ids[] = {
 	{ .compatible = "atmel,sama5d2-secumod" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, sama5d2_piobu_ids);
 

@@ -145,7 +145,7 @@ static int modepin_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id modepin_platform_id[] = {
-	{ .compatible = "xlnx,zynqmp-gpio-modepin", },
+	{ .compatible = "xlnx,zynqmp-gpio-modepin" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, modepin_platform_id);

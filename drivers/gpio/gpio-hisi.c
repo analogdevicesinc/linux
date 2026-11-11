@@ -222,13 +222,13 @@ static void hisi_gpio_init_irq(struct hisi_gpio *hisi_gpio)
 }
 
 static const struct acpi_device_id hisi_gpio_acpi_match[] = {
-	{"HISI0184", 0},
-	{}
+	{ .id = "HISI0184" },
+	{ }
 };
 MODULE_DEVICE_TABLE(acpi, hisi_gpio_acpi_match);
 
 static const struct of_device_id hisi_gpio_dts_match[] = {
-	{ .compatible = "hisilicon,ascend910-gpio", },
+	{ .compatible = "hisilicon,ascend910-gpio" },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, hisi_gpio_dts_match);

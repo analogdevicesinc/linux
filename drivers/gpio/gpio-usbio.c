@@ -26,12 +26,12 @@ struct usbio_gpio {
 };
 
 static const struct acpi_device_id usbio_gpio_acpi_hids[] = {
-	{ "INTC1007" }, /* MTL */
-	{ "INTC10B2" }, /* ARL */
-	{ "INTC10B5" }, /* LNL */
-	{ "INTC10D1" }, /* MTL-CVF */
-	{ "INTC10E2" }, /* PTL */
-	{ "INTC1116" }, /* NVL */
+	{ .id = "INTC1007" }, /* MTL */
+	{ .id = "INTC10B2" }, /* ARL */
+	{ .id = "INTC10B5" }, /* LNL */
+	{ .id = "INTC10D1" }, /* MTL-CVF */
+	{ .id = "INTC10E2" }, /* PTL */
+	{ .id = "INTC1116" }, /* NVL */
 	{ }
 };
 
@@ -230,7 +230,7 @@ static int usbio_gpio_probe(struct auxiliary_device *adev,
 }
 
 static const struct auxiliary_device_id usbio_gpio_id_table[] = {
-	{ "usbio.usbio-gpio" },
+	{ .name = "usbio.usbio-gpio" },
 	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, usbio_gpio_id_table);

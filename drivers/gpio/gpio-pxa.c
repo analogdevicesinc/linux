@@ -572,16 +572,17 @@ static const struct irq_domain_ops pxa_irq_domain_ops = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id pxa_gpio_dt_ids[] = {
-	{ .compatible = "intel,pxa25x-gpio",	.data = &pxa25x_id, },
-	{ .compatible = "intel,pxa26x-gpio",	.data = &pxa26x_id, },
-	{ .compatible = "intel,pxa27x-gpio",	.data = &pxa27x_id, },
-	{ .compatible = "intel,pxa3xx-gpio",	.data = &pxa3xx_id, },
-	{ .compatible = "marvell,pxa93x-gpio",	.data = &pxa93x_id, },
-	{ .compatible = "marvell,mmp-gpio",	.data = &mmp_id, },
-	{ .compatible = "marvell,mmp2-gpio",	.data = &mmp2_id, },
-	{ .compatible = "marvell,pxa1928-gpio",	.data = &pxa1928_id, },
-	{}
+	{ .compatible = "intel,pxa25x-gpio",	.data = &pxa25x_id },
+	{ .compatible = "intel,pxa26x-gpio",	.data = &pxa26x_id },
+	{ .compatible = "intel,pxa27x-gpio",	.data = &pxa27x_id },
+	{ .compatible = "intel,pxa3xx-gpio",	.data = &pxa3xx_id },
+	{ .compatible = "marvell,pxa93x-gpio",	.data = &pxa93x_id },
+	{ .compatible = "marvell,mmp-gpio",	.data = &mmp_id },
+	{ .compatible = "marvell,mmp2-gpio",	.data = &mmp2_id },
+	{ .compatible = "marvell,pxa1928-gpio",	.data = &pxa1928_id },
+	{ }
 };
+MODULE_DEVICE_TABLE(of, pxa_gpio_dt_ids);
 
 static int pxa_gpio_probe_dt(struct platform_device *pdev,
 			     struct pxa_gpio_chip *pchip)
@@ -717,6 +718,7 @@ static const struct platform_device_id gpio_id_table[] = {
 	{ .name = "pxa1928-gpio",	.driver_data = (unsigned long)&pxa1928_id },
 	{ }
 };
+MODULE_DEVICE_TABLE(platform, gpio_id_table);
 
 static struct platform_driver pxa_gpio_driver = {
 	.probe		= pxa_gpio_probe,

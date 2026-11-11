@@ -23,6 +23,8 @@
 #define SIO_LDSEL		0x07	/* Logical device select */
 #define SIO_DEVID		0x20	/* Device ID (2 bytes) */
 
+#define SIO_ENABLE		0x30	/* Logical device enable */
+
 #define SIO_UNLOCK_KEY		0x87	/* Key to enable Super-I/O */
 #define SIO_LOCK_KEY		0xAA	/* Key to disable Super-I/O */
 
@@ -50,8 +52,12 @@
  */
 #define SIO_NCT6126D_VER_A_ID		0xD283  /* NCT6126D version A chipset ID */
 #define SIO_NCT6126D_VER_B_ID		0xD284  /* NCT6126D version B chipset ID */
+#define SIO_NCT5104D_VER_B_ID		0xC452  /* NCT5104D version B chipset ID */
+#define SIO_NCT5104D_VER_C_ID		0xC453  /* NCT5104D version C chipset ID */
 
 #define SIO_LD_GPIO_NUVOTON	0x07	/* GPIO logical device */
+#define SIO_NCT5104D_LD_OUTMODE	0x0F	/* GPIO output mode logical device */
+#define SIO_NCT5104D_MFS	0x1C	/* Multi-function select */
 
 
 enum chips {
@@ -64,6 +70,7 @@ enum chips {
 	f81804,
 	f81865,
 	nct6126d,
+	nct5104d,
 };
 
 static const char * const f7188x_names[] = {
@@ -76,6 +83,7 @@ static const char * const f7188x_names[] = {
 	"f81804",
 	"f81865",
 	"nct6126d",
+	"nct5104d",
 };
 
 struct f7188x_sio {
@@ -188,9 +196,16 @@ static int f7188x_gpio_set_config(struct gpio_chip *chip, unsigned offset,
 #define f7188x_gpio_data_in(base) ((base) + 2)
 /* Output mode register (0:open drain 1:push-pull). */
 #define f7188x_gpio_out_mode(base) ((base) + 3)
+/*
+ * NCT5104D output type register, in LD 0x0F (0:push-pull 1:open drain).
+ * LD7 spaces the groups 4 apart (E0, E4, F8); LD 0x0F uses one register
+ * per group (E0, E1, E6).
+ */
+#define nct5104d_gpio_out_mode(base) (0xE0 + ((base) - 0xE0) / 4)
 
-#define f7188x_gpio_dir_invert(type)	((type) == nct6126d)
-#define f7188x_gpio_data_single(type)	((type) == nct6126d)
+#define f7188x_is_nuvoton(type)		((type) == nct6126d || (type) == nct5104d)
+#define f7188x_gpio_dir_invert(type)	f7188x_is_nuvoton(type)
+#define f7188x_gpio_data_single(type)	f7188x_is_nuvoton(type)
 
 static struct f7188x_gpio_bank f71869_gpio_bank[] = {
 	F7188X_GPIO_BANK(6, 0xF0, DRVNAME "-0"),
@@ -285,6 +300,11 @@ static struct f7188x_gpio_bank nct6126d_gpio_bank[] = {
 	F7188X_GPIO_BANK(8, 0xF4, DRVNAME "-5"),
 	F7188X_GPIO_BANK(8, 0xF8, DRVNAME "-6"),
 	F7188X_GPIO_BANK(8, 0xFC, DRVNAME "-7"),
+};
+
+static struct f7188x_gpio_bank nct5104d_gpio_bank[] = {
+	F7188X_GPIO_BANK(8, 0xE0, DRVNAME "-0"),
+	F7188X_GPIO_BANK(8, 0xE4, DRVNAME "-1"),
 };
 
 static int f7188x_gpio_get_direction(struct gpio_chip *chip, unsigned offset)
@@ -419,6 +439,36 @@ static int f7188x_gpio_set(struct gpio_chip *chip, unsigned int offset,
 	return 0;
 }
 
+static void __f7188x_gpio_set_out_mode(struct f7188x_gpio_bank *bank,
+				       unsigned int offset, bool open_drain)
+{
+	struct f7188x_sio *sio = bank->data->sio;
+	u8 data;
+
+	superio_select(sio->addr, sio->device);
+	data = superio_inb(sio->addr, f7188x_gpio_out_mode(bank->regbase));
+	if (open_drain)
+		data &= ~BIT(offset);
+	else
+		data |= BIT(offset);
+	superio_outb(sio->addr, f7188x_gpio_out_mode(bank->regbase), data);
+}
+
+static void __nct5104d_gpio_set_out_mode(struct f7188x_gpio_bank *bank,
+					 unsigned int offset, bool open_drain)
+{
+	struct f7188x_sio *sio = bank->data->sio;
+	u8 data;
+
+	superio_select(sio->addr, SIO_NCT5104D_LD_OUTMODE);
+	data = superio_inb(sio->addr, nct5104d_gpio_out_mode(bank->regbase));
+	if (open_drain)
+		data |= BIT(offset);
+	else
+		data &= ~BIT(offset);
+	superio_outb(sio->addr, nct5104d_gpio_out_mode(bank->regbase), data);
+}
+
 static int f7188x_gpio_set_config(struct gpio_chip *chip, unsigned offset,
 				  unsigned long config)
 {
@@ -426,23 +476,21 @@ static int f7188x_gpio_set_config(struct gpio_chip *chip, unsigned offset,
 	enum pin_config_param param = pinconf_to_config_param(config);
 	struct f7188x_gpio_bank *bank = gpiochip_get_data(chip);
 	struct f7188x_sio *sio = bank->data->sio;
-	u8 data;
+	bool open_drain;
 
 	if (param != PIN_CONFIG_DRIVE_OPEN_DRAIN &&
 	    param != PIN_CONFIG_DRIVE_PUSH_PULL)
 		return -ENOTSUPP;
 
+	open_drain = param == PIN_CONFIG_DRIVE_OPEN_DRAIN;
 	err = superio_enter(sio->addr);
 	if (err)
 		return err;
-	superio_select(sio->addr, sio->device);
 
-	data = superio_inb(sio->addr, f7188x_gpio_out_mode(bank->regbase));
-	if (param == PIN_CONFIG_DRIVE_OPEN_DRAIN)
-		data &= ~BIT(offset);
+	if (sio->type == nct5104d)
+		__nct5104d_gpio_set_out_mode(bank, offset, open_drain);
 	else
-		data |= BIT(offset);
-	superio_outb(sio->addr, f7188x_gpio_out_mode(bank->regbase), data);
+		__f7188x_gpio_set_out_mode(bank, offset, open_drain);
 
 	superio_exit(sio->addr);
 	return 0;
@@ -458,6 +506,7 @@ static int f7188x_gpio_probe(struct platform_device *pdev)
 	int i;
 	struct f7188x_sio *sio = dev_get_platdata(&pdev->dev);
 	struct f7188x_gpio_data *data;
+	bool nct5104d_bank_0 = true, nct5104d_bank_1 = true;
 
 	data = devm_kzalloc_obj(&pdev->dev, *data);
 	if (!data)
@@ -500,6 +549,10 @@ static int f7188x_gpio_probe(struct platform_device *pdev)
 		data->nr_bank = ARRAY_SIZE(nct6126d_gpio_bank);
 		data->bank = nct6126d_gpio_bank;
 		break;
+	case nct5104d:
+		data->nr_bank = ARRAY_SIZE(nct5104d_gpio_bank);
+		data->bank = nct5104d_gpio_bank;
+		break;
 	default:
 		return -ENODEV;
 	}
@@ -507,12 +560,34 @@ static int f7188x_gpio_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, data);
 
+	if (sio->type == nct5104d) {
+		int cr1c, cr30;
+
+		err = superio_enter(sio->addr);
+		if (err)
+			return err;
+		cr1c = superio_inb(sio->addr, SIO_NCT5104D_MFS);
+		superio_select(sio->addr, sio->device);
+		cr30 = superio_inb(sio->addr, SIO_ENABLE);
+		superio_exit(sio->addr);
+
+		/* Bank 0: register it only if CR1C bit 3 (UART C) is clear and CR30 bit 0 is set */
+		nct5104d_bank_0 = !(cr1c & BIT(3)) && (cr30 & BIT(0));
+		/* Bank 1: register it only if CR1C bit 2 (UART D) is clear and CR30 bit 1 is set */
+		nct5104d_bank_1 = !(cr1c & BIT(2)) && (cr30 & BIT(1));
+	}
+
 	/* For each GPIO bank, register a GPIO chip. */
 	for (i = 0; i < data->nr_bank; i++) {
 		struct f7188x_gpio_bank *bank = &data->bank[i];
 
 		bank->chip.parent = &pdev->dev;
 		bank->data = data;
+
+		if ((i == 0 && !nct5104d_bank_0) || (i == 1 && !nct5104d_bank_1)) {
+			dev_info(&pdev->dev, "NCT5104D: Skip registering GPIO bank %d\n", i);
+			continue;
+		}
 
 		err = devm_gpiochip_add_data(&pdev->dev, &bank->chip, bank);
 		if (err) {
@@ -570,13 +645,18 @@ static int __init f7188x_find(int addr, struct f7188x_sio *sio)
 		sio->device = SIO_LD_GPIO_NUVOTON;
 		sio->type = nct6126d;
 		break;
+	case SIO_NCT5104D_VER_B_ID:
+	case SIO_NCT5104D_VER_C_ID:
+		sio->device = SIO_LD_GPIO_NUVOTON;
+		sio->type = nct5104d;
+		break;
 	default:
 		pr_info("Unsupported Fintek device 0x%04x\n", devid);
 		goto err;
 	}
 
 	/* double check manufacturer where possible */
-	if (sio->type != nct6126d) {
+	if (!f7188x_is_nuvoton(sio->type)) {
 		manid = superio_inw(addr, SIO_FINTEK_MANID);
 		if (manid != SIO_FINTEK_ID) {
 			pr_debug("Not a Fintek device at 0x%08x\n", addr);
@@ -588,7 +668,7 @@ static int __init f7188x_find(int addr, struct f7188x_sio *sio)
 	err = 0;
 
 	pr_info("Found %s at %#x\n", f7188x_names[sio->type], (unsigned int)addr);
-	if (sio->type != nct6126d)
+	if (!f7188x_is_nuvoton(sio->type))
 		pr_info("   revision %d\n", superio_inb(addr, SIO_FINTEK_DEVREV));
 
 err:

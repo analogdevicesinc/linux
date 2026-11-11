@@ -177,9 +177,10 @@ static int mpc52xx_wkup_gpiochip_probe(struct platform_device *ofdev)
 }
 
 static const struct of_device_id mpc52xx_wkup_gpiochip_match[] = {
-	{ .compatible = "fsl,mpc5200-gpio-wkup", },
-	{}
+	{ .compatible = "fsl,mpc5200-gpio-wkup" },
+	{ }
 };
+MODULE_DEVICE_TABLE(of, mpc52xx_wkup_gpiochip_match);
 
 static struct platform_driver mpc52xx_wkup_gpiochip_driver = {
 	.driver = {
@@ -339,9 +340,10 @@ static int mpc52xx_simple_gpiochip_probe(struct platform_device *ofdev)
 }
 
 static const struct of_device_id mpc52xx_simple_gpiochip_match[] = {
-	{ .compatible = "fsl,mpc5200-gpio", },
-	{}
+	{ .compatible = "fsl,mpc5200-gpio" },
+	{ }
 };
+MODULE_DEVICE_TABLE(of, mpc52xx_simple_gpiochip_match);
 
 static struct platform_driver mpc52xx_simple_gpiochip_driver = {
 	.driver = {

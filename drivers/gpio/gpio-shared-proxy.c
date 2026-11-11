@@ -377,7 +377,7 @@ static int gpio_shared_proxy_probe(struct auxiliary_device *adev,
 
 static const struct auxiliary_device_id gpio_shared_proxy_id_table[] = {
 	{ .name = "gpiolib_shared.proxy" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, gpio_shared_proxy_id_table);
 

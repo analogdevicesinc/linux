@@ -356,7 +356,7 @@ static const struct of_device_id realtek_gpio_of_match[] = {
 		.compatible = "realtek,rtl9607-gpio",
 		.data = (void *)GPIO_PORTS_REVERSED,
 	},
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, realtek_gpio_of_match);
 

@@ -463,7 +463,7 @@ and vice-versa::
 The GPIO number returned by desc_to_gpio() can safely be used as a parameter of
 the gpio\_*() functions for as long as the GPIO descriptor `desc` is not freed.
 All the same, a GPIO number passed to gpio_to_desc() must first be properly
-acquired using e.g. gpio_request_one(), and the returned GPIO descriptor is only
+acquired using e.g. gpio_request(), and the returned GPIO descriptor is only
 considered valid until that GPIO number is released using gpio_free().
 
 Freeing a GPIO obtained by one API with the other API is forbidden and an

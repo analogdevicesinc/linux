@@ -141,7 +141,7 @@ static const struct of_device_id sl28cpld_gpio_of_match[] = {
 	{ .compatible = "kontron,sl28cpld-gpio", .data = (void *)SL28CPLD_GPIO },
 	{ .compatible = "kontron,sl28cpld-gpi", .data = (void *)SL28CPLD_GPI },
 	{ .compatible = "kontron,sl28cpld-gpo", .data = (void *)SL28CPLD_GPO },
-	{}
+	{ }
 };
 MODULE_DEVICE_TABLE(of, sl28cpld_gpio_of_match);
 

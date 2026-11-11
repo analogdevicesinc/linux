@@ -669,8 +669,8 @@ static const struct dev_pm_ops tegra_gpio_pm_ops = {
 };
 
 static const struct of_device_id tegra_pmc_of_match[] = {
-	{ .compatible = "nvidia,tegra210-pmc", },
-	{ /* sentinel */ },
+	{ .compatible = "nvidia,tegra210-pmc" },
+	{ /* sentinel */ }
 };
 
 static int tegra_gpio_probe(struct platform_device *pdev)
@@ -807,7 +807,7 @@ static const struct of_device_id tegra_gpio_of_match[] = {
 	{ .compatible = "nvidia,tegra210-gpio", .data = &tegra210_gpio_config },
 	{ .compatible = "nvidia,tegra30-gpio", .data = &tegra30_gpio_config },
 	{ .compatible = "nvidia,tegra20-gpio", .data = &tegra20_gpio_config },
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, tegra_gpio_of_match);
 

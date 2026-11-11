@@ -46,9 +46,6 @@ struct board_info {
 
 	/* External PHY reset GPIO */
 	unsigned int ephy_reset_gpio;
-
-	/* External PHY reset GPIO flags from gpio.h */
-	unsigned long ephy_reset_gpio_flags;
 };
 
 #endif /* ! BOARD_BCM963XX_H_ */

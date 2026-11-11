@@ -150,13 +150,13 @@ static int pisosr_gpio_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id pisosr_gpio_id_table[] = {
-	{ "pisosr-gpio", },
+	{ .name = "pisosr-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(spi, pisosr_gpio_id_table);
 
 static const struct of_device_id pisosr_gpio_of_match_table[] = {
-	{ .compatible = "pisosr-gpio", },
+	{ .compatible = "pisosr-gpio" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, pisosr_gpio_of_match_table);

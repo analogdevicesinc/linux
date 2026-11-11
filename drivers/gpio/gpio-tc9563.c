@@ -80,7 +80,7 @@ static int tc9563_gpio_probe(struct auxiliary_device *adev,
 };
 
 static const struct auxiliary_device_id tc9563_gpio_ids[] = {
-	{ "pci_pwrctrl_tc9563." TC9563_GPIO_DEV_NAME },
+	{ .name = "pci_pwrctrl_tc9563." TC9563_GPIO_DEV_NAME },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(auxiliary, tc9563_gpio_ids);

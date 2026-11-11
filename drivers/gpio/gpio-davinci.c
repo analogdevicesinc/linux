@@ -666,10 +666,10 @@ static DEFINE_SIMPLE_DEV_PM_OPS(davinci_gpio_dev_pm_ops, davinci_gpio_suspend,
 			 davinci_gpio_resume);
 
 static const struct of_device_id davinci_gpio_ids[] = {
-	{ .compatible = "ti,keystone-gpio", keystone_gpio_get_irq_chip},
-	{ .compatible = "ti,am654-gpio", keystone_gpio_get_irq_chip},
-	{ .compatible = "ti,dm6441-gpio", davinci_gpio_get_irq_chip},
-	{ /* sentinel */ },
+	{ .compatible = "ti,keystone-gpio", .data = keystone_gpio_get_irq_chip },
+	{ .compatible = "ti,am654-gpio", .data = keystone_gpio_get_irq_chip },
+	{ .compatible = "ti,dm6441-gpio", .data = davinci_gpio_get_irq_chip },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, davinci_gpio_ids);
 

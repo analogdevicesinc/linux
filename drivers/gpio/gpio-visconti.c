@@ -219,7 +219,7 @@ static int visconti_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id visconti_gpio_of_match[] = {
-	{ .compatible = "toshiba,gpio-tmpv7708", },
+	{ .compatible = "toshiba,gpio-tmpv7708" },
 	{ /* end of table */ }
 };
 MODULE_DEVICE_TABLE(of, visconti_gpio_of_match);

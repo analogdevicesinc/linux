@@ -188,15 +188,17 @@ static int xgene_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id xgene_gpio_of_match[] = {
-	{ .compatible = "apm,xgene-gpio", },
-	{},
+	{ .compatible = "apm,xgene-gpio" },
+	{ }
 };
+MODULE_DEVICE_TABLE(of, xgene_gpio_of_match);
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id xgene_gpio_acpi_match[] = {
-	{ "APMC0D14", 0 },
-	{ },
+	{ .id = "APMC0D14" },
+	{ }
 };
+MODULE_DEVICE_TABLE(acpi, xgene_gpio_acpi_match);
 #endif
 
 static struct platform_driver xgene_gpio_driver = {

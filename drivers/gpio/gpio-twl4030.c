@@ -603,8 +603,8 @@ no_irqs:
 }
 
 static const struct of_device_id twl_gpio_match[] = {
-	{ .compatible = "ti,twl4030-gpio", },
-	{ },
+	{ .compatible = "ti,twl4030-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, twl_gpio_match);
 
@@ -618,18 +618,7 @@ static struct platform_driver gpio_twl4030_driver = {
 	},
 	.probe		= gpio_twl4030_probe,
 };
-
-static int __init gpio_twl4030_init(void)
-{
-	return platform_driver_register(&gpio_twl4030_driver);
-}
-subsys_initcall(gpio_twl4030_init);
-
-static void __exit gpio_twl4030_exit(void)
-{
-	platform_driver_unregister(&gpio_twl4030_driver);
-}
-module_exit(gpio_twl4030_exit);
+subsys_platform_driver(gpio_twl4030_driver);
 
 MODULE_AUTHOR("Texas Instruments, Inc.");
 MODULE_DESCRIPTION("GPIO interface for TWL4030");

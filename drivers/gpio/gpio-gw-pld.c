@@ -115,8 +115,8 @@ static const struct i2c_device_id gw_pld_id[] = {
 MODULE_DEVICE_TABLE(i2c, gw_pld_id);
 
 static const struct of_device_id gw_pld_dt_ids[] = {
-	{ .compatible = "gateworks,pld-gpio", },
-	{ },
+	{ .compatible = "gateworks,pld-gpio" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, gw_pld_dt_ids);
 

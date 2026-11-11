@@ -1386,7 +1386,7 @@ static const struct of_device_id omap_gpio_match[] = {
 		.compatible = "ti,omap2-gpio",
 		.data = &omap2_pdata,
 	},
-	{ },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, omap_gpio_match);
 

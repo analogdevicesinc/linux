@@ -134,7 +134,7 @@ static int ltq_mm_probe(struct platform_device *pdev)
 
 static const struct of_device_id ltq_mm_match[] = {
 	{ .compatible = "lantiq,gpio-mm" },
-	{},
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ltq_mm_match);
 
@@ -146,15 +146,4 @@ static struct platform_driver ltq_mm_driver = {
 	},
 };
 
-static int __init ltq_mm_init(void)
-{
-	return platform_driver_register(&ltq_mm_driver);
-}
-
-subsys_initcall(ltq_mm_init);
-
-static void __exit ltq_mm_exit(void)
-{
-	platform_driver_unregister(&ltq_mm_driver);
-}
-module_exit(ltq_mm_exit);
+subsys_platform_driver(ltq_mm_driver);
