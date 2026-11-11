@@ -1958,7 +1958,7 @@ struct page *swiotlb_alloc(struct device *dev, size_t size, unsigned long attrs)
 
 	tlb_addr = slot_addr(pool->start, index);
 	if (unlikely(!PAGE_ALIGNED(tlb_addr))) {
-		dev_WARN_ONCE(dev, 1, "Cannot allocate pages from non page-aligned swiotlb addr 0x%pa.\n",
+		dev_WARN_ONCE(dev, 1, "Cannot allocate pages from non page-aligned swiotlb addr %pa.\n",
 			      &tlb_addr);
 		swiotlb_release_slots(dev, tlb_addr, pool);
 		return NULL;

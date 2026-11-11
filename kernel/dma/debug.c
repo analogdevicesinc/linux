@@ -1034,8 +1034,8 @@ static void check_unmap(struct dma_debug_entry *ref)
 		err_printk(ref->dev, entry, "device driver frees "
 			   "DMA memory with different CPU address "
 			   "[device address=0x%016llx] [size=%llu bytes] "
-			   "[cpu alloc address=0x%pa] "
-			   "[cpu free address=0x%pa]",
+			   "[cpu alloc address=%pa] "
+			   "[cpu free address=%pa]",
 			   ref->dev_addr, ref->size,
 			   &entry->paddr,
 			   &ref->paddr);
