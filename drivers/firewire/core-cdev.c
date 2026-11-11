@@ -48,16 +48,16 @@
 #define FW_CDEV_VERSION_EVENT_ASYNC_TSTAMP	6
 
 static DEFINE_MUTEX(phy_receiver_list_mutex);
-static LIST_HEAD(phy_receiver_list);
+static LIST_HEAD_GUARDED(phy_receiver_list, phy_receiver_list_mutex);
 
 struct client {
 	u32 version;
 	struct fw_device *device;
 
 	struct mutex mutex;
-	bool in_shutdown;
+	bool in_shutdown __guarded_by(mutex);
 	struct xarray resource_xa;
-	struct list_head event_list;
+	struct list_head event_list __guarded_by(mutex);
 	wait_queue_head_t wait;
 	wait_queue_head_t tx_flush_wait;
 	u64 bus_reset_closure;
@@ -68,7 +68,7 @@ struct client {
 	struct fw_iso_buffer buffer;
 	unsigned long vm_start;
 
-	struct list_head phy_receiver_link;
+	struct list_head phy_receiver_link __guarded_by(phy_receiver_list_mutex);
 	u64 phy_receiver_closure;
 
 	struct list_head link;
@@ -118,7 +118,7 @@ struct inbound_transaction_resource {
 	struct fw_card *card;
 	struct fw_request *request;
 	bool is_fcp;
-	void *data;
+	void *data __counted_by_ptr(length);
 	size_t length;
 };
 
@@ -317,10 +317,10 @@ static int fw_device_op_open(struct inode *inode, struct file *file)
 	client->device = device;
 	mutex_init(&client->mutex);
 	xa_init_flags(&client->resource_xa, XA_FLAGS_ALLOC1 | XA_FLAGS_LOCK_BH);
-	INIT_LIST_HEAD(&client->event_list);
+	context_unsafe(INIT_LIST_HEAD(&client->event_list));
 	init_waitqueue_head(&client->wait);
 	init_waitqueue_head(&client->tx_flush_wait);
-	INIT_LIST_HEAD(&client->phy_receiver_link);
+	context_unsafe(INIT_LIST_HEAD(&client->phy_receiver_link));
 	INIT_LIST_HEAD(&client->link);
 	kref_init(&client->kref);
 	mutex_init(&client->iso_context_mutex);
@@ -443,6 +443,7 @@ static void for_each_client(struct fw_device *device,
 }
 
 static void queue_bus_reset_event(struct client *client)
+__must_hold(&client->device->client_list_mutex)
 {
 	struct bus_reset_event *e;
 	struct client_resource *resource;
@@ -671,9 +672,8 @@ static int init_request(struct client *client,
 			struct fw_cdev_send_request *request,
 			int destination_id, int speed)
 {
-	struct outbound_transaction_event *e;
+	struct outbound_transaction_event *e __free(kfree) = NULL;
 	void *payload;
-	int ret;
 
 	if (request->tcode != TCODE_STREAM_DATA &&
 	    (request->length > 4096 || request->length > 512 << speed))
@@ -704,24 +704,19 @@ static int init_request(struct client *client,
 		payload = rsp->data;
 	}
 
-	if (request->data && copy_from_user(payload, u64_to_uptr(request->data), request->length)) {
-		ret = -EFAULT;
-		goto failed;
-	}
+	if (request->data && copy_from_user(payload, u64_to_uptr(request->data), request->length))
+		return -EFAULT;
 
-	ret = add_client_resource(client, &e->r.resource, release_transaction);
+	int ret = add_client_resource(client, &e->r.resource, release_transaction);
 	if (ret < 0)
-		goto failed;
+		return ret;
 
 	fw_send_request_with_tstamp(client->device->card, &e->r.transaction, request->tcode,
 				    destination_id, request->generation, speed, request->offset,
 				    payload, request->length, complete_transaction, e);
+	retain_and_null_ptr(e);
+
 	return 0;
-
- failed:
-	kfree(e);
-
-	return ret;
 }
 
 static int ioctl_send_request(struct client *client, union ioctl_arg *arg)
@@ -965,7 +960,7 @@ static void release_descriptor(struct client *client,
 static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 {
 	struct fw_cdev_add_descriptor *a = &arg->add_descriptor;
-	struct descriptor_resource *r;
+	struct descriptor_resource *r __free(kfree) = NULL;
 	int ret;
 
 	/* Access policy: Allow this ioctl only on local nodes' device files. */
@@ -979,11 +974,8 @@ static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 	if (r == NULL)
 		return -ENOMEM;
 
-	if (copy_from_user(r->data, u64_to_uptr(a->data),
-			   flex_array_size(r, data, a->length))) {
-		ret = -EFAULT;
-		goto failed;
-	}
+	if (copy_from_user(r->data, u64_to_uptr(a->data), flex_array_size(r, data, a->length)))
+		return -EFAULT;
 
 	r->descriptor.length    = a->length;
 	r->descriptor.immediate = a->immediate;
@@ -992,20 +984,16 @@ static int ioctl_add_descriptor(struct client *client, union ioctl_arg *arg)
 
 	ret = fw_core_add_descriptor(&r->descriptor);
 	if (ret < 0)
-		goto failed;
+		return ret;
 
 	ret = add_client_resource(client, &r->resource, release_descriptor);
 	if (ret < 0) {
 		fw_core_remove_descriptor(&r->descriptor);
-		goto failed;
+		return ret;
 	}
-	a->handle = r->resource.handle;
+	a->handle = no_free_ptr(r)->resource.handle;
 
 	return 0;
- failed:
-	kfree(r);
-
-	return ret;
 }
 
 static int ioctl_remove_descriptor(struct client *client, union ioctl_arg *arg)
@@ -1316,9 +1304,12 @@ static int ioctl_get_cycle_timer(struct client *client, union ioctl_arg *arg)
 {
 	struct fw_cdev_get_cycle_timer *a = &arg->get_cycle_timer;
 	struct fw_cdev_get_cycle_timer2 ct2;
+	int ret;
 
 	ct2.clk_id = CLOCK_REALTIME;
-	ioctl_get_cycle_timer2(client, (union ioctl_arg *)&ct2);
+	ret = ioctl_get_cycle_timer2(client, (union ioctl_arg *)&ct2);
+	if (ret < 0)
+		return ret;
 
 	a->local_time = ct2.tv_sec * USEC_PER_SEC + ct2.tv_nsec / NSEC_PER_USEC;
 	a->cycle_timer = ct2.cycle_timer;
@@ -1956,8 +1947,10 @@ static int fw_device_op_release(struct inode *inode, struct file *file)
 	}
 	xa_destroy(&client->resource_xa);
 
-	list_for_each_entry_safe(event, next_event, &client->event_list, link)
-		kfree(event);
+	scoped_guard(mutex, &client->mutex) {
+		list_for_each_entry_safe(event, next_event, &client->event_list, link)
+			kfree(event);
+	}
 
 	client_put(client);
 
@@ -1973,7 +1966,8 @@ static __poll_t fw_device_op_poll(struct file *file, poll_table * pt)
 
 	if (fw_device_is_shutdown(client->device))
 		mask |= EPOLLHUP | EPOLLERR;
-	if (!list_empty(&client->event_list))
+
+	if (context_unsafe(!list_empty(&client->event_list)))
 		mask |= EPOLLIN | EPOLLRDNORM;
 
 	return mask;

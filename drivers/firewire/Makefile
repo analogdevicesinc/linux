@@ -4,6 +4,7 @@
 #
 
 CONTEXT_ANALYSIS_core-transaction.o := y
+CONTEXT_ANALYSIS_core-cdev.o := y
 
 firewire-core-y += core-trace.o core-card.o core-cdev.o core-device.o \
                    core-iso.o core-topology.o core-transaction.o
