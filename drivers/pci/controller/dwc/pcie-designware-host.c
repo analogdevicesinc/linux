@@ -918,19 +918,13 @@ static int dw_pcie_iatu_setup(struct dw_pcie_rp *pp)
 		atu.parent_bus_addr = entry->res->start - pci->parent_bus_offset;
 		atu.pci_addr = entry->res->start - entry->offset;
 
-		if (pp->bypass_ob_mem_iatu) {
-			/*
-			 * The no-match pass-through path preserves the correct
-			 * PCI address only for identity-mapped MEM ranges.
-			 */
-			if (atu.parent_bus_addr != atu.pci_addr) {
-				dev_err(pci->dev,
-					"Cannot bypass outbound iATU for non-identity MEM range %pr\n",
-					entry->res);
-				return -EINVAL;
-			}
+		/*
+		 * No ATU translation is required when the parent-bus
+		 * address matches the PCI address. This is a property of
+		 * the DesignWare controller.
+		 */
+		if (atu.parent_bus_addr == atu.pci_addr)
 			continue;
-		}
 
 		/* Adjust iATU size if MSG TLP region was allocated before */
 		if (pp->msg_res && pp->msg_res->parent == entry->res)

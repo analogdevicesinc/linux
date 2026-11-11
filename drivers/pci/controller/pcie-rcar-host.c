@@ -341,7 +341,7 @@ done:
 		 (macsr & LINK_SPEED) == LINK_SPEED_5_0GTS ? "5" : "2.5");
 }
 
-static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
+static int rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(host);
@@ -358,6 +358,11 @@ static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 		if (!res->flags)
 			continue;
 
+		if (i >= RCAR_PCI_MAX_RESOURCES)
+			return dev_err_probe(pcie->dev, -ENOSPC,
+					     "Too many IO/MEM entries in DT 'ranges' property, limit is %d\n",
+					     RCAR_PCI_MAX_RESOURCES);
+
 		switch (resource_type(res)) {
 		case IORESOURCE_IO:
 		case IORESOURCE_MEM:
@@ -366,13 +371,18 @@ static void rcar_pcie_hw_enable(struct rcar_pcie_host *host)
 			break;
 		}
 	}
+
+	return 0;
 }
 
 static int rcar_pcie_enable(struct rcar_pcie_host *host)
 {
 	struct pci_host_bridge *bridge = pci_host_bridge_from_priv(host);
+	int ret;
 
-	rcar_pcie_hw_enable(host);
+	ret = rcar_pcie_hw_enable(host);
+	if (ret)
+		return ret;
 
 	pci_add_flags(PCI_REASSIGN_ALL_BUS);
 
@@ -758,7 +768,7 @@ static int rcar_pcie_enable_msi(struct rcar_pcie_host *host)
 			       rcar_msi_bottom_chip.name, host);
 	if (err < 0) {
 		dev_err(dev, "failed to request IRQ: %d\n", err);
-		goto err;
+		goto err_irq2;
 	}
 
 	/* Disable all MSIs */
@@ -773,6 +783,9 @@ static int rcar_pcie_enable_msi(struct rcar_pcie_host *host)
 
 	return 0;
 
+err_irq2:
+	devm_free_irq(dev, host->msi.irq1, host);
+
 err:
 	rcar_free_domains(msi);
 	return err;
@@ -781,6 +794,7 @@ err:
 static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 {
 	struct rcar_pcie *pcie = &host->pcie;
+	struct device *dev = pcie->dev;
 
 	/* Disable all MSI interrupts */
 	rcar_pci_write_reg(pcie, 0, PCIEMSIIER);
@@ -788,6 +802,8 @@ static void rcar_pcie_teardown_msi(struct rcar_pcie_host *host)
 	/* Disable address decoding of the MSI interrupt, MSIFE */
 	rcar_pci_write_reg(pcie, 0, PCIEMSIALR);
 
+	devm_free_irq(dev, host->msi.irq2, host);
+	devm_free_irq(dev, host->msi.irq1, host);
 	rcar_free_domains(&host->msi);
 }
 
@@ -1122,7 +1138,11 @@ static const struct of_device_id rcar_pcie_abort_handler_of_match[] __initconst 
 
 static int __init rcar_pcie_init(void)
 {
-	if (of_find_matching_node(NULL, rcar_pcie_abort_handler_of_match)) {
+	struct device_node *np;
+
+	np = of_find_matching_node(NULL, rcar_pcie_abort_handler_of_match);
+	if (np) {
+		of_node_put(np);
 #ifdef CONFIG_ARM_LPAE
 		hook_fault_code(17, rcar_pcie_aarch32_abort_handler, SIGBUS, 0,
 				"asynchronous external abort");

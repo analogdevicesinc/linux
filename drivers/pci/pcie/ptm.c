@@ -171,6 +171,7 @@ static int __pci_enable_ptm(struct pci_dev *dev)
  */
 int pci_enable_ptm(struct pci_dev *dev)
 {
+	struct pci_dev *parent = NULL;
 	int rc;
 	char clock_desc[8];
 
@@ -183,8 +184,6 @@ int pci_enable_ptm(struct pci_dev *dev)
 	 * we can enable PTM.
 	 */
 	if (!dev->ptm_root) {
-		struct pci_dev *parent;
-
 		parent = pci_upstream_ptm(dev);
 		if (!parent)
 			return -EINVAL;
@@ -201,6 +200,9 @@ int pci_enable_ptm(struct pci_dev *dev)
 	rc = __pci_enable_ptm(dev);
 	if (rc) {
 		atomic_dec(&dev->ptm_enable_cnt);
+		/* Release the references taken on the upstream path above */
+		if (parent)
+			pci_disable_ptm(parent);
 		return rc;
 	}
 
@@ -240,13 +242,18 @@ static void __pci_disable_ptm(struct pci_dev *dev)
  * pci_disable_ptm() - Disable Precision Time Measurement
  * @dev: PCI device
  *
- * Disable Precision Time Measurement for @dev.
+ * Disable Precision Time Measurement for @dev.  Do nothing if PTM is not
+ * enabled for @dev, for example because pci_enable_ptm() failed.
  */
 void pci_disable_ptm(struct pci_dev *dev)
 {
 	struct pci_dev *parent;
+	int cnt;
 
-	if (atomic_dec_and_test(&dev->ptm_enable_cnt))
+	cnt = atomic_dec_if_positive(&dev->ptm_enable_cnt);
+	if (cnt < 0)
+		return;
+	if (cnt == 0)
 		__pci_disable_ptm(dev);
 
 	parent = pci_upstream_ptm(dev);

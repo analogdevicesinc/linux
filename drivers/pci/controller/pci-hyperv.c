@@ -68,6 +68,7 @@ enum pci_protocol_version_t {
 	PCI_PROTOCOL_VERSION_1_2 = PCI_MAKE_VERSION(1, 2),	/* RS1 */
 	PCI_PROTOCOL_VERSION_1_3 = PCI_MAKE_VERSION(1, 3),	/* Vibranium */
 	PCI_PROTOCOL_VERSION_1_4 = PCI_MAKE_VERSION(1, 4),	/* WS2022 */
+	PCI_PROTOCOL_VERSION_1_5 = PCI_MAKE_VERSION(1, 5),	/* GE, device reset */
 };
 
 #define CPU_AFFINITY_ALL	-1ULL
@@ -77,6 +78,7 @@ enum pci_protocol_version_t {
  * first.
  */
 static enum pci_protocol_version_t pci_protocol_versions[] = {
+	PCI_PROTOCOL_VERSION_1_5,
 	PCI_PROTOCOL_VERSION_1_4,
 	PCI_PROTOCOL_VERSION_1_3,
 	PCI_PROTOCOL_VERSION_1_2,
@@ -90,6 +92,7 @@ static enum pci_protocol_version_t pci_protocol_versions[] = {
 #define MAX_SUPPORTED_MSI_MESSAGES 0x400
 
 #define STATUS_REVISION_MISMATCH 0xC0000059
+#define STATUS_NOT_SUPPORTED     0xC00000BB
 
 /* space for 32bit serial number as string */
 #define SLOT_NAME_SIZE 11
@@ -136,6 +139,7 @@ enum pci_message_type {
 	PCI_BUS_RELATIONS2		= PCI_MESSAGE_BASE + 0x19,
 	PCI_RESOURCES_ASSIGNED3         = PCI_MESSAGE_BASE + 0x1A,
 	PCI_CREATE_INTERRUPT_MESSAGE3   = PCI_MESSAGE_BASE + 0x1B,
+	PCI_RESET_DEVICE                = PCI_MESSAGE_BASE + 0x1C,
 	PCI_MESSAGE_MAXIMUM
 };
 
@@ -1413,6 +1417,52 @@ static int hv_pcifront_write_config(struct pci_bus *bus, unsigned int devfn,
 	return PCIBIOS_SUCCESSFUL;
 }
 
+static int hv_pci_reset_device(struct pci_host_bridge *bridge,
+			       struct pci_dev *pdev)
+{
+	struct hv_pcibus_device *hbus =
+		container_of(bridge->sysdata, struct hv_pcibus_device, sysdata);
+	struct pci_child_message reset = {};
+	struct hv_pci_compl comp_pkt;
+	struct pci_packet pkt = {
+		.completion_func = hv_pci_generic_compl,
+		.compl_ctxt = &comp_pkt,
+	};
+	enum hv_pcibus_state state;
+	int ret;
+
+	/* Do not take state_lock: eject holds it while removing/locking pdev. */
+	state = READ_ONCE(hbus->state);
+	if (state != hv_pcibus_probed && state != hv_pcibus_installed)
+		return -ENODEV;
+
+	init_completion(&comp_pkt.host_event);
+	reset.message_type.type = PCI_RESET_DEVICE;
+	reset.wslot.slot = devfn_to_wslot(pdev->devfn);
+
+	ret = vmbus_sendpacket(hbus->hdev->channel, &reset, sizeof(reset),
+			       (unsigned long)&pkt, VM_PKT_DATA_INBAND,
+			       VMBUS_DATA_PACKET_FLAG_COMPLETION_REQUESTED);
+	if (ret)
+		return ret;
+
+	ret = wait_for_response(hbus->hdev, &comp_pkt.host_event,
+				"PCI_RESET_DEVICE");
+	if (ret)
+		return ret;
+
+	if (comp_pkt.completion_status == STATUS_NOT_SUPPORTED)
+		return -ENOTTY;
+
+	if (comp_pkt.completion_status) {
+		pci_err(pdev, "Hyper-V device reset failed: %#x\n",
+			comp_pkt.completion_status);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 /* PCIe operations */
 static struct pci_ops hv_pcifront_ops = {
 	.read  = hv_pcifront_read_config,
@@ -2014,6 +2064,7 @@ static void hv_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 		break;
 
 	case PCI_PROTOCOL_VERSION_1_4:
+	case PCI_PROTOCOL_VERSION_1_5:
 		size = hv_compose_msi_req_v3(&ctxt.int_pkts.v3,
 					cpu,
 					hpdev->desc.win_slot.slot,
@@ -2541,6 +2592,9 @@ static int create_root_hv_pci_bus(struct hv_pcibus_device *hbus)
 	bridge->dev.parent = &hbus->hdev->device;
 	bridge->sysdata = &hbus->sysdata;
 	bridge->ops = &hv_pcifront_ops;
+
+	if (hbus->protocol_version >= PCI_PROTOCOL_VERSION_1_5)
+		bridge->reset_root_port = hv_pci_reset_device;
 
 	error = pci_scan_root_bus_bridge(bridge);
 	if (error)

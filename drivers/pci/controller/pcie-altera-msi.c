@@ -266,18 +266,7 @@ static struct platform_driver altera_msi_driver = {
 	.remove = altera_msi_remove,
 };
 
-static int __init altera_msi_init(void)
-{
-	return platform_driver_register(&altera_msi_driver);
-}
-
-static void __exit altera_msi_exit(void)
-{
-	platform_driver_unregister(&altera_msi_driver);
-}
-
-subsys_initcall(altera_msi_init);
+subsys_platform_driver(altera_msi_driver);
 MODULE_DEVICE_TABLE(of, altera_msi_of_match);
-module_exit(altera_msi_exit);
 MODULE_DESCRIPTION("Altera PCIe MSI support driver");
 MODULE_LICENSE("GPL v2");

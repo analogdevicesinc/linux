@@ -1731,7 +1731,6 @@ static ssize_t __resource_resize_store(struct device *dev, int n,
 				       const char *buf, size_t count)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
-	struct pci_bus *bus = pdev->bus;
 	unsigned long size;
 	int ret;
 	u16 cmd;
@@ -1767,8 +1766,6 @@ static ssize_t __resource_resize_store(struct device *dev, int n,
 	if (ret)
 		pci_warn(pdev, "Failed to resize BAR %d: %pe\n",
 			 n, ERR_PTR(ret));
-
-	pci_assign_unassigned_bus_resources(bus);
 
 	if (sysfs_create_groups(&pdev->dev.kobj, pci_dev_resource_attr_groups))
 		pci_warn(pdev, "Failed to recreate resource groups after BAR resizing\n");

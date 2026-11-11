@@ -52,7 +52,7 @@ struct octep_hp_slot {
 struct octep_hp_intr_info {
 	enum octep_hp_intr_type type;
 	int number;
-	char name[16];
+	char name[24];
 };
 
 struct octep_hp_controller {

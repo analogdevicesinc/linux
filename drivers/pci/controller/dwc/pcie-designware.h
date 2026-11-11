@@ -276,7 +276,11 @@
 #define RAS_DES_EVENT_COUNTER_CONTROL	0x8
 #define EVENT_COUNTER_ALL_CLEAR		0x3
 #define EVENT_COUNTER_ENABLE_ALL	0x7
+#define EVENT_COUNTER_ENABLE_PER_EVENT	0x3
+#define EVENT_COUNTER_DISABLE_PER_EVENT	0x1
 #define EVENT_COUNTER_ENABLE_MASK	GENMASK(4, 2)
+#define EVENT_COUNTER_STATUS		BIT(7)
+#define EVENT_COUNTER_LANE_SELECT	GENMASK(11, 8)
 #define EVENT_COUNTER_EVENT_SEL_MASK	GENMASK(23, 16)
 #define EVENT_COUNTER_GROUP_SEL_MASK	GENMASK(27, 24)
 #define EVENT_COUNTER_EVENT_Tx_L0S	0x2
@@ -467,7 +471,6 @@ struct dw_pcie_rp {
 	struct pci_config_window *cfg;
 	bool			ecam_enabled;
 	bool			native_ecam;
-	bool			bypass_ob_mem_iatu;
 	bool                    skip_l23_ready;
 	bool			skip_pwrctrl_off;
 	/* Set if the RC loses power during suspend */
@@ -594,6 +597,8 @@ struct dw_pcie {
 	 * use_parent_dt_ranges to true to avoid this warning.
 	 */
 	bool			use_parent_dt_ranges;
+
+	u8			pcie_cap;	/* Offset of PCI_CAP_ID_EXP */
 };
 
 #define to_dw_pcie_from_pp(port) container_of((port), struct dw_pcie, pp)
@@ -830,6 +835,42 @@ static inline void dw_pcie_dbi_ro_wr_dis(struct dw_pcie *pci)
 	val = dw_pcie_readl_dbi(pci, reg);
 	val &= ~DBI_RO_WR_EN;
 	dw_pcie_writel_dbi(pci, reg, val);
+}
+
+/**
+ * dw_pcie_get_pcie_cap() - Return the PCIe Capability offset
+ * @pci: DWC instance
+ *
+ * The offset of the PCI Express Capability structure is read from the
+ * DBI configuration space on the first call and cached in
+ * @pci->pcie_cap for the subsequent ones.
+ *
+ * The lookup is done lazily at the first place that actually needs the
+ * offset, so the DBI read happens exactly when it used to happen before
+ * caching was introduced, i.e. never before the controller's clocks,
+ * resets and power are enabled.
+ *
+ * A DBI read issued while the controller is not accessible returns
+ * platform specific data, and a transient bogus value must not stick in
+ * the cache.  The offset is therefore only cached once the capability
+ * ID has been read back at that offset.  If the read-back does not
+ * confirm the capability, the offset is still returned for the current
+ * access but not cached, so the next call performs the lookup again.
+ *
+ * Return: the offset of the PCIe Capability, or 0 if it could not be
+ * found.
+ */
+static inline u8 dw_pcie_get_pcie_cap(struct dw_pcie *pci)
+{
+	u8 cap = READ_ONCE(pci->pcie_cap);
+
+	if (!cap) {
+		cap = dw_pcie_find_capability(pci, PCI_CAP_ID_EXP);
+		if (cap && dw_pcie_readb_dbi(pci, cap) == PCI_CAP_ID_EXP)
+			WRITE_ONCE(pci->pcie_cap, cap);
+	}
+
+	return cap;
 }
 
 static inline int dw_pcie_start_link(struct dw_pcie *pci)
