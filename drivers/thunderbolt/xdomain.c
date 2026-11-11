@@ -509,8 +509,8 @@ tb_xdp_properties_changed_response(struct tb_ctl *ctl, u64 route, u8 sequence)
 
 	memset(&res, 0, sizeof(res));
 	tb_xdp_fill_header(&res.hdr, route, sequence,
-			   PROPERTIES_CHANGED_RESPONSE, sizeof(res));
-	return __tb_xdomain_response(ctl, &res, sizeof(res),
+			   PROPERTIES_CHANGED_RESPONSE, sizeof(res.hdr));
+	return __tb_xdomain_response(ctl, &res.hdr, sizeof(res.hdr),
 				     TB_CFG_PKG_XDOMAIN_RESP);
 }
 
