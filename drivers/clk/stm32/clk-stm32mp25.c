@@ -999,7 +999,8 @@ static struct clk_stm32_gate ck_icn_p_mdf1 = {
 
 static struct clk_stm32_gate ck_ker_mdf1 = {
 	.gate_id = GATE_MDF1,
-	.hw.init = CLK_HW_INIT_INDEX("ck_ker_mdf1", FLEXGEN_23, &clk_stm32_gate_ops, 0),
+	.hw.init = CLK_HW_INIT_INDEX("ck_ker_mdf1", FLEXGEN_23, &clk_stm32_gate_ops,
+				     CLK_SET_RATE_PARENT),
 };
 
 /* OSPI */
