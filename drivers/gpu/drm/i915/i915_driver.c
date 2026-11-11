@@ -1025,8 +1025,6 @@ void i915_driver_shutdown(struct drm_i915_private *i915)
 
 	intel_irq_suspend(i915);
 
-	intel_dmc_suspend(display);
-
 	i915_gem_suspend(i915);
 
 	/*
@@ -1096,8 +1094,6 @@ static int i915_drm_suspend(struct drm_device *dev)
 	intel_opregion_suspend(display, opregion_target_state);
 
 	dev_priv->suspend_count++;
-
-	intel_dmc_suspend(display);
 
 	enable_rpm_wakeref_asserts(&dev_priv->runtime_pm);
 
@@ -1289,6 +1285,8 @@ static int i915_drm_resume_early(struct drm_device *dev)
 		intel_gt_resume_early(gt);
 
 	intel_display_driver_pm_resume_early(display);
+
+	intel_clock_gating_resume(&dev_priv->drm);
 
 	enable_rpm_wakeref_asserts(&dev_priv->runtime_pm);
 
@@ -1533,6 +1531,8 @@ static int i915_pm_runtime_suspend(struct device *kdev)
 
 		intel_irq_resume(dev_priv);
 
+		intel_clock_gating_resume(&dev_priv->drm);
+
 		for_each_gt(gt, dev_priv, i)
 			intel_gt_runtime_resume(gt);
 
@@ -1599,6 +1599,8 @@ static int i915_pm_runtime_resume(struct device *kdev)
 		intel_uncore_runtime_resume(gt->uncore);
 
 	intel_irq_resume(dev_priv);
+
+	intel_clock_gating_resume(&dev_priv->drm);
 
 	/*
 	 * No point of rolling back things in case of an error, as the best

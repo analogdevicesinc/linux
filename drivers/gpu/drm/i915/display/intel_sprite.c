@@ -981,15 +981,17 @@ hsw_sprite_max_stride(struct intel_plane *plane,
 	return min(8192 * cpp, 16 * 1024);
 }
 
+static unsigned int vtd_sprite_min_alignment(struct intel_plane *plane,
+					     const struct drm_framebuffer *fb,
+					     int color_plane)
+{
+	return 128 * 1024;
+}
+
 static unsigned int g4x_sprite_min_alignment(struct intel_plane *plane,
 					     const struct drm_framebuffer *fb,
 					     int color_plane)
 {
-	struct intel_display *display = to_intel_display(plane);
-
-	if (intel_scanout_needs_vtd_wa(display))
-		return 128 * 1024;
-
 	return 4 * 1024;
 }
 
@@ -1618,10 +1620,6 @@ intel_sprite_plane_create(struct intel_display *display,
 		plane->min_alignment = vlv_plane_min_alignment;
 		plane->min_cdclk = vlv_plane_min_cdclk;
 
-		/* FIXME undocumented for VLV/CHV so not sure what's actually needed */
-		if (intel_scanout_needs_vtd_wa(display))
-			plane->vtd_guard = 128;
-
 		if (display->platform.cherryview && pipe == PIPE_B) {
 			formats = chv_pipe_b_sprite_formats;
 			num_formats = ARRAY_SIZE(chv_pipe_b_sprite_formats);
@@ -1650,9 +1648,6 @@ intel_sprite_plane_create(struct intel_display *display,
 
 		plane->min_alignment = g4x_sprite_min_alignment;
 
-		if (intel_scanout_needs_vtd_wa(display))
-			plane->vtd_guard = 64;
-
 		formats = snb_sprite_formats;
 		num_formats = ARRAY_SIZE(snb_sprite_formats);
 
@@ -1669,9 +1664,6 @@ intel_sprite_plane_create(struct intel_display *display,
 		plane->min_alignment = g4x_sprite_min_alignment;
 		plane->min_cdclk = g4x_sprite_min_cdclk;
 
-		if (intel_scanout_needs_vtd_wa(display))
-			plane->vtd_guard = 64;
-
 		if (display->platform.sandybridge) {
 			formats = snb_sprite_formats;
 			num_formats = ARRAY_SIZE(snb_sprite_formats);
@@ -1683,6 +1675,11 @@ intel_sprite_plane_create(struct intel_display *display,
 
 			plane_funcs = &g4x_sprite_funcs;
 		}
+	}
+
+	if (intel_scanout_needs_vtd_wa(display)) {
+		plane->min_alignment = vtd_sprite_min_alignment;
+		plane->vtd_guard = 64;
 	}
 
 	if (display->platform.cherryview && pipe == PIPE_B) {

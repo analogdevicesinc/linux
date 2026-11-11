@@ -275,8 +275,7 @@ intel_crtc_duplicate_state(struct drm_crtc *crtc)
 	crtc_state->update_planes = 0;
 	crtc_state->dsb_color = NULL;
 	crtc_state->dsb_commit = NULL;
-	crtc_state->use_dsb = false;
-	crtc_state->use_flipq = false;
+	crtc_state->commit_type = INTEL_COMMIT_MMIO;
 
 	return &crtc_state->uapi;
 }

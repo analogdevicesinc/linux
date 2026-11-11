@@ -1176,11 +1176,10 @@ int i915_gem_init(struct drm_i915_private *dev_priv)
 	}
 
 	/*
-	 * Despite its name intel_clock_gating_init applies both display
-	 * clock gating workarounds; GT mmio workarounds and the occasional
-	 * GT power context workaround. Worse, sometimes it includes a context
-	 * register workaround which we need to apply before we record the
-	 * default HW state for all contexts.
+	 * Despite its name intel_clock_gating_init applies GT MMIO workarounds
+	 * and the occasional GT power context workaround. Worse, sometimes it
+	 * includes a context register workaround which we need to apply before
+	 * we record the default HW state for all contexts.
 	 *
 	 * FIXME: break up the workarounds and apply them at the right time!
 	 */

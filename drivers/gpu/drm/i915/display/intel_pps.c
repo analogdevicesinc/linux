@@ -519,7 +519,7 @@ static void intel_pps_get_registers(struct intel_dp *intel_dp,
 	/* Cycle delay moved from PP_DIVISOR to PP_CONTROL */
 	if (display->platform.geminilake || display->platform.broxton ||
 	    INTEL_PCH_TYPE(display) >= PCH_CNP)
-		regs->pp_div = INVALID_MMIO_REG;
+		regs->pp_div = INTEL_REG_INVALID;
 	else
 		regs->pp_div = PP_DIVISOR(display, pps_idx);
 }

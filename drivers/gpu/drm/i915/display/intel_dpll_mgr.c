@@ -3815,7 +3815,7 @@ static void icl_dpll_write(struct intel_display *display,
 			   const struct icl_dpll_hw_state *hw_state)
 {
 	const enum intel_dpll_id id = pll->info->id;
-	intel_reg_t cfgcr0_reg, cfgcr1_reg, div0_reg = INVALID_MMIO_REG;
+	intel_reg_t cfgcr0_reg, cfgcr1_reg, div0_reg = INTEL_REG_INVALID;
 
 	if (display->platform.alderlake_s) {
 		cfgcr0_reg = ADLS_DPLL_CFGCR0(id);
@@ -4799,7 +4799,7 @@ static bool dg2_mpllb_get_hw_state(struct intel_display *display,
 {
 	struct intel_encoder *encoder = dg2_get_intel_encoder(display, pll);
 	enum phy phy;
-	i915_reg_t enable_reg;
+	intel_reg_t enable_reg;
 	struct ref_tracker *wakeref;
 	bool ret = false;
 	u32 val;

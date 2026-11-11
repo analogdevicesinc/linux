@@ -36,24 +36,6 @@ intel_de_read(struct intel_display *display, intel_reg_t reg)
 }
 
 static inline u64
-intel_de_read64_2x32_volatile(struct intel_display *display,
-			      intel_reg_t lower_reg, intel_reg_t upper_reg)
-{
-	u64 val;
-
-	intel_dmc_wl_get(display, lower_reg);
-	intel_dmc_wl_get(display, upper_reg);
-
-	val = intel_uncore_read64_2x32(__to_uncore(display), lower_reg,
-				       upper_reg);
-
-	intel_dmc_wl_put(display, upper_reg);
-	intel_dmc_wl_put(display, lower_reg);
-
-	return val;
-}
-
-static inline u64
 intel_de_read64_2x32(struct intel_display *display, intel_reg_t reg)
 {
 	intel_reg_t upper_reg = _MMIO(intel_reg_offset(reg) + 4);
@@ -68,11 +50,7 @@ intel_de_read64_2x32(struct intel_display *display, intel_reg_t reg)
 static inline void
 intel_de_posting_read(struct intel_display *display, intel_reg_t reg)
 {
-	intel_dmc_wl_get(display, reg);
-
-	intel_uncore_posting_read(__to_uncore(display), reg);
-
-	intel_dmc_wl_put(display, reg);
+	intel_de_read(display, reg);
 }
 
 static inline void
@@ -88,15 +66,13 @@ intel_de_write(struct intel_display *display, intel_reg_t reg, u32 val)
 static inline u32
 intel_de_rmw(struct intel_display *display, intel_reg_t reg, u32 clear, u32 set)
 {
-	u32 val;
+	u32 old, val;
 
-	intel_dmc_wl_get(display, reg);
+	old = intel_de_read(display, reg);
+	val = (old & ~clear) | set;
+	intel_de_write(display, reg, val);
 
-	val = intel_uncore_rmw(__to_uncore(display), reg, clear, set);
-
-	intel_dmc_wl_put(display, reg);
-
-	return val;
+	return old;
 }
 
 int intel_de_wait_us(struct intel_display *display, intel_reg_t reg,
@@ -158,16 +134,27 @@ intel_de_rmw_fw(struct intel_display *display, intel_reg_t reg, u32 clear, u32 s
 	return old;
 }
 
-static inline u32
-intel_de_read_notrace(struct intel_display *display, intel_reg_t reg)
+static inline u64
+intel_de_read64_2x32_volatile_fw(struct intel_display *display,
+				 intel_reg_t lower_reg, intel_reg_t upper_reg)
 {
-	return intel_uncore_read_notrace(__to_uncore(display), reg);
+	u32 old_upper, upper, lower;
+	int loop = 0;
+
+	upper = intel_de_read_fw(display, upper_reg);
+	do {
+		old_upper = upper;
+		lower = intel_de_read_fw(display, lower_reg);
+		upper = intel_de_read_fw(display, upper_reg);
+	} while (upper != old_upper && loop++ < 2);
+
+	return (u64)upper << 32 | lower;
 }
 
 static inline void
-intel_de_write_notrace(struct intel_display *display, intel_reg_t reg, u32 val)
+intel_de_posting_read_fw(struct intel_display *display, intel_reg_t reg)
 {
-	intel_uncore_write_notrace(__to_uncore(display), reg, val);
+	intel_de_read_fw(display, reg);
 }
 
 static __always_inline void

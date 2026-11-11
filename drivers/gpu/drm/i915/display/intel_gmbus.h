@@ -9,6 +9,7 @@
 #include <linux/types.h>
 
 struct i2c_adapter;
+struct intel_connector;
 struct intel_display;
 
 #define GMBUS_PIN_DISABLED	0
@@ -41,6 +42,7 @@ int intel_gmbus_output_aksv(struct i2c_adapter *adapter);
 
 struct i2c_adapter *
 intel_gmbus_get_adapter(struct intel_display *display, unsigned int pin);
+void intel_gmbus_connector_debugfs_add(struct intel_connector *connector);
 void intel_gmbus_force_bit(struct i2c_adapter *adapter, bool force_bit);
 bool intel_gmbus_is_forced_bit(struct i2c_adapter *adapter);
 void intel_gmbus_reset(struct intel_display *display);

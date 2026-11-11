@@ -429,6 +429,8 @@ int intel_dp_mtp_tu_compute_config(struct intel_dp *intel_dp,
 		return slots;
 	}
 
+	intel_dp_check_m_n_ratio(crtc_state, &crtc_state->dp_m_n);
+
 	if (!dsc)
 		crtc_state->pipe_bpp = fxp_q4_to_int(bpp_x16);
 	else
@@ -725,9 +727,6 @@ static int mst_stream_compute_link_for_joined_pipes(struct intel_encoder *encode
 					   num_joined_pipes))
 			return -EINVAL;
 	}
-
-	if (ret)
-		return ret;
 
 	ret = intel_dp_compute_min_hblank(pipe_config, conn_state);
 	if (ret)
@@ -1564,6 +1563,11 @@ mst_connector_mode_valid_ctx(struct drm_connector *_connector,
 					   mode->clock, mode->hdisplay,
 					   min_link_bpp_x16,
 					   bw_overhead_flags);
+
+	if (!intel_dp_can_support_m_n(display, NULL, mode->clock, max_link_clock)) {
+		*status = MODE_CLOCK_HIGH;
+		return 0;
+	}
 
 	/*
 	 * TODO:

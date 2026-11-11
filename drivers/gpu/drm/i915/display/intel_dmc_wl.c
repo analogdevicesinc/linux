@@ -504,10 +504,10 @@ out_unlock:
 
 void intel_dmc_wl_get_noreg(struct intel_display *display)
 {
-	intel_dmc_wl_get(display, INVALID_MMIO_REG);
+	intel_dmc_wl_get(display, INTEL_REG_INVALID);
 }
 
 void intel_dmc_wl_put_noreg(struct intel_display *display)
 {
-	intel_dmc_wl_put(display, INVALID_MMIO_REG);
+	intel_dmc_wl_put(display, INTEL_REG_INVALID);
 }

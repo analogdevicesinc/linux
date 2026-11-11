@@ -19,6 +19,7 @@
 #include "intel_de.h"
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
+#include "intel_display_wa.h"
 #include "intel_dp.h"
 #include "intel_dpll.h"
 #include "intel_hdmi.h"
@@ -3705,8 +3706,7 @@ int intel_cx0pll_calc_port_clock(struct intel_encoder *encoder,
  * The dedicated display PHYs reset to a power state that blocks S0ix, increasing idle
  * system power. After a system reset (cold boot, S3/4/5, warm reset) if a dedicated
  * PHY is not being brought up shortly, use these steps to move the PHY to the lowest
- * power state to save power. For PTL the workaround is needed only for port A. Port B
- * is not connected.
+ * power state to save power.
  *
  * 1. Follow the PLL Enable Sequence, using any valid frequency such as DP 1.62 GHz.
  *    This brings lanes out of reset and enables the PLL to allow powerdown to be moved
@@ -3717,7 +3717,7 @@ void intel_cx0_pll_power_save_wa(struct intel_display *display)
 {
 	struct intel_encoder *encoder;
 
-	if (DISPLAY_VER(display) != 30)
+	if (!intel_display_wa(display, INTEL_DISPLAY_WA_14022081154))
 		return;
 
 	for_each_intel_encoder(display->drm, encoder) {

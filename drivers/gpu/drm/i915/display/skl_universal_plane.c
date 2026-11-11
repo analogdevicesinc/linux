@@ -1522,7 +1522,8 @@ static void icl_plane_update_sel_fetch_noarm(struct intel_dsb *dsb,
 	u32 val;
 	int x, y;
 
-	if (!crtc_state->enable_psr2_sel_fetch)
+	if (!crtc_state->enable_psr2_sel_fetch ||
+	    drm_rect_height(&plane_state->psr2_sel_fetch_area) <= 0)
 		return;
 
 	clip = &plane_state->psr2_sel_fetch_area;

@@ -439,15 +439,15 @@ u32 i9xx_hpd_irq_ack(struct intel_display *display)
 	 * bits can itself generate a new hotplug interrupt :(
 	 */
 	for (i = 0; i < 10; i++) {
-		u32 tmp = intel_de_read(display,
-					PORT_HOTPLUG_STAT(display)) & hotplug_status_mask;
+		u32 tmp = intel_de_read_fw(display,
+					   PORT_HOTPLUG_STAT(display)) & hotplug_status_mask;
 
 		if (tmp == 0)
 			return hotplug_status;
 
 		hotplug_status |= tmp;
-		intel_de_write(display, PORT_HOTPLUG_STAT(display),
-			       hotplug_status);
+		intel_de_write_fw(display, PORT_HOTPLUG_STAT(display),
+				  hotplug_status);
 	}
 
 	drm_WARN_ONCE(display->drm, 1,
@@ -529,8 +529,8 @@ void xelpdp_pica_irq_handler(struct intel_display *display, u32 iir)
 
 		pin_mask |= BIT(pin);
 
-		val = intel_de_read(display, XELPDP_PORT_HOTPLUG_CTL(pin));
-		intel_de_write(display, XELPDP_PORT_HOTPLUG_CTL(pin), val);
+		val = intel_de_read_fw(display, XELPDP_PORT_HOTPLUG_CTL(pin));
+		intel_de_write_fw(display, XELPDP_PORT_HOTPLUG_CTL(pin), val);
 
 		if (val & (XELPDP_DP_ALT_HPD_LONG_DETECT | XELPDP_TBT_HPD_LONG_DETECT))
 			long_mask |= BIT(pin);
@@ -563,7 +563,7 @@ void icp_irq_handler(struct intel_display *display, u32 pch_iir)
 
 		/* Locking due to DSI native GPIO sequences */
 		spin_lock(&display->irq.lock);
-		dig_hotplug_reg = intel_de_rmw(display, SHOTPLUG_CTL_DDI, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, SHOTPLUG_CTL_DDI, 0, 0);
 		spin_unlock(&display->irq.lock);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
@@ -575,7 +575,7 @@ void icp_irq_handler(struct intel_display *display, u32 pch_iir)
 	if (tc_hotplug_trigger) {
 		u32 dig_hotplug_reg;
 
-		dig_hotplug_reg = intel_de_rmw(display, SHOTPLUG_CTL_TC, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, SHOTPLUG_CTL_TC, 0, 0);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
 				   tc_hotplug_trigger, dig_hotplug_reg,
@@ -600,7 +600,7 @@ void spt_irq_handler(struct intel_display *display, u32 pch_iir)
 	if (hotplug_trigger) {
 		u32 dig_hotplug_reg;
 
-		dig_hotplug_reg = intel_de_rmw(display, PCH_PORT_HOTPLUG, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, PCH_PORT_HOTPLUG, 0, 0);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
 				   hotplug_trigger, dig_hotplug_reg,
@@ -611,7 +611,7 @@ void spt_irq_handler(struct intel_display *display, u32 pch_iir)
 	if (hotplug2_trigger) {
 		u32 dig_hotplug_reg;
 
-		dig_hotplug_reg = intel_de_rmw(display, PCH_PORT_HOTPLUG2, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, PCH_PORT_HOTPLUG2, 0, 0);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
 				   hotplug2_trigger, dig_hotplug_reg,
@@ -644,7 +644,7 @@ void bxt_hpd_irq_handler(struct intel_display *display, u32 hotplug_trigger)
 {
 	u32 dig_hotplug_reg, pin_mask = 0, long_mask = 0;
 
-	dig_hotplug_reg = intel_de_rmw(display, PCH_PORT_HOTPLUG, 0, 0);
+	dig_hotplug_reg = intel_de_rmw_fw(display, PCH_PORT_HOTPLUG, 0, 0);
 
 	intel_get_hpd_pins(display, &pin_mask, &long_mask,
 			   hotplug_trigger, dig_hotplug_reg,
@@ -663,7 +663,7 @@ void gen11_hpd_irq_handler(struct intel_display *display, u32 iir)
 	if (trigger_tc) {
 		u32 dig_hotplug_reg;
 
-		dig_hotplug_reg = intel_de_rmw(display, GEN11_TC_HOTPLUG_CTL, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, GEN11_TC_HOTPLUG_CTL, 0, 0);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
 				   trigger_tc, dig_hotplug_reg,
@@ -674,7 +674,7 @@ void gen11_hpd_irq_handler(struct intel_display *display, u32 iir)
 	if (trigger_tbt) {
 		u32 dig_hotplug_reg;
 
-		dig_hotplug_reg = intel_de_rmw(display, GEN11_TBT_HOTPLUG_CTL, 0, 0);
+		dig_hotplug_reg = intel_de_rmw_fw(display, GEN11_TBT_HOTPLUG_CTL, 0, 0);
 
 		intel_get_hpd_pins(display, &pin_mask, &long_mask,
 				   trigger_tbt, dig_hotplug_reg,

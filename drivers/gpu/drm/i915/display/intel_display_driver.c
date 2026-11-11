@@ -30,6 +30,7 @@
 #include "intel_crtc.h"
 #include "intel_cursor.h"
 #include "intel_dbuf_bw.h"
+#include "intel_display_clock_gating.h"
 #include "intel_display_core.h"
 #include "intel_display_debugfs.h"
 #include "intel_display_driver.h"
@@ -463,6 +464,15 @@ int intel_display_driver_probe_nogem(struct intel_display *display)
 {
 	int ret;
 
+	/*
+	 * Apply the display and PCH clock gating workarounds before gem/GT
+	 * init starts pushing memory traffic through the GT, matching the
+	 * timing the old core intel_clock_gating_init() hooks used to
+	 * provide.  Do this before the HAS_DISPLAY() check below, since the
+	 * core hooks used to call it unconditionally.
+	 */
+	intel_display_init_clock_gating(display);
+
 	if (!HAS_DISPLAY(display))
 		return 0;
 
@@ -769,6 +779,8 @@ static int __intel_display_driver_pm_suspend(struct intel_display *display, bool
 
 	intel_encoder_suspend_all(display);
 
+	intel_dmc_suspend(display);
+
 	return ret;
 }
 
@@ -837,6 +849,8 @@ void intel_display_driver_pm_resume(struct intel_display *display)
 	struct drm_atomic_commit *state = display->restore.modeset_state;
 	struct drm_modeset_acquire_ctx ctx;
 	int ret;
+
+	intel_display_init_clock_gating(display);
 
 	if (!HAS_DISPLAY(display))
 		return;

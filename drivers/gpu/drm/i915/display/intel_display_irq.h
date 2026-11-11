@@ -52,8 +52,7 @@ void bdw_disable_vblank(struct drm_crtc *crtc);
 void ilk_display_irq_master_disable(struct intel_display *display, u32 *de_ier, u32 *sde_ier);
 void ilk_display_irq_master_enable(struct intel_display *display, u32 de_ier, u32 sde_ier);
 
-u32 gen11_gu_misc_irq_ack(struct intel_display *display, const u32 master_ctl);
-void gen11_gu_misc_irq_handler(struct intel_display *display, const u32 iir);
+void intel_display_gse_irq_handler(struct intel_display *display);
 
 struct intel_display_irq_state {
 	u32 master_ctl;

@@ -198,7 +198,7 @@ hsw_dip_data_reg(struct intel_display *display,
 		return GLK_TVIDEO_DIP_DRM_DATA(display, cpu_transcoder, i);
 	default:
 		MISSING_CASE(type);
-		return INVALID_MMIO_REG;
+		return INTEL_REG_INVALID;
 	}
 }
 

@@ -816,13 +816,7 @@ unsigned int vlv_plane_min_alignment(struct intel_plane *plane,
 				     const struct drm_framebuffer *fb,
 				     int color_plane)
 {
-	struct intel_display *display = to_intel_display(plane);
-
 	if (intel_plane_can_async_flip(plane, fb->format, fb->modifier))
-		return 256 * 1024;
-
-	/* FIXME undocumented so not sure what's actually needed */
-	if (intel_scanout_needs_vtd_wa(display))
 		return 256 * 1024;
 
 	switch (fb->modifier) {
@@ -836,16 +830,18 @@ unsigned int vlv_plane_min_alignment(struct intel_plane *plane,
 	}
 }
 
+static unsigned int vtd_primary_min_alignment(struct intel_plane *plane,
+					      const struct drm_framebuffer *fb,
+					      int color_plane)
+{
+	return 256 * 1024;
+}
+
 static unsigned int g4x_primary_min_alignment(struct intel_plane *plane,
 					      const struct drm_framebuffer *fb,
 					      int color_plane)
 {
-	struct intel_display *display = to_intel_display(plane);
-
 	if (intel_plane_can_async_flip(plane, fb->format, fb->modifier))
-		return 256 * 1024;
-
-	if (intel_scanout_needs_vtd_wa(display))
 		return 256 * 1024;
 
 	switch (fb->modifier) {
@@ -1019,9 +1015,10 @@ intel_primary_plane_create(struct intel_display *display, enum pipe pipe)
 	else
 		plane->min_alignment = i9xx_plane_min_alignment;
 
-	/* FIXME undocumented for VLV/CHV so not sure what's actually needed */
-	if (intel_scanout_needs_vtd_wa(display))
+	if (intel_scanout_needs_vtd_wa(display)) {
+		plane->min_alignment = vtd_primary_min_alignment;
 		plane->vtd_guard = 128;
+	}
 
 	if (display->platform.i830 || display->platform.i845g) {
 		plane->update_arm = i830_plane_update_arm;

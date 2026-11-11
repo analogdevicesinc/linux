@@ -11,6 +11,7 @@
 #include "intel_crtc.h"
 #include "intel_de.h"
 #include "intel_display_core.h"
+#include "intel_display_trace.h"
 #include "intel_display_types.h"
 #include "intel_display_utils.h"
 #include "intel_display_wa.h"
@@ -129,6 +130,9 @@ bool intel_flipq_supported(struct intel_display *display)
 void intel_flipq_init(struct intel_display *display)
 {
 	struct intel_crtc *crtc;
+
+	if (DISPLAY_VER(display) < 20)
+		return;
 
 	intel_dmc_wait_fw_load(display);
 
@@ -427,11 +431,13 @@ void intel_flipq_add(struct intel_crtc *crtc,
 {
 	struct intel_display *display = to_intel_display(crtc);
 	struct intel_flipq *flipq = &crtc->flipq[flipq_id];
+	unsigned int curr_pts;
 
 	if (!assert_flipq_has_room(crtc, flipq_id))
 		return;
 
-	pts += intel_de_read(display, PIPEDMC_FPQ_TS(crtc->pipe));
+	curr_pts = intel_de_read(display, PIPEDMC_FPQ_TS(crtc->pipe));
+	pts += curr_pts;
 
 	intel_flipq_preempt(crtc, true);
 
@@ -442,6 +448,8 @@ void intel_flipq_add(struct intel_crtc *crtc,
 
 	flipq->tail = (flipq->tail + 1) % intel_flipq_size_entries(flipq->flipq_id);
 	intel_flipq_write_tail(crtc);
+
+	trace_intel_flipq_add(crtc, flipq_id, dsb_id, pts, curr_pts);
 
 	intel_flipq_preempt(crtc, false);
 

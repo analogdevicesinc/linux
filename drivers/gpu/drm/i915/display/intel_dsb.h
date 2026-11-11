@@ -26,6 +26,7 @@ enum intel_dsb_id {
 	I915_MAX_DSBS,
 };
 
+bool intel_dsb_supported(struct intel_display *display);
 unsigned int intel_dsb_size(struct intel_dsb *dsb);
 unsigned int intel_dsb_head(struct intel_dsb *dsb);
 struct intel_dsb *intel_dsb_prepare(struct intel_atomic_state *state,
