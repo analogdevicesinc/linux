@@ -35,7 +35,6 @@
 #include <drm/drm_edid.h>
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_of.h>
-#include <drm/drm_panel.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
@@ -554,7 +553,6 @@ struct vc4_dsi {
 
 	struct platform_device *pdev;
 
-	struct drm_bridge *out_bridge;
 	struct drm_bridge bridge;
 
 	void __iomem *regs;
@@ -1161,11 +1159,7 @@ static int vc4_dsi_bridge_attach(struct drm_bridge *bridge,
 				 struct drm_encoder *encoder,
 				 enum drm_bridge_attach_flags flags)
 {
-	struct vc4_dsi *dsi = bridge_to_vc4_dsi(bridge);
-
-	/* Attach the panel or bridge to the dsi bridge */
-	return drm_bridge_attach(encoder, dsi->out_bridge,
-				 &dsi->bridge, flags);
+	return drm_bridge_attach(encoder, bridge->next_bridge, bridge, flags);
 }
 
 static ssize_t vc4_dsi_host_transfer(struct mipi_dsi_host *host,
@@ -1748,9 +1742,10 @@ static int vc4_dsi_bind(struct device *dev, struct device *master, void *data)
 		return ret;
 	}
 
-	dsi->out_bridge = drmm_of_get_bridge(drm, dev->of_node, 0, 0);
-	if (IS_ERR(dsi->out_bridge))
-		return PTR_ERR(dsi->out_bridge);
+	struct drm_bridge *next_bridge __free(drm_bridge_put) =
+		of_drm_get_bridge_by_endpoint(dev->of_node, 0, 0);
+	if (IS_ERR(next_bridge))
+		return PTR_ERR(next_bridge);
 
 	/* The esc clock rate is supposed to always be 100Mhz. */
 	ret = clk_set_rate(dsi->escape_clock, 100 * 1000000);
@@ -1774,15 +1769,27 @@ static int vc4_dsi_bind(struct device *dev, struct device *master, void *data)
 	if (ret)
 		return ret;
 
+	dsi->bridge.next_bridge = drm_bridge_get(next_bridge);
+
 	ret = drm_bridge_attach(encoder, &dsi->bridge, NULL, 0);
-	if (ret)
+	if (ret) {
+		drm_bridge_clear_and_put(&dsi->bridge.next_bridge);
 		return ret;
+	}
 
 	return 0;
 }
 
+static void vc4_dsi_unbind(struct device *dev, struct device *master, void *data)
+{
+	struct vc4_dsi *dsi = dev_get_drvdata(dev);
+
+	drm_bridge_clear_and_put(&dsi->bridge.next_bridge);
+}
+
 static const struct component_ops vc4_dsi_ops = {
 	.bind   = vc4_dsi_bind,
+	.unbind = vc4_dsi_unbind,
 };
 
 static int vc4_dsi_dev_probe(struct platform_device *pdev)

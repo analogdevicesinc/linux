@@ -349,6 +349,10 @@ void drm_gpusvm_range_set_unmapped(struct drm_gpusvm_range *range,
 				   unsigned int pages_count,
 				   const struct mmu_notifier_range *mmu_range);
 
+void drm_gpusvm_pages_set_unmapped(struct drm_gpusvm *gpusvm,
+				   struct drm_gpusvm_pages *pages,
+				   unsigned int pages_count);
+
 int drm_gpusvm_get_pages(struct drm_gpusvm *gpusvm,
 			 struct drm_gpusvm_pages *svm_pages,
 			 unsigned int num_pages,
@@ -381,6 +385,31 @@ static inline void drm_gpusvm_init_pages(struct drm_gpusvm_pages *svm_pages,
 	memset(svm_pages, 0, sizeof(*svm_pages));
 	svm_pages->drm = drm;
 	svm_pages->notifier_seq = LONG_MAX;
+}
+
+/**
+ * drm_gpusvm_pages_read_retry() - Check whether GPU SVM pages went stale
+ * @gpusvm: Pointer to the GPU SVM structure.
+ * @svm_pages: Pointer to the drm_gpusvm_pages.
+ * @notifier: The notifier passed to drm_gpusvm_get_pages() for @svm_pages.
+ *
+ * Check whether @notifier was invalidated since the last successful
+ * drm_gpusvm_get_pages() for @svm_pages. This is the commit side check for
+ * pages faulted with &drm_gpusvm_ctx.no_dma_map, where no mapping state is
+ * tracked. Pages that were never faulted always report as stale. The caller
+ * must hold the notifier lock and keep holding it until its use of the pages
+ * is visible to the invalidation path.
+ *
+ * Return: True if the pages must be faulted again, false otherwise.
+ */
+static inline bool
+drm_gpusvm_pages_read_retry(struct drm_gpusvm *gpusvm,
+			    struct drm_gpusvm_pages *svm_pages,
+			    struct mmu_interval_notifier *notifier)
+{
+	lockdep_assert_held(&gpusvm->notifier_lock);
+
+	return mmu_interval_read_retry(notifier, svm_pages->notifier_seq);
 }
 
 /**

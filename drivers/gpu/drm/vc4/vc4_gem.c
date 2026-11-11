@@ -75,7 +75,6 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 	struct vc4_hang_state *kernel_state;
 	struct drm_vc4_get_hang_state *state;
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
-	unsigned long irqflags;
 	u32 i;
 	int ret = 0;
 
@@ -87,10 +86,10 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 		return -ENODEV;
 	}
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
+	spin_lock(&vc4->hang_state_lock);
 	kernel_state = vc4->hang_state;
 	if (!kernel_state) {
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		return -ENOENT;
 	}
 	state = &kernel_state->user_state;
@@ -100,12 +99,12 @@ vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 	 */
 	if (get_state->bo_count < state->bo_count) {
 		get_state->bo_count = state->bo_count;
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		return 0;
 	}
 
 	vc4->hang_state = NULL;
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+	spin_unlock(&vc4->hang_state_lock);
 
 	/* Save the user's BO pointer, so we don't stomp it with the memcpy. */
 	state->bo = get_state->bo;
@@ -274,13 +273,13 @@ vc4_save_hang_state(struct drm_device *dev)
 		mutex_unlock(&bo->madv_lock);
 	}
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
+	spin_lock(&vc4->hang_state_lock);
 	if (vc4->hang_state) {
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 		vc4_free_hang_state(dev, kernel_state);
 	} else {
 		vc4->hang_state = kernel_state;
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+		spin_unlock(&vc4->hang_state_lock);
 	}
 
 	return;
@@ -501,11 +500,7 @@ again:
 
 	vc4_flush_caches(dev);
 
-	/* Only start the perfmon if it was not already started by a previous
-	 * job.
-	 */
-	if (exec->perfmon && vc4->active_perfmon != exec->perfmon)
-		vc4_perfmon_start(vc4, exec->perfmon);
+	vc4_perfmon_start(vc4, exec->perfmon);
 
 	/* Either put the job in the binner if it uses the binner, or
 	 * immediately move it to the to-be-rendered queue.
@@ -633,7 +628,6 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 {
 	struct vc4_dev *vc4 = to_vc4_dev(dev);
 	struct vc4_exec_info *renderjob;
-	uint64_t seqno;
 	unsigned long irqflags;
 	struct vc4_fence *fence;
 
@@ -644,21 +638,14 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 
 	spin_lock_irqsave(&vc4->job_lock, irqflags);
 
-	seqno = ++vc4->emit_seqno;
-	exec->seqno = seqno;
+	exec->seqno = ++vc4->emit_seqno;
 
-	dma_fence_init(&fence->base, &vc4_fence_ops, &vc4->job_lock,
+	dma_fence_init(&fence->base, &vc4_fence_ops, NULL,
 		       vc4->dma_fence_context, exec->seqno);
 	fence->seqno = exec->seqno;
 	exec->fence = &fence->base;
 
-	/* The job can complete and drop exec->fence as soon as job_lock is
-	 * released, so hold our own reference.
-	 */
-	if (out_sync)
-		dma_fence_get(&fence->base);
-
-	vc4_attach_fences(exec);
+	kref_get(&exec->refcount);
 
 	list_add_tail(&exec->head, &vc4->bin_job_list);
 
@@ -676,12 +663,12 @@ vc4_queue_submit(struct drm_device *dev, struct vc4_exec_info *exec,
 
 	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 
+	vc4_attach_fences(exec);
+
 	drm_exec_fini(exec_ctx);
 
-	if (out_sync) {
+	if (out_sync)
 		drm_syncobj_replace_fence(out_sync, &fence->base);
-		dma_fence_put(&fence->base);
-	}
 
 	return 0;
 }
@@ -732,11 +719,11 @@ vc4_cl_lookup_bos(struct drm_device *dev,
 
 fail_dec_usecnt:
 	/* Decrease usecnt on acquired objects.
-	 * We cannot rely on  vc4_complete_exec() to release resources here,
-	 * because vc4_complete_exec() has no information about which BO has
-	 * had its ->usecnt incremented.
+	 * We cannot rely on vc4_release_exec() to release resources here,
+	 * because it has no information about which BO has had its ->usecnt
+	 * incremented.
 	 * To make things easier we just free everything explicitly and set
-	 * exec->bo to NULL so that vc4_complete_exec() skips the 'BO release'
+	 * exec->bo to NULL so that vc4_release_exec() skips the 'BO release'
 	 * step.
 	 */
 	for (i-- ; i >= 0; i--)
@@ -867,19 +854,17 @@ fail:
 }
 
 static void
-vc4_complete_exec(struct drm_device *dev, struct vc4_exec_info *exec)
+vc4_release_exec(struct kref *ref)
 {
-	struct vc4_dev *vc4 = to_vc4_dev(dev);
-	unsigned long irqflags;
+	struct vc4_exec_info *exec = container_of(ref, struct vc4_exec_info,
+						  refcount);
+	struct vc4_dev *vc4 = exec->dev;
 	unsigned i;
 
-	/* If we got force-completed because of GPU reset rather than
-	 * through our IRQ handler, signal the fence now.
+	/* The render done handler signals the fence, so only drop the
+	 * reference here.
 	 */
-	if (exec->fence) {
-		dma_fence_signal(exec->fence);
-		dma_fence_put(exec->fence);
-	}
+	dma_fence_put(exec->fence);
 
 	if (exec->bo) {
 		for (i = 0; i < exec->bo_count; i++) {
@@ -902,9 +887,8 @@ vc4_complete_exec(struct drm_device *dev, struct vc4_exec_info *exec)
 	 * completion had their slots released in vc4_irq_finish_render_job().
 	 * Only jobs that never completed still have slots to be released here.
 	 */
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
-	vc4->bin_alloc_used &= ~exec->bin_slots;
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
+	scoped_guard(spinlock_irqsave, &vc4->bin_alloc_lock)
+		vc4->bin_alloc_used &= ~exec->bin_slots;
 
 	/* Let anyone waiting on the binner pool retry. */
 	wake_up_all(&vc4->job_wait_queue);
@@ -921,27 +905,28 @@ vc4_complete_exec(struct drm_device *dev, struct vc4_exec_info *exec)
 	kfree(exec);
 }
 
+static void
+vc4_exec_put(struct vc4_exec_info *exec)
+{
+	kref_put(&exec->refcount, vc4_release_exec);
+}
+
 void
 vc4_job_handle_completed(struct vc4_dev *vc4)
 {
-	unsigned long irqflags;
+	struct vc4_exec_info *exec, *next;
+	LIST_HEAD(done);
 
 	if (WARN_ON_ONCE(vc4->gen > VC4_GEN_4))
 		return;
 
-	spin_lock_irqsave(&vc4->job_lock, irqflags);
-	while (!list_empty(&vc4->job_done_list)) {
-		struct vc4_exec_info *exec =
-			list_first_entry(&vc4->job_done_list,
-					 struct vc4_exec_info, head);
+	scoped_guard(spinlock_irqsave, &vc4->job_lock)
+		list_splice_init(&vc4->job_done_list, &done);
+
+	list_for_each_entry_safe(exec, next, &done, head) {
 		list_del(&exec->head);
-
-		spin_unlock_irqrestore(&vc4->job_lock, irqflags);
-		vc4_complete_exec(&vc4->base, exec);
-		spin_lock_irqsave(&vc4->job_lock, irqflags);
+		vc4_exec_put(exec);
 	}
-
-	spin_unlock_irqrestore(&vc4->job_lock, irqflags);
 }
 
 /* Scheduled when any job has been completed, this walks the list of
@@ -1084,6 +1069,8 @@ vc4_submit_cl_ioctl(struct drm_device *dev, void *data,
 		return ret;
 	}
 
+	kref_init(&exec->refcount);
+
 	exec->args = args;
 	INIT_LIST_HEAD(&exec->unref_list);
 
@@ -1171,14 +1158,16 @@ vc4_submit_cl_ioctl(struct drm_device *dev, void *data,
 		goto fail_unreserve;
 
 	/* Return the seqno for our job. */
-	args->seqno = vc4->emit_seqno;
+	args->seqno = exec->seqno;
+
+	vc4_exec_put(exec);
 
 	return 0;
 
 fail_unreserve:
 	drm_exec_fini(&exec_ctx);
 fail:
-	vc4_complete_exec(&vc4->base, exec);
+	vc4_exec_put(exec);
 
 	return ret;
 }
@@ -1198,6 +1187,9 @@ int vc4_gem_init(struct drm_device *dev)
 	INIT_LIST_HEAD(&vc4->render_job_list);
 	INIT_LIST_HEAD(&vc4->job_done_list);
 	spin_lock_init(&vc4->job_lock);
+	spin_lock_init(&vc4->bin_alloc_lock);
+	spin_lock_init(&vc4->hang_state_lock);
+	spin_lock_init(&vc4->perfmon_state.lock);
 
 	INIT_WORK(&vc4->hangcheck.reset_work, vc4_reset_work);
 	timer_setup(&vc4->hangcheck.timer, vc4_hangcheck_elapsed, 0);

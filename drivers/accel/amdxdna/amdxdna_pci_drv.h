@@ -7,6 +7,7 @@
 #define _AMDXDNA_PCI_DRV_H_
 
 #include <drm/amdxdna_accel.h>
+#include <drm/drm_gpusvm.h>
 #include <drm/drm_mm.h>
 #include <drm/drm_print.h>
 #include <linux/iommu.h>
@@ -118,7 +119,7 @@ struct amdxdna_dev {
 	struct list_head		client_list;
 	struct mutex			client_lock; /* client_list */
 	struct amdxdna_drm_query_firmware_version fw_ver;
-	struct rw_semaphore		notifier_lock; /* for mmu notifier*/
+	struct drm_gpusvm		gpusvm; /* notifier lock for user mappings */
 	struct workqueue_struct		*notifier_wq;
 
 	struct iommu_group		*group;

@@ -25,9 +25,9 @@ static const struct drm_connector_helper_funcs drm_probe_helper_connector_helper
 };
 
 static const struct drm_connector_funcs drm_probe_helper_connector_funcs = {
+	.atomic_create_state	= drm_atomic_helper_connector_create_state,
 	.atomic_destroy_state	= drm_atomic_helper_connector_destroy_state,
 	.atomic_duplicate_state	= drm_atomic_helper_connector_duplicate_state,
-	.reset			= drm_atomic_helper_connector_reset,
 };
 
 static int drm_probe_helper_test_init(struct kunit *test)

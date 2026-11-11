@@ -157,7 +157,7 @@ static int bin_slot_try_alloc(struct vc4_dev *vc4)
 {
 	int slot;
 
-	guard(spinlock_irqsave)(&vc4->job_lock);
+	guard(spinlock_irqsave)(&vc4->bin_alloc_lock);
 
 	slot = ffs(~vc4->bin_alloc_used);
 	if (slot != 0) {

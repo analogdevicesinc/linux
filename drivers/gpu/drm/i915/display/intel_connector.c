@@ -91,8 +91,10 @@ static int intel_connector_init(struct intel_connector *connector)
 	if (!conn_state)
 		return -ENOMEM;
 
-	__drm_atomic_helper_connector_reset(&connector->base,
-					    &conn_state->base);
+	__drm_atomic_helper_connector_state_init(&conn_state->base,
+						 &connector->base);
+
+	connector->base.state = &conn_state->base;
 
 	intel_panel_init_alloc(connector);
 

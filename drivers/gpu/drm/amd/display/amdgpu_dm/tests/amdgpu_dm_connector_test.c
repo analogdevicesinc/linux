@@ -1618,23 +1618,24 @@ static void dm_test_decide_crtc_timing_inserted_mode(struct kunit *test)
 	KUNIT_EXPECT_EQ(test, drm_mode.crtc_vdisplay, 2160);
 }
 
-/* Tests for amdgpu_dm_connector_funcs_reset() */
+/* Tests for amdgpu_dm_connector_atomic_create_state() */
 
 static const struct drm_connector_funcs dm_test_connector_funcs = {
-	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
 
 /**
- * dm_test_funcs_reset_sets_defaults - Test funcs_reset sets defaults
+ * dm_test_atomic_create_sets_defaults - Test funcs_reset sets defaults
  * @test: The KUnit test context
  */
-static void dm_test_funcs_reset_sets_defaults(struct kunit *test)
+static void dm_test_atomic_create_sets_defaults(struct kunit *test)
 {
 	struct device *dev;
 	struct drm_device *drm;
 	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	struct dm_connector_state *dm_state;
 
 	dev = drm_kunit_helper_alloc_device(test);
@@ -1651,9 +1652,11 @@ static void dm_test_funcs_reset_sets_defaults(struct kunit *test)
 	drmm_connector_init(drm, connector, &dm_test_connector_funcs,
 			    DRM_MODE_CONNECTOR_DisplayPort, NULL);
 
-	amdgpu_dm_connector_funcs_reset(connector);
+	conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
 
-	KUNIT_ASSERT_NOT_NULL(test, connector->state);
+	connector->state = conn_state;
+
 	dm_state = to_dm_connector_state(connector->state);
 	KUNIT_EXPECT_EQ(test, (int)dm_state->scaling, (int)RMX_OFF);
 	KUNIT_EXPECT_FALSE(test, dm_state->underscan_enable);
@@ -1665,14 +1668,15 @@ static void dm_test_funcs_reset_sets_defaults(struct kunit *test)
 }
 
 /**
- * dm_test_funcs_reset_edp_abm_level - Test funcs_reset eDP sets ABM
+ * dm_test_atomic_create_edp_abm_level - Test funcs_reset eDP sets ABM
  * @test: The KUnit test context
  */
-static void dm_test_funcs_reset_edp_abm_level(struct kunit *test)
+static void dm_test_atomic_create_edp_abm_level(struct kunit *test)
 {
 	struct device *dev;
 	struct drm_device *drm;
 	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	struct dm_connector_state *dm_state;
 	int saved_abm_level = amdgpu_dm_get_abm_level_param();
 
@@ -1692,9 +1696,12 @@ static void dm_test_funcs_reset_edp_abm_level(struct kunit *test)
 
 	/* Test with abm_level > 0 */
 	amdgpu_dm_set_abm_level_param(3);
-	amdgpu_dm_connector_funcs_reset(connector);
 
-	KUNIT_ASSERT_NOT_NULL(test, connector->state);
+	conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	connector->state = conn_state;
+
 	dm_state = to_dm_connector_state(connector->state);
 	KUNIT_EXPECT_EQ(test, (int)dm_state->abm_level, 3);
 
@@ -1702,15 +1709,16 @@ static void dm_test_funcs_reset_edp_abm_level(struct kunit *test)
 }
 
 /**
- * dm_test_funcs_reset_edp_abm_disabled - Test funcs_reset eDP ABM
+ * dm_test_atomic_create_edp_abm_disabled - Test funcs_reset eDP ABM
  * disabled
  * @test: The KUnit test context
  */
-static void dm_test_funcs_reset_edp_abm_disabled(struct kunit *test)
+static void dm_test_atomic_create_edp_abm_disabled(struct kunit *test)
 {
 	struct device *dev;
 	struct drm_device *drm;
 	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	struct dm_connector_state *dm_state;
 	int saved_abm_level = amdgpu_dm_get_abm_level_param();
 
@@ -1730,9 +1738,12 @@ static void dm_test_funcs_reset_edp_abm_disabled(struct kunit *test)
 
 	/* Test with abm_level <= 0 → immediate disable */
 	amdgpu_dm_set_abm_level_param(-1);
-	amdgpu_dm_connector_funcs_reset(connector);
 
-	KUNIT_ASSERT_NOT_NULL(test, connector->state);
+	conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	connector->state = conn_state;
+
 	dm_state = to_dm_connector_state(connector->state);
 	KUNIT_EXPECT_EQ(test, (int)dm_state->abm_level,
 			(int)ABM_LEVEL_IMMEDIATE_DISABLE);
@@ -1752,6 +1763,7 @@ static void dm_test_atomic_dup_state_copies_fields(struct kunit *test)
 	struct device *dev;
 	struct drm_device *drm;
 	struct drm_connector *connector;
+	struct drm_connector_state *conn_state;
 	struct dm_connector_state *dm_state;
 	struct dm_connector_state *new_dm_state;
 	struct drm_connector_state *new_state;
@@ -1770,8 +1782,10 @@ static void dm_test_atomic_dup_state_copies_fields(struct kunit *test)
 	drmm_connector_init(drm, connector, &dm_test_connector_funcs,
 			    DRM_MODE_CONNECTOR_HDMIA, NULL);
 
-	amdgpu_dm_connector_funcs_reset(connector);
-	KUNIT_ASSERT_NOT_NULL(test, connector->state);
+	conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	connector->state = conn_state;
 
 	/* Modify original state fields */
 	dm_state = to_dm_connector_state(connector->state);
@@ -5038,7 +5052,7 @@ static struct dm_test_destroy_ctx *dm_test_destroy_ctx_alloc(struct kunit *test)
  * directly; the connector is removed from the device before teardown).
  */
 static const struct drm_connector_funcs dm_test_destroy_funcs = {
-	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 	.destroy = amdgpu_dm_connector_destroy,
@@ -6417,13 +6431,17 @@ static void dm_test_restore_state_no_encoder(struct kunit *test)
 {
 	struct drm_device *drm = dm_test_alloc_drm(test);
 	struct amdgpu_dm_connector *aconnector;
+	struct drm_connector_state *conn_state;
 
 	aconnector = dm_test_add_connector(test, drm,
 					   DRM_MODE_CONNECTOR_HDMIA);
 	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
-	aconnector->base.funcs->reset(&aconnector->base);
-	KUNIT_ASSERT_NOT_NULL(test, aconnector->base.state);
+
+	conn_state = aconnector->base.funcs->atomic_create_state(&aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	aconnector->base.state = conn_state;
 	/* connector->encoder left NULL. */
 
 	dm_restore_drm_connector_state(drm, &aconnector->base);
@@ -6441,6 +6459,7 @@ static void dm_test_restore_state_no_encoder(struct kunit *test)
 static void dm_test_restore_state_no_stream(struct kunit *test)
 {
 	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct drm_connector_state *conn_state;
 	struct amdgpu_dm_connector *aconnector;
 	struct dm_crtc_state *acrtc_state;
 	struct drm_encoder *enc;
@@ -6450,7 +6469,11 @@ static void dm_test_restore_state_no_stream(struct kunit *test)
 					   DRM_MODE_CONNECTOR_HDMIA);
 	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
-	aconnector->base.funcs->reset(&aconnector->base);
+
+	conn_state = aconnector->base.funcs->atomic_create_state(&aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	aconnector->base.state = conn_state;
 
 	enc = kunit_kzalloc(test, sizeof(*enc), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, enc);
@@ -6479,6 +6502,7 @@ static void dm_test_restore_state_no_stream(struct kunit *test)
 static void dm_test_restore_state_same_sink(struct kunit *test)
 {
 	struct drm_device *drm = dm_test_alloc_drm(test);
+	struct drm_connector_state *conn_state;
 	struct amdgpu_dm_connector *aconnector;
 	struct dm_crtc_state *acrtc_state;
 	struct dc_stream_state *stream;
@@ -6489,7 +6513,11 @@ static void dm_test_restore_state_same_sink(struct kunit *test)
 					   DRM_MODE_CONNECTOR_HDMIA);
 	aconnector->dc_sink = kunit_kzalloc(test, 1, GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, aconnector->dc_sink);
-	aconnector->base.funcs->reset(&aconnector->base);
+
+	conn_state = aconnector->base.funcs->atomic_create_state(&aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	aconnector->base.state = conn_state;
 
 	enc = kunit_kzalloc(test, sizeof(*enc), GFP_KERNEL);
 	KUNIT_ASSERT_NOT_NULL(test, enc);
@@ -7232,6 +7260,7 @@ static void dm_test_mode_valid_force_on_no_stream(struct kunit *test)
 {
 	struct dm_test_cvs_ctx *ctx =
 		dm_test_cvs_ctx_alloc(test, DRM_MODE_CONNECTOR_DisplayPort);
+	struct drm_connector_state *conn_state;
 	struct dc_sink *em_sink;
 
 	em_sink = kunit_kzalloc(test, sizeof(*em_sink), GFP_KERNEL);
@@ -7244,8 +7273,10 @@ static void dm_test_mode_valid_force_on_no_stream(struct kunit *test)
 	/* drm_connector_cleanup() kfree()s connector->state, so it must not
 	 * point at KUnit-managed memory.
 	 */
-	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
-	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+	conn_state = amdgpu_dm_connector_atomic_create_state(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	ctx->aconnector->base.state = conn_state;
 	ctx->aconnector->base.state->max_requested_bpc = 4;
 
 	KUNIT_EXPECT_EQ(test,
@@ -7763,6 +7794,7 @@ static void dm_test_update_after_detect_disconnect(struct kunit *test)
 		dm_test_uad_ctx_alloc(test, DRM_MODE_CONNECTOR_HDMIA);
 	struct dc_sink *old_sink = dm_test_uad_owned_sink();
 	struct dc_crtc_timing *timing = kzalloc_obj(*timing);
+	struct drm_connector_state *conn_state;
 
 	KUNIT_ASSERT_NOT_NULL(test, old_sink);
 	KUNIT_ASSERT_NOT_NULL(test, timing);
@@ -7774,8 +7806,10 @@ static void dm_test_update_after_detect_disconnect(struct kunit *test)
 	ctx->aconnector->audio_inst = 5;
 	ctx->link->local_sink = NULL;
 
-	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
-	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+	conn_state = amdgpu_dm_connector_atomic_create_state(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	ctx->aconnector->base.state = conn_state;
 	ctx->aconnector->base.state->content_protection =
 		DRM_MODE_CONTENT_PROTECTION_ENABLED;
 
@@ -9418,6 +9452,7 @@ struct dm_test_fs_caps_ctx {
 static struct dm_test_fs_caps_ctx *
 dm_test_fs_caps_ctx_alloc(struct kunit *test, enum signal_type sink_signal)
 {
+	struct drm_connector_state *conn_state;
 	struct dm_test_fs_caps_ctx *ctx;
 	struct dc_context *dc_ctx;
 	struct device *dev;
@@ -9443,8 +9478,11 @@ dm_test_fs_caps_ctx_alloc(struct kunit *test, enum signal_type sink_signal)
 			drmm_connector_init(ctx->drm, &ctx->aconnector->base,
 					    &dm_test_connector_funcs,
 					    DRM_MODE_CONNECTOR_DisplayPort, NULL), 0);
-	amdgpu_dm_connector_funcs_reset(&ctx->aconnector->base);
-	KUNIT_ASSERT_NOT_NULL(test, ctx->aconnector->base.state);
+
+	conn_state = amdgpu_dm_connector_atomic_create_state(&ctx->aconnector->base);
+	KUNIT_ASSERT_NOT_ERR_OR_NULL(test, conn_state);
+
+	ctx->aconnector->base.state = conn_state;
 	KUNIT_ASSERT_EQ(test,
 			drm_connector_attach_vrr_capable_property(&ctx->aconnector->base), 0);
 
@@ -9854,7 +9892,7 @@ dm_test_force_dup_state_fail(struct drm_connector *connector)
 }
 
 static const struct drm_connector_funcs dm_test_force_fail_funcs = {
-	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = dm_test_force_dup_state_fail,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
@@ -10078,10 +10116,10 @@ static struct kunit_case amdgpu_dm_connector_tests[] = {
 	KUNIT_CASE(dm_test_decide_crtc_timing_no_crtc_clock),
 	KUNIT_CASE(dm_test_decide_crtc_timing_sink_mode_same_totals),
 	KUNIT_CASE(dm_test_decide_crtc_timing_inserted_mode),
-	/* amdgpu_dm_connector_funcs_reset */
-	KUNIT_CASE(dm_test_funcs_reset_sets_defaults),
-	KUNIT_CASE(dm_test_funcs_reset_edp_abm_level),
-	KUNIT_CASE(dm_test_funcs_reset_edp_abm_disabled),
+	/* amdgpu_dm_connector_atomic_create_state */
+	KUNIT_CASE(dm_test_atomic_create_sets_defaults),
+	KUNIT_CASE(dm_test_atomic_create_edp_abm_level),
+	KUNIT_CASE(dm_test_atomic_create_edp_abm_disabled),
 	/* amdgpu_dm_connector_atomic_duplicate_state */
 	KUNIT_CASE(dm_test_atomic_dup_state_copies_fields),
 	/* amdgpu_dm_fill_hdr_info_packet */

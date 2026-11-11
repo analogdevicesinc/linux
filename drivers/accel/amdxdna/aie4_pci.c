@@ -11,6 +11,8 @@
 #include <linux/debugfs.h>
 #include <linux/firmware.h>
 #include <linux/sizes.h>
+#include <linux/string.h>
+#include <asm/amd/node.h>
 
 #include "aie.h"
 #include "aie4_msg_priv.h"
@@ -558,46 +560,124 @@ static void aie4_classic_hw_stop(struct amdxdna_dev_hdl *ndev)
 	aie4_fw_stop(ndev);
 }
 
-static int aie4_request_firmware(struct amdxdna_dev_hdl *ndev,
-				 const struct firmware **npufw,
-				 const struct firmware **certfw)
+/*
+ * PSP C2PMSG_63 (SMN) bit 6: 0 = default firmware signing, 1 = alternative
+ * PSP C2PMSG_63 (SMN) bit 28: 0 = production part, 1 = preproduction part
+ */
+#define AIE4_PSP_C2PMSG_63_SMN_ADDR	0x38109fc
+#define AIE4_PSP_FW_SIGN_ALT		BIT(6)
+#define AIE4_PSP_FW_PREPROD		BIT(28)
+
+enum aie4_fw_variant {
+	AIE4_FW_DEFAULT,
+	AIE4_FW_ALT,		/* "_l" images */
+	AIE4_FW_PREPROD,	/* "_p" images */
+};
+
+/*
+ * The PSP only trusts firmware signed with the scheme the platform firmware
+ * uses and a preproduction part needs firmware of its own. Reading which one is
+ * in use is optional and only used as a hint for which images to try first:
+ * anything but a clear answer is treated as default.
+ */
+static enum aie4_fw_variant aie4_psp_fw_variant(struct amdxdna_dev *xdna)
 {
-	struct amdxdna_dev *xdna = ndev->aie.xdna;
-	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
-	char fw_name[128];
+	u32 val = 0;
 	int ret;
 
-	ret = snprintf(fw_name, sizeof(fw_name), "amdnpu/%04x_%02x/%s",
-		       pdev->device, pdev->revision, ndev->priv->npufw_path);
-	if (ret >= sizeof(fw_name)) {
-		XDNA_ERR(xdna, "npu firmware path is truncated");
+	ret = amd_smn_read(0, AIE4_PSP_C2PMSG_63_SMN_ADDR, &val);
+	if (ret) {
+		XDNA_DBG(xdna, "PSP firmware variant not available, ret %d", ret);
+		return AIE4_FW_DEFAULT;
+	}
+
+	if ((val & AIE4_PSP_FW_SIGN_ALT) && (val & AIE4_PSP_FW_PREPROD)) {
+		XDNA_WARN(xdna,
+			  "Preproduction part with alternative signing, using default firmware");
+		return AIE4_FW_DEFAULT;
+	}
+
+	if (val & AIE4_PSP_FW_PREPROD)
+		return AIE4_FW_PREPROD;
+
+	return (val & AIE4_PSP_FW_SIGN_ALT) ? AIE4_FW_ALT : AIE4_FW_DEFAULT;
+}
+
+/*
+ * Images for the other variants have a suffix before the ".sbin" extension.
+ * Returns -ENOENT if @path has no such variant.
+ */
+static int aie4_fw_name(struct amdxdna_dev *xdna, char *name, size_t size,
+			const char *path, enum aie4_fw_variant variant)
+{
+	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
+	const char *suffix;
+	size_t len, base;
+	int ret;
+
+	ret = snprintf(name, size, "amdnpu/%04x_%02x/%s",
+		       pdev->device, pdev->revision, path);
+	if (ret >= size) {
+		XDNA_ERR(xdna, "firmware path %s is truncated", path);
 		return -EINVAL;
 	}
 
-	ret = request_firmware(npufw, fw_name, &pdev->dev);
-	if (ret) {
-		XDNA_ERR(xdna, "failed to request_firmware %s, ret %d", fw_name, ret);
-		return ret;
+	switch (variant) {
+	case AIE4_FW_ALT:
+		suffix = "_l.sbin";
+		break;
+	case AIE4_FW_PREPROD:
+		suffix = "_p.sbin";
+		break;
+	default:
+		return 0;
 	}
 
-	ret = snprintf(fw_name, sizeof(fw_name), "amdnpu/%04x_%02x/%s",
-		       pdev->device, pdev->revision, ndev->priv->certfw_path);
-	if (ret >= sizeof(fw_name)) {
-		XDNA_ERR(xdna, "cert firmware path is truncated");
-		ret = -EINVAL;
-		goto release_npufw;
-	}
+	len = ret;
+	if (len < strlen(".sbin") || strcmp(name + len - strlen(".sbin"), ".sbin"))
+		return -ENOENT;
 
-	ret = request_firmware(certfw, fw_name, &pdev->dev);
-	if (ret) {
-		XDNA_ERR(xdna, "failed to request_firmware %s, ret %d", fw_name, ret);
-		goto release_npufw;
-	}
+	base = len - strlen(".sbin");
+	if (strscpy(name + base, suffix, size - base) < 0)
+		return -EOVERFLOW;
 
 	return 0;
+}
 
-release_npufw:
-	release_firmware(*npufw);
+static int aie4_request_one(struct amdxdna_dev_hdl *ndev, const struct firmware **fw,
+			    const char *path, enum aie4_fw_variant variant)
+{
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
+	struct pci_dev *pdev = to_pci_dev(xdna->ddev.dev);
+	char name[128];
+	int ret;
+
+	ret = aie4_fw_name(xdna, name, sizeof(name), path, variant);
+	if (ret)
+		return ret;
+
+	ret = firmware_request_nowarn(fw, name, &pdev->dev);
+	if (ret)
+		XDNA_DBG(xdna, "firmware %s not loaded, ret %d", name, ret);
+
+	return ret;
+}
+
+/* The NPU and cert images are validated together, so both use the same variant */
+static int aie4_request_firmware(struct amdxdna_dev_hdl *ndev,
+				 const struct firmware **npufw,
+				 const struct firmware **certfw,
+				 enum aie4_fw_variant variant)
+{
+	int ret;
+
+	ret = aie4_request_one(ndev, npufw, ndev->priv->npufw_path, variant);
+	if (ret)
+		return ret;
+
+	ret = aie4_request_one(ndev, certfw, ndev->priv->certfw_path, variant);
+	if (ret)
+		release_firmware(*npufw);
 
 	return ret;
 }
@@ -645,18 +725,40 @@ static int aie4_prepare_firmware(struct amdxdna_dev_hdl *ndev,
 	return 0;
 }
 
+/*
+ * The firmware can only be started once. It is the PSP that decides whether it
+ * accepts the images, and it does that when the firmware is started, so there
+ * is no trying a variant and falling back. Pick the variant that the PSP
+ * reported (the default one if it can't be read) and use the others only if
+ * its images are missing.
+ */
 static int aie4_load_fw(struct amdxdna_dev_hdl *ndev,
 			void __iomem *tbl[PCI_NUM_RESOURCES])
 {
+	struct amdxdna_dev *xdna = ndev->aie.xdna;
 	const struct firmware *npufw, *certfw;
-	int ret;
+	enum aie4_fw_variant order[3], hint;
+	int i, n = 0, ret = -ENOENT;
 
 	if (!ndev->priv->npufw_path && !ndev->priv->certfw_path)
 		return 0;
 
-	ret = aie4_request_firmware(ndev, &npufw, &certfw);
-	if (ret)
+	hint = aie4_psp_fw_variant(xdna);
+	order[n++] = hint;
+	if (hint != AIE4_FW_DEFAULT)
+		order[n++] = AIE4_FW_DEFAULT;
+	if (hint != AIE4_FW_ALT)
+		order[n++] = AIE4_FW_ALT;
+
+	for (i = 0; i < n; i++) {
+		ret = aie4_request_firmware(ndev, &npufw, &certfw, order[i]);
+		if (!ret)
+			break;
+	}
+	if (ret) {
+		XDNA_ERR(xdna, "failed to load firmware, ret %d", ret);
 		return ret;
+	}
 
 	ret = aie4_prepare_firmware(ndev, npufw, certfw, tbl);
 	aie4_release_firmware(ndev, npufw, certfw);

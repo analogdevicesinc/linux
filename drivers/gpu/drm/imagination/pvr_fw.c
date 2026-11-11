@@ -4,6 +4,7 @@
 #include "pvr_ccb.h"
 #include "pvr_device.h"
 #include "pvr_device_info.h"
+#include "pvr_drv.h"
 #include "pvr_fw.h"
 #include "pvr_fw_info.h"
 #include "pvr_fw_startstop.h"
@@ -1512,5 +1513,50 @@ pvr_fw_hard_reset(struct pvr_device *pvr_dev)
 	if (err)
 		return err;
 
+	return 0;
+}
+
+/**
+ * pvr_fw_info_get()
+ * @pvr_dev: Device pointer.
+ * @args: [IN] Device query arguments containing a pointer to a userspace
+ *        struct drm_pvr_dev_query_fw_info.
+ *
+ * If the query object pointer is NULL, the size field is updated with the
+ * expected size of the query object.
+ *
+ * Returns:
+ *  * 0 on success, or if size is requested using a NULL pointer, or
+ *  * -%EINVAL if args contained non-zero reserved fields or
+ *    if the input object is smaller than the minimum required, or
+ *  * -%EFAULT if local memory could not be copied to userspace.
+ */
+int
+pvr_fw_info_get(const struct pvr_device *pvr_dev,
+		struct drm_pvr_ioctl_dev_query_args *args)
+{
+	struct drm_pvr_dev_query_fw_info fw_info = {0};
+	int err;
+
+	if (!args->pointer) {
+		args->size = sizeof(struct drm_pvr_dev_query_fw_info);
+		return 0;
+	}
+
+	err = PVR_UOBJ_GET(fw_info, args->size, args->pointer);
+	if (err < 0)
+		return err;
+	if (fw_info._padding_4)
+		return -EINVAL;
+
+	fw_info.major_version = pvr_dev->fw_version.major;
+	fw_info.minor_version = pvr_dev->fw_version.minor;
+
+	err = PVR_UOBJ_SET(args->pointer, args->size, fw_info);
+	if (err < 0)
+		return err;
+
+	if (args->size > sizeof(fw_info))
+		args->size = sizeof(fw_info);
 	return 0;
 }

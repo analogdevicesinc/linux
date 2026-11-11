@@ -257,8 +257,8 @@ void drm_mipi_dbi_crtc_helper_atomic_disable(struct drm_crtc *crtc,
  */
 
 #define DRM_MIPI_DBI_CONNECTOR_FUNCS \
-	.reset = drm_atomic_helper_connector_reset, \
 	.fill_modes = drm_helper_probe_single_connector_modes, \
+	.atomic_create_state = drm_atomic_helper_connector_create_state, \
 	.atomic_duplicate_state = drm_atomic_helper_connector_duplicate_state, \
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state
 

@@ -413,49 +413,6 @@ __drm_atomic_helper_connector_state_init(struct drm_connector_state *conn_state,
 EXPORT_SYMBOL(__drm_atomic_helper_connector_state_init);
 
 /**
- * __drm_atomic_helper_connector_reset - reset state on connector
- * @connector: drm connector
- * @conn_state: connector state to assign
- *
- * Initializes the newly allocated @conn_state and assigns it to
- * the &drm_connector->state pointer of @connector, usually required when
- * initializing the drivers or when called from the &drm_connector_funcs.reset
- * hook.
- *
- * This is useful for drivers that subclass the connector state.
- */
-void
-__drm_atomic_helper_connector_reset(struct drm_connector *connector,
-				    struct drm_connector_state *conn_state)
-{
-	if (conn_state)
-		__drm_atomic_helper_connector_state_init(conn_state, connector);
-
-	connector->state = conn_state;
-}
-EXPORT_SYMBOL(__drm_atomic_helper_connector_reset);
-
-/**
- * drm_atomic_helper_connector_reset - default &drm_connector_funcs.reset hook for connectors
- * @connector: drm connector
- *
- * Resets the atomic state for @connector by freeing the state pointer (which
- * might be NULL, e.g. at driver load time) and allocating a new empty state
- * object.
- */
-void drm_atomic_helper_connector_reset(struct drm_connector *connector)
-{
-	struct drm_connector_state *conn_state = kzalloc_obj(*conn_state);
-
-	if (connector->state)
-		__drm_atomic_helper_connector_destroy_state(connector->state);
-
-	kfree(connector->state);
-	__drm_atomic_helper_connector_reset(connector, conn_state);
-}
-EXPORT_SYMBOL(drm_atomic_helper_connector_reset);
-
-/**
  * drm_atomic_helper_connector_create_state - default &drm_connector_funcs.atomic_create_state hook for connectors
  * @connector: connector object
  *

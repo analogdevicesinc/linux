@@ -6,6 +6,7 @@
 #include "pvr_device.h"
 #include "pvr_drv.h"
 #include "pvr_free_list.h"
+#include "pvr_fw.h"
 #include "pvr_gem.h"
 #include "pvr_hwrt.h"
 #include "pvr_job.h"
@@ -657,6 +658,10 @@ pvr_ioctl_dev_query(struct drm_device *drm_dev, void *raw_args,
 
 	case DRM_PVR_DEV_QUERY_STATIC_DATA_AREAS_GET:
 		ret = pvr_static_data_areas_get(pvr_dev, args);
+		break;
+
+	case DRM_PVR_DEV_QUERY_FW_INFO_GET:
+		ret = pvr_fw_info_get(pvr_dev, args);
 		break;
 	}
 

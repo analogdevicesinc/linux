@@ -13,9 +13,10 @@
 /*
  * Driver interface version:
  *  - 1.0: Initial interface
+ *  - 1.1: Add DRM_PVR_DEV_QUERY_FW_INFO_GET query
  */
 #define PVR_DRIVER_MAJOR 1
-#define PVR_DRIVER_MINOR 0
+#define PVR_DRIVER_MINOR 1
 #define PVR_DRIVER_PATCHLEVEL 0
 
 int pvr_get_uobj(u64 usr_ptr, u32 usr_size, u32 min_size, u32 obj_size, void *out);
@@ -68,6 +69,7 @@ int pvr_set_uobj_array(const struct drm_pvr_obj_array *out, u32 min_stride, u32 
 	PVR_UOBJ_DECL(struct drm_pvr_dev_query_heap_info, heaps) \
 	PVR_UOBJ_DECL(struct drm_pvr_static_data_area, offset) \
 	PVR_UOBJ_DECL(struct drm_pvr_dev_query_static_data_areas, static_data_areas) \
+	PVR_UOBJ_DECL(struct drm_pvr_dev_query_fw_info, _padding_4) \
 	)
 
 /**

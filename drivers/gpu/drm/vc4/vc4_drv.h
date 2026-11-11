@@ -99,6 +99,8 @@ struct vc4_dev {
 	struct vc4_hvs *hvs;
 	struct vc4_v3d *v3d;
 
+	/* Protects @hang_state. */
+	spinlock_t hang_state_lock;
 	struct vc4_hang_state *hang_state;
 
 	/* The kernel-space BO cache.  Tracks buffers that have been
@@ -181,10 +183,17 @@ struct vc4_dev {
 	wait_queue_head_t job_wait_queue;
 	struct work_struct job_done_work;
 
-	/* Used to track the active perfmon if any. Access to this field is
-	 * protected by job_lock.
+	/* Tracks the performance monitor state. The V3D block exposes a single
+	 * set of performance counters, so at most one perfmon can be active at
+	 * any moment.
 	 */
-	struct vc4_perfmon *active_perfmon;
+	struct {
+		/* Protects @active. */
+		spinlock_t lock;
+
+		/* Perfmon currently programmed in HW (or NULL if none). */
+		struct vc4_perfmon *active;
+	} perfmon_state;
 
 	/* The memory used for storing binner tile alloc, tile state,
 	 * and overflow memory allocations.  This is freed when V3D
@@ -194,6 +203,9 @@ struct vc4_dev {
 
 	/* Size of blocks allocated within bin_bo. */
 	uint32_t bin_alloc_size;
+
+	/* Protects @bin_alloc_used and @bin_alloc_overflow. */
+	spinlock_t bin_alloc_lock;
 
 	/* Bitmask of the bin_alloc_size chunks in bin_bo that are
 	 * used.
@@ -672,6 +684,8 @@ struct vc4_crtc_state {
 
 struct vc4_exec_info {
 	struct vc4_dev *dev;
+
+	struct kref refcount;
 
 	/* Sequence number for this bin/render job. */
 	uint64_t seqno;

@@ -233,18 +233,13 @@ static void meson_plane_atomic_update(struct drm_plane *plane,
 		}
 	}
 
-	switch (fb->format->format) {
-	case DRM_FORMAT_XRGB8888:
-	case DRM_FORMAT_XBGR8888:
-		/* For XRGB, replace the pixel's alpha by 0xFF */
+	if (!fb->format->has_alpha ||
+	    new_state->pixel_blend_mode == DRM_MODE_BLEND_PIXEL_NONE)
+		/* Ignore the pixel's alpha */
 		priv->viu.osd1_ctrl_stat2 |= OSD_REPLACE_EN;
-		break;
-	case DRM_FORMAT_ARGB8888:
-	case DRM_FORMAT_ABGR8888:
-		/* For ARGB, use the pixel's alpha */
+	else
+		/* Use the pixel's alpha */
 		priv->viu.osd1_ctrl_stat2 &= ~OSD_REPLACE_EN;
-		break;
-	}
 
 	/* Default scaler parameters */
 	vsc_bot_rcv_num = 0;
@@ -536,6 +531,7 @@ int meson_plane_create(struct meson_drm *priv)
 	struct drm_plane *plane;
 	const uint64_t *format_modifiers = format_modifiers_default;
 	int ret;
+	unsigned int blend_modes = BIT(DRM_MODE_BLEND_PIXEL_NONE) | BIT(DRM_MODE_BLEND_COVERAGE);
 
 	meson_plane = devm_kzalloc_obj(priv->drm->dev, *meson_plane);
 	if (!meson_plane)
@@ -564,6 +560,10 @@ int meson_plane_create(struct meson_drm *priv)
 
 	/* For now, OSD Primary plane is always on the front */
 	drm_plane_create_zpos_immutable_property(plane, 1);
+
+	ret = drm_plane_create_blend_mode_property(plane, blend_modes);
+	if (ret)
+		return ret;
 
 	priv->primary_plane = plane;
 

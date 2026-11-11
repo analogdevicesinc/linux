@@ -29,9 +29,6 @@ struct vc4_hdmi_variant {
 	/* Filename to expose the registers in debugfs */
 	const char *debugfs_name;
 
-	/* Maximum pixel clock supported by the controller (in Hz) */
-	unsigned long long max_pixel_clock;
-
 	/* List of the registers available on that variant */
 	const struct vc4_hdmi_register *registers;
 
@@ -90,11 +87,11 @@ struct vc4_hdmi_variant {
 	/* Callback to get channel map */
 	u32 (*channel_map)(struct vc4_hdmi *vc4_hdmi, u32 channel_mask);
 
-	/* Enables HDR metadata */
-	bool supports_hdr;
-
 	/* Callback for hardware specific hotplug detect */
 	bool (*hp_detect)(struct vc4_hdmi *vc4_hdmi);
+
+	/* HDMI-related connector callbacks and controller capabilities */
+	const struct drm_connector_hdmi_funcs *hdmi_funcs;
 };
 
 /* HDMI audio information */
@@ -117,8 +114,6 @@ struct vc4_hdmi {
 
 	struct vc4_encoder encoder;
 	struct drm_connector connector;
-
-	struct delayed_work scrambling_work;
 
 	struct i2c_adapter *ddc;
 	void __iomem *hdmicore_regs;
@@ -186,31 +181,6 @@ struct vc4_hdmi {
 	 * for use by ALSA hooks and interrupt handlers. Protected by @mutex.
 	 */
 	struct drm_display_mode saved_adjusted_mode;
-
-	/**
-	 * @packet_ram_enabled: Is the HDMI controller packet RAM currently
-	 * on? Protected by @mutex.
-	 */
-	bool packet_ram_enabled;
-
-	/**
-	 * @scdc_enabled: Is the HDMI controller currently running with
-	 * the scrambler on? Protected by @mutex.
-	 */
-	bool scdc_enabled;
-
-	/**
-	 * @output_bpc: Copy of @drm_connector_state.hdmi.output_bpc for
-	 * use outside of KMS hooks. Protected by @mutex.
-	 */
-	unsigned int output_bpc;
-
-	/**
-	 * @output_format: Copy of
-	 * @drm_connector_state.hdmi.output_format for use outside of
-	 * KMS hooks. Protected by @mutex.
-	 */
-	enum drm_output_color_format output_format;
 
 	/**
 	 * @hdmi_jack: Represents the connection state of the HDMI plug, for

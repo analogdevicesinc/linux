@@ -754,10 +754,10 @@ retry:
 		}
 		crtcs[i] = crtc;
 
-		drm_dbg_kms(dev, "[CONNECTOR::%d:%s] on [CRTC:%d:%s] using %s mode: %s\n",
+		drm_dbg_kms(dev, "[CONNECTOR:%d:%s] on [CRTC:%d:%s] using %s mode: %s\n",
 			    connector->base.id, connector->name,
 			    crtc->base.id, crtc->name,
-			    mode_type, modes[i]->name);
+			    mode_type, modes[i] ? modes[i]->name : "(none)");
 
 		fallback = false;
 		conn_configured |= BIT(i);

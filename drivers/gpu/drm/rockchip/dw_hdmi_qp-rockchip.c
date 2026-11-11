@@ -190,6 +190,25 @@ static int dw_hdmi_qp_rockchip_get_vop_format(struct drm_encoder *encoder,
 	return bstate->output_bus_cfg.format;
 }
 
+/*
+ * The HDMI PHY scales its PLL output by 8/bpc to undo the deep color packing,
+ * such that it matches the DCLK rate expected by VOP2.
+ *
+ * YUV422 is never deep color packed, as it always transmits two 12-bit
+ * components per clock cycle, regardless of the color depth.  Hence, as for
+ * drm_hdmi_compute_mode_clock(), use 8 bpc to keep the PHY PLL output aligned
+ * with the TMDS character rate.
+ */
+static unsigned int
+dw_hdmi_qp_rockchip_phy_bpc(const struct rockchip_crtc_state *s,
+			    const struct drm_connector_state *conn_state)
+{
+	if (s->output_mode == ROCKCHIP_OUT_MODE_YUV422)
+		return 8;
+
+	return conn_state->hdmi.output_bpc;
+}
+
 static int
 dw_hdmi_qp_rockchip_encoder_atomic_check(struct drm_encoder *encoder,
 					 struct drm_crtc_state *crtc_state,
@@ -203,7 +222,7 @@ dw_hdmi_qp_rockchip_encoder_atomic_check(struct drm_encoder *encoder,
 
 	ingest_fmt = dw_hdmi_qp_rockchip_get_vop_format(encoder, conn_state);
 	if (ingest_fmt < 0)
-		return -EINVAL;
+		return ingest_fmt;
 
 	if (hdmi->tmds_char_rate == conn_state->hdmi.tmds_char_rate &&
 	    s->output_bpc == conn_state->hdmi.output_bpc &&
@@ -218,6 +237,7 @@ dw_hdmi_qp_rockchip_encoder_atomic_check(struct drm_encoder *encoder,
 		s->output_mode = ROCKCHIP_OUT_MODE_AAAA;
 		break;
 	case MEDIA_BUS_FMT_UYVY8_1X16:
+	case MEDIA_BUS_FMT_UYVY10_1X20:
 		s->output_mode = ROCKCHIP_OUT_MODE_YUV422;
 		break;
 	case MEDIA_BUS_FMT_UYYVYY8_0_5X24:
@@ -229,7 +249,7 @@ dw_hdmi_qp_rockchip_encoder_atomic_check(struct drm_encoder *encoder,
 	}
 
 	phy_cfg.hdmi.tmds_char_rate = conn_state->hdmi.tmds_char_rate;
-	phy_cfg.hdmi.bpc = conn_state->hdmi.output_bpc;
+	phy_cfg.hdmi.bpc = dw_hdmi_qp_rockchip_phy_bpc(s, conn_state);
 
 	ret = phy_configure(hdmi->phy, &phy_cfg);
 	if (!ret) {
@@ -640,7 +660,8 @@ static int dw_hdmi_qp_rockchip_bind(struct device *dev, struct device *master,
 
 	plat_data.supported_formats = BIT(DRM_OUTPUT_COLOR_FORMAT_RGB444) |
 				      BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR444) |
-				      BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422);
+				      BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR422) |
+				      BIT(DRM_OUTPUT_COLOR_FORMAT_YCBCR420);
 
 	encoder = &hdmi->encoder.encoder;
 	encoder->possible_crtcs = drm_of_find_possible_crtcs(drm, dev->of_node);

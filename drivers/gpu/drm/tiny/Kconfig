@@ -56,6 +56,17 @@ config DRM_CIRRUS_QEMU
 	   - qxl (DRM_QXL, qemu -vga qxl, works best with spice)
 	   - virtio (DRM_VIRTIO_GPU), qemu -vga virtio)
 
+config DRM_GLANDA
+	tristate "GlandaGPU DRM driver"
+	depends on DRM && MMU && (PCI || COMPILE_TEST)
+	select DRM_KMS_HELPER
+	select DRM_GEM_SHMEM_HELPER
+	help
+	  DRM/KMS driver for the GlandaGPU display controller
+	  (FPGA soft IP). This driver supports basic modesetting,
+	  dumb buffers, and atomic updates via shadow planes.
+	  It also provides PCI probing for QEMU testing.
+
 config DRM_GM12U320
 	tristate "GM12U320 driver for USB projectors"
 	depends on DRM && USB && MMU

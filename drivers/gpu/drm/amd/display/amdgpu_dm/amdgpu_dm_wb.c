@@ -225,7 +225,7 @@ static const struct drm_encoder_helper_funcs amdgpu_dm_wb_encoder_helper_funcs =
 static const struct drm_connector_funcs amdgpu_dm_wb_connector_funcs = {
 	.fill_modes = drm_helper_probe_single_connector_modes,
 	.destroy = drm_connector_cleanup,
-	.reset = amdgpu_dm_connector_funcs_reset,
+	.atomic_create_state = amdgpu_dm_connector_atomic_create_state,
 	.atomic_duplicate_state = amdgpu_dm_connector_atomic_duplicate_state,
 	.atomic_destroy_state = drm_atomic_helper_connector_destroy_state,
 };
@@ -240,6 +240,7 @@ int amdgpu_dm_wb_connector_init(struct amdgpu_display_manager *dm,
 				struct amdgpu_dm_wb_connector *wbcon,
 				uint32_t link_index)
 {
+	struct drm_connector *connector;
 	struct dc *dc = dm->dc;
 	struct dc_link *link = dc_get_link_at_index(dc, link_index);
 	int res;
@@ -261,8 +262,18 @@ int amdgpu_dm_wb_connector_init(struct amdgpu_display_manager *dm,
 	 * Some of the properties below require access to state, like bpc.
 	 * Allocate some default initial connector state with our reset helper.
 	 */
-	if (wbcon->base.base.funcs->reset)
-		wbcon->base.base.funcs->reset(&wbcon->base.base);
+	connector = &wbcon->base.base;
+	if (connector->funcs->atomic_create_state) {
+		struct drm_connector_state *conn_state;
+
+		conn_state = amdgpu_dm_connector_atomic_create_state(connector);
+		if (!IS_ERR(conn_state)) {
+			if (connector->state)
+				connector->funcs->atomic_destroy_state(connector, connector->state);
+
+			connector->state = conn_state;
+		}
+	}
 
 	return 0;
 }
