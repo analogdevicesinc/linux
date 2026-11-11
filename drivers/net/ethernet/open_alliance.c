@@ -210,6 +210,11 @@ static int open_alliance_frame_to_chunks(struct open_alliance *oa,
 	}
 
 	chunks_nr = DIV_ROUND_UP(tx_len, oa->chunk_size);
+
+	/* Queue the whole frame or nothing. */
+	if (kfifo_avail(&oa->tx_chunks_kfifo) < chunks_nr)
+		return -ENOMEM;
+
 	for (i = 0; i < chunks_nr; i++) {
 		memset(&chunk, 0, sizeof(struct open_alliance_data_tx_chunk));
 
