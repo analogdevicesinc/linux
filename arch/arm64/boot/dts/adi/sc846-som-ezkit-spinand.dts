@@ -1,0 +1,37 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * EV-SC846-SOM on the EZ-KIT carrier variant fitted with a quad SPI-NAND
+ * on xSPI1 instead of the octal SPI-NOR.
+ *
+ * Copyright (c) 2026 Analog Devices, Inc.
+ */
+
+#include "sc846-som-ezkit.dts"
+
+&pinctrl0 {
+	xspi1_quad: xspi1-quad-pins {
+		pins {
+			pinmux = <ADI_ADSP_PINMUX('F', 2,  ADI_ADSP_PINFUNC_ALT0)>, /* SEL1 */
+				 <ADI_ADSP_PINMUX('E', 11, ADI_ADSP_PINFUNC_ALT0)>, /* CLK */
+				 <ADI_ADSP_PINMUX('E', 8,  ADI_ADSP_PINFUNC_ALT0)>, /* D0 */
+				 <ADI_ADSP_PINMUX('E', 7,  ADI_ADSP_PINFUNC_ALT0)>, /* D1 */
+				 <ADI_ADSP_PINMUX('E', 9,  ADI_ADSP_PINFUNC_ALT0)>, /* D2 */
+				 <ADI_ADSP_PINMUX('E', 10, ADI_ADSP_PINFUNC_ALT0)>; /* D3 */
+		};
+	};
+};
+
+&xspi1 {
+	pinctrl-0 = <&xspi1_quad>;
+
+	/delete-node/ flash@0;
+
+	flash@0 {
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <100000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		label = "xspi1-nand";
+	};
+};
