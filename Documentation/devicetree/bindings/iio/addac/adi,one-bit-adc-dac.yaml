@@ -30,6 +30,15 @@ properties:
   out-gpios:
     description: Output GPIO numbers
 
+  default-state:
+    $ref: /schemas/types.yaml#/definitions/string
+    enum:
+      - high
+      - low
+    default: low
+    description: |
+      Default state of the output channels on boot.
+
 required:
   - compatible
   - in-gpios
@@ -49,6 +58,15 @@ patternProperties:
       label:
         description: |
           Unique name to identify which channel this is.
+
+      default-state:
+        $ref: /schemas/types.yaml#/definitions/string
+        enum:
+          - high
+          - low
+        default: low
+        description: |
+          Default state of this channel on boot.
     required:
       - reg
 
@@ -76,11 +94,13 @@ examples:
         channel@2 {
           reg = <2>;
           label = "o_23";
+          default-state = "high";
         };
 
         channel@3 {
           reg = <3>;
           label = "o_24";
+          default-state = "low";
         };
       };
     };
