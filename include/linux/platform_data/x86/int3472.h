@@ -30,7 +30,9 @@
 #define INT3472_GPIO_TYPE_POWER_ENABLE				0x0b
 #define INT3472_GPIO_TYPE_CLK_ENABLE				0x0c
 #define INT3472_GPIO_TYPE_PRIVACY_LED				0x0d
-#define INT3472_GPIO_TYPE_DOVDD					0x10
+#define INT3472_GPIO_TYPE_DOVDD					0x0f
+#define INT3472_GPIO_TYPE_AVDD					0x10
+#define INT3472_GPIO_TYPE_DVDD					0x11
 #define INT3472_GPIO_TYPE_HANDSHAKE				0x12
 #define INT3472_GPIO_TYPE_HOTPLUG_DETECT			0x13
 
@@ -96,8 +98,8 @@ struct int3472_cldb {
 };
 
 struct int3472_discrete_quirks {
-	/* For models where AVDD GPIO is shared between sensors */
-	const char *avdd_second_sensor;
+	/* For models where power-enable GPIO is shared between sensors */
+	const char *power_enable_second_sensor;
 };
 
 struct int3472_gpio_regulator {

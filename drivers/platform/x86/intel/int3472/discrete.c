@@ -270,7 +270,7 @@ static void int3472_get_con_id_and_polarity(struct int3472_discrete_device *int3
 		*gpio_flags = GPIO_ACTIVE_HIGH;
 		break;
 	case INT3472_GPIO_TYPE_POWER_ENABLE:
-		*con_id = "avdd";
+		*con_id = "dovdd";
 		*gpio_flags = GPIO_ACTIVE_HIGH;
 		break;
 	case INT3472_GPIO_TYPE_POWER1:
@@ -279,6 +279,14 @@ static void int3472_get_con_id_and_polarity(struct int3472_discrete_device *int3
 		break;
 	case INT3472_GPIO_TYPE_DOVDD:
 		*con_id = "dovdd";
+		*gpio_flags = GPIO_ACTIVE_HIGH;
+		break;
+	case INT3472_GPIO_TYPE_AVDD:
+		*con_id = "avdd";
+		*gpio_flags = GPIO_ACTIVE_HIGH;
+		break;
+	case INT3472_GPIO_TYPE_DVDD:
+		*con_id = "dvdd";
 		*gpio_flags = GPIO_ACTIVE_HIGH;
 		break;
 	case INT3472_GPIO_TYPE_HANDSHAKE:
@@ -403,6 +411,8 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 	case INT3472_GPIO_TYPE_POWER_ENABLE:
 	case INT3472_GPIO_TYPE_POWER1:
 	case INT3472_GPIO_TYPE_DOVDD:
+	case INT3472_GPIO_TYPE_AVDD:
+	case INT3472_GPIO_TYPE_DVDD:
 	case INT3472_GPIO_TYPE_HANDSHAKE:
 		gpio = skl_int3472_gpiod_get_from_temp_lookup(int3472, agpio, con_id, gpio_flags);
 		if (IS_ERR(gpio))
@@ -426,10 +436,12 @@ static int skl_int3472_handle_gpio_resources(struct acpi_resource *ares,
 
 			break;
 		case INT3472_GPIO_TYPE_POWER_ENABLE:
-			second_sensor = int3472->quirks.avdd_second_sensor;
+			second_sensor = int3472->quirks.power_enable_second_sensor;
 			fallthrough;
 		case INT3472_GPIO_TYPE_POWER1:
 		case INT3472_GPIO_TYPE_DOVDD:
+		case INT3472_GPIO_TYPE_AVDD:
+		case INT3472_GPIO_TYPE_DVDD:
 		case INT3472_GPIO_TYPE_HANDSHAKE:
 			ret = skl_int3472_register_regulator(int3472, gpio, enable_time_us,
 							     con_id, second_sensor);
