@@ -1,0 +1,145 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/xlnx,ps7-clkc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Xilinx Zynq 7000 clock controller
+
+maintainers:
+  - Michal Simek <michal.simek@amd.com>
+
+description:
+  The clock controller generates the PS clocks from the three PLLs and the
+  clock generators in the System Level Control Registers (SLCR). It is a
+  child node of the SLCR. See Chapter 25 of the Zynq TRM (UG585) for more
+  information about Zynq clocks.
+
+properties:
+  compatible:
+    const: xlnx,ps7-clkc
+
+  reg:
+    maxItems: 1
+
+  "#clock-cells":
+    const: 1
+
+  clocks:
+    minItems: 1
+    maxItems: 58
+
+  clock-names:
+    minItems: 1
+    maxItems: 58
+    description:
+      Optional (E)MIO clock sources. mio_clk_XX names the EMIO clock on MIO
+      pin XX and may be given for pins 00 to 53.
+    items:
+      oneOf:
+        - enum: [ gem0_emio_clk, gem1_emio_clk, swdt_ext_clk, trace_emio_clk ]
+        - pattern: '^mio_clk_([0-4][0-9]|5[0-3])$'
+
+  clock-output-names:
+    description:
+      Names for the 48 clock outputs, in the order the single clock cell
+      indexes them.
+    items:
+      - const: armpll
+      - const: ddrpll
+      - const: iopll
+      - const: cpu_6or4x
+      - const: cpu_3or2x
+      - const: cpu_2x
+      - const: cpu_1x
+      - const: ddr2x
+      - const: ddr3x
+      - const: dci
+      - const: lqspi
+      - const: smc
+      - const: pcap
+      - const: gem0
+      - const: gem1
+      - const: fclk0
+      - const: fclk1
+      - const: fclk2
+      - const: fclk3
+      - const: can0
+      - const: can1
+      - const: sdio0
+      - const: sdio1
+      - const: uart0
+      - const: uart1
+      - const: spi0
+      - const: spi1
+      - const: dma
+      - const: usb0_aper
+      - const: usb1_aper
+      - const: gem0_aper
+      - const: gem1_aper
+      - const: sdio0_aper
+      - const: sdio1_aper
+      - const: spi0_aper
+      - const: spi1_aper
+      - const: can0_aper
+      - const: can1_aper
+      - const: i2c0_aper
+      - const: i2c1_aper
+      - const: uart0_aper
+      - const: uart1_aper
+      - const: gpio_aper
+      - const: lqspi_aper
+      - const: smc_aper
+      - const: swdt
+      - const: dbg_trc
+      - const: dbg_apb
+
+  ps-clk-frequency:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 33333333
+    description:
+      Frequency of the oscillator providing ps_clk, in Hz. Zynq platforms
+      usually fit a 33 MHz oscillator.
+
+  fclk-enable:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    default: 0
+    maximum: 0xf
+    description:
+      Bit mask of FCLKs to enable at boot time. Bits 0 to 3 correspond to
+      FCLK0 to FCLK3.
+
+required:
+  - compatible
+  - reg
+  - "#clock-cells"
+  - clock-output-names
+
+additionalProperties: false
+
+examples:
+  - |
+    clkc: clock-controller@100 {
+        compatible = "xlnx,ps7-clkc";
+        reg = <0x100 0x100>;
+        #clock-cells = <1>;
+        ps-clk-frequency = <33333333>;
+        fclk-enable = <0>;
+        clock-output-names = "armpll", "ddrpll", "iopll", "cpu_6or4x",
+                             "cpu_3or2x", "cpu_2x", "cpu_1x", "ddr2x",
+                             "ddr3x", "dci", "lqspi", "smc", "pcap",
+                             "gem0", "gem1", "fclk0", "fclk1", "fclk2",
+                             "fclk3", "can0", "can1", "sdio0", "sdio1",
+                             "uart0", "uart1", "spi0", "spi1", "dma",
+                             "usb0_aper", "usb1_aper", "gem0_aper",
+                             "gem1_aper", "sdio0_aper", "sdio1_aper",
+                             "spi0_aper", "spi1_aper", "can0_aper",
+                             "can1_aper", "i2c0_aper", "i2c1_aper",
+                             "uart0_aper", "uart1_aper", "gpio_aper",
+                             "lqspi_aper", "smc_aper", "swdt", "dbg_trc",
+                             "dbg_apb";
+        clocks = <&clkc 16>, <&clk_foo>;
+        clock-names = "gem1_emio_clk", "mio_clk_23";
+    };
+
+...
