@@ -11,6 +11,7 @@
 #ifndef _LINUX_SRCU_TREE_H
 #define _LINUX_SRCU_TREE_H
 
+#include <linux/compiler.h>
 #include <linux/rcu_node_tree.h>
 #include <linux/completion.h>
 #include <linux/irq_work_types.h>
@@ -228,13 +229,15 @@ struct srcu_struct {
 								      fast);			\
 	extern struct srcu_struct * const __srcu_struct_##name;					\
 	struct srcu_struct * const __srcu_struct_##name						\
-		__section("___srcu_struct_ptrs") = &name
+		__section("___srcu_struct_ptrs") = &name;					\
+	ASSERT_STATIC_STORAGE(name)
 #else
 # define __DEFINE_SRCU(name, fast, is_static)							\
 	static DEFINE_PER_CPU(struct srcu_data, name##_srcu_data);				\
 	static struct srcu_usage name##_srcu_usage = __SRCU_USAGE_INIT(name##_srcu_usage);	\
 	is_static struct srcu_struct name =							\
-		__SRCU_STRUCT_INIT(name, name##_srcu_usage, name##_srcu_data, fast)
+		__SRCU_STRUCT_INIT(name, name##_srcu_usage, name##_srcu_data, fast);		\
+	ASSERT_STATIC_STORAGE(name)
 #endif
 #define DEFINE_SRCU(name)		__DEFINE_SRCU(name, 0, /* !static */)
 #define DEFINE_STATIC_SRCU(name)	__DEFINE_SRCU(name, 0, static)

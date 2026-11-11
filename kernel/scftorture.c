@@ -479,18 +479,23 @@ static int scftorture_invoker(void *arg)
 
 	VERBOSE_SCFTORTOUT("scftorture_invoker %d: task started", scfp->cpu);
 	cpu = scfp->cpu % nr_cpu_ids;
-	WARN_ON_ONCE(set_cpus_allowed_ptr(current, cpumask_of(cpu)));
+	cpus_read_lock();
+	if (cpu_online(cpu)) {
+		WARN_ON_ONCE(set_cpus_allowed_ptr(current, cpumask_of(cpu)));
+		/* Check affinity before hotplug can move this task away. */
+		curcpu = raw_smp_processor_id();
+		WARN_ONCE(curcpu != cpu,
+			  "%s: Wanted CPU %d, running on %d, nr_cpu_ids = %d\n",
+			  __func__, scfp->cpu, curcpu, nr_cpu_ids);
+	} else {
+		was_offline = true;
+	}
+	cpus_read_unlock();
 	set_user_nice(current, MAX_NICE);
 	if (holdoff)
 		schedule_timeout_interruptible(holdoff * HZ);
 
 	VERBOSE_SCFTORTOUT("scftorture_invoker %d: Waiting for all SCF torturers from cpu %d", scfp->cpu, raw_smp_processor_id());
-
-	// Make sure that the CPU is affinitized appropriately during testing.
-	curcpu = raw_smp_processor_id();
-	WARN_ONCE(curcpu != cpu,
-		  "%s: Wanted CPU %d, running on %d, nr_cpu_ids = %d\n",
-		  __func__, scfp->cpu, curcpu, nr_cpu_ids);
 
 	if (atomic_dec_return(&n_started))
 		while (atomic_read_acquire(&n_started)) {
@@ -588,6 +593,12 @@ static int __init scf_torture_init(void)
 
 	scftorture_print_module_parms("Start of test");
 
+	if (!nthreads) {
+		SCFTORTOUT_ERRSTRING("nthreads must be nonzero");
+		firsterr = -EINVAL;
+		goto unwind;
+	}
+
 	if (weight_resched <= 0 &&
 	    weight_single <= 0 && weight_single_rpc <= 0 && weight_single_wait <= 0 &&
 	    weight_many <= 0 && weight_many_wait <= 0 &&
@@ -636,6 +647,11 @@ static int __init scf_torture_init(void)
 	scf_sel_add(weight_many_wait1, SCF_PRIM_MANY, true);
 	scf_sel_add(weight_all1, SCF_PRIM_ALL, false);
 	scf_sel_add(weight_all_wait1, SCF_PRIM_ALL, true);
+	if (!scf_sel_array_len) {
+		SCFTORTOUT_ERRSTRING("no supported operations selected");
+		firsterr = -EINVAL;
+		goto unwind;
+	}
 	scf_sel_dump();
 
 	if (onoff_interval > 0) {

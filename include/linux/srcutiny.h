@@ -11,6 +11,7 @@
 #ifndef _LINUX_SRCU_TINY_H
 #define _LINUX_SRCU_TINY_H
 
+#include <linux/compiler.h>
 #include <linux/irq_work_types.h>
 #include <linux/llist.h>
 #include <linux/swait.h>
@@ -56,7 +57,8 @@ void srcu_defer_drain(struct irq_work *irq_work);
  * Tree SRCU, which needs some per-CPU data.
  */
 #define DEFINE_SRCU(name) \
-	struct srcu_struct name = __SRCU_STRUCT_INIT(name, name, name, name)
+	struct srcu_struct name = __SRCU_STRUCT_INIT(name, name, name, name);	\
+	ASSERT_STATIC_STORAGE(name)
 #define DEFINE_STATIC_SRCU(name) \
 	static struct srcu_struct name = __SRCU_STRUCT_INIT(name, name, name, name)
 #define DEFINE_SRCU_FAST(name) DEFINE_SRCU(name)

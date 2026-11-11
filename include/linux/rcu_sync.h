@@ -10,6 +10,7 @@
 #ifndef _LINUX_RCU_SYNC_H_
 #define _LINUX_RCU_SYNC_H_
 
+#include <linux/compiler.h>
 #include <linux/wait.h>
 #include <linux/rcupdate.h>
 
@@ -48,6 +49,7 @@ extern void rcu_sync_dtor(struct rcu_sync *);
 	}
 
 #define	DEFINE_RCU_SYNC(name)	\
-	struct rcu_sync name = __RCU_SYNC_INITIALIZER(name)
+	struct rcu_sync name = __RCU_SYNC_INITIALIZER(name);	\
+	ASSERT_STATIC_STORAGE(name)
 
 #endif /* _LINUX_RCU_SYNC_H_ */

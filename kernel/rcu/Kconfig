@@ -56,6 +56,7 @@ config RCU_EXPERT
 config TINY_SRCU
 	bool
 	default y if TINY_RCU
+	select IRQ_WORK
 	help
 	  This option selects the single-CPU non-preemptible version of SRCU.
 
@@ -237,17 +238,15 @@ config RCU_FANOUT_LEAF
 	  Take the default if unsure.
 
 config RCU_BOOST
-	bool "Enable RCU priority boosting"
-	depends on (RT_MUTEXES && PREEMPT_RCU && RCU_EXPERT) || PREEMPT_RT
-	default y if PREEMPT_RT
+	bool
+	default y if (RT_MUTEXES && PREEMPT_RCU) || PREEMPT_RT
 	help
 	  This option boosts the priority of preempted RCU readers that
 	  block the current preemptible RCU grace period for too long.
 	  This option also prevents heavy loads from blocking RCU
-	  callback invocation.
+	  callback invocation.  It is now automatically enabled in
+	  any kernel that can benefit from it and that can support it.
 
-	  Say Y here if you are working with real-time apps or heavy loads
-	  Say N here if you are unsure.
 
 config RCU_BOOST_DELAY
 	int "Milliseconds to delay boosting after RCU grace-period start"

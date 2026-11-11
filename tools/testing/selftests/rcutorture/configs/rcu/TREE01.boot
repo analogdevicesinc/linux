@@ -6,3 +6,4 @@ rcu_nocbs=0-1,3-7
 rcutorture.nocbs_nthreads=8
 rcutorture.nocbs_toggle=1000
 rcutorture.fwd_progress=0
+rcutorture.test_boost=0
