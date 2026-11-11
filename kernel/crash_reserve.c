@@ -483,10 +483,16 @@ void __init reserve_crashkernel_cma(unsigned long long cma_size)
 	while (cma_size > reserved_size &&
 	       crashk_cma_cnt < CRASHKERNEL_CMA_RANGES_MAX) {
 
+		char name[CMA_MAX_NAME];
 		struct cma *res;
 
+		/* CMA area names show up in sysfs and debugfs, keep them unique */
+		if (crashk_cma_cnt)
+			snprintf(name, sizeof(name), "crashkernel%d", crashk_cma_cnt);
+		else
+			strscpy(name, "crashkernel");
 		if (cma_declare_contiguous(0, request_size, 0, 0, 0, false,
-				       "crashkernel", &res)) {
+				       name, &res)) {
 			/* reservation failed, try half-sized blocks */
 			if (request_size <= PAGE_SIZE)
 				break;
@@ -495,6 +501,7 @@ void __init reserve_crashkernel_cma(unsigned long long cma_size)
 			continue;
 		}
 
+		cma_reserve_pages_on_error(res);
 		crashk_cma_ranges[crashk_cma_cnt].start = cma_get_base(res);
 		crashk_cma_ranges[crashk_cma_cnt].end =
 			crashk_cma_ranges[crashk_cma_cnt].start +
