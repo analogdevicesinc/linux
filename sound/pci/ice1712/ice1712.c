@@ -2283,19 +2283,28 @@ static int snd_ice1712_read_eeprom(struct snd_ice1712 *ice,
 
 
 
-static int snd_ice1712_chip_init(struct snd_ice1712 *ice)
+static int snd_ice1712_init_eeprom(struct snd_ice1712 *ice)
+{
+	const struct snd_ice1712_card_info * const *tbl, *c;
+
+	for (tbl = card_tables; *tbl; tbl++) {
+		for (c = *tbl; c->subvendor; c++) {
+			if (c->subvendor != ice->eeprom.subvendor)
+				continue;
+			if (c->eeprom_init)
+				return c->eeprom_init(ice);
+			return 0;
+		}
+	}
+	return 0;
+}
+
+static void snd_ice1712_chip_init(struct snd_ice1712 *ice)
 {
 	outb(ICE1712_RESET | ICE1712_NATIVE, ICEREG(ice, CONTROL));
 	udelay(200);
 	outb(ICE1712_NATIVE, ICEREG(ice, CONTROL));
 	udelay(200);
-	if (ice->eeprom.subvendor == ICE1712_SUBDEVICE_DMX6FIRE &&
-	    !ice->dxr_enable)
-		/*  Set eeprom value to limit active ADCs and DACs to 6;
-		 *  Also disable AC97 as no hardware in standard 6fire card/box
-		 *  Note: DXR extensions are not currently supported
-		 */
-		ice->eeprom.data[ICE_EEP1_CODEC] = 0x3a;
 	pci_write_config_byte(ice->pci, 0x60, ice->eeprom.data[ICE_EEP1_CODEC]);
 	pci_write_config_byte(ice->pci, 0x61, ice->eeprom.data[ICE_EEP1_ACLINK]);
 	pci_write_config_byte(ice->pci, 0x62, ice->eeprom.data[ICE_EEP1_I2SID]);
@@ -2334,8 +2343,6 @@ static int snd_ice1712_chip_init(struct snd_ice1712 *ice)
 	      ICE1712_IRQ_PBKDS | ICE1712_IRQ_CONCAP | ICE1712_IRQ_CONPBK : 0),
 	     ICEREG(ice, IRQMASK));
 	outb(0x00, ICEMT(ice, IRQ));
-
-	return 0;
 }
 
 int snd_ice1712_spdif_build_controls(struct snd_ice1712 *ice)
@@ -2502,10 +2509,13 @@ static int snd_ice1712_create(struct snd_card *card,
 	card->sync_irq = ice->irq;
 	card->private_free = snd_ice1712_free;
 
-	if (snd_ice1712_read_eeprom(ice, modelname) < 0)
-		return -EIO;
-	if (snd_ice1712_chip_init(ice) < 0)
-		return -EIO;
+	err = snd_ice1712_read_eeprom(ice, modelname);
+	if (err < 0)
+		return err;
+	err = snd_ice1712_init_eeprom(ice);
+	if (err < 0)
+		return err;
+	snd_ice1712_chip_init(ice);
 
 	return 0;
 }
@@ -2683,10 +2693,7 @@ static int snd_ice1712_resume(struct device *dev)
 	else
 		rate = PRO_RATE_DEFAULT;
 
-	if (snd_ice1712_chip_init(ice) < 0) {
-		snd_card_disconnect(card);
-		return -EIO;
-	}
+	snd_ice1712_chip_init(ice);
 
 	ice->cur_rate = rate;
 

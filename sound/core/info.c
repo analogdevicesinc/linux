@@ -484,7 +484,7 @@ int snd_info_card_create(struct snd_card *card)
 	if (snd_BUG_ON(!card))
 		return -ENXIO;
 
-	sprintf(str, "card%i", card->number);
+	scnprintf(str, sizeof(str), "card%i", card->number);
 	entry = create_subdir(card->module, str);
 	if (!entry)
 		return -ENOMEM;

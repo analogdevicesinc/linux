@@ -140,6 +140,7 @@ static void snd_ctl_led_set_state(struct snd_card *card, unsigned int access,
 {
 	struct snd_ctl_led *led;
 	struct snd_ctl_led_ctl *lctl;
+	enum snd_ctl_led_mode mode;
 	int route;
 	bool found;
 
@@ -168,8 +169,9 @@ static void snd_ctl_led_set_state(struct snd_card *card, unsigned int access,
 				UPDATE_ROUTE(route, snd_ctl_led_get(lctl));
 			}
 		}
+		mode = led->mode;
 	}
-	switch (led->mode) {
+	switch (mode) {
 	case MODE_OFF:		route = 1; break;
 	case MODE_ON:		route = 0; break;
 	case MODE_FOLLOW_ROUTE:	if (route >= 0) route ^= 1; break;
@@ -382,6 +384,8 @@ static ssize_t mode_show(struct device *dev,
 	struct snd_ctl_led *led = container_of(dev, struct snd_ctl_led, dev);
 	const char *str = NULL;
 
+	guard(mutex)(&snd_ctl_led_mutex);
+
 	switch (led->mode) {
 	case MODE_FOLLOW_MUTE:	str = "follow-mute"; break;
 	case MODE_FOLLOW_ROUTE:	str = "follow-route"; break;
@@ -447,22 +451,23 @@ static const struct attribute_group *snd_ctl_led_dev_attr_groups[] = {
 	NULL,
 };
 
+/* return the end of substring pointing to either comma or NUL */
 static char *find_eos(char *s)
 {
 	while (*s && *s != ',')
-		s++;
-	if (*s)
 		s++;
 	return s;
 }
 
 static char *parse_uint(char *s, unsigned int *val)
 {
-	unsigned long long res;
-	if (kstrtoull(s, 10, &res))
-		res = 0;
-	*val = res;
-	return find_eos(s);
+	char *end = find_eos(s);
+	char delimiter = *end;
+	*end = '\0';
+	if (kstrtouint(s, 10, val))
+		*val = 0;
+	*end = delimiter;
+	return end;
 }
 
 static char *parse_string(char *s, char *val, size_t val_size)
@@ -477,6 +482,8 @@ static char *parse_string(char *s, char *val, size_t val_size)
 			}
 			s++;
 		}
+		if (*s)
+			s++;
 	} else {
 		while (*s && *s != ',') {
 			if (val_size > 1) {
@@ -487,8 +494,6 @@ static char *parse_string(char *s, char *val, size_t val_size)
 		}
 	}
 	*val = '\0';
-	if (*s)
-		s++;
 	return s;
 }
 
@@ -518,6 +523,11 @@ static ssize_t set_led_id(struct snd_ctl_led_card *led_card, const char *buf, si
 
 	if (strscpy(buf2, buf, sizeof(buf2)) < 0)
 		return -E2BIG;
+
+	s = strim(buf2);
+	if (s != buf2)
+		memmove(buf2, s, strlen(s) + 1);
+
 	memset(&id, 0, sizeof(id));
 	id.iface = SNDRV_CTL_ELEM_IFACE_MIXER;
 	s = buf2;

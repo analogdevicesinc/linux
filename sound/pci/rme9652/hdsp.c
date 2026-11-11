@@ -478,6 +478,7 @@ struct hdsp {
 
 	pid_t                 capture_pid;
 	pid_t                 playback_pid;
+	unsigned int          setup_streams;  /* 1 << stream after hw_params */
 	int                   running;
 	int                   system_sample_rate;
 	const signed char    *channel_map;
@@ -1095,7 +1096,40 @@ static void hdsp_set_dds_value(struct hdsp *hdsp, int rate)
 	hdsp_write(hdsp, HDSP_freqReg, hdsp->dds_value);
 }
 
-static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
+/*
+ * A speed mode change moves the channels to different DMA buffer slots
+ * (hdsp->channel_map) and changes the channel count. It is only safe if
+ * no substream other than the one asking for it (if any) was set up with
+ * the old layout. A substream of another process is already turned away
+ * by snd_hdsp_hw_params().
+ *
+ * hdsp->setup_streams is used rather than the other substream's runtime
+ * state, because the PCM core only moves a substream to SETUP after
+ * snd_hdsp_hw_params() has returned and dropped hdsp->lock. It is read
+ * and updated under hdsp->lock.
+ */
+static bool hdsp_speed_change_blocked(struct hdsp *hdsp,
+				      struct snd_pcm_substream *substream)
+{
+	int other;
+
+	if (!substream)
+		return hdsp->capture_pid >= 0 || hdsp->playback_pid >= 0;
+
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		other = SNDRV_PCM_STREAM_CAPTURE;
+	else
+		other = SNDRV_PCM_STREAM_PLAYBACK;
+
+	return hdsp->setup_streams & (1 << other);
+}
+
+/*
+ * substream is the stream asking for the rate in hw_params, or NULL for a
+ * request from a control or from card initialization.
+ */
+static int hdsp_set_rate(struct hdsp *hdsp, int rate,
+			 struct snd_pcm_substream *substream)
 {
 	int reject_if_open = 0;
 	int current_rate;
@@ -1107,7 +1141,7 @@ static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
 	*/
 
 	if (!(hdsp->control_register & HDSP_ClockModeMaster)) {
-		if (called_internally) {
+		if (!substream) {
 			/* request from ctl or card initialization */
 			dev_err(hdsp->card->dev,
 				"device is not running as a clock master: cannot set sample rate.\n");
@@ -1134,7 +1168,7 @@ static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
 	current_rate = hdsp->system_sample_rate;
 
 	/* Changing from a "single speed" to a "double speed" rate is
-	   not allowed if any substreams are open. This is because
+	   not allowed while another substream is set up. This is because
 	   such a change causes a shift in the location of
 	   the DMA buffers and a reduction in the number of available
 	   buffers.
@@ -1196,7 +1230,7 @@ static int hdsp_set_rate(struct hdsp *hdsp, int rate, int called_internally)
 		return -EINVAL;
 	}
 
-	if (reject_if_open && (hdsp->capture_pid >= 0 || hdsp->playback_pid >= 0)) {
+	if (reject_if_open && hdsp_speed_change_blocked(hdsp, substream)) {
 		dev_warn(hdsp->card->dev,
 			 "cannot change speed mode (capture PID = %d, playback PID = %d)\n",
 			    hdsp->capture_pid,
@@ -1347,6 +1381,10 @@ static int snd_hdsp_midi_input_read (struct hdsp_midi *hmidi)
 			}
 		}
 		hmidi->pending = 0;
+	}
+
+	/* control_register is shared by all users, serialize on hdsp->lock */
+	scoped_guard(spinlock_irqsave, &hmidi->hdsp->lock) {
 		if (hmidi->id)
 			hmidi->hdsp->control_register |= HDSP_Midi1InterruptEnable;
 		else
@@ -1939,7 +1977,7 @@ static int hdsp_set_clock_source(struct hdsp *hdsp, int mode)
 	switch (mode) {
 	case HDSP_CLOCK_SOURCE_AUTOSYNC:
 		if (hdsp_external_sample_rate(hdsp) != 0) {
-		    if (!hdsp_set_rate(hdsp, hdsp_external_sample_rate(hdsp), 1)) {
+		    if (!hdsp_set_rate(hdsp, hdsp_external_sample_rate(hdsp), NULL)) {
 			hdsp->control_register &= ~HDSP_ClockModeMaster;
 			hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
 			return 0;
@@ -1978,7 +2016,7 @@ static int hdsp_set_clock_source(struct hdsp *hdsp, int mode)
 	}
 	hdsp->control_register |= HDSP_ClockModeMaster;
 	hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
-	hdsp_set_rate(hdsp, rate, 1);
+	hdsp_set_rate(hdsp, rate, NULL);
 	return 0;
 }
 
@@ -3815,7 +3853,7 @@ static int snd_hdsp_set_defaults(struct hdsp *hdsp)
 	/* set a default rate so that the channel map is set up.
 	 */
 
-	hdsp_set_rate(hdsp, 48000, 1);
+	hdsp_set_rate(hdsp, 48000, NULL);
 
 	return 0;
 }
@@ -3869,8 +3907,10 @@ static irqreturn_t snd_hdsp_interrupt(int irq, void *dev_id)
 	if (midi0 && midi0status) {
 		if (hdsp->use_midi_work) {
 			/* we disable interrupts for this input until processing is done */
-			hdsp->control_register &= ~HDSP_Midi0InterruptEnable;
-			hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			scoped_guard(spinlock, &hdsp->lock) {
+				hdsp->control_register &= ~HDSP_Midi0InterruptEnable;
+				hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			}
 			hdsp->midi[0].pending = 1;
 			schedule = 1;
 		} else {
@@ -3880,8 +3920,10 @@ static irqreturn_t snd_hdsp_interrupt(int irq, void *dev_id)
 	if (hdsp->io_type != Multiface && hdsp->io_type != RPM && hdsp->io_type != H9632 && midi1 && midi1status) {
 		if (hdsp->use_midi_work) {
 			/* we disable interrupts for this input until processing is done */
-			hdsp->control_register &= ~HDSP_Midi1InterruptEnable;
-			hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			scoped_guard(spinlock, &hdsp->lock) {
+				hdsp->control_register &= ~HDSP_Midi1InterruptEnable;
+				hdsp_write(hdsp, HDSP_controlRegister, hdsp->control_register);
+			}
 			hdsp->midi[1].pending = 1;
 			schedule = 1;
 		} else {
@@ -4040,6 +4082,7 @@ static int snd_hdsp_hw_params(struct snd_pcm_substream *substream,
 
 		/* We're fine. */
 
+		hdsp->setup_streams |= 1 << substream->stream;
  		return 0;
 
 	}
@@ -4048,7 +4091,7 @@ static int snd_hdsp_hw_params(struct snd_pcm_substream *substream,
 	 */
 
 	if (! hdsp->clock_source_locked) {
-		err = hdsp_set_rate(hdsp, params_rate(params), 0);
+		err = hdsp_set_rate(hdsp, params_rate(params), substream);
 		if (err < 0) {
 			_snd_pcm_hw_param_setempty(params, SNDRV_PCM_HW_PARAM_RATE);
 			return err;
@@ -4061,6 +4104,16 @@ static int snd_hdsp_hw_params(struct snd_pcm_substream *substream,
 		return err;
 	}
 
+	hdsp->setup_streams |= 1 << substream->stream;
+	return 0;
+}
+
+static int snd_hdsp_hw_free(struct snd_pcm_substream *substream)
+{
+	struct hdsp *hdsp = snd_pcm_substream_chip(substream);
+
+	guard(spinlock_irq)(&hdsp->lock);
+	hdsp->setup_streams &= ~(1 << substream->stream);
 	return 0;
 }
 
@@ -4471,6 +4524,7 @@ static int snd_hdsp_playback_release(struct snd_pcm_substream *substream)
 	scoped_guard(spinlock_irq, &hdsp->lock) {
 		hdsp->playback_pid = -1;
 		hdsp->playback_substream = NULL;
+		hdsp->setup_streams &= ~(1 << SNDRV_PCM_STREAM_PLAYBACK);
 	}
 
 	if (RPM != hdsp->io_type) {
@@ -4533,6 +4587,7 @@ static int snd_hdsp_capture_release(struct snd_pcm_substream *substream)
 
 	hdsp->capture_pid = -1;
 	hdsp->capture_substream = NULL;
+	hdsp->setup_streams &= ~(1 << SNDRV_PCM_STREAM_CAPTURE);
 
 	return 0;
 }
@@ -4854,6 +4909,7 @@ static const struct snd_pcm_ops snd_hdsp_playback_ops = {
 	.close =	snd_hdsp_playback_release,
 	.ioctl =	snd_hdsp_ioctl,
 	.hw_params =	snd_hdsp_hw_params,
+	.hw_free =	snd_hdsp_hw_free,
 	.prepare =	snd_hdsp_prepare,
 	.trigger =	snd_hdsp_trigger,
 	.pointer =	snd_hdsp_hw_pointer,
@@ -4866,6 +4922,7 @@ static const struct snd_pcm_ops snd_hdsp_capture_ops = {
 	.close =	snd_hdsp_capture_release,
 	.ioctl =	snd_hdsp_ioctl,
 	.hw_params =	snd_hdsp_hw_params,
+	.hw_free =	snd_hdsp_hw_free,
 	.prepare =	snd_hdsp_prepare,
 	.trigger =	snd_hdsp_trigger,
 	.pointer =	snd_hdsp_hw_pointer,

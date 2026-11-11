@@ -168,6 +168,9 @@ static void parse_user_hints(struct hda_codec *codec)
 	val = snd_hda_get_bool_hint(codec, "indep_hp");
 	if (val >= 0)
 		spec->indep_hp = !!val;
+	val = snd_hda_get_bool_hint(codec, "indep_dig_outs");
+	if (val >= 0)
+		spec->indep_dig_outs = !!val;
 	val = snd_hda_get_bool_hint(codec, "add_stereo_mix_input");
 	if (val >= 0)
 		spec->add_stereo_mix_input = !!val;
@@ -4000,7 +4003,9 @@ static void parse_digital(struct hda_codec *codec)
 	int i, nums;
 	hda_nid_t dig_nid, pin;
 
-	/* support multiple SPDIFs; the secondary is set up as a follower */
+	/* support multiple SPDIFs; the secondary is set up as a follower,
+	 * or as an independent PCM with the indep_dig_outs hint
+	 */
 	nums = 0;
 	for (i = 0; i < spec->autocfg.dig_outs; i++) {
 		pin = spec->autocfg.dig_out_pins[i];
@@ -4018,6 +4023,10 @@ static void parse_digital(struct hda_codec *codec)
 		if (!nums) {
 			spec->multiout.dig_out_nid = dig_nid;
 			spec->dig_out_type = spec->autocfg.dig_out_type[0];
+		} else if (spec->indep_dig_outs) {
+			/* autocfg gives at most two digital outs */
+			spec->alt_dig_multiout.dig_out_nid = dig_nid;
+			spec->alt_dig_out_type = spec->autocfg.dig_out_type[i];
 		} else {
 			spec->multiout.follower_dig_outs = spec->follower_dig_outs;
 			if (nums >= ARRAY_SIZE(spec->follower_dig_outs) - 1)
@@ -5228,6 +5237,14 @@ int snd_hda_gen_build_controls(struct hda_codec *codec)
 			spec->multiout.share_spdif = 1;
 		}
 	}
+	if (spec->alt_dig_multiout.dig_out_nid) {
+		err = snd_hda_create_dig_out_ctls(codec,
+						  spec->alt_dig_multiout.dig_out_nid,
+						  spec->alt_dig_multiout.dig_out_nid,
+						  spec->pcm_rec[3]->pcm_type);
+		if (err < 0)
+			return err;
+	}
 	if (spec->dig_in_nid) {
 		err = snd_hda_create_spdif_in_ctls(codec, spec->dig_in_nid);
 		if (err < 0)
@@ -5324,14 +5341,12 @@ static int playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 				struct snd_pcm_substream *substream)
 {
 	struct hda_gen_spec *spec = codec->spec;
-	int err;
 
-	err = snd_hda_multi_out_analog_prepare(codec, &spec->multiout,
-					       stream_tag, format, substream);
-	if (!err)
-		call_pcm_playback_hook(hinfo, codec, substream,
-				       HDA_GEN_PCM_ACT_PREPARE);
-	return err;
+	snd_hda_multi_out_analog_prepare(codec, &spec->multiout,
+					 stream_tag, format, substream);
+	call_pcm_playback_hook(hinfo, codec, substream,
+			       HDA_GEN_PCM_ACT_PREPARE);
+	return 0;
 }
 
 static int playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
@@ -5339,13 +5354,11 @@ static int playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 				struct snd_pcm_substream *substream)
 {
 	struct hda_gen_spec *spec = codec->spec;
-	int err;
 
-	err = snd_hda_multi_out_analog_cleanup(codec, &spec->multiout);
-	if (!err)
-		call_pcm_playback_hook(hinfo, codec, substream,
-				       HDA_GEN_PCM_ACT_CLEANUP);
-	return err;
+	snd_hda_multi_out_analog_cleanup(codec, &spec->multiout);
+	call_pcm_playback_hook(hinfo, codec, substream,
+			       HDA_GEN_PCM_ACT_CLEANUP);
+	return 0;
 }
 
 static int playback_pcm_close(struct hda_pcm_stream *hinfo,
@@ -5454,12 +5467,24 @@ static int alt_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 /*
  * Digital out
  */
+
+/* the independent second digital out has its own multiout */
+static struct hda_multi_out *dig_multiout(struct hda_codec *codec,
+					  struct hda_pcm_stream *hinfo)
+{
+	struct hda_gen_spec *spec = codec->spec;
+
+	if (spec->alt_dig_multiout.dig_out_nid &&
+	    hinfo->nid == spec->alt_dig_multiout.dig_out_nid)
+		return &spec->alt_dig_multiout;
+	return &spec->multiout;
+}
+
 static int dig_playback_pcm_open(struct hda_pcm_stream *hinfo,
 				 struct hda_codec *codec,
 				 struct snd_pcm_substream *substream)
 {
-	struct hda_gen_spec *spec = codec->spec;
-	return snd_hda_multi_out_dig_open(codec, &spec->multiout);
+	return snd_hda_multi_out_dig_open(codec, dig_multiout(codec, hinfo));
 }
 
 static int dig_playback_pcm_prepare(struct hda_pcm_stream *hinfo,
@@ -5468,8 +5493,7 @@ static int dig_playback_pcm_prepare(struct hda_pcm_stream *hinfo,
 				    unsigned int format,
 				    struct snd_pcm_substream *substream)
 {
-	struct hda_gen_spec *spec = codec->spec;
-	return snd_hda_multi_out_dig_prepare(codec, &spec->multiout,
+	return snd_hda_multi_out_dig_prepare(codec, dig_multiout(codec, hinfo),
 					     stream_tag, format, substream);
 }
 
@@ -5477,16 +5501,14 @@ static int dig_playback_pcm_cleanup(struct hda_pcm_stream *hinfo,
 				    struct hda_codec *codec,
 				    struct snd_pcm_substream *substream)
 {
-	struct hda_gen_spec *spec = codec->spec;
-	return snd_hda_multi_out_dig_cleanup(codec, &spec->multiout);
+	return snd_hda_multi_out_dig_cleanup(codec, dig_multiout(codec, hinfo));
 }
 
 static int dig_playback_pcm_close(struct hda_pcm_stream *hinfo,
 				  struct hda_codec *codec,
 				  struct snd_pcm_substream *substream)
 {
-	struct hda_gen_spec *spec = codec->spec;
-	return snd_hda_multi_out_dig_close(codec, &spec->multiout);
+	return snd_hda_multi_out_dig_close(codec, dig_multiout(codec, hinfo));
 }
 
 /*
@@ -5777,6 +5799,25 @@ int snd_hda_gen_build_pcms(struct hda_codec *codec)
 					 &pcm_digital_capture,
 					 spec->stream_digital_capture,
 					 spec->dig_in_nid);
+	}
+
+	/* independent second digital out, stream index #3 */
+	if (spec->alt_dig_multiout.dig_out_nid) {
+		fill_pcm_stream_name(spec->stream_name_alt_digital,
+				     sizeof(spec->stream_name_alt_digital),
+				     " Alt Digital", codec->core.chip_name);
+		info = snd_hda_codec_pcm_new(codec, "%s",
+					     spec->stream_name_alt_digital);
+		if (!info)
+			return -ENOMEM;
+		spec->pcm_rec[3] = info;
+		if (spec->alt_dig_out_type)
+			info->pcm_type = spec->alt_dig_out_type;
+		else
+			info->pcm_type = HDA_PCM_TYPE_SPDIF;
+		setup_pcm_stream(&info->stream[SNDRV_PCM_STREAM_PLAYBACK],
+				 &pcm_digital_playback, NULL,
+				 spec->alt_dig_multiout.dig_out_nid);
 	}
 
 	if (spec->no_analog)

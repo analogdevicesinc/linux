@@ -93,6 +93,7 @@ struct hda_gen_spec {
 	const struct hda_pcm_stream *stream_analog_capture;
 
 	char stream_name_alt_analog[32]; /* alternative analog PCM stream */
+	char stream_name_alt_digital[32]; /* independent 2nd digital PCM */
 	const struct hda_pcm_stream *stream_analog_alt_playback;
 	const struct hda_pcm_stream *stream_analog_alt_capture;
 
@@ -112,6 +113,9 @@ struct hda_gen_spec {
 	hda_nid_t alt_dac_nid;
 	hda_nid_t follower_dig_outs[3];	/* optional - for auto-parsing */
 	int dig_out_type;
+	/* the 2nd digital out with the indep_dig_outs hint */
+	struct hda_multi_out alt_dig_multiout;
+	int alt_dig_out_type;
 
 	/* capture */
 	unsigned int num_adc_nids;
@@ -148,7 +152,7 @@ struct hda_gen_spec {
 	int const_channel_count;	/* channel count for all */
 
 	/* PCM information */
-	struct hda_pcm *pcm_rec[3];	/* used in build_pcms() */
+	struct hda_pcm *pcm_rec[4];	/* used in build_pcms() */
 
 	/* dynamic controls, init_verbs and input_mux */
 	struct auto_pin_cfg autocfg;
@@ -226,6 +230,7 @@ struct hda_gen_spec {
 	unsigned int vmaster_mute_led:1; /* add SPK-LED flag to vmaster mute switch */
 	unsigned int mic_mute_led:1; /* add MIC-LED flag to capture mute switch */
 	unsigned int indep_hp:1; /* independent HP supported */
+	unsigned int indep_dig_outs:1; /* 2nd digital out has its own PCM */
 	unsigned int prefer_hp_amp:1; /* enable HP amp for speaker if any */
 	unsigned int add_stereo_mix_input:2; /* add aamix as a capture src */
 	unsigned int add_jack_modes:1; /* add i/o jack mode enum ctls */

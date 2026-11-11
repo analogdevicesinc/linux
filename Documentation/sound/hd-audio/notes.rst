@@ -486,6 +486,11 @@ inv_dmic_split (bool)
 indep_hp (bool)
     provide the independent headphone PCM stream and the corresponding
     mixer control, if available
+indep_dig_outs (bool)
+    give the second digital output pin (in parsing order) its own PCM
+    stream, "Alt Digital", instead of making it follow the first one's
+    stream. The PCM takes the next free device number of its type, so
+    two S/PDIF outputs need dynamic minors. Default false
 add_stereo_mix_input (bool)
     add the stereo mix (analog-loopback mix) to the input mux if
     available

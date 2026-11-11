@@ -22,6 +22,7 @@
 #include <linux/slab.h>
 #include <linux/usb.h>
 #include <linux/usb/audio.h>
+#include <linux/usb/audio-v2.h>
 
 #include <sound/asoundef.h>
 #include <sound/core.h>
@@ -4419,6 +4420,242 @@ static int snd_djm_controls_create(struct usb_mixer_interface *mixer,
 	return 0;
 }
 
+/*
+ * Arturia AudioFuse (Rev2)
+ *
+ * The protocol was reverse engineered from Arturia AudioFuse Control Center.
+ * A parameter is written with a UAC2 class MEM request to the vendor entity
+ * 0x46 (wValue = parameter id, 1 byte payload), and the current device state
+ * can be read back as a 178 byte block from the vendor entity 0x47.
+ * Both entities live on the audio control interface 0.
+ *
+ * Layout of kcontrol->private_value: (parameter id << 8) | current value
+ */
+#define SND_AF_CTRL_IFNUM	0
+#define SND_AF_ENTITY_SET	0x46
+#define SND_AF_ENTITY_STATUS	0x47
+#define SND_AF_STATUS_LEN	178
+
+#define SND_AF_PARAM_SHIFT	8
+#define SND_AF_VAL_MASK		0xff
+
+struct snd_audiofuse_ctl {
+	const char *name;
+	u16 param;		/* wValue of the set request */
+	u8 status_offset;	/* offset of the value in the status block */
+};
+
+static const struct snd_audiofuse_ctl snd_audiofuse_ctls[] = {
+	{
+		.name = "Input1 48V LED Switch",
+		.param = 0x0001,
+		.status_offset = 0x3e,
+	},
+	{
+		.name = "Main Speaker Mute LED Switch",
+		.param = 0x0500,
+		.status_offset = 0x5c,
+	},
+};
+
+static u16 snd_audiofuse_windex(struct usb_mixer_interface *mixer, u8 entity)
+{
+	return (entity << 8) | mixer->hostif->desc.bInterfaceNumber;
+}
+
+static int snd_audiofuse_ctl_write(struct usb_mixer_interface *mixer,
+				   u16 param, u8 val)
+{
+	struct snd_usb_audio *chip = mixer->chip;
+	int err;
+
+	err = snd_usb_lock_shutdown(chip);
+	if (err < 0)
+		return err;
+
+	/* snd_usb_ctl_msg() bounces the buffer, so a stack variable is fine */
+	err = snd_usb_ctl_msg(chip->dev, usb_sndctrlpipe(chip->dev, 0),
+			      UAC2_CS_MEM,
+			      USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			      param,
+			      snd_audiofuse_windex(mixer, SND_AF_ENTITY_SET),
+			      &val, sizeof(val));
+
+	snd_usb_unlock_shutdown(chip);
+	return err;
+}
+
+/* Returns the number of bytes read, or a negative error code */
+static int snd_audiofuse_read_status(struct usb_mixer_interface *mixer,
+				     u8 *buf)
+{
+	struct snd_usb_audio *chip = mixer->chip;
+	int len;
+
+	len = snd_usb_ctl_msg(chip->dev, usb_rcvctrlpipe(chip->dev, 0),
+			      UAC2_CS_MEM,
+			      USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+			      0,
+			      snd_audiofuse_windex(mixer, SND_AF_ENTITY_STATUS),
+			      buf, SND_AF_STATUS_LEN);
+	if (len < 0)
+		return len;
+
+	/* enable with dynamic debug: file mixer_quirks.c +p */
+	print_hex_dump_debug("AudioFuse status: ", DUMP_PREFIX_OFFSET, 16, 1,
+			     buf, len, false);
+	return len;
+}
+
+static int snd_audiofuse_ctl_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] =
+		kcontrol->private_value & SND_AF_VAL_MASK;
+	return 0;
+}
+
+static int snd_audiofuse_ctl_put(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
+{
+	struct usb_mixer_elem_list *list = snd_kcontrol_chip(kcontrol);
+	unsigned long pval = kcontrol->private_value;
+	u16 param = pval >> SND_AF_PARAM_SHIFT;
+	u8 oldval = pval & SND_AF_VAL_MASK;
+	long newval = ucontrol->value.integer.value[0];
+	int err;
+
+	if (newval < 0 || newval > 1)
+		return -EINVAL;
+	if (newval == oldval)
+		return 0;
+
+	err = snd_audiofuse_ctl_write(list->mixer, param, newval);
+	if (err < 0)
+		return err;
+
+	/* update the cache only after the device accepted the value */
+	kcontrol->private_value = ((unsigned long)param << SND_AF_PARAM_SHIFT) |
+				  newval;
+	return 1;
+}
+
+static int snd_audiofuse_ctl_resume(struct usb_mixer_elem_list *list)
+{
+	unsigned long pval = list->kctl->private_value;
+
+	return snd_audiofuse_ctl_write(list->mixer,
+				       pval >> SND_AF_PARAM_SHIFT,
+				       pval & SND_AF_VAL_MASK);
+}
+
+static int snd_audiofuse_controls_create(struct usb_mixer_interface *mixer)
+{
+	struct snd_kcontrol_new knew = {
+		.iface = SNDRV_CTL_ELEM_IFACE_MIXER,
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.info = snd_ctl_boolean_mono_info,
+		.get = snd_audiofuse_ctl_get,
+		.put = snd_audiofuse_ctl_put,
+	};
+	u8 *status;
+	int len, i, err = 0;
+
+	/*
+	 * The quirk is applied for every mixer of the card, but the vendor
+	 * entities are only reachable through the control interface 0.
+	 * Checking this per mixer (instead of a global flag) keeps the
+	 * controls working after re-plugging and with multiple devices.
+	 */
+	if (mixer->hostif->desc.bInterfaceNumber != SND_AF_CTRL_IFNUM)
+		return 0;
+
+	status = kmalloc(SND_AF_STATUS_LEN, GFP_KERNEL);
+	if (!status)
+		return -ENOMEM;
+
+	/* a failed read is not fatal: start from "off" and keep audio working */
+	len = snd_audiofuse_read_status(mixer, status);
+	if (len < 0)
+		usb_audio_warn(mixer->chip,
+			       "AudioFuse: cannot read device status (%d)\n",
+			       len);
+
+	for (i = 0; i < ARRAY_SIZE(snd_audiofuse_ctls); i++) {
+		const struct snd_audiofuse_ctl *ctl = &snd_audiofuse_ctls[i];
+		u8 val = 0;
+
+		if (ctl->status_offset < len)
+			val = !!status[ctl->status_offset];
+
+		knew.name = ctl->name;
+		knew.private_value =
+			((unsigned long)ctl->param << SND_AF_PARAM_SHIFT) | val;
+
+		err = add_single_ctl_with_resume(mixer, 0,
+						 snd_audiofuse_ctl_resume,
+						 &knew, NULL);
+		if (err < 0)
+			break;
+	}
+
+	kfree(status);
+	return err;
+}
+
+/*
+ * Weltrend XiiSound chips (040b:0897, e.g. Redragon H878):
+ * the playback feature unit (id 5) is broken; its volume controls act like
+ * mute switches below the maximum value and the channel mapping is
+ * unreliable, so the unit is hidden from userspace entirely (see the
+ * quirk in mixer_maps.c) and userspace falls back to software volume.
+ * Pin the unit's master and channel volumes to the reported maximum
+ * and unmute them, so the audio path stays fully open.
+ */
+static int snd_xiisound_init_fu_pins(struct usb_mixer_interface *mixer)
+{
+	struct snd_usb_audio *chip = mixer->chip;
+	unsigned char buf[2];
+	int ifnum, ch, err;
+
+	if (mixer->protocol != UAC_VERSION_1)
+		return 0;
+
+	ifnum = snd_usb_ctrl_intf(chip->ctrl_intf);
+
+	/* unit 5 is the playback feature unit on these chips */
+	for (ch = 0; ch <= 2; ch++) {
+		err = snd_usb_ctl_msg(chip->dev, usb_rcvctrlpipe(chip->dev, 0),
+				      UAC_GET_MAX,
+				      USB_DIR_IN | USB_TYPE_CLASS |
+				      USB_RECIP_INTERFACE,
+				      (UAC_FU_VOLUME << 8) | ch,
+				      (5 << 8) | ifnum, buf, 2);
+		if (err < 2)
+			return 0; /* no such unit/channels, nothing to pin */
+
+		err = snd_usb_ctl_msg(chip->dev, usb_sndctrlpipe(chip->dev, 0),
+				      UAC_SET_CUR,
+				      USB_DIR_OUT | USB_TYPE_CLASS |
+				      USB_RECIP_INTERFACE,
+				      (UAC_FU_VOLUME << 8) | ch,
+				      (5 << 8) | ifnum, buf, 2);
+		if (err < 0)
+			return err;
+
+		buf[0] = 0; /* unmute */
+		err = snd_usb_ctl_msg(chip->dev, usb_sndctrlpipe(chip->dev, 0),
+				      UAC_SET_CUR,
+				      USB_DIR_OUT | USB_TYPE_CLASS |
+				      USB_RECIP_INTERFACE,
+				      (UAC_FU_MUTE << 8) | ch,
+				      (5 << 8) | ifnum, buf, 1);
+		if (err < 0)
+			return err;
+	}
+	return 0;
+}
+
 int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 {
 	int err = 0;
@@ -4431,6 +4668,9 @@ int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 	/* Tascam US-16x08 */
 	case USB_ID(0x0644, 0x8047):
 		err = snd_us16x08_controls_create(mixer);
+		break;
+	case USB_ID(0x040b, 0x0897):
+		err = snd_xiisound_init_fu_pins(mixer);
 		break;
 	case USB_ID(0x041e, 0x3020):
 	case USB_ID(0x041e, 0x3040):
@@ -4609,6 +4849,9 @@ int snd_usb_mixer_apply_create_quirk(struct usb_mixer_interface *mixer)
 	case USB_ID(0x03f0, 0x0269): /* HP TB Dock G2 */
 		err = hp_dock_mixer_create(mixer);
 		break;
+	case USB_ID(0x1c75, 0xaf02): /* Arturia AudioFuse */
+		err = snd_audiofuse_controls_create(mixer);
+		break;
 	}
 
 	return err;
@@ -4619,6 +4862,9 @@ void snd_usb_mixer_resume_quirk(struct usb_mixer_interface *mixer)
 	switch (mixer->chip->usb_id) {
 	case USB_ID(0x0bda, 0x4014): /* Dell WD15 dock */
 		dell_dock_mixer_init(mixer);
+		break;
+	case USB_ID(0x040b, 0x0897): /* Weltrend XiiSound (Redragon H878) */
+		snd_xiisound_init_fu_pins(mixer);
 		break;
 	}
 }
@@ -4651,6 +4897,92 @@ void snd_usb_mixer_rc_memory_change(struct usb_mixer_interface *mixer,
 	}
 }
 
+static void snd_usb_apply_db_scale(struct usb_mixer_interface *mixer,
+				   struct usb_mixer_elem_info *cval, struct snd_kcontrol *kctl,
+				   const unsigned int *scale, const char *desc)
+{
+	if (!scale) {
+		usb_audio_info(mixer->chip, "clearing %s dB scale on [%s] (%d/%d/%d)\n",
+			       desc, kctl->id.name, cval->min, cval->max, cval->res);
+
+		kctl->tlv.p = NULL;
+		kctl->vd[0].access &= ~(SNDRV_CTL_ELEM_ACCESS_TLV_READ |
+					SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK);
+		return;
+	}
+
+	usb_audio_info(mixer->chip, "applying %s dB scale quirk on [%s] (%d/%d/%d)\n",
+		       desc, kctl->id.name, cval->min, cval->max, cval->res);
+
+	if (kctl->vd[0].access & SNDRV_CTL_ELEM_ACCESS_TLV_READ &&
+	    !(kctl->vd[0].access & SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK)) {
+		usb_audio_warn(mixer->chip,
+			       "%s dB scale quirk overrides the previously applied one on [%s]\n",
+			       desc, kctl->id.name);
+	} else if (cval->min_mute) {
+		/*
+		 * We are clearing SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK,
+		 * resulting in min_mute becoming a no-op.
+		 */
+		usb_audio_warn(mixer->chip, "%s dB scale quirk overrides MIN_MUTE on [%s]\n",
+			       desc, kctl->id.name);
+	}
+
+	kctl->tlv.p = scale;
+	kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
+	kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+}
+
+static void snd_usb_apply_db_scale_val(struct usb_mixer_interface *mixer,
+				       struct usb_mixer_elem_info *cval, struct snd_kcontrol *kctl,
+				       const unsigned int *scale, const char *desc,
+				       int min, int max, int res)
+{
+	snd_usb_apply_db_scale(mixer, cval, kctl, scale, desc);
+
+	usb_audio_info(mixer->chip,
+		       "overriding [%s] val (%d/%d/%d => %d/%d/%d) to fit %s dB scale quirk\n",
+		       kctl->id.name, cval->min, cval->max, cval->res, min, max, res, desc);
+
+	/*
+	 * We are not fixing the cached values, as get_relative_value() will
+	 * ensure userspace always sees compliant ones.
+	 */
+	cval->min = min;
+	cval->max = max;
+	cval->res = res;
+}
+
+static void snd_usb_mixer_fu_quirk_linear_scale(struct usb_mixer_interface *mixer,
+						struct usb_mixer_elem_info *cval,
+						struct snd_kcontrol *kctl)
+{
+	static const DECLARE_TLV_DB_LINEAR(scale, TLV_DB_GAIN_MUTE, 0);
+
+	snd_usb_apply_db_scale(mixer, cval, kctl, scale, "linear volume");
+}
+
+/* Respect quirks set by module parameters or quirk flags table. */
+static inline bool deconflict_playback_tlv_quirks(struct usb_mixer_interface *mixer,
+						  struct snd_kcontrol *kctl)
+{
+	const u64 playback_quirk_flags = (QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE |
+					  QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL);
+
+	return (!(mixer->chip->quirk_flags & playback_quirk_flags) &&
+		strstr(kctl->id.name, "Playback"));
+}
+
+static inline bool deconflict_capture_tlv_quirks(struct usb_mixer_interface *mixer,
+						 struct snd_kcontrol *kctl)
+{
+	const u64 capture_quirk_flags = (QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE |
+					 QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL);
+
+	return (!(mixer->chip->quirk_flags & capture_quirk_flags) &&
+		strstr(kctl->id.name, "Capture"));
+}
+
 static void snd_dragonfly_quirk_db_scale(struct usb_mixer_interface *mixer,
 					 struct usb_mixer_elem_info *cval,
 					 struct snd_kcontrol *kctl)
@@ -4671,18 +5003,156 @@ static void snd_dragonfly_quirk_db_scale(struct usb_mixer_interface *mixer,
 		41, 50, TLV_DB_MINMAX_ITEM(-441, 0),
 	);
 
-	if (cval->min == 0 && cval->max == 50) {
-		usb_audio_info(mixer->chip, "applying DragonFly dB scale quirk (0-50 variant)\n");
-		kctl->tlv.p = scale;
-		kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
-		kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+	if (!deconflict_playback_tlv_quirks(mixer, kctl))
+		return;
 
+	if (cval->min == 0 && cval->max == 50) {
+		snd_usb_apply_db_scale(mixer, cval, kctl, scale, "DragonFly");
 	} else if (cval->min == 0 && cval->max <= 1000) {
 		/* Some other clearly broken DragonFly variant.
 		 * At least a 0..53 variant (hw v1.0) exists.
 		 */
-		usb_audio_info(mixer->chip, "ignoring too narrow dB range on a DragonFly device");
-		kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
+		snd_usb_apply_db_scale(mixer, cval, kctl, NULL, "DragonFly");
+	}
+}
+
+static void snd_ab13x_quirks(struct usb_mixer_interface *mixer, struct usb_mixer_elem_info *cval,
+			     struct snd_kcontrol *kctl)
+{
+	/*
+	 * Volume mapping based on voltage level measurement @ 1000Hz:
+	 * +--------+--------+-----------+---------+----------+--------+
+	 * |  hex   |  dec   | dec => dB | mVrms * | mV => dB |  res   |
+	 * +--------+--------+-----------+---------+----------+--------+
+	 * | 0xd300 | -11520 |    -45.00 |         |          |        |
+	 * | 0xdb5a |  -9382 |    -36.65 |   1.285 |   -26.68 | 2138 # |
+	 * | 0xe2d0 |  -7472 |    -29.19 |   4.104 |   -21.63 | 1910 # |
+	 * | 0xe7cc |  -6196 |    -24.20 |  13.693 |   -16.40 | 1276 # |
+	 * | 0xeb8c |  -5236 |    -20.45 |  26.71  |   -13.50 |  960   |
+	 * | 0xee8d |  -4467 |    -17.45 |  42.29  |   -11.50 |  769   |
+	 * | 0xf10e |  -3826 |    -14.95 |  66.81  |    -9.52 |  641   |
+	 * | 0xf335 |  -3275 |    -12.79 |  94.43  |    -8.01 |  551   |
+	 * | 0xf517 |  -2793 |    -10.91 | 133.25  |    -6.52 |  482   |
+	 * | 0xf6c5 |  -2363 |     -9.23 | 168.73  |    -5.49 |  430   |
+	 * | 0xf847 |  -1977 |     -7.72 | 212.05  |    -4.50 |  386   |
+	 * | 0xf9a7 |  -1625 |     -6.35 | 267.1   |    -3.50 |  352   |
+	 * | 0xfae9 |  -1303 |     -5.09 | 336.3   |    -2.50 |  322   |
+	 * | 0xfc13 |  -1005 |     -3.93 | 377.4   |    -2.00 |  298   |
+	 * | 0xfd27 |   -729 |     -2.85 | 423.6   |    -1.50 |  276   |
+	 * | 0xfe29 |   -471 |     -1.84 | 475.3   |    -1.00 |  258   |
+	 * | 0xff69 |   -151 |     -0.59 | 533.1   |    -0.50 |  320   |
+	 * | 0x0000 |      0 |      0.00 | 597.7   |     0.00 |  151   |
+	 * +--------+--------+-----------+---------+----------+--------+
+	 *
+	 * Footnote *: measured through a power amplifier's loopback line out
+	 * to ensure high input impedance (see #). The raw voltage at 0x0000
+	 * without going through a power amplifier is 677mVrms.
+	 *
+	 * Footnote #: low output power. Even the impedance of a multimeter is
+	 * too low, causing a massive voltage drop (-10dB!), which means that
+	 * they are inaudible when connected to earphones. Do not expose them.
+	 *
+	 * The volume control mixer has uneven resolutions in reality. Setting
+	 * any value between [0xd300, 0xdb5a] results in the same audible volume
+	 * as 0xdb5a, (0xdb5a, 0xe2d0] results in the same audible volume as
+	 * 0xe2d0, and so on. The read back value always acts like res == 1.
+	 */
+	static const DECLARE_TLV_DB_RANGE(scale,
+		 0,  0, TLV_DB_SCALE_ITEM(-1350, 0, 0), /*                             -5500 */
+		 1,  3, TLV_DB_SCALE_ITEM(-1150, 0, 0), /*               -5200, -4900, -4600 */
+		 4,  5, TLV_DB_SCALE_ITEM( -952, 0, 0), /*                      -4300, -4000 */
+		 6,  7, TLV_DB_SCALE_ITEM( -801, 0, 0), /*                      -3700, -3400 */
+		 8,  9, TLV_DB_SCALE_ITEM( -652, 0, 0), /*                      -3100, -2800 */
+		10, 13, TLV_DB_MINMAX_ITEM(-550, -250), /*        -2500, -2200, -1900, -1600 */
+		14, 18, TLV_DB_MINMAX_ITEM(-200,    0), /* -1300, -1000,  -700,  -400,  -100 */
+	);
+
+	if (cval->min == -11520 && cval->max == 0 && cval->res == 1) {
+		if (!deconflict_playback_tlv_quirks(mixer, kctl))
+			return;
+
+		/*
+		 * These values are carefully chosen so that volume steps with
+		 * 0.5dB or 1.0dB resolution can be approximately represented
+		 * togother.
+		 *
+		 * It's literally a miracle that these values can flawlessly
+		 * align to 100.
+		 */
+		snd_usb_apply_db_scale_val(mixer, cval, kctl, scale, "AB13X", -5500, -100, 300);
+	} else if (cval->min == 0 && cval->max == 8191 && cval->res == 1) {
+		/* The final effects will be printed later. */
+		usb_audio_info(mixer->chip, "applying AB13X Capture quirk (0/8191/1 variant)\n");
+
+		if (deconflict_capture_tlv_quirks(mixer, kctl))
+			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
+	} else {
+		usb_audio_dbg(mixer->chip, "not applying AB13X quirk on unknown variant\n");
+	}
+}
+
+static void snd_xiaomi_speaker_mini_quirk_db_scale(struct usb_mixer_interface *mixer,
+						   struct usb_mixer_elem_info *cval,
+						   struct snd_kcontrol *kctl)
+{
+	/*
+	 * Volume mapping based on normalized microphone measurement @ 1000Hz:
+	 * +--------+--------+-----------+-------------+--------+
+	 * |  hex   |  dec   | dec => dB | measured dB |  res   |
+	 * +--------+--------+-----------+-------------+--------+
+	 * | 0xd000 | -12288 |    -48.00 |      (mute) |        |
+	 * | 0xdd00 |  -8960 |    -35.00 |       -68.6 | 3328 # |
+	 * | 0xe540 |  -6848 |    -26.75 |       -61.2 | 2112   |
+	 * | 0xea40 |  -5568 |    -21.75 |       -57.0 | 1280   |
+	 * | 0xed80 |  -4736 |    -18.50 |       -52.5 |  832   |
+	 * | 0xf0a0 |  -3936 |    -15.38 |       -48.3 |  800   |
+	 * | 0xf2d0 |  -3376 |    -13.19 |       -42.1 |  560   |
+	 * | 0xf4d0 |  -2864 |    -11.19 |       -36.1 |  512   |
+	 * | 0xf6c0 |  -2368 |     -9.25 |       -32.0 |  496   |
+	 * | 0xf840 |  -1984 |     -7.75 |       -24.0 |  384   |
+	 * | 0xf9e0 |  -1568 |     -6.13 |       -17.9 |  416   |
+	 * | 0xfb30 |  -1232 |     -4.81 |       -13.9 |  336   |
+	 * | 0xfc80 |   -896 |     -3.50 |       -10.0 |  336   |
+	 * | 0xfd90 |   -624 |     -2.44 |        -6.0 |  272   |
+	 * | 0xfeb0 |   -336 |     -1.31 |        -4.0 |  288   |
+	 * | 0xffb0 |    -80 |     -0.31 |        -2.0 |  256   |
+	 * | 0x0000 |      0 |      0.00 |         0.0 |   80   |
+	 * +--------+--------+-----------+-------------+--------+
+	 *
+	 * The volume control mixer declares res == 256, but actually acts like
+	 * res == 1 (i.e., accepts any value between min and max) and has uneven
+	 * resolutions in reality. Setting any value between (0xd000, 0xdd00]
+	 * results in the same audible volume as 0xdd00, and so on.
+	 *
+	 * Footnote #: running out of the 10-item limit of TLV ranges.
+	 */
+	static const DECLARE_TLV_DB_RANGE(scale,
+		 0,  0, TLV_DB_SCALE_ITEM( -6120,  0, 0), /*                             -7104 */
+		 1,  5, TLV_DB_SCALE_ITEM( -5700,  0, 0), /* -6808, -6512, -6216, -5920, -5624 */
+		 6,  8, TLV_DB_SCALE_ITEM( -5250,  0, 0), /*               -5328, -5032, -4736 */
+		 9, 10, TLV_DB_SCALE_ITEM( -4830,  0, 0), /*                      -4440, -4144 */
+		11, 12, TLV_DB_SCALE_ITEM( -4210,  0, 0), /*                      -3848, -3552 */
+		13, 14, TLV_DB_SCALE_ITEM( -3610,  0, 0), /*                      -3256, -2960 */
+		15, 16, TLV_DB_SCALE_ITEM( -3200,  0, 0), /*                      -2664, -2368 */
+		17, 18, TLV_DB_MINMAX_ITEM(-2400, -1790), /*                      -2072, -1776 */
+		19, 21, TLV_DB_MINMAX_ITEM(-1390,  -600), /*               -1480, -1184,  -888 */
+		22, 24, TLV_DB_MINMAX_ITEM( -400,     0), /*                -592,  -296,     0 */
+	);
+
+	if (cval->min == -12288 && cval->max == 0 && cval->res == 256) {
+		if (!deconflict_playback_tlv_quirks(mixer, kctl))
+			return;
+
+		/*
+		 * These values are carefully chosen so that volume steps with
+		 * 2dB or 4dB resolution can be approximately represented
+		 * togother.
+		 */
+		snd_usb_apply_db_scale_val(mixer, cval, kctl, scale,
+					   "Xiaomi Speaker Mini", -7104, 0, 296);
+	} else {
+		usb_audio_dbg(mixer->chip,
+			      "not applying Xiaomi Speaker Mini quirk on unknown variant\n");
 	}
 }
 
@@ -4694,13 +5164,11 @@ static void snd_usb_mv_silicon_quirks(struct usb_mixer_interface *mixer,
 		/* The final effects will be printed later. */
 		usb_audio_info(mixer->chip, "applying MV-SILICON quirks (0/4096/1 variant)\n");
 
-		/* Respect MIN_MUTE set by module parameters. */
-		if (!(mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_PLAYBACK_MIN_MUTE))
-			mixer->chip->quirk_flags |= QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL;
-		if (!(mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_CAPTURE_MIN_MUTE))
-			mixer->chip->quirk_flags |= QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL;
+		if (deconflict_playback_tlv_quirks(mixer, kctl) ||
+		    deconflict_capture_tlv_quirks(mixer, kctl))
+			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
 	} else {
-		usb_audio_dbg(mixer->chip, "not applying MV-SILICON quirks on unknown variant");
+		usb_audio_dbg(mixer->chip, "not applying MV-SILICON quirks on unknown variant\n");
 	}
 }
 
@@ -4750,33 +5218,22 @@ triggered:
 	usb_audio_dbg(chip, "something wrong in kctl name %s\n", id->name);
 }
 
-static void snd_usb_mixer_fu_quirk_linear_scale(struct usb_mixer_interface *mixer,
-						struct usb_mixer_elem_info *cval,
-						struct snd_kcontrol *kctl)
-{
-	static const DECLARE_TLV_DB_LINEAR(scale, TLV_DB_GAIN_MUTE, 0);
-
-	if (cval->min_mute) {
-		/*
-		 * We are clearing SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK,
-		 * resulting in min_mute being a no-op.
-		 */
-		usb_audio_warn(mixer->chip, "LINEAR_VOL overrides MIN_MUTE\n");
-	}
-
-	kctl->tlv.p = scale;
-	kctl->vd[0].access |= SNDRV_CTL_ELEM_ACCESS_TLV_READ;
-	kctl->vd[0].access &= ~SNDRV_CTL_ELEM_ACCESS_TLV_CALLBACK;
-}
-
 void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 				  struct usb_mixer_elem_info *cval, int unitid,
 				  struct snd_kcontrol *kctl)
 {
 	switch (mixer->chip->usb_id) {
+	case USB_ID(0x001f, 0x0b21): /* AB13X Headset Adapter */
+		if (cval->control == UAC_FU_VOLUME)
+			snd_ab13x_quirks(mixer, cval, kctl);
+		break;
 	case USB_ID(0x21b4, 0x0081): /* AudioQuest DragonFly */
 		if (unitid == 7 && cval->control == UAC_FU_VOLUME)
 			snd_dragonfly_quirk_db_scale(mixer, cval, kctl);
+		break;
+	case USB_ID(0x2717, 0x5096): /* Xiaomi Speaker Mini */
+		if (cval->control == UAC_FU_VOLUME)
+			snd_xiaomi_speaker_mini_quirk_db_scale(mixer, cval, kctl);
 		break;
 	}
 
@@ -4801,18 +5258,12 @@ void snd_usb_mixer_fu_apply_quirk(struct usb_mixer_interface *mixer,
 		}
 
 	if (mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_PLAYBACK_LINEAR_VOL)
-		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Playback")) {
-			usb_audio_info(mixer->chip,
-				       "applying playback linear volume quirk\n");
+		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Playback"))
 			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
-		}
 
 	if (mixer->chip->quirk_flags & QUIRK_FLAG_MIXER_CAPTURE_LINEAR_VOL)
-		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Capture")) {
-			usb_audio_info(mixer->chip,
-				       "applying capture linear volume quirk\n");
+		if (cval->control == UAC_FU_VOLUME && strstr(kctl->id.name, "Capture"))
 			snd_usb_mixer_fu_quirk_linear_scale(mixer, cval, kctl);
-		}
 
 	/* ALSA-ify some Plantronics headset control names */
 	if (USB_ID_VENDOR(mixer->chip->usb_id) == 0x047f &&

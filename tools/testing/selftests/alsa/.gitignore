@@ -2,5 +2,6 @@ aloop-test
 global-timer
 mixer-test
 pcm-test
+seq-ump-test
 test-pcmtest-driver
 utimer-test

@@ -24,6 +24,7 @@
 /* monitor files for graceful shutdown (hotplug) */
 struct snd_monitor_file {
 	struct file *file;
+	const void *data;	/* device data from the minor lookup, or NULL */
 	const struct file_operations *disconnected_f_op;
 	struct list_head shutdown_list;	/* still need to shutdown */
 	struct list_head list;	/* link of monitor files */
@@ -1075,6 +1076,39 @@ int snd_component_add(struct snd_card *card, const char *component)
 EXPORT_SYMBOL(snd_component_add);
 
 /**
+ *  snd_card_file_add_data - add the file of a device to the file list
+ *  @card: soundcard structure
+ *  @file: file pointer
+ *  @data: the device data the file is opened for
+ *
+ *  Like snd_card_file_add(), but also records @data for
+ *  snd_card_file_sync().
+ *
+ *  Return: zero or a negative error code.
+ */
+int snd_card_file_add_data(struct snd_card *card, struct file *file,
+			   const void *data)
+{
+	struct snd_monitor_file *mfile;
+
+	mfile = kmalloc_obj(*mfile);
+	if (mfile == NULL)
+		return -ENOMEM;
+	mfile->file = file;
+	mfile->data = data;
+	mfile->disconnected_f_op = NULL;
+	INIT_LIST_HEAD(&mfile->shutdown_list);
+	guard(spinlock)(&card->files_lock);
+	if (card->shutdown) {
+		kfree(mfile);
+		return -ENODEV;
+	}
+	list_add(&mfile->list, &card->files_list);
+	get_device(&card->card_dev);
+	return 0;
+}
+
+/**
  *  snd_card_file_add - add the file to the file list of the card
  *  @card: soundcard structure
  *  @file: file pointer
@@ -1087,22 +1121,7 @@ EXPORT_SYMBOL(snd_component_add);
  */
 int snd_card_file_add(struct snd_card *card, struct file *file)
 {
-	struct snd_monitor_file *mfile;
-
-	mfile = kmalloc_obj(*mfile);
-	if (mfile == NULL)
-		return -ENOMEM;
-	mfile->file = file;
-	mfile->disconnected_f_op = NULL;
-	INIT_LIST_HEAD(&mfile->shutdown_list);
-	guard(spinlock)(&card->files_lock);
-	if (card->shutdown) {
-		kfree(mfile);
-		return -ENODEV;
-	}
-	list_add(&mfile->list, &card->files_list);
-	get_device(&card->card_dev);
-	return 0;
+	return snd_card_file_add_data(card, file, NULL);
 }
 EXPORT_SYMBOL(snd_card_file_add);
 
@@ -1135,7 +1154,7 @@ int snd_card_file_remove(struct snd_card *card, struct file *file)
 				break;
 			}
 		}
-		if (list_empty(&card->files_list))
+		if (list_empty(&card->files_list) || (found && found->data))
 			wake_up_all(&card->remove_sleep);
 	}
 	if (!found) {
@@ -1147,6 +1166,36 @@ int snd_card_file_remove(struct snd_card *card, struct file *file)
 	return 0;
 }
 EXPORT_SYMBOL(snd_card_file_remove);
+
+static bool snd_card_has_data_file(struct snd_card *card, const void *data)
+{
+	struct snd_monitor_file *mfile;
+
+	list_for_each_entry(mfile, &card->files_list, list) {
+		if (mfile->data == data)
+			return true;
+	}
+	return false;
+}
+
+/**
+ *  snd_card_file_sync - wait until the files opened for a device are closed
+ *  @card: soundcard structure
+ *  @data: the device data registered for the minors of the device
+ *
+ *  Waits until every file added for @data by snd_lookup_minor_data_file()
+ *  or snd_lookup_oss_minor_data_file() has been removed from @card.  The
+ *  minors of the device must already be unregistered, so that no new file
+ *  can be added for it.
+ */
+void snd_card_file_sync(struct snd_card *card, const void *data)
+{
+	guard(spinlock_irq)(&card->files_lock);
+	wait_event_lock_irq(card->remove_sleep,
+			    !snd_card_has_data_file(card, data),
+			    card->files_lock);
+}
+EXPORT_SYMBOL_GPL(snd_card_file_sync);
 
 #ifdef CONFIG_PM
 /**

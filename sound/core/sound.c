@@ -115,6 +115,40 @@ void *snd_lookup_minor_data(unsigned int minor, int type)
 }
 EXPORT_SYMBOL(snd_lookup_minor_data);
 
+/**
+ * snd_lookup_minor_data_file - get user data of a device and add the file
+ * @minor: the minor number
+ * @type: device type (SNDRV_DEVICE_TYPE_XXX)
+ * @file: the file being opened
+ *
+ * Like snd_lookup_minor_data(), but instead of taking a reference to the
+ * card, adds @file to the file list of the card while the minor is still
+ * registered, and records the user data for snd_card_file_sync().  The
+ * caller must call snd_card_file_remove() when it is done with the file.
+ *
+ * Return: The user data pointer if the specified device is found, %NULL if
+ * it is not found, or an error pointer if the file cannot be added.
+ */
+void *snd_lookup_minor_data_file(unsigned int minor, int type,
+				 struct file *file)
+{
+	struct snd_minor *mreg;
+	int err;
+
+	if (minor >= ARRAY_SIZE(snd_minors))
+		return NULL;
+	guard(mutex)(&sound_mutex);
+	mreg = snd_minors[minor];
+	if (!mreg || mreg->type != type || !mreg->private_data ||
+	    !mreg->card_ptr)
+		return NULL;
+	err = snd_card_file_add_data(mreg->card_ptr, file, mreg->private_data);
+	if (err < 0)
+		return ERR_PTR(err);
+	return mreg->private_data;
+}
+EXPORT_SYMBOL(snd_lookup_minor_data_file);
+
 #ifdef CONFIG_MODULES
 static struct snd_minor *autoload_device(unsigned int minor)
 {
@@ -183,6 +217,18 @@ static int snd_find_free_minor(int type, struct snd_card *card, int dev)
 		return SNDRV_MINOR_SEQUENCER;
 	if (type == SNDRV_DEVICE_TYPE_TIMER)
 		return SNDRV_MINOR_TIMER;
+
+	switch (type) {
+	case SNDRV_DEVICE_TYPE_CONTROL:
+	case SNDRV_DEVICE_TYPE_HWDEP:
+	case SNDRV_DEVICE_TYPE_RAWMIDI:
+	case SNDRV_DEVICE_TYPE_PCM_PLAYBACK:
+	case SNDRV_DEVICE_TYPE_PCM_CAPTURE:
+	case SNDRV_DEVICE_TYPE_COMPRESS:
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	for (minor = 0; minor < ARRAY_SIZE(snd_minors); ++minor) {
 		/* skip static minors still used for module auto loading */

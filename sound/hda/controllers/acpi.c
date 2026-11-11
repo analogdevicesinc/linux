@@ -166,7 +166,7 @@ static void hda_acpi_probe_work(struct work_struct *work)
 	if (err < 0)
 		return;
 
-	err = snd_card_register(chip->card);
+	err = snd_hda_card_register(&chip->bus);
 	if (err < 0)
 		return;
 
