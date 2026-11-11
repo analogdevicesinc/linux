@@ -232,7 +232,7 @@
 		};
 	};
 
-	fpga {
+	fpga-bus {
 		/*
 		 * These PrimeCells are at the same location and using
 		 * the same interrupts in all Integrators, but in the CP
@@ -311,7 +311,7 @@
 			 * This arrangement can be clearly seen in
 			 * ARM DUI 0225D, page 3-41, figure 3-19.
 			 */
-			port@0 {
+			port {
 				clcd_pads_vga_dac: endpoint {
 					remote-endpoint = <&vga_bridge_in>;
 					arm,pl11x,tft-r0g0b0-pads = <0 8 16>;

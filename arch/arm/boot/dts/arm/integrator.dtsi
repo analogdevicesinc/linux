@@ -71,7 +71,7 @@
 		};
 	};
 
-	fpga {
+	fpga-bus {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;

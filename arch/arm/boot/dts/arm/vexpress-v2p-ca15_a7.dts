@@ -123,7 +123,7 @@
 		};
 	};
 
-	wdt@2a490000 {
+	watchdog@2a490000 {
 		compatible = "arm,sp805", "arm,primecell";
 		reg = <0 0x2a490000 0 0x1000>;
 		interrupts = <0 98 4>;
@@ -147,7 +147,7 @@
 	};
 
 	gic: interrupt-controller@2c001000 {
-		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+		compatible = "arm,cortex-a15-gic";
 		#interrupt-cells = <3>;
 		#address-cells = <0>;
 		interrupt-controller;
@@ -197,7 +197,7 @@
 		clock-names = "apb_pclk";
 	};
 
-	dma@7ff00000 {
+	dma-controller@7ff00000 {
 		compatible = "arm,pl330", "arm,primecell";
 		reg = <0 0x7ff00000 0 0x1000>;
 		interrupts = <0 92 4>,
@@ -207,6 +207,7 @@
 			     <0 91 4>;
 		clocks = <&oscclk6a>;
 		clock-names = "apb_pclk";
+		#dma-cells = <1>;
 	};
 
 	scc@7fff0000 {
@@ -612,7 +613,7 @@
 		ranges = <0x8000000 0 0x8000000 0x18000000>;
 	};
 
-	site2: hsb@40000000 {
+	site2: hsb-bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;

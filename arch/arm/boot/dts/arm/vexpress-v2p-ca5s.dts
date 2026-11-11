@@ -119,7 +119,7 @@
 	};
 
 	gic: interrupt-controller@2c001000 {
-		compatible = "arm,cortex-a5-gic", "arm,cortex-a9-gic";
+		compatible = "arm,cortex-a5-gic";
 		#interrupt-cells = <3>;
 		#address-cells = <0>;
 		interrupt-controller;
@@ -211,7 +211,7 @@
 		ranges = <0 0x8000000 0x18000000>;
 	};
 
-	site2: hsb@40000000 {
+	site2: hsb-bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;

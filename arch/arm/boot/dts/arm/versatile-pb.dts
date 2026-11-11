@@ -5,7 +5,7 @@
 	model = "ARM Versatile PB";
 	compatible = "arm,versatile-pb";
 
-	amba {
+	amba-bus {
 		/* The Versatile PB is using more SIC IRQ lines than the AB */
 		sic: interrupt-controller@10003000 {
 			clear-mask = <0xffffffff>;
@@ -77,7 +77,7 @@
 					 0x0000 0 0 4 &sic 28>;
 		};
 
-		fpga {
+		fpga-bus@10000000 {
 			mmc@5000 {
 				/*
 				 * Overrides the interrupt assignment from

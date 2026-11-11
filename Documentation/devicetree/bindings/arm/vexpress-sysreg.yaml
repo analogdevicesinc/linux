@@ -36,6 +36,14 @@ properties:
     deprecated: true
     const: 2
 
+  mcc:
+    type: object
+    additionalProperties: true
+
+    properties:
+      compatible:
+        const: arm,vexpress,config-bus
+
 additionalProperties: false
 
 patternProperties:

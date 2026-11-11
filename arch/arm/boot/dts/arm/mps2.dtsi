@@ -174,7 +174,7 @@
 		};
 	};
 
-	fpga@40020000 {
+	fpga-bus@40020000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -210,7 +210,7 @@
 		};
 	};
 
-	smb {
+	smb-bus {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <1>;
