@@ -188,7 +188,7 @@
 		};
 	};
 
-	net@10010000 {
+	ethernet@10010000 {
 		compatible = "smsc,lan91c111";
 		reg = <0x10010000 0x10000>;
 		interrupts = <25>;
@@ -199,7 +199,7 @@
 		reg = <0x10008000 0x1000>;
 	};
 
-	amba {
+	amba-bus {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -228,12 +228,13 @@
 			valid-mask = <0x0760031b>;
 		};
 
-		dma@10130000 {
+		dma-controller@10130000 {
 			compatible = "arm,pl081", "arm,primecell";
 			reg = <0x10130000 0x1000>;
 			interrupts = <17>;
 			clocks = <&pclk>;
 			clock-names = "apb_pclk";
+			#dma-cells = <2>;
 		};
 
 		uart0: serial@101f1000 {
@@ -297,7 +298,7 @@
 			 * This arrangement can be clearly seen in
 			 * ARM DUI 0225D, page 3-41, figure 3-19.
 			 */
-			port@0 {
+			port {
 				#address-cells = <1>;
 				#size-cells = <0>;
 
@@ -393,7 +394,7 @@
 			clock-names = "sspclk", "apb_pclk";
 		};
 
-		fpga {
+		fpga-bus@10000000 {
 			compatible = "arm,versatile-fpga", "simple-bus";
 			#address-cells = <1>;
 			#size-cells = <1>;

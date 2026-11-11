@@ -82,7 +82,7 @@
 		clock-names = "apb_pclk";
 	};
 
-	wdt@2b060000 {
+	watchdog@2b060000 {
 		compatible = "arm,sp805", "arm,primecell";
 		status = "disabled";
 		reg = <0 0x2b060000 0 0x1000>;
@@ -92,7 +92,7 @@
 	};
 
 	gic: interrupt-controller@2c001000 {
-		compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
+		compatible = "arm,cortex-a15-gic";
 		#interrupt-cells = <3>;
 		#address-cells = <0>;
 		interrupt-controller;
@@ -112,7 +112,7 @@
 		clock-names = "apb_pclk";
 	};
 
-	dma@7ffb0000 {
+	dma-controller@7ffb0000 {
 		compatible = "arm,pl330", "arm,primecell";
 		reg = <0 0x7ffb0000 0 0x1000>;
 		interrupts = <0 92 4>,
@@ -122,6 +122,7 @@
 			     <0 91 4>;
 		clocks = <&sys_pll>;
 		clock-names = "apb_pclk";
+		#dma-cells = <1>;
 	};
 
 	timer {
@@ -240,7 +241,7 @@
 		ranges = <0x8000000 0 0x8000000 0x18000000>;
 	};
 
-	site2: hsb@40000000 {
+	site2: hsb-bus@40000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;

@@ -297,7 +297,7 @@
 		};
 	};
 
-	site2: hsb@e0000000 {
+	site2: hsb-bus@e0000000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
