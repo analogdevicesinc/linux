@@ -504,13 +504,13 @@ static void seq_buf_do_printk_test(struct kunit *test)
 	seq_buf_putc(&s, '!');
 	KUNIT_ASSERT_FALSE(test, seq_buf_has_overflowed(&s));
 	KUNIT_ASSERT_EQ(test, seq_buf_used(&s), 8);
-	KUNIT_ASSERT_EQ(test, strlen(seq_buf_str(&s)), 7);
 
 	seq_buf_printk_run(&capture, &s);
 
 	/* The one line that was written, and nothing after it. */
 	KUNIT_EXPECT_EQ(test, seq_buf_printk_marked, 1);
 	KUNIT_EXPECT_EQ(test, seq_buf_printk_empty, 0);
+	KUNIT_EXPECT_EQ(test, strlen(seq_buf_str(&s)), 7);
 
 	/* Check that lines without a trailing newline are shown. */
 	seq_buf_puts(&t, SEQ_BUF_PRINTK_MARKER "\n" SEQ_BUF_PRINTK_MARKER);
@@ -630,7 +630,8 @@ static void seq_buf_strlen_full_test(struct kunit *test)
 	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&s));
 	KUNIT_EXPECT_EQ(test, seq_buf_used(&s), 4);
 	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&s), 3);
-	/* seq_buf_strlen() terminates the buffer by itself. */
+	/* seq_buf_strlen() terminates the buffer by itself, losing the 'd'. */
+	KUNIT_EXPECT_TRUE(test, seq_buf_has_overflowed(&s));
 	KUNIT_EXPECT_EQ(test, s.buffer[3], '\0');
 	KUNIT_EXPECT_EQ(test, strnlen(s.buffer, s.size), 3);
 	KUNIT_EXPECT_STREQ(test, seq_buf_str(&s), "abc");
@@ -649,6 +650,7 @@ static void seq_buf_strlen_full_test(struct kunit *test)
 	seq_buf_commit(&t, len);
 	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&t));
 	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&t), 7);
+	KUNIT_EXPECT_TRUE(test, seq_buf_has_overflowed(&t));
 	KUNIT_EXPECT_EQ(test, t.buffer[7], '\0');
 	KUNIT_EXPECT_EQ(test, strnlen(t.buffer, t.size), 7);
 	KUNIT_EXPECT_STREQ(test, seq_buf_str(&t), "zzzzzzz");
@@ -735,6 +737,82 @@ static void seq_buf_terminate_test(struct kunit *test)
 	KUNIT_EXPECT_STREQ(test, buf, "untouched");
 }
 
+static void seq_buf_terminate_full_test(struct kunit *test)
+{
+	DECLARE_SEQ_BUF(s, 4);
+	DECLARE_SEQ_BUF(t, 4);
+	DECLARE_SEQ_BUF(u, 4);
+	DECLARE_SEQ_BUF(v, 4);
+
+	/*
+	 * Terminating a buffer that is exactly full puts the NUL over the
+	 * last byte written, so what it holds is truncated, and each of
+	 * seq_buf_str(), seq_buf_strlen() and seq_buf_terminate() must mark
+	 * it overflowed.
+	 */
+	seq_buf_putmem(&s, "abcd", 4);
+	KUNIT_ASSERT_FALSE(test, seq_buf_has_overflowed(&s));
+	KUNIT_EXPECT_STREQ(test, seq_buf_str(&s), "abc");
+	KUNIT_EXPECT_TRUE(test, seq_buf_has_overflowed(&s));
+	KUNIT_EXPECT_EQ(test, seq_buf_used(&s), 4);
+	/* The NUL must not be popped in place of the 'd' it replaced. */
+	KUNIT_EXPECT_EQ(test, seq_buf_pop(&s), -1);
+
+	seq_buf_putmem(&t, "abcd", 4);
+	KUNIT_ASSERT_FALSE(test, seq_buf_has_overflowed(&t));
+	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&t), 3);
+	KUNIT_EXPECT_TRUE(test, seq_buf_has_overflowed(&t));
+
+	seq_buf_putmem(&u, "abcd", 4);
+	KUNIT_ASSERT_FALSE(test, seq_buf_has_overflowed(&u));
+	seq_buf_terminate(&u);
+	KUNIT_EXPECT_TRUE(test, seq_buf_has_overflowed(&u));
+	KUNIT_EXPECT_STREQ(test, u.buffer, "abc");
+
+	/* With room left for the NUL, nothing is lost. */
+	seq_buf_putmem(&v, "abc", 3);
+	KUNIT_EXPECT_STREQ(test, seq_buf_str(&v), "abc");
+	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&v), 3);
+	seq_buf_terminate(&v);
+	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&v));
+	KUNIT_EXPECT_EQ(test, seq_buf_pop(&v), 'c');
+}
+
+static void seq_buf_terminate_written_nul_test(struct kunit *test)
+{
+	DECLARE_SEQ_BUF(s, 4);
+	DECLARE_SEQ_BUF(t, 4);
+	DECLARE_SEQ_BUF(u, 4);
+	DECLARE_SEQ_BUF(v, 8);
+
+	/*
+	 * A buffer filled exactly by data that ends in its own NUL is
+	 * already terminated, so nothing written is lost, and none of
+	 * seq_buf_str(), seq_buf_strlen() and seq_buf_terminate() may mark
+	 * it overflowed.
+	 */
+	seq_buf_putmem(&s, "abc", 4);
+	KUNIT_EXPECT_STREQ(test, seq_buf_str(&s), "abc");
+	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&s));
+	KUNIT_EXPECT_EQ(test, seq_buf_used(&s), 4);
+
+	seq_buf_putmem(&t, "abc", 4);
+	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&t), 3);
+	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&t));
+
+	seq_buf_putmem(&u, "abc", 4);
+	seq_buf_terminate(&u);
+	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&u));
+	KUNIT_EXPECT_STREQ(test, u.buffer, "abc");
+
+	/* With room left, the length still ends at the NUL that was written. */
+	seq_buf_putmem(&v, "abc", 4);
+	KUNIT_EXPECT_EQ(test, seq_buf_strlen(&v), 3);
+	KUNIT_EXPECT_STREQ(test, seq_buf_str(&v), "abc");
+	KUNIT_EXPECT_FALSE(test, seq_buf_has_overflowed(&v));
+	KUNIT_EXPECT_EQ(test, seq_buf_used(&v), 4);
+}
+
 static struct kunit_case seq_buf_test_cases[] = {
 	KUNIT_CASE(seq_buf_init_test),
 	KUNIT_CASE(seq_buf_init_append_test),
@@ -760,6 +838,8 @@ static struct kunit_case seq_buf_test_cases[] = {
 	KUNIT_CASE(seq_buf_strlen_embedded_nul_test),
 	KUNIT_CASE(seq_buf_strlen_zero_size_test),
 	KUNIT_CASE(seq_buf_terminate_test),
+	KUNIT_CASE(seq_buf_terminate_full_test),
+	KUNIT_CASE(seq_buf_terminate_written_nul_test),
 	KUNIT_CASE(seq_buf_do_printk_test),
 	{}
 };
