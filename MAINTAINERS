@@ -4484,6 +4484,7 @@ AUXILIARY BUS DRIVER
 M:	Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 M:	"Rafael J. Wysocki" <rafael@kernel.org>
 M:	Danilo Krummrich <dakr@kernel.org>
+M:	Johan Hovold <johan@kernel.org>
 R:	Dave Ertman <david.m.ertman@intel.com>
 R:	Ira Weiny <iweiny@kernel.org>
 R:	Leon Romanovsky <leon@kernel.org>
@@ -7838,7 +7839,7 @@ W:	http://www.win.tue.nl/~aeb/linux/zip/zip-1.html
 W:	http://www.win.tue.nl/~aeb/partitions/partition_types-1.html
 
 DISKQUOTA
-M:	Jan Kara <jack@suse.com>
+M:	Jan Kara <jack@suse.cz>
 S:	Maintained
 F:	Documentation/filesystems/quota.rst
 F:	fs/quota/
@@ -10109,7 +10110,7 @@ F:	drivers/leds/leds-expresswire.c
 F:	include/linux/leds-expresswire.h
 
 EXT2 FILE SYSTEM
-M:	Jan Kara <jack@suse.com>
+M:	Jan Kara <jack@suse.cz>
 L:	linux-ext4@vger.kernel.org
 S:	Maintained
 F:	Documentation/filesystems/ext2.rst
@@ -11695,10 +11696,10 @@ S:	Maintained
 F:	block/partitions/efi.*
 
 HABANALABS PCI DRIVER
-M:	Koby Elbaz <koby.elbaz@intel.com>
-M:	Konstantin Sinyuk <konstantin.sinyuk@intel.com>
+M:	Konstantin Sinyuk <ksinyuk@kernel.org>
+M:	Koby Elbaz <elbaz.koby@gmail.com>
 L:	dri-devel@lists.freedesktop.org
-S:	Supported
+S:	Maintained
 C:	irc://irc.oftc.net/dri-devel
 T:	git https://github.com/HabanaAI/drivers.accel.habanalabs.kernel.git
 F:	Documentation/ABI/testing/debugfs-driver-habanalabs
@@ -14324,7 +14325,7 @@ F:	include/uapi/linux/jffs2.h
 
 JOURNALLING LAYER FOR BLOCK DEVICES (JBD2)
 M:	"Theodore Ts'o" <tytso@mit.edu>
-M:	Jan Kara <jack@suse.com>
+M:	Jan Kara <jack@suse.cz>
 L:	linux-ext4@vger.kernel.org
 S:	Maintained
 F:	fs/jbd2/
@@ -22436,6 +22437,7 @@ M:	Petr Mladek <pmladek@suse.com>
 M:	John Ogness <john.ogness@linutronix.de>
 R:	Steven Rostedt <rostedt@goodmis.org>
 R:	Sergey Senozhatsky <senozhatsky@chromium.org>
+L:	printk@lists.linux.dev
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/printk/linux.git
 F:	Documentation/core-api/printk-basics.rst
@@ -22444,6 +22446,7 @@ F:	kernel/printk/
 
 PRINTK INDEXING
 R:	Chris Down <chris@chrisdown.name>
+L:	printk@lists.linux.dev
 S:	Maintained
 F:	Documentation/core-api/printk-index.rst
 F:	kernel/printk/index.c
@@ -23550,9 +23553,11 @@ RDT - RESOURCE ALLOCATION
 M:	Tony Luck <tony.luck@intel.com>
 M:	Reinette Chatre <reinette.chatre@intel.com>
 M:	x86@kernel.org
+R:	Ben Horgan <ben.horgan@arm.com>
 R:	Dave Martin <Dave.Martin@arm.com>
 R:	James Morse <james.morse@arm.com>
 R:	Babu Moger <babu.moger@amd.com>
+R:	Drew Fustini <fustini@kernel.org>
 L:	linux-kernel@vger.kernel.org
 S:	Supported
 P:	Documentation/process/maintainer-tip.rst
@@ -28714,7 +28719,7 @@ F:	arch/m68k/coldfire/
 F:	arch/m68k/include/asm/*_no.*
 
 UDF FILESYSTEM
-M:	Jan Kara <jack@suse.com>
+M:	Jan Kara <jack@suse.cz>
 S:	Maintained
 F:	Documentation/filesystems/udf.rst
 F:	fs/udf/
@@ -30062,6 +30067,7 @@ M:	Steven Rostedt <rostedt@goodmis.org>
 R:	Andy Shevchenko <andriy.shevchenko@linux.intel.com>
 R:	Rasmus Villemoes <linux@rasmusvillemoes.dk>
 R:	Sergey Senozhatsky <senozhatsky@chromium.org>
+L:	printk@lists.linux.dev
 S:	Maintained
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/printk/linux.git
 F:	Documentation/core-api/printk-formats.rst
