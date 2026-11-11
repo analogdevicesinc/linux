@@ -79,6 +79,11 @@ static inline bool nf_bridge_in_prerouting(const struct sk_buff *skb)
 }
 #else
 #define br_drop_fake_rtable(skb)	        do { } while (0)
+static inline bool nf_bridge_info_exists(const struct sk_buff *skb)
+{
+	return false;
+}
+
 static inline bool nf_bridge_in_prerouting(const struct sk_buff *skb)
 {
 	return false;
