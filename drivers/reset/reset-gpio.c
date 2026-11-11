@@ -67,6 +67,7 @@ static int reset_gpio_probe(struct auxiliary_device *adev,
 				     "Could not get reset gpios\n");
 
 	priv->rc.ops = &reset_gpio_ops;
+	priv->rc.can_sleep = true;
 	priv->rc.owner = THIS_MODULE;
 	priv->rc.dev = dev;
 
