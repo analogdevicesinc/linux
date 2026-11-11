@@ -159,12 +159,13 @@ struct adin1110_port_priv {
 
 struct adin1110_priv {
 	struct mutex			lock; /* protect spi */
-	spinlock_t			state_lock; /* protect RX mode */
+	spinlock_t			state_lock; /* protect RX mode and TX space */
 	struct mii_bus			*mii_bus;
 	struct spi_device		*spidev;
 	bool				append_crc;
 	struct adin1110_cfg		*cfg;
 	u32				tx_space;
+	u32				oa_tx_queued; /* fifo room of the frames in the txqs */
 	u32				irq_mask;
 	int				irq;
 	struct open_alliance		*oa;
@@ -605,6 +606,23 @@ static void adin1110_wake_queues(struct adin1110_priv *priv)
 		netif_wake_queue(priv->ports[i]->netdev);
 }
 
+/* Room a frame takes in the Open Alliance TX chunk fifo: whole chunks, after padding. */
+static u32 adin1110_oa_frame_space(struct adin1110_priv *priv, struct sk_buff *skb)
+{
+	return round_up(max_t(u32, skb->len, ETH_ZLEN), priv->oa->chunk_size);
+}
+
+/* Free room in the Open Alliance TX chunk fifo, called with state_lock held. */
+static u32 adin1110_oa_tx_space(struct adin1110_priv *priv)
+{
+	u32 tx_space = open_alliance_tx_space(priv->oa);
+
+	if (tx_space < priv->oa_tx_queued)
+		return 0;
+
+	return tx_space - priv->oa_tx_queued;
+}
+
 static int adin1110_get_tx_space(struct adin1110_priv *priv, u32 *tx_space)
 {
 	u32 val;
@@ -691,8 +709,6 @@ static irqreturn_t adin1110_oa_irq(int irq, void *p)
 		return IRQ_HANDLED;
 	}
 
-	priv->tx_space = val;
-
 	ret = adin1110_clear_irqs(priv);
 
 	mutex_unlock(&priv->lock);
@@ -700,7 +716,7 @@ static irqreturn_t adin1110_oa_irq(int irq, void *p)
 	if (ret < 0)
 		return IRQ_HANDLED;
 
-	if (priv->tx_space > 0)
+	if (val > 0)
 		adin1110_wake_queues(priv);
 
 	return IRQ_HANDLED;
@@ -996,8 +1012,11 @@ static void adin1110_tx_work(struct work_struct *work)
 			if (ret < 0)
 				netdev_err(port_priv->netdev, "Frame write error: %d\n", ret);
 
-			if (priv->oa)
-				priv->tx_space = ret;
+			if (priv->oa) {
+				spin_lock_bh(&priv->state_lock);
+				priv->oa_tx_queued -= adin1110_oa_frame_space(priv, txb);
+				spin_unlock_bh(&priv->state_lock);
+			}
 
 			dev_kfree_skb(txb);
 		}
@@ -1012,15 +1031,27 @@ static netdev_tx_t adin1110_start_xmit(struct sk_buff *skb, struct net_device *d
 	struct adin1110_priv *priv = port_priv->priv;
 	netdev_tx_t netdev_ret = NETDEV_TX_OK;
 	u32 tx_space_needed;
+	u32 tx_space;
 
 	spin_lock(&priv->state_lock);
 
-	tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN + ADIN1110_INTERNAL_SIZE_HEADER_LEN;
-	if (tx_space_needed > priv->tx_space) {
+	if (priv->oa) {
+		tx_space_needed = adin1110_oa_frame_space(priv, skb);
+		tx_space = adin1110_oa_tx_space(priv);
+	} else {
+		tx_space_needed = skb->len + ADIN1110_FRAME_HEADER_LEN +
+				  ADIN1110_INTERNAL_SIZE_HEADER_LEN;
+		tx_space = priv->tx_space;
+	}
+
+	if (tx_space_needed > tx_space) {
 		netif_stop_queue(dev);
 		netdev_ret = NETDEV_TX_BUSY;
 	} else {
-		priv->tx_space -= tx_space_needed;
+		if (priv->oa)
+			priv->oa_tx_queued += tx_space_needed;
+		else
+			priv->tx_space -= tx_space_needed;
 		skb_queue_tail(&port_priv->txq, skb);
 	}
 
