@@ -13,6 +13,7 @@
 #include <linux/gpio/consumer.h>
 #include <linux/property.h>
 #include <linux/mod_devicetable.h>
+#include <linux/string.h>
 
 enum ch_direction {
 	CH_IN,
@@ -139,6 +140,78 @@ static int one_bit_adc_dac_set_channel_label(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static int one_bit_adc_dac_get_default_state(struct fwnode_handle *fwnode, int def)
+{
+	const char *state;
+	u32 val;
+
+	if (!fwnode)
+		return def;
+
+	if (!fwnode_property_read_string(fwnode, "default-state", &state) ||
+	    !fwnode_property_read_string(fwnode, "adi,default-state", &state)) {
+		if (!strcasecmp(state, "high") || !strcasecmp(state, "on") ||
+		    !strcmp(state, "1"))
+			return 1;
+		if (!strcasecmp(state, "low") || !strcasecmp(state, "off") ||
+		    !strcmp(state, "0"))
+			return 0;
+	}
+
+	if (!fwnode_property_read_u32(fwnode, "default-state", &val) ||
+	    !fwnode_property_read_u32(fwnode, "adi,default-state", &val))
+		return !!val;
+
+	if (fwnode_property_read_bool(fwnode, "output-high"))
+		return 1;
+
+	if (fwnode_property_read_bool(fwnode, "output-low"))
+		return 0;
+
+	return def;
+}
+
+static struct fwnode_handle *one_bit_adc_dac_get_child(struct fwnode_handle *fwnode, u32 ch_reg)
+{
+	struct fwnode_handle *child;
+	u32 reg;
+
+	fwnode_for_each_child_node(fwnode, child) {
+		if (!fwnode_property_read_u32(child, "reg", &reg) && reg == ch_reg)
+			return child;
+	}
+
+	return NULL;
+}
+
+static int one_bit_adc_dac_setup_outputs(struct iio_dev *indio_dev, int out_num_ch)
+{
+	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
+	struct fwnode_handle *fwnode = dev_fwnode(&st->pdev->dev);
+	int dev_default_state = one_bit_adc_dac_get_default_state(fwnode, 0);
+	int i, ret;
+
+	for (i = 0; i < out_num_ch; i++) {
+		struct fwnode_handle *child;
+		int state = dev_default_state;
+
+		child = one_bit_adc_dac_get_child(fwnode, st->in_num_ch + i);
+		if (!child && st->in_num_ch > 0)
+			child = one_bit_adc_dac_get_child(fwnode, i);
+
+		if (child) {
+			state = one_bit_adc_dac_get_default_state(child, dev_default_state);
+			fwnode_handle_put(child);
+		}
+
+		ret = gpiod_direction_output(st->out_gpio_descs->desc[i], state);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 {
 	struct one_bit_adc_dac_state *st = iio_priv(indio_dev);
@@ -152,12 +225,17 @@ static int one_bit_adc_dac_parse_dt(struct iio_dev *indio_dev)
 	if (st->in_gpio_descs)
 		st->in_num_ch = st->in_gpio_descs->ndescs;
 
-	st->out_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "out", GPIOD_OUT_LOW);
+	st->out_gpio_descs = devm_gpiod_get_array_optional(&st->pdev->dev, "out", GPIOD_ASIS);
 	if (IS_ERR(st->out_gpio_descs))
 		return PTR_ERR(st->out_gpio_descs);
 
-	if (st->out_gpio_descs)
+	if (st->out_gpio_descs) {
 		out_num_ch = st->out_gpio_descs->ndescs;
+
+		ret = one_bit_adc_dac_setup_outputs(indio_dev, out_num_ch);
+		if (ret)
+			return ret;
+	}
 	channels = devm_kcalloc(indio_dev->dev.parent, st->in_num_ch + out_num_ch,
 				sizeof(*channels), GFP_KERNEL);
 	if (!channels)
