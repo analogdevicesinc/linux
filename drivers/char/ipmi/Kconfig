@@ -76,6 +76,19 @@ config IPMI_SI_ASYNC_INIT
 	  It also introduces a very small risk that something else might fail
 	  if it depends on synchronous IPMI init.
 
+config IPMI_DEFAULT_SI_ASYNC_RETRY_TIME
+        int 'Retry asynchronous initialization of IPMI System Interface'
+	depends on IPMI_SI_ASYNC_INIT
+	default 0
+	help
+	  If a device fails async init, retry after this many milliseconds
+	  instead of just failing.  If the BMC happens to not be up when
+	  the system boots, this allows retrying periodically and not
+	  just failing.  However, if there is not BMC, it will retry
+	  forever.
+	  This can be overridden with the async_retry_time module parameter.
+	  Set to zero to disable.
+
 config IPMI_SSIF
 	tristate 'IPMI SMBus handler (SSIF)'
 	depends on I2C

@@ -271,7 +271,8 @@ static int start_kcs_transaction(struct si_sm_data *kcs, unsigned char *data,
 		return IPMI_REQ_LEN_EXCEEDED_ERR;
 
 	if ((kcs->state != KCS_IDLE) && (kcs->state != KCS_HOSED)) {
-		dev_warn(kcs->io->dev, "KCS in invalid state %d\n", kcs->state);
+		dev_warn_ratelimited(kcs->io->dev, "KCS in invalid state %d\n",
+				     kcs->state);
 		return IPMI_NOT_IN_MY_STATE_ERR;
 	}
 

@@ -83,6 +83,12 @@ const struct ipmi_match_info ipmi_bt_si_info = { .type = SI_BT };
 static bool initialized;
 
 /*
+ * Keep the creation of IPMI interfaces in order.  The work items take
+ * time so the bh workqueues cannot be used.
+ */
+static struct workqueue_struct *ipmi_workqueue;
+
+/*
  * Indexes into stats[] in smi_info below.
  */
 enum si_stat_indexes {
@@ -253,7 +259,7 @@ struct smi_info {
 
 	struct task_struct *thread;
 
-	struct work_struct init_work;
+	struct delayed_work init_work;
 
 	struct list_head link;
 };
@@ -1311,6 +1317,15 @@ module_param_array(kipmid_max_busy_us, uint, &num_max_busy_us, 0644);
 MODULE_PARM_DESC(kipmid_max_busy_us,
 		 "Max time (in microseconds) to busy-wait for IPMI data before sleeping. 0 (default) means to wait forever. Set to 100-500 if kipmid is using up a lot of CPU time.");
 
+#ifdef CONFIG_IPMI_SI_ASYNC_INIT
+static unsigned int async_retry_time = CONFIG_IPMI_DEFAULT_SI_ASYNC_RETRY_TIME;
+module_param(async_retry_time, uint, 0);
+MODULE_PARM_DESC(async_retry_time,
+		 "The time (in milliseconds) between retrying an interface if it didn't come up at startup time.  Set to zero to disable.");
+#else
+#define async_retry_time 0
+#endif
+
 void ipmi_irq_finish_setup(struct si_sm_io *io)
 {
 	if (io->si_info->type == SI_BT)
@@ -1974,7 +1989,7 @@ int ipmi_si_add_smi(struct si_sm_io *io)
 	if (!new_smi)
 		return -ENOMEM;
 	spin_lock_init(&new_smi->si_lock);
-	INIT_WORK(&new_smi->init_work, smi_init_work_fn);
+	INIT_DELAYED_WORK(&new_smi->init_work, smi_init_work_fn);
 
 	new_smi->io = *io;
 
@@ -2012,7 +2027,8 @@ int ipmi_si_add_smi(struct si_sm_io *io)
 
 	if (initialized) {
 		if (IS_ENABLED(CONFIG_IPMI_SI_ASYNC_INIT))
-			queue_work(system_dfl_wq, &new_smi->init_work);
+			queue_delayed_work(ipmi_workqueue,
+					   &new_smi->init_work, 0);
 		else
 			rv = try_smi_init(new_smi);
 	}
@@ -2190,10 +2206,13 @@ static bool __init ipmi_smi_info_same(struct smi_info *e1, struct smi_info *e2)
 
 static void smi_init_work_fn(struct work_struct *work)
 {
-	struct smi_info *smi = container_of(work, struct smi_info, init_work);
+	struct smi_info *smi = container_of(work, struct smi_info,
+					    init_work.work);
 
 	mutex_lock(&smi_infos_lock);
-	try_smi_init(smi);
+	if (try_smi_init(smi) && async_retry_time > 0)
+		queue_delayed_work(ipmi_workqueue, &smi->init_work,
+				   msecs_to_jiffies(async_retry_time));
 	mutex_unlock(&smi_infos_lock);
 }
 
@@ -2204,9 +2223,15 @@ static int __init init_ipmi_si(void)
 	if (initialized)
 		return 0;
 
-	ipmi_hardcode_init();
-
 	pr_info("IPMI System Interface driver\n");
+
+	ipmi_workqueue = alloc_ordered_workqueue("ipmi_start", 0);
+	if (!ipmi_workqueue) {
+		pr_err("%s: Unable to allocate workqueue\n", __FILE__);
+		return -ENOMEM;
+	}
+
+	ipmi_hardcode_init();
 
 	ipmi_si_platform_init();
 
@@ -2244,7 +2269,8 @@ static int __init init_ipmi_si(void)
 		}
 		if (!dup) {
 			if (IS_ENABLED(CONFIG_IPMI_SI_ASYNC_INIT))
-				queue_work(system_unbound_wq, &e->init_work);
+				queue_delayed_work(ipmi_workqueue,
+						   &e->init_work, 0);
 			else
 				try_smi_init(e);
 		}
@@ -2282,7 +2308,8 @@ static int __init init_ipmi_si(void)
 		}
 		if (!dup) {
 			if (IS_ENABLED(CONFIG_IPMI_SI_ASYNC_INIT))
-				queue_work(system_unbound_wq, &e->init_work);
+				queue_delayed_work(ipmi_workqueue,
+						   &e->init_work, 0);
 			else
 				try_smi_init(e);
 		}
@@ -2383,7 +2410,7 @@ static void cleanup_one_si(struct smi_info *smi_info)
 		return;
 
 	if (IS_ENABLED(CONFIG_IPMI_SI_ASYNC_INIT))
-		cancel_work_sync(&smi_info->init_work);
+		cancel_delayed_work_sync(&smi_info->init_work);
 
 	ipmi_unregister_smi(smi_info->intf);
 	kfree(smi_info);
@@ -2463,6 +2490,9 @@ static void cleanup_ipmi_si(void)
 
 	ipmi_si_hardcode_exit();
 	ipmi_si_hotmod_exit();
+
+	/* Nothing can be scheduled for work at this point. */
+	destroy_workqueue(ipmi_workqueue);
 }
 module_exit(cleanup_ipmi_si);
 
