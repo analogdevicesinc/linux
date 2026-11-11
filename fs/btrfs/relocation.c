@@ -2834,7 +2834,7 @@ static noinline_for_stack int prealloc_file_extent_cluster(struct reloc_control 
 		num_bytes = end + 1 - start;
 		ret = btrfs_prealloc_file_range(&inode->vfs_inode, 0, start,
 						num_bytes, num_bytes,
-						end + 1, &alloc_hint);
+						end + 1, &alloc_hint, true);
 		cur_offset = end + 1;
 		btrfs_unlock_extent(&inode->io_tree, start, end, &cached_state);
 		if (ret)

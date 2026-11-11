@@ -28,8 +28,7 @@ struct btrfs_transaction;
 #define BTRFS_SUPER_MIRROR_SHIFT 12
 
 /*
- * Fixed blocksize for all devices, applies to specific ways of reading
- * metadata like superblock. Must meet the set_blocksize requirements.
+ * Fixed blocksize for all devices, applies to super block writes only.
  *
  * Do not change.
  */
@@ -104,6 +103,24 @@ static inline struct btrfs_root *btrfs_grab_root(struct btrfs_root *root)
 	if (refcount_inc_not_zero(&root->refs))
 		return root;
 	return NULL;
+}
+
+/*
+ * fs_roots_radix is indexed by unsigned long, so on 32-bit systems a subvolume
+ * id above ULONG_MAX is truncated, and can conflict with other subvolumes.
+ * Such subvolumes are not supported.
+ */
+static inline int btrfs_check_subvolid(const struct btrfs_fs_info *fs_info, u64 subvolid)
+{
+#if BITS_PER_LONG == 32
+	if (unlikely(subvolid > ULONG_MAX)) {
+		btrfs_err_rl(fs_info,
+	"subvolume id %llu is too large for 32-bit systems, max supported id is %lu",
+			     subvolid, ULONG_MAX);
+		return -EOVERFLOW;
+	}
+#endif
+	return 0;
 }
 
 void btrfs_put_root(struct btrfs_root *root);

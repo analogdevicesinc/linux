@@ -249,7 +249,7 @@ static int btrfs_init_dev_replace_tgtdev(struct btrfs_fs_info *fs_info,
 	}
 
 	/* Unfreezable for the whole replace; see btrfs_dev_replace_start(). */
-	bdev_file = btrfs_open_device_deny_freeze(device_path, fs_info->sb);
+	bdev_file = btrfs_open_device_deny_freeze(fs_info, device_path);
 	if (IS_ERR(bdev_file)) {
 		btrfs_err(fs_info, "target device %s is invalid!", device_path);
 		return PTR_ERR(bdev_file);
@@ -312,7 +312,6 @@ static int btrfs_init_dev_replace_tgtdev(struct btrfs_fs_info *fs_info,
 	/* Check the comment in btrfs_init_new_device() for the reason. */
 	atomic_inc(&device->dev_stats_ccnt);
 	device->dev_stats_valid = 1;
-	set_blocksize(bdev_file, BTRFS_BDEV_BLOCKSIZE);
 	device->fs_devices = fs_devices;
 
 	ret = btrfs_get_dev_zone_info(device, false);
