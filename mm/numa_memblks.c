@@ -36,14 +36,11 @@ void __init numa_reset_distance(void)
 
 static int __init numa_alloc_distance(void)
 {
-	nodemask_t nodes_parsed;
 	size_t size;
 	int i, j, cnt = 0;
 
 	/* size the new table and allocate it */
-	nodes_parsed = numa_nodes_parsed;
-
-	for_each_node_mask(i, nodes_parsed)
+	for_each_node_mask(i, numa_nodes_parsed)
 		cnt = i;
 	cnt++;
 	size = cnt * cnt * sizeof(numa_distance[0]);

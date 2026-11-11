@@ -7,6 +7,7 @@
  *
  */
 #include <linux/kernel.h>
+#include <linux/math.h>
 #include <linux/init.h>
 #include <linux/kobject.h>
 #include <linux/export.h>
@@ -448,11 +449,9 @@ static void __init find_zone_movable_pfns_for_nodes(void)
 	 * amount of necessary memory.
 	 */
 	if (required_kernelcore_percent)
-		required_kernelcore = (totalpages * 100 * required_kernelcore_percent) /
-				       10000UL;
+		required_kernelcore = mult_frac(totalpages, required_kernelcore_percent, 100);
 	if (required_movablecore_percent)
-		required_movablecore = (totalpages * 100 * required_movablecore_percent) /
-					10000UL;
+		required_movablecore = mult_frac(totalpages, required_movablecore_percent, 100);
 
 	/*
 	 * If movablecore= was specified, calculate what size of
