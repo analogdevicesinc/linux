@@ -110,8 +110,9 @@ struct dentry *debugfs_create_file_short(const char *name, umode_t mode,
  * you are responsible here.)  If an error occurs, ERR_PTR(-ERROR) will be
  * returned.
  *
- * If debugfs is not enabled in the kernel, the value -%ENODEV will be
- * returned.
+ * If debugfs is not enabled in the kernel build, the value ERR_PTR(-ENODEV)
+ * will be returned. If debugfs is enabled in the kernel build but is disabled
+ * on the kernel command line, the value ERR_PTR(-EPERM) will be returned.
  *
  * If fops points to a struct debugfs_short_fops, then simple_open() will be
  * used for the open, and only read/write/llseek are supported and are proxied,

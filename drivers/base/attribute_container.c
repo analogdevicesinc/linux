@@ -48,7 +48,7 @@ static void internal_container_klist_put(struct klist_node *n)
  *
  * @classdev: the class device created by attribute_container_add_device.
  *
- * Returns the container associated with this classdev.
+ * Return: the container associated with this classdev.
  */
 struct attribute_container *
 attribute_container_classdev_to_container(struct device *classdev)
@@ -86,6 +86,9 @@ EXPORT_SYMBOL_GPL(attribute_container_register);
  * attribute_container_unregister - remove a container registration
  *
  * @cont: previously registered container to remove
+ *
+ * Return: 0 on success, or -EBUSY if the container still has class
+ * devices registered.
  */
 int
 attribute_container_unregister(struct attribute_container *cont)
@@ -290,6 +293,10 @@ fail:
  * undo the partial work that has been done, on previous classdev.  It
  * is guaranteed that either they all succeeded, or none of them
  * succeeded.
+ *
+ * Return: 0 if @fn succeeded for every matching classdev, or the first
+ * error returned by @fn. In that case @undo, if given, has been run on
+ * the classdevs already processed.
  */
 int
 attribute_container_device_trigger_safe(struct device *dev,
@@ -382,6 +389,9 @@ attribute_container_device_trigger(struct device *dev,
  *
  * This simply creates all the class device sysfs files from the
  * attributes listed in the container
+ *
+ * Return: 0 on success (including when the container has no attributes),
+ * or a negative error code if creating the sysfs files failed.
  */
 int
 attribute_container_add_attrs(struct device *classdev)
@@ -417,6 +427,10 @@ attribute_container_add_attrs(struct device *classdev)
  * This performs essentially the same function as device_add except for
  * attribute containers, namely add the classdev to the system and then
  * create the attribute files
+ *
+ * Return: 0 on success, or a negative error code from device_add() or
+ * from creating the attribute files. In the latter case the class device
+ * is removed again with device_del().
  */
 int
 attribute_container_add_class_device(struct device *classdev)
@@ -482,6 +496,9 @@ attribute_container_class_device_del(struct device *classdev)
  *
  * Looks up the device in the container's list of class devices and returns
  * the corresponding class_device.
+ *
+ * Return: the matching class device, or NULL if the container has none
+ * for @dev.
  */
 struct device *
 attribute_container_find_class_device(struct attribute_container *cont,

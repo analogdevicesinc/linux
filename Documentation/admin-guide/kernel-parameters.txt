@@ -1208,7 +1208,8 @@ Kernel parameters
 			        get a -EPERM as result when trying to register files
 				or directories within debugfs.
 				This is equivalent of the runtime functionality if
-				debugfs was not enabled in the kernel at all.
+				debugfs was not enabled in the kernel at all,
+				except that the latter returns -ENODEV.
 			Default value is set in build-time with a kernel configuration.
 
 	debugpat	[X86] Enable PAT debugging

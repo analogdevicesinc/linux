@@ -3011,12 +3011,13 @@ static int device_add_attrs(struct device *dev)
 		error = device_add_group(dev,
 			&dev_attr_physical_location_group);
 		if (error)
-			goto err_remove_dev_removable;
+			goto err_free_physical_location;
 	}
 
 	return 0;
 
- err_remove_dev_removable:
+ err_free_physical_location:
+	kfree(dev->physical_location);
 	device_remove_file(dev, &dev_attr_removable);
  err_remove_dev_waiting_for_supplier:
 	device_remove_file(dev, &dev_attr_waiting_for_supplier);

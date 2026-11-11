@@ -41,7 +41,17 @@ dentry pointer which can be used to create files in the directory (and to
 clean it up at the end).  An ERR_PTR(-ERROR) return value indicates that
 something went wrong.  If ERR_PTR(-ENODEV) is returned, that is an
 indication that the kernel has been built without debugfs support and none
-of the functions described below will work.
+of the functions described below will work. If the kernel was built with
+debugfs support but it has been disabled by using "debugfs=off" on the
+kernel command line, ERR_PTR(-EPERM) is returned.
+
+.. note::
+
+  It's expected that most callers should _ignore_ the errors returned
+  by this function. Other debugfs functions handle the fact that the "dentry"
+  passed to them could be an error and they don't crash in that case.
+  Drivers should generally work fine even if debugfs fails to init or is
+  disabled.
 
 The most general way to create a file within a debugfs directory is with::
 
@@ -57,7 +67,17 @@ implement the file's behavior.  At a minimum, the read() and/or write()
 operations should be provided; others can be included as needed.  Again,
 the return value will be a dentry pointer to the created file,
 ERR_PTR(-ERROR) on error, or ERR_PTR(-ENODEV) if debugfs support is
-missing.
+missing.  If the kernel was built with debugfs support but it has been
+disabled by using "debugfs=off" on the kernel command line, ERR_PTR(-EPERM)
+is returned.
+
+.. note::
+
+  It's expected that most callers should _ignore_ the errors returned
+  by this function. Other debugfs functions handle the fact that the "dentry"
+  passed to them could be an error and they don't crash in that case.
+  Drivers should generally work fine even if debugfs fails to init or is
+  disabled.
 
 Create a file with an initial size, the following function can be used
 instead::

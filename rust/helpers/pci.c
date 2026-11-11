@@ -25,11 +25,6 @@ __rust_helper unsigned long rust_helper_pci_resource_flags(const struct pci_dev 
 	return pci_resource_flags(pdev, bar);
 }
 
-__rust_helper bool rust_helper_dev_is_pci(const struct device *dev)
-{
-	return dev_is_pci(dev);
-}
-
 __rust_helper unsigned int rust_helper_pci_irq_type(struct pci_dev *pdev)
 {
 	return pci_irq_type(pdev);
