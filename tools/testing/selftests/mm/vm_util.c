@@ -920,6 +920,8 @@ long ksm_get_self_zero_pages(void)
 	close(proc_self_ksm_stat_fd);
 	if (read_size < 0)
 		return -errno;
+	if (!read_size)
+		return -EIO;
 
 	buf[read_size] = 0;
 
@@ -944,8 +946,10 @@ long ksm_get_self_merging_pages(void)
 
 	ret = pread(proc_self_ksm_merging_pages_fd, buf, sizeof(buf) - 1, 0);
 	close(proc_self_ksm_merging_pages_fd);
-	if (ret <= 0)
+	if (ret < 0)
 		return -errno;
+	if (!ret)
+		return -EIO;
 	buf[ret] = 0;
 
 	return strtol(buf, NULL, 10);
@@ -963,8 +967,10 @@ long ksm_get_full_scans(void)
 
 	ret = pread(ksm_full_scans_fd, buf, sizeof(buf) - 1, 0);
 	close(ksm_full_scans_fd);
-	if (ret <= 0)
+	if (ret < 0)
 		return -errno;
+	if (!ret)
+		return -EIO;
 	buf[ret] = 0;
 
 	return strtol(buf, NULL, 10);
@@ -981,36 +987,81 @@ int ksm_use_zero_pages(void)
 
 	ret = write(ksm_use_zero_pages_fd, "1", 1);
 	close(ksm_use_zero_pages_fd);
-	return ret == 1 ? 0 : -errno;
+	if (ret < 0)
+		return -errno;
+	return ret == 1 ? 0 : -EIO;
+}
+
+int ksm_get_smart_scan(void)
+{
+	int smart_scan_fd;
+	char buf;
+	ssize_t ret;
+
+	smart_scan_fd = open("/sys/kernel/mm/ksm/smart_scan", O_RDONLY);
+	if (smart_scan_fd < 0)
+		return -errno;
+
+	ret = pread(smart_scan_fd, &buf, 1, 0);
+	close(smart_scan_fd);
+	if (ret < 0)
+		return -errno;
+	if (ret != 1)
+		return -EIO;
+
+	return buf == '1';
+}
+
+int ksm_set_smart_scan(bool enable)
+{
+	int smart_scan_fd;
+	ssize_t ret;
+
+	smart_scan_fd = open("/sys/kernel/mm/ksm/smart_scan", O_WRONLY);
+	if (smart_scan_fd < 0)
+		return -errno;
+
+	ret = write(smart_scan_fd, enable ? "1" : "0", 1);
+	close(smart_scan_fd);
+	if (ret < 0)
+		return -errno;
+	return ret == 1 ? 0 : -EIO;
+}
+
+int ksm_wait_full_scans(long nr)
+{
+	long start_scans, end_scans;
+
+	start_scans = ksm_get_full_scans();
+	if (start_scans < 0)
+		return start_scans;
+	do {
+		end_scans = ksm_get_full_scans();
+		if (end_scans < 0)
+			return end_scans;
+	} while (end_scans < start_scans + nr);
+
+	return 0;
 }
 
 int ksm_start(void)
 {
 	int ksm_fd;
 	ssize_t ret;
-	long start_scans, end_scans;
 
 	ksm_fd = open("/sys/kernel/mm/ksm/run", O_RDWR);
 	if (ksm_fd < 0)
 		return -errno;
 
-	/* Wait for two full scans such that any possible merging happened. */
-	start_scans = ksm_get_full_scans();
-	if (start_scans < 0) {
-		close(ksm_fd);
-		return start_scans;
-	}
 	ret = write(ksm_fd, "1", 1);
 	close(ksm_fd);
-	if (ret != 1)
+	if (ret < 0)
 		return -errno;
-	do {
-		end_scans = ksm_get_full_scans();
-		if (end_scans < 0)
-			return end_scans;
-	} while (end_scans < start_scans + 2);
+	if (ret != 1)
+		return -EIO;
 
-	return 0;
+	/* Wait for two full scans such that any possible merging happened. */
+	return ksm_wait_full_scans(2);
 }
 
 int ksm_stop(void)
@@ -1024,7 +1075,9 @@ int ksm_stop(void)
 
 	ret = write(ksm_fd, "2", 1);
 	close(ksm_fd);
-	return ret == 1 ? 0 : -errno;
+	if (ret < 0)
+		return -errno;
+	return ret == 1 ? 0 : -EIO;
 }
 
 int get_hardware_corrupted_size(unsigned long *val)

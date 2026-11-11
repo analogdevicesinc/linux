@@ -128,14 +128,6 @@ int create_init_stack_vma(struct mm_struct *mm, struct vm_area_struct **vmap,
 		goto err_free;
 	}
 
-	/*
-	 * Need to be called with mmap write lock
-	 * held, to avoid race with ksmd.
-	 */
-	err = ksm_execve(mm);
-	if (err)
-		goto err_ksm;
-
 	vma_flags_set_mask(&flags, VMA_STACK_FLAGS);
 	vma_set_anonymous(vma);
 
@@ -163,8 +155,6 @@ int create_init_stack_vma(struct mm_struct *mm, struct vm_area_struct **vmap,
 	return 0;
 
 err:
-	ksm_exit(mm);
-err_ksm:
 	mmap_write_unlock(mm);
 err_free:
 	*vmap = NULL;

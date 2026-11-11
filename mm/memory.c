@@ -5712,11 +5712,13 @@ static void deposit_prealloc_pte(struct vm_fault *vmf)
 	vmf->prealloc_pte = NULL;
 }
 
-vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *page)
+vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *page,
+		bool may_alloc)
 {
 	struct vm_area_struct *vma = vmf->vma;
 	bool write = vmf->flags & FAULT_FLAG_WRITE;
 	unsigned long haddr = vmf->address & HPAGE_PMD_MASK;
+	bool pgtable_allocated = false;
 	pmd_t entry;
 	vm_fault_t ret = VM_FAULT_FALLBACK;
 
@@ -5752,9 +5754,12 @@ vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *pa
 	 * related to pte entry. Use the preallocated table for that.
 	 */
 	if (arch_needs_pgtable_deposit() && !vmf->prealloc_pte) {
+		if (!may_alloc)
+			return VM_FAULT_FALLBACK;
 		vmf->prealloc_pte = pte_alloc_one(vma->vm_mm);
 		if (!vmf->prealloc_pte)
 			return VM_FAULT_OOM;
+		pgtable_allocated = true;
 	}
 
 	vmf->ptl = pmd_lock(vma->vm_mm, vmf->pmd);
@@ -5785,10 +5790,15 @@ vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *pa
 	count_vm_event(THP_FILE_MAPPED);
 out:
 	spin_unlock(vmf->ptl);
+	if (pgtable_allocated && vmf->prealloc_pte) {
+		pte_free(vma->vm_mm, vmf->prealloc_pte);
+		vmf->prealloc_pte = NULL;
+	}
 	return ret;
 }
 #else
-vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *page)
+vm_fault_t do_set_pmd(struct vm_fault *vmf, struct folio *folio, struct page *page,
+		bool may_alloc)
 {
 	return VM_FAULT_FALLBACK;
 }
@@ -5912,7 +5922,7 @@ fallback:
 
 	if (pmd_none(*vmf->pmd)) {
 		if (!needs_fallback && folio_test_pmd_mappable(folio)) {
-			ret = do_set_pmd(vmf, folio, page);
+			ret = do_set_pmd(vmf, folio, page, /* may_alloc= */ true);
 			if (ret != VM_FAULT_FALLBACK)
 				return ret;
 		}
@@ -6055,7 +6065,8 @@ static vm_fault_t do_fault_around(struct vm_fault *vmf)
 	to_pte = min3(from_pte + nr_pages, (pgoff_t)PTRS_PER_PTE,
 		      pte_off + vma_pages(vmf->vma) - vma_off) - 1;
 
-	if (pmd_none(*vmf->pmd)) {
+	/* pmd_install() rechecks pmd_none() under the pmd lock. */
+	if (pmd_none(pmdp_get_lockless(vmf->pmd))) {
 		vmf->prealloc_pte = pte_alloc_one(vmf->vma->vm_mm);
 		if (!vmf->prealloc_pte)
 			return VM_FAULT_OOM;
@@ -7634,27 +7645,30 @@ static inline int process_huge_page(
 }
 
 static void clear_contig_highpages(struct page *page, unsigned long addr,
-				   unsigned int nr_pages)
+		unsigned int nr_pages)
 {
-	unsigned int i, count;
+	unsigned int i;
+
+	might_sleep();
+
 	/*
 	 * When clearing we want to operate on the largest extent possible to
 	 * allow for architecture specific extent based optimizations.
 	 *
-	 * However, since clear_user_highpages() (and primitives clear_user_pages(),
-	 * clear_pages()), do not call cond_resched(), limit the unit size when
-	 * running under non-preemptible scheduling models.
+	 * clear_user_highpages() (and primitives clear_user_pages(),
+	 * clear_pages()) do not call cond_resched(). That is fine on
+	 * preemptible kernels, where the scheduler can preempt the clearing
+	 * at any point, so clear the whole range at once. Otherwise, clear
+	 * one page at a time and reschedule in between.
 	 */
-	const unsigned int unit = preempt_model_preemptible() ?
-				   nr_pages : PROCESS_PAGES_NON_PREEMPT_BATCH;
+	if (IS_ENABLED(CONFIG_PREEMPTION)) {
+		clear_user_highpages(page, addr, nr_pages);
+		return;
+	}
 
-	might_sleep();
-
-	for (i = 0; i < nr_pages; i += count) {
+	for (i = 0; i < nr_pages; i++) {
 		cond_resched();
-
-		count = min(unit, nr_pages - i);
-		clear_user_highpages(page + i, addr + i * PAGE_SIZE, count);
+		clear_user_highpage(page + i, addr + i * PAGE_SIZE);
 	}
 }
 
