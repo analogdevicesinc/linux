@@ -149,9 +149,8 @@ static ssize_t cros_ec_sensor_get_report_latency(struct device *dev,
 	if (ret < 0)
 		return ret;
 
-	return sprintf(buf, "%d.%06u\n",
-		       latency / 1000,
-		       (latency % 1000) * 1000);
+	return sysfs_emit(buf, "%d.%06u\n",
+			  latency / 1000, (latency % 1000) * 1000);
 }
 
 static IIO_DEVICE_ATTR(hwfifo_timeout, 0644,
@@ -165,7 +164,7 @@ static ssize_t hwfifo_watermark_max_show(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct cros_ec_sensors_core_state *st = iio_priv(indio_dev);
 
-	return sprintf(buf, "%d\n", st->fifo_max_event_count);
+	return sysfs_emit(buf, "%d\n", st->fifo_max_event_count);
 }
 
 static IIO_DEVICE_ATTR_RO(hwfifo_watermark_max, 0);
@@ -462,7 +461,7 @@ static ssize_t cros_ec_sensors_id(struct iio_dev *indio_dev,
 {
 	struct cros_ec_sensors_core_state *st = iio_priv(indio_dev);
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", st->param.info.sensor_num);
+	return sysfs_emit(buf, "%d\n", st->param.info.sensor_num);
 }
 
 const struct iio_chan_spec_ext_info cros_ec_sensors_ext_info[] = {
