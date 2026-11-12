@@ -437,6 +437,14 @@ struct inv_icm42607_sensor_state {
  */
 #define INV_ICM42607_SUSPEND_DELAY_MS			(2 * MSEC_PER_SEC)
 
+/* OFFSET_USERx shared registers two 4-bit MSB fields */
+#define INV_ICM42607_OFFSET_USER_NIBBLE_HI	GENMASK(7, 4)
+#define INV_ICM42607_OFFSET_USER_NIBBLE_LO	GENMASK(3, 0)
+
+/* 12-bit signed offset value split across two registers */
+#define INV_ICM42607_OFFSET_MSB			GENMASK(11, 8)
+#define INV_ICM42607_OFFSET_LSB			GENMASK(7, 0)
+
 typedef int (*inv_icm42607_bus_setup)(struct inv_icm42607_state *);
 
 extern const struct regmap_config inv_icm42607_regmap_config;
