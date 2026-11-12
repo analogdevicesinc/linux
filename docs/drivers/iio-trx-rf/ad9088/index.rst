@@ -266,6 +266,74 @@ Spectrum Sniffer
 
 A more detailed usage is provided :ref:`here <apollo fft>`.
 
+.. _apollo clock-plan:
+
+Clock plan
+~~~~~~~~~~
+
+The device profile, devicetree and HDL build must agree on the sampling and
+JESD204 rates. For JESD204C, each multiblock contains 32 blocks of 66 bits.
+With ``E`` multiblocks per extended multiblock:
+
+.. code:: text
+
+   device clock (MCLK) = dev_clk_freq_Hz of the device profile
+   link clock          = lane rate / 66
+   LEMC                = lane rate / (66 * 32 * E) = link clock / (32 * E)
+   internal SYSREF     = MCLK / (divG * internal_sysref_prd_digclk_cycles)
+   SYSREF              = internal SYSREF / n,  n integer
+
+The driver sets ``dev_clk`` from the profile's ``dev_clk_freq_Hz``. The
+``mcs_cfg.internal_sysref_prd_digclk_cycles_*`` fields set the internal SYSREF
+period; ``divG`` is 8 when ``clk_cfg.clocking_mode`` is 0, and 4 otherwise.
+For example, 20 GHz / (8 * 256) gives 9.765625 MHz, the LEMC frequency for
+20.625 Gbps with ``E`` = 1. The external SYSREF period must be an integer
+multiple of the internal SYSREF period. See :ref:`ad9088 mcs` for alignment
+and trigger synchronization.
+
+On 32-bit MicroBlaze, clock callbacks that return a signed ``long`` cannot
+represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes a
+scaled rate to the clock framework. The AD9084 node uses
+``dev_clk-clock-scales = <1 10>`` to convert it back to Hz. Provider and
+consumer scales must match. The same applies to the quad board's external
+VCO: an unscaled 2.5 GHz rate can make the LTC6952 probe fail with ``-EINVAL``.
+
+Single AD9084
+^^^^^^^^^^^^^
+
+The VCU118 (``vcu118_ad9084*.dts``) and Versal
+(``versal-*-ad9084*.dts``) single-board designs use a 125 MHz reference.
+The diagram shows the default HMC7044 PLL2 rate and FPGA clock dividers:
+
+.. mermaid::
+
+   flowchart LR
+       ref["125 MHz"] --> pll["ADF4382"]
+       pll -->|"dev_clk"| apollo["AD9084"]
+       ref --> hmc["HMC7044 PLL2<br/>2.5 GHz"]
+       hmc -->|"out8, 9, 11, 12 /8"| core["FPGA device clocks<br/>312.5 MHz"]
+       hmc -->|"out10 /8"| gt["FPGA transceiver reference<br/>312.5 MHz"]
+       hmc -->|"out1 /20: REFIN"| sync["ADF4030<br/>WITH_AION only"]
+       hmc -->|"out3: BSYNC 0"| sync
+       sync -->|"SYSREF"| apollo
+
+``HMC7044_PLL2_FREQ`` sets the PLL2 rate. On Versal,
+``HMC7044_CORE_CLK_DIV`` sets the FPGA clock dividers. ``WITH_AION`` enables
+the ADF4030 and JESD204 subclass 1.
+
+The FPGA link clock depends on the carrier:
+
+* **VCU118**: ``XCVR_PROGDIV_CLK`` selects the transceiver's lane-rate-derived
+  clock, not the HMC7044 reference. The
+  ``vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts`` profile runs at 10.3125 Gbps:
+  its link clock is 156.25 MHz, while its FPGA device clocks are 312.5 MHz.
+  Rate changes remain limited by the transceiver configuration in the HDL.
+* **Versal**: the lane rate and the link clock are set by the bitstream, and
+  the devicetree describes them as fixed clocks, ``AD9084_RX_LANERATE_KHZ``,
+  ``AD9084_TX_LANERATE_KHZ``, ``AD9084_RX_LINK_CLK`` and
+  ``AD9084_TX_LINK_CLK``. They must match the bitstream and the device
+  profile, for example 20.625 Gbps and a 312.5 MHz link clock.
+
 Driver testing
 --------------
 
