@@ -1204,14 +1204,14 @@ static struct clk_hw *stm32_register_cclk(struct device *dev, const char *name,
 
 	gate = kzalloc_obj(*gate);
 	if (!gate) {
-		hw = ERR_PTR(-EINVAL);
+		hw = ERR_PTR(-ENOMEM);
 		goto fail;
 	}
 
 	mux = kzalloc_obj(*mux);
 	if (!mux) {
 		kfree(gate);
-		hw = ERR_PTR(-EINVAL);
+		hw = ERR_PTR(-ENOMEM);
 		goto fail;
 	}
 
@@ -1778,7 +1778,7 @@ static struct clk_hw *stm32_register_aux_clk(const char *name,
 	if (offset_gate != NO_GATE) {
 		gate = kzalloc_obj(*gate);
 		if (!gate) {
-			hw = ERR_PTR(-EINVAL);
+			hw = ERR_PTR(-ENOMEM);
 			goto fail;
 		}
 
@@ -1793,7 +1793,7 @@ static struct clk_hw *stm32_register_aux_clk(const char *name,
 	if (offset_mux != NO_MUX) {
 		mux = kzalloc_obj(*mux);
 		if (!mux) {
-			hw = ERR_PTR(-EINVAL);
+			hw = ERR_PTR(-ENOMEM);
 			goto fail;
 		}
 
