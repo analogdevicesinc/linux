@@ -18,10 +18,257 @@
 #include <linux/time.h>
 #include <linux/timekeeping.h>
 #include <linux/types.h>
+#include <linux/unaligned.h>
 
 #include <asm/byteorder.h>
 
 #include "inv_icm42607.h"
+
+static int inv_icm42607_mclk_get(struct regmap *map, bool *idle_set)
+{
+	unsigned int val;
+	int ret, ret2;
+
+	*idle_set = false;
+
+	ret = regmap_test_bits(map, INV_ICM42607_REG_MCLK_RDY,
+			       INV_ICM42607_MCLK_RDY_BIT);
+	if (ret < 0)
+		return ret;
+	if (ret)
+		return 0;
+
+	/*
+	 * Clock isn't running: we're either in Sleep mode or in Accel LP mode
+	 * running on WUOSC. Force the RC oscillator on via IDLE and wait for
+	 * MCLK_RDY. Datasheet gives 10us (accel startup) to 200us (accel
+	 * transition from OFF) for this to complete.
+	 */
+	ret = regmap_set_bits(map, INV_ICM42607_REG_PWR_MGMT0,
+			      INV_ICM42607_PWR_MGMT0_IDLE);
+	if (ret)
+		return ret;
+
+	*idle_set = true;
+
+	ret = regmap_read_poll_timeout(map, INV_ICM42607_REG_MCLK_RDY, val,
+				       val & INV_ICM42607_MCLK_RDY_BIT, 10, 200);
+	if (ret) {
+		ret2 = regmap_clear_bits(map, INV_ICM42607_REG_PWR_MGMT0,
+					 INV_ICM42607_PWR_MGMT0_IDLE);
+		if (ret2)
+			dev_dbg(regmap_get_device(map),
+				"failed to clear IDLE after MCLK timeout: %d\n", ret2);
+		else
+			*idle_set = false;
+	}
+
+	return ret;
+}
+
+static int inv_icm42607_mclk_put(struct regmap *map, bool idle_set)
+{
+	if (!idle_set)
+		return 0;
+
+	return regmap_clear_bits(map, INV_ICM42607_REG_PWR_MGMT0, INV_ICM42607_PWR_MGMT0_IDLE);
+}
+
+/* Only compute the BLK_SEL value, the device is not accessed. */
+static int inv_icm42607_reg_to_blk_sel(unsigned int reg, u8 *blk_sel)
+{
+	u8 bank = FIELD_GET(INV_ICM42607_REG_BANK_MASK, reg);
+
+	switch (bank) {
+	case INV_ICM42607_MREG1:
+		*blk_sel = INV_ICM42607_MREG1_BLK_SEL;
+		return 0;
+	case INV_ICM42607_MREG2:
+	case INV_ICM42607_MREG3:
+		*blk_sel = bank;
+		return 0;
+	default:
+		return -EINVAL;
+	}
+}
+
+/*
+ * The internal clock must be running before starting an MREG access, then the
+ * bank is selected in BLK_SEL_R or BLK_SEL_W (datasheet section 13).
+ */
+static int inv_icm42607_switch_to_mreg(struct regmap *map, unsigned int reg,
+				       unsigned int blk_sel_reg, bool *idle_set)
+{
+	u8 blk_sel;
+	int ret;
+
+	ret = inv_icm42607_reg_to_blk_sel(reg, &blk_sel);
+	if (ret)
+		return ret;
+
+	ret = inv_icm42607_mclk_get(map, idle_set);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(map, blk_sel_reg, blk_sel);
+	if (ret) {
+		inv_icm42607_mclk_put(map, *idle_set);
+		return ret;
+	}
+
+	return 0;
+}
+
+/*
+ * BLK_SEL must be restored to 0 after entering MREG bank (datasheet section 13) do it
+ * while the internal clock is still forced on.
+ */
+static int inv_icm42607_switch_from_mreg(struct regmap *map,
+					 unsigned int blk_sel_reg, bool idle_set)
+{
+	int ret;
+
+	ret = regmap_write(map, blk_sel_reg, 0);
+	if (ret) {
+		inv_icm42607_mclk_put(map, idle_set);
+		return ret;
+	}
+
+	return inv_icm42607_mclk_put(map, idle_set);
+}
+
+static int inv_icm42607_mreg_read(struct regmap *map, unsigned int reg,
+				  u8 *data, size_t count)
+{
+	unsigned int val;
+	bool idle_set;
+	int ret;
+
+	/* MREG access is one byte per transaction, no burst support. */
+	if (count != 1)
+		return -EINVAL;
+
+	ret = inv_icm42607_switch_to_mreg(map, reg, INV_ICM42607_REG_BLK_SEL_R,
+					  &idle_set);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(map, INV_ICM42607_REG_MADDR_R,
+			   FIELD_GET(INV_ICM42607_REG_ADDR_MASK, reg));
+	if (ret)
+		goto err_switch_from_mreg;
+
+	fsleep(INV_ICM42607_MREG_ACCESS_DELAY_US);
+
+	ret = regmap_read(map, INV_ICM42607_REG_M_R, &val);
+	if (ret)
+		goto err_switch_from_mreg;
+
+	fsleep(INV_ICM42607_MREG_ACCESS_DELAY_US);
+
+	ret = inv_icm42607_switch_from_mreg(map, INV_ICM42607_REG_BLK_SEL_R,
+					    idle_set);
+	if (ret)
+		return ret;
+
+	*data = val;
+
+	return 0;
+
+err_switch_from_mreg:
+	/* The access may have been started, respect the access delay. */
+	fsleep(INV_ICM42607_MREG_ACCESS_DELAY_US);
+	inv_icm42607_switch_from_mreg(map, INV_ICM42607_REG_BLK_SEL_R, idle_set);
+
+	return ret;
+}
+
+static int inv_icm42607_mreg_write(struct regmap *map, unsigned int reg,
+				   const u8 *data, size_t count)
+{
+	bool idle_set;
+	int ret;
+
+	/* MREG access is one byte per transaction, no burst support. */
+	if (count != 1)
+		return -EINVAL;
+
+	ret = inv_icm42607_switch_to_mreg(map, reg, INV_ICM42607_REG_BLK_SEL_W,
+					  &idle_set);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(map, INV_ICM42607_REG_MADDR_W,
+			   FIELD_GET(INV_ICM42607_REG_ADDR_MASK, reg));
+	if (ret)
+		goto err_switch_from_mreg;
+
+	ret = regmap_write(map, INV_ICM42607_REG_M_W, *data);
+	if (ret)
+		goto err_switch_from_mreg;
+
+	fsleep(INV_ICM42607_MREG_ACCESS_DELAY_US);
+
+	return inv_icm42607_switch_from_mreg(map, INV_ICM42607_REG_BLK_SEL_W,
+					     idle_set);
+
+err_switch_from_mreg:
+	/* The access may have been started, respect the access delay. */
+	fsleep(INV_ICM42607_MREG_ACCESS_DELAY_US);
+	inv_icm42607_switch_from_mreg(map, INV_ICM42607_REG_BLK_SEL_W, idle_set);
+
+	return ret;
+}
+
+static int inv_icm42607_read(void *context, const void *reg_buf, size_t reg_size,
+			     void *val_buf, size_t val_size)
+{
+	u16 reg = get_unaligned_be16(reg_buf);
+	struct regmap *map = context;
+
+	if (FIELD_GET(INV_ICM42607_REG_BANK_MASK, reg) != INV_ICM42607_BANK0)
+		return inv_icm42607_mreg_read(map, reg, val_buf, val_size);
+
+	return regmap_bulk_read(map, FIELD_GET(INV_ICM42607_REG_ADDR_MASK, reg),
+				val_buf, val_size);
+}
+
+static int inv_icm42607_write(void *context, const void *data, size_t count)
+{
+	unsigned int reg = get_unaligned_be16(data);
+	struct regmap *map = context;
+	const u8 *d = data;
+
+	if (FIELD_GET(INV_ICM42607_REG_BANK_MASK, reg) != INV_ICM42607_BANK0)
+		return inv_icm42607_mreg_write(map, reg, d + 2, count - 2);
+
+	return regmap_bulk_write(map, FIELD_GET(INV_ICM42607_REG_ADDR_MASK, reg),
+				 d + 2, count - 2);
+}
+
+static const struct regmap_bus inv_icm42607_regmap_bus = {
+	.read = inv_icm42607_read,
+	.write = inv_icm42607_write,
+};
+
+static bool inv_icm42607_is_volatile_reg(struct device *dev, unsigned int reg)
+{
+	switch (reg) {
+	case INV_ICM42607_REG_MCLK_RDY:
+	case INV_ICM42607_REG_SIGNAL_PATH_RESET:
+	case INV_ICM42607_REG_TEMP_DATA1 ... INV_ICM42607_REG_APEX_DATA5:
+	/* PWR_MGMT0 IDLE bit is toggled behind the cache during MREG access. */
+	case INV_ICM42607_REG_PWR_MGMT0:
+	case INV_ICM42607_REG_APEX_CONFIG0:
+	case INV_ICM42607_REG_FIFO_LOST_PKT0 ... INV_ICM42607_REG_APEX_DATA3:
+	case INV_ICM42607_REG_INT_STATUS_DRDY:
+	case INV_ICM42607_REG_INT_STATUS ... INV_ICM42607_REG_FIFO_DATA:
+	case INV_ICM42607_REG_BLK_SEL_W ... INV_ICM42607_REG_M_R:
+		return true;
+	}
+
+	return false;
+}
 
 static bool inv_icm42607_is_readable_reg(struct device *dev, unsigned int reg)
 {
@@ -31,6 +278,7 @@ static bool inv_icm42607_is_readable_reg(struct device *dev, unsigned int reg)
 	case INV_ICM42607_REG_APEX_DATA4 ... INV_ICM42607_REG_INTF_CONFIG1:
 	case INV_ICM42607_REG_INT_STATUS_DRDY ... INV_ICM42607_REG_FIFO_DATA:
 	case INV_ICM42607_REG_WHOAMI:
+	case INV_ICM42607_REG_OFFSET_USER0 ... INV_ICM42607_REG_OFFSET_USER8:
 		return true;
 	}
 
@@ -43,36 +291,29 @@ static bool inv_icm42607_is_writeable_reg(struct device *dev, unsigned int reg)
 	case INV_ICM42607_REG_DEVICE_CONFIG ... INV_ICM42607_REG_INT_CONFIG:
 	case INV_ICM42607_REG_PWR_MGMT0 ... INV_ICM42607_REG_INT_SOURCE4:
 	case INV_ICM42607_REG_INTF_CONFIG0 ... INV_ICM42607_REG_INTF_CONFIG1:
+	case INV_ICM42607_REG_OFFSET_USER0 ... INV_ICM42607_REG_OFFSET_USER8:
 		return true;
 	}
 
 	return false;
 }
 
-static bool inv_icm42607_is_volatile_reg(struct device *dev, unsigned int reg)
-{
-	switch (reg) {
-	case INV_ICM42607_REG_MCLK_RDY:
-	case INV_ICM42607_REG_SIGNAL_PATH_RESET:
-	case INV_ICM42607_REG_TEMP_DATA1 ... INV_ICM42607_REG_APEX_DATA5:
-	case INV_ICM42607_REG_APEX_CONFIG0:
-	case INV_ICM42607_REG_FIFO_LOST_PKT0 ... INV_ICM42607_REG_APEX_DATA3:
-	case INV_ICM42607_REG_INT_STATUS_DRDY:
-	case INV_ICM42607_REG_INT_STATUS ... INV_ICM42607_REG_FIFO_DATA:
-		return true;
-	}
-
-	return false;
-}
-
-const struct regmap_config inv_icm42607_regmap_config = {
-	.reg_bits = 8,
+static const struct regmap_config inv_icm42607_virt_regmap_config = {
+	.name = "banks",
+	.reg_bits = 16,
 	.val_bits = 8,
+	.use_single_write = true,
 	.writeable_reg = inv_icm42607_is_writeable_reg,
 	.readable_reg = inv_icm42607_is_readable_reg,
 	.volatile_reg = inv_icm42607_is_volatile_reg,
-	.max_register = INV_ICM42607_REG_WHOAMI,
+	.max_register = INV_ICM42607_REG_ZG_ST_DATA,
 	.cache_type = REGCACHE_MAPLE,
+};
+
+/* regmap configuration for the transport regmap used by both I2C and SPI */
+const struct regmap_config inv_icm42607_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 8,
 };
 EXPORT_SYMBOL_NS_GPL(inv_icm42607_regmap_config, "IIO_ICM42607");
 
@@ -620,7 +861,14 @@ int inv_icm42607_core_probe(struct regmap *regmap,
 {
 	struct device *dev = regmap_get_device(regmap);
 	struct inv_icm42607_state *st;
+	struct regmap *regmap_custom;
 	int ret;
+
+	regmap_custom = devm_regmap_init(dev, &inv_icm42607_regmap_bus, regmap,
+					 &inv_icm42607_virt_regmap_config);
+	if (IS_ERR(regmap_custom))
+		return dev_err_probe(dev, PTR_ERR(regmap_custom),
+				     "Failed to register regmap\n");
 
 	st = devm_kzalloc(dev, sizeof(*st), GFP_KERNEL);
 	if (!st)
@@ -633,7 +881,7 @@ int inv_icm42607_core_probe(struct regmap *regmap,
 		return ret;
 
 	st->hw = hw;
-	st->map = regmap;
+	st->map = regmap_custom;
 
 	ret = iio_read_mount_matrix(dev, &st->orientation);
 	if (ret)
