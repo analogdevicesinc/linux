@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ * dts file for ADAR3000/3001-EVALZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * hdl_project: <adar3000/zcu102>
+ * board_revision: <>
  *
  * Copyright (C) 2018-2019 Analog Devices Inc.
  */
