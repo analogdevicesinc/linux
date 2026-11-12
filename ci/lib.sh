@@ -69,6 +69,41 @@ OFF_DT_STRUCT = 56
 with open('$image', 'rb') as f:
     data = f.read()
 
+def is_empty_dtb(start):
+    if start < 0 or start + OFF_DT_STRUCT + len(EMPTY_STRUCT) > len(data):
+        return False
+    magic, size, off_dt_struct = struct.unpack_from('>III', data, start)
+    return (magic == DTB_MAGIC and off_dt_struct == OFF_DT_STRUCT and
+            data[start+OFF_DT_STRUCT:start+OFF_DT_STRUCT+len(EMPTY_STRUCT)] == EMPTY_STRUCT)
+
+def elf_section(name):
+    if data[:4] != b'\\x7fELF':
+        return None
+    end = '<' if data[5] == 1 else '>'
+    if data[4] == 1:
+        shoff, = struct.unpack_from(end + 'I', data, 32)
+        shentsize, shnum, shstrndx = struct.unpack_from(end + 'HHH', data, 46)
+        sh = end + 'IIIIII'
+    else:
+        shoff, = struct.unpack_from(end + 'Q', data, 40)
+        shentsize, shnum, shstrndx = struct.unpack_from(end + 'HHH', data, 58)
+        sh = end + 'IIQQQQ'
+    headers = [struct.unpack_from(sh, data, shoff + i * shentsize) for i in range(shnum)]
+    strtab = headers[shstrndx][4]
+    for sh_name, _, _, _, offset, size in headers:
+        if data[strtab+sh_name:data.index(b'\\0', strtab+sh_name)] == name:
+            return offset, size
+    return None
+
+section = elf_section(b'__fdt_blob')
+if section is not None:
+    dtb_start, available = section
+    if not is_empty_dtb(dtb_start):
+        sys.exit(1)
+    dtb_size = struct.unpack_from('>I', data, dtb_start + 4)[0]
+    print(f'{dtb_start} {dtb_size} {dtb_start + available} {available}')
+    sys.exit(0)
+
 pos = 0
 while True:
     pos = data.find(EMPTY_STRUCT, pos)
@@ -76,17 +111,7 @@ while True:
         break
 
     dtb_start = pos - OFF_DT_STRUCT
-    if dtb_start < 0:
-        pos += 1
-        continue
-
-    magic = struct.unpack('>I', data[dtb_start:dtb_start+4])[0]
-    if magic != DTB_MAGIC:
-        pos += 1
-        continue
-
-    off_dt_struct = struct.unpack('>I', data[dtb_start+8:dtb_start+12])[0]
-    if off_dt_struct != OFF_DT_STRUCT:
+    if not is_empty_dtb(dtb_start):
         pos += 1
         continue
 
