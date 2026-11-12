@@ -25,6 +25,14 @@
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
 
+#ifndef WITH_FSRC
+#define WITH_FSRC		0
+#endif
+
+#if WITH_FSRC && ASYNM_A_B_MODE
+#error "FSRC needs ASYNM_A_B_MODE 0: the side B sequencer is not supported"
+#endif
+
 &vu11p_fpga_region {
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -498,6 +506,11 @@
 			reset-gpios = <&axi_gpio_2 0x31 0>;
 			adi,device-profile-fw-name = DEVICE_PROFILE_NAME;
 
+#if WITH_FSRC
+			io-channels = <&axi_fsrc_sequencer 0>, <&axi_fsrc_sequencer 1>;
+			io-channel-names = "fsrc_tx", "fsrc_rx";
+#endif /* WITH_FSRC */
+
 			adi,jrx0-physical-lane-mapping = <11 4  6 10 9 8 7 2 0 3 5 1>;
 			adi,jtx0-logical-lane-mapping =  < 8 6 10 11 9 4 7 2 5 0 3 1>;
 			adi,jrx1-physical-lane-mapping = <3 1 5 0 7 2 8  6 4  9 10 11>;
@@ -693,6 +706,26 @@
 		reg = <0x0 0x88040000 0x0 0x10000>;
 	};
 #endif /* ASYNM_A_B_MODE */
+
+#if WITH_FSRC
+	axi_fsrc_sequencer: axi-fsrc-sequencer@883e0000 {
+		compatible = "adi,axi-fsrc-sequencer";
+		reg = <0x0 0x883E0000 0x0 0x10000>;
+
+		fsrc-topology = <&axi_fsrc_tx &axi_fsrc_rx>;
+		#io-channel-cells = <1>;
+	};
+
+	axi_fsrc_tx: axi-fsrc-tx@883d0000 {
+		reg = <0x0 0x883D0000 0x0 0x10000>;
+		adi,fsrc_tx;
+	};
+
+	axi_fsrc_rx: axi-fsrc-rx@883c0000 {
+		reg = <0x0 0x883C0000 0x0 0x10000>;
+		adi,fsrc_rx;
+	};
+#endif /* WITH_FSRC */
 
 	rfpc_one_bit_adc_dac: one-bit-adc-dac@0 {
 		compatible = "adi,one-bit-adc-dac";

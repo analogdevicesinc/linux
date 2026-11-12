@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * hdl_project: <apollo_som_vu11p> ASYMMETRIC_A_B_MODE=0 FSRC_ENABLE=1
+ */
+/dts-v1/;
+/plugin/;
+
+#define ASYNM_A_B_MODE		0
+#define WITH_FSRC		1
+
+#include "vu11p-ad9084-vpx-reva.dtso"
