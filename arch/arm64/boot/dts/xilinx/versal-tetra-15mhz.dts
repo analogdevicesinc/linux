@@ -391,23 +391,6 @@
 			datapath-reset-gpios = <&axi_gpio 38 0>;
 		};
 
-		axi_timer: timer@a4c00000 {
-			clock-frequency = <99999908>;
-			clock-names = "s_axi_aclk";
-			clocks = <&versal_clk 65>;
-			compatible = "xlnx,axi-timer-2.0", "xlnx,xps-timer-1.00.a";
-			interrupt-names = "interrupt";
-			interrupt-parent = <&gic>;
-			interrupts = <0 88 4>;
-			reg = <0x0 0xa4c00000 0x0 0x1000>;
-			xlnx,count-width = <0x20>;
-			xlnx,gen0-assert = <0x1>;
-			xlnx,gen1-assert = <0x1>;
-			xlnx,one-timer-only = <0x0>;
-			xlnx,trig0-assert = <0x1>;
-			xlnx,trig1-assert = <0x1>;
-		};
-
 		axi_sysid_0: axi_sysid@a5000000 {
 			compatible = "adi,axi-sysid-1.00.a";
 			reg = <0x0 0xa5000000 0x0 0x10000>;
