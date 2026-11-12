@@ -159,6 +159,7 @@ The following example devicetrees are provided:
 * :git+linux:`AD9084-VCU118 204C_M4_L8_NP12_16p2_6x1 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts>`: vcu118_ad9084_204C_M4_L8_NP12_16p2_6x1.dts
 * :git+linux:`AD9084-VCU118 ad9084 <main:arch/microblaze/boot/dts/vcu118_ad9084.dts>`: vcu118_ad9084.dts
 * :git+linux:`AD9084-VCU118 RevB Ext <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_revB_ext.dts>`: vcu118_quad_ad9084_revB_ext.dts
+* :git+linux:`AD9084-VCU118 204C_M4_L2_NP16_20p0_8x4 RevB <main:arch/microblaze/boot/dts/vcu118_quad_ad9084_204C_M4_L2_NP16_20p0_8x4_revB.dts>`: vcu118_quad_ad9084_204C_M4_L2_NP16_20p0_8x4_revB.dts
 * :git+linux:`AD9084-VCU118 204C_M4_L8_NP16_20p0_4x4 <main:arch/microblaze/boot/dts/vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts>`: vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts
 * :git+linux:`AD9084-VCK190 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084.dts>`: versal-vck190-reva-ad9084.dts
 * :git+linux:`AD9084-VCK190 204C_M4_L4_NP16_20p0_4x4 <main:arch/arm64/boot/dts/xilinx/versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts>`: versal-vck190-reva-ad9084-204C-M4-L4-NP16-20p0-4x4.dts
@@ -265,6 +266,202 @@ Spectrum Sniffer
   sniffer interrupt signal for side a and b, respectively.
 
 A more detailed usage is provided :ref:`here <apollo fft>`.
+
+.. _apollo clock-plan:
+
+Clock plan
+~~~~~~~~~~
+
+The device profile, devicetree and HDL build must agree on the sampling and
+JESD204 rates. For JESD204C, each multiblock contains 32 blocks of 66 bits.
+With ``E`` multiblocks per extended multiblock:
+
+.. code:: text
+
+   device clock (MCLK) = dev_clk_freq_Hz of the device profile
+   link clock          = lane rate / 66
+   LEMC                = lane rate / (66 * 32 * E) = link clock / (32 * E)
+   internal SYSREF     = MCLK / (divG * internal_sysref_prd_digclk_cycles)
+   SYSREF              = internal SYSREF / n,  n integer
+
+The driver sets ``dev_clk`` from the profile's ``dev_clk_freq_Hz``. The
+``mcs_cfg.internal_sysref_prd_digclk_cycles_*`` fields set the internal SYSREF
+period; ``divG`` is 8 when ``clk_cfg.clocking_mode`` is 0, and 4 otherwise.
+For example, 20 GHz / (8 * 256) gives 9.765625 MHz, the LEMC frequency for
+20.625 Gbps with ``E`` = 1. The external SYSREF period must be an integer
+multiple of the internal SYSREF period. See :ref:`ad9088 mcs` for alignment
+and trigger synchronization.
+
+On 32-bit MicroBlaze, clock callbacks that return a signed ``long`` cannot
+represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes a
+scaled rate to the clock framework. The AD9084 node uses
+``dev_clk-clock-scales = <1 10>`` to convert it back to Hz. Provider and
+consumer scales must match.
+
+Single AD9084
+^^^^^^^^^^^^^
+
+The VCU118 (``vcu118_ad9084*.dts``) and Versal
+(``versal-*-ad9084*.dts``) single-board designs use a 125 MHz reference.
+The diagram shows the default HMC7044 PLL2 rate and FPGA clock dividers:
+
+.. mermaid::
+
+   flowchart LR
+       ref["125 MHz"] --> pll["ADF4382"]
+       pll -->|"dev_clk"| apollo["AD9084"]
+       ref --> hmc["HMC7044 PLL2<br/>2.5 GHz"]
+       hmc -->|"out8, 9, 11, 12 /8"| core["FPGA device clocks<br/>312.5 MHz"]
+       hmc -->|"out10 /8"| gt["FPGA transceiver reference<br/>312.5 MHz"]
+       hmc -->|"out1 /20: REFIN"| sync["ADF4030<br/>WITH_AION only"]
+       hmc -->|"out3: BSYNC 0"| sync
+       sync -->|"SYSREF"| apollo
+
+``HMC7044_PLL2_FREQ`` sets the PLL2 rate. On Versal,
+``HMC7044_CORE_CLK_DIV`` sets the FPGA clock dividers. ``WITH_AION`` enables
+the ADF4030 and JESD204 subclass 1.
+
+The FPGA link clock depends on the carrier:
+
+* **VCU118**: ``XCVR_PROGDIV_CLK`` selects the transceiver's lane-rate-derived
+  clock, not the HMC7044 reference. The
+  ``vcu118_ad9084_204C_M4_L8_NP16_20p0_4x4.dts`` profile runs at 10.3125 Gbps:
+  its link clock is 156.25 MHz, while its FPGA device clocks are 312.5 MHz.
+  Rate changes remain limited by the transceiver configuration in the HDL.
+* **Versal**: the lane rate and the link clock are set by the bitstream, and
+  the devicetree describes them as fixed clocks, ``AD9084_RX_LANERATE_KHZ``,
+  ``AD9084_TX_LANERATE_KHZ``, ``AD9084_RX_LINK_CLK`` and
+  ``AD9084_TX_LINK_CLK``. They must match the bitstream and the device
+  profile, for example 20.625 Gbps and a 312.5 MHz link clock.
+
+Quad AD9084
+^^^^^^^^^^^
+
+On the quad board, J1 supplies the reference for the ADF4382 sampling clocks
+and the ADF4351 external VCO. The LTC6952 divides the VCO output to generate
+the FPGA clocks.
+
+Each variant defines its rates before including
+``vcu118_quad_ad9084_revB.dts``, which calculates the output dividers.
+Despite their ``_MHz`` suffix, all frequency macros below are in Hz:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Macro
+     - Description
+   * - ``FREQ_J1_MHz``
+     - Reference on J1, in Hz. It is a fixed clock, so it must match the
+       signal generator exactly.
+   * - ``ADF4382_FREQ_Hz``
+     - Sampling clock, must match ``dev_clk_freq_Hz`` of the device profile.
+   * - ``EXT_VCO_FREQ``
+     - ADF4351 output, the LTC6952 VCO.
+   * - ``FPGA_REFCLK_CLK_MHz``
+     - Transceiver reference. The transceivers use
+       ``adi,out-clk-select = <XCVR_REFCLK>``, so it is also the link clock.
+   * - ``TX_CORE_CLK_MHz``, ``RX_CORE_CLK_MHz``
+     - FPGA device clocks.
+   * - ``SYSREF_CLK_MHz``
+     - SYSREF frequency.
+   * - ``DEVICE_PROFILE_NAME``
+     - Device profile, see :ref:`apollo profile`.
+
+The 20 GSPS clock plan uses J1 at 312.5 MHz:
+
+.. mermaid::
+
+   flowchart TB
+       j1["J1: 312.5 MHz"] --> dist["LTC6953"]
+       dist -->|"out0..3 /1"| pll["4 × ADF4382<br/>×64 = 20 GHz"]
+       pll -->|"dev_clk"| apollo["4 × AD9084"]
+       dist -->|"out10 /20<br/>15.625 MHz"| vco["ADF4351<br/>2.5 GHz"]
+       dist -->|"out8 /4<br/>REFIN: 78.125 MHz"| ltc["LTC6952"]
+       vco -->|"VCOIN"| ltc
+       dist -->|"out9 /32"| srq["LTC6952 EZS SRQ"]
+       dist -->|"out6, 7 /32"| aux["AION BSYNC, J50/J51<br/>9.765625 MHz"]
+       ltc -->|"out2 /8"| gt["FPGA reference / link clock<br/>312.5 MHz"]
+       ltc -->|"out3, 4 /8"| core["FPGA TX / RX device clocks<br/>312.5 MHz"]
+       ltc -->|"out5 /200: REFIN<br/>12.5 MHz"| sync["ADF4030"]
+       ltc -->|"out6 /256: BSYNC 8"| sync
+       ltc -->|"out7 /256"| ext["J48/J49<br/>9.765625 MHz"]
+       sync -->|"SYSREF: 9.765625 MHz"| apollo
+
+The base, ``26p4`` and ``20p0_8x4`` devicetrees use these rates. In each case,
+``E`` = 1 and external SYSREF, internal SYSREF and LEMC have the same frequency:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Clock
+     - Base
+     - 26p4
+     - 20p0_8x4
+   * - Lane rate
+     - 13.2 Gbps
+     - 26.4 Gbps
+     - 20.625 Gbps
+   * - J1
+     - 400 MHz
+     - 400 MHz
+     - 312.5 MHz
+   * - ADF4382 (J1 x N)
+     - 12.8 GHz (x32)
+     - 12.8 GHz (x32)
+     - 20 GHz (x64)
+   * - ``EXT_VCO_FREQ``
+     - 2 GHz
+     - 2 GHz
+     - 2.5 GHz
+   * - FPGA reference and device clocks
+     - 200 MHz (/10)
+     - 400 MHz (/5)
+     - 312.5 MHz (/8)
+   * - SYSREF
+     - 6.25 MHz
+     - 12.5 MHz
+     - 9.765625 MHz
+   * - LTC6953 SYSREF divider
+     - 64
+     - 32
+     - 32
+   * - LTC6952 SYSREF divider
+     - 320
+     - 160
+     - 256
+   * - LTC6952 REFIN
+     - 100 MHz
+     - 100 MHz
+     - 78.125 MHz
+   * - ADF4351 REFIN
+     - 20 MHz
+     - 20 MHz
+     - 15.625 MHz
+
+When choosing other rates, check the divider ratios before building the DTS.
+Integer division silently truncates them: 400 MHz / 9.765625 MHz becomes 40
+rather than 40.96, producing 10 MHz. This is why the 20 GSPS plan uses
+312.5 MHz on J1 and a 2.5 GHz VCO.
+
+The LTC6952 and LTC6953 divider is ``M = (MP + 1) * 2^MD``. The driver accepts
+1 through 32, or 17 through 32 multiplied by a power of two up to 64. Other
+dividers fail with ``-EINVAL``. With the ADF4382 reference divider at one,
+J1 is also the PFD frequency; above 250 MHz, only integer-N operation is
+available.
+
+For the external VCO, the base DTS pairs ``clock-scales = <1 10>`` on the
+ADF4351 with ``vcoin-clock-scales = <1 10>`` on the LTC6952. Without scaling,
+a 2.5 GHz VCO can make the LTC6952 probe fail with ``-EINVAL`` on MicroBlaze.
+
+Use ``vcu118_quad_ad9084_204C_M4_L2_NP16_20p0_8x4_revB.dts`` as the 20 GSPS,
+M4 L2 NP16 S1 example. The device profile and HDL must use the same link
+parameters. For the quad HDL project:
+
+.. code:: bash
+
+   make JESD_MODE=64B66B RX_RATE=20.625 TX_RATE=20.625 \\
+       RX_JESD_M=4 TX_JESD_M=4 RX_JESD_L=2 TX_JESD_L=2
+
 
 Driver testing
 --------------
