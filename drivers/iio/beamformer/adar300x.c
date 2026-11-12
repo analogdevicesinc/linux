@@ -1400,7 +1400,7 @@ static irqreturn_t ad3552r_trigger_handler(int irq, void *p)
 	struct iio_buffer *buf = indio_dev->buffer;
 	struct adar300x_state *st = iio_priv(indio_dev);
 	char *lbuff;
-	int av, rd, len, ret;
+	int av, scan_len, i, ret;
 
 #ifdef ADAR300X_DEBUG
 	dev_info(&indio_dev->dev, "ad3552r_trigger_handler");
@@ -1408,21 +1408,29 @@ static irqreturn_t ad3552r_trigger_handler(int irq, void *p)
 
 	av = buf->access->data_available(buf);
 	if (av > 0) {
-		len = av * hweight_long(*buf->scan_mask);
-		lbuff = kcalloc(len, sizeof(*lbuff), GFP_KERNEL);
-		rd = buf->access->read(buf, len, lbuff);
+		scan_len = hweight_long(*buf->scan_mask);
+		lbuff = kcalloc(av, scan_len, GFP_KERNEL);
+		if (!lbuff)
+			goto out;
+
+		for (i = 0; i < av; i++) {
+			ret = iio_pop_from_buffer(buf, &lbuff[i * scan_len]);
+			if (ret)
+				break;
+		}
 
 #ifdef ADAR300X_DEBUG
-		dev_info(&indio_dev->dev, "Read[mask:%x][mask_len:%d][av:%d][rd:%d]:%s",
-			 (u32)*buf->scan_mask, len, av, rd, lbuff);
+		dev_info(&indio_dev->dev, "Read[mask:%x][scan_len:%d][av:%d][rd:%d]",
+			 (u32)*buf->scan_mask, scan_len, av, i);
 #endif
 
-		ret = adar300x_ram_write(st, lbuff, len, *buf->scan_mask);
+		ret = adar300x_ram_write(st, lbuff, i * scan_len, *buf->scan_mask);
 		if (ret)
 			dev_err(&indio_dev->dev, "adar300x_ram_write() error:%d", ret);
 		kfree(lbuff);
 	}
 
+out:
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
