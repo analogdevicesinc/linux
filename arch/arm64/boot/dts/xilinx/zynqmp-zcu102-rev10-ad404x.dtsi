@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4040/AD4044/AD4046/AD4048 on ZCU102
+ *
+ * Common part. The including file sets the compatible of the adc node.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "atmel,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	adf4350_clkin: clock-adf4350-clkin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma-controller@84a30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84a30000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 73>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <256>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <128>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		iio_backend: axi-adc@84a00000 {
+			compatible = "adi,axi-ad404x";
+			reg = <0x84a00000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			clocks = <&zynqmp_clk 71>;
+			#io-backend-cells = <0>;
+		};
+	};
+
+	gpio-control {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio 110 1>, <&gpio 115 1>, <&gpio 111 1>,
+			    <&gpio 112 1>, <&gpio 113 1>, <&gpio 114 1>;
+
+		channel@0 {
+			reg = <0>;
+			label = "fmc0_reset_n";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "clk_srcs_sel";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "adc_gpio0";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "adc_gpio1";
+		};
+
+		channel@4 {
+			reg = <4>;
+			label = "adc_gpio2";
+		};
+
+		channel@5 {
+			reg = <5>;
+			label = "adc_gpio3";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adc: adc@0 {
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4350_clkin>;
+		clock-names = "cnv";
+		io-backends = <&iio_backend>;
+		adi,num-lanes = <1>;
+	};
+};

@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4046 on ZCU102
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad404x.dtsi"
+
+&adc {
+	compatible = "adi,ad4046";
+};
