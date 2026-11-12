@@ -245,14 +245,15 @@ static struct btrfs_backref_node *walk_down_backref(
 
 static bool reloc_root_is_dead(const struct btrfs_root *root)
 {
-	/*
-	 * Pair with set_bit/clear_bit in clean_dirty_subvols and
-	 * btrfs_update_reloc_root. We need to see the updated bit before
-	 * trying to access reloc_root
-	 */
-	smp_rmb();
 	if (test_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state))
 		return true;
+	/*
+	 * Pairs with set_bit/clear_bit in clear_reloc_root() and
+	 * btrfs_update_reloc_root(). We need to see the updated bit before
+	 * trying to access root->reloc_root in our callers.
+	 */
+	smp_rmb();
+
 	return false;
 }
 
@@ -512,7 +513,7 @@ static void __del_reloc_root(struct btrfs_root *root)
 {
 	struct btrfs_fs_info *fs_info = root->fs_info;
 	struct rb_node *rb_node;
-	struct mapping_node *node = NULL;
+	struct mapping_node AUTO_KFREE(node);
 	struct reloc_control *rc = fs_info->reloc_ctl;
 	bool put_ref = false;
 
@@ -545,7 +546,6 @@ static void __del_reloc_root(struct btrfs_root *root)
 	spin_unlock(&fs_info->trans_lock);
 	if (put_ref)
 		btrfs_put_root(root);
-	kfree(node);
 }
 
 /*
@@ -587,10 +587,9 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 	struct btrfs_fs_info *fs_info = root->fs_info;
 	struct btrfs_root *reloc_root;
 	struct extent_buffer *eb;
-	struct btrfs_root_item *root_item;
+	struct btrfs_root_item AUTO_KFREE(root_item);
 	struct btrfs_key root_key;
 	int ret = 0;
-	bool must_abort = false;
 
 	root_item = kmalloc(sizeof(*root_item), GFP_NOFS);
 	if (!root_item)
@@ -618,15 +617,14 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 			btrfs_err(fs_info,
 	"cannot relocate partially dropped subvolume %llu, drop progress key " BTRFS_KEY_FMT,
 				  objectid, BTRFS_KEY_FMT_VALUE(&cpu_key));
-			ret = -EUCLEAN;
-			goto fail;
+			return ERR_PTR(-EUCLEAN);
 		}
 
 		/* called by btrfs_init_reloc_root */
 		ret = btrfs_copy_root(trans, root, root->commit_root, &eb,
 				      BTRFS_TREE_RELOC_OBJECTID);
 		if (ret)
-			goto fail;
+			return ERR_PTR(ret);
 
 		/*
 		 * Set the last_snapshot field to the generation of the commit
@@ -649,14 +647,13 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 		ret = btrfs_copy_root(trans, root, root->node, &eb,
 				      BTRFS_TREE_RELOC_OBJECTID);
 		if (ret)
-			goto fail;
+			return ERR_PTR(ret);
 	}
 
 	/*
 	 * We have changed references at this point, we must abort the
-	 * transaction if anything fails.
+	 * transaction if anything fails (i.e. 'goto abort').
 	 */
-	must_abort = true;
 
 	memcpy(root_item, &root->root_item, sizeof(*root_item));
 	btrfs_set_root_bytenr(root_item, eb->start);
@@ -676,9 +673,7 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 	ret = btrfs_insert_root(trans, fs_info->tree_root,
 				&root_key, root_item);
 	if (ret)
-		goto fail;
-
-	kfree(root_item);
+		goto abort;
 
 	reloc_root = btrfs_read_tree_root(fs_info->tree_root, &root_key);
 	if (IS_ERR(reloc_root)) {
@@ -688,11 +683,9 @@ static struct btrfs_root *create_reloc_root(struct btrfs_trans_handle *trans,
 	set_bit(BTRFS_ROOT_SHAREABLE, &reloc_root->state);
 	btrfs_set_root_last_trans(reloc_root, trans->transid);
 	return reloc_root;
-fail:
-	kfree(root_item);
+
 abort:
-	if (must_abort)
-		btrfs_abort_transaction(trans, ret);
+	btrfs_abort_transaction(trans, ret);
 	return ERR_PTR(ret);
 }
 
@@ -1457,6 +1450,17 @@ static int insert_dirty_subvol(struct btrfs_trans_handle *trans,
 	return 0;
 }
 
+static void clear_reloc_root(struct btrfs_root *root)
+{
+	root->reloc_root = NULL;
+	/*
+	 * Need barrier to ensure clear_bit() only happens after
+	 * root->reloc_root = NULL. Pairs with have_reloc_root().
+	 */
+	smp_wmb();
+	clear_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state);
+}
+
 static int clean_dirty_subvols(struct reloc_control *rc)
 {
 	struct btrfs_root *root;
@@ -1471,13 +1475,7 @@ static int clean_dirty_subvols(struct reloc_control *rc)
 			struct btrfs_root *reloc_root = root->reloc_root;
 
 			list_del_init(&root->reloc_dirty_list);
-			root->reloc_root = NULL;
-			/*
-			 * Need barrier to ensure clear_bit() only happens after
-			 * root->reloc_root = NULL. Pairs with have_reloc_root.
-			 */
-			smp_wmb();
-			clear_bit(BTRFS_ROOT_DEAD_RELOC_TREE, &root->state);
+			clear_reloc_root(root);
 			if (reloc_root) {
 				/*
 				 * btrfs_drop_snapshot drops our ref we hold for
@@ -1862,21 +1860,39 @@ again:
 				goto out;
 			}
 			ret = merge_reloc_root(rc, root);
-			btrfs_put_root(root);
 			if (ret) {
-				if (list_empty(&reloc_root->root_list))
+				/*
+				 * Clear the reloc root since below we will call
+				 * free_reloc_roots(), otherwise we leave
+				 * root->reloc_root pointing to a freed reloc
+				 * root and trigger a use-after-free during
+				 * unmount or elsewhere.
+				 */
+				clear_reloc_root(root);
+				btrfs_put_root(root);
+				/*
+				 * We are adding the reloc_root to the local
+				 * reloc_roots list, so we add a ref for this
+				 * list which will be dropped below by the call
+				 * to free_reloc_roots().
+				 */
+				if (list_empty(&reloc_root->root_list)) {
 					list_add_tail(&reloc_root->root_list,
 						      &reloc_roots);
+					btrfs_grab_root(reloc_root);
+				}
+				/* Now drop the ref for root->reloc_root. */
+				btrfs_put_root(reloc_root);
 				goto out;
 			}
+			btrfs_put_root(root);
 		} else {
 			if (!IS_ERR(root)) {
 				if (root->reloc_root == reloc_root) {
-					root->reloc_root = NULL;
+					clear_reloc_root(root);
+					/* Drop the ref for root->reloc_root. */
 					btrfs_put_root(reloc_root);
 				}
-				clear_bit(BTRFS_ROOT_DEAD_RELOC_TREE,
-					  &root->state);
 				btrfs_put_root(root);
 			}
 
@@ -2949,7 +2965,7 @@ static int relocate_file_extent_cluster(struct reloc_control *rc)
 	const struct file_extent_cluster *cluster = &rc->cluster;
 	u64 offset = BTRFS_I(inode)->reloc_block_group_start;
 	u64 cur_file_offset = cluster->start - offset;
-	struct file_ra_state *ra;
+	struct file_ra_state AUTO_KFREE(ra);
 	int cluster_nr = 0;
 	int ret = 0;
 
@@ -2962,13 +2978,13 @@ static int relocate_file_extent_cluster(struct reloc_control *rc)
 
 	ret = prealloc_file_extent_cluster(rc);
 	if (ret)
-		goto out;
+		return ret;
 
 	file_ra_state_init(ra, inode->i_mapping);
 
 	ret = setup_relocation_extent_mapping(rc);
 	if (ret)
-		goto out;
+		return ret;
 
 	while (cur_file_offset < cluster->end - offset) {
 		ret = relocate_one_folio(rc, ra, &cluster_nr, &cur_file_offset);
@@ -2977,8 +2993,6 @@ static int relocate_file_extent_cluster(struct reloc_control *rc)
 	}
 	if (ret == 0)
 		WARN_ON(cluster_nr != cluster->nr);
-out:
-	kfree(ra);
 	return ret;
 }
 

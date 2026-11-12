@@ -122,7 +122,7 @@ xrep_rtsummary(
 		return -EOPNOTSUPP;
 
 	/* Walk away if we disagree on the size of the rt bitmap. */
-	if (rts->rbmblocks != mp->m_sb.sb_rbmblocks)
+	if (rts->rbmblocks != mp->m_sb.sb_rbmblocks || !rts->summary_computed)
 		return 0;
 
 	/* Make sure any problems with the fork are fixed. */
@@ -164,9 +164,10 @@ xrep_rtsummary(
 	/*
 	 * Now exchange the contents.  Nothing in repair uses the temporary
 	 * buffer, so we can reuse it for the tempfile exchrange information.
+	 * Use XFS_MAX_FILEOFF here so that we correct the rtsummary file size.
 	 */
 	error = xrep_tempexch_trans_reserve(sc, XFS_DATA_FORK, 0,
-			rts->rsumblocks, &rts->tempexch);
+			XFS_MAX_FILEOFF, &rts->tempexch);
 	if (error)
 		return error;
 

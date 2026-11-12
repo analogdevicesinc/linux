@@ -59,10 +59,10 @@
 #include <net/netdev_rx_queue.h>
 #include <linux/pci-tph.h>
 #include <linux/bnxt/hsi.h>
+#include <linux/bnxt/ulp.h>
 
 #include "bnxt.h"
 #include "bnxt_hwrm.h"
-#include "bnxt_ulp.h"
 #include "bnxt_sriov.h"
 #include "bnxt_ethtool.h"
 #include "bnxt_dcb.h"
@@ -474,7 +474,7 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct netdev_queue *txq;
 	int i;
 	dma_addr_t mapping;
-	unsigned int length, pad = 0;
+	unsigned int length;
 	u32 len, free_size, vlan_tag_flags, cfa_action, flags;
 	struct bnxt_ptp_cfg *ptp = bp->ptp_cfg;
 	struct pci_dev *pdev = bp->pdev;
@@ -503,6 +503,14 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			goto tx_free;
 	}
 #endif
+	/* Pad before skb_shinfo(skb)->nr_frags is sampled, because
+	 * skb_put_padto() might linearize the skb.
+	 */
+	if (skb_put_padto(skb, BNXT_MIN_PKT_SIZE)) {
+		/* SKB already freed. */
+		goto tx_kick_pending;
+	}
+
 	free_size = bnxt_tx_avail(bp, txr);
 	if (unlikely(free_size < skb_shinfo(skb)->nr_frags + 2)) {
 		/* We must have raced with NAPI cleanup */
@@ -642,14 +650,6 @@ static netdev_tx_t bnxt_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	}
 
 normal_tx:
-	if (length < BNXT_MIN_PKT_SIZE) {
-		pad = BNXT_MIN_PKT_SIZE - length;
-		if (skb_pad(skb, pad))
-			/* SKB already freed. */
-			goto tx_kick_pending;
-		length = BNXT_MIN_PKT_SIZE;
-	}
-
 	mapping = dma_map_single(&pdev->dev, skb->data, len, DMA_TO_DEVICE);
 
 	if (unlikely(dma_mapping_error(&pdev->dev, mapping)))
@@ -732,10 +732,7 @@ normal_tx:
 		txbd->tx_bd_len_flags_type = cpu_to_le32(flags);
 	}
 
-	flags &= ~TX_BD_LEN;
-	txbd->tx_bd_len_flags_type =
-		cpu_to_le32(((len + pad) << TX_BD_LEN_SHIFT) | flags |
-			    TX_BD_FLAGS_PACKET_END);
+	txbd->tx_bd_len_flags_type |= cpu_to_le32(TX_BD_FLAGS_PACKET_END);
 
 	netdev_tx_sent_queue(txq, skb->len);
 
@@ -981,6 +978,7 @@ int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
 		mapping += bp->rx_dma_offset;
 		rx_buf->data = page;
 		rx_buf->data_ptr = page_address(page) + offset + bp->rx_offset;
+		rx_buf->offset = offset;
 	} else {
 		u8 *data = __bnxt_alloc_rx_frag(bp, &mapping, rxr, gfp);
 
@@ -989,6 +987,7 @@ int bnxt_alloc_rx_data(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
 
 		rx_buf->data = data;
 		rx_buf->data_ptr = data + bp->rx_offset;
+		rx_buf->offset = 0;
 	}
 	rx_buf->mapping = mapping;
 
@@ -1010,6 +1009,7 @@ void bnxt_reuse_rx_data(struct bnxt_rx_ring_info *rxr, u16 cons, void *data)
 	prod_rx_buf->data_ptr = cons_rx_buf->data_ptr;
 
 	prod_rx_buf->mapping = cons_rx_buf->mapping;
+	prod_rx_buf->offset = cons_rx_buf->offset;
 
 	prod_bd = &rxr->rx_desc_ring[RX_RING(bp, prod)][RX_IDX(prod)];
 	cons_bd = &rxr->rx_desc_ring[RX_RING(bp, cons)][RX_IDX(cons)];
@@ -1145,7 +1145,10 @@ static struct sk_buff *bnxt_rx_multi_page_skb(struct bnxt *bp,
 	struct page *page = data;
 	u16 prod = rxr->rx_prod;
 	struct sk_buff *skb;
+	void *frag_start;
 	int err;
+
+	frag_start = page_address(page) + rxr->rx_buf_ring[cons].offset;
 
 	err = bnxt_alloc_rx_data(bp, rxr, prod, GFP_ATOMIC);
 	if (unlikely(err)) {
@@ -1155,13 +1158,13 @@ static struct sk_buff *bnxt_rx_multi_page_skb(struct bnxt *bp,
 	dma_addr -= bp->rx_dma_offset;
 	dma_sync_single_for_cpu(&bp->pdev->dev, dma_addr, rxr->rx_page_size,
 				bp->rx_dir);
-	skb = napi_build_skb(data_ptr - bp->rx_offset, rxr->rx_page_size);
+	skb = napi_build_skb(frag_start, rxr->rx_page_size);
 	if (!skb) {
 		page_pool_recycle_direct(rxr->page_pool, page);
 		return NULL;
 	}
 	skb_mark_for_recycle(skb);
-	skb_reserve(skb, bp->rx_offset);
+	skb_reserve(skb, data_ptr - (u8 *)frag_start);
 	__skb_put(skb, len);
 
 	return skb;
@@ -4894,7 +4897,8 @@ void bnxt_set_rx_skb_mode(struct bnxt *bp, bool page_mode)
 		bnxt_get_max_rings(bp, &rx, &tx, true);
 		if (rx > 1) {
 			bp->flags &= ~BNXT_FLAG_NO_AGG_RINGS;
-			bp->dev->hw_features |= NETIF_F_LRO;
+			if (BNXT_SUPPORTS_TPA(bp))
+				bp->dev->hw_features |= NETIF_F_LRO;
 		}
 	}
 
@@ -6890,7 +6894,8 @@ vnic_mru:
 #endif
 	if ((bp->flags & BNXT_FLAG_STRIP_VLAN) || def_vlan)
 		req->flags |= cpu_to_le32(VNIC_CFG_REQ_FLAGS_VLAN_STRIP_MODE);
-	if (vnic->vnic_id == BNXT_VNIC_DEFAULT && bnxt_ulp_registered(bp->edev))
+	if (vnic->vnic_id == BNXT_VNIC_DEFAULT &&
+	    bnxt_ulp_registered(bp->edev[BNXT_AUXDEV_RDMA]))
 		req->flags |= cpu_to_le32(bnxt_get_roce_vnic_mode(bp));
 
 	return hwrm_req_send(bp, req);
@@ -8008,6 +8013,7 @@ static int bnxt_get_avail_msix(struct bnxt *bp, int num);
 
 static int __bnxt_reserve_rings(struct bnxt *bp)
 {
+	struct bnxt_en_dev *edev = bp->edev[BNXT_AUXDEV_RDMA];
 	struct bnxt_hw_rings hwr = {0};
 	int rx_rings, old_rx_rings, rc;
 	int cp = bp->cp_nr_rings;
@@ -8018,7 +8024,7 @@ static int __bnxt_reserve_rings(struct bnxt *bp)
 	if (!bnxt_need_reserve_rings(bp))
 		return 0;
 
-	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(bp->edev)) {
+	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(edev)) {
 		ulp_msix = bnxt_get_avail_msix(bp, bp->ulp_num_msix_want);
 		if (!ulp_msix)
 			bnxt_set_ulp_stat_ctxs(bp, 0);
@@ -8071,8 +8077,7 @@ static int __bnxt_reserve_rings(struct bnxt *bp)
 	}
 	rx_rings = min_t(int, rx_rings, hwr.grp);
 	hwr.cp = min_t(int, hwr.cp, bp->cp_nr_rings);
-	if (bnxt_ulp_registered(bp->edev) &&
-	    hwr.stat > bnxt_get_ulp_stat_ctxs(bp))
+	if (bnxt_ulp_registered(edev) && hwr.stat > bnxt_get_ulp_stat_ctxs(bp))
 		hwr.stat -= bnxt_get_ulp_stat_ctxs(bp);
 	hwr.cp = min_t(int, hwr.cp, hwr.stat);
 	rc = bnxt_trim_rings(bp, &rx_rings, &hwr.tx, hwr.cp, sh);
@@ -8111,7 +8116,7 @@ static int __bnxt_reserve_rings(struct bnxt *bp)
 	    !netif_is_rxfh_configured(bp->dev))
 		bnxt_set_dflt_rss_indir_tbl(bp, NULL);
 
-	if (!bnxt_ulp_registered(bp->edev) && BNXT_NEW_RM(bp)) {
+	if (!bnxt_ulp_registered(edev) && BNXT_NEW_RM(bp)) {
 		int resv_msix, resv_ctx, ulp_ctxs;
 		struct bnxt_hw_resc *hw_resc;
 
@@ -11185,8 +11190,13 @@ static int bnxt_shutdown_nic(struct bnxt *bp, bool irq_re_init)
 
 static int bnxt_init_nic(struct bnxt *bp, bool irq_re_init)
 {
+	int rc;
+
 	bnxt_init_cp_rings(bp);
-	bnxt_init_rx_rings(bp);
+	rc = bnxt_init_rx_rings(bp);
+	if (rc)
+		return rc;
+
 	bnxt_init_tx_rings(bp);
 	bnxt_init_ring_grps(bp, irq_re_init);
 	bnxt_init_vnics(bp);
@@ -11505,6 +11515,7 @@ static void bnxt_clear_int_mode(struct bnxt *bp)
 
 int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 {
+	struct bnxt_en_dev *edev = bp->edev[BNXT_AUXDEV_RDMA];
 	bool irq_cleared = false;
 	bool irq_change = false;
 	int tcs = bp->num_tc;
@@ -11514,7 +11525,7 @@ int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 	if (!bnxt_need_reserve_rings(bp))
 		return 0;
 
-	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(bp->edev)) {
+	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(edev)) {
 		int ulp_msix = bnxt_get_avail_msix(bp, bp->ulp_num_msix_want);
 
 		if (ulp_msix > bp->ulp_num_msix_want)
@@ -11636,12 +11647,13 @@ static void bnxt_irq_affinity_notify(struct irq_affinity_notify *notify,
 {
 	struct bnxt_irq *irq;
 	u16 tag;
-	int err;
 
 	irq = container_of(notify, struct bnxt_irq, affinity_notify);
 
 #ifdef CONFIG_RFS_ACCEL
 	if (irq->bp->dev->rx_cpu_rmap && irq->ring_nr < irq->bp->rx_nr_rings) {
+		int err;
+
 		err = cpu_rmap_update(irq->bp->dev->rx_cpu_rmap, irq->ring_nr,
 				      mask);
 		if (err)
@@ -11659,20 +11671,11 @@ static void bnxt_irq_affinity_notify(struct irq_affinity_notify *notify,
 		return;
 
 	if (pcie_tph_get_cpu_st(irq->bp->pdev, TPH_MEM_TYPE_VM,
-				cpumask_first(irq->cpu_mask), &tag))
+				cpumask_first(mask), &tag))
 		return;
 
-	if (pcie_tph_set_st_entry(irq->bp->pdev, irq->msix_nr, tag))
-		return;
-
-	netdev_lock(irq->bp->dev);
-	if (netif_running(irq->bp->dev)) {
-		err = netdev_rx_queue_restart(irq->bp->dev, irq->ring_nr);
-		if (err)
-			netdev_err(irq->bp->dev,
-				   "RX queue restart failed: err=%d\n", err);
-	}
-	netdev_unlock(irq->bp->dev);
+	WRITE_ONCE(irq->new_tag, tag);
+	bnxt_queue_sp_work(irq->bp, BNXT_TPH_UPDATE_SP_EVENT);
 }
 
 static void bnxt_irq_affinity_release(struct kref *ref)
@@ -11743,6 +11746,8 @@ static void bnxt_free_irq(struct bnxt *bp)
 		}
 
 		irq->requested = 0;
+		irq->tag = 0;
+		irq->new_tag = 0;
 	}
 
 	/* Disable TPH support */
@@ -11757,6 +11762,7 @@ static void bnxt_free_irq(struct bnxt *bp)
 
 static int bnxt_request_irq(struct bnxt *bp)
 {
+	const int numa_node = dev_to_node(&bp->pdev->dev);
 	struct cpu_rmap *rmap = NULL;
 	int i, j, rc = 0;
 	unsigned long flags = 0;
@@ -11781,6 +11787,8 @@ static int bnxt_request_irq(struct bnxt *bp)
 	for (i = 0, j = 0; i < bp->cp_nr_rings; i++) {
 		int map_idx = bnxt_cp_num_to_irq_num(bp, i);
 		struct bnxt_irq *irq = &bp->irq_tbl[map_idx];
+		unsigned int cpu_num;
+		u16 tag;
 
 		if (IS_ENABLED(CONFIG_RFS_ACCEL) &&
 		    rmap && bp->bnapi[i]->rx_ring) {
@@ -11799,32 +11807,31 @@ static int bnxt_request_irq(struct bnxt *bp)
 		netif_napi_set_irq_locked(&bp->bnapi[i]->napi, irq->vector);
 		irq->requested = 1;
 
-		if (zalloc_cpumask_var(&irq->cpu_mask, GFP_KERNEL)) {
-			int numa_node = dev_to_node(&bp->pdev->dev);
-			u16 tag;
+		if (!zalloc_cpumask_var(&irq->cpu_mask, GFP_KERNEL))
+			continue;
 
-			irq->have_cpumask = 1;
-			irq->msix_nr = map_idx;
-			irq->ring_nr = i;
-			cpumask_set_cpu(cpumask_local_spread(i, numa_node),
-					irq->cpu_mask);
-			rc = irq_update_affinity_hint(irq->vector, irq->cpu_mask);
-			if (rc) {
-				netdev_warn(bp->dev,
-					    "Update affinity hint failed, IRQ = %d\n",
-					    irq->vector);
-				break;
-			}
+		irq->have_cpumask = 1;
+		irq->msix_nr = map_idx;
+		irq->ring_nr = i;
+		cpu_num = cpumask_local_spread(i, numa_node);
+		cpumask_set_cpu(cpu_num, irq->cpu_mask);
 
-			bnxt_register_irq_notifier(bp, irq);
+		/* Init ST table entry if we can get the mapping */
+		if (!pcie_tph_get_cpu_st(bp->pdev, TPH_MEM_TYPE_VM,
+					 cpu_num, &tag)) {
+			pcie_tph_set_st_entry(bp->pdev, irq->msix_nr, tag);
+			irq->tag = tag;
+			irq->new_tag = tag;
+		}
 
-			/* Init ST table entry */
-			if (pcie_tph_get_cpu_st(irq->bp->pdev, TPH_MEM_TYPE_VM,
-						cpumask_first(irq->cpu_mask),
-						&tag))
-				continue;
+		bnxt_register_irq_notifier(bp, irq);
 
-			pcie_tph_set_st_entry(irq->bp->pdev, irq->msix_nr, tag);
+		rc = irq_update_affinity_hint(irq->vector, irq->cpu_mask);
+		if (rc) {
+			netdev_warn(bp->dev,
+				    "Update affinity hint failed, IRQ = %d\n",
+				    irq->vector);
+			break;
 		}
 	}
 	return rc;
@@ -14271,31 +14278,69 @@ bnxt_restart_timer:
 	mod_timer(&bp->timer, jiffies + bp->current_interval);
 }
 
-static void bnxt_lock_sp(struct bnxt *bp)
+static void bnxt_rtnl_lock_sp(struct bnxt *bp)
 {
 	/* We are called from bnxt_sp_task which has BNXT_STATE_IN_SP_TASK
 	 * set.  If the device is being closed, bnxt_close() may be holding
-	 * netdev instance lock and waiting for BNXT_STATE_IN_SP_TASK to clear.
-	 * So we must clear BNXT_STATE_IN_SP_TASK before holding netdev
-	 * instance lock.
+	 * RTNL and the netdev instance lock while waiting for
+	 * BNXT_STATE_IN_SP_TASK to clear.  Clear it before taking either lock.
 	 */
 	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+	rtnl_lock();
 	netdev_lock(bp->dev);
 }
 
-static void bnxt_unlock_sp(struct bnxt *bp)
+static void bnxt_rtnl_unlock_sp(struct bnxt *bp)
 {
 	set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
 	netdev_unlock(bp->dev);
+	rtnl_unlock();
+}
+
+static void bnxt_tph_update(struct bnxt *bp)
+{
+	struct net_device *dev = bp->dev;
+	int i;
+
+	bnxt_rtnl_lock_sp(bp);
+	if (!test_bit(BNXT_STATE_OPEN, &bp->state))
+		goto unlock;
+
+	for (i = 0; i < bp->rx_nr_rings; i++) {
+		struct bnxt_irq *irq;
+		int map_idx, err;
+		u16 tag;
+
+		map_idx = bnxt_cp_num_to_irq_num(bp, i);
+		irq = &bp->irq_tbl[map_idx];
+		tag = READ_ONCE(irq->new_tag);
+		if (irq->tag == tag)
+			continue;
+
+		if (pcie_tph_set_st_entry(bp->pdev, irq->msix_nr, tag))
+			continue;
+
+		err = netdev_rx_queue_restart(dev, irq->ring_nr);
+		if (err) {
+			netdev_err(dev, "RX queue restart failed: err=%d\n",
+				   err);
+			continue;
+		}
+
+		irq->tag = tag;
+	}
+
+unlock:
+	bnxt_rtnl_unlock_sp(bp);
 }
 
 /* Only called from bnxt_sp_task() */
 static void bnxt_reset(struct bnxt *bp, bool silent)
 {
-	bnxt_lock_sp(bp);
+	bnxt_rtnl_lock_sp(bp);
 	if (test_bit(BNXT_STATE_OPEN, &bp->state))
 		bnxt_reset_task(bp, silent);
-	bnxt_unlock_sp(bp);
+	bnxt_rtnl_unlock_sp(bp);
 }
 
 /* Only called from bnxt_sp_task() */
@@ -14303,9 +14348,9 @@ static void bnxt_rx_ring_reset(struct bnxt *bp)
 {
 	int i;
 
-	bnxt_lock_sp(bp);
+	bnxt_rtnl_lock_sp(bp);
 	if (!test_bit(BNXT_STATE_OPEN, &bp->state)) {
-		bnxt_unlock_sp(bp);
+		bnxt_rtnl_unlock_sp(bp);
 		return;
 	}
 	/* Disable and flush TPA before resetting the RX ring */
@@ -14335,7 +14380,14 @@ static void bnxt_rx_ring_reset(struct bnxt *bp)
 		rxr->rx_sw_agg_prod = 0;
 		rxr->rx_next_cons = 0;
 		rxr->bnapi->in_reset = false;
-		bnxt_alloc_one_rx_ring(bp, i);
+		rc = bnxt_alloc_one_rx_ring(bp, i);
+		if (rc) {
+			netdev_warn(bp->dev, "RX ring reset failed to allocate buffers, rc = %d, falling back to global reset\n",
+				    rc);
+			bnxt_reset_task(bp, true);
+			bnxt_rtnl_unlock_sp(bp);
+			return;
+		}
 		cpr = &rxr->bnapi->cp_ring;
 		cpr->sw_stats->rx.rx_resets++;
 		if (bp->flags & BNXT_FLAG_AGG_RINGS)
@@ -14344,7 +14396,7 @@ static void bnxt_rx_ring_reset(struct bnxt *bp)
 	}
 	if (bp->flags & BNXT_FLAG_TPA)
 		bnxt_set_tpa(bp, true);
-	bnxt_unlock_sp(bp);
+	bnxt_rtnl_unlock_sp(bp);
 }
 
 static void bnxt_fw_fatal_close(struct bnxt *bp)
@@ -14443,9 +14495,11 @@ void bnxt_fw_exception(struct bnxt *bp)
 	netdev_warn(bp->dev, "Detected firmware fatal condition, initiating reset\n");
 	set_bit(BNXT_STATE_FW_FATAL_COND, &bp->state);
 	bnxt_ulp_stop(bp);
-	bnxt_lock_sp(bp);
+	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+	netdev_lock(bp->dev);
 	bnxt_force_fw_reset(bp);
-	bnxt_unlock_sp(bp);
+	set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+	netdev_unlock(bp->dev);
 }
 
 /* Returns the number of registered VFs, or 1 if VF configuration is pending, or
@@ -14475,7 +14529,8 @@ static int bnxt_get_registered_vfs(struct bnxt *bp)
 void bnxt_fw_reset(struct bnxt *bp)
 {
 	bnxt_ulp_stop(bp);
-	bnxt_lock_sp(bp);
+	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+	netdev_lock(bp->dev);
 	if (test_bit(BNXT_STATE_OPEN, &bp->state) &&
 	    !test_bit(BNXT_STATE_IN_FW_RESET, &bp->state)) {
 		struct bnxt_ptp_cfg *ptp = bp->ptp_cfg;
@@ -14521,7 +14576,8 @@ void bnxt_fw_reset(struct bnxt *bp)
 		bnxt_queue_fw_reset_work(bp, tmo);
 	}
 fw_reset_exit:
-	bnxt_unlock_sp(bp);
+	set_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
+	netdev_unlock(bp->dev);
 }
 
 static void bnxt_chk_missed_irq(struct bnxt *bp)
@@ -14605,7 +14661,7 @@ static void bnxt_fw_echo_reply(struct bnxt *bp)
 static void bnxt_ulp_restart(struct bnxt *bp)
 {
 	bnxt_ulp_stop(bp);
-	bnxt_ulp_start(bp, 0);
+	bnxt_ulp_start(bp);
 }
 
 static void bnxt_sp_task(struct work_struct *work)
@@ -14716,6 +14772,9 @@ static void bnxt_sp_task(struct work_struct *work)
 			bnxt_devlink_health_fw_report(bp);
 	}
 
+	if (test_and_clear_bit(BNXT_TPH_UPDATE_SP_EVENT, &bp->sp_event))
+		bnxt_tph_update(bp);
+
 	smp_mb__before_atomic();
 	clear_bit(BNXT_STATE_IN_SP_TASK, &bp->state);
 }
@@ -14765,7 +14824,7 @@ int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
 		hwr.cp_p5 = hwr.tx + rx;
 	rc = bnxt_hwrm_check_rings(bp, &hwr);
 	if (!rc && pci_msix_can_alloc_dyn(bp->pdev)) {
-		if (!bnxt_ulp_registered(bp->edev)) {
+		if (!bnxt_ulp_registered(bp->edev[BNXT_AUXDEV_RDMA])) {
 			hwr.cp += bnxt_get_ulp_msix_num(bp);
 			hwr.cp = min_t(int, hwr.cp, bnxt_get_max_func_irqs(bp));
 		}
@@ -15234,7 +15293,7 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 		if (test_and_clear_bit(BNXT_STATE_FW_ACTIVATE_RESET, &bp->state) &&
 		    !test_bit(BNXT_STATE_FW_ACTIVATE, &bp->state))
 			bnxt_dl_remote_reload(bp);
-		if (pci_enable_device(bp->pdev)) {
+		if (!pci_is_enabled(bp->pdev) && pci_enable_device(bp->pdev)) {
 			netdev_err(bp->dev, "Cannot re-enable PCI device\n");
 			rc = -ENODEV;
 			goto fw_reset_abort;
@@ -15257,15 +15316,17 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 		bp->fw_reset_state = BNXT_FW_RESET_STATE_OPENING;
 		fallthrough;
 	case BNXT_FW_RESET_STATE_OPENING:
-		while (!netdev_trylock(bp->dev)) {
+		while (!rtnl_trylock()) {
 			bnxt_queue_fw_reset_work(bp, HZ / 10);
 			return;
 		}
+		netdev_lock(bp->dev);
 		rc = bnxt_open(bp->dev);
 		if (rc) {
 			netdev_err(bp->dev, "bnxt_open() failed during FW reset\n");
 			bnxt_fw_reset_abort(bp, rc);
 			netdev_unlock(bp->dev);
+			rtnl_unlock();
 			goto ulp_start;
 		}
 
@@ -15285,7 +15346,8 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 			bnxt_dl_health_fw_status_update(bp, true);
 		}
 		netdev_unlock(bp->dev);
-		bnxt_ulp_start(bp, 0);
+		rtnl_unlock();
+		bnxt_ulp_start(bp);
 		bnxt_reenable_sriov(bp);
 		netdev_lock(bp->dev);
 		bnxt_vf_reps_alloc(bp);
@@ -15307,7 +15369,8 @@ fw_reset_abort:
 	bnxt_fw_reset_abort(bp, rc);
 	netdev_unlock(bp->dev);
 ulp_start:
-	bnxt_ulp_start(bp, rc);
+	if (!rc)
+		bnxt_ulp_start(bp);
 }
 
 static int bnxt_init_board(struct pci_dev *pdev, struct net_device *dev)
@@ -16047,6 +16110,8 @@ static int bnxt_queue_mem_alloc(struct net_device *dev,
 	clone->need_head_pool = false;
 	clone->rx_page_size = qcfg->rx_page_size;
 	clone->rx_agg_bmap = NULL;
+	clone->rx_tpa = NULL;
+	clone->rx_tpa_idx_map = NULL;
 
 	rc = bnxt_alloc_rx_page_pool(bp, clone, rxr->page_pool->p.nid);
 	if (rc)
@@ -16090,11 +16155,16 @@ static int bnxt_queue_mem_alloc(struct net_device *dev,
 	bnxt_alloc_one_rx_ring_skb(bp, clone, idx);
 	if (bp->flags & BNXT_FLAG_AGG_RINGS)
 		bnxt_alloc_one_rx_ring_netmem(bp, clone, idx);
-	if (bp->flags & BNXT_FLAG_TPA)
-		bnxt_alloc_one_tpa_info_data(bp, clone);
+	if (bp->flags & BNXT_FLAG_TPA) {
+		rc = bnxt_alloc_one_tpa_info_data(bp, clone);
+		if (rc)
+			goto err_free_rx_ring_skbs;
+	}
 
 	return 0;
 
+err_free_rx_ring_skbs:
+	bnxt_free_one_rx_ring_skbs(bp, clone);
 err_free_tpa_info:
 	bnxt_free_one_tpa_info(bp, clone);
 err_free_rx_agg_ring:
@@ -16273,7 +16343,7 @@ err_reset:
 		   rc);
 	napi_enable_locked(&bnapi->napi);
 	bnxt_db_nq_arm(bp, &cpr->cp_db, cpr->cp_raw_cons);
-	bnxt_reset_task(bp, true);
+	netif_close(dev);
 	return rc;
 }
 
@@ -16347,12 +16417,13 @@ static void bnxt_remove_one(struct pci_dev *pdev)
 	if (BNXT_PF(bp))
 		__bnxt_sriov_disable(bp);
 
-	bnxt_rdma_aux_device_del(bp);
+	bnxt_aux_devices_del(bp);
 
 	unregister_netdev(dev);
 	bnxt_ptp_clear(bp);
 
-	bnxt_rdma_aux_device_uninit(bp);
+	bnxt_aux_devices_uninit(bp);
+	bnxt_auxdev_id_free(bp, bp->auxdev_id);
 
 	bnxt_free_l2_filters(bp, true);
 	bnxt_free_ntp_fltrs(bp, true);
@@ -16761,6 +16832,51 @@ void bnxt_print_device_info(struct bnxt *bp)
 	pcie_print_link_status(bp->pdev);
 }
 
+static void bnxt_clear_bars(struct pci_dev *pdev)
+{
+	int off;
+
+	for (off = PCI_BASE_ADDRESS_0; off <= PCI_BASE_ADDRESS_5; off += 4)
+		pci_write_config_dword(pdev, off, 0);
+}
+
+/* Clear any pending DMA transactions from crash kernel while loading driver in
+ * capture kernel.
+ */
+static int bnxt_kdump_reset(struct pci_dev *pdev)
+{
+	int rc, i;
+	u16 cmd;
+
+	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+	cmd &= ~(PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY);
+	pci_write_config_word(pdev, PCI_COMMAND, cmd);
+
+	if (pci_save_state(pdev))
+		dev_warn(&pdev->dev, "Failed to save PCI state, PCI restore may be incomplete\n");
+
+	rc = pcie_flr(pdev);
+	if (rc)
+		dev_warn(&pdev->dev, "pcie_flr() failed (rc: %d), trying to continue\n",
+			 rc);
+
+	/* In case device is not returning CRS, wait 5 seconds longer */
+	for (i = 0; i < 50; i++) {
+		pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+		if (!PCI_POSSIBLE_ERROR(cmd))
+			break;
+		msleep(100);
+	}
+	if (PCI_POSSIBLE_ERROR(cmd)) {
+		dev_err(&pdev->dev, "PCI config space inaccessible after FLR, aborting\n");
+		return -ENODEV;
+	}
+
+	bnxt_clear_bars(pdev);
+	pci_restore_state(pdev);
+	return 0;
+}
+
 static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 {
 	struct bnxt_hw_resc *hw_resc;
@@ -16776,12 +16892,10 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		return -ENODEV;
 	}
 
-	/* Clear any pending DMA transactions from crash kernel
-	 * while loading driver in capture kernel.
-	 */
 	if (is_kdump_kernel()) {
-		pci_clear_master(pdev);
-		pcie_flr(pdev);
+		rc = bnxt_kdump_reset(pdev);
+		if (rc)
+			return rc;
 	}
 
 	max_irqs = bnxt_get_max_irq(pdev);
@@ -16938,7 +17052,9 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	bnxt_set_tpa_flags(bp);
 	bnxt_init_ring_params(bp);
 	bnxt_set_ring_params(bp);
-	bnxt_rdma_aux_device_init(bp);
+	mutex_init(&bp->auxdev_lock);
+	if (!bnxt_auxdev_id_alloc(bp))
+		bnxt_aux_devices_init(bp);
 	rc = bnxt_set_dflt_rings(bp, true);
 	if (rc) {
 		if (BNXT_VF(bp) && rc == -ENODEV) {
@@ -17003,7 +17119,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	bnxt_dl_fw_reporters_create(bp);
 
-	bnxt_rdma_aux_device_add(bp);
+	bnxt_aux_devices_add(bp);
 
 	bnxt_print_device_info(bp);
 
@@ -17011,7 +17127,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	return 0;
 init_err_cleanup:
-	bnxt_rdma_aux_device_uninit(bp);
+	bnxt_aux_devices_uninit(bp);
+	bnxt_auxdev_id_free(bp, bp->auxdev_id);
 	bnxt_dl_unregister(bp);
 init_err_dl:
 	bnxt_shutdown_tc(bp);
@@ -17101,6 +17218,7 @@ static int bnxt_resume(struct device *device)
 	struct bnxt *bp = netdev_priv(dev);
 	int rc = 0;
 
+	rtnl_lock();
 	netdev_lock(dev);
 	rc = pci_enable_device(bp->pdev);
 	if (rc) {
@@ -17145,9 +17263,11 @@ static int bnxt_resume(struct device *device)
 
 resume_exit:
 	netdev_unlock(bp->dev);
-	bnxt_ulp_start(bp, rc);
-	if (!rc)
+	rtnl_unlock();
+	if (!rc) {
+		bnxt_ulp_start(bp);
 		bnxt_reenable_sriov(bp);
+	}
 	return rc;
 }
 
@@ -17196,10 +17316,8 @@ static pci_ers_result_t bnxt_io_error_detected(struct pci_dev *pdev,
 	 * so we disable bus master to prevent any potential bad DMAs before
 	 * freeing kernel memory.
 	 */
-	if (state == pci_channel_io_frozen) {
-		set_bit(BNXT_STATE_PCI_CHANNEL_IO_FROZEN, &bp->state);
+	if (state == pci_channel_io_frozen)
 		bnxt_fw_fatal_close(bp);
-	}
 
 	if (netif_running(netdev))
 		__bnxt_close_nic(bp, true, true);
@@ -17229,64 +17347,79 @@ static pci_ers_result_t bnxt_io_slot_reset(struct pci_dev *pdev)
 	struct bnxt *bp = netdev_priv(netdev);
 	int retry = 0;
 	int err = 0;
-	int off;
+	u16 cmd;
 
 	netdev_info(bp->dev, "PCI Slot Reset\n");
 
-	if (!(bp->flags & BNXT_FLAG_CHIP_P5_PLUS) &&
-	    test_bit(BNXT_STATE_PCI_CHANNEL_IO_FROZEN, &bp->state))
-		msleep(900);
+	/* After a PCIe hot reset, the chip should return CRS when the
+	 * vendor ID config register is read until it is ready.  On all
+	 * chips, this is not happening reliably so add a 5-second delay
+	 * as a workaround.
+	 */
+	msleep(5000);
 
 	netdev_lock(netdev);
 
-	if (pci_enable_device(pdev)) {
+	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+	if (PCI_POSSIBLE_ERROR(cmd)) {
+		dev_err(&pdev->dev,
+			"PCI config space inaccessible after reset\n");
+		goto reset_exit;
+	}
+
+	/* Upon PCIe error, our device internal logic that latches to
+	 * BAR value is getting reset and will restore only upon
+	 * rewriting the BARs.
+	 *
+	 * As pci_restore_state() does not re-write the BARs if the
+	 * value is same as saved value earlier, driver needs to
+	 * write the BARs to 0 to force restore.
+	 */
+	pci_clear_master(pdev);
+	pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+	cmd &= ~PCI_COMMAND_MEMORY;
+	pci_write_config_word(pdev, PCI_COMMAND, cmd);
+
+	bnxt_clear_bars(pdev);
+	pci_restore_state(pdev);
+
+	if (!pci_is_enabled(pdev) && pci_enable_device(pdev)) {
 		dev_err(&pdev->dev,
 			"Cannot re-enable PCI device after reset.\n");
-	} else {
-		pci_set_master(pdev);
-		/* Upon fatal error, our device internal logic that latches to
-		 * BAR value is getting reset and will restore only upon
-		 * rewriting the BARs.
-		 *
-		 * As pci_restore_state() does not re-write the BARs if the
-		 * value is same as saved value earlier, driver needs to
-		 * write the BARs to 0 to force restore, in case of fatal error.
-		 */
-		if (test_and_clear_bit(BNXT_STATE_PCI_CHANNEL_IO_FROZEN,
-				       &bp->state)) {
-			for (off = PCI_BASE_ADDRESS_0;
-			     off <= PCI_BASE_ADDRESS_5; off += 4)
-				pci_write_config_dword(bp->pdev, off, 0);
+		pci_read_config_word(pdev, PCI_COMMAND, &cmd);
+		if (!PCI_POSSIBLE_ERROR(cmd)) {
+			cmd &= ~(PCI_COMMAND_MASTER | PCI_COMMAND_MEMORY);
+			pci_write_config_word(pdev, PCI_COMMAND, cmd);
 		}
-		pci_restore_state(pdev);
-		pci_save_state(pdev);
-
-		bnxt_inv_fw_health_reg(bp);
-		bnxt_try_map_fw_health_reg(bp);
-
-		/* In some PCIe AER scenarios, firmware may take up to
-		 * 10 seconds to become ready in the worst case.
-		 */
-		do {
-			err = bnxt_try_recover_fw(bp);
-			if (!err)
-				break;
-			retry++;
-		} while (retry < BNXT_FW_SLOT_RESET_RETRY);
-
-		if (err) {
-			dev_err(&pdev->dev, "Firmware not ready\n");
-			goto reset_exit;
-		}
-
-		err = bnxt_hwrm_func_reset(bp);
-		if (!err)
-			result = PCI_ERS_RESULT_RECOVERED;
-
-		/* IRQ will be initialized later in bnxt_io_resume */
-		bnxt_ulp_irq_stop(bp);
-		bnxt_clear_int_mode(bp);
+		goto reset_exit;
 	}
+	pci_set_master(pdev);
+
+	bnxt_inv_fw_health_reg(bp);
+	bnxt_try_map_fw_health_reg(bp);
+
+	/* In some PCIe AER scenarios, firmware may take up to
+	 * 10 seconds to become ready in the worst case.
+	 */
+	do {
+		err = bnxt_try_recover_fw(bp);
+		if (!err)
+			break;
+		retry++;
+	} while (retry < BNXT_FW_SLOT_RESET_RETRY);
+
+	if (err) {
+		dev_err(&pdev->dev, "Firmware not ready\n");
+		goto reset_exit;
+	}
+
+	err = bnxt_hwrm_func_reset(bp);
+	if (!err)
+		result = PCI_ERS_RESULT_RECOVERED;
+
+	/* IRQ will be initialized later in bnxt_io_resume */
+	bnxt_ulp_irq_stop(bp);
+	bnxt_clear_int_mode(bp);
 
 reset_exit:
 	clear_bit(BNXT_STATE_IN_FW_RESET, &bp->state);
@@ -17310,6 +17443,7 @@ static void bnxt_io_resume(struct pci_dev *pdev)
 	int err;
 
 	netdev_info(bp->dev, "PCI Slot Resume\n");
+	rtnl_lock();
 	netdev_lock(netdev);
 
 	err = bnxt_hwrm_func_qcaps(bp);
@@ -17327,9 +17461,11 @@ static void bnxt_io_resume(struct pci_dev *pdev)
 		netif_device_attach(netdev);
 
 	netdev_unlock(netdev);
-	bnxt_ulp_start(bp, err);
-	if (!err)
+	rtnl_unlock();
+	if (!err) {
+		bnxt_ulp_start(bp);
 		bnxt_reenable_sriov(bp);
+	}
 }
 
 static const struct pci_error_handlers bnxt_err_handler = {

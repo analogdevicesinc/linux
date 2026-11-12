@@ -270,16 +270,20 @@ int amdgpu_userq_create_object(struct amdgpu_userq_mgr *uq_mgr,
 		goto free_obj;
 	}
 
+	r = amdgpu_bo_pin(userq_obj->obj, AMDGPU_GEM_DOMAIN_GTT);
+	if (r)
+		goto unresv;
+
 	r = amdgpu_ttm_alloc_gart(&(userq_obj->obj)->tbo);
 	if (r) {
 		drm_file_err(uq_mgr->file, "Failed to alloc GART for userqueue object (%d)", r);
-		goto unresv;
+		goto unpin_bo;
 	}
 
 	r = amdgpu_bo_kmap(userq_obj->obj, &userq_obj->cpu_ptr);
 	if (r) {
 		drm_file_err(uq_mgr->file, "Failed to map BO for userqueue (%d)", r);
-		goto unresv;
+		goto unpin_bo;
 	}
 
 	userq_obj->gpu_addr = amdgpu_bo_gpu_offset(userq_obj->obj);
@@ -287,11 +291,13 @@ int amdgpu_userq_create_object(struct amdgpu_userq_mgr *uq_mgr,
 	memset(userq_obj->cpu_ptr, 0, size);
 	return 0;
 
+unpin_bo:
+	amdgpu_bo_unpin(userq_obj->obj);
 unresv:
 	amdgpu_bo_unreserve(userq_obj->obj);
-
 free_obj:
 	amdgpu_bo_unref(&userq_obj->obj);
+
 	return r;
 }
 
@@ -299,6 +305,7 @@ void amdgpu_userq_destroy_object(struct amdgpu_userq_mgr *uq_mgr,
 				 struct amdgpu_userq_obj *userq_obj)
 {
 	amdgpu_bo_kunmap(userq_obj->obj);
+	amdgpu_bo_unpin(userq_obj->obj);
 	amdgpu_bo_unref(&userq_obj->obj);
 }
 
@@ -310,6 +317,7 @@ amdgpu_userq_get_doorbell_index(struct amdgpu_userq_mgr *uq_mgr,
 	uint64_t index;
 	struct drm_gem_object *gobj;
 	struct amdgpu_userq_obj *db_obj = db_info->db_obj;
+	struct amdgpu_bo *abo;
 	int r, db_size;
 
 	gobj = drm_gem_object_lookup(filp, db_info->doorbell_handle);
@@ -318,7 +326,17 @@ amdgpu_userq_get_doorbell_index(struct amdgpu_userq_mgr *uq_mgr,
 		return -EINVAL;
 	}
 
-	db_obj->obj = amdgpu_bo_ref(gem_to_amdgpu_bo(gobj));
+	/*
+	 * Pinning a regular BO into the doorbell domain would discard its
+	 * contents, possibly those of a buffer shared by another client.
+	 */
+	abo = gem_to_amdgpu_bo(gobj);
+	if (!(abo->preferred_domains & AMDGPU_GEM_DOMAIN_DOORBELL)) {
+		drm_gem_object_put(gobj);
+		return -EINVAL;
+	}
+
+	db_obj->obj = amdgpu_bo_ref(abo);
 	drm_gem_object_put(gobj);
 
 	r = amdgpu_bo_reserve(db_obj->obj, true);

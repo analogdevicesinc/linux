@@ -604,6 +604,10 @@ static int __init gicv5_irs_of_init_affinity(struct device_node *node,
 	u16 iaffid_mask = GENMASK(iaffid_bits - 1, 0);
 	int ret, i, ncpus, niaffids;
 
+	/* An IRS is architecturally allowed to have no cpus associated with it */
+	if (!of_property_present(node, "cpus") && !of_property_present(node, "arm,iaffids"))
+		return 0;
+
 	ncpus = of_count_phandle_with_args(node, "cpus", NULL);
 	if (ncpus < 0)
 		return -EINVAL;
@@ -650,6 +654,18 @@ static int __init gicv5_irs_of_init_affinity(struct device_node *node,
 	}
 
 	return ret;
+}
+
+static void __init gicv5_irs_clear_affinity(struct gicv5_irs_chip_data *irs_data)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		if (per_cpu(per_cpu_irs_data, cpu) == irs_data) {
+			per_cpu(cpu_iaffid, cpu).valid = false;
+			per_cpu(per_cpu_irs_data, cpu) = NULL;
+		}
+	}
 }
 
 static void irs_setup_pri_bits(u32 idr1)
@@ -762,6 +778,7 @@ static int __init gicv5_irs_init(struct device_node *node)
 	return 0;
 
 out_iomem:
+	gicv5_irs_clear_affinity(irs_data);
 	iounmap(irs_base);
 out_err:
 	kfree(irs_data);
@@ -776,6 +793,7 @@ void __init gicv5_irs_remove(void)
 	gicv5_deinit_lpis();
 
 	list_for_each_entry_safe(irs_data, tmp_data, &irs_nodes, entry) {
+		gicv5_irs_clear_affinity(irs_data);
 		iounmap(irs_data->irs_base);
 		list_del(&irs_data->entry);
 		kfree(irs_data);

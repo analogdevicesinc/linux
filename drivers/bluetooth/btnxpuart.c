@@ -1397,9 +1397,11 @@ static int nxp_process_fw_dump(struct hci_dev *hdev, struct sk_buff *skb)
 				      msecs_to_jiffies(20000));
 	}
 
-	err = hci_devcd_append(hdev, skb_clone(skb, GFP_ATOMIC));
-	if (err < 0)
-		goto free_skb;
+	if (IS_ENABLED(CONFIG_DEV_COREDUMP)) {
+		err = hci_devcd_append(hdev, skb_clone(skb, GFP_ATOMIC));
+		if (err < 0)
+			goto free_skb;
+	}
 
 	if (buf_len == 0) {
 		bt_dev_warn(hdev, "==== FW dump complete ===");
@@ -1922,13 +1924,15 @@ static int nxp_serdev_probe(struct serdev_device *serdev)
 	}
 
 	if (ps_setup(hdev))
-		goto probe_fail;
+		goto probe_fail_unregister;
 
 	hci_devcd_register(hdev, nxp_coredump, nxp_coredump_hdr,
 			   nxp_coredump_notify);
 
 	return 0;
 
+probe_fail_unregister:
+	hci_unregister_dev(hdev);
 probe_fail:
 	reset_control_assert(nxpdev->pdn);
 	hci_free_dev(hdev);

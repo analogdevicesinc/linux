@@ -551,9 +551,11 @@ void BPF_STRUCT_OPS(fcg_stopping, struct task_struct *p, bool runnable)
 	 * too much, determine the execution time by taking explicit timestamps
 	 * instead of depending on @p->scx.slice.
 	 */
-	if (!fifo_sched)
-		p->scx.dsq_vtime +=
-			(SCX_SLICE_DFL - p->scx.slice) * 100 / p->scx.weight;
+	if (!fifo_sched) {
+		u64 delta = scale_by_task_weight_inverse(p, SCX_SLICE_DFL - p->scx.slice);
+
+		scx_bpf_task_set_dsq_vtime(p, p->scx.dsq_vtime + delta);
+	}
 
 	taskc = bpf_task_storage_get(&task_ctx, p, 0, 0);
 	if (!taskc) {
@@ -603,6 +605,9 @@ void BPF_STRUCT_OPS(fcg_cgroup_set_weight, struct cgroup *cgrp, u32 weight)
 		pcgc->child_weight_sum += (s64)weight - cgc->weight;
 	cgc->weight = weight;
 	bpf_spin_unlock(&cgv_tree_lock);
+
+	/* expire cached hweights so the new weight propagates */
+	__sync_fetch_and_add(&hweight_gen, 1);
 }
 
 static bool try_pick_next_cgroup(u64 *cgidp)
@@ -831,7 +836,7 @@ s32 BPF_STRUCT_OPS(fcg_init_task, struct task_struct *p,
 	if (!(cgc = find_cgrp_ctx(args->cgroup)))
 		return -ENOENT;
 
-	p->scx.dsq_vtime = cgc->tvtime_now;
+	scx_bpf_task_set_dsq_vtime(p, cgc->tvtime_now);
 
 	return 0;
 }
@@ -930,8 +935,8 @@ void BPF_STRUCT_OPS(fcg_cgroup_move, struct task_struct *p,
 	if (!(from_cgc = find_cgrp_ctx(from)) || !(to_cgc = find_cgrp_ctx(to)))
 		return;
 
-	delta = time_delta(p->scx.dsq_vtime, from_cgc->tvtime_now);
-	p->scx.dsq_vtime = to_cgc->tvtime_now + delta;
+	delta = (s64)(p->scx.dsq_vtime - from_cgc->tvtime_now);
+	scx_bpf_task_set_dsq_vtime(p, to_cgc->tvtime_now + delta);
 }
 
 s32 BPF_STRUCT_OPS_SLEEPABLE(fcg_init)

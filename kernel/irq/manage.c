@@ -21,6 +21,7 @@
 #include <linux/sched/isolation.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/task_work.h>
+#include <linux/wait_bit.h>
 
 #include "internals.h"
 
@@ -1173,16 +1174,13 @@ void wake_threads_waitq(struct irq_desc *desc)
 		wake_up(&desc->wait_for_threads);
 }
 
-static void irq_thread_dtor(struct callback_head *unused)
+static void __irq_thread_dtor(struct irqaction *action)
 {
 	struct task_struct *tsk = current;
 	struct irq_desc *desc;
-	struct irqaction *action;
 
 	if (WARN_ON_ONCE(!(current->flags & PF_EXITING)))
 		return;
-
-	action = kthread_data(tsk);
 
 	pr_err("exiting task \"%s\" (%d) is an active IRQ thread (irq %d)\n",
 	       tsk->comm, tsk->pid, action->irq);
@@ -1198,6 +1196,14 @@ static void irq_thread_dtor(struct callback_head *unused)
 
 	/* Prevent a stale desc->threads_oneshot */
 	irq_finalize_oneshot(desc, action);
+}
+
+static void irq_thread_dtor(struct callback_head *work)
+{
+	struct irqaction *action = container_of(work, struct irqaction, thread_dtor);
+
+	__irq_thread_dtor(action);
+	clear_and_wake_up_bit(IRQTF_EXIT_WORK, &action->thread_flags);
 }
 
 static void irq_wake_secondary(struct irq_desc *desc, struct irqaction *action)
@@ -1241,7 +1247,6 @@ static void wake_up_and_wait_for_irq_thread_ready(struct irq_desc *desc,
  */
 static int irq_thread(void *data)
 {
-	struct callback_head on_exit_work;
 	struct irqaction *action = data;
 	struct irq_desc *desc = irq_to_desc(action->irq);
 	irqreturn_t (*handler_fn)(struct irq_desc *desc,
@@ -1257,8 +1262,9 @@ static int irq_thread(void *data)
 	else
 		handler_fn = irq_thread_fn;
 
-	init_task_work(&on_exit_work, irq_thread_dtor);
-	task_work_add(current, &on_exit_work, TWA_NONE);
+	set_bit(IRQTF_EXIT_WORK, &action->thread_flags);
+	init_task_work(&action->thread_dtor, irq_thread_dtor);
+	task_work_add(current, &action->thread_dtor, TWA_NONE);
 
 	while (!irq_wait_for_interrupt(desc, action)) {
 		irqreturn_t action_ret;
@@ -1277,6 +1283,7 @@ static int irq_thread(void *data)
 	 * oneshot mask bit can be set.
 	 */
 	task_work_cancel_func(current, irq_thread_dtor);
+	clear_and_wake_up_bit(IRQTF_EXIT_WORK, &action->thread_flags);
 	return 0;
 }
 
@@ -1811,6 +1818,12 @@ out_mput:
 	return ret;
 }
 
+static void irq_stop_thread(struct irqaction *action)
+{
+	kthread_stop_put(action->thread);
+	wait_on_bit(&action->thread_flags, IRQTF_EXIT_WORK, TASK_UNINTERRUPTIBLE);
+}
+
 /*
  * Internal function to unregister an irqaction - used to free
  * regular and special interrupts that are part of the architecture.
@@ -1915,9 +1928,9 @@ static struct irqaction *__free_irq(struct irq_desc *desc, void *dev_id)
 	 * the same bit to a newly requested action.
 	 */
 	if (action->thread) {
-		kthread_stop_put(action->thread);
+		irq_stop_thread(action);
 		if (action->secondary && action->secondary->thread)
-			kthread_stop_put(action->secondary->thread);
+			irq_stop_thread(action->secondary);
 	}
 
 	/* Last action releases resources */
@@ -1987,24 +2000,30 @@ const void *free_irq(unsigned int irq, void *dev_id)
 }
 EXPORT_SYMBOL(free_irq);
 
-/* This function must be called with desc->lock held */
 static const void *__cleanup_nmi(unsigned int irq, struct irq_desc *desc)
 {
+	struct irqaction *action = NULL;
 	const char *devname = NULL;
 
-	desc->istate &= ~IRQS_NMI;
+	scoped_guard(raw_spinlock_irqsave, &desc->lock) {
+		irq_nmi_teardown(desc);
 
-	if (!WARN_ON(desc->action == NULL)) {
-		irq_pm_remove_action(desc, desc->action);
-		devname = desc->action->name;
-		unregister_handler_proc(irq, desc->action);
+		desc->istate &= ~IRQS_NMI;
 
-		kfree(desc->action);
+		if (!WARN_ON(desc->action == NULL)) {
+			action = desc->action;
+			irq_pm_remove_action(desc, action);
+			devname = action->name;
+		}
 		desc->action = NULL;
+
+		irq_settings_clr_disable_unlazy(desc);
+		irq_shutdown_and_deactivate(desc);
 	}
 
-	irq_settings_clr_disable_unlazy(desc);
-	irq_shutdown_and_deactivate(desc);
+	if (action)
+		unregister_handler_proc(irq, action);
+	kfree(action);
 
 	irq_release_resources(desc);
 
@@ -2028,8 +2047,6 @@ const void *free_nmi(unsigned int irq, void *dev_id)
 	if (WARN_ON(desc->depth == 0))
 		disable_nmi_nosync(irq);
 
-	guard(raw_spinlock_irqsave)(&desc->lock);
-	irq_nmi_teardown(desc);
 	return __cleanup_nmi(irq, desc);
 }
 
@@ -2279,12 +2296,13 @@ int request_nmi(unsigned int irq, irq_handler_t handler,
 		/* Setup NMI state */
 		desc->istate |= IRQS_NMI;
 		retval = irq_nmi_setup(desc);
-		if (retval) {
-			__cleanup_nmi(irq, desc);
-			return -EINVAL;
-		}
-		return 0;
 	}
+
+	if (retval) {
+		__cleanup_nmi(irq, desc);
+		return -EINVAL;
+	}
+	return 0;
 
 err_irq_setup:
 	irq_chip_pm_put(&desc->irq_data);
@@ -2684,6 +2702,28 @@ int irq_get_irqchip_state(unsigned int irq, enum irqchip_irq_state which, bool *
 }
 EXPORT_SYMBOL_GPL(irq_get_irqchip_state);
 
+int __irq_set_irqchip_state(struct irq_desc *desc, enum irqchip_irq_state which, bool val)
+{
+	struct irq_data *data = irq_desc_get_irq_data(desc);
+	struct irq_chip *chip;
+
+	do {
+		chip = irq_data_get_irq_chip(data);
+
+		if (WARN_ON_ONCE(!chip))
+			return -ENODEV;
+
+		if (chip->irq_set_irqchip_state)
+			break;
+
+		data = irqd_get_parent_data(data);
+	} while (data);
+
+	if (data)
+		return chip->irq_set_irqchip_state(data, which, val);
+	return -EINVAL;
+}
+
 /**
  * irq_set_irqchip_state - set the state of a forwarded interrupt.
  * @irq:	Interrupt line that is forwarded to a VM
@@ -2698,25 +2738,8 @@ EXPORT_SYMBOL_GPL(irq_get_irqchip_state);
  */
 int irq_set_irqchip_state(unsigned int irq, enum irqchip_irq_state which, bool val)
 {
-	scoped_irqdesc_get_and_buslock(irq, 0) {
-		struct irq_data *data = irq_desc_get_irq_data(scoped_irqdesc);
-		struct irq_chip *chip;
-
-		do {
-			chip = irq_data_get_irq_chip(data);
-
-			if (WARN_ON_ONCE(!chip))
-				return -ENODEV;
-
-			if (chip->irq_set_irqchip_state)
-				break;
-
-			data = irqd_get_parent_data(data);
-		} while (data);
-
-		if (data)
-			return chip->irq_set_irqchip_state(data, which, val);
-	}
+	scoped_irqdesc_get_and_buslock(irq, 0)
+		return __irq_set_irqchip_state(scoped_irqdesc, which, val);
 	return -EINVAL;
 }
 EXPORT_SYMBOL_GPL(irq_set_irqchip_state);

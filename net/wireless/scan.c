@@ -5,7 +5,7 @@
  * Copyright 2008 Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
  * Copyright 2016	Intel Deutschland GmbH
- * Copyright (C) 2018-2025 Intel Corporation
+ * Copyright (C) 2018-2026 Intel Corporation
  */
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -1115,6 +1115,21 @@ int cfg80211_scan(struct cfg80211_registered_device *rdev)
 	return 0;
 }
 
+/*
+ * Release the scan request, but free it only if the driver is also done,
+ * e.g. mac80211 may cancel it asynchronously and still use it.
+ */
+static void cfg80211_put_scan_req(struct cfg80211_scan_request_int *req)
+{
+	if (!req)
+		return;
+
+	if (req->driver_owns)
+		req->stale = true;
+	else
+		kfree(req);
+}
+
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev,
 			   bool send_message)
 {
@@ -1174,10 +1189,10 @@ void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev,
 
 	dev_put(wdev->netdev);
 
-	kfree(rdev->int_scan_req);
+	cfg80211_put_scan_req(rdev->int_scan_req);
 	rdev->int_scan_req = NULL;
 
-	kfree(rdev->scan_req);
+	cfg80211_put_scan_req(rdev->scan_req);
 	rdev->scan_req = NULL;
 
 	if (!send_message)
@@ -1200,6 +1215,18 @@ void cfg80211_scan_done(struct cfg80211_scan_request *request,
 	struct cfg80211_scan_info old_info = intreq->info;
 
 	trace_cfg80211_scan_done(intreq, info);
+
+	intreq->driver_owns = false;
+
+	if (intreq->stale) {
+		/*
+		 * The scan is already completed as far as we're concerned,
+		 * it was just kept around for the driver - done now, free it.
+		 */
+		kfree(intreq);
+		return;
+	}
+
 	WARN_ON(intreq != rdev->scan_req &&
 		intreq != rdev->int_scan_req);
 
@@ -1938,20 +1965,22 @@ cfg80211_update_known_bss(struct cfg80211_registered_device *rdev,
 			return false;
 		}
 
-		old = rcu_access_pointer(known->pub.beacon_ies);
+		if (!new->pub.hidden_beacon_bss) {
+			old = rcu_access_pointer(known->pub.beacon_ies);
 
-		rcu_assign_pointer(known->pub.beacon_ies, new->pub.beacon_ies);
+			rcu_assign_pointer(known->pub.beacon_ies, new->pub.beacon_ies);
 
-		/* Override IEs if they were from a beacon before */
-		if (old == rcu_access_pointer(known->pub.ies))
-			rcu_assign_pointer(known->pub.ies, new->pub.beacon_ies);
+			/* Override IEs if they were from a beacon before */
+			if (old == rcu_access_pointer(known->pub.ies))
+				rcu_assign_pointer(known->pub.ies, new->pub.beacon_ies);
 
-		cfg80211_update_hidden_bsses(known,
-					     rcu_access_pointer(new->pub.beacon_ies),
-					     old);
+			cfg80211_update_hidden_bsses(known,
+						     rcu_access_pointer(new->pub.beacon_ies),
+						     old);
 
-		if (old)
-			kfree_rcu((struct cfg80211_bss_ies *)old, rcu_head);
+			if (old)
+				kfree_rcu((struct cfg80211_bss_ies *)old, rcu_head);
+		}
 	}
 
 	known->pub.beacon_interval = new->pub.beacon_interval;
@@ -2023,6 +2052,13 @@ __cfg80211_bss_update(struct cfg80211_registered_device *rdev,
 			if (!hidden)
 				hidden = rb_find_bss(rdev, tmp,
 						     BSS_CMP_HIDE_NUL);
+			/*
+			 * Only group with an entry with beacon data, otherwise
+			 * beacon data can never be filled/updated.
+			 */
+			if (hidden &&
+			    !rcu_access_pointer(hidden->pub.beacon_ies))
+				hidden = NULL;
 			if (hidden) {
 				new->pub.hidden_beacon_bss = &hidden->pub;
 				list_add(&new->hidden_list,
@@ -2626,7 +2662,9 @@ ssize_t cfg80211_defragment_element(const struct element *elem, const u8 *ies,
 	ssize_t copied;
 	u8 elem_datalen;
 
-	if (!elem)
+	if (!elem || (const u8 *)elem < ies ||
+	    (const u8 *)elem + sizeof(*elem) > ies + ieslen ||
+	    (const u8 *)elem + sizeof(*elem) + elem->datalen > ies + ieslen)
 		return -EINVAL;
 
 	/* elem might be invalid after the memmove */
@@ -3455,11 +3493,6 @@ void cfg80211_update_assoc_bss_entry(struct wireless_dev *wdev,
 	cbss->pub.channel = chan;
 
 	list_for_each_entry(bss, &rdev->bss_list, list) {
-		if (!cfg80211_bss_type_match(bss->pub.capability,
-					     bss->pub.channel->band,
-					     wdev->conn_bss_type))
-			continue;
-
 		if (bss == cbss)
 			continue;
 

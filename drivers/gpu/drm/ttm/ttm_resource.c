@@ -291,6 +291,19 @@ void ttm_resource_del_bulk_move(struct ttm_resource *res,
 		ttm_lru_bulk_move_del(bo->bulk_move, res);
 }
 
+/*
+ * Remove a resource from its bulk_move, bypassing the unevictable check.
+ * Use only when the resource is known to still be tracked in the range despite
+ * the BO having just become unevictable; asserts that this is the case.
+ */
+void ttm_resource_del_bulk_move_unevictable(struct ttm_resource *res,
+					    struct ttm_buffer_object *bo)
+{
+	WARN_ON_ONCE(!ttm_resource_unevictable(res, bo));
+	if (bo->bulk_move)
+		ttm_lru_bulk_move_del(bo->bulk_move, res);
+}
+
 /* Move a resource to the LRU or bulk tail */
 void ttm_resource_move_to_lru_tail(struct ttm_resource *res)
 {
@@ -620,11 +633,11 @@ ttm_resource_cursor_check_bulk(struct ttm_resource_cursor *cursor,
 			       struct ttm_lru_item *next_lru)
 {
 	struct ttm_resource *next = ttm_lru_item_to_res(next_lru);
-	struct ttm_lru_bulk_move *bulk = NULL;
-	struct ttm_buffer_object *bo = next->bo;
+	struct ttm_lru_bulk_move *bulk;
 
 	lockdep_assert_held(&cursor->man->bdev->lru_lock);
-	bulk = bo->bulk_move;
+
+	bulk = next->bo->bulk_move;
 
 	if (cursor->bulk != bulk) {
 		if (bulk) {

@@ -90,6 +90,8 @@ enum utf16_endian;
 struct ntfs_mount_options {
 	char *nls_name;
 	struct nls_table *nls;
+	/* ->d_hash() and ->d_compare() read the options in rcu pathwalk */
+	struct rcu_head rcu;
 
 	kuid_t fs_uid;
 	kgid_t fs_gid;
@@ -209,6 +211,7 @@ struct ntfs_index {
 /* Ntfs file system in-core superblock data. */
 struct ntfs_sb_info {
 	struct super_block *sb;
+	struct rcu_head rcu;
 
 	u32 discard_granularity;
 	u64 discard_granularity_mask_inv; // ~(discard_granularity_mask_inv-1)
@@ -585,7 +588,8 @@ int ni_add_name(struct ntfs_inode *dir_ni, struct ntfs_inode *ni,
 		struct NTFS_DE *de);
 
 int ni_rename(struct ntfs_inode *dir_ni, struct ntfs_inode *new_dir_ni,
-	      struct ntfs_inode *ni, struct NTFS_DE *de, struct NTFS_DE *new_de);
+	      struct ntfs_inode *ni, struct NTFS_DE *de,
+	      struct NTFS_DE *new_de);
 
 bool ni_is_dirty(struct inode *inode);
 int ni_write_parents(struct ntfs_inode *ni, int sync);
@@ -711,8 +715,7 @@ int ntfs_set_size(struct inode *inode, u64 new_size);
 int ntfs_get_block(struct inode *inode, sector_t vbn,
 		   struct buffer_head *bh_result, int create);
 int ntfs_write_begin(const struct kiocb *iocb, struct address_space *mapping,
-		     loff_t pos, u32 len, struct folio **foliop,
-		     void **fsdata);
+		     loff_t pos, u32 len, struct folio **foliop, void **fsdata);
 int ntfs_write_end(const struct kiocb *iocb, struct address_space *mapping,
 		   loff_t pos, u32 len, u32 copied, struct folio *folio,
 		   void *fsdata);

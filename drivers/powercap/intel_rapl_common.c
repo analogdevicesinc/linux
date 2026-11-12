@@ -2106,7 +2106,9 @@ void rapl_package_remove_pmu(struct rapl_package *rp)
 			return;
 	}
 
-	perf_pmu_unregister(&rapl_pmu.pmu);
+	if (rapl_pmu.registered)
+		perf_pmu_unregister(&rapl_pmu.pmu);
+
 	memset(&rapl_pmu, 0, sizeof(struct rapl_pmu));
 }
 EXPORT_SYMBOL_GPL(rapl_package_remove_pmu);
@@ -2216,7 +2218,8 @@ struct rapl_package *rapl_add_package_cpuslocked(int id, struct rapl_if_priv *pr
 			 topology_physical_package_id(id) : topology_logical_die_id(id);
 		if ((int)(rp->id) < 0) {
 			pr_err("topology_logical_(package/die)_id() returned a negative value");
-			return ERR_PTR(-EINVAL);
+			ret = -EINVAL;
+			goto err_free_package;
 		}
 		rp->lead_cpu = id;
 		if (!rapl_msrs_are_pkg_scope() && topology_max_dies_per_package() > 1)

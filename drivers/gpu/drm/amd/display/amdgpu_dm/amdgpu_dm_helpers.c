@@ -156,6 +156,9 @@ enum dc_edid_status dm_helpers_parse_edid_caps(
 
 	edid_caps->edid_hdmi = connector->display_info.is_hdmi;
 
+	if (edid_caps->edid_hdmi)
+		edid_caps->qs_bit = connector->display_info.rgb_quant_range_selectable;
+
 	apply_edid_quirks(link, edid_buf, edid_caps);
 
 	sad_count = drm_edid_to_sad((struct edid *) edid->raw_edid, &sads);
@@ -222,7 +225,7 @@ fill_dc_mst_payload_table_from_drm(struct dc_link *link,
 				break;
 			}
 		}
-		ASSERT(i != copy_of_link_table.stream_count);
+		/* Payload absent from HW table when never allocated: nothing to remove. */
 	}
 
 	/* Fill payload info*/
@@ -1186,12 +1189,13 @@ void dm_helpers_free_gpu_mem(
 
 bool dm_helpers_dmub_outbox_interrupt_control(struct dc_context *ctx, bool enable)
 {
+	struct amdgpu_device *adev = ctx->driver_context;
 	enum dc_irq_source irq_source;
 	bool ret;
 
 	irq_source = DC_IRQ_SOURCE_DMCUB_OUTBOX;
 
-	ret = dc_interrupt_set(ctx->dc, irq_source, enable);
+	ret = amdgpu_dm_irq_set(adev, irq_source, enable);
 
 	DRM_DEBUG_DRIVER("Dmub trace irq %sabling: r=%d\n",
 			 enable ? "en" : "dis", ret);

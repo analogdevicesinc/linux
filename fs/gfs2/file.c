@@ -1057,6 +1057,10 @@ retry:
 			goto out_unlock;
 	}
 
+	ret = gfs2_clear_beyond_eof(inode, iocb->ki_pos);
+	if (ret)
+		goto out_unlock;
+
 	pagefault_disable();
 	ret = iomap_file_buffered_write(iocb, from, &gfs2_iomap_ops,
 			&gfs2_iomap_write_ops, NULL);
@@ -1266,6 +1270,12 @@ static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t 
 
 	next = (next + 1) << sdp->sd_sb.sb_bsize_shift;
 
+	if (!(mode & FALLOC_FL_KEEP_SIZE)) {
+		error = gfs2_clear_beyond_eof(inode, offset + len);
+		if (error)
+			return error;
+	}
+
 	offset &= bsize_mask;
 
 	len = next - offset;
@@ -1446,7 +1456,7 @@ static int gfs2_lock(struct file *file, int cmd, struct file_lock *fl)
 
 	if (!(fl->c.flc_flags & FL_POSIX))
 		return -ENOLCK;
-	if (gfs2_withdrawing_or_withdrawn(sdp)) {
+	if (gfs2_withdrawn(sdp)) {
 		if (lock_is_unlock(fl))
 			locks_lock_file_wait(file, fl);
 		return -EIO;

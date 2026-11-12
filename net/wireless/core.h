@@ -24,6 +24,16 @@
 struct cfg80211_scan_request_int {
 	struct cfg80211_scan_info info;
 	bool notified;
+	/*
+	 * set while the request is handed to the driver, i.e. between
+	 * rdev_scan() and cfg80211_scan_done()
+	 */
+	bool driver_owns;
+	/*
+	 * set when cfg80211 is done with the request but the driver still
+	 * owns it, so that cfg80211_scan_done() knows to just free it
+	 */
+	bool stale;
 	/* must be last - variable members */
 	struct cfg80211_scan_request req;
 };
@@ -424,7 +434,7 @@ void __cfg80211_port_authorized(struct wireless_dev *wdev, const u8 *peer_addr,
 				const u8 *td_bitmap, u8 td_bitmap_len);
 int cfg80211_mgd_wext_connect(struct cfg80211_registered_device *rdev,
 			      struct wireless_dev *wdev);
-void cfg80211_autodisconnect_wk(struct work_struct *work);
+void cfg80211_autodisconnect_wk(struct wiphy *wiphy, struct wiphy_work *work);
 
 /* SME implementation */
 void cfg80211_conn_work(struct work_struct *work);

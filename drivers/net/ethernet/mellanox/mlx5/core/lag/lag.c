@@ -62,14 +62,15 @@ static int get_port_sel_mode(enum mlx5_lag_mode mode, unsigned long flags)
 	return MLX5_LAG_PORT_SELECT_MODE_QUEUE_AFFINITY;
 }
 
-static u8 lag_active_port_bits(struct mlx5_lag *ldev)
+static u8 lag_active_port_bits(struct mlx5_lag *ldev,
+			       struct lag_tracker *tracker)
 {
 	u8 enabled_ports[MLX5_MAX_PORTS] = {};
 	u8 active_port = 0;
 	int num_enabled;
 	int idx;
 
-	mlx5_infer_tx_enabled(&ldev->tracker, ldev, enabled_ports,
+	mlx5_infer_tx_enabled(tracker, ldev, enabled_ports,
 			      &num_enabled);
 	for (idx = 0; idx < num_enabled; idx++)
 		active_port |= BIT_MASK(enabled_ports[idx]);
@@ -78,7 +79,8 @@ static u8 lag_active_port_bits(struct mlx5_lag *ldev)
 }
 
 static int mlx5_cmd_create_lag(struct mlx5_core_dev *dev, struct mlx5_lag *ldev,
-			       int mode, unsigned long flags)
+			       struct lag_tracker *tracker, int mode,
+			       unsigned long flags)
 {
 	bool fdb_sel_mode = test_bit(MLX5_LAG_MODE_FLAG_FDB_SEL_MODE_NATIVE,
 				     &flags);
@@ -107,7 +109,7 @@ static int mlx5_cmd_create_lag(struct mlx5_core_dev *dev, struct mlx5_lag *ldev,
 			break;
 
 		MLX5_SET(lagc, lag_ctx, active_port,
-			 lag_active_port_bits(mlx5_lag_dev(dev)));
+			 lag_active_port_bits(ldev, tracker));
 		break;
 	default:
 		break;
@@ -494,7 +496,8 @@ static int mlx5_cmd_modify_active_port(struct mlx5_core_dev *dev, u8 ports)
 	return mlx5_cmd_exec_in(dev, modify_lag, in);
 }
 
-static int _mlx5_modify_lag(struct mlx5_lag *ldev, u8 *ports)
+static int _mlx5_modify_lag(struct mlx5_lag *ldev,
+			    struct lag_tracker *tracker, u8 *ports)
 {
 	int idx = mlx5_lag_get_dev_index_by_seq(ldev, MLX5_LAG_P1);
 	struct mlx5_core_dev *dev0;
@@ -511,7 +514,7 @@ static int _mlx5_modify_lag(struct mlx5_lag *ldev, u8 *ports)
 		    !MLX5_CAP_PORT_SELECTION(dev0, port_select_flow_table_bypass))
 			return ret;
 
-		active_ports = lag_active_port_bits(ldev);
+		active_ports = lag_active_port_bits(ldev, tracker);
 
 		return mlx5_cmd_modify_active_port(dev0, active_ports);
 	}
@@ -571,7 +574,7 @@ void mlx5_modify_lag(struct mlx5_lag *ldev,
 			idx = i * ldev->buckets + j;
 			if (ports[idx] == ldev->v2p_map[idx])
 				continue;
-			err = _mlx5_modify_lag(ldev, ports);
+			err = _mlx5_modify_lag(ldev, tracker, ports);
 			if (err) {
 				mlx5_core_err(dev0,
 					      "Failed to modify LAG (%d)\n",
@@ -682,7 +685,7 @@ static int mlx5_lag_create_single_fdb(struct mlx5_lag *ldev)
 	}
 	return 0;
 err:
-	mlx5_ldev_for_each_reverse(j, i, first_idx + 1, ldev)
+	mlx5_ldev_for_each_reverse(j, i - 1, first_idx + 1, ldev)
 		mlx5_eswitch_offloads_single_fdb_del_one(master_esw,
 							 ldev->pf[j].dev->priv.eswitch);
 	return err;
@@ -708,7 +711,7 @@ static int mlx5_create_lag(struct mlx5_lag *ldev,
 	mlx5_core_info(dev0, "shared_fdb:%d mode:%s\n",
 		       shared_fdb, mlx5_get_str_port_sel_mode(mode, flags));
 
-	err = mlx5_cmd_create_lag(dev0, ldev, mode, flags);
+	err = mlx5_cmd_create_lag(dev0, ldev, tracker, mode, flags);
 	if (err) {
 		mlx5_core_err(dev0,
 			      "Failed to create LAG (%d)\n",
@@ -1330,9 +1333,11 @@ static int mlx5_handle_changeupper_event(struct mlx5_lag *ldev,
 			}
 		}
 		if (i < MLX5_MAX_PORTS) {
-			slave = bond_slave_get_rcu(ndev_tmp);
-			if (slave)
-				has_inactive |= bond_is_slave_inactive(slave);
+			if (netif_is_bond_master(upper)) {
+				slave = bond_slave_get_rcu(ndev_tmp);
+				if (slave)
+					has_inactive |= bond_is_slave_inactive(slave);
+			}
 			bond_status |= (1 << idx);
 		}
 
@@ -1416,7 +1421,7 @@ static int mlx5_handle_changeinfodata_event(struct mlx5_lag *ldev,
 	bool has_inactive = 0;
 	int idx;
 
-	if (!netif_is_lag_master(ndev))
+	if (!netif_is_bond_master(ndev))
 		return 0;
 
 	rcu_read_lock();

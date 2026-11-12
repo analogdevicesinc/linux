@@ -25,6 +25,9 @@
 
 #include "mt7530.h"
 
+#define MT7530_STATS_POLL_INTERVAL	(1 * HZ)
+#define MT7530_STATS_RATE_LIMIT		(HZ / 10)
+
 static struct mt753x_pcs *pcs_to_mt753x_pcs(struct phylink_pcs *pcs)
 {
 	return container_of(pcs, struct mt753x_pcs, pcs);
@@ -121,8 +124,12 @@ core_rmw(struct mt7530_priv *priv, u32 reg, u32 mask, u32 set)
 		goto err;
 
 	/* Read the content of the MMD's selected register */
-	val = bus->read(bus, MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr),
+	ret = bus->read(bus, MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr),
 			MII_MMD_DATA);
+	if (ret < 0)
+		goto err;
+	val = ret;
+
 	val &= ~mask;
 	val |= set;
 	/* Write the data into MMD's selected register */
@@ -554,7 +561,9 @@ mt7531_ind_c45_phy_read(struct mt7530_priv *priv, int port, int devad,
 
 	reg = MT7531_MDIO_CL45_ADDR | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_DEV_ADDR(devad) | regnum;
-	mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -565,7 +574,9 @@ mt7531_ind_c45_phy_read(struct mt7530_priv *priv, int port, int devad,
 
 	reg = MT7531_MDIO_CL45_READ | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_DEV_ADDR(devad);
-	mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -599,7 +610,9 @@ mt7531_ind_c45_phy_write(struct mt7530_priv *priv, int port, int devad,
 
 	reg = MT7531_MDIO_CL45_ADDR | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_DEV_ADDR(devad) | regnum;
-	mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -610,7 +623,9 @@ mt7531_ind_c45_phy_write(struct mt7530_priv *priv, int port, int devad,
 
 	reg = MT7531_MDIO_CL45_WRITE | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_DEV_ADDR(devad) | data;
-	mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -643,7 +658,9 @@ mt7531_ind_c22_phy_read(struct mt7530_priv *priv, int port, int regnum)
 	val = MT7531_MDIO_CL22_READ | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_REG_ADDR(regnum);
 
-	mt7530_mii_write(priv, MT7531_PHY_IAC, val | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, val | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, val,
 				       !(val & MT7531_PHY_ACS_ST), 20, 100000);
@@ -678,7 +695,9 @@ mt7531_ind_c22_phy_write(struct mt7530_priv *priv, int port, int regnum,
 	reg = MT7531_MDIO_CL22_WRITE | MT7531_MDIO_PHY_ADDR(port) |
 	      MT7531_MDIO_REG_ADDR(regnum) | data;
 
-	mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	ret = mt7530_mii_write(priv, MT7531_PHY_IAC, reg | MT7531_PHY_ACS_ST);
+	if (ret < 0)
+		goto out;
 
 	ret = regmap_read_poll_timeout(priv->regmap, MT7531_PHY_IAC, reg,
 				       !(reg & MT7531_PHY_ACS_ST), 20, 100000);
@@ -888,10 +907,9 @@ static void mt7530_get_rmon_stats(struct dsa_switch *ds, int port,
 	*ranges = mt7530_rmon_ranges;
 }
 
-static void mt7530_get_stats64(struct dsa_switch *ds, int port,
-			       struct rtnl_link_stats64 *storage)
+static void mt7530_read_port_stats64(struct mt7530_priv *priv, int port,
+				     struct rtnl_link_stats64 *storage)
 {
-	struct mt7530_priv *priv = ds->priv;
 	uint64_t data;
 
 	/* MIB counter doesn't provide a FramesTransmittedOK but instead
@@ -931,6 +949,54 @@ static void mt7530_get_stats64(struct dsa_switch *ds, int port,
 
 	mt7530_read_port_stats(priv, port, MT7530_PORT_MIB_RX_CRC_ERR, 1,
 			       &storage->rx_crc_errors);
+}
+
+static void mt7530_stats_refresh(struct mt7530_priv *priv)
+{
+	struct rtnl_link_stats64 stats = {};
+	struct dsa_port *dp;
+	int port;
+
+	dsa_switch_for_each_user_port(dp, priv->ds) {
+		port = dp->index;
+
+		mt7530_read_port_stats64(priv, port, &stats);
+
+		spin_lock_bh(&priv->stats_lock);
+		priv->ports[port].stats = stats;
+		priv->stats_last = jiffies;
+		spin_unlock_bh(&priv->stats_lock);
+	}
+}
+
+static void mt7530_stats_poll(struct work_struct *work)
+{
+	struct mt7530_priv *priv = container_of(work, struct mt7530_priv,
+						stats_work.work);
+
+	mt7530_stats_refresh(priv);
+	schedule_delayed_work(&priv->stats_work,
+			      MT7530_STATS_POLL_INTERVAL);
+}
+
+static void mt7530_get_stats64(struct dsa_switch *ds, int port,
+			       struct rtnl_link_stats64 *storage)
+{
+	struct mt7530_priv *priv = ds->priv;
+	bool refresh;
+
+	if (priv->bus) {
+		spin_lock_bh(&priv->stats_lock);
+		*storage = priv->ports[port].stats;
+		refresh = time_after(jiffies, priv->stats_last +
+					      MT7530_STATS_RATE_LIMIT);
+		spin_unlock_bh(&priv->stats_lock);
+		if (refresh)
+			mod_delayed_work(system_percpu_wq,
+					 &priv->stats_work, 0);
+	} else {
+		mt7530_read_port_stats64(priv, port, storage);
+	}
 }
 
 static void mt7530_get_eth_ctrl_stats(struct dsa_switch *ds, int port,
@@ -2692,14 +2758,20 @@ mt7531_setup(struct dsa_switch *ds)
 	 * phy_[read,write]_mmd_indirect is called, we provide our own
 	 * mt7531_ind_mmd_phy_[read,write] to complete this function.
 	 */
-	val = mt7531_ind_c45_phy_read(priv,
+	ret = mt7531_ind_c45_phy_read(priv,
 				      MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr),
 				      MDIO_MMD_VEND2, CORE_PLL_GROUP4);
+	if (ret < 0)
+		return ret;
+
+	val = ret;
 	val |= MT7531_RG_SYSPLL_DMY2 | MT7531_PHY_PLL_BYPASS_MODE;
 	val &= ~MT7531_PHY_PLL_OFF;
-	mt7531_ind_c45_phy_write(priv,
-				 MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr),
-				 MDIO_MMD_VEND2, CORE_PLL_GROUP4, val);
+	ret = mt7531_ind_c45_phy_write(priv,
+				       MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr),
+				       MDIO_MMD_VEND2, CORE_PLL_GROUP4, val);
+	if (ret < 0)
+		return ret;
 
 	/* Disable EEE advertisement on the switch PHYs. */
 	for (i = MT753X_CTRL_PHY_ADDR(priv->mdiodev->addr);
@@ -2825,6 +2897,30 @@ static void en7581_mac_port_get_caps(struct dsa_switch *ds, int port,
 			  config->supported_interfaces);
 
 		config->mac_capabilities |= MAC_10000FD;
+		break;
+	}
+}
+
+static void en7528_mac_port_get_caps(struct dsa_switch *ds, int port,
+				     struct phylink_config *config)
+{
+	switch (port) {
+	/* Ports which are connected to switch PHYs. There is no MII pinout. */
+	case 1 ... 4:
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL,
+			  config->supported_interfaces);
+
+		config->mac_capabilities |= MAC_10 | MAC_100 | MAC_1000FD;
+		break;
+
+	/* Port 6 is connected to SoC's GMAC at 1000 Mbps full duplex. There
+	 * is no MII pinout.
+	 */
+	case 6:
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL,
+			  config->supported_interfaces);
+
+		config->mac_capabilities |= MAC_1000FD;
 		break;
 	}
 }
@@ -3018,19 +3114,34 @@ static void mt753x_phylink_get_caps(struct dsa_switch *ds, int port,
 				    struct phylink_config *config)
 {
 	struct mt7530_priv *priv = ds->priv;
-	u32 eeecr;
 
 	config->mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE;
 
-	config->lpi_capabilities = MAC_100FD | MAC_1000FD | MAC_2500FD;
-
-	eeecr = mt7530_read(priv, MT753X_PMEEECR_P(port));
-	/* tx_lpi_timer should be in microseconds. The time units for
-	 * LPI threshold are unspecified.
-	 */
-	config->lpi_timer_default = FIELD_GET(LPI_THRESH_MASK, eeecr);
-
 	priv->info->mac_port_get_caps(ds, port, config);
+
+	/* The EN7528 GPHYs report EEE capability, but negotiating EEE with
+	 * common link partners (e.g. Realtek GbE NICs) results in an unstable
+	 * link with dropped frames. Leave the LPI capabilities empty so that
+	 * phylink disables EEE on these PHYs and refuses to enable it from
+	 * userspace.
+	 */
+	if (priv->id != ID_EN7528 &&
+	    config->mac_capabilities & (MAC_100FD | MAC_1000FD)) {
+		u32 eeecr = mt7530_read(priv, MT753X_PMEEECR_P(port));
+
+		/* LPI above 1 Gbps is not supported */
+		config->lpi_capabilities = config->mac_capabilities &
+					   (MAC_100FD | MAC_1000FD);
+		phy_interface_copy(config->lpi_interfaces,
+				   config->supported_interfaces);
+		__clear_bit(PHY_INTERFACE_MODE_2500BASEX,
+			    config->lpi_interfaces);
+
+		/* tx_lpi_timer should be in microseconds. The time units for
+		 * LPI threshold are unspecified.
+		 */
+		config->lpi_timer_default = FIELD_GET(LPI_THRESH_MASK, eeecr);
+	}
 }
 
 static int mt753x_pcs_validate(struct phylink_pcs *pcs,
@@ -3130,7 +3241,22 @@ mt753x_setup(struct dsa_switch *ds)
 	if (ret && priv->irq_domain)
 		mt7530_free_mdio_irq(priv);
 
+	if (!ret && priv->bus) {
+		mt7530_stats_refresh(priv);
+		schedule_delayed_work(&priv->stats_work,
+				      MT7530_STATS_POLL_INTERVAL);
+	}
+
 	return ret;
+}
+
+static void
+mt753x_teardown(struct dsa_switch *ds)
+{
+	struct mt7530_priv *priv = ds->priv;
+
+	if (priv->bus)
+		cancel_delayed_work_sync(&priv->stats_work);
 }
 
 static int mt753x_set_mac_eee(struct dsa_switch *ds, int port,
@@ -3156,7 +3282,8 @@ mt753x_conduit_state_change(struct dsa_switch *ds,
 	 * forwarded to the numerically smallest CPU port whose conduit
 	 * interface is up.
 	 */
-	if (priv->id != ID_MT7530 && priv->id != ID_MT7621)
+	if (priv->id != ID_MT7530 && priv->id != ID_MT7621 &&
+	    priv->id != ID_EN7528)
 		return;
 
 	mask = BIT(cpu_dp->index);
@@ -3250,6 +3377,7 @@ static int mt7988_setup(struct dsa_switch *ds)
 const struct dsa_switch_ops mt7530_switch_ops = {
 	.get_tag_protocol	= mtk_get_tag_protocol,
 	.setup			= mt753x_setup,
+	.teardown		= mt753x_teardown,
 	.preferred_default_local_cpu_port = mt753x_preferred_default_local_cpu_port,
 	.get_strings		= mt7530_get_strings,
 	.get_ethtool_stats	= mt7530_get_ethtool_stats,
@@ -3359,6 +3487,16 @@ const struct mt753x_info mt753x_table[] = {
 		.phy_write_c45 = mt7531_ind_c45_phy_write,
 		.mac_port_get_caps = en7581_mac_port_get_caps,
 	},
+	[ID_EN7528] = {
+		.id = ID_EN7528,
+		.pcs_ops = &mt7530_pcs_ops,
+		.sw_setup = mt7988_setup,
+		.phy_read_c22 = mt7531_ind_c22_phy_read,
+		.phy_write_c22 = mt7531_ind_c22_phy_write,
+		.phy_read_c45 = mt7531_ind_c45_phy_read,
+		.phy_write_c45 = mt7531_ind_c45_phy_write,
+		.mac_port_get_caps = en7528_mac_port_get_caps,
+	},
 };
 EXPORT_SYMBOL_GPL(mt753x_table);
 
@@ -3387,6 +3525,9 @@ mt7530_probe_common(struct mt7530_priv *priv)
 	priv->ds->ops = &mt7530_switch_ops;
 	priv->ds->phylink_mac_ops = &mt753x_phylink_mac_ops;
 	mutex_init(&priv->reg_mutex);
+	spin_lock_init(&priv->stats_lock);
+	INIT_DELAYED_WORK(&priv->stats_work, mt7530_stats_poll);
+
 	dev_set_drvdata(dev, priv);
 
 	return 0;
@@ -3396,9 +3537,6 @@ EXPORT_SYMBOL_GPL(mt7530_probe_common);
 void
 mt7530_remove_common(struct mt7530_priv *priv)
 {
-	if (priv->irq_domain)
-		mt7530_free_mdio_irq(priv);
-
 	dsa_unregister_switch(priv->ds);
 
 	mutex_destroy(&priv->reg_mutex);

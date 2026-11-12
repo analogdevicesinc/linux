@@ -996,7 +996,7 @@ static void stripe_add_to_batch_list(struct r5conf *conf,
 	if (test_and_clear_bit(STRIPE_BIT_DELAY, &sh->state)) {
 		int seq = sh->bm_seq;
 		if (test_bit(STRIPE_BIT_DELAY, &sh->batch_head->state) &&
-		    sh->batch_head->bm_seq > seq)
+		    sh->batch_head->bm_seq - seq > 0)
 			seq = sh->batch_head->bm_seq;
 		set_bit(STRIPE_BIT_DELAY, &sh->batch_head->state);
 		sh->batch_head->bm_seq = seq;
@@ -2627,6 +2627,7 @@ static int resize_stripes(struct r5conf *conf, int newsize)
 		} else {
 			kfree(conf->disks);
 			conf->disks = ndisks;
+			conf->disks_cnt = newsize;
 		}
 	} else
 		err = -ENOMEM;
@@ -5700,30 +5701,38 @@ static void make_discard_request(struct mddev *mddev, struct bio *bi)
 {
 	struct r5conf *conf = mddev->private;
 	sector_t logical_sector, last_sector;
+	sector_t first_stripe, last_stripe;
 	struct stripe_head *sh;
+	struct bvec_iter bi_iter;
+	struct bio *orig_bi = bi;
 	int stripe_sectors;
 
-	/* We need to handle this when io_uring supports discard/trim */
-	if (WARN_ON_ONCE(bi->bi_opf & REQ_NOWAIT))
-		return;
-
 	if (mddev->reshape_position != MaxSector)
-		/* Skip discard while reshape is happening */
-		return;
-
-	logical_sector = bi->bi_iter.bi_sector & ~((sector_t)RAID5_STRIPE_SECTORS(conf)-1);
-	last_sector = bio_end_sector(bi);
-
-	bi->bi_next = NULL;
+		goto complete_again;
 
 	stripe_sectors = conf->chunk_sectors *
 		(conf->raid_disks - conf->max_degraded);
-	logical_sector = DIV_ROUND_UP_SECTOR_T(logical_sector,
-					       stripe_sectors);
-	sector_div(last_sector, stripe_sectors);
+	first_stripe = DIV_ROUND_UP_SECTOR_T(bi->bi_iter.bi_sector,
+					     stripe_sectors);
+	last_stripe = bio_end_sector(bi);
+	sector_div(last_stripe, stripe_sectors);
 
-	logical_sector *= conf->chunk_sectors;
-	last_sector *= conf->chunk_sectors;
+	if (first_stripe >= last_stripe) {
+		bio_endio(bi);
+		return;
+	}
+
+	bi_iter = bi->bi_iter;
+	bi->bi_iter.bi_sector = first_stripe * stripe_sectors;
+	bi->bi_iter.bi_size = ((last_stripe - first_stripe) *
+			       stripe_sectors) << 9;
+	md_account_bio(mddev, &bi);
+	orig_bi->bi_iter = bi_iter;
+	bi->bi_iter = bi_iter;
+	bi->bi_next = NULL;
+
+	logical_sector = first_stripe * conf->chunk_sectors;
+	last_sector = last_stripe * conf->chunk_sectors;
 
 	for (; logical_sector < last_sector;
 	     logical_sector += RAID5_STRIPE_SECTORS(conf)) {
@@ -5777,6 +5786,11 @@ static void make_discard_request(struct mddev *mddev, struct bio *bi)
 	}
 
 	bio_endio(bi);
+	return;
+
+complete_again:
+	/* Skip discard while reshape is happening */
+	bio_endio_status(bi, BLK_STS_AGAIN);
 }
 
 static bool ahead_of_reshape(struct mddev *mddev, sector_t sector,
@@ -6057,8 +6071,11 @@ out_release:
 	raid5_release_stripe(sh);
 out:
 	if (ret == STRIPE_SCHEDULE_AND_RETRY && reshape_interrupted(mddev)) {
-		bi->bi_status = BLK_STS_RESOURCE;
-		ret = STRIPE_WAIT_RESHAPE;
+		if (!mddev_is_dm(mddev) ||
+		    test_bit(MD_DM_SUSPENDING, &mddev->flags)) {
+			bi->bi_status = BLK_STS_RESOURCE;
+			ret = STRIPE_WAIT_RESHAPE;
+		}
 		pr_err_ratelimited("dm-raid456: io across reshape position while reshape can't make progress");
 	}
 	return ret;
@@ -6155,14 +6172,6 @@ static bool raid5_make_request(struct mddev *mddev, struct bio * bi)
 	pr_debug("raid456: %s, logical %llu to %llu\n", __func__,
 		 bi->bi_iter.bi_sector, ctx.last_sector);
 
-	/* Bail out if conflicts with reshape and REQ_NOWAIT is set */
-	if ((bi->bi_opf & REQ_NOWAIT) &&
-	    get_reshape_loc(mddev, conf, logical_sector) == LOC_INSIDE_RESHAPE) {
-		bio_wouldblock_error(bi);
-		if (rw == WRITE)
-			md_write_end(mddev);
-		return true;
-	}
 	md_account_bio(mddev, &bi);
 
 	/*
@@ -7383,7 +7392,8 @@ static void raid5_free_percpu(struct r5conf *conf)
 	if (!conf->percpu)
 		return;
 
-	cpuhp_state_remove_instance(CPUHP_MD_RAID5_PREPARE, &conf->node);
+	if (!hlist_unhashed_lockless(&conf->node))
+		cpuhp_state_remove_instance(CPUHP_MD_RAID5_PREPARE, &conf->node);
 	free_percpu(conf->percpu);
 }
 
@@ -7397,7 +7407,7 @@ static void free_conf(struct r5conf *conf)
 	free_thread_groups(conf);
 	shrink_stripes(conf);
 	raid5_free_percpu(conf);
-	for (i = 0; i < conf->pool_size; i++)
+	for (i = 0; i < conf->disks_cnt; i++)
 		if (conf->disks[i].extra_page)
 			put_page(conf->disks[i].extra_page);
 	kfree(conf->disks);
@@ -7580,7 +7590,7 @@ static struct r5conf *setup_conf(struct mddev *mddev)
 
 	if (!conf->disks)
 		goto abort;
-
+	conf->disks_cnt = max_disks;
 	for (i = 0; i < max_disks; i++) {
 		conf->disks[i].extra_page = alloc_page(GFP_KERNEL);
 		if (!conf->disks[i].extra_page)
@@ -8429,6 +8439,8 @@ static int check_reshape(struct mddev *mddev)
 		return 0; /* nothing to do */
 	if (has_failed(conf))
 		return -EINVAL;
+	if (!mddev->new_chunk_sectors)
+		return -EINVAL;
 	if (mddev->delta_disks < 0 && mddev->reshape_position == MaxSector) {
 		/* We might be able to shrink, but the devices must
 		 * be made bigger first.
@@ -8471,6 +8483,9 @@ static int raid5_start_reshape(struct mddev *mddev)
 
 	if (test_bit(MD_RECOVERY_RUNNING, &mddev->recovery))
 		return -EBUSY;
+
+	if (!mddev->new_chunk_sectors)
+		return -EINVAL;
 
 	if (!check_stripe_cache(mddev))
 		return -ENOSPC;

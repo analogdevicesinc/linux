@@ -7,6 +7,7 @@
 
 #include <linux/blkdev.h>
 #include <linux/fs.h>
+#include <linux/overflow.h>
 #include <linux/random.h>
 #include <linux/slab.h>
 
@@ -2455,7 +2456,8 @@ static int find_log_rec(struct ntfs_log *log, u64 lsn, struct lcb *lcb)
 	 * Check that the length field isn't greater than the total
 	 * available space the log file.
 	 */
-	rec_len = len + log->record_header_len;
+	if (check_add_overflow(len, log->record_header_len, &rec_len))
+		return -EINVAL;
 	if (rec_len >= log->total_avail)
 		return -EINVAL;
 
@@ -2641,11 +2643,12 @@ static int read_next_log_rec(struct ntfs_log *log, struct lcb *lcb, u64 *lsn)
 
 bool check_index_header(const struct INDEX_HDR *hdr, size_t bytes)
 {
+	const bool has_subnode = hdr_has_subnode(hdr);
 	__le16 mask;
 	u32 min_de, de_off, used, total;
 	const struct NTFS_DE *e;
 
-	if (hdr_has_subnode(hdr)) {
+	if (has_subnode) {
 		min_de = sizeof(struct NTFS_DE) + sizeof(u64);
 		mask = NTFS_IE_HAS_SUBNODES;
 	} else {
@@ -2662,20 +2665,33 @@ bool check_index_header(const struct INDEX_HDR *hdr, size_t bytes)
 		return false;
 	}
 
-	e = Add2Ptr(hdr, de_off);
+	e = (const struct NTFS_DE *)((const u8 *)hdr + de_off);
 	for (;;) {
 		u16 esize = le16_to_cpu(e->size);
-		struct NTFS_DE *next = Add2Ptr(e, esize);
+		u16 key_size = le16_to_cpu(e->key_size);
+		u16 data_size;
 
-		if (esize < min_de || PtrOffset(hdr, next) > used ||
+		if (!IS_ALIGNED(esize, 8) || esize < min_de ||
 		    (e->flags & NTFS_IE_HAS_SUBNODES) != mask) {
 			return false;
 		}
 
-		if (de_is_last(e))
-			break;
+		if (size_add(de_off, esize) > used)
+			return false;
 
-		e = next;
+		if (de_is_last(e)) {
+			if (key_size)
+				return false;
+
+			break;
+		}
+
+		data_size = esize - min_de;
+		if (key_size > data_size)
+			return false;
+
+		de_off += esize;
+		e = (const struct NTFS_DE *)((const u8 *)hdr + de_off);
 	}
 
 	return true;
@@ -3286,10 +3302,15 @@ skip_load_parent:
 		asize = le32_to_cpu(attr2->size);
 		used = le32_to_cpu(rec->used);
 
+		/*
+		 * attr2->size is taken from the log record and is bounded only
+		 * by the log record length, not by the MFT record.  Refuse an
+		 * attribute that does not fit, as mi_insert_attr() does.
+		 */
 		if (!check_if_attr(rec, lrh) || dlen < SIZEOF_RESIDENT ||
 		    !IS_ALIGNED(asize, 8) ||
 		    Add2Ptr(attr2, asize) > Add2Ptr(lrh, rec_len) ||
-		    dlen > record_size - used) {
+		    dlen > record_size - used || asize > record_size - used) {
 			goto dirty_vol;
 		}
 
@@ -3319,10 +3340,21 @@ skip_load_parent:
 		break;
 
 	case DeleteAttribute:
-		asize = le32_to_cpu(attr->size);
 		used = le32_to_cpu(rec->used);
 
-		if (!check_if_attr(rec, lrh))
+		/*
+		 * check_if_attr() accepts a record_off that points at the
+		 * ATTR_END marker, which is how CreateAttribute appends.  The
+		 * bytes there are not an attribute and check_attr() never
+		 * validated them, so refuse an offset that cannot hold a
+		 * resident header before reading attr->size, and then bound it
+		 * as mi_remove_attr() does.
+		 */
+		if (!check_if_attr(rec, lrh) || roff + SIZEOF_RESIDENT > used)
+			goto dirty_vol;
+
+		asize = le32_to_cpu(attr->size);
+		if (asize > used - roff)
 			goto dirty_vol;
 
 		rec->used = cpu_to_le32(used - asize);
@@ -3404,7 +3436,8 @@ move_data:
 
 		if (!check_if_attr(rec, lrh) || !attr->non_res ||
 		    aoff < le16_to_cpu(attr->nres.run_off) || aoff > asize ||
-		    (nsize > asize && nsize - asize > record_size - used)) {
+		    (nsize > asize &&
+		     ALIGN(nsize, 8) - asize > record_size - used)) {
 			goto dirty_vol;
 		}
 

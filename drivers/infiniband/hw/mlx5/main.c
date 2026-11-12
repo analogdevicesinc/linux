@@ -1669,11 +1669,8 @@ static int mlx5_ib_query_port_speed_rep(struct mlx5_ib_dev *dev, u32 port_num,
 	struct mlx5_core_dev *mdev;
 	u16 op_mod;
 
-	if (!dev->port[port_num - 1].rep) {
-		mlx5_ib_warn(dev, "Representor doesn't exist for port %u\n",
-			     port_num);
-		return -EINVAL;
-	}
+	if (!dev->port[port_num - 1].rep)
+		return -ENODEV;
 
 	rep = dev->port[port_num - 1].rep;
 	mdev = mlx5_eswitch_get_core_dev(rep->esw);
@@ -2019,12 +2016,23 @@ int mlx5_ib_enable_lb(struct mlx5_ib_dev *dev, bool td, bool qp)
 	    dev->lb.qps == 1) {
 		if (!dev->lb.enabled) {
 			err = mlx5_nic_vport_update_local_lb(dev->mdev, true);
+			if (err)
+				goto err_rollback;
+
 			dev->lb.enabled = true;
 		}
 	}
 
 	mutex_unlock(&dev->lb.mutex);
 
+	return err;
+
+err_rollback:
+	if (td)
+		dev->lb.user_td--;
+	if (qp)
+		dev->lb.qps--;
+	mutex_unlock(&dev->lb.mutex);
 	return err;
 }
 

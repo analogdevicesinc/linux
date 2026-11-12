@@ -150,68 +150,93 @@ int cfg80211_dev_rename(struct cfg80211_registered_device *rdev,
 	return 0;
 }
 
+static int cfg80211_switch_wdev_netns(struct wireless_dev *wdev,
+				      struct net *net)
+{
+	int err;
+
+	if (!wdev->netdev)
+		return 0;
+
+	wdev->netdev->netns_immutable = false;
+	err = dev_change_net_namespace(wdev->netdev, net, "wlan%d");
+	wdev->netdev->netns_immutable = true;
+
+	return err;
+}
+
+static int __cfg80211_switch_netns(struct cfg80211_registered_device *rdev,
+				   struct net *net, bool force)
+{
+	struct net *old_net = wiphy_net(&rdev->wiphy);
+	struct wireless_dev *wdev, *tmp;
+	int err = 0;
+
+	list_for_each_entry_safe(wdev, tmp, &rdev->wiphy.wdev_list, list) {
+		err = cfg80211_switch_wdev_netns(wdev, net);
+		if (!err)
+			continue;
+		if (!force)
+			goto undo;
+		/* remove interfaces that fail to allow wiphy switching */
+		dev_close(wdev->netdev);
+		scoped_guard(wiphy, &rdev->wiphy)
+			cfg80211_unregister_wdev(wdev);
+		err = 0;
+	}
+
+	scoped_guard(wiphy, &rdev->wiphy) {
+		list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
+			if (!wdev->netdev)
+				continue;
+			nl80211_notify_iface(rdev, wdev,
+					     NL80211_CMD_DEL_INTERFACE);
+		}
+
+		nl80211_notify_wiphy(rdev, NL80211_CMD_DEL_WIPHY);
+
+		wiphy_net_set(&rdev->wiphy, net);
+
+		/* this only fails on allocation failure */
+		err = device_rename(&rdev->wiphy.dev,
+				    dev_name(&rdev->wiphy.dev));
+		if (err && !force)
+			wiphy_net_set(&rdev->wiphy, old_net);
+
+		nl80211_notify_wiphy(rdev, NL80211_CMD_NEW_WIPHY);
+
+		list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
+			if (!wdev->netdev)
+				continue;
+			nl80211_notify_iface(rdev, wdev,
+					     NL80211_CMD_NEW_INTERFACE);
+		}
+	}
+
+	if (!err || force)
+		return err;
+
+	/* set to the last one to undo all of them */
+	wdev = list_entry(&rdev->wiphy.wdev_list, typeof(*wdev), list);
+undo:
+	/*
+	 * Move back everything, if this fails again (allocation failures)
+	 * then things get stuck in different network namespaces.
+	 */
+	list_for_each_entry_continue_reverse(wdev, &rdev->wiphy.wdev_list,
+					     list)
+		WARN_ON(cfg80211_switch_wdev_netns(wdev, old_net));
+
+	return err;
+}
+
 int cfg80211_switch_netns(struct cfg80211_registered_device *rdev,
 			  struct net *net)
 {
-	struct wireless_dev *wdev;
-	int err = 0;
-
 	if (!(rdev->wiphy.flags & WIPHY_FLAG_NETNS_OK))
 		return -EOPNOTSUPP;
 
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (!wdev->netdev)
-			continue;
-		wdev->netdev->netns_immutable = false;
-		err = dev_change_net_namespace(wdev->netdev, net, "wlan%d");
-		if (err)
-			break;
-		wdev->netdev->netns_immutable = true;
-	}
-
-	if (err) {
-		/* failed -- clean up to old netns */
-		net = wiphy_net(&rdev->wiphy);
-
-		list_for_each_entry_continue_reverse(wdev,
-						     &rdev->wiphy.wdev_list,
-						     list) {
-			if (!wdev->netdev)
-				continue;
-			wdev->netdev->netns_immutable = false;
-			err = dev_change_net_namespace(wdev->netdev, net,
-							"wlan%d");
-			WARN_ON(err);
-			wdev->netdev->netns_immutable = true;
-		}
-
-		return err;
-	}
-
-	guard(wiphy)(&rdev->wiphy);
-
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (!wdev->netdev)
-			continue;
-		nl80211_notify_iface(rdev, wdev, NL80211_CMD_DEL_INTERFACE);
-	}
-
-	nl80211_notify_wiphy(rdev, NL80211_CMD_DEL_WIPHY);
-
-	wiphy_net_set(&rdev->wiphy, net);
-
-	err = device_rename(&rdev->wiphy.dev, dev_name(&rdev->wiphy.dev));
-	WARN_ON(err);
-
-	nl80211_notify_wiphy(rdev, NL80211_CMD_NEW_WIPHY);
-
-	list_for_each_entry(wdev, &rdev->wiphy.wdev_list, list) {
-		if (!wdev->netdev)
-			continue;
-		nl80211_notify_iface(rdev, wdev, NL80211_CMD_NEW_INTERFACE);
-	}
-
-	return 0;
+	return __cfg80211_switch_netns(rdev, net, false);
 }
 
 static void cfg80211_rfkill_poll(struct rfkill *rfkill, void *data)
@@ -241,9 +266,8 @@ void cfg80211_stop_p2p_device(struct cfg80211_registered_device *rdev,
 	rdev->opencount--;
 
 	if (rdev->scan_req && rdev->scan_req->req.wdev == wdev) {
-		if (WARN_ON(!rdev->scan_req->notified &&
-			    (!rdev->int_scan_req ||
-			     !rdev->int_scan_req->notified)))
+		if (!rdev->scan_req->notified &&
+		    (!rdev->int_scan_req || !rdev->int_scan_req->notified))
 			rdev->scan_req->info.aborted = true;
 		___cfg80211_scan_done(rdev, false);
 	}
@@ -781,6 +805,24 @@ static int wiphy_verify_combinations(struct wiphy *wiphy)
 	return ret;
 }
 
+static bool wiphy_cipher_suites_valid(const struct wiphy *wiphy)
+{
+	int i, j;
+
+	if (wiphy->n_cipher_suites && !wiphy->cipher_suites)
+		return false;
+
+	for (i = 0; i < wiphy->n_cipher_suites; i++) {
+		for (j = 0; j < i; j++) {
+			if (wiphy->cipher_suites[i] ==
+			    wiphy->cipher_suites[j])
+				return false;
+		}
+	}
+
+	return true;
+}
+
 int wiphy_register(struct wiphy *wiphy)
 {
 	struct cfg80211_registered_device *rdev = wiphy_to_rdev(wiphy);
@@ -912,6 +954,9 @@ int wiphy_register(struct wiphy *wiphy)
 	res = wiphy_verify_combinations(wiphy);
 	if (res)
 		return res;
+
+	if (!wiphy_cipher_suites_valid(wiphy))
+		return -EINVAL;
 
 	/* sanity check supported bands/channels */
 	for (band = 0; band < NUM_NL80211_BANDS; band++) {
@@ -1340,6 +1385,7 @@ static void _cfg80211_unregister_wdev(struct wireless_dev *wdev,
 	list_del_rcu(&wdev->list);
 	synchronize_net();
 	rdev->devlist_generation++;
+	wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk);
 
 	cfg80211_mlme_purge_registrations(wdev);
 
@@ -1523,7 +1569,7 @@ void cfg80211_init_wdev(struct wireless_dev *wdev)
 	     wdev->iftype == NL80211_IFTYPE_ADHOC) && !wdev->use_4addr)
 		wdev->netdev->priv_flags |= IFF_DONT_BRIDGE;
 
-	INIT_WORK(&wdev->disconnect_wk, cfg80211_autodisconnect_wk);
+	wiphy_work_init(&wdev->disconnect_wk, cfg80211_autodisconnect_wk);
 }
 
 void cfg80211_register_wdev(struct cfg80211_registered_device *rdev,
@@ -1631,17 +1677,17 @@ static int cfg80211_netdev_notifier_call(struct notifier_block *nb,
 		scoped_guard(wiphy, &rdev->wiphy) {
 			cfg80211_leave(rdev, wdev);
 			cfg80211_remove_links(wdev);
+			/* since we just did cfg80211_leave() nothing to do there */
+			wiphy_work_cancel(wdev->wiphy, &wdev->disconnect_wk);
 		}
-		/* since we just did cfg80211_leave() nothing to do there */
-		cancel_work_sync(&wdev->disconnect_wk);
 		break;
 	case NETDEV_DOWN:
 		wiphy_lock(&rdev->wiphy);
 		cfg80211_update_iface_num(rdev, wdev->iftype, -1);
 		if (rdev->scan_req && rdev->scan_req->req.wdev == wdev) {
-			if (WARN_ON(!rdev->scan_req->notified &&
-				    (!rdev->int_scan_req ||
-				     !rdev->int_scan_req->notified)))
+			if (!rdev->scan_req->notified &&
+			    (!rdev->int_scan_req ||
+			     !rdev->int_scan_req->notified))
 				rdev->scan_req->info.aborted = true;
 			___cfg80211_scan_done(rdev, false);
 		}
@@ -1732,7 +1778,7 @@ static void __net_exit cfg80211_pernet_exit(struct net *net)
 	rtnl_lock();
 	for_each_rdev(rdev) {
 		if (net_eq(wiphy_net(&rdev->wiphy), net))
-			WARN_ON(cfg80211_switch_netns(rdev, &init_net));
+			WARN_ON(__cfg80211_switch_netns(rdev, &init_net, true));
 	}
 	rtnl_unlock();
 }

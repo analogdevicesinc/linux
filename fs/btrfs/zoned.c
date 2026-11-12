@@ -130,8 +130,10 @@ static int sb_write_pointer(struct block_device *bdev, struct blk_zone *zones,
 			u64 bytenr = ALIGN_DOWN(zone_end, BTRFS_SUPER_INFO_SIZE) -
 						BTRFS_SUPER_INFO_SIZE;
 
+			filemap_invalidate_lock(mapping);
 			page[i] = read_cache_page_gfp(mapping,
 					bytenr >> PAGE_SHIFT, GFP_NOFS);
+			filemap_invalidate_unlock(mapping);
 			if (IS_ERR(page[i])) {
 				if (i == 1)
 					btrfs_release_disk_super(super[0]);
@@ -1837,7 +1839,7 @@ int btrfs_load_block_group_zone_info(struct btrfs_block_group *cache, bool new)
 	struct btrfs_chunk_map *map;
 	u64 logical = cache->start;
 	u64 length = cache->length;
-	struct zone_info *zone_info = NULL;
+	struct zone_info AUTO_KFREE(zone_info);
 	int ret;
 	int i;
 	unsigned long *active = NULL;
@@ -1991,7 +1993,6 @@ out:
 		cache->physical_map = NULL;
 	}
 	bitmap_free(active);
-	kfree(zone_info);
 
 	return ret;
 }
@@ -2590,16 +2591,13 @@ static int do_zone_finish(struct btrfs_block_group *block_group, bool fully_writ
 	down_read(&dev_replace->rwsem);
 	map = block_group->physical_map;
 	for (i = 0; i < map->num_stripes; i++) {
-
 		ret = call_zone_finish(block_group, &map->stripes[i]);
-		if (ret) {
-			up_read(&dev_replace->rwsem);
-			return ret;
-		}
+		if (ret)
+			break;
 	}
 	up_read(&dev_replace->rwsem);
 
-	if (!fully_written)
+	if (!ret && !fully_written)
 		btrfs_dec_block_group_ro(block_group);
 
 	spin_lock(&fs_info->zone_active_bgs_lock);
@@ -2612,7 +2610,7 @@ static int do_zone_finish(struct btrfs_block_group *block_group, bool fully_writ
 
 	clear_and_wake_up_bit(BTRFS_FS_NEED_ZONE_FINISH, &fs_info->flags);
 
-	return 0;
+	return ret;
 }
 
 int btrfs_zone_finish(struct btrfs_block_group *block_group)

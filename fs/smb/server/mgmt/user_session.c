@@ -168,10 +168,10 @@ void ksmbd_session_destroy(struct ksmbd_session *sess)
 	ksmbd_launch_ksmbd_durable_scavenger();
 	ksmbd_session_rpc_clear_list(sess);
 	free_channel_list(sess);
-	kfree(sess->Preauth_HashValue);
+	kfree_sensitive(sess->Preauth_HashValue);
 	ksmbd_release_id(&session_ida, sess->id);
 	ida_destroy(&sess->tree_conn_ida);
-	kfree(sess);
+	kfree_sensitive(sess);
 }
 
 struct ksmbd_session *__session_lookup(unsigned long long id)
@@ -247,22 +247,19 @@ void ksmbd_sessions_deregister(struct ksmbd_conn *conn)
 {
 	struct ksmbd_session *sess;
 	unsigned long id;
+	struct hlist_node *tmp;
+	int bkt;
 
 	down_write(&sessions_table_lock);
-	if (conn->binding) {
-		int bkt;
-		struct hlist_node *tmp;
-
-		hash_for_each_safe(sessions_table, bkt, tmp, sess, hlist) {
-			if (!ksmbd_chann_del(conn, sess) &&
-			    xa_empty(&sess->ksmbd_chann_list)) {
-				hash_del(&sess->hlist);
-				down_write(&conn->session_lock);
-				xa_erase(&conn->sessions, sess->id);
-				up_write(&conn->session_lock);
-				if (atomic_dec_and_test(&sess->refcnt))
-					ksmbd_session_destroy(sess);
-			}
+	hash_for_each_safe(sessions_table, bkt, tmp, sess, hlist) {
+		if (!ksmbd_chann_del(conn, sess) &&
+		    xa_empty(&sess->ksmbd_chann_list)) {
+			hash_del(&sess->hlist);
+			down_write(&conn->session_lock);
+			xa_erase(&conn->sessions, sess->id);
+			up_write(&conn->session_lock);
+			if (atomic_dec_and_test(&sess->refcnt))
+				ksmbd_session_destroy(sess);
 		}
 	}
 
@@ -416,16 +413,16 @@ void destroy_previous_session(struct ksmbd_conn *conn,
 	    memcmp(user->passkey, prev_user->passkey, user->passkey_sz))
 		goto out;
 
-	ksmbd_all_conn_set_status(id, KSMBD_SESS_NEED_RECONNECT);
-	err = ksmbd_conn_wait_idle_sess_id(conn, id);
+	ksmbd_all_conn_set_status(prev_sess, KSMBD_SESS_NEED_RECONNECT);
+	err = ksmbd_conn_wait_idle_sess(conn, prev_sess);
 	if (err) {
-		ksmbd_all_conn_set_status(id, KSMBD_SESS_NEED_SETUP);
+		ksmbd_all_conn_set_status(prev_sess, KSMBD_SESS_NEED_SETUP);
 		goto out;
 	}
 
 	ksmbd_destroy_file_table(prev_sess);
 	prev_sess->state = SMB2_SESSION_EXPIRED;
-	ksmbd_all_conn_set_status(id, KSMBD_SESS_NEED_SETUP);
+	ksmbd_all_conn_set_status(prev_sess, KSMBD_SESS_NEED_SETUP);
 	ksmbd_launch_ksmbd_durable_scavenger();
 out:
 	up_write(&conn->session_lock);
@@ -484,8 +481,8 @@ static struct ksmbd_session *__session_create(int protocol)
 	xa_init(&sess->ksmbd_chann_list);
 	xa_init(&sess->rpc_handle_list);
 	sess->sequence_number = 1;
-	rwlock_init(&sess->tree_conns_lock);
 	atomic_set(&sess->refcnt, 2);
+	init_rwsem(&sess->tree_conns_lock);
 	init_rwsem(&sess->rpc_lock);
 	init_rwsem(&sess->chann_lock);
 

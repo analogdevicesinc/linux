@@ -232,6 +232,26 @@ void ksmbd_conn_try_dequeue_request(struct ksmbd_work *work)
 	wake_up_all(&conn->req_running_q);
 }
 
+static void ksmbd_conn_cancel_async_requests(struct ksmbd_conn *conn)
+{
+	struct ksmbd_work *work, *tmp;
+
+	ksmbd_debug(CONN, "Cancel pending async requests on releasing connection\n");
+	spin_lock(&conn->request_lock);
+	list_for_each_entry_safe(work, tmp, &conn->async_requests,
+				 async_request_entry) {
+		if (work->state != KSMBD_WORK_ACTIVE)
+			continue;
+
+		ksmbd_debug(CONN, "Cancel async request id %d\n",
+			    work->async_id);
+		work->state = KSMBD_WORK_CANCELLED;
+		if (work->cancel_fn)
+			work->cancel_fn(work->cancel_argv);
+	}
+	spin_unlock(&conn->request_lock);
+}
+
 void ksmbd_conn_lock(struct ksmbd_conn *conn)
 {
 	mutex_lock(&conn->srv_mutex);
@@ -242,15 +262,37 @@ void ksmbd_conn_unlock(struct ksmbd_conn *conn)
 	mutex_unlock(&conn->srv_mutex);
 }
 
-void ksmbd_all_conn_set_status(u64 sess_id, u32 status)
+static bool ksmbd_session_is_bound_to_conn(struct ksmbd_session *sess,
+					   struct ksmbd_conn *conn)
+{
+	bool found;
+
+	rcu_read_lock();
+	found = xa_load(&conn->sessions, sess->id) == sess;
+	rcu_read_unlock();
+	if (found)
+		return true;
+
+	down_read(&sess->chann_lock);
+	found = xa_load(&sess->ksmbd_chann_list, (long)conn);
+	up_read(&sess->chann_lock);
+	return found;
+}
+
+void ksmbd_all_conn_set_status(struct ksmbd_session *sess, u32 status)
 {
 	struct ksmbd_conn *conn;
 	int bkt;
 
 	down_read(&conn_list_lock);
 	hash_for_each(conn_list, bkt, conn, hlist) {
-		if (conn->binding || xa_load(&conn->sessions, sess_id))
-			WRITE_ONCE(conn->status, status);
+		if (ksmbd_session_is_bound_to_conn(sess, conn)) {
+			spin_lock(&conn->request_lock);
+			if (!ksmbd_conn_exiting(conn) &&
+			    !ksmbd_conn_releasing(conn))
+				WRITE_ONCE(conn->status, status);
+			spin_unlock(&conn->request_lock);
+		}
 	}
 	up_read(&conn_list_lock);
 }
@@ -276,7 +318,8 @@ void ksmbd_conn_wait_idle(struct ksmbd_conn *conn)
 	wait_event(conn->req_running_q, atomic_read(&conn->req_running) < 2);
 }
 
-int ksmbd_conn_wait_idle_sess_id(struct ksmbd_conn *curr_conn, u64 sess_id)
+int ksmbd_conn_wait_idle_sess(struct ksmbd_conn *curr_conn,
+			      struct ksmbd_session *sess)
 {
 	struct ksmbd_conn *conn;
 	int rc, retry_count = 0, max_timeout = 120;
@@ -288,7 +331,7 @@ retry_idle:
 
 	down_read(&conn_list_lock);
 	hash_for_each(conn_list, bkt, conn, hlist) {
-		if (conn->binding || xa_load(&conn->sessions, sess_id)) {
+		if (ksmbd_session_is_bound_to_conn(sess, conn)) {
 			rcount = (conn == curr_conn) ? 2 : 1;
 			if (atomic_read(&conn->req_running) >= rcount) {
 				rc = wait_event_timeout(conn->req_running_q,
@@ -477,6 +520,7 @@ recheck:
 		if (!conn->request_buf)
 			break;
 
+		conn->request_buf[pdu_size + 4] = 0;
 		memcpy(conn->request_buf, hdr_buf, sizeof(hdr_buf));
 
 		/*
@@ -520,6 +564,7 @@ recheck:
 
 out:
 	ksmbd_conn_set_releasing(conn);
+	ksmbd_conn_cancel_async_requests(conn);
 	/* Wait till all reference dropped to the Server object*/
 	ksmbd_debug(CONN, "Wait for all pending requests(%d)\n", atomic_read(&conn->r_count));
 	wait_event(conn->r_count_q, atomic_read(&conn->r_count) == 0);
@@ -610,8 +655,10 @@ again:
 		 * handler exited its receive loop for an unrelated
 		 * reason).
 		 */
-		if (READ_ONCE(conn->status) != KSMBD_SESS_RELEASING)
+		spin_lock(&conn->request_lock);
+		if (!ksmbd_conn_releasing(conn))
 			ksmbd_conn_set_exiting(conn);
+		spin_unlock(&conn->request_lock);
 		target = conn;
 		break;
 	}

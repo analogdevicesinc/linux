@@ -22,7 +22,7 @@ int fill_name_de(struct ntfs_sb_info *sbi, void *buf, const struct qstr *name,
 {
 	int err;
 	struct NTFS_DE *e = buf;
-	u16 data_size;
+	u16 data_size, real_size, aligned_size;
 	struct ATTR_FILE_NAME *fname = (struct ATTR_FILE_NAME *)(e + 1);
 
 #ifndef CONFIG_NTFS3_64BIT_CLUSTER
@@ -53,7 +53,12 @@ int fill_name_de(struct ntfs_sb_info *sbi, void *buf, const struct qstr *name,
 	fname->type = FILE_NAME_POSIX;
 	data_size = fname_full_size(fname);
 
-	e->size = cpu_to_le16(ALIGN(data_size, 8) + sizeof(struct NTFS_DE));
+	real_size = data_size + sizeof(struct NTFS_DE);
+	aligned_size = ALIGN(data_size, 8) + sizeof(struct NTFS_DE);
+	if (aligned_size > real_size)
+		memset((char *)buf + real_size, 0, aligned_size - real_size);
+
+	e->size = cpu_to_le16(aligned_size);
 	e->key_size = cpu_to_le16(data_size);
 	e->flags = 0;
 	e->res = 0;
@@ -207,13 +212,13 @@ static int ntfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
 }
 
 /*
- * ntfs_mkdir- inode_operations::mkdir
+ * ntfs_mkdir - inode_operations::mkdir
  */
 static struct dentry *ntfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 				 struct dentry *dentry, umode_t mode)
 {
-	return ERR_PTR(ntfs_create_inode(idmap, dir, dentry, NULL, S_IFDIR | mode, 0,
-					 NULL, 0, NULL));
+	return ERR_PTR(ntfs_create_inode(idmap, dir, dentry, NULL,
+					 S_IFDIR | mode, 0, NULL, 0, NULL));
 }
 
 /*

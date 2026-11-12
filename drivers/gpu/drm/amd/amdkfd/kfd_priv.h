@@ -132,6 +132,13 @@
  */
 #define KFD_QUEUE_DOORBELL_MIRROR_OFFSET 512
 
+/*
+ * On GC 9.4.3, 9.4.4 and 9.5.0, doorbell writes issued from shaders are
+ * routed to an SDMA engine at 32-byte granularity, i.e. 4 indices with the
+ * 8-byte SDMA doorbells used on SOC15.
+ */
+#define KFD_SDMA_SHADER_DOORBELL_GRANULARITY 4
+
 /**
  * enum kfd_ioctl_flags - KFD ioctl flags
  * Various flags that can be set in &amdkfd_ioctl_desc.flags to control how
@@ -762,6 +769,9 @@ struct kfd_process_device {
 	/* per-process-per device QCM data structure */
 	struct qcm_process_device qpd;
 
+	/* Serializes process doorbell allocation for this device */
+	struct mutex doorbell_mutex;
+
 	/*Apertures*/
 	uint64_t lds_base;
 	uint64_t lds_limit;
@@ -1074,6 +1084,7 @@ void kfd_unref_process(struct kfd_process *p);
 int kfd_process_evict_queues(struct kfd_process *p, uint32_t trigger);
 int kfd_process_restore_queues(struct kfd_process *p);
 void kfd_suspend_all_processes(void);
+void kfd_process_wait_gpu_reset_complete(struct kfd_process *p);
 int kfd_resume_all_processes(void);
 
 struct kfd_process_device *kfd_process_device_data_by_id(struct kfd_process *process,

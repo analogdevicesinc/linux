@@ -209,7 +209,7 @@ static void gfs2_end_log_write(struct bio *bio)
 		if (!cmpxchg(&sdp->sd_log_error, 0, err))
 			fs_err(sdp, "Error %d writing to journal, jid=%u\n",
 			       err, sdp->sd_jdesc->jd_jid);
-		gfs2_withdraw_delayed(sdp);
+		gfs2_withdraw(sdp);
 		/* prevent more writes to the journal */
 		clear_bit(SDF_JOURNAL_LIVE, &sdp->sd_flags);
 		wake_up(&sdp->sd_logd_waitq);
@@ -690,7 +690,9 @@ static void gfs2_before_commit(struct gfs2_sbd *sdp, unsigned int limit,
 
 				page = mempool_alloc(gfs2_page_pool, GFP_NOIO);
 				p = page_address(page);
-				memcpy_from_page(p, page, bh_offset(bd2->bd_bh), bd2->bd_bh->b_size);
+				memcpy_from_folio(p, bd2->bd_bh->b_folio,
+						  bh_offset(bd2->bd_bh),
+						  bd2->bd_bh->b_size);
 				*(__be32 *)p = 0;
 				clear_buffer_escaped(bd2->bd_bh);
 				unlock_buffer(bd2->bd_bh);

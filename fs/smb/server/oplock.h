@@ -59,6 +59,7 @@ struct oplock_info {
 	struct ksmbd_file	*o_fp;
 	int                     level;
 	int                     op_state;
+	spinlock_t		state_lock;
 	unsigned long		pending_break;
 	u64			fid;
 	atomic_t		breaking_cnt;
@@ -116,7 +117,7 @@ void create_posix_rsp_buf(char *cc, struct ksmbd_file *fp);
 struct create_context *smb2_find_context_vals(void *open_req, const char *tag, int tag_len);
 struct oplock_info *lookup_lease_in_table(struct ksmbd_conn *conn,
 					  char *lease_key);
-int find_same_lease_key(struct ksmbd_session *sess, struct ksmbd_inode *ci,
+int find_same_lease_key(struct ksmbd_conn *conn, struct ksmbd_inode *ci,
 			struct lease_ctx_info *lctx);
 void destroy_lease_table(struct ksmbd_conn *conn);
 void smb_send_parent_lease_break_noti(struct ksmbd_file *fp,

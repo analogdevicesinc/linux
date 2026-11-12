@@ -79,6 +79,7 @@ MODULE_LICENSE("GPL");
 #define MT_QUIRK_APPLE_TOUCHBAR		BIT(23)
 #define MT_QUIRK_YOGABOOK9I		BIT(24)
 #define MT_QUIRK_KEEP_LATENCY_ON_CLOSE	BIT(25)
+#define MT_QUIRK_IGNORE_FEATURE_ID_MISMATCH	BIT(26)
 
 #define MT_INPUTMODE_TOUCHSCREEN	0x02
 #define MT_INPUTMODE_TOUCHPAD		0x03
@@ -233,6 +234,7 @@ static void mt_post_parse(struct mt_device *td, struct mt_application *app);
 #define MT_CLS_APPLE_TOUCHBAR			0x0114
 #define MT_CLS_YOGABOOK9I			0x0115
 #define MT_CLS_EGALAX_P80H84			0x0116
+#define MT_CLS_ASUS_ROG_Z13_FOLIO		0x0117
 #define MT_CLS_SIS				0x0457
 
 #define MT_DEFAULT_MAXCONTACT	10
@@ -403,6 +405,16 @@ static const struct mt_class mt_classes[] = {
 		.quirks = MT_QUIRK_ALWAYS_VALID |
 			MT_QUIRK_CONTACT_CNT_ACCURATE |
 			MT_QUIRK_ASUS_CUSTOM_UP },
+	{ .name = MT_CLS_ASUS_ROG_Z13_FOLIO,
+		.quirks = MT_QUIRK_ALWAYS_VALID |
+			MT_QUIRK_IGNORE_DUPLICATES |
+			MT_QUIRK_HOVERING |
+			MT_QUIRK_CONTACT_CNT_ACCURATE |
+			MT_QUIRK_STICKY_FINGERS |
+			MT_QUIRK_WIN8_PTP_BUTTONS |
+			MT_QUIRK_CONFIDENCE |
+			MT_QUIRK_IGNORE_FEATURE_ID_MISMATCH,
+		.export_all_inputs = true },
 	{ .name = MT_CLS_VTL,
 		.quirks = MT_QUIRK_ALWAYS_VALID |
 			MT_QUIRK_CONTACT_CNT_ACCURATE |
@@ -440,11 +452,14 @@ static const struct mt_class mt_classes[] = {
 			MT_QUIRK_CONTACT_CNT_ACCURATE,
 	},
 		{ .name = MT_CLS_YOGABOOK9I,
-		.quirks = MT_QUIRK_ALWAYS_VALID |
+		.quirks = MT_QUIRK_NOT_SEEN_MEANS_UP |
+			MT_QUIRK_ALWAYS_VALID |
+			MT_QUIRK_CONTACT_CNT_ACCURATE |
 			MT_QUIRK_FORCE_MULTI_INPUT |
 			MT_QUIRK_SEPARATE_APP_REPORT |
 			MT_QUIRK_HOVERING |
 			MT_QUIRK_YOGABOOK9I,
+		.maxcontacts = 10,
 		.export_all_inputs = true
 	},
 	{ .name = MT_CLS_EGALAX_P80H84,
@@ -502,6 +517,7 @@ static const struct attribute_group mt_attribute_group = {
 
 static void mt_get_feature(struct hid_device *hdev, struct hid_report *report)
 {
+	struct mt_device *td = hid_get_drvdata(hdev);
 	int ret;
 	u32 size = hid_report_len(report);
 	u8 *buf;
@@ -523,8 +539,14 @@ static void mt_get_feature(struct hid_device *hdev, struct hid_report *report)
 		dev_warn(&hdev->dev, "failed to fetch feature %d\n",
 			 report->id);
 	} else {
-		/* The report ID in the request and the response should match */
-		if (report->id != buf[0]) {
+		/*
+		 * The report ID in the request and the response should match.
+		 * Some firmware (e.g. the ASUS ROG Z13 Folio
+		 * touchpad) returns a mismatched ID on this specific fetch;
+		 * tolerate it only for devices explicitly flagged as such.
+		 */
+		if (report->id != buf[0] &&
+		    !(td->mtclass.quirks & MT_QUIRK_IGNORE_FEATURE_ID_MISMATCH)) {
 			hid_err(hdev, "Returned feature report did not match the request\n");
 			goto free;
 		}
@@ -1310,21 +1332,18 @@ static void mt_touch_report(struct hid_device *hid,
 	 * Includes multi-packet support where subsequent
 	 * packets are sent with zero contactcount.
 	 */
-	if (contact_count >= 0) {
+	if (contact_count > 0)
+		app->num_expected = contact_count;
+	else if (app->num_received == 0 && app->prev_scantime != scantime) {
 		/*
+		 * New multi-report frame:
+		 *
 		 * For Win8 PTPs the first packet (td->num_received == 0) may
 		 * have a contactcount of 0 if there only is a button event.
-		 * We double check that this is not a continuation packet
-		 * of a possible multi-packet frame be checking that the
-		 * timestamp has changed.
+		 *
+		 * Some other devices use a sentinel frame with 0 to release all contacts
 		 */
-		if ((app->quirks & MT_QUIRK_WIN8_PTP_BUTTONS) &&
-		    app->num_received == 0 &&
-		    app->prev_scantime != scantime)
-			app->num_expected = contact_count;
-		/* A non 0 contact count always indicates a first packet */
-		else if (contact_count)
-			app->num_expected = contact_count;
+		app->num_expected = 0;
 	}
 	app->prev_scantime = scantime;
 
@@ -1564,6 +1583,144 @@ static int mt_event(struct hid_device *hid, struct hid_field *field,
 	return 0;
 }
 
+/*
+ * Yoga Book 9 14IAH10 descriptor fixup.
+ *
+ * The device includes a HID_DG_TOUCHPAD application collection designed for
+ * the Windows inbox HID driver's Win8 PTP touchpad mode.  On Linux we want
+ * only the HID_DG_TOUCHSCREEN collections.  The touchpad collection (and the
+ * HID_DG_BUTTONTYPE and Win8 compliance blob features it contains) must be
+ * removed so hid-multitouch does not misclassify the touchscreen nodes as
+ * indirect buttonpads.
+ *
+ * The firmware also resets if any USB control request is received while the
+ * CDC-ACM interface is initialising (~1.18 s after enumeration).  Dropping
+ * the Win8 blob and Contact Count Max feature reports prevents the
+ * GET_REPORT calls that hid-multitouch issues at probe.
+ */
+static void mt_yogabook9_fixup(struct hid_device *hdev, __u8 *rdesc,
+			       unsigned int *size)
+{
+	/* Usage Page (Digitizer), Usage (Touch Pad), Collection (Application) */
+	static const __u8 tp_app_hdr[] = { 0x05, 0x0d, 0x09, 0x05, 0xa1, 0x01 };
+	/* Vendor Usage Page 0xff00 (Win8 compliance blob header) */
+	static const __u8 win8_page[] = { 0x06, 0x00, 0xff };
+	/* Usage (Contact Count Max = 0x55) */
+	static const __u8 ccmax_usage[] = { 0x09, 0x55 };
+	unsigned int i;
+
+	/*
+	 * Step 1: find and remove the Touch Pad application collection.
+	 * Walk HID short items from the collection header to its matching
+	 * End Collection, then close the gap with memmove.
+	 */
+	for (i = 0; i + sizeof(tp_app_hdr) <= *size; i++) {
+		if (memcmp(rdesc + i, tp_app_hdr, sizeof(tp_app_hdr)) == 0) {
+			__u8 *start = rdesc + i;
+			__u8 *coll_end = NULL;
+			__u8 *p = start;
+			unsigned int drop;
+			int depth = 0;
+
+			while (p < rdesc + *size) {
+				__u8 b = *p;
+				int ds = b & 3;
+				int item_len;
+
+				if (b == 0xfe) { /* long item */
+					if (p + 2 >= rdesc + *size)
+						break;
+					item_len = p[1] + 3;
+				} else {
+					item_len = (ds == 3) ? 5 : ds + 1;
+				}
+				if (p + item_len > rdesc + *size)
+					break;
+
+				if ((b & 0xfc) == 0xa0)
+					depth++; /* Collection */
+				else if (b == 0xc0) {
+					depth--; /* End Collection */
+					if (depth == 0) {
+						coll_end = p;
+						break;
+					}
+				}
+				p += item_len;
+			}
+
+			if (!coll_end) {
+				hid_err(hdev,
+					"Yoga Book 9: Touch Pad End Collection not found\n");
+				break;
+			}
+
+			drop = coll_end - start + 1;
+			memmove(start, coll_end + 1, rdesc + *size - coll_end - 1);
+			*size -= drop;
+			hid_dbg(hdev,
+				"Yoga Book 9: dropped Touch Pad collection (%u bytes)\n",
+				drop);
+			break;
+		}
+	}
+
+	/*
+	 * Step 2: neutralize Win8 compliance blob feature reports remaining
+	 * in the touchscreen collections.  Change Usage Page 0xff00 to 0x0f00
+	 * so the case 0xff0000c5 branch in mt_feature_mapping() is not reached
+	 * and no GET_REPORT is issued.
+	 */
+	for (i = 0; i + sizeof(win8_page) <= *size; i++) {
+		if (memcmp(rdesc + i, win8_page, sizeof(win8_page)) == 0) {
+			rdesc[i + 2] = 0x0f; /* 0xff00 -> 0x0f00 */
+			hid_dbg(hdev,
+				"Yoga Book 9: neutralized Win8 blob at offset %u\n",
+				i);
+		}
+	}
+
+	/*
+	 * Step 3: neutralize Contact Count Max feature reports.  Change usage
+	 * 0x55 (HID_DG_CONTACTMAX) to 0x00 so mt_feature_mapping() does not
+	 * issue GET_REPORT.  The class maxcontacts field provides the value.
+	 */
+	for (i = 0; i + sizeof(ccmax_usage) <= *size; i++) {
+		if (memcmp(rdesc + i, ccmax_usage, sizeof(ccmax_usage)) == 0) {
+			rdesc[i + 1] = 0x00;
+			hid_dbg(hdev,
+				"Yoga Book 9: neutralized ContactMax at offset %u\n",
+				i);
+		}
+	}
+
+	/*
+	 * Step 4: neutralize Surface Switch (0x57) and Button Switch (0x58)
+	 * feature report usages in the Device Configuration collection.
+	 * mt_set_modes() issues HID_REQ_SET_REPORT for these on every
+	 * input-device open/close; those repeated control requests hit the
+	 * firmware's CDC-ACM init window and trigger resets.
+	 *
+	 * Input Mode (0x52) is intentionally left intact.  mt_set_modes()
+	 * sends it once at probe to set the device into touchscreen mode,
+	 * which flushes the firmware's contact buffer and clears a persistent
+	 * ghost contact (cid 2, fixed coordinates) that otherwise appears on
+	 * every enumeration.  By probe time cdc_acm has already satisfied the
+	 * CDC-ACM init watchdog (~130 ms), so the single SET_REPORT for Input
+	 * Mode arrives safely after the reset window has closed.
+	 */
+	for (i = 0; i + 2 <= *size; i++) {
+		if (rdesc[i] == 0x09 &&
+		    (rdesc[i + 1] == 0x57 ||
+		     rdesc[i + 1] == 0x58)) {
+			hid_dbg(hdev,
+				"Yoga Book 9: neutralized set-modes usage 0x%02x at offset %u\n",
+				rdesc[i + 1], i);
+			rdesc[i + 1] = 0x00;
+		}
+	}
+}
+
 static const __u8 *mt_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 			     unsigned int *size)
 {
@@ -1592,6 +1749,10 @@ got: %x\n",
 				rdesc[607]);
 		}
 	}
+
+	if (hdev->vendor == USB_VENDOR_ID_LENOVO &&
+	    hdev->product == USB_DEVICE_ID_LENOVO_YOGABOOK9I)
+		mt_yogabook9_fixup(hdev, rdesc, size);
 
 	return rdesc;
 }
@@ -2086,7 +2247,7 @@ static void mt_remove(struct hid_device *hdev)
 {
 	struct mt_device *td = hid_get_drvdata(hdev);
 
-	timer_delete_sync(&td->release_timer);
+	timer_shutdown_sync(&td->release_timer);
 
 	sysfs_remove_group(&hdev->dev.kobj, &mt_attribute_group);
 	hid_hw_stop(hdev);
@@ -2570,6 +2731,12 @@ static const struct hid_device_id mt_devices[] = {
 	{ .driver_data = MT_CLS_WIN_8_FORCE_MULTI_INPUT_NSMU,
 		HID_DEVICE(BUS_I2C, HID_GROUP_MULTITOUCH_WIN_8,
 			   I2C_VENDOR_ID_HANTICK, I2C_PRODUCT_ID_HANTICK_5288) },
+
+	/* Asus ROG Flow Z13 (2025) GZ302EA keyboard-cover touchpad */
+	{ .driver_data = MT_CLS_ASUS_ROG_Z13_FOLIO,
+		HID_DEVICE(BUS_USB, HID_GROUP_MULTITOUCH_WIN_8,
+			USB_VENDOR_ID_ASUSTEK,
+			USB_DEVICE_ID_ASUSTEK_ROG_Z13_FOLIO) },
 
 	/* Generic MT device */
 	{ HID_DEVICE(HID_BUS_ANY, HID_GROUP_MULTITOUCH, HID_ANY_ID, HID_ANY_ID) },

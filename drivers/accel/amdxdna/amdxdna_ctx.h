@@ -51,7 +51,7 @@ struct amdxdna_cmd_chain {
 	u32 submit_index;
 	u32 error_index;
 	u32 reserved[3];
-	u64 data[] __counted_by(command_count);
+	u64 data[];
 };
 
 /* Exec buffer command header format */
@@ -139,6 +139,9 @@ amdxdna_cmd_get_state(struct amdxdna_gem_obj *abo)
 
 void *amdxdna_cmd_get_payload(struct amdxdna_gem_obj *abo, u32 *size);
 int amdxdna_cmd_get_cu_idx(struct amdxdna_gem_obj *abo);
+int amdxdna_cmd_set_error(struct amdxdna_gem_obj *abo,
+			  struct amdxdna_sched_job *job, u32 cmd_idx,
+			  enum ert_cmd_state error_state);
 
 void amdxdna_sched_job_cleanup(struct amdxdna_sched_job *job);
 void amdxdna_hwctx_remove_all(struct amdxdna_client *client);

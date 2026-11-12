@@ -107,8 +107,9 @@ __xchk_process_error(
 	case -ENODATA:
 		/* Note the badness but don't abort. */
 		sc->sm->sm_flags |= errflag;
+		trace_xchk_op_error(sc, agno, bno, *error, ret_ip);
 		*error = 0;
-		fallthrough;
+		break;
 	default:
 		trace_xchk_op_error(sc, agno, bno, *error, ret_ip);
 		break;
@@ -183,8 +184,10 @@ __xchk_fblock_process_error(
 	case -ENODATA:
 		/* Note the badness but don't abort. */
 		sc->sm->sm_flags |= errflag;
+		trace_xchk_file_op_error(sc, whichfork, offset, *error,
+				ret_ip);
 		*error = 0;
-		fallthrough;
+		break;
 	default:
 		trace_xchk_file_op_error(sc, whichfork, offset, *error,
 				ret_ip);
@@ -309,12 +312,12 @@ xchk_ino_set_corrupt(
 
 /* Record a corruption while cross-referencing with an inode. */
 void
-xchk_ino_xref_set_corrupt(
+xchk_ip_xref_set_corrupt(
 	struct xfs_scrub	*sc,
-	xfs_ino_t		ino)
+	struct xfs_inode	*ip)
 {
 	sc->sm->sm_flags |= XFS_SCRUB_OFLAG_XCORRUPT;
-	trace_xchk_ino_error(sc, ino, __return_address);
+	trace_xchk_ino_error(sc, ip->i_ino, __return_address);
 }
 
 /* Record corruption in a block indexed by a file fork. */

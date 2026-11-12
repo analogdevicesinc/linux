@@ -399,6 +399,7 @@ xrep_calc_rtgroup_resblks(
 	struct xfs_mount		*mp = sc->mp;
 	struct xfs_scrub_metadata	*sm = sc->sm;
 	uint64_t			usedlen;
+	xfs_extlen_t			refcbt_sz = 0;
 	xfs_extlen_t			rmapbt_sz = 0;
 
 	if (!(sm->sm_flags & XFS_SCRUB_IFLAG_REPAIR))
@@ -411,13 +412,27 @@ xrep_calc_rtgroup_resblks(
 	usedlen = xfs_rtbxlen_to_blen(mp, xfs_rtgroup_extents(mp, sm->sm_agno));
 	ASSERT(usedlen <= XFS_MAX_RGBLOCKS);
 
+	if (xfs_has_reflink(mp))
+		refcbt_sz = xfs_rtrefcountbt_calc_size(mp, usedlen);
+
 	if (xfs_has_rmapbt(mp))
 		rmapbt_sz = xfs_rtrmapbt_calc_size(mp, usedlen);
 
-	trace_xrep_calc_rtgroup_resblks_btsize(mp, sm->sm_agno, usedlen,
-			rmapbt_sz);
+	/*
+	 * Guess how many blocks we need to rebuild the rmapbt.  For
+	 * non-reflink filesystems we can't have more records than used blocks.
+	 * However, with reflink it's possible to have more than one rmap
+	 * record per rtgroup block.  We don't know how many rmaps there could
+	 * be in the rtgroup, so we start off with what we hope is an generous
+	 * over-estimation.
+	 */
+	if (refcbt_sz > 0 && rmapbt_sz > 0)
+		rmapbt_sz *= 2;
 
-	return rmapbt_sz;
+	trace_xrep_calc_rtgroup_resblks_btsize(mp, sm->sm_agno, usedlen,
+			rmapbt_sz, refcbt_sz);
+
+	return max(rmapbt_sz, refcbt_sz);
 }
 #endif /* CONFIG_XFS_RT */
 
@@ -1362,12 +1377,14 @@ xrep_reset_metafile_resv(
 {
 	struct xfs_mount	*mp = sc->mp;
 	int64_t			delta;
-	int			error;
+	int			error = 0;
+
+	mutex_lock(&mp->m_metafile_resv_lock);
 
 	delta = mp->m_metafile_resv_used + mp->m_metafile_resv_avail -
 		mp->m_metafile_resv_target;
 	if (delta == 0)
-		return 0;
+		goto out_resv_lock;
 
 	/*
 	 * Too many blocks have been reserved, transfer some from the incore
@@ -1383,7 +1400,7 @@ xrep_reset_metafile_resv(
 			mp->m_metafile_resv_avail -= give_back;
 		}
 
-		return 0;
+		goto out_resv_lock;
 	}
 
 	/*
@@ -1397,14 +1414,18 @@ xrep_reset_metafile_resv(
 		if (delta == 0) {
 			xfs_warn(sc->mp,
 "Insufficient free space to reset metabtree reservation after repair.");
-			return 0;
+			error = 0;
+			goto out_resv_lock;
 		}
 		error = xfs_dec_fdblocks(mp, delta, true);
 	}
 	if (error)
-		return error;
+		goto out_resv_lock;
 
 	xfs_mod_sb_delalloc(mp, delta);
 	mp->m_metafile_resv_avail += delta;
-	return 0;
+
+out_resv_lock:
+	mutex_unlock(&mp->m_metafile_resv_lock);
+	return error;
 }

@@ -1482,7 +1482,7 @@ static void disable_vbios_mode_if_required(
 
 struct dc *dc_create(const struct dc_init_data *init_params)
 {
-	struct dc *dc = kzalloc(sizeof(*dc), GFP_KERNEL);
+	struct dc *dc = kvzalloc(sizeof(*dc), GFP_KERNEL);
 	unsigned int full_pipe_count;
 
 	if (!dc)
@@ -1530,7 +1530,7 @@ struct dc *dc_create(const struct dc_init_data *init_params)
 
 destruct_dc:
 	dc_destruct(dc);
-	kfree(dc);
+	kvfree(dc);
 	return NULL;
 }
 
@@ -1580,7 +1580,7 @@ void dc_deinit_callbacks(struct dc *dc)
 void dc_destroy(struct dc **dc)
 {
 	dc_destruct(*dc);
-	kfree(*dc);
+	kvfree(*dc);
 	*dc = NULL;
 }
 
@@ -2158,8 +2158,8 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
 	 */
 	if (dc->hwss.subvp_pipe_control_lock)
 		dc->hwss.subvp_pipe_control_lock(dc, context, true, true, NULL, subvp_prev_use);
-	if (dc->hwss.fams2_global_control_lock)
-		dc->hwss.fams2_global_control_lock(dc, context, true);
+	if (dc->hwss.dmub_hw_control_lock)
+		dc->hwss.dmub_hw_control_lock(dc, context, true);
 
 	if (dc->hwss.update_dsc_pg)
 		dc->hwss.update_dsc_pg(dc, context, false);
@@ -2229,8 +2229,8 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
 		dc->hwss.commit_subvp_config(dc, context);
 	if (dc->hwss.subvp_pipe_control_lock)
 		dc->hwss.subvp_pipe_control_lock(dc, context, false, true, NULL, subvp_prev_use);
-	if (dc->hwss.fams2_global_control_lock)
-		dc->hwss.fams2_global_control_lock(dc, context, false);
+	if (dc->hwss.dmub_hw_control_lock)
+		dc->hwss.dmub_hw_control_lock(dc, context, false);
 
 	for (i = 0; i < context->stream_count; i++) {
 		const struct dc_link *link = context->streams[i]->link;
@@ -3602,6 +3602,7 @@ static void commit_planes_do_stream_update(struct dc *dc,
 				dc->hwss.setup_periodic_interrupt(dc, pipe_ctx);
 
 			if ((stream_update->hdr_static_metadata && !stream->use_dynamic_meta) ||
+					stream_update->output_color_space ||
 					stream_update->vrr_infopacket ||
 					stream_update->vsc_infopacket ||
 					stream_update->vsp_infopacket ||
@@ -3690,27 +3691,34 @@ static void commit_planes_do_stream_update(struct dc *dc,
 				resource_build_test_pattern_params(&context->res_ctx, pipe_ctx);
 			}
 
+			// DPMS should not use partially updated pipe context
+			struct pipe_ctx *dpms_pipe_ctx = &dc->current_state->res_ctx.pipe_ctx[j];
+
 			if (stream_update->dpms_off) {
 				if (*stream_update->dpms_off) {
-					dc->link_srv->set_dpms_off(pipe_ctx);
+					dc->link_srv->set_dpms_off(dpms_pipe_ctx);
 					/* for dpms, keep acquired resources*/
-					if (pipe_ctx->stream_res.audio && !dc->debug.az_endpoint_mute_only)
-						pipe_ctx->stream_res.audio->funcs->az_disable(pipe_ctx->stream_res.audio);
+					if (dpms_pipe_ctx->stream_res.audio && !dc->debug.az_endpoint_mute_only) {
+						struct audio *audio = dpms_pipe_ctx->stream_res.audio;
+
+						audio->funcs->az_disable(audio);
+					}
 
 					dc->optimized_required = true;
 
 				} else {
 					if (get_seamless_boot_stream_count(context) == 0)
 						dc->hwss.prepare_bandwidth(dc, dc->current_state);
-					dc->link_srv->set_dpms_on(dc->current_state, pipe_ctx);
+					dc->link_srv->set_dpms_on(dc->current_state, dpms_pipe_ctx);
 				}
-			} else if (pipe_ctx->stream->link->wa_flags.blank_stream_on_ocs_change && stream_update->output_color_space
-					&& !stream->dpms_off && dc_is_dp_signal(pipe_ctx->stream->signal)) {
+			} else if (dpms_pipe_ctx->stream->link->wa_flags.blank_stream_on_ocs_change &&
+					stream_update->output_color_space &&
+					!stream->dpms_off && dc_is_dp_signal(dpms_pipe_ctx->stream->signal)) {
 				/*
 				 * Workaround for firmware issue in some receivers where they don't pick up
 				 * correct output color space unless DP link is disabled/re-enabled
 				 */
-				dc->link_srv->set_dpms_on(dc->current_state, pipe_ctx);
+				dc->link_srv->set_dpms_on(dc->current_state, dpms_pipe_ctx);
 			}
 
 			if (stream_update->abm_level && pipe_ctx->stream_res.abm) {
@@ -4176,16 +4184,16 @@ static void commit_planes_for_stream(struct dc *dc,
 		if (dc->hwss.subvp_pipe_control_lock)
 			dc->hwss.subvp_pipe_control_lock(dc, context, true, should_lock_all_pipes, NULL, subvp_prev_use);
 
-		if (dc->hwss.fams2_global_control_lock)
-			dc->hwss.fams2_global_control_lock(dc, context, true);
+		if (dc->hwss.dmub_hw_control_lock)
+			dc->hwss.dmub_hw_control_lock(dc, context, true);
 
 		dc->hwss.interdependent_update_lock(dc, context, true);
 	} else {
 		if (dc->hwss.subvp_pipe_control_lock)
 			dc->hwss.subvp_pipe_control_lock(dc, context, true, should_lock_all_pipes, top_pipe_to_program, subvp_prev_use);
 
-		if (dc->hwss.fams2_global_control_lock)
-			dc->hwss.fams2_global_control_lock(dc, context, true);
+		if (dc->hwss.dmub_hw_control_lock)
+			dc->hwss.dmub_hw_control_lock(dc, context, true);
 
 		/* Lock the top pipe while updating plane addrs, since freesync requires
 		 *  plane addr update event triggers to be synchronized.
@@ -4228,9 +4236,8 @@ static void commit_planes_for_stream(struct dc *dc,
 			dc->hwss.subvp_pipe_control_lock(dc, context, false, should_lock_all_pipes,
 							 NULL, subvp_prev_use);
 
-		if (dc->hwss.fams2_global_control_lock)
-			dc->hwss.fams2_global_control_lock(dc, context, false);
-
+		if (dc->hwss.dmub_hw_control_lock)
+			dc->hwss.dmub_hw_control_lock(dc, context, false);
 		return;
 	}
 
@@ -4467,13 +4474,13 @@ static void commit_planes_for_stream(struct dc *dc,
 	if (should_lock_all_pipes && dc->hwss.interdependent_update_lock) {
 		if (dc->hwss.subvp_pipe_control_lock)
 			dc->hwss.subvp_pipe_control_lock(dc, context, false, should_lock_all_pipes, NULL, subvp_prev_use);
-		if (dc->hwss.fams2_global_control_lock)
-			dc->hwss.fams2_global_control_lock(dc, context, false);
+		if (dc->hwss.dmub_hw_control_lock)
+			dc->hwss.dmub_hw_control_lock(dc, context, false);
 	} else {
 		if (dc->hwss.subvp_pipe_control_lock)
 			dc->hwss.subvp_pipe_control_lock(dc, context, false, should_lock_all_pipes, top_pipe_to_program, subvp_prev_use);
-		if (dc->hwss.fams2_global_control_lock)
-			dc->hwss.fams2_global_control_lock(dc, context, false);
+		if (dc->hwss.dmub_hw_control_lock)
+			dc->hwss.dmub_hw_control_lock(dc, context, false);
 	}
 
 	// Fire manual trigger only when bottom plane is flipped

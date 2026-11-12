@@ -41,6 +41,7 @@
 #include <linux/mempolicy.h>
 #include <linux/freezer.h>
 #include <linux/debug_locks.h>
+#include <linux/device/devres.h>
 #include <linux/lockdep.h>
 #include <linux/idr.h>
 #include <linux/jhash.h>
@@ -1561,6 +1562,9 @@ work_func_t wq_worker_last_func(struct task_struct *task)
 	return worker->last_func;
 }
 
+/* True if @pool is a static per-cpu pool rather than an unbound one. */
+#define is_percpu_pool(pool) ((pool)->cpu >= 0)
+
 /**
  * wq_node_nr_active - Determine wq_node_nr_active to use
  * @wq: workqueue of interest
@@ -2235,7 +2239,7 @@ static bool is_chained_work(struct workqueue_struct *wq)
 	 * Return %true iff I'm a worker executing a work item on @wq.  If
 	 * I'm @worker, it's safe to dereference it without locking.
 	 */
-	return worker && worker->current_pwq->wq == wq;
+	return worker && worker->current_pwq && worker->current_pwq->wq == wq;
 }
 
 /*
@@ -2688,7 +2692,7 @@ static struct worker *alloc_worker(int node)
 
 static cpumask_t *pool_allowed_cpus(struct worker_pool *pool)
 {
-	if (pool->cpu < 0 && pool->attrs->affn_strict)
+	if (!is_percpu_pool(pool) && pool->attrs->affn_strict)
 		return pool->attrs->__pod_cpumask;
 	else
 		return pool->attrs->cpumask;
@@ -3114,7 +3118,16 @@ restart:
 #ifdef CONFIG_PREEMPT_RT
 static void worker_lock_callback(struct worker_pool *pool)
 {
-	spin_lock(&pool->cb_lock);
+	/*
+	 * SINGLE_DEPTH_NESTING is for a dead pool's bh_worker() running from
+	 * drain_dead_softirq_workfn() inside a live pool's bh_worker(). The
+	 * unlocked read is stable: the flag is only set while @pool's CPU is
+	 * dead, inside a serialized hotplug operation. data_race() as the value
+	 * only affects the lockdep annotation and the read can be elided when
+	 * lockdep is disabled.
+	 */
+	spin_lock_nested(&pool->cb_lock,
+			 data_race(pool->flags) & POOL_BH_DRAINING ? SINGLE_DEPTH_NESTING : 0);
 }
 
 static void worker_unlock_callback(struct worker_pool *pool)
@@ -3796,7 +3809,7 @@ static void check_flush_dependency(struct workqueue_struct *target_wq,
 	WARN_ONCE(current->flags & PF_MEMALLOC,
 		  "workqueue: PF_MEMALLOC task %d(%s) is flushing !WQ_MEM_RECLAIM %s:%ps",
 		  current->pid, current->comm, target_wq->name, target_func);
-	WARN_ONCE(worker && ((worker->current_pwq->wq->flags &
+	WARN_ONCE(worker && worker->current_pwq && ((worker->current_pwq->wq->flags &
 			      (WQ_MEM_RECLAIM | __WQ_LEGACY)) == WQ_MEM_RECLAIM),
 		  "workqueue: WQ_MEM_RECLAIM %s:%ps is flushing !WQ_MEM_RECLAIM %s:%ps",
 		  worker->current_pwq->wq->name, worker->current_func,
@@ -5020,7 +5033,7 @@ static void put_unbound_pool(struct worker_pool *pool)
 		return;
 
 	/* sanity checks */
-	if (WARN_ON(!(pool->cpu < 0)) ||
+	if (WARN_ON(is_percpu_pool(pool)) ||
 	    WARN_ON(!list_empty(&pool->worklist)))
 		return;
 
@@ -5172,12 +5185,6 @@ static void pwq_release_workfn(struct kthread_work *work)
 		mutex_unlock(&wq->mutex);
 	}
 
-	if (wq->flags & WQ_UNBOUND) {
-		mutex_lock(&wq_pool_mutex);
-		put_unbound_pool(pool);
-		mutex_unlock(&wq_pool_mutex);
-	}
-
 	if (!list_empty(&pwq->pending_node)) {
 		struct wq_node_nr_active *nna =
 			wq_node_nr_active(pwq->wq, pwq->pool->node);
@@ -5185,6 +5192,12 @@ static void pwq_release_workfn(struct kthread_work *work)
 		raw_spin_lock_irq(&nna->lock);
 		list_del_init(&pwq->pending_node);
 		raw_spin_unlock_irq(&nna->lock);
+	}
+
+	if (!is_percpu_pool(pool)) {
+		mutex_lock(&wq_pool_mutex);
+		put_unbound_pool(pool);
+		mutex_unlock(&wq_pool_mutex);
 	}
 
 	kfree_rcu(pwq, rcu);
@@ -5874,6 +5887,21 @@ err_destroy:
 	return NULL;
 }
 
+__printf(1, 0)
+static struct workqueue_struct *alloc_workqueue_va(const char *fmt,
+						   unsigned int flags,
+						   int max_active,
+						   va_list args)
+{
+	struct workqueue_struct *wq;
+
+	wq = __alloc_workqueue(fmt, flags, max_active, args);
+	if (wq)
+		wq_init_lockdep(wq);
+
+	return wq;
+}
+
 __printf(1, 4)
 struct workqueue_struct *alloc_workqueue_noprof(const char *fmt,
 						unsigned int flags,
@@ -5883,16 +5911,39 @@ struct workqueue_struct *alloc_workqueue_noprof(const char *fmt,
 	va_list args;
 
 	va_start(args, max_active);
-	wq = __alloc_workqueue(fmt, flags, max_active, args);
+	wq = alloc_workqueue_va(fmt, flags, max_active, args);
 	va_end(args);
-	if (!wq)
-		return NULL;
-
-	wq_init_lockdep(wq);
 
 	return wq;
 }
 EXPORT_SYMBOL_GPL(alloc_workqueue_noprof);
+
+static void devm_workqueue_release(void *res)
+{
+	destroy_workqueue(res);
+}
+
+__printf(2, 5) struct workqueue_struct *
+devm_alloc_workqueue_noprof(struct device *dev, const char *fmt,
+			    unsigned int flags, int max_active, ...)
+{
+	struct workqueue_struct *wq;
+	va_list args;
+	int ret;
+
+	va_start(args, max_active);
+	wq = alloc_workqueue_va(fmt, flags, max_active, args);
+	va_end(args);
+	if (!wq)
+		return NULL;
+
+	ret = devm_add_action_or_reset(dev, devm_workqueue_release, wq);
+	if (ret)
+		return NULL;
+
+	return wq;
+}
+EXPORT_SYMBOL_GPL(devm_alloc_workqueue_noprof);
 
 #ifdef CONFIG_LOCKDEP
 __printf(1, 5)
@@ -7672,7 +7723,7 @@ static void wq_watchdog_timer_fn(struct timer_list *unused)
 		/* did we stall? */
 		if (time_after(now, ts + thresh)) {
 			lockup_detected = true;
-			if (pool->cpu >= 0 && !(pool->flags & POOL_BH)) {
+			if (is_percpu_pool(pool) && !(pool->flags & POOL_BH)) {
 				pool->cpu_stall = true;
 				cpu_pool_stall = true;
 			}
@@ -7736,6 +7787,9 @@ static int wq_watchdog_param_set_thresh(const char *val,
 	if (ret)
 		return ret;
 
+	if (thresh > MAX_JIFFY_OFFSET / HZ)
+		return -ERANGE;
+
 	if (system_percpu_wq)
 		wq_watchdog_set_thresh(thresh);
 	else
@@ -7766,12 +7820,12 @@ static inline void wq_watchdog_init(void) { }
 
 static void bh_pool_kick_normal(struct irq_work *irq_work)
 {
-	raise_softirq_irqoff(TASKLET_SOFTIRQ);
+	raise_softirq(TASKLET_SOFTIRQ);
 }
 
 static void bh_pool_kick_highpri(struct irq_work *irq_work)
 {
-	raise_softirq_irqoff(HI_SOFTIRQ);
+	raise_softirq(HI_SOFTIRQ);
 }
 
 static void __init restrict_unbound_cpumask(const char *name, const struct cpumask *mask)

@@ -25,6 +25,8 @@
 #include <linux/regmap.h>
 #include <linux/reset.h>
 
+#include <linux/designware_i2c.h>
+
 #include "i2c-designware-core.h"
 
 #define AMD_TIMEOUT_MIN_US	25
@@ -511,6 +513,14 @@ i2c_dw_xfer_msg(struct dw_i2c_dev *dev)
 
 				/* Avoid rx buffer overrun */
 				if (dev->rx_outstanding >= dev->rx_fifo_depth)
+					break;
+
+				/*
+				 * For block reads, queue only the length
+				 * byte until i2c_dw_recv_len() runs.
+				 */
+				if ((flags & I2C_M_RECV_LEN) &&
+				    buf_len < msgs[dev->msg_write_idx].len)
 					break;
 
 				regmap_write(dev->map, DW_IC_DATA_CMD,

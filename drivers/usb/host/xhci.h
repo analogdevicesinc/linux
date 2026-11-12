@@ -741,14 +741,6 @@ struct xhci_virt_device {
 	struct xhci_port		*rhub_port;
 	struct xhci_interval_bw_table	*bw_table;
 	struct xhci_tt_bw_info		*tt_info;
-	/*
-	 * flags for state tracking based on events and issued commands.
-	 * Software can not rely on states from output contexts because of
-	 * latency between events and xHC updating output context values.
-	 * See xhci 1.1 section 4.8.3 for more details
-	 */
-	unsigned long			flags;
-#define VDEV_PORT_ERROR			BIT(0) /* Port error, link inactive */
 
 	/* The current max exit latency for the enabled USB3 link states. */
 	u16				current_mel;
@@ -1368,7 +1360,6 @@ struct xhci_ring {
 	u32			cycle_state;
 	unsigned int		stream_id;
 	unsigned int		num_segs;
-	unsigned int		num_trbs_free; /* used only by xhci DbC */
 	unsigned int		bounce_buf_len;
 	enum xhci_ring_type	type;
 	u32			old_trb_comp_code;
@@ -1470,6 +1461,7 @@ struct xhci_port {
 	int			hcd_portnum;
 	struct xhci_hub		*rhub;
 	struct xhci_port_cap	*port_cap;
+	unsigned int		link_inactive:1;
 	unsigned int		lpm_incapable:1;
 	unsigned long		resume_timestamp;
 	bool			rexit_active;
@@ -1945,6 +1937,7 @@ void xhci_ring_doorbell_for_active_rings(struct xhci_hcd *xhci,
 void xhci_cleanup_command_queue(struct xhci_hcd *xhci);
 void inc_deq(struct xhci_hcd *xhci, struct xhci_ring *ring);
 unsigned int count_trbs(u64 addr, u64 len);
+unsigned int xhci_num_trbs_free(struct xhci_ring *ring);
 int xhci_stop_endpoint_sync(struct xhci_hcd *xhci, struct xhci_virt_ep *ep,
 			    int suspend, gfp_t gfp_flags);
 void xhci_process_cancelled_tds(struct xhci_virt_ep *ep);

@@ -352,7 +352,7 @@ static int cls_bpf_prog_from_ops(struct nlattr **tb, struct cls_bpf_prog *prog)
 	if (bpf_size != nla_len(tb[TCA_BPF_OPS]))
 		return -EINVAL;
 
-	bpf_ops = kmemdup(nla_data(tb[TCA_BPF_OPS]), bpf_size, GFP_KERNEL);
+	bpf_ops = kmemdup(nla_data(tb[TCA_BPF_OPS]), bpf_size, GFP_KERNEL_ACCOUNT);
 	if (bpf_ops == NULL)
 		return -ENOMEM;
 
@@ -392,18 +392,38 @@ static int cls_bpf_prog_from_efd(struct nlattr **tb, struct cls_bpf_prog *prog,
 	if (bpf_prog_is_dev_bound(fp->aux)) {
 		struct tcf_block *block = tp->chain->block;
 		struct net_device *dev;
+		unsigned long ifindex;
+		bool match = false;
 
-		dev = block->q ? qdisc_dev(block->q) : NULL;
-		if (!dev || !bpf_offload_dev_match(fp, dev)) {
-			NL_SET_ERR_MSG(extack,
-				       "Program is bound to a different device");
+		/* A shared block has no qdisc of its own, but it may bind
+		 * several netdevs and the program is offloaded to all of them;
+		 * require a match with every member.
+		 */
+		if (!tcf_block_shared(block)) {
+			dev = qdisc_dev(tcf_block_q(block));
+			match = bpf_offload_dev_match(fp, dev);
+			if (!match)
+				NL_SET_ERR_MSG(extack,
+					       "Program is bound to a different device");
+		} else {
+			xa_for_each(&block->ports, ifindex, dev) {
+				match = bpf_offload_dev_match(fp, dev);
+				if (!match)
+					break;
+			}
+			if (!match)
+				NL_SET_ERR_MSG(extack,
+					       "Program is not bound to every device in the block");
+		}
+
+		if (!match) {
 			bpf_prog_put(fp);
 			return -EINVAL;
 		}
 	}
 
 	if (tb[TCA_BPF_NAME]) {
-		name = nla_memdup(tb[TCA_BPF_NAME], GFP_KERNEL);
+		name = nla_memdup(tb[TCA_BPF_NAME], GFP_KERNEL_ACCOUNT);
 		if (!name) {
 			bpf_prog_put(fp);
 			return -ENOMEM;
@@ -443,7 +463,7 @@ static int cls_bpf_change(struct net *net, struct sk_buff *in_skb,
 	if (ret < 0)
 		return ret;
 
-	prog = kzalloc(sizeof(*prog), GFP_KERNEL);
+	prog = kzalloc(sizeof(*prog), GFP_KERNEL_ACCOUNT);
 	if (!prog)
 		return -ENOBUFS;
 

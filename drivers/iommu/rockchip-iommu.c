@@ -76,6 +76,8 @@
 #define SPAGE_ORDER 12
 #define SPAGE_SIZE (1 << SPAGE_ORDER)
 
+#define DISABLE_FETCH_DTE_TIME_LIMIT BIT(31)
+
  /*
   * Support mapping any size that fits in one page table:
   *   4 KiB to 4 MiB
@@ -419,6 +421,19 @@ static int rk_iommu_enable_stall(struct rk_iommu *iommu)
 	/* Stall can only be enabled if paging is enabled */
 	if (!rk_iommu_is_paging_enabled(iommu))
 		return 0;
+
+	/*
+	 * Boot firmware can leave a bank in PAGE_FAULT_ACTIVE with no handler
+	 * (PAGE_FAULT_ACTIVE & !STALL_ACTIVE & IDLE).  Such a bank ignores
+	 * CMD_ENABLE_STALL and never reaches STALL_ACTIVE, timing out the poll
+	 * below.  Acknowledge any stale fault first so every bank starts clean.
+	 */
+	for (i = 0; i < iommu->num_mmu; i++) {
+		if (rk_iommu_read(iommu->bases[i], RK_MMU_STATUS) &
+		    RK_MMU_STATUS_PAGE_FAULT_ACTIVE)
+			writel(RK_MMU_CMD_PAGE_FAULT_DONE,
+			       iommu->bases[i] + RK_MMU_COMMAND);
+	}
 
 	rk_iommu_command(iommu, RK_MMU_CMD_ENABLE_STALL);
 
@@ -930,6 +945,7 @@ static int rk_iommu_enable(struct rk_iommu *iommu)
 	struct iommu_domain *domain = iommu->domain;
 	struct rk_iommu_domain *rk_domain = to_rk_domain(domain);
 	int ret, i;
+	u32 auto_gate;
 
 	ret = clk_bulk_enable(iommu->num_clocks, iommu->clocks);
 	if (ret)
@@ -948,6 +964,11 @@ static int rk_iommu_enable(struct rk_iommu *iommu)
 			       rk_ops->mk_dtentries(rk_domain->dt_dma));
 		rk_iommu_base_command(iommu->bases[i], RK_MMU_CMD_ZAP_CACHE);
 		rk_iommu_write(iommu->bases[i], RK_MMU_INT_MASK, RK_MMU_IRQ_MASK);
+
+		/* Workaround for iommu blocked, BIT(31) default to 1 */
+		auto_gate = rk_iommu_read(iommu->bases[i], RK_MMU_AUTO_GATING);
+		auto_gate |= DISABLE_FETCH_DTE_TIME_LIMIT;
+		rk_iommu_write(iommu->bases[i], RK_MMU_AUTO_GATING, auto_gate);
 	}
 
 	ret = rk_iommu_enable_paging(iommu);
@@ -960,7 +981,8 @@ out_disable_clocks:
 }
 
 static int rk_iommu_identity_attach(struct iommu_domain *identity_domain,
-				    struct device *dev)
+				    struct device *dev,
+				    struct iommu_domain *old)
 {
 	struct rk_iommu *iommu;
 	struct rk_iommu_domain *rk_domain;
@@ -1005,7 +1027,7 @@ static struct iommu_domain rk_identity_domain = {
 };
 
 static int rk_iommu_attach_device(struct iommu_domain *domain,
-		struct device *dev)
+				  struct device *dev, struct iommu_domain *old)
 {
 	struct rk_iommu *iommu;
 	struct rk_iommu_domain *rk_domain = to_rk_domain(domain);
@@ -1026,7 +1048,7 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 	if (iommu->domain == domain)
 		return 0;
 
-	ret = rk_iommu_identity_attach(&rk_identity_domain, dev);
+	ret = rk_iommu_identity_attach(&rk_identity_domain, dev, old);
 	if (ret)
 		return ret;
 
@@ -1041,8 +1063,17 @@ static int rk_iommu_attach_device(struct iommu_domain *domain,
 		return 0;
 
 	ret = rk_iommu_enable(iommu);
-	if (ret)
-		WARN_ON(rk_iommu_identity_attach(&rk_identity_domain, dev));
+	if (ret) {
+		/*
+		 * Note rk_iommu_identity_attach() might fail before physically
+		 * attaching the dev to iommu->domain, in which case the actual
+		 * old domain for this revert should be rk_identity_domain v.s.
+		 * iommu->domain. Since rk_iommu_identity_attach() does not care
+		 * about the old domain argument for now, this is not a problem.
+		 */
+		WARN_ON(rk_iommu_identity_attach(&rk_identity_domain, dev,
+						 iommu->domain));
+	}
 
 	pm_runtime_put(iommu->dev);
 

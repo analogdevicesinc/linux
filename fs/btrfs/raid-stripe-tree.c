@@ -19,7 +19,7 @@ static int btrfs_partially_delete_raid_extent(struct btrfs_trans_handle *trans,
 					       u64 newlen, u64 frontpad)
 {
 	struct btrfs_root *stripe_root = trans->fs_info->stripe_root;
-	struct btrfs_stripe_extent *extent, *newitem;
+	struct btrfs_stripe_extent *extent, AUTO_KFREE(newitem);
 	struct extent_buffer *leaf;
 	int slot;
 	size_t item_size;
@@ -53,14 +53,10 @@ static int btrfs_partially_delete_raid_extent(struct btrfs_trans_handle *trans,
 
 	ret = btrfs_del_item(trans, stripe_root, path);
 	if (ret)
-		goto out;
+		return ret;
 
 	btrfs_release_path(path);
-	ret = btrfs_insert_item(trans, stripe_root, &newkey, newitem, item_size);
-
-out:
-	kfree(newitem);
-	return ret;
+	return btrfs_insert_item(trans, stripe_root, &newkey, newitem, item_size);
 }
 
 int btrfs_delete_raid_extent(struct btrfs_trans_handle *trans, u64 start, u64 length)
@@ -279,8 +275,10 @@ static int update_raid_extent_item(struct btrfs_trans_handle *trans,
 
 	ret = btrfs_search_slot(trans, trans->fs_info->stripe_root, key, path,
 				0, 1);
-	if (ret)
-		return (ret == 1 ? ret : -EINVAL);
+	if (ret > 0)
+		ret = -ENOENT;
+	if (ret < 0)
+		return ret;
 
 	leaf = path->nodes[0];
 	slot = path->slots[0];
@@ -299,14 +297,13 @@ int btrfs_insert_one_raid_extent(struct btrfs_trans_handle *trans,
 	struct btrfs_key stripe_key;
 	struct btrfs_root *stripe_root = fs_info->stripe_root;
 	const int num_stripes = btrfs_bg_type_to_factor(bioc->map_type);
-	struct btrfs_stripe_extent *stripe_extent;
+	struct btrfs_stripe_extent AUTO_KFREE(stripe_extent);
 	const size_t item_size = struct_size(stripe_extent, strides, num_stripes);
 	int ret;
 
 	stripe_extent = kzalloc(item_size, GFP_NOFS);
 	if (!unlikely(stripe_extent)) {
 		btrfs_abort_transaction(trans, -ENOMEM);
-		btrfs_end_transaction(trans);
 		return -ENOMEM;
 	}
 
@@ -336,8 +333,6 @@ int btrfs_insert_one_raid_extent(struct btrfs_trans_handle *trans,
 		btrfs_abort_transaction(trans, ret);
 	}
 
-	kfree(stripe_extent);
-
 	return ret;
 }
 
@@ -345,7 +340,7 @@ int btrfs_insert_raid_extent(struct btrfs_trans_handle *trans,
 			     struct btrfs_ordered_extent *ordered_extent)
 {
 	struct btrfs_io_context *bioc;
-	int ret;
+	int ret = 0;
 
 	if (!btrfs_fs_incompat(trans->fs_info, RAID_STRIPE_TREE))
 		return 0;
@@ -353,17 +348,23 @@ int btrfs_insert_raid_extent(struct btrfs_trans_handle *trans,
 	list_for_each_entry(bioc, &ordered_extent->bioc_list, rst_ordered_entry) {
 		ret = btrfs_insert_one_raid_extent(trans, bioc);
 		if (ret)
-			return ret;
+			break;
 	}
 
-	while (!list_empty(&ordered_extent->bioc_list)) {
-		bioc = list_first_entry(&ordered_extent->bioc_list,
+	btrfs_cleanup_ordered_bioc_list(ordered_extent);
+	return ret;
+}
+
+void btrfs_cleanup_ordered_bioc_list(struct btrfs_ordered_extent *ordered)
+{
+	while (!list_empty(&ordered->bioc_list)) {
+		struct btrfs_io_context *bioc;
+
+		bioc = list_first_entry(&ordered->bioc_list,
 					typeof(*bioc), rst_ordered_entry);
 		list_del(&bioc->rst_ordered_entry);
 		btrfs_put_bioc(bioc);
 	}
-
-	return 0;
 }
 
 int btrfs_get_raid_extent_offset(struct btrfs_fs_info *fs_info,
