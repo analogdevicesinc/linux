@@ -13,7 +13,7 @@
 #endif
 
 #ifndef ASYNM_A_B_MODE
-#define ASYNM_A_B_MODE		1
+#define ASYNM_A_B_MODE		0
 #endif
 
 #ifndef HSCI_ENABLE

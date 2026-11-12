@@ -9,7 +9,7 @@
 
 #define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
 
-#define ASYNM_A_B_MODE		1
+#define ASYNM_A_B_MODE		0
 
 #define HSCI_ENABLE		0
 
