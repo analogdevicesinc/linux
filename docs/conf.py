@@ -16,6 +16,7 @@ extensions = [
     'adi_doctools',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
+    'sphinxcontrib.mermaid',
 ]
 
 needs_extensions = {
