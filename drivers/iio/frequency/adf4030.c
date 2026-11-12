@@ -282,8 +282,12 @@ static int adf4030_compute_odiv(u32 vco_freq, u64 bsync_out_freq_uhz, u32 *odiv)
 	    bsync_out_freq > ADI_ADF4030_BSYNC_FREQ_MAX)
 		return -EINVAL;
 
+	/*
+	 * The requested rate can be VCO / odiv rounded down to a whole uHz,
+	 * e.g. a 27.5 Gbps LEMC rate, which leaves a remainder below odiv.
+	 */
 	*odiv = div64_u64_rem((u64)vco_freq * MICROHZ_PER_HZ, bsync_out_freq_uhz, &rem);
-	if (rem)
+	if (rem >= *odiv)
 		return -EINVAL;
 
 	if (*odiv < ADI_ADF4030_O_DIV_MIN || *odiv > ADI_ADF4030_O_DIV_MAX)
