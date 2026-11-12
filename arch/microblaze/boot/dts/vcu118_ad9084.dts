@@ -665,10 +665,18 @@
 #endif /* WITH_AXI_AION_TRIG */
 
 		adi,vco-frequency-hz = <AION_VCO_FREQ_HZ>; /* 2.5 GHz */
+#ifdef SYSREF_CLK_UHZ
+		adi,bsync-frequency-uhz = /bits/ 64 <SYSREF_CLK_UHZ>;
+#else
 		adi,bsync-frequency-hz = <SYSREF_CLK_MHz>;
+#endif
 		adi,bsync-autoalign-reference-channel = <0>;
 		adi,bsync-autoalign-iteration-count = <6>;
-		adi,bsync-secondary-frequency-hz = <SYSREF_CLK_MHz>; /* 12.5 MHz */
+#ifdef SYSREF_CLK_UHZ
+		adi,bsync-secondary-frequency-uhz = /bits/ 64 <SYSREF_CLK_UHZ>;
+#else
+		adi,bsync-secondary-frequency-hz = <SYSREF_CLK_MHz>;
+#endif
 
 		channel@0 {
 			/* hmc output */
