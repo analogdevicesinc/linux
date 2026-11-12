@@ -122,7 +122,7 @@
 /* Beam state RAM
  * state - beam state number 0 - 63
  */
-#define ADAR300x_RAM_BEAM_STATE_ADDR(state)		(0x100 + (state * 6))
+#define ADAR300x_RAM_BEAM_STATE_ADDR(state)		(0x100 + ((state) * 6))
 #define ADAR300x_RAM_MAX_ADDR				0x27F
 
 /* Beam state FIFO load
@@ -1354,8 +1354,7 @@ static int adar300x_ram_write(struct adar300x_state *st,
 			if (ret < 0)
 				goto err_unlock;
 
-			addr = ADAR300x_RAM_BEAM_STATE_ADDR(ram_beam_state);
-			addr += st->beam_index[beam];
+			addr = ADAR300x_RAM_BEAM_STATE_ADDR(ram_beam_state + st->beam_index[beam]);
 			if ((addr + ADAR300x_PACKED_BEAMSTATE_LEN - 1) > ADAR300x_RAM_MAX_ADDR) {
 				dev_err(&st->spi->dev,
 					"Ram write err: Addr:%x, Beamst:%d", addr, ram_beam_state);
