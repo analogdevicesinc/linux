@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV904X
+ * https://wiki.analog.com/resources/eval/user-guides/adrv904x
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv904x
+ *
+ * hdl_project: <adrv904x/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020-2026 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev10-adrv904x.dts"
+
+&clk0_ad9528 {
+	adi,jesd204-desired-sysref-frequency-hz = <960000>;
+};
+
+&ad9528_0_c3 {
+	adi,channel-divider = <16>;
+};
+
+&ad9528_0_c1 {
+	adi,channel-divider = <8>;
+};
+
+&ad9528_0_c13 {
+	adi,channel-divider = <8>;
+};
+
+&trx0_adrv904x {
+	adi,device-config-name = "DeviceProfileTest_61p44MHz.bin";
+};
+
+&axi_adrv904x_rx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_rx_clkgen>, <&axi_adrv904x_adxcvr_rx 0>, <&axi_adrv904x_adxcvr_rx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+};
+
+&axi_adrv904x_tx_jesd {
+	clocks = <&zynqmp_clk 71>, <&axi_tx_clkgen>, <&axi_adrv904x_adxcvr_tx 0>, <&axi_adrv904x_adxcvr_tx 1>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk", "link_clk";
+};
+
+&axi_adrv904x_adxcvr_rx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+	adi,use-lpm-enable;
+};
+
+&axi_adrv904x_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL1>;
+	adi,out-clk-select = <XCVR_PROGDIV_CLK>;
+	adi,use-lpm-enable;
+};
