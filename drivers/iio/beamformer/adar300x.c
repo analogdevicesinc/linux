@@ -6,6 +6,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/module.h>
 #include "linux/mod_devicetable.h"
 #include <linux/of_device.h>
@@ -1265,6 +1266,13 @@ static ssize_t adar300x_mode_store(struct device *dev,
 
 	ch = this_attr->address;
 	beam_mask = ADAR300x_MODE0 << (ch * 2);
+
+	guard(mutex)(&st->lock);
+
+	ret = adar300x_set_page(st, ADAR300x_CONFIG_PAGE);
+	if (ret < 0)
+		return ret;
+
 	if (mode <= ADAR300x_INST_DIRECT_CTRL) {
 		beam = 0;
 		ret = regmap_update_bits(st->regmap, ADAR300x_REG(st, ADAR300x_REG_BEAMSTATE_MODE),
