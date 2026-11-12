@@ -459,6 +459,24 @@ config BATTERY_MAX17042
 
 	  Driver can be build as a module (max17042_battery).
 
+config BATTERY_MAX2035X
+	tristate "Analog Devices MAX20355/MAX20357 Battery"
+	depends on MFD_MAX2035X
+	help
+	  Say yes here to enable battery status reporting for the
+	  Analog Devices MAX20355/MAX20357 PMICs. Reads fuel gauge
+	  mirror registers from the main PLC I2C block. Reports
+	  capacity, voltage, time-to-empty and time-to-full.
+
+config CHARGER_MAX20357
+	tristate "Analog Devices MAX20357 Charger"
+	depends on MFD_MAX2035X
+	help
+	  Say yes here to enable the Li-ion charger on the Analog
+	  Devices MAX20357 PMIC. Uses monitored-battery DT properties
+	  for charge parameters. Reports charger status, charge type,
+	  and configured current/voltage limits.
+
 config BATTERY_MAX1720X
 	tristate "Maxim MAX17201/MAX17205 Fuel Gauge"
 	depends on I2C
