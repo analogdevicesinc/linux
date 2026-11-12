@@ -96,6 +96,7 @@ const struct inv_icm42607_hw inv_icm42607_hw_data = {
 	.whoami = INV_ICM42607_WHOAMI,
 	.name = "icm42607",
 	.conf = &inv_icm42607_default_conf,
+	.has_gyro = true,
 };
 EXPORT_SYMBOL_NS_GPL(inv_icm42607_hw_data, "IIO_ICM42607");
 
@@ -103,6 +104,7 @@ const struct inv_icm42607_hw inv_icm42607p_hw_data = {
 	.whoami = INV_ICM42607P_WHOAMI,
 	.name = "icm42607p",
 	.conf = &inv_icm42607_default_conf,
+	.has_gyro = true,
 };
 EXPORT_SYMBOL_NS_GPL(inv_icm42607p_hw_data, "IIO_ICM42607");
 
@@ -160,7 +162,11 @@ int inv_icm42607_get_pwr_mgmt0(struct inv_icm42607_state *st,
 	if (ret)
 		return ret;
 
-	*gyro = FIELD_GET(INV_ICM42607_PWR_MGMT0_GYRO_MODE_MASK, val);
+	if (st->hw->has_gyro)
+		*gyro = FIELD_GET(INV_ICM42607_PWR_MGMT0_GYRO_MODE_MASK, val);
+	else
+		*gyro = INV_ICM42607_SENSOR_MODE_OFF;
+
 	*accel = FIELD_GET(INV_ICM42607_PWR_MGMT0_ACCEL_MODE_MASK, val);
 
 	return 0;
@@ -190,7 +196,7 @@ static int inv_icm42607_set_pwr_mgmt0(struct inv_icm42607_state *st,
 	 * wait if it hasn't. In case some platforms don't respond well to a
 	 * sleep of 0, make sure the fsleep duration is > 0.
 	 */
-	if (!gyro && oldgyro) {
+	if (gyro == INV_ICM42607_SENSOR_MODE_OFF && oldgyro != gyro) {
 		disable_wait = clamp(ktime_us_delta(st->conf.gyro_stop, ktime_get()),
 				     0, INV_ICM42607_GYRO_STOP_TIME_US);
 
@@ -217,12 +223,14 @@ static int inv_icm42607_set_pwr_mgmt0(struct inv_icm42607_state *st,
 	 */
 	sleepval_us = 0;
 	odr_us = 0;
-	if (accel && !oldaccel) {
+	if (accel != INV_ICM42607_SENSOR_MODE_OFF &&
+	    oldaccel == INV_ICM42607_SENSOR_MODE_OFF) {
 		sleepval_us = max(sleepval_us, INV_ICM42607_ACCEL_STARTUP_TIME_US);
 		odr_us = max(odr_us, inv_icm42607_odr_to_period_us(st->conf.accel.odr));
 	}
 
-	if (gyro && !oldgyro) {
+	if (gyro != INV_ICM42607_SENSOR_MODE_OFF &&
+	    oldgyro == INV_ICM42607_SENSOR_MODE_OFF) {
 		sleepval_us = max(sleepval_us, INV_ICM42607_GYRO_STARTUP_TIME_US);
 		odr_us = max(odr_us, inv_icm42607_odr_to_period_us(st->conf.gyro.odr));
 		/* Track the earliest we can turn off the gyroscope. */
@@ -241,6 +249,16 @@ static int inv_icm42607_set_pwr_mgmt0(struct inv_icm42607_state *st,
 		fsleep(sleepval_us);
 
 	return 0;
+}
+
+static int inv_icm42607_set_sensor_modes(struct inv_icm42607_state *st,
+					 enum inv_icm42607_sensor_mode gyro,
+					 enum inv_icm42607_sensor_mode accel)
+{
+	if (st->hw->has_gyro)
+		return inv_icm42607_set_pwr_mgmt0(st, gyro, accel);
+
+	return inv_icm42607_set_pwr_mgmt0(st, INV_ICM42607_SENSOR_MODE_OFF, accel);
 }
 
 /*
@@ -339,9 +357,9 @@ int inv_icm42607_set_sensor_conf(struct inv_icm42607_state *st,
 
 	switch (chan_type) {
 	case IIO_ACCEL:
-		return inv_icm42607_set_pwr_mgmt0(st, gyro_mode, conf->mode);
+		return inv_icm42607_set_sensor_modes(st, gyro_mode, conf->mode);
 	case IIO_ANGL_VEL:
-		return inv_icm42607_set_pwr_mgmt0(st, conf->mode, accel_mode);
+		return inv_icm42607_set_sensor_modes(st, conf->mode, accel_mode);
 	default:
 		return -EINVAL;
 	}
@@ -417,29 +435,37 @@ static int inv_icm42607_set_init_conf(struct inv_icm42607_state *st,
 	unsigned int val;
 	int ret;
 
-	val = FIELD_PREP(INV_ICM42607_PWR_MGMT0_GYRO_MODE_MASK, conf->gyro.mode);
-	val |= FIELD_PREP(INV_ICM42607_PWR_MGMT0_ACCEL_MODE_MASK, conf->accel.mode);
+	if (st->hw->has_gyro)
+		val = FIELD_PREP(INV_ICM42607_PWR_MGMT0_GYRO_MODE_MASK, conf->gyro.mode) |
+		      FIELD_PREP(INV_ICM42607_PWR_MGMT0_ACCEL_MODE_MASK, conf->accel.mode);
+	else
+		val = FIELD_PREP(INV_ICM42607_PWR_MGMT0_ACCEL_MODE_MASK, conf->accel.mode);
+
 	ret = regmap_write(st->map, INV_ICM42607_REG_PWR_MGMT0, val);
 	if (ret)
 		return ret;
 
-	val = FIELD_PREP(INV_ICM42607_GYRO_CONFIG0_FS_SEL_MASK, conf->gyro.fs);
-	val |= FIELD_PREP(INV_ICM42607_GYRO_CONFIG0_ODR_MASK, conf->gyro.odr);
-	ret = regmap_write(st->map, INV_ICM42607_REG_GYRO_CONFIG0, val);
-	if (ret)
-		return ret;
+	if (st->hw->has_gyro) {
+		val = FIELD_PREP(INV_ICM42607_GYRO_CONFIG0_ODR_MASK, conf->gyro.odr) |
+		      FIELD_PREP(INV_ICM42607_GYRO_CONFIG0_FS_SEL_MASK, conf->gyro.fs);
+		ret = regmap_write(st->map, INV_ICM42607_REG_GYRO_CONFIG0, val);
+		if (ret)
+			return ret;
+	}
 
-	val = FIELD_PREP(INV_ICM42607_ACCEL_CONFIG0_FS_SEL_MASK, conf->accel.fs);
-	val |= FIELD_PREP(INV_ICM42607_ACCEL_CONFIG0_ODR_MASK, conf->accel.odr);
+	val = FIELD_PREP(INV_ICM42607_ACCEL_CONFIG0_FS_SEL_MASK, conf->accel.fs) |
+	      FIELD_PREP(INV_ICM42607_ACCEL_CONFIG0_ODR_MASK, conf->accel.odr);
 	ret = regmap_write(st->map, INV_ICM42607_REG_ACCEL_CONFIG0, val);
 	if (ret)
 		return ret;
 
-	val = FIELD_PREP(INV_ICM42607_GYRO_CONFIG1_FILTER_MASK, conf->gyro.filter);
-	ret = regmap_update_bits(st->map, INV_ICM42607_REG_GYRO_CONFIG1,
-				 INV_ICM42607_GYRO_CONFIG1_FILTER_MASK, val);
-	if (ret)
-		return ret;
+	if (st->hw->has_gyro) {
+		val = FIELD_PREP(INV_ICM42607_GYRO_CONFIG1_FILTER_MASK, conf->gyro.filter);
+		ret = regmap_update_bits(st->map, INV_ICM42607_REG_GYRO_CONFIG1,
+					 INV_ICM42607_GYRO_CONFIG1_FILTER_MASK, val);
+		if (ret)
+			return ret;
+	}
 
 	val = FIELD_PREP(INV_ICM42607_ACCEL_CONFIG1_FILTER_MASK, conf->accel.filter);
 	ret = regmap_update_bits(st->map, INV_ICM42607_REG_ACCEL_CONFIG1,
@@ -547,8 +573,8 @@ static int inv_icm42607_sensors_off(struct inv_icm42607_state *st)
 	st->conf.gyro.mode = INV_ICM42607_SENSOR_MODE_OFF;
 	st->conf.accel.mode = INV_ICM42607_SENSOR_MODE_OFF;
 
-	ret = inv_icm42607_set_pwr_mgmt0(st, st->conf.gyro.mode,
-					 st->conf.accel.mode);
+	ret = inv_icm42607_set_sensor_modes(st, st->conf.gyro.mode,
+					    st->conf.accel.mode);
 	if (ret)
 		dev_err(dev, "Unable to turn off sensors\n");
 
@@ -641,10 +667,11 @@ int inv_icm42607_core_probe(struct regmap *regmap,
 	if (IS_ERR(st->indio_accel))
 		return PTR_ERR(st->indio_accel);
 
-	/* Initialize IIO device for Gyro */
-	st->indio_gyro = inv_icm42607_gyro_init(st);
-	if (IS_ERR(st->indio_gyro))
-		return PTR_ERR(st->indio_gyro);
+	if (st->hw->has_gyro) {
+		st->indio_gyro = inv_icm42607_gyro_init(st);
+		if (IS_ERR(st->indio_gyro))
+			return PTR_ERR(st->indio_gyro);
+	}
 
 	return 0;
 }

@@ -3,7 +3,6 @@
  * Copyright (C) 2026 InvenSense, Inc.
  */
 
-#include <linux/bitfield.h>
 #include <linux/cleanup.h>
 #include <linux/device.h>
 #include <linux/err.h>
@@ -20,10 +19,10 @@
 static int inv_icm42607_temp_read(struct inv_icm42607_state *st, s16 *temp)
 {
 	struct inv_icm42607_sensor_conf conf = INV_ICM42607_SENSOR_CONF_INIT;
+	enum inv_icm42607_sensor_mode gyro_mode, accel_mode;
 	struct device *dev = regmap_get_device(st->map);
-	int ret, gyro_mode, accel_mode;
-	unsigned int val;
 	u8 raw[2];
+	int ret;
 
 	PM_RUNTIME_ACQUIRE_AUTOSUSPEND(dev, pm);
 	ret = PM_RUNTIME_ACQUIRE_ERR(&pm);
@@ -39,13 +38,12 @@ static int inv_icm42607_temp_read(struct inv_icm42607_state *st, s16 *temp)
 	 * as the datasheet says the gyro uses 5x more power and it has
 	 * a minimum run time of 45ms.
 	 */
-	ret = regmap_read(st->map, INV_ICM42607_REG_PWR_MGMT0, &val);
+	ret = inv_icm42607_get_pwr_mgmt0(st, &gyro_mode, &accel_mode);
 	if (ret)
 		return ret;
 
-	accel_mode = FIELD_GET(INV_ICM42607_PWR_MGMT0_ACCEL_MODE_MASK, val);
-	gyro_mode = FIELD_GET(INV_ICM42607_PWR_MGMT0_GYRO_MODE_MASK, val);
-	if (!gyro_mode && !accel_mode) {
+	if (gyro_mode == INV_ICM42607_SENSOR_MODE_OFF &&
+	    accel_mode == INV_ICM42607_SENSOR_MODE_OFF) {
 		/* enable accel sensor */
 		conf.mode = INV_ICM42607_SENSOR_MODE_LOW_NOISE;
 		ret = inv_icm42607_set_sensor_conf(st, &conf, IIO_ACCEL);
