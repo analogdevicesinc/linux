@@ -777,8 +777,9 @@ static int adar300x_read_raw(struct iio_dev *indio_dev,
 
 			return IIO_VAL_FRACTIONAL;
 		case IIO_TEMP:
-			*val = 0;
-			*val2 = 911500;
+			/* 1.09 LSB per degree Celsius, in millidegrees */
+			*val = 917;
+			*val2 = 431193;
 
 			return IIO_VAL_INT_PLUS_MICRO;
 		default:
@@ -787,8 +788,9 @@ static int adar300x_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_TEMP:
-			*val = 86;
-			*val2 = 362000;
+			/* Code 127 at 25 degrees Celsius */
+			*val = -99;
+			*val2 = 750000;
 
 			return IIO_VAL_INT_PLUS_MICRO;
 		default:
