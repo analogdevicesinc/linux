@@ -31,7 +31,7 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait";
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk1p2 rw rootfstype=ext4 rootwait";
 		stdout-path = "serial1:115200";
 	};
 
