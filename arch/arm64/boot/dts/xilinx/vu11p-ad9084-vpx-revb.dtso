@@ -29,7 +29,7 @@
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
 
-#ifdef WITH_AION
+#if WITH_AION
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
@@ -174,7 +174,7 @@
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
-#ifndef WITH_AION
+#if !WITH_AION
 			channel@4 {
 				reg = <4>;
 				adi,extended-name = "VUP JESD SYSREF";

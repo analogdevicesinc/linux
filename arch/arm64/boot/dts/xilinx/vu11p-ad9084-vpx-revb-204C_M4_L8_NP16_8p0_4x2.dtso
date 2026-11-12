@@ -28,7 +28,7 @@
 #define VU11_FIRMWARE_NAME	"vu11p.bin"
 #endif
 
-#ifdef WITH_AION
+#if WITH_AION
 #define JESD_SUBCLASS 1
 #else
 #define JESD_SUBCLASS 0
@@ -189,7 +189,7 @@
 				adi,digital-delay = <0>;
 				adi,analog-delay = <0>;
 			};
-#ifndef WITH_AION
+#if !WITH_AION
 			channel@4 {
 				reg = <4>;
 				adi,extended-name = "VUP JESD SYSREF";
@@ -592,7 +592,7 @@
 			jesd204-top-device = <0>; /* This is the TOP device */
 			jesd204-ignore-errors;
 
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 			jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
 			jesd204-inputs =
@@ -677,7 +677,7 @@
 	};
 #endif
 
-#ifdef ASYNM_A_B_MODE
+#if ASYNM_A_B_MODE
 	rx_dma_b: dma@88060000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x0 0x88060000 0x0 0x10000>;
