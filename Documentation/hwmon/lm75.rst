@@ -63,15 +63,17 @@ Supported chips:
 
 	       http://www.microchip.com/
 
-  * Analog Devices ADT75
+  * Analog Devices ADT75, MAX31875
 
-    Prefix: 'adt75'
+    Prefix: 'adt75', 'max31875'
 
     Addresses scanned: none
 
     Datasheet: Publicly available at the Analog Devices website
 
 	       https://www.analog.com/adt75
+
+	       https://www.analog.com/max31875
 
   * ST Microelectronics STDS75
 
