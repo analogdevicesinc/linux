@@ -34,7 +34,7 @@
  */
 #define SYS_CLK_SELECT		XCVR_QPLL
 
-#define SYSREF_CLK_MHz		(10000000)
+#define SYSREF_CLK_UHZ		(4882812500000)
 
 #define WITH_AION 1
 #define WITH_AXI_AION_TRIG 0
