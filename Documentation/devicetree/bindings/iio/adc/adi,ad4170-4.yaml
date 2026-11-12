@@ -13,8 +13,11 @@ description: |
   Analog Devices AD4170-4 series of Sigma-delta Analog to Digital Converters.
   Specifications can be found at:
     https://www.analog.com/media/en/technical-documentation/data-sheets/ad4170-4.pdf
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad4171-8.pdf
     https://www.analog.com/media/en/technical-documentation/data-sheets/ad4190-4.pdf
     https://www.analog.com/media/en/technical-documentation/data-sheets/ad4195-4.pdf
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad4190-8.pdf
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ad4195-8.pdf
 
 $ref: /schemas/spi/spi-peripheral-props.yaml#
 
@@ -39,8 +42,11 @@ properties:
   compatible:
     enum:
       - adi,ad4170-4
+      - adi,ad4171-8
       - adi,ad4190-4
+      - adi,ad4190-8
       - adi,ad4195-4
+      - adi,ad4195-8
 
   avss-supply:
     description:
@@ -128,23 +134,122 @@ properties:
     description: Analog inputs to apply a voltage bias of (AVDD − AVSS) / 2 to.
     $ref: /schemas/types.yaml#/definitions/uint32-array
     minItems: 1
-    maxItems: 9
+    maxItems: 16
     items:
       minimum: 0
-      maximum: 8
+      maximum: 15
 
 allOf:
-  # Some devices don't have integrated DAC
+  # Only AD4170-4 and AD4171-8 have an integrated DAC. On the other devices, the
+  # DAC output is not routed to the multiplexer either, making mux input number
+  # 20 reserved.
+  - if:
+      properties:
+        compatible:
+          not:
+            contains:
+              enum:
+                - adi,ad4170-4
+                - adi,ad4171-8
+    then:
+      properties:
+        ldac-gpios: false
+      patternProperties:
+        "^channel@[0-9a-f]$":
+          properties:
+            diff-channels:
+              items:
+                anyOf:
+                  - maximum: 19
+                  - minimum: 21
+            single-channel:
+              anyOf:
+                - maximum: 19
+                - minimum: 21
+            common-mode-channel:
+              anyOf:
+                - maximum: 19
+                - minimum: 21
+
+  # Only AD4170-4 and AD4171-8 can be clocked by an external crystal. The other
+  # devices have no XTAL1 and XTAL2 pins.
+  - if:
+      properties:
+        compatible:
+          not:
+            contains:
+              enum:
+                - adi,ad4170-4
+                - adi,ad4171-8
+    then:
+      properties:
+        clock-names:
+          const: ext-clk
+
+  # AD4170-4 and AD4171-8 have four excitation current sources. The other
+  # devices have two.
+  - if:
+      properties:
+        compatible:
+          not:
+            contains:
+              enum:
+                - adi,ad4170-4
+                - adi,ad4171-8
+    then:
+      patternProperties:
+        "^channel@[0-9a-f]$":
+          properties:
+            adi,excitation-pin-2: false
+            adi,excitation-pin-3: false
+            adi,excitation-current-2-microamp: false
+            adi,excitation-current-3-microamp: false
+
+  # Devices with four differential inputs have analog input pins AIN0 to AIN8
+  # only. They have neither AIN9 to AIN15 nor an AINCOM pin.
   - if:
       properties:
         compatible:
           contains:
             enum:
+              - adi,ad4170-4
               - adi,ad4190-4
               - adi,ad4195-4
     then:
       properties:
-        ldac-gpios: false
+        adi,vbias-pins:
+          maxItems: 9
+          items:
+            maximum: 8
+      patternProperties:
+        "^channel@[0-9a-f]$":
+          properties:
+            diff-channels:
+              items:
+                enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23,
+                       24, 25, 26, 27, 28, 29]
+            single-channel:
+              enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24,
+                     25, 26, 27, 28, 29]
+            common-mode-channel:
+              enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24,
+                     25, 26, 27, 28, 29]
+            adi,excitation-pin-0:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-1:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-2:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
+            adi,excitation-pin-3:
+              anyOf:
+                - maximum: 8
+                - minimum: 17
 
   # Require to specify the interrupt pin when using interrupts
   - if:
@@ -193,12 +298,15 @@ patternProperties:
           voltage channel. The first value is the positive input and the second
           value is the negative input of the channel.
 
-          Besides the analog input pins AIN0 to AIN8, there are special inputs
-          that can be selected with the following values:
+          The analog input pins are AIN0 to AIN8 on AD4170-4, AD4190-4, and
+          AD4195-4, selected with values 0 to 8. AD4171-8, AD4190-8, and
+          AD4195-8 have AIN0 to AIN15 plus an AINCOM pin, selected with values
+          0 to 15 and 16, respectively. Besides the analog input pins, there
+          are special inputs that can be selected with the following values:
           17: Internal temperature sensor
           18: (AVDD-AVSS)/5
           19: (IOVDD-DGND)/5
-          20: DAC output
+          20: DAC output (devices with an integrated DAC only)
           21: ALDO
           22: DLDO
           23: AVSS
@@ -211,8 +319,22 @@ patternProperties:
           For the internal temperature sensor, use the input number for both
           inputs (i.e. diff-channels = <17 17>).
         items:
-          enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-                 26, 27, 28, 29]
+          minimum: 0
+          maximum: 29
+
+      single-channel:
+        description:
+          Positive input of a pseudo-differential channel. Uses the same input
+          numbers as diff-channels.
+        minimum: 0
+        maximum: 29
+
+      common-mode-channel:
+        description:
+          Negative input of a pseudo-differential channel. Uses the same input
+          numbers as diff-channels.
+        minimum: 0
+        maximum: 29
 
       adi,reference-select:
         description: |

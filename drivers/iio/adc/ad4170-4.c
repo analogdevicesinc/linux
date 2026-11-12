@@ -139,6 +139,7 @@
 
 /* AD4170_CHAN_MAP_REG constants */
 #define AD4170_CHAN_MAP_AIN(x)			(x)
+#define AD4170_CHAN_MAP_AINCOM			16
 #define AD4170_CHAN_MAP_TEMP_SENSOR		17
 #define AD4170_CHAN_MAP_AVDD_AVSS_P		18
 #define AD4170_CHAN_MAP_AVDD_AVSS_N		18
@@ -184,11 +185,10 @@
 
 /* Device properties and auxiliary constants */
 
-#define AD4170_NUM_ANALOG_PINS				9
 #define AD4170_NUM_GPIO_PINS				4
 #define AD4170_MAX_ADC_CHANNELS				16
 #define AD4170_MAX_IIO_CHANNELS				(AD4170_MAX_ADC_CHANNELS + 1)
-#define AD4170_MAX_ANALOG_PINS				8
+#define AD4170_MAX_ANALOG_PINS				16
 #define AD4170_MAX_SETUPS				8
 #define AD4170_INVALID_SETUP				9
 #define AD4170_SPI_INST_PHASE_LEN			2
@@ -208,7 +208,6 @@
 /* Digital filter properties */
 #define AD4170_SINC3_MIN_FS				4
 #define AD4170_SINC3_MAX_FS				65532
-#define AD4170_SINC5_MIN_FS				1
 #define AD4170_SINC5_MAX_FS				256
 
 #define AD4170_GAIN_REG_DEFAULT				0x555555
@@ -337,20 +336,8 @@ static const unsigned int ad4170_sinc5_filt_fs_tbl[] = {
 	1, 2, 4, 8, 12, 16, 20, 40, 48, 80, 100, 256,
 };
 
-static const unsigned int ad4170_iout_pin_tbl[] = {
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(0),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(1),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(2),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(3),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(4),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(5),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(6),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(7),
-	AD4170_CURRENT_SRC_I_OUT_PIN_AIN(8),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(1),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(2),
-	AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(3),
+static const unsigned int ad4190_sinc5_filt_fs_tbl[] = {
+	4, 8, 12, 16, 20, 40, 48, 80, 100, 256,
 };
 
 static const unsigned int ad4170_iout_current_ua_tbl[] = {
@@ -374,18 +361,62 @@ static const char * const ad4170_sensor_type[] = {
 
 struct ad4170_chip_info {
 	const char *name;
+	const unsigned int *sinc5_filt_fs_tbl;
+	unsigned int sinc5_filt_fs_tbl_size;
+	unsigned int num_analog_pins;
+	unsigned int clock_div;
+	bool has_aincom;
 };
 
 static const struct ad4170_chip_info ad4170_chip_info = {
 	.name = "ad4170-4",
+	.sinc5_filt_fs_tbl = ad4170_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl),
+	.num_analog_pins = 9,
+	.clock_div = 1,
+};
+
+static const struct ad4170_chip_info ad4171_8_chip_info = {
+	.name = "ad4171-8",
+	.sinc5_filt_fs_tbl = ad4170_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl),
+	.num_analog_pins = 16,
+	.clock_div = 1,
+	.has_aincom = true,
 };
 
 static const struct ad4170_chip_info ad4190_chip_info = {
 	.name = "ad4190-4",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
+	.num_analog_pins = 9,
+	.clock_div = 2,
 };
 
 static const struct ad4170_chip_info ad4195_chip_info = {
 	.name = "ad4195-4",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
+	.num_analog_pins = 9,
+	.clock_div = 2,
+};
+
+static const struct ad4170_chip_info ad4190_8_chip_info = {
+	.name = "ad4190-8",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
+	.num_analog_pins = 16,
+	.clock_div = 2,
+	.has_aincom = true,
+};
+
+static const struct ad4170_chip_info ad4195_8_chip_info = {
+	.name = "ad4195-8",
+	.sinc5_filt_fs_tbl = ad4190_sinc5_filt_fs_tbl,
+	.sinc5_filt_fs_tbl_size = ARRAY_SIZE(ad4190_sinc5_filt_fs_tbl),
+	.num_analog_pins = 16,
+	.clock_div = 2,
+	.has_aincom = true,
 };
 
 /*
@@ -437,6 +468,7 @@ static const char * const ad4170_filt_names[] = {
 
 struct ad4170_state {
 	struct mutex lock; /* Protect read-modify-write and multi write sequences */
+	const struct ad4170_chip_info *chip;
 	int vrefs_uv[AD4170_MAX_SUP];
 	u32 mclk_hz;
 	struct ad4170_setup_info setup_infos[AD4170_MAX_SETUPS];
@@ -452,7 +484,7 @@ struct ad4170_state {
 	struct iio_trigger *trig;
 	struct clk_hw int_clk_hw;
 	unsigned int clock_ctrl;
-	unsigned int pins_fn[AD4170_NUM_ANALOG_PINS];
+	unsigned int pins_fn[AD4170_MAX_ANALOG_PINS];
 	int gpio_fn[AD4170_NUM_GPIO_PINS];
 	unsigned int cur_src_pins[AD4170_NUM_CURRENT_SRC];
 	struct gpio_chip gpiochip;
@@ -465,6 +497,7 @@ struct ad4170_state {
 
 static void ad4170_fill_sps_tbl(struct ad4170_state *st)
 {
+	const unsigned int *fs_tbl = st->chip->sinc5_filt_fs_tbl;
 	unsigned int tmp0, tmp1, i;
 
 	/*
@@ -485,10 +518,9 @@ static void ad4170_fill_sps_tbl(struct ad4170_state *st)
 		st->sps_tbl[AD4170_SINC3][i][1] = tmp1; /* Fractional part */
 	}
 	/* Sinc5 filter ODR doesn't use all FILTER_FS bits */
-	for (i = 0; i < ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl); i++) {
-		tmp0 = div_u64_rem(st->mclk_hz, 32 * ad4170_sinc5_filt_fs_tbl[i],
-				   &tmp1);
-		tmp1 = mult_frac(tmp1, MICRO, 32 * ad4170_sinc5_filt_fs_tbl[i]);
+	for (i = 0; i < st->chip->sinc5_filt_fs_tbl_size; i++) {
+		tmp0 = div_u64_rem(st->mclk_hz, 32 * fs_tbl[i], &tmp1);
+		tmp1 = mult_frac(tmp1, MICRO, 32 * fs_tbl[i]);
 		/* Fill sinc5 filter SPS table */
 		st->sps_tbl[AD4170_SINC5][i][0] = tmp0; /* Integer part */
 		st->sps_tbl[AD4170_SINC5][i][1] = tmp1; /* Fractional part */
@@ -880,10 +912,12 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 			return -EBUSY;
 
 		if (val == AD4170_SINC5_AVG || val == AD4170_SINC3)
-			setup->filter_fs = clamp(val, AD4170_SINC3_MIN_FS,
+			setup->filter_fs = clamp(setup->filter_fs,
+						 AD4170_SINC3_MIN_FS,
 						 AD4170_SINC3_MAX_FS);
 		else
-			setup->filter_fs = clamp(val, AD4170_SINC5_MIN_FS,
+			setup->filter_fs = clamp(setup->filter_fs,
+						 st->chip->sinc5_filt_fs_tbl[0],
 						 AD4170_SINC5_MAX_FS);
 
 		setup->filter &= ~AD4170_FILTER_FILTER_TYPE_MSK;
@@ -966,9 +1000,9 @@ static const struct iio_chan_spec ad4170_temp_channel_template = {
 /*
  * Receives the number of a multiplexed AD4170 input (ain_n), and stores the
  * voltage (in µV) of the specified input into ain_voltage. If the input number
- * is a ordinary analog input (AIN0 to AIN8), stores zero into ain_voltage.
- * If a voltage regulator required by a special input is unavailable, return
- * error code. Return 0 on success.
+ * is an ordinary analog input pin, AINCOM, or the temperature sensor, stores
+ * zero into ain_voltage. If a voltage regulator required by a special input is
+ * unavailable, return error code. Return 0 on success.
  */
 static int ad4170_get_ain_voltage_uv(struct ad4170_state *st, int ain_n,
 				     int *ain_voltage)
@@ -984,7 +1018,8 @@ static int ad4170_get_ain_voltage_uv(struct ad4170_state *st, int ain_n,
 	 * So, we do AVDD - AVSS to compute the DC voltage generated by the bias
 	 * voltage generator.
 	 */
-	if (st->pins_fn[ain_n] & AD4170_PIN_VBIAS) {
+	if (ain_n < st->chip->num_analog_pins &&
+	    st->pins_fn[ain_n] & AD4170_PIN_VBIAS) {
 		int v_diff = st->vrefs_uv[AD4170_AVDD_SUP] - st->vrefs_uv[AD4170_AVSS_SUP];
 		*ain_voltage = v_diff / 2;
 		return 0;
@@ -1046,7 +1081,7 @@ static int ad4170_get_ain_voltage_uv(struct ad4170_state *st, int ain_n,
 
 static int ad4170_validate_analog_input(struct ad4170_state *st, int pin)
 {
-	if (pin <= AD4170_MAX_ANALOG_PINS) {
+	if (pin < st->chip->num_analog_pins) {
 		if (st->pins_fn[pin] & AD4170_PIN_CURRENT_OUT)
 			return dev_err_probe(&st->spi->dev, -EINVAL,
 					     "Pin %d already used with fn %u.\n",
@@ -1059,6 +1094,9 @@ static int ad4170_validate_analog_input(struct ad4170_state *st, int pin)
 
 static int ad4170_validate_channel_input(struct ad4170_state *st, int pin, bool com)
 {
+	if (st->chip->has_aincom && pin == AD4170_CHAN_MAP_AINCOM)
+		return 0;
+
 	/* Check common-mode input pin is mapped to a special input. */
 	if (com && (pin < AD4170_CHAN_MAP_AVDD_AVSS_P || pin > AD4170_CHAN_MAP_REFOUT))
 		return dev_err_probe(&st->spi->dev, -EINVAL,
@@ -1066,7 +1104,7 @@ static int ad4170_validate_channel_input(struct ad4170_state *st, int pin, bool 
 				     pin);
 
 	/* Check differential input pin is mapped to a analog input pin. */
-	if (!com && pin > AD4170_MAX_ANALOG_PINS)
+	if (!com && pin >= st->chip->num_analog_pins)
 		return dev_err_probe(&st->spi->dev, -EINVAL,
 				     "Invalid analog input pin number. %d\n",
 				     pin);
@@ -1277,7 +1315,7 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 	struct ad4170_chan_info *chan_info = &st->chan_infos[chan->address];
 	struct ad4170_setup *setup = &chan_info->setup;
 	enum ad4170_filter_type f_type;
-	unsigned int pga, fs_idx;
+	unsigned int pga, fs_idx, fs_size;
 	int ret;
 
 	guard(mutex)(&st->lock);
@@ -1327,9 +1365,10 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 			*val2 = st->sps_tbl[f_type][fs_idx][1];
 			return IIO_VAL_INT_PLUS_MICRO;
 		case AD4170_SINC5:
+			fs_size = st->chip->sinc5_filt_fs_tbl_size;
 			fs_idx = find_closest(setup->filter_fs,
-					      ad4170_sinc5_filt_fs_tbl,
-					      ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl));
+					      st->chip->sinc5_filt_fs_tbl,
+					      fs_size);
 			*val = st->sps_tbl[f_type][fs_idx][0];
 			*val2 = st->sps_tbl[f_type][fs_idx][1];
 			return IIO_VAL_INT_PLUS_MICRO;
@@ -1442,7 +1481,7 @@ static int ad4170_read_avail(struct iio_dev *indio_dev,
 		case AD4170_SINC5:
 			/* Read sps_tbl here to ensure in bounds array access */
 			*vals = (int *)st->sps_tbl[f_type];
-			*length = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl) * 2;
+			*length = st->chip->sinc5_filt_fs_tbl_size * 2;
 			return IIO_AVAIL_LIST;
 		default:
 			return -EINVAL;
@@ -1490,7 +1529,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 		filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc3_filt_fs_tbl);
 		break;
 	case AD4170_SINC5:
-		filt_fs_tbl_size = ARRAY_SIZE(ad4170_sinc5_filt_fs_tbl);
+		filt_fs_tbl_size = st->chip->sinc5_filt_fs_tbl_size;
 		break;
 	}
 
@@ -1504,7 +1543,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 
 	guard(mutex)(&st->lock);
 	if (f_type == AD4170_SINC5)
-		setup->filter_fs = ad4170_sinc5_filt_fs_tbl[i];
+		setup->filter_fs = st->chip->sinc5_filt_fs_tbl[i];
 	else
 		setup->filter_fs = ad4170_sinc3_filt_fs_tbl[i];
 
@@ -1799,27 +1838,18 @@ static int ad4170_gpio_init(struct iio_dev *indio_dev)
 static int ad4170_validate_excitation_pin(struct ad4170_state *st, u32 pin)
 {
 	struct device *dev = &st->spi->dev;
-	unsigned int i;
 
-	/* Check the pin number is valid */
-	for (i = 0; i < ARRAY_SIZE(ad4170_iout_pin_tbl); i++)
-		if (ad4170_iout_pin_tbl[i] == pin)
-			break;
-
-	if (i == ARRAY_SIZE(ad4170_iout_pin_tbl))
-		return dev_err_probe(dev, -EINVAL,
-				     "Invalid excitation pin: %u\n",
-				     pin);
-
-	/* Check the pin is available */
-	if (pin <= AD4170_MAX_ANALOG_PINS) {
+	/* Check the pin number is valid and the pin is available */
+	if (pin < st->chip->num_analog_pins) {
 		if (st->pins_fn[pin] != AD4170_PIN_UNASSIGNED)
 			return dev_err_probe(dev, -EINVAL,
 					     "Pin %u already used with fn %u\n",
 					     pin, st->pins_fn[pin]);
 
 		st->pins_fn[pin] |= AD4170_PIN_CURRENT_OUT;
-	} else {
+		return 0;
+	} else if (in_range(pin, AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0),
+			    AD4170_NUM_GPIO_PINS)) {
 		unsigned int gpio = pin - AD4170_CURRENT_SRC_I_OUT_PIN_GPIO(0);
 
 		if (st->gpio_fn[gpio] != AD4170_GPIO_UNASSIGNED)
@@ -1828,9 +1858,12 @@ static int ad4170_validate_excitation_pin(struct ad4170_state *st, u32 pin)
 					     gpio, st->gpio_fn[gpio]);
 
 		st->gpio_fn[gpio] |= AD4170_GPIO_AC_EXCITATION;
+		return 0;
+	} else if (st->chip->has_aincom && pin == AD4170_CHAN_MAP_AINCOM) {
+		return 0;
 	}
 
-	return 0;
+	return dev_err_probe(dev, -EINVAL, "Invalid excitation pin: %u\n", pin);
 }
 
 static int ad4170_validate_excitation_pins(struct ad4170_state *st,
@@ -2144,7 +2177,8 @@ static int ad4170_parse_external_sensor(struct ad4170_state *st,
 	ac_excited = fwnode_property_read_bool(child, "adi,excitation-ac");
 
 	if (s_type == AD4170_THERMOCOUPLE_SENSOR) {
-		if (st->pins_fn[chan->channel2] & AD4170_PIN_VBIAS) {
+		if (chan->channel2 < st->chip->num_analog_pins &&
+		    st->pins_fn[chan->channel2] & AD4170_PIN_VBIAS) {
 			reg_val = BIT(chan->channel2);
 			ret = regmap_write(st->regmap, AD4170_V_BIAS_REG, reg_val);
 			if (ret)
@@ -2484,9 +2518,9 @@ static int ad4170_clock_select(struct iio_dev *indio_dev)
 
 	if (!ext_clk) {
 		/* Use internal clock reference */
-		st->mclk_hz = AD4170_INT_CLOCK_16MHZ;
+		st->mclk_hz = AD4170_INT_CLOCK_16MHZ / st->chip->clock_div;
 		st->clock_ctrl |= FIELD_PREP(AD4170_CLOCK_CTRL_CLOCKSEL_MSK,
-					     AD4170_CLOCK_CTRL_CLOCKSEL_INT_OUT);
+					     AD4170_CLOCK_CTRL_CLOCKSEL_INT);
 
 		if (!device_property_present(&st->spi->dev, "#clock-cells"))
 			return 0;
@@ -2510,6 +2544,8 @@ static int ad4170_clock_select(struct iio_dev *indio_dev)
 				     "Invalid external clock frequency %u\n",
 				     st->mclk_hz);
 	}
+
+	st->mclk_hz /= st->chip->clock_div;
 
 	return 0;
 }
@@ -2555,7 +2591,7 @@ static int ad4170_parse_firmware(struct iio_dev *indio_dev)
 
 	ret = device_property_count_u32(dev, "adi,vbias-pins");
 	if (ret > 0) {
-		if (ret > AD4170_MAX_ANALOG_PINS)
+		if (ret > st->chip->num_analog_pins)
 			return dev_err_probe(dev, -EINVAL,
 					     "Too many vbias pins %u\n", ret);
 
@@ -2568,8 +2604,14 @@ static int ad4170_parse_firmware(struct iio_dev *indio_dev)
 			return dev_err_probe(dev, ret,
 					     "Failed to read vbias pins\n");
 
-		for (i = 0; i < num_vbias_pins; i++)
+		for (i = 0; i < num_vbias_pins; i++) {
+			if (vbias_pins[i] >= st->chip->num_analog_pins)
+				return dev_err_probe(dev, -EINVAL,
+						     "Invalid vbias pin %u\n",
+						     vbias_pins[i]);
+
 			st->pins_fn[vbias_pins[i]] |= AD4170_PIN_VBIAS;
+		}
 	}
 
 	ret = ad4170_parse_channels(indio_dev);
@@ -2631,7 +2673,8 @@ static int ad4170_initial_config(struct iio_dev *indio_dev)
 					     "Failed to write CHAN_MAP_REG\n");
 
 		ret = ad4170_set_channel_freq(st, chan,
-					      AD4170_DEFAULT_SAMP_RATE, 0);
+					      AD4170_DEFAULT_SAMP_RATE /
+					      st->chip->clock_div, 0);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to set channel freq\n");
@@ -2928,6 +2971,7 @@ static int ad4170_probe(struct spi_device *spi)
 	if (!chip)
 		return -EINVAL;
 
+	st->chip = chip;
 	indio_dev->name = chip->name;
 	indio_dev->info = &ad4170_info;
 
@@ -2980,16 +3024,22 @@ static int ad4170_probe(struct spi_device *spi)
 
 static const struct spi_device_id ad4170_id_table[] = {
 	{ .name = "ad4170-4", .driver_data = (kernel_ulong_t)&ad4170_chip_info },
+	{ .name = "ad4171-8", .driver_data = (kernel_ulong_t)&ad4171_8_chip_info },
 	{ .name = "ad4190-4", .driver_data = (kernel_ulong_t)&ad4190_chip_info },
+	{ .name = "ad4190-8", .driver_data = (kernel_ulong_t)&ad4190_8_chip_info },
 	{ .name = "ad4195-4", .driver_data = (kernel_ulong_t)&ad4195_chip_info },
+	{ .name = "ad4195-8", .driver_data = (kernel_ulong_t)&ad4195_8_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(spi, ad4170_id_table);
 
 static const struct of_device_id ad4170_of_match[] = {
 	{ .compatible = "adi,ad4170-4", .data = &ad4170_chip_info },
+	{ .compatible = "adi,ad4171-8", .data = &ad4171_8_chip_info },
 	{ .compatible = "adi,ad4190-4", .data = &ad4190_chip_info },
+	{ .compatible = "adi,ad4190-8", .data = &ad4190_8_chip_info },
 	{ .compatible = "adi,ad4195-4", .data = &ad4195_chip_info },
+	{ .compatible = "adi,ad4195-8", .data = &ad4195_8_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, ad4170_of_match);
