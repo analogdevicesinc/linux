@@ -6,6 +6,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/module.h>
 #include "linux/mod_devicetable.h"
 #include <linux/of_device.h>
@@ -121,7 +122,7 @@
 /* Beam state RAM
  * state - beam state number 0 - 63
  */
-#define ADAR300x_RAM_BEAM_STATE_ADDR(state)		(0x100 + (state * 6))
+#define ADAR300x_RAM_BEAM_STATE_ADDR(state)		(0x100 + ((state) * 6))
 #define ADAR300x_RAM_MAX_ADDR				0x27F
 
 /* Beam state FIFO load
@@ -639,7 +640,7 @@ static int adar300x_set_mem_value(struct iio_dev *indio_dev,
 
 	adar300x_unpack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
-	unpacked[chan->address] = val;
+	unpacked[chan->address % st->chip_info->unpacked_beamst_len] = val;
 
 	adar300x_pack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
@@ -776,8 +777,9 @@ static int adar300x_read_raw(struct iio_dev *indio_dev,
 
 			return IIO_VAL_FRACTIONAL;
 		case IIO_TEMP:
-			*val = 0;
-			*val2 = 911500;
+			/* 1.09 LSB per degree Celsius, in millidegrees */
+			*val = 917;
+			*val2 = 431193;
 
 			return IIO_VAL_INT_PLUS_MICRO;
 		default:
@@ -786,8 +788,9 @@ static int adar300x_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_TEMP:
-			*val = 86;
-			*val2 = 362000;
+			/* Code 127 at 25 degrees Celsius */
+			*val = -99;
+			*val2 = 750000;
 
 			return IIO_VAL_INT_PLUS_MICRO;
 		default:
@@ -1265,6 +1268,13 @@ static ssize_t adar300x_mode_store(struct device *dev,
 
 	ch = this_attr->address;
 	beam_mask = ADAR300x_MODE0 << (ch * 2);
+
+	guard(mutex)(&st->lock);
+
+	ret = adar300x_set_page(st, ADAR300x_CONFIG_PAGE);
+	if (ret < 0)
+		return ret;
+
 	if (mode <= ADAR300x_INST_DIRECT_CTRL) {
 		beam = 0;
 		ret = regmap_update_bits(st->regmap, ADAR300x_REG(st, ADAR300x_REG_BEAMSTATE_MODE),
@@ -1344,8 +1354,7 @@ static int adar300x_ram_write(struct adar300x_state *st,
 			if (ret < 0)
 				goto err_unlock;
 
-			addr = ADAR300x_RAM_BEAM_STATE_ADDR(ram_beam_state);
-			addr += st->beam_index[beam];
+			addr = ADAR300x_RAM_BEAM_STATE_ADDR(ram_beam_state + st->beam_index[beam]);
 			if ((addr + ADAR300x_PACKED_BEAMSTATE_LEN - 1) > ADAR300x_RAM_MAX_ADDR) {
 				dev_err(&st->spi->dev,
 					"Ram write err: Addr:%x, Beamst:%d", addr, ram_beam_state);
@@ -1390,7 +1399,7 @@ static irqreturn_t ad3552r_trigger_handler(int irq, void *p)
 	struct iio_buffer *buf = indio_dev->buffer;
 	struct adar300x_state *st = iio_priv(indio_dev);
 	char *lbuff;
-	int av, rd, len, ret;
+	int av, scan_len, i, ret;
 
 #ifdef ADAR300X_DEBUG
 	dev_info(&indio_dev->dev, "ad3552r_trigger_handler");
@@ -1398,21 +1407,29 @@ static irqreturn_t ad3552r_trigger_handler(int irq, void *p)
 
 	av = buf->access->data_available(buf);
 	if (av > 0) {
-		len = av * hweight_long(*buf->scan_mask);
-		lbuff = kcalloc(len, sizeof(*lbuff), GFP_KERNEL);
-		rd = buf->access->read(buf, len, lbuff);
+		scan_len = hweight_long(*buf->scan_mask);
+		lbuff = kcalloc(av, scan_len, GFP_KERNEL);
+		if (!lbuff)
+			goto out;
+
+		for (i = 0; i < av; i++) {
+			ret = iio_pop_from_buffer(buf, &lbuff[i * scan_len]);
+			if (ret)
+				break;
+		}
 
 #ifdef ADAR300X_DEBUG
-		dev_info(&indio_dev->dev, "Read[mask:%x][mask_len:%d][av:%d][rd:%d]:%s",
-			 (u32)*buf->scan_mask, len, av, rd, lbuff);
+		dev_info(&indio_dev->dev, "Read[mask:%x][scan_len:%d][av:%d][rd:%d]",
+			 (u32)*buf->scan_mask, scan_len, av, i);
 #endif
 
-		ret = adar300x_ram_write(st, lbuff, len, *buf->scan_mask);
+		ret = adar300x_ram_write(st, lbuff, i * scan_len, *buf->scan_mask);
 		if (ret)
 			dev_err(&indio_dev->dev, "adar300x_ram_write() error:%d", ret);
 		kfree(lbuff);
 	}
 
+out:
 	iio_trigger_notify_done(indio_dev->trig);
 
 	return IRQ_HANDLED;
