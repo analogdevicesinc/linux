@@ -79,6 +79,22 @@ enum iio_backend_filter_type {
 };
 
 /**
+ * enum iio_backend_lane_mode - Data interface lane modes
+ * @IIO_BACKEND_LANE_MODE_DUAL: Data is received on two lanes.
+ * @IIO_BACKEND_LANE_MODE_SINGLE: Data is received on one lane.
+ * @IIO_BACKEND_LANE_MODE_HALF: Device specific half lane mode.
+ * @IIO_BACKEND_LANE_MODE_QUARTER: Device specific quarter lane mode.
+ * @IIO_BACKEND_LANE_MODE_MAX: Number of lane modes.
+ */
+enum iio_backend_lane_mode {
+	IIO_BACKEND_LANE_MODE_DUAL,
+	IIO_BACKEND_LANE_MODE_SINGLE,
+	IIO_BACKEND_LANE_MODE_HALF,
+	IIO_BACKEND_LANE_MODE_QUARTER,
+	IIO_BACKEND_LANE_MODE_MAX
+};
+
+/**
  * struct iio_backend_ops - operations structure for an iio_backend
  * @enable: Enable backend.
  * @disable: Disable backend.
@@ -112,6 +128,7 @@ enum iio_backend_filter_type {
  * @data_stream_enable: Enable data stream.
  * @data_stream_disable: Disable data stream.
  * @data_transfer_addr: Set data address.
+ * @lane_mode_set: Set the data interface lane mode.
  **/
 struct iio_backend_ops {
 	int (*enable)(struct iio_backend *back);
@@ -168,6 +185,8 @@ struct iio_backend_ops {
 	int (*data_stream_enable)(struct iio_backend *back);
 	int (*data_stream_disable)(struct iio_backend *back);
 	int (*data_transfer_addr)(struct iio_backend *back, u32 address);
+	int (*lane_mode_set)(struct iio_backend *back,
+			     enum iio_backend_lane_mode mode);
 };
 
 /**
@@ -209,6 +228,8 @@ int iio_backend_filter_type_set(struct iio_backend *back,
 				enum iio_backend_filter_type type);
 int iio_backend_interface_data_align(struct iio_backend *back, u32 timeout_us);
 int iio_backend_num_lanes_set(struct iio_backend *back, unsigned int num_lanes);
+int iio_backend_lane_mode_set(struct iio_backend *back,
+			      enum iio_backend_lane_mode mode);
 int iio_backend_crc_enable(struct iio_backend *back);
 int iio_backend_crc_disable(struct iio_backend *back);
 int iio_backend_ddr_enable(struct iio_backend *back);

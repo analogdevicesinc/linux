@@ -842,6 +842,27 @@ int iio_backend_num_lanes_set(struct iio_backend *back, unsigned int num_lanes)
 EXPORT_SYMBOL_NS_GPL(iio_backend_num_lanes_set, IIO_BACKEND);
 
 /**
+ * iio_backend_lane_mode_set - Set the data interface lane mode
+ * @back: Backend device
+ * @mode: Lane mode
+ *
+ * Some devices can send their data in different lane configurations. The
+ * backend needs to receive the data in the same mode.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_lane_mode_set(struct iio_backend *back,
+			      enum iio_backend_lane_mode mode)
+{
+	if (mode >= IIO_BACKEND_LANE_MODE_MAX)
+		return -EINVAL;
+
+	return iio_backend_op_call(back, lane_mode_set, mode);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_lane_mode_set, IIO_BACKEND);
+
+/**
  * iio_backend_crc_enable - Enable CRC handling
  * @back: Backend device
  *
