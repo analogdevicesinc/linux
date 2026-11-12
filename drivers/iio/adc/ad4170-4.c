@@ -20,6 +20,7 @@
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/trigger.h>
 #include <linux/iio/trigger_consumer.h>
@@ -32,6 +33,8 @@
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
+#include <linux/spi/offload/consumer.h>
+#include <linux/spi/offload/provider.h>
 #include <linux/spi/spi.h>
 #include <linux/time.h>
 #include <linux/types.h>
@@ -57,6 +60,7 @@
  */
 #define AD4170_CONFIG_A_REG				0x00
 #define AD4170_DATA_24B_REG				0x1E
+#define AD4170_DATA_PER_CHANNEL_REG(x)			(0x2A + 4 * (x))
 #define AD4170_PIN_MUXING_REG				0x69
 #define AD4170_CLOCK_CTRL_REG				0x6B
 #define AD4170_ADC_CTRL_REG				0x71
@@ -74,7 +78,6 @@
 #define AD4170_GPIO_MODE_REG				0x191
 #define AD4170_GPIO_OUTPUT_REG				0x193
 #define AD4170_GPIO_INPUT_REG				0x195
-#define AD4170_ADC_CTRL_CONT_READ_EXIT_REG		0x200 /* virtual reg */
 
 #define AD4170_REG_READ_MASK				BIT(14)
 
@@ -83,6 +86,7 @@
 
 /* AD4170_PIN_MUXING_REG */
 #define AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK		GENMASK(5, 4)
+#define AD4170_PIN_MUXING_SYNC_CTRL_MSK			GENMASK(3, 2)
 
 /* AD4170_CLOCK_CTRL_REG */
 #define AD4170_CLOCK_CTRL_CLOCKSEL_MSK			GENMASK(1, 0)
@@ -160,6 +164,7 @@
 /* AD4170_PIN_MUXING_REG constants */
 #define AD4170_PIN_MUXING_DIG_AUX1_DISABLED		0x0
 #define AD4170_PIN_MUXING_DIG_AUX1_RDY			0x1
+#define AD4170_PIN_MUXING_SYNC_DISABLED			0x0
 
 /* AD4170_ADC_CTRL_REG constants */
 #define AD4170_ADC_CTRL_MODE_CONT			0x0
@@ -271,7 +276,6 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_GPIO_MODE_REG] = 2,
 	[AD4170_GPIO_OUTPUT_REG] = 2,
 	[AD4170_GPIO_INPUT_REG] = 2,
-	[AD4170_ADC_CTRL_CONT_READ_EXIT_REG] = 0,
 };
 
 enum ad4170_ref_buf {
@@ -442,11 +446,22 @@ struct ad4170_state {
 	struct ad4170_setup_info setup_infos[AD4170_MAX_SETUPS];
 	struct ad4170_chan_info chan_infos[AD4170_MAX_ADC_CHANNELS];
 	struct completion completion;
+	int exit_cont_read_status;
+	bool exit_cont_read;
+	bool cont_read_exited;
 	struct iio_chan_spec chans[AD4170_MAX_IIO_CHANNELS];
 	struct spi_device *spi;
 	struct regmap *regmap;
 	int sps_tbl[ARRAY_SIZE(ad4170_filt_names)][AD4170_MAX_FS_TBL_SIZE][2];
 	__be32 bounce_buffer[AD4170_MAX_ADC_CHANNELS];
+	struct spi_offload *offload;
+	struct spi_offload_trigger *offload_trigger;
+	struct spi_message offload_msg;
+	struct spi_transfer offload_xfer;
+	/* Multichannel offload: per channel data register reads */
+	bool offload_per_chan;
+	struct spi_transfer offload_seq_xfer[3 * AD4170_MAX_ADC_CHANNELS];
+	u8 offload_seq_tx[AD4170_MAX_ADC_CHANNELS][AD4170_SPI_INST_PHASE_LEN];
 	struct spi_message msg;
 	struct spi_transfer xfer;
 	struct iio_trigger *trig;
@@ -461,6 +476,11 @@ struct ad4170_state {
 	 * to live in their own cache lines.
 	 */
 	u8 rx_buf[4] __aligned(IIO_DMA_MINALIGN);
+};
+
+static const struct spi_offload_config ad4170_spi_offload_config = {
+	.capability_flags = SPI_OFFLOAD_CAP_TRIGGER | SPI_OFFLOAD_CAP_RX_STREAM_DMA |
+			    SPI_OFFLOAD_CAP_TX_STATIC_DATA,
 };
 
 static void ad4170_fill_sps_tbl(struct ad4170_state *st)
@@ -500,17 +520,25 @@ static int ad4170_debugfs_reg_access(struct iio_dev *indio_dev,
 				     unsigned int *readval)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!iio_device_claim_direct(indio_dev))
+		return -EBUSY;
 
 	if (readval)
-		return regmap_read(st->regmap, reg, readval);
+		ret = regmap_read(st->regmap, reg, readval);
+	else
+		ret = regmap_write(st->regmap, reg, writeval);
 
-	return regmap_write(st->regmap, reg, writeval);
+	iio_device_release_direct(indio_dev);
+
+	return ret;
 }
 
 static int ad4170_get_reg_size(struct ad4170_state *st, unsigned int reg,
 			       unsigned int *size)
 {
-	if (reg >= ARRAY_SIZE(ad4170_reg_size))
+	if (reg >= ARRAY_SIZE(ad4170_reg_size) || !ad4170_reg_size[reg])
 		return -EINVAL;
 
 	*size = ad4170_reg_size[reg];
@@ -540,10 +568,6 @@ static int ad4170_reg_write(void *context, unsigned int reg, unsigned int val)
 	case 1:
 		tx_buf[AD4170_SPI_INST_PHASE_LEN] = val;
 		break;
-	case 0:
-		/* Write continuous read exit code */
-		tx_buf[0] = AD4170_ADC_CTRL_CONT_READ_EXIT;
-		return spi_write_then_read(st->spi, tx_buf, 1, NULL, 0);
 	default:
 		return -EINVAL;
 	}
@@ -2274,6 +2298,9 @@ static int ad4170_parse_channel_node(struct iio_dev *indio_dev,
 	if (ch_reg >= AD4170_MAX_ADC_CHANNELS)
 		return dev_err_probe(dev, -EINVAL,
 				     "Channel idx greater than no of channels\n");
+	if (st->chan_infos[ch_reg].initialized)
+		return dev_err_probe(dev, -EINVAL,
+				     "Duplicate channel index %u\n", ch_reg);
 
 	chan = &st->chans[chan_num];
 	*chan = ad4170_channel_template;
@@ -2340,6 +2367,7 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct device *dev = &st->spi->dev;
 	unsigned int num_channels;
+	unsigned int chan_addr;
 	unsigned int chan_num;
 	int ret;
 
@@ -2347,9 +2375,6 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 
 	if (num_channels > AD4170_MAX_ADC_CHANNELS)
 		return dev_err_probe(dev, -EINVAL, "Too many channels\n");
-
-	/* Add one for temperature */
-	num_channels = min(num_channels + 1, AD4170_MAX_ADC_CHANNELS);
 
 	chan_num = 0;
 	device_for_each_child_node_scoped(dev, child) {
@@ -2362,35 +2387,39 @@ static int ad4170_parse_channels(struct iio_dev *indio_dev)
 	 * Add internal temperature sensor channel if the maximum number of
 	 * channels has not been reached.
 	 */
-	if (num_channels < AD4170_MAX_ADC_CHANNELS) {
-		struct ad4170_setup *setup = &st->chan_infos[chan_num].setup;
+	if (chan_num < AD4170_MAX_ADC_CHANNELS) {
+		struct ad4170_setup *setup;
+
+		for (chan_addr = 0; chan_addr < AD4170_MAX_ADC_CHANNELS; chan_addr++)
+			if (!st->chan_infos[chan_addr].initialized)
+				break;
+
+		setup = &st->chan_infos[chan_addr].setup;
 
 		st->chans[chan_num] = ad4170_temp_channel_template;
-		st->chans[chan_num].address = chan_num;
-		st->chans[chan_num].scan_index = chan_num;
+		st->chans[chan_num].address = chan_addr;
+		st->chans[chan_num].scan_index = chan_addr;
 
-		st->chan_infos[chan_num].setup_num = AD4170_INVALID_SETUP;
-		st->chan_infos[chan_num].initialized = true;
+		st->chan_infos[chan_addr].setup_num = AD4170_INVALID_SETUP;
+		st->chan_infos[chan_addr].initialized = true;
 
 		setup->afe |= FIELD_PREP(AD4170_AFE_REF_SELECT_MSK,
 					 AD4170_REF_AVDD);
 
-		ret = ad4170_get_input_range(st, &st->chans[chan_num], chan_num,
+		ret = ad4170_get_input_range(st, &st->chans[chan_num], chan_addr,
 					     AD4170_REF_AVDD);
 		if (ret < 0)
 			return dev_err_probe(dev, ret, "Invalid input config\n");
 
-		st->chan_infos[chan_num].input_range_uv = ret;
+		st->chan_infos[chan_addr].input_range_uv = ret;
 		chan_num++;
 	}
 
 	/* Add timestamp channel */
-	struct iio_chan_spec ts_chan = IIO_CHAN_SOFT_TIMESTAMP(chan_num);
+	struct iio_chan_spec ts_chan = IIO_CHAN_SOFT_TIMESTAMP(AD4170_MAX_ADC_CHANNELS);
 
 	st->chans[chan_num] = ts_chan;
-	num_channels = num_channels + 1;
-
-	indio_dev->num_channels = num_channels;
+	indio_dev->num_channels = chan_num + 1;
 	indio_dev->channels = st->chans;
 
 	return 0;
@@ -2548,8 +2577,17 @@ static int ad4170_parse_firmware(struct iio_dev *indio_dev)
 			      AD4170_PIN_MUXING_DIG_AUX1_RDY :
 			      AD4170_PIN_MUXING_DIG_AUX1_DISABLED);
 
+	/*
+	 * SYNC_IN is enabled by default, which holds the ADC in reset while the
+	 * pin is low. The driver doesn't support synchronization, so disable it
+	 * to keep conversions independent of the SYNC_IN pin state.
+	 */
+	reg_data |= FIELD_PREP(AD4170_PIN_MUXING_SYNC_CTRL_MSK,
+			       AD4170_PIN_MUXING_SYNC_DISABLED);
+
 	ret = regmap_update_bits(st->regmap, AD4170_PIN_MUXING_REG,
-				 AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK, reg_data);
+				 AD4170_PIN_MUXING_DIG_AUX1_CTRL_MSK |
+				 AD4170_PIN_MUXING_SYNC_CTRL_MSK, reg_data);
 	if (ret)
 		return ret;
 
@@ -2625,7 +2663,8 @@ static int ad4170_initial_config(struct iio_dev *indio_dev)
 		val = FIELD_PREP(AD4170_CHAN_MAP_AINP_MSK, chan->channel) |
 		      FIELD_PREP(AD4170_CHAN_MAP_AINM_MSK, chan->channel2);
 
-		ret = regmap_write(st->regmap, AD4170_CHAN_MAP_REG(i), val);
+		ret = regmap_write(st->regmap,
+				   AD4170_CHAN_MAP_REG(chan->address), val);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Failed to write CHAN_MAP_REG\n");
@@ -2678,6 +2717,8 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret;
 
+	WRITE_ONCE(st->cont_read_exited, false);
+
 	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
 				 AD4170_ADC_CTRL_MODE_MSK,
 				 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
@@ -2695,20 +2736,11 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 					     AD4170_ADC_CTRL_CONT_READ_ENABLE));
 }
 
-static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
+static int ad4170_buffer_stop(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int i;
 	int ret;
-
-	/*
-	 * Use a high register address (virtual register) to request a write of
-	 * 0xA5 to the ADC during the first 8 SCLKs of the ADC data read cycle,
-	 * thus exiting continuous read.
-	 */
-	ret = regmap_write(st->regmap, AD4170_ADC_CTRL_CONT_READ_EXIT_REG, 0);
-	if (ret)
-		return ret;
 
 	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
 				 AD4170_ADC_CTRL_CONT_READ_MSK,
@@ -2732,15 +2764,46 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 	 * channels will be read.
 	 */
 	for (i = 0; i < indio_dev->num_channels; i++) {
-		if (indio_dev->channels[i].type == IIO_TIMESTAMP)
+		const struct iio_chan_spec *chan = &indio_dev->channels[i];
+
+		if (chan->type == IIO_TIMESTAMP)
 			continue;
 
-		ret = ad4170_set_channel_enable(st, i, false);
+		ret = ad4170_set_channel_enable(st, chan->address, false);
 		if (ret)
 			return ret;
 	}
 
 	return 0;
+}
+
+static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	unsigned long timeout;
+
+	/*
+	 * The continuous-read exit command must be the first byte shifted into
+	 * the ADC after RDY goes low. Request that the triggered handler replace
+	 * the next conversion read with the exit command and wait for it to
+	 * finish before accessing the register map again.
+	 */
+	timeout = msecs_to_jiffies(DIV_ROUND_UP_ULL(6291164ULL * MILLI,
+						    st->mclk_hz));
+	reinit_completion(&st->completion);
+	st->exit_cont_read_status = 0;
+	WRITE_ONCE(st->cont_read_exited, false);
+	WRITE_ONCE(st->exit_cont_read, true);
+
+	if (!wait_for_completion_timeout(&st->completion, timeout)) {
+		WRITE_ONCE(st->exit_cont_read, false);
+		return -ETIMEDOUT;
+	}
+
+	if (st->exit_cont_read_status)
+		return st->exit_cont_read_status;
+
+	return ad4170_buffer_stop(indio_dev);
 }
 
 static bool ad4170_validate_scan_mask(struct iio_dev *indio_dev,
@@ -2769,14 +2832,231 @@ static const struct iio_buffer_setup_ops ad4170_buffer_ops = {
 	.validate_scan_mask = ad4170_validate_scan_mask,
 };
 
+static void ad4170_offload_init_per_chan_msg(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_transfer *xfer = st->offload_seq_xfer;
+	unsigned int chan_index, n = 0;
+
+	memset(st->offload_seq_xfer, 0, sizeof(st->offload_seq_xfer));
+	iio_for_each_active_channel(indio_dev, chan_index) {
+		u8 *tx = st->offload_seq_tx[n++];
+		unsigned int reg;
+
+		reg = AD4170_DATA_PER_CHANNEL_REG(chan_index);
+		put_unaligned_be16(AD4170_REG_READ_MASK | reg, tx);
+		xfer->tx_buf = tx;
+		xfer->len = sizeof(st->offload_seq_tx[0]);
+		xfer->bits_per_word = 8;
+		xfer++;
+
+		xfer->len = 2;
+		xfer->bits_per_word = 8;
+		xfer++;
+
+		xfer->len = 1;
+		xfer->bits_per_word = 8;
+		xfer->offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+		xfer++;
+	}
+
+	spi_message_init_with_transfers(&st->offload_msg, st->offload_seq_xfer,
+					3 * n);
+}
+
+static int ad4170_offload_per_chan_stop(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	unsigned int i;
+	int ret;
+
+	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+				 AD4170_ADC_CTRL_MODE_MSK,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+				 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
+					    AD4170_ADC_CTRL_MODE_IDLE));
+	if (ret)
+		return ret;
+
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		const struct iio_chan_spec *chan = &indio_dev->channels[i];
+
+		if (chan->type == IIO_TIMESTAMP)
+			continue;
+
+		ret = ad4170_set_channel_enable(st, chan->address, false);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int ad4170_offload_send_cont_read_exit(struct iio_dev *indio_dev)
+{
+	static const u8 exit_tx[3] = { AD4170_ADC_CTRL_CONT_READ_EXIT };
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+	};
+	unsigned long timeout;
+	unsigned int i;
+	int ret;
+
+	timeout = msecs_to_jiffies(DIV_ROUND_UP_ULL(6291164ULL * MILLI,
+						    st->mclk_hz));
+
+	memset(&st->offload_xfer, 0, sizeof(st->offload_xfer));
+	st->offload_xfer.tx_buf = exit_tx;
+	st->offload_xfer.len = sizeof(exit_tx);
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_msg.offload = st->offload;
+
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret)
+		return ret;
+
+	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
+					 &config);
+	if (ret)
+		goto out_unoptimize;
+
+	reinit_completion(&st->completion);
+	enable_irq(st->spi->irq);
+	for (i = 0; i < 2 && !ret; i++) {
+		if (!wait_for_completion_timeout(&st->completion, timeout))
+			ret = -ETIMEDOUT;
+		reinit_completion(&st->completion);
+	}
+	disable_irq(st->spi->irq);
+
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
+
+out_unoptimize:
+	spi_unoptimize_message(&st->offload_msg);
+	st->offload_xfer.tx_buf = NULL;
+	return ret;
+}
+
+static int ad4170_offload_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_offload_trigger_config config = {
+		.type = SPI_OFFLOAD_TRIGGER_DATA_READY,
+	};
+	int cleanup_ret, ret;
+
+	st->offload_xfer.len =
+		spi_bpw_to_bytes(ad4170_channel_template.scan_type.realbits);
+	st->offload_xfer.bits_per_word =
+		ad4170_channel_template.scan_type.realbits;
+	st->offload_xfer.offload_flags = SPI_OFFLOAD_XFER_RX_STREAM;
+
+	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+	st->offload_per_chan = bitmap_weight(indio_dev->active_scan_mask,
+					     iio_get_masklength(indio_dev)) > 1;
+	if (st->offload_per_chan)
+		ad4170_offload_init_per_chan_msg(indio_dev);
+	st->offload_msg.offload = st->offload;
+
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret)
+		return ret;
+
+	disable_irq(st->spi->irq);
+
+	if (st->offload_per_chan)
+		ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+					 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK |
+					 AD4170_ADC_CTRL_MODE_MSK,
+					 FIELD_PREP(AD4170_ADC_CTRL_MODE_MSK,
+						    AD4170_ADC_CTRL_MODE_CONT));
+	else
+		ret = ad4170_buffer_postenable(indio_dev);
+	if (ret)
+		goto err_enable_irq;
+
+	ret = spi_offload_trigger_enable(st->offload, st->offload_trigger,
+					 &config);
+	if (ret)
+		goto err_chip_off;
+
+	return 0;
+
+err_chip_off:
+	if (st->offload_per_chan) {
+		ad4170_offload_per_chan_stop(indio_dev);
+	} else {
+		/* The failed enable left the ADC in continuous-read mode. */
+		spi_unoptimize_message(&st->offload_msg);
+		cleanup_ret = ad4170_offload_send_cont_read_exit(indio_dev);
+		if (!cleanup_ret)
+			cleanup_ret = ad4170_buffer_stop(indio_dev);
+		if (cleanup_ret)
+			dev_err(&st->spi->dev,
+				"Failed to stop ADC after offload error: %d\n",
+				cleanup_ret);
+		goto err_enable_irq_no_unoptimize;
+	}
+err_enable_irq:
+	enable_irq(st->spi->irq);
+	spi_unoptimize_message(&st->offload_msg);
+	return ret;
+
+err_enable_irq_no_unoptimize:
+	enable_irq(st->spi->irq);
+	return ret;
+}
+
+static int ad4170_offload_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	spi_offload_trigger_disable(st->offload, st->offload_trigger);
+
+	if (st->offload_per_chan) {
+		ret = ad4170_offload_per_chan_stop(indio_dev);
+		spi_unoptimize_message(&st->offload_msg);
+	} else {
+		spi_unoptimize_message(&st->offload_msg);
+		ret = ad4170_offload_send_cont_read_exit(indio_dev);
+		if (!ret)
+			ret = ad4170_buffer_stop(indio_dev);
+	}
+
+	enable_irq(st->spi->irq);
+
+	return ret;
+}
+
+static const struct iio_buffer_setup_ops ad4170_offload_buffer_ops = {
+	.postenable = ad4170_offload_buffer_postenable,
+	.predisable = ad4170_offload_buffer_predisable,
+	.validate_scan_mask = ad4170_validate_scan_mask,
+};
+
 static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 {
+	static const u8 exit_tx[3] = { AD4170_ADC_CTRL_CONT_READ_EXIT };
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int chan_index;
 	unsigned int i = 0;
 	int ret;
+
+	if (READ_ONCE(st->exit_cont_read)) {
+		/* Clock the rest of the 24-bit conversion after the exit byte. */
+		ret = spi_write(st->spi, exit_tx, sizeof(exit_tx));
+		st->exit_cont_read_status = ret;
+		WRITE_ONCE(st->exit_cont_read, false);
+		WRITE_ONCE(st->cont_read_exited, !ret);
+		iio_trigger_notify_done(indio_dev->trig);
+		complete(&st->completion);
+		return IRQ_HANDLED;
+	}
 
 	iio_for_each_active_channel(indio_dev, chan_index) {
 		ret = spi_sync(st->spi, &st->msg);
@@ -2803,10 +3083,14 @@ static irqreturn_t ad4170_irq_handler(int irq, void *dev_id)
 	struct iio_dev *indio_dev = dev_id;
 	struct ad4170_state *st = iio_priv(indio_dev);
 
-	if (iio_buffer_enabled(indio_dev))
-		iio_trigger_poll(st->trig);
-	else
+	if (iio_buffer_enabled(indio_dev)) {
+		if (!st->offload && !READ_ONCE(st->cont_read_exited))
+			iio_trigger_poll(st->trig);
+		else
+			complete(&st->completion);
+	} else {
 		complete(&st->completion);
+	}
 
 	return IRQ_HANDLED;
 };
@@ -2905,6 +3189,80 @@ static int ad4170_regulator_setup(struct ad4170_state *st)
 	return 0;
 }
 
+static bool ad4170_offload_trigger_match(struct spi_offload_trigger *trigger,
+					 enum spi_offload_trigger_type type,
+					 u64 *args, u32 nargs)
+{
+	return type == SPI_OFFLOAD_TRIGGER_DATA_READY && nargs == 0;
+}
+
+static int ad4170_offload_trigger_request(struct spi_offload_trigger *trigger,
+					  enum spi_offload_trigger_type type,
+					  u64 *args, u32 nargs)
+{
+	return 0;
+}
+
+static const struct spi_offload_trigger_ops ad4170_spi_offload_ops = {
+	.match = ad4170_offload_trigger_match,
+	.request = ad4170_offload_trigger_request,
+};
+
+static int ad4170_spi_offload_probe(struct iio_dev *indio_dev,
+				    struct ad4170_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	struct spi_offload_trigger_info trigger_info = {
+		.fwnode = dev_fwnode(dev),
+		.ops = &ad4170_spi_offload_ops,
+		.priv = st,
+	};
+	struct dma_chan *rx_dma;
+	unsigned int i;
+	int ret;
+
+	ret = devm_spi_offload_trigger_register(dev, &trigger_info);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to register SPI offload trigger\n");
+
+	st->offload_trigger = devm_spi_offload_trigger_get(dev, st->offload,
+							   SPI_OFFLOAD_TRIGGER_DATA_READY);
+	if (IS_ERR(st->offload_trigger))
+		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
+				     "Failed to get SPI offload trigger\n");
+
+	rx_dma = devm_spi_offload_rx_stream_request_dma_chan(dev, st->offload);
+	if (IS_ERR(rx_dma))
+		return dev_err_probe(dev, PTR_ERR(rx_dma),
+				     "Failed to request RX DMA channel\n");
+
+	ret = devm_iio_dmaengine_buffer_setup_with_handle(dev, indio_dev, rx_dma,
+							  IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to setup DMAengine buffer\n");
+
+	/*
+	 * The SPI Engine writes each sample right-aligned in a 32-bit word in
+	 * CPU byte order, and DMA cannot insert soft timestamps.
+	 */
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		if (st->chans[i].type == IIO_TIMESTAMP)
+			continue;
+
+		st->chans[i].scan_type.shift = 0;
+		st->chans[i].scan_type.endianness = IIO_CPU;
+	}
+
+	/* The soft timestamp channel is always the last one. */
+	indio_dev->num_channels--;
+
+	indio_dev->setup_ops = &ad4170_offload_buffer_ops;
+
+	return 0;
+}
+
 static int ad4170_probe(struct spi_device *spi)
 {
 	const struct ad4170_chip_info *chip;
@@ -2955,25 +3313,45 @@ static int ad4170_probe(struct spi_device *spi)
 	init_completion(&st->completion);
 
 	if (spi->irq) {
+		st->offload = devm_spi_offload_get(dev, spi, &ad4170_spi_offload_config);
+		ret = PTR_ERR_OR_ZERO(st->offload);
+		if (ret == -ENODEV)
+			st->offload = NULL;
+		else if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to get SPI offload\n");
+
+		if (st->offload) {
+			ret = ad4170_spi_offload_probe(indio_dev, st);
+			if (ret)
+				return ret;
+		}
+	}
+
+	if (spi->irq) {
 		ret = devm_request_irq(dev, spi->irq, &ad4170_irq_handler,
 				       IRQF_NO_THREAD, indio_dev->name, indio_dev);
 		if (ret)
 			return ret;
 
-		ret = ad4170_trigger_setup(indio_dev);
-		if (ret)
-			return ret;
+		if (!st->offload) {
+			ret = ad4170_trigger_setup(indio_dev);
+			if (ret)
+				return ret;
+		}
 	}
 
-	ret = ad4170_prepare_spi_message(st);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to prepare SPI message\n");
+	if (!st->offload) {
+		ret = ad4170_prepare_spi_message(st);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to prepare SPI message\n");
 
-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
-					      &ad4170_trigger_handler,
-					      &ad4170_buffer_ops);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to setup read buffer\n");
+		ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
+						      &ad4170_trigger_handler,
+						      &ad4170_buffer_ops);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to setup read buffer\n");
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
@@ -3008,3 +3386,4 @@ MODULE_AUTHOR("Ana-Maria Cusco <ana-maria.cusco@analog.com>");
 MODULE_AUTHOR("Marcelo Schmitt <marcelo.schmitt@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4170 SPI driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS("IIO_DMAENGINE_BUFFER");
