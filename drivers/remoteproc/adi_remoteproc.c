@@ -29,7 +29,6 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
-#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 
 #include <linux/soc/adi/icc.h>
