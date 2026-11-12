@@ -639,7 +639,7 @@ static int adar300x_set_mem_value(struct iio_dev *indio_dev,
 
 	adar300x_unpack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
-	unpacked[chan->address] = val;
+	unpacked[chan->address % st->chip_info->unpacked_beamst_len] = val;
 
 	adar300x_pack_data(packed, unpacked, ADAR300x_UNPACKED_BEAMSTATE_LEN);
 
