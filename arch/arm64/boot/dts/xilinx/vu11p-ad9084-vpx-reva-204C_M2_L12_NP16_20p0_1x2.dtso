@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#define DEVICE_PROFILE_NAME     "204C_M2_L12_NP16_20p0_1x2.bin"
+
+#include "vu11p-ad9084-vpx-reva.dtso"
+
+/* JESD reference and device clocks at the lane rate / 66 */
+&ltc6952 {
+	channel@5 {
+		adi,divider = <6>;
+	};
+
+	channel@6 {
+		adi,divider = <6>;
+	};
+
+	channel@7 {
+		adi,divider = <6>;
+	};
+};
