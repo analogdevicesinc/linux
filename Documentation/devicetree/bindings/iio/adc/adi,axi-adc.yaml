@@ -25,6 +25,7 @@ properties:
   compatible:
     enum:
       - adi,axi-adc-10.0.a
+      - adi,axi-ad404x
       - adi,axi-ad408x
 
   reg:
