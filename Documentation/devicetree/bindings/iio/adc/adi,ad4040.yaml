@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2026 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad4040.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD4040 and similar high speed ADCs
+
+maintainers:
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+  The AD4040, AD4044, AD4046 and AD4048 are high speed analog-to-digital
+  converters with 20, 14, 16 and 18-bit resolution respectively. The sample
+  data is sent over LVDS lanes to an FPGA data capture core, which is used
+  as an IIO backend. The SPI interface is used to configure the device.
+
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,ad4040
+      - adi,ad4044
+      - adi,ad4046
+      - adi,ad4048
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: cnv
+        description: Conversion clock. Its rate is the sampling rate.
+
+  io-backends:
+    maxItems: 1
+    description: The AXI AD404x data capture core.
+
+  adi,num-lanes:
+    description:
+      Number of lanes on which the data is sent on the output.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2]
+    default: 1
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - io-backends
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0 {
+            compatible = "adi,ad4040";
+            reg = <0>;
+            spi-max-frequency = <10000000>;
+            clocks = <&cnv_clk>;
+            clock-names = "cnv";
+            io-backends = <&iio_backend>;
+            adi,num-lanes = <1>;
+        };
+    };
+...
