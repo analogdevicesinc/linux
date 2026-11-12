@@ -55,6 +55,7 @@
 
 /* Bit 0 is the filter enable, same as on the AD408x core */
 #define   AXI_AD404X_CNTRL_3_DATA_SIZE_MSK	GENMASK(2, 1)
+#define   AXI_AD404X_CNTRL_3_LANE_MODE_MSK	GENMASK(6, 4)
 
 #define ADI_AXI_ADC_REG_SYNC_STATUS		0x0068
 #define   ADI_AXI_ADC_SYNC_STATUS_ADC_SYNC_MSK	BIT(0)
@@ -385,6 +386,19 @@ static int axi_adc_num_lanes_set(struct iio_backend *back,
 				  FIELD_PREP(ADI_AXI_ADC_CTRL_NUM_LANES_MSK, num_lanes));
 }
 
+/* AD404x HDL lane mode field values */
+#define AXI_AD404X_LANE_DUAL			0
+#define AXI_AD404X_LANE_SINGLE			1
+#define AXI_AD404X_LANE_HALF			2
+#define AXI_AD404X_LANE_QUARTER			3
+
+static const u8 axi_adc_ad404x_lane_codes[] = {
+	[IIO_BACKEND_LANE_MODE_DUAL] = AXI_AD404X_LANE_DUAL,
+	[IIO_BACKEND_LANE_MODE_SINGLE] = AXI_AD404X_LANE_SINGLE,
+	[IIO_BACKEND_LANE_MODE_HALF] = AXI_AD404X_LANE_HALF,
+	[IIO_BACKEND_LANE_MODE_QUARTER] = AXI_AD404X_LANE_QUARTER,
+};
+
 static int axi_adc_ad404x_data_size_set(struct iio_backend *back,
 					unsigned int size)
 {
@@ -411,6 +425,17 @@ static int axi_adc_ad404x_data_size_set(struct iio_backend *back,
 	return regmap_update_bits(st->regmap, ADI_AXI_ADC_REG_CNTRL_3,
 				  AXI_AD404X_CNTRL_3_DATA_SIZE_MSK,
 				  FIELD_PREP(AXI_AD404X_CNTRL_3_DATA_SIZE_MSK, val));
+}
+
+static int axi_adc_ad404x_lane_mode_set(struct iio_backend *back,
+					enum iio_backend_lane_mode mode)
+{
+	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
+
+	return regmap_update_bits(st->regmap, ADI_AXI_ADC_REG_CNTRL_3,
+				  AXI_AD404X_CNTRL_3_LANE_MODE_MSK,
+				  FIELD_PREP(AXI_AD404X_CNTRL_3_LANE_MODE_MSK,
+					     axi_adc_ad404x_lane_codes[mode]));
 }
 
 static struct iio_buffer *axi_adc_request_buffer(struct iio_backend *back,
@@ -519,6 +544,7 @@ static const struct iio_backend_ops adi_ad404x_ops = {
 	.data_size_set = axi_adc_ad404x_data_size_set,
 	.interface_data_align = axi_adc_ad408x_interface_data_align,
 	.num_lanes_set = axi_adc_num_lanes_set,
+	.lane_mode_set = axi_adc_ad404x_lane_mode_set,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_adc_reg_access),
 	.debugfs_print_chan_status = iio_backend_debugfs_ptr(axi_adc_debugfs_print_chan_status),
 };
