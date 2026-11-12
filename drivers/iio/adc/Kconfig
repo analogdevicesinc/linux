@@ -55,6 +55,20 @@ config AD4030
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad4030.
 
+config AD4040
+	tristate "Analog Devices AD4040 and similar high speed ADCs"
+	depends on SPI
+	select REGMAP
+	select IIO_BACKEND
+	help
+	  Say yes here to build support for the Analog Devices AD4040, AD4044,
+	  AD4046 and AD4048 high speed analog-to-digital converters (ADC).
+	  The LVDS data interface is handled by an IIO backend (AXI AD404x
+	  HDL core) and the SPI interface is used for configuration.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad4040.
+
 config AD4062
 	tristate "Analog Devices AD4062 Driver"
 	depends on I3C

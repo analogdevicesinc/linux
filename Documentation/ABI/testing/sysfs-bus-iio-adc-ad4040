@@ -1,0 +1,13 @@
+What:		/sys/bus/iio/devices/iio:deviceX/lane_mode
+KernelVersion:	6.12
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Interface lane mode of the AXI AD404x data capture core. It must
+		match the output lane mode of the device.
+
+What:		/sys/bus/iio/devices/iio:deviceX/lane_mode_available
+KernelVersion:	6.12
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading returns a list with the lane modes that can be written
+		to lane_mode: "dual", "single", "half" and "quarter".
