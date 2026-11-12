@@ -56,7 +56,9 @@
 #endif
 
 #define ONCHIP_PLL_LOW_FREQ	(400 * MHz)
+#ifndef EXT_VCO_FREQ
 #define EXT_VCO_FREQ		(2000 * MHz)
+#endif
 
 #define ADF4382_DIVIDER		1
 #define ADF4382_DIG_DELAY	14
@@ -874,10 +876,11 @@
 		#clock-cells = <1>;
 		clocks = <&ltc6953 10>;
 		clock-names = "clkin";
+		clock-scales = <1 10>;
 		label = "adf4351";
 
 		adi,channel-spacing = <1000000>;
-		adi,power-up-frequency = <EXT_VCO_FREQ>; /* 2 GHz */
+		adi,power-up-frequency = <EXT_VCO_FREQ>;
 		adi,phase-detector-polarity-positive-enable;
 		adi,lock-detect-function-integer-n-enable;
 		adi,charge-pump-current = <1>;
@@ -896,6 +899,7 @@
 
 		clocks = <&ltc6953 8> , <&adf4351 0>;
 		clock-names = "clkin", "vcoin";
+		vcoin-clock-scales = <1 10>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
@@ -911,7 +915,7 @@
 
 		#clock-cells = <1>;
 
-		adi,vco-frequency-hz = <EXT_VCO_FREQ>; /* 2 GHz */
+		adi,vco-frequency-hz = <EXT_VCO_FREQ>;
 		adi,pulse-generator-mode = <2>; /* Four Pulses */
 		adi,sync-via-ezs-srq-enable;
 

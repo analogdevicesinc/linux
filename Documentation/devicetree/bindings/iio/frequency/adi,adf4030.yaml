@@ -52,6 +52,22 @@ properties:
     minimum: 650000
     maximum: 250000000
 
+  adi,bsync-frequency-uhz:
+    description:
+      Primary BSync output frequency in uHz, for frequencies that are not an
+      integer number of Hz.
+    $ref: /schemas/types.yaml#/definitions/uint64
+    minimum: 650000000000
+    maximum: 200000000000000
+
+  adi,bsync-secondary-frequency-uhz:
+    description:
+      Secondary BSync output frequency in uHz, for frequencies that are not an
+      integer number of Hz.
+    $ref: /schemas/types.yaml#/definitions/uint64
+    minimum: 650000000000
+    maximum: 200000000000000
+
   adi,bsync-autoalign-reference-channel:
     description: Reference channel number for auto alignment.
     $ref: /schemas/types.yaml#/definitions/uint32
@@ -168,7 +184,17 @@ patternProperties:
 required:
   - compatible
   - adi,vco-frequency-hz
-  - adi,bsync-frequency-hz
+
+allOf:
+  - oneOf:
+      - required:
+          - adi,bsync-frequency-hz
+      - required:
+          - adi,bsync-frequency-uhz
+  - not:
+      required:
+        - adi,bsync-secondary-frequency-hz
+        - adi,bsync-secondary-frequency-uhz
 
 unevaluatedProperties: false
 
