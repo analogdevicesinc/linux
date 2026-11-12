@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# Copyright (c) 2026 Analog Devices Inc.
+
 name: Checks
 
 on:
@@ -103,6 +107,19 @@ jobs:
       run: |
         source ./ci/build.sh
         check_license
+
+    - name: Check copyright and license
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
+      uses: analogdevicesinc/shared-actions/copyright-license-check@main
+      with:
+        # base_sha/head_sha are exported by the checkout step; only the series
+        # range is fetched, so skip the checks that need the full file history.
+        base-sha: ${{ env.base_sha }}
+        head-sha: ${{ env.head_sha }}
+        check-start-year: false
+        ignore-trivial-changes: true
+        copyright-holder: 'Analog Devices'
+        fail-on-missing: true
 
     - name: Check patch
       if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
