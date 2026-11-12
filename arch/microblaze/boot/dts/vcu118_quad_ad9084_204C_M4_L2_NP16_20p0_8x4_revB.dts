@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices Quad-AD9084 RevB
+ * https://analogdevicesinc.github.io/linux/drivers/iio-trx-rf/ad9088/
+ * https://analogdevicesinc.github.io/hdl/projects/ad9084_ebz/
+ *
+ * hdl_project: <quad_apollo/vcu118>
+ * board_revision: <Rev.B>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define DEVICE_PROFILE_NAME	"204C_M4_L2_NP16_20p0_8x4.bin"
+
+#define FREQ_J1_MHz		(312500000)
+#define TX_CORE_CLK_MHz		(312500000)
+#define RX_CORE_CLK_MHz		(312500000)
+#define FPGA_REFCLK_CLK_MHz	(312500000)
+#define SYSREF_CLK_MHz		(9765625)
+
+#define ADF4382_FREQ_Hz		(20000000000)
+#define EXT_VCO_FREQ		(2500000000)
+
+#include "vcu118_quad_ad9084_revB.dts"
