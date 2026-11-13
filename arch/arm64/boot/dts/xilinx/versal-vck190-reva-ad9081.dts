@@ -11,6 +11,7 @@
  */
 
 #include "versal-vck190-revA.dts"
+#include "versal-vck190-lpddr4.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/adc/adi,ad9081.h>
 #include <dt-bindings/jesd204/adxcvr.h>
