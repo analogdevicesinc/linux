@@ -22,6 +22,7 @@
 #include <linux/of.h>
 #include <linux/of_dma.h>
 #include <linux/of_address.h>
+#include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -1234,6 +1235,11 @@ static void axi_dmac_free_dma_controller(void *of_node)
 	of_dma_controller_free(of_node);
 }
 
+static void axi_dmac_release_reserved_mem(void *dev)
+{
+	of_reserved_mem_device_release(dev);
+}
+
 static int axi_dmac_probe(struct platform_device *pdev)
 {
 	struct dma_device *dma_dev;
@@ -1271,6 +1277,21 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	if (ret < 0)
 		return ret;
+
+	/*
+	 * The HDL might route the DMA to only part of the system memory, in
+	 * which case the devicetree points memory-region at a pool inside it.
+	 */
+	ret = of_reserved_mem_device_init(&pdev->dev);
+	if (!ret) {
+		ret = devm_add_action_or_reset(&pdev->dev,
+					       axi_dmac_release_reserved_mem,
+					       &pdev->dev);
+		if (ret)
+			return ret;
+	} else if (ret != -ENODEV) {
+		dev_warn(&pdev->dev, "memory-region not used: %d\n", ret);
+	}
 
 	INIT_LIST_HEAD(&dmac->chan.active_descs);
 
