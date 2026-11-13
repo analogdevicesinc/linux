@@ -16,7 +16,7 @@
 		idle-state = <0>;
 	};
 
-	pinctrl-mmc-mux {
+	pinctrl-mmc {
 		compatible = "pinctrl-multiplexer";
 
 		mmc_som_grp: som-grp {
