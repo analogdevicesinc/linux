@@ -16,6 +16,10 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 #define WITH_AXI_AION_TRIG 0
+#ifndef WITH_AION
+#define WITH_AION 1
+#endif /* WITH_AION */
+
 #ifndef WITH_FSRC
 #define WITH_FSRC 0
 #endif /* WITH_FSRC */
