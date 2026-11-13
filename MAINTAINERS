@@ -27820,6 +27820,7 @@ TEXAS INSTRUMENTS' TLA2528 ADC DRIVER
 M:	Maxime Chevallier <maxime.chevallier@bootlin.com>
 S:	Supported
 F:	Documentation/devicetree/bindings/iio/adc/ti,tla2528.yaml
+F:	drivers/iio/adc/ti-tla2528.c
 
 TEXAS INSTRUMENTS' TMP117 TEMPERATURE SENSOR DRIVER
 M:	Puranjay Mohan <puranjay@kernel.org>

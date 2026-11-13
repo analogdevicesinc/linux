@@ -2073,6 +2073,18 @@ config TI_LMP92064
 	  This driver can also be built as a module. If so, the module will be called
 	  ti-lmp92064.
 
+config TI_TLA2528
+	tristate "Texas Instruments TLA2528 ADC driver"
+	depends on I2C
+	select REGMAP_I2C
+	select IIO_ADC_HELPER
+	help
+	  Say yes here to build support for Texas Instruments TLA2528
+	  12-Bit 8-Channel ADC.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ti-tla2528.
+
 config TI_TLC4541
 	tristate "Texas Instruments TLC4541 ADC driver"
 	depends on SPI
