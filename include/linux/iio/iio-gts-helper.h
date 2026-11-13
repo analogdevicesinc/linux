@@ -47,9 +47,9 @@ struct iio_gain_sel_pair {
  * @time_us:	Integration time in microseconds. Time values must be positive,
  *		negative values are reserved for error handling.
  * @sel:	Selector (usually register value) used to indicate this time
- *		NOTE: Only selectors >= 0 supported.
+ *		Note that only selectors >= 0 are supported.
  * @mul:	Multiplication to the values caused by this time.
- *		NOTE: Only multipliers > 0 supported.
+ *		Note that only multipliers > 0 are supported.
  */
 struct iio_itime_sel_mul {
 	int time_us;
