@@ -53,6 +53,9 @@
 #define   AXI_AD408X_PACKET_FORMAT_16BIT	0x1
 #define   AXI_AD408X_PACKET_FORMAT_14BIT	0x2
 
+/* Bit 0 is the filter enable, same as on the AD408x core */
+#define   AXI_AD404X_CNTRL_3_DATA_SIZE_MSK	GENMASK(2, 1)
+
 #define ADI_AXI_ADC_REG_SYNC_STATUS		0x0068
 #define   ADI_AXI_ADC_SYNC_STATUS_ADC_SYNC_MSK	BIT(0)
 
@@ -382,6 +385,34 @@ static int axi_adc_num_lanes_set(struct iio_backend *back,
 				  FIELD_PREP(ADI_AXI_ADC_CTRL_NUM_LANES_MSK, num_lanes));
 }
 
+static int axi_adc_ad404x_data_size_set(struct iio_backend *back,
+					unsigned int size)
+{
+	struct adi_axi_adc_state *st = iio_backend_get_priv(back);
+	unsigned int val;
+
+	switch (size) {
+	case 20:
+		val = 3;
+		break;
+	case 18:
+		val = 2;
+		break;
+	case 16:
+		val = 1;
+		break;
+	case 14:
+		val = 0;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return regmap_update_bits(st->regmap, ADI_AXI_ADC_REG_CNTRL_3,
+				  AXI_AD404X_CNTRL_3_DATA_SIZE_MSK,
+				  FIELD_PREP(AXI_AD404X_CNTRL_3_DATA_SIZE_MSK, val));
+}
+
 static struct iio_buffer *axi_adc_request_buffer(struct iio_backend *back,
 						 struct iio_dev *indio_dev)
 {
@@ -485,6 +516,7 @@ static const struct iio_backend_ops adi_ad404x_ops = {
 	.request_buffer = axi_adc_request_buffer,
 	.free_buffer = axi_adc_free_buffer,
 	.filter_type_set = axi_adc_ad408x_filter_type_set,
+	.data_size_set = axi_adc_ad404x_data_size_set,
 	.interface_data_align = axi_adc_ad408x_interface_data_align,
 	.num_lanes_set = axi_adc_num_lanes_set,
 	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_adc_reg_access),
