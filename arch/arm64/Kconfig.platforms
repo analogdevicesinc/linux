@@ -347,6 +347,7 @@ config ARCH_SC59X_64
 	select GPIOLIB
 	select PINCTRL
 	select SERIAL_ADI_UART4
+	select ADI_ADSP_PINT
 	select SPI_ADI
 	select COUNTER
 	help
@@ -360,6 +361,7 @@ config ARCH_SC84X
 	select PINCTRL
 	select COUNTER
 	select SERIAL_ADI_UART4
+	select ADI_ADSP_PINT
 	select SPI_ADI
 	select COMMON_CLK_ADI_SC846
 	help
