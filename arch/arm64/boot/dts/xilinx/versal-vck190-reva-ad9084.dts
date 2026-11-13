@@ -10,6 +10,7 @@
 /dts-v1/;
 
 #include "versal-vck190-rev1.1.dts"
+#include "versal-vck190-lpddr4.dtsi"
 #include <dt-bindings/iio/adc/adi,ad9088.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/jesd204/adxcvr.h>
@@ -270,6 +271,7 @@
 		rx_dma: dma@bc420000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc420000 0x10000>;
+			memory-region = <&lpddr4_cma>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 97 IRQ_TYPE_LEVEL_HIGH>;
@@ -290,6 +292,7 @@
 		tx_dma: dma@bc430000  {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0xbc430000 0x10000>;
+			memory-region = <&lpddr4_cma>;
 			#dma-cells = <1>;
 			#clock-cells = <0>;
 			interrupts = <0 96 IRQ_TYPE_LEVEL_HIGH>;
