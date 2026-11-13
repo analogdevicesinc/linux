@@ -101,7 +101,7 @@ struct iio_channel *devm_iio_channel_get_all(struct device *dev);
 /**
  * fwnode_iio_channel_get_by_name() - get description of all that is needed to access channel.
  * @fwnode:		Pointer to consumer Firmware node
- * @consumer_channel:	Unique name to identify the channel on the consumer
+ * @name:		Unique name to identify the channel on the consumer
  *			side. This typically describes the channels use within
  *			the consumer. E.g. 'battery_voltage'
  */
