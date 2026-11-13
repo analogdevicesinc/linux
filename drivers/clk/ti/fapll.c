@@ -54,6 +54,9 @@
 #define SYNTH_MAX_INT_DIV	0xf
 #define SYNTH_MAX_DIV_M		0xff
 
+#define SYNTH_FRAC_DIV_BITS	24
+#define SYNTH_FRAC_DIV_SCALE	BIT(SYNTH_FRAC_DIV_BITS)
+
 struct fapll_data {
 	struct clk_hw hw;
 	void __iomem *base;
@@ -336,8 +339,9 @@ static unsigned long ti_fapll_synth_recalc_rate(struct clk_hw *hw,
 		v = readl_relaxed(synth->freq);
 		synth_int_div = (v >> 24) & 0xf;
 		synth_frac_div = v & 0xffffff;
-		synth_div_freq = (synth_int_div * 10000000) + synth_frac_div;
-		rate *= 10000000;
+		synth_div_freq = (synth_int_div * SYNTH_FRAC_DIV_SCALE)
+				  + synth_frac_div;
+		rate *= SYNTH_FRAC_DIV_SCALE;
 		do_div(rate, synth_div_freq);
 		rate *= SYNTH_PHASE_K;
 	}
@@ -378,10 +382,10 @@ static u32 ti_fapll_synth_set_frac_rate(struct fapll_synth *synth,
 	for (; post_div_m < SYNTH_MAX_DIV_M; post_div_m++) {
 		synth_int_div = DIV_ROUND_UP_ULL((u64)parent_rate *
 						 SYNTH_PHASE_K *
-						 10000000,
+						 SYNTH_FRAC_DIV_SCALE,
 						 rate * post_div_m);
-		synth_frac_div = synth_int_div % 10000000;
-		synth_int_div /= 10000000;
+		synth_frac_div = synth_int_div % SYNTH_FRAC_DIV_SCALE;
+		synth_int_div /= SYNTH_FRAC_DIV_SCALE;
 
 		if (synth_int_div <= SYNTH_MAX_INT_DIV)
 			break;
