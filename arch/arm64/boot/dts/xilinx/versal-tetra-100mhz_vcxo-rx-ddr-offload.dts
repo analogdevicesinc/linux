@@ -4,6 +4,11 @@
  *
  * HDL: make ADC_DO_MEM_TYPE=1
  *
+ * With 12-bit samples (RX_JESD_NP=12) the offload stores them packed and the
+ * DMA receives them unpacked, 16 bits each: the RX offload transfer_length
+ * counts packed bytes, 3/4 of the DMA buffer size, and the DMA buffer size
+ * must be a multiple of 256 bytes.
+ *
  * (C) Copyright 2026, Analog Devices Inc.
  */
 
@@ -11,8 +16,8 @@
 
 / {
 	chosen {
-		/* One block can hold a full 1 GiB capture */
-		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=1073741824";
+		/* One block can hold a full capture, 512 MiB unpacked to 683 MiB */
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=805306368";
 	};
 
 	reserved-memory {
@@ -22,12 +27,12 @@
 
 		/*
 		 * The RX DMA only reaches DDR_LOW0, so the capture buffer must
-		 * come from the lower 2 GB
+		 * come from the lower 2 GB. 768 MiB holds a full capture.
 		 */
 		linux,cma {
 			compatible = "shared-dma-pool";
 			reusable;
-			size = <0x0 0x50000000>;
+			size = <0x0 0x30000000>;
 			alloc-ranges = <0x0 0x0 0x0 0x80000000>;
 			linux,cma-default;
 		};
@@ -37,7 +42,7 @@
 		 * even if the bootloader reports the whole of DDR_LOW1
 		 */
 		rx_offload_storage: rx-offload@800000000 {
-			reg = <0x8 0x0 0x0 0x40000000>;
+			reg = <0x8 0x0 0x0 0x20000000>;
 			no-map;
 		};
 	};
