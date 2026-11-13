@@ -23,6 +23,7 @@ properties:
           - const: sophgo,sg2044-dwcmshc
           - const: sophgo,sg2042-dwcmshc
       - enum:
+          - adi,adsp-sc598-dwcmshc
           - adi,adsp-sc846-dwcmshc
           - rockchip,rk3568-dwcmshc
           - rockchip,rk3588-dwcmshc
@@ -96,7 +97,9 @@ allOf:
       properties:
         compatible:
           contains:
-            const: adi,adsp-sc846-dwcmshc
+            enum:
+              - adi,adsp-sc598-dwcmshc
+              - adi,adsp-sc846-dwcmshc
 
     then:
       properties:
@@ -114,6 +117,7 @@ allOf:
           compatible:
             contains:
               enum:
+                - adi,adsp-sc598-dwcmshc
                 - adi,adsp-sc846-dwcmshc
                 - sophgo,sg2042-dwcmshc
 
