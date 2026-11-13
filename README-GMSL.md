@@ -232,3 +232,14 @@ The following commands will read and write register `0x8d3` from subdev `12`, wh
 `v4l2-dbg -d 0 -c subdev12 -s 0x8d3 0x00`
 
 These commands can only be run as root.
+
+### UART0 enabling on ADI Kuiper Image
+To enable the UART0 (corresponding to the GPIO14 and GPIO15 of the Raspberry PI) the following settings are required:
+
+- Modify the config.txt file from the BOOT partition of the SD card and add:
+
+`dtoverlay=uart0`
+
+- Modify the cmdline.txt file from the same BOOT partition and replace:
+
+`console=serial0,115200` with `console=ttyAMA0,115200`
