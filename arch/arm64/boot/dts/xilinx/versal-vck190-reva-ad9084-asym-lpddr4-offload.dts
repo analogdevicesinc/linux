@@ -1,0 +1,17 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-FMCA-EBZ on VCK190, asymmetric A/B mode with the
+ * data offloads stored in LPDDR4
+ *
+ * hdl_project: <ad9084_ebz/vck190>
+ * board_revision: <>
+ *
+ * HDL built with ASYMMETRIC_A_B_MODE=1 ADC_DO_MEM_TYPE=1 DAC_DO_MEM_TYPE=1.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define DATA_OFFLOAD_LPDDR4 1
+#define WITH_HSCI 0
+
+#include "versal-vck190-reva-ad9084-asym.dts"

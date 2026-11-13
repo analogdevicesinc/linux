@@ -32,6 +32,30 @@
 #define WITH_HSCI 1
 #endif /* WITH_HSCI */
 
+#ifndef DATA_OFFLOAD_LPDDR4
+#define DATA_OFFLOAD_LPDDR4 0
+#endif /* DATA_OFFLOAD_LPDDR4 */
+
+#if DATA_OFFLOAD_LPDDR4
+/*
+ * HDL built with ADC_DO_MEM_TYPE=1 / DAC_DO_MEM_TYPE=1: the data offloads
+ * store into fixed 1 GB slots in the upper 4 GB of the LPDDR4, so the DMA
+ * pool keeps only the lower 4 GB.
+ */
+&lpddr4_cma {
+	reg = <0x500 0x0 0x1 0x0>;
+};
+
+/ {
+	reserved-memory {
+		data_offload_storage: data-offload@50100000000 {
+			reg = <0x501 0x0 0x1 0x0>;
+			no-map;
+		};
+	};
+};
+#endif /* DATA_OFFLOAD_LPDDR4 */
+
 #define fmc_spi spi0
 
 #ifndef DEVICE_PROFILE_NAME
