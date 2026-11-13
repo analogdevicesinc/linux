@@ -24,6 +24,10 @@
 #define WITH_FSRC 0
 #endif /* WITH_FSRC */
 
+#ifndef ASYMMETRIC_A_B_MODE
+#define ASYMMETRIC_A_B_MODE 0
+#endif /* ASYMMETRIC_A_B_MODE */
+
 #define fmc_spi spi0
 
 #ifndef DEVICE_PROFILE_NAME
@@ -426,6 +430,130 @@
 			datapath-reset-gpios = <&axi_gpio 39 0>;
 		};
 
+#if ASYMMETRIC_A_B_MODE
+		rx_dma_b: dma@bc470000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0xbc470000 0x10000>;
+			memory-region = <&lpddr4_cma>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 88 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma_b: dma@bc480000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0xbc480000 0x10000>;
+			memory-region = <&lpddr4_cma>;
+			#dma-cells = <1>;
+			#clock-cells = <0>;
+			interrupts = <0 87 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&versal_clk PMC_PL1_REF>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		axi_data_offload_tx_b: axi-data-offload-2@bc490000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0xbc490000 0x10000>;
+		};
+
+		axi_data_offload_rx_b: axi-data-offload-3@bc4a0000 {
+			compatible = "adi,axi-data-offload-1.0.a";
+			reg = <0xbc4a0000 0x10000>;
+		};
+
+		axi_ad9084_core_rx_b: axi-ad9084-rx-b@a4ab0000 {
+			compatible = "adi,axi-adc-tpl-so-10.0.a";
+			reg = <0xa4ab0000 0x8000>;
+			dmas = <&rx_dma_b 0>;
+			dma-names = "rx";
+			clocks = <&trx0_ad9084 0>;
+			clock-names = "sampl_clk";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9084_rx_jesd_b 0 FRAMER_LINK_B0_RX>;
+		};
+
+		axi_ad9084_core_tx_b: axi-ad9084-tx-b@a4bb0000 {
+			compatible = "adi,axi-ad9081-tx-1.0";
+			reg = <0xa4bb0000 0x4000>;
+			dmas = <&tx_dma_b 0>;
+			dma-names = "tx";
+			clocks = <&trx0_ad9084 1>;
+			clock-names = "sampl_clk";
+			adi,axi-pl-fifo-enable;
+			adi,axi-data-offload-connected = <&axi_data_offload_tx_b>;
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9084_tx_jesd_b 0 DEFRAMER_LINK_B0_TX>;
+		};
+
+		axi_ad9084_rx_jesd_b: axi-jesd204-rx@a4ac0000 {
+			compatible = "adi,axi-jesd204-rx-1.0";
+			reg = <0xa4ac0000 0x1000>;
+
+			interrupts = <0 86 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&versal_clk PMC_PL0_REF>, <&hmc7044 9>, <&rx_fixed_link_clk>, <&rx_fixed_linerate>;
+			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_rx_lane_clk_b";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&hmc7044 0 FRAMER_LINK_B0_RX>;
+
+			reset-done-gpios = <&axi_gpio 40 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 44 0>;
+			datapath-reset-gpios = <&axi_gpio 46 0>;
+		};
+
+		axi_ad9084_tx_jesd_b: axi-jesd204-tx@a4bc0000 {
+			compatible = "adi,axi-jesd204-tx-1.0";
+			reg = <0xa4bc0000 0x1000>;
+
+			interrupts = <0 85 IRQ_TYPE_LEVEL_HIGH>;
+
+			clocks = <&versal_clk PMC_PL0_REF>, <&hmc7044 8>, <&tx_fixed_link_clk>, <&tx_fixed_linerate>;
+			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
+
+			#clock-cells = <0>;
+			clock-output-names = "jesd_tx_lane_clk_b";
+
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK_B0_TX>;
+
+			reset-done-gpios = <&axi_gpio 41 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 45 0>;
+			datapath-reset-gpios = <&axi_gpio 47 0>;
+		};
+#endif /* ASYMMETRIC_A_B_MODE */
+
 		axi_sysid_0: axi-sysid-0@a5000000 {
 			compatible = "adi,axi-sysid-1.00.a";
 			reg = <0xa5000000 0x10000>;
@@ -721,9 +849,19 @@
 		jesd204-ignore-errors;
 		jesd204-link-ids = <DEFRAMER_LINK_A0_TX DEFRAMER_LINK_B0_TX FRAMER_LINK_A0_RX FRAMER_LINK_B0_RX>;
 
+#if ASYMMETRIC_A_B_MODE
+		jesd204-inputs =
+			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
+			<&axi_ad9084_rx_jesd_b 0 FRAMER_LINK_B0_RX>,
+			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>,
+			<&axi_ad9084_core_tx_b 0 DEFRAMER_LINK_B0_TX>;
+
+		adi,side-b-use-separate-tpl-en;
+#else
 		jesd204-inputs =
 			<&axi_ad9084_core_rx 0 FRAMER_LINK_A0_RX>,
 			<&axi_ad9084_core_tx 0 DEFRAMER_LINK_A0_TX>;
+#endif /* ASYMMETRIC_A_B_MODE */
 
 		reset-gpios = <&axi_gpio 30 0>;
 		//adi,gpio-exports = /bits/ 8 <15 16 17 18 19 20 21 22 23>; // <block, hop>

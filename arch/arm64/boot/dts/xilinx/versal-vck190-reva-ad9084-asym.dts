@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9084-FMCA-EBZ on VCK190, asymmetric A/B mode
+ *
+ * hdl_project: <ad9084_ebz/vck190>
+ * board_revision: <>
+ *
+ * HDL built with ASYMMETRIC_A_B_MODE=1: each Apollo side has its own JESD
+ * link, TPL, data offload and DMA.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#define ASYMMETRIC_A_B_MODE 1
+
+#include "versal-vck190-reva-ad9084.dts"
