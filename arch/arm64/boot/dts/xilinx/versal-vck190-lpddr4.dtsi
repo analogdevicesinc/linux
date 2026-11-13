@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * LPDDR4 of the VCK190, used as the CMA area for the HDL JESD DMAs
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+&memory {
+	reg = <0x0 0x0 0x0 0x80000000>, <0x8 0x0 0x1 0x80000000>,
+	      <0x500 0x0 0x2 0x0>;
+};
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		lpddr4_cma: linux,cma@50000000000 {
+			compatible = "shared-dma-pool";
+			reusable;
+			reg = <0x500 0x0 0x2 0x0>;
+			linux,cma-default;
+		};
+	};
+};
