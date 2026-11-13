@@ -28,6 +28,10 @@
 #define ASYMMETRIC_A_B_MODE 0
 #endif /* ASYMMETRIC_A_B_MODE */
 
+#ifndef WITH_HSCI
+#define WITH_HSCI 1
+#endif /* WITH_HSCI */
+
 #define fmc_spi spi0
 
 #ifndef DEVICE_PROFILE_NAME
@@ -839,9 +843,11 @@
 		//adi,gpio-sniffer-a-export = <17>;
 		//adi,gpio-sniffer-b-export = <18>;
 
+#if WITH_HSCI
 		adi,axi-hsci-connected = <&axi_hsci>;
 
 		adi,hsci-auto-linkup-mode-en;
+#endif
 
 		jesd204-device;
 		#jesd204-cells = <2>;
