@@ -49,6 +49,17 @@ properties:
       Optional external 2.5V voltage reference. If not provided, the
       internal 2.5V reference is used.
 
+  adi,device-address:
+    description: |
+      Hardware device address (0-3) configured via A[1:0] address pins.
+      This must match the physical pin configuration. Used in SPI frame
+      bits [13:12] to select the device. Required for accessing registers
+      beyond address 0x11. Defaults to 0 if not specified.
+    $ref: /schemas/types.yaml#/definitions/uint8
+    minimum: 0
+    maximum: 3
+    default: 0
+
   pwms:
     maxItems: 1
     description:
