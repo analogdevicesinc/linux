@@ -1,0 +1,44 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Versal Tetra, RX data offload storage in LPDDR4
+ *
+ * HDL: make ADC_DO_MEM_TYPE=1
+ *
+ * (C) Copyright 2026, Analog Devices Inc.
+ */
+
+#include "versal-tetra-100mhz_vcxo.dts"
+
+/ {
+	chosen {
+		/* One block can hold a full 1 GiB capture */
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk1p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=1073741824";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The RX DMA only reaches DDR_LOW0, so the capture buffer must
+		 * come from the lower 2 GB
+		 */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x50000000>;
+			alloc-ranges = <0x0 0x0 0x0 0x80000000>;
+			linux,cma-default;
+		};
+
+		/*
+		 * RX data offload storage, written by the PL; kept out of Linux
+		 * even if the bootloader reports the whole of DDR_LOW1
+		 */
+		rx_offload_storage: rx-offload@800000000 {
+			reg = <0x8 0x0 0x0 0x40000000>;
+			no-map;
+		};
+	};
+};
