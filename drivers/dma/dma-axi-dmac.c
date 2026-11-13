@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/sizes.h>
 #include <linux/slab.h>
 
 #include <dt-bindings/dma/axi-dmac.h>
@@ -706,18 +707,27 @@ static struct axi_dmac_sg *axi_dmac_fill_linear_sg(struct axi_dmac_chan *chan,
 {
 	unsigned int num_segments, i;
 	unsigned int segment_size;
+	unsigned int max_length;
 	unsigned int len;
 
 	/*
 	 * Split into multiple equally sized segments if necessary.
 	 * chan->max_length can be UINT_MAX, so ensure there are no overflows
 	 * resuting in divide-by-zero errors by casting to u64.
+	 *
+	 * The core issues bursts of MAX_BYTES_PER_BURST (at most 4 KiB) from
+	 * the start of a segment, so a segment that does not start on a 4 KiB
+	 * boundary makes every burst cross one.
 	 */
-	num_segments = DIV_ROUND_UP_ULL((u64)period_len,
-					(u64)chan->max_length);
+	max_length = chan->max_length;
+	if (period_len > max_length && max_length >= SZ_4K)
+		max_length = round_down(max_length, SZ_4K);
+	num_segments = DIV_ROUND_UP_ULL((u64)period_len, (u64)max_length);
 	segment_size = DIV_ROUND_UP(period_len, num_segments);
 	/* Take care of alignment */
 	segment_size = ((segment_size - 1) | chan->length_align_mask) + 1;
+	if (num_segments > 1)
+		segment_size = round_up(segment_size, SZ_4K);
 
 	for (i = 0; i < num_periods; i++) {
 		for (len = period_len; len > segment_size; sg++) {
