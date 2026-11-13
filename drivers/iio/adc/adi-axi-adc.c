@@ -477,6 +477,25 @@ static const struct iio_backend_info axi_ad408x = {
 	.ops = &adi_ad408x_ops,
 };
 
+static const struct iio_backend_ops adi_ad404x_ops = {
+	.enable = axi_adc_enable,
+	.disable = axi_adc_disable,
+	.chan_enable = axi_adc_chan_enable,
+	.chan_disable = axi_adc_chan_disable,
+	.request_buffer = axi_adc_request_buffer,
+	.free_buffer = axi_adc_free_buffer,
+	.filter_type_set = axi_adc_ad408x_filter_type_set,
+	.interface_data_align = axi_adc_ad408x_interface_data_align,
+	.num_lanes_set = axi_adc_num_lanes_set,
+	.debugfs_reg_access = iio_backend_debugfs_ptr(axi_adc_reg_access),
+	.debugfs_print_chan_status = iio_backend_debugfs_ptr(axi_adc_debugfs_print_chan_status),
+};
+
+static const struct iio_backend_info axi_ad404x = {
+	.name = "axi-ad404x",
+	.ops = &adi_ad404x_ops,
+};
+
 static int adi_axi_adc_probe(struct platform_device *pdev)
 {
 	struct adi_axi_adc_state *st;
@@ -561,9 +580,15 @@ static const struct axi_adc_info adi_axi_ad408x = {
 	.backend_info = &axi_ad408x,
 };
 
+static const struct axi_adc_info adi_axi_ad404x = {
+	.version = ADI_AXI_PCORE_VER(10, 0, 'a'),
+	.backend_info = &axi_ad404x,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id adi_axi_adc_of_match[] = {
 	{ .compatible = "adi,axi-adc-10.0.a", .data = &adc_generic },
+	{ .compatible = "adi,axi-ad404x", .data = &adi_axi_ad404x },
 	{ .compatible = "adi,axi-ad408x", .data = &adi_axi_ad408x },
 	{ }
 };
