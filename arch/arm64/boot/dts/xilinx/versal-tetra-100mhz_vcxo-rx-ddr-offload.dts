@@ -12,7 +12,7 @@
 / {
 	chosen {
 		/* One block can hold a full 1 GiB capture */
-		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk1p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=1073741824";
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=1073741824";
 	};
 
 	reserved-memory {
