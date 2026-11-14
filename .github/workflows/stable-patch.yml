@@ -1,0 +1,247 @@
+name: Stable patch
+run-name: Stable patch ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to stable patch"
+        required: true
+        type: string
+      sha:
+        description: "Commit of the branch to stable patch, defaults to the branch head"
+        required: false
+        type: string
+      dry-run:
+        description: "Dry-run, don't push merged branch"
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stable-patch-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  stable-patch:
+    runs-on: ${{ vars.RUNNER != '' && fromJSON(vars.RUNNER) || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+    env:
+      ref: ${{ inputs.ref }}
+      sha: ${{ inputs.sha }}
+      rules: .github/merge-conflict
+      stable_url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
+
+    steps:
+      - uses: analogdevicesinc/doctools/blank@action
+
+      - name: Checkout ref
+        run: |
+          git check-ref-format --branch "$ref" >/dev/null
+          git config http.postBuffer 157286400
+          git fetch --no-tags --depth=1 origin "+refs/heads/$ref:refs/remotes/origin/$ref"
+          if [[ -n "$sha" ]]; then
+            git fetch --no-tags --depth=1 origin "$sha"
+          fi
+          git switch --detach "${sha:-origin/$ref}"
+
+          version=$(make -s kernelversion)
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          series="${version%.*}"
+
+          tags_file=$(mktemp -t tags.XXX.txt)
+          git ls-remote --tags "$stable_url" "v$series*" > "$tags_file"
+          rc=$(sed -n "s|.*refs/tags/\(v$series-rc[0-9]*\)$|\1|p" "$tags_file" | sort -V | tail -n 1)
+          [[ -n "$rc" ]]
+
+          latest=$(curl -fsSL https://www.kernel.org/releases.json |
+            jq -r --arg s "$series." '.releases[] | select(.version | startswith($s)) | .version' | head -n 1)
+          [[ -n "$latest" ]] || latest=$(sed -n "s|.*refs/tags/v\($series\.[0-9]*\)$|\1|p" "$tags_file" |
+            sort -V | tail -n 1)
+          [[ "$latest" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+          git fetch --no-tags --shallow-exclude="$rc" origin "+refs/heads/$ref:refs/remotes/origin/$ref"
+          if [[ -n "$sha" ]]; then
+            git merge-base --is-ancestor "$sha" "origin/$ref"
+          fi
+
+          echo "head_sha=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_ENV"
+          echo "series=$series" >> "$GITHUB_ENV"
+          echo "rc=$rc" >> "$GITHUB_ENV"
+          echo "tags_file=$tags_file" >> "$GITHUB_ENV"
+          echo "latest=$latest" >> "$GITHUB_ENV"
+          echo "::notice ::stable-patch: $ref${sha:+ @ $sha} is $version, merging v$latest"
+
+      - name: Get merge conflict rules
+        run: |
+          git ls-remote --exit-code --heads origin "lts/$ref" >/dev/null || exit 0
+          git fetch --no-tags --depth=1 origin "+refs/heads/lts/$ref:refs/remotes/origin/lts/$ref"
+          echo "previous_head=$(git rev-parse "origin/lts/$ref")" >> "$GITHUB_ENV"
+
+          rules_worktree=$(mktemp -d)
+          git worktree add --no-checkout --detach "$rules_worktree" "origin/lts/$ref"
+          git -C "$rules_worktree" sparse-checkout set --no-cone "/$rules/"
+          git -C "$rules_worktree" checkout
+          if [[ -d "$rules_worktree/$rules" ]]; then
+            mkdir -p "$rules"
+            cp -a "$rules_worktree/$rules/." "$rules/"
+          fi
+          git worktree remove --force "$rules_worktree"
+
+      - name: Get sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ci_ref: ${{ github.workflow_sha }}
+        run: |
+          ci_worktree=$(mktemp -d)
+          for f in ci/merge_conflict.py ci/build.sh ci/symbols_depend.py ci/touched_kconfig.awk \
+                   arch/arm/configs/adi_ci_defconfig arch/arm64/configs/adi_ci_defconfig \
+                   arch/x86/configs/adi_ci_defconfig; do
+            mkdir -p "$ci_worktree/$(dirname "$f")"
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -o "$ci_worktree/$f" \
+              "https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$ci_ref/$f"
+          done
+
+          echo "CI_WORKTREE=$ci_worktree" >> "$GITHUB_ENV"
+          echo "sh_source=$ci_worktree/ci/build.sh" >> "$GITHUB_ENV"
+          echo "conflicts_file=$(mktemp -t conflicts.XXX.txt)" >> "$GITHUB_ENV"
+          echo "resolved_dir=$(mktemp -dt resolved.XXX)" >> "$GITHUB_ENV"
+
+      - name: Merge stable
+        id: merge
+        run: |
+          git fetch --no-tags --shallow-exclude="$rc" "$stable_url" "+refs/tags/v$latest:refs/tags/v$latest"
+
+          merge_base=$(git merge-base HEAD "v$latest") || merge_base=
+          if [[ -z "$merge_base" ]] ||
+             ! grep -q "^$merge_base[[:space:]]refs/tags/v$series\(\.[0-9]*\)\?^{}$" "$tags_file"; then
+            echo "::error::Failed to find merge base, shallow exclude?"
+            exit 1
+          fi
+          echo "::notice ::stable-patch: merge base $(sed -n "s|^$merge_base[[:space:]]refs/tags/\(.*\)^{}$|\1|p" "$tags_file")"
+
+          ret=0
+          git -c rerere.enabled=false merge --no-ff --no-commit "v$latest" || ret=$?
+          git rev-parse -q --verify MERGE_HEAD >/dev/null || exit $ret
+          [[ -n "$(git ls-files -u)" ]] || exit 0
+
+          ret=0
+          python3 "$CI_WORKTREE/ci/merge_conflict.py" replay "$rules" > "$conflicts_file" || ret=$?
+          [[ $ret -eq 0 ]] && exit 0
+          [[ $ret -eq 2 ]] || exit $ret
+
+          python3 "$CI_WORKTREE/ci/merge_conflict.py" capture "$rules" > "$conflicts_file"
+          echo "::warning ::stable-patch: no recorded resolution for: $(paste -sd ' ' "$conflicts_file")"
+          echo "llm=true" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare prompt
+        if: ${{ steps.merge.outputs.llm == 'true' }}
+        run: |
+          prompt_file=$(mktemp -t prompt.XXX.md)
+          echo "prompt_file=$prompt_file" >> "$GITHUB_ENV"
+
+          cat <<'EOF' > "$prompt_file"
+          # Resolve stable merge conflicts
+
+          The current directory is a Linux Kernel tree with a merge in progress:
+          branch $ref ($head_sha, Linux $version) is merging the stable tag v$latest.
+          Recorded resolutions from $rules were replayed. The files listed in
+          $conflicts_file still have conflicts, with diff3 markers: `ours` is $ref,
+          `base` is the merge base and `theirs` is v$latest.
+
+          Resolve every conflict block in those files:
+
+          - Keep the intent of both sides: the Xilinx/ADI change and the stable
+          fix. When they overlap, adapt the Xilinx/ADI change to the stable code.
+          - Use `git log -p --merge -- <file>` and the commits of each side to understand
+            the intent of the changes.
+          - Only edit lines inside the conflict blocks. Do not edit other lines or files.
+          - Do not run `git add`, `git commit`, `git merge`, `git reset`, `git checkout`,
+            `git restore` or `git stash`.
+          - Do not leave conflict markers.
+
+          Validate the resolution by compiling the affected objects.
+          `$CI_WORKTREE/ci/build.sh` is sourced and provides the CI methods, for example:
+          ```
+          $ set_arch gcc_aarch64
+          $ get_adi_ci_defconfig
+          $ make adi_ci_defconfig
+          $ auto_set_kconfig
+          $ make drivers/foo/bar.o
+          ```
+          The resolution is recorded to $rules after you finish, so it is replayed in
+          the next runs. In the summary, explain each resolution and how it was validated.
+          EOF
+
+      - uses: analogdevicesinc/doctools/llm@action
+        if: ${{ steps.merge.outputs.llm == 'true' }}
+        with:
+          prompt-file: ${{ env.prompt_file }}
+          api-key: ${{ secrets.PORTKEY_API_KEY }}
+          sh-source: ${{ env.sh_source }}
+          model: "large"
+
+      - name: Store resolved files
+        if: ${{ steps.merge.outputs.llm == 'true' }}
+        run: |
+          while read -r f; do
+            if [[ -f "$f" ]]; then
+              cp --parents -- "$f" "$resolved_dir/"
+            fi
+          done < "$conflicts_file"
+
+      - name: Record resolutions
+        if: ${{ steps.merge.outputs.llm == 'true' }}
+        run: |
+          python3 "$CI_WORKTREE/ci/merge_conflict.py" record "$rules"
+          [[ -z "$(git ls-files -u)" ]]
+          git diff --quiet
+
+      - name: Commit
+        run: |
+          if [[ -n "$previous_head" ]]; then
+            mkdir -p "$rules"
+            echo "$previous_head" >> "$rules/forced-commits"
+          fi
+          [[ -d "$rules" ]] && git add -f "$rules"
+          if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+            git commit -m "Merge tag 'v$latest' into lts/$ref"
+          elif ! git diff --cached --quiet; then
+            git commit -m "Update merge conflict rules"
+          fi
+          echo "::notice ::stable-patch: lts/$ref at $(git rev-parse HEAD)"
+
+      - name: Push
+        if: ${{ !inputs.dry-run }}
+        env:
+          WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET }}
+        run: |
+          [[ -z "$WORKFLOW_SECRET" ]] || \
+            git remote set-url origin "https://x-access-token:$WORKFLOW_SECRET@github.com/$GITHUB_REPOSITORY.git"
+          git push -f origin "HEAD:refs/heads/lts/$ref"
+
+      - name: Store merge conflict rules
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: merge-conflict
+          path: |
+            ${{ env.rules }}
+            ${{ env.conflicts_file }}
+            ${{ env.resolved_dir }}
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      - name: Clean-up
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git merge --abort 2>/dev/null || true
+          git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git config --unset http.postBuffer || true
+          rm -rf "$CI_WORKTREE" "$prompt_file" "$conflicts_file" "$tags_file" "$resolved_dir"
