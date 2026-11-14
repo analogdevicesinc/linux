@@ -210,6 +210,21 @@ Here is a simple example that changes a method argument type:
    + enum iio_event_direction_ex arg
    , ... ) { ... }
 
+Automatic long-term-support branches
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :git+linux:`ci:.github/workflows/stable-patch.yml` (long-term-support)
+merges a branch with the latest stable release of its release line. It takes an
+``inputs.ref`` (optionally ``inputs.sha`` to *slow-roll*) and force pushes
+the branch ``lts/<ref>`` to the remote.
+
+Conflict resolutions are stored at ``.github/merge-conflict`` in ``lts/<ref>``
+and replayed on the next runs. For new or changed conflicts, an LLM agent
+(:git+doctools:`llm <action:llm/action.yml>`) resolves them, and its
+resolutions are recorded for the next runs.
+The previous ``lts/<ref>`` heads are appended to ``.github/merge-conflict/forced-commits``
+and can be inspected until garbage collected.
+
 Setting up and running
 ----------------------
 
