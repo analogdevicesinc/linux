@@ -214,6 +214,7 @@ superio_exit(int ioreg)
 #define NCT6683_CUSTOMER_ID_ASROCK6	0x1633
 #define NCT6683_CUSTOMER_ID_ASROCK7	0x163d
 #define NCT6683_CUSTOMER_ID_ASROCK8	0x164a
+#define NCT6683_CUSTOMER_ID_ASROCK9	0x165f
 
 #define NCT6683_REG_BUILD_YEAR		0x604
 #define NCT6683_REG_BUILD_MONTH		0x605
@@ -1859,34 +1860,21 @@ static int nct6683_probe(struct platform_device *pdev)
 	/* By default only instantiate driver if the customer ID is known */
 	switch (data->customer_id) {
 	case NCT6683_CUSTOMER_ID_INTEL:
-		break;
 	case NCT6683_CUSTOMER_ID_MITAC:
-		break;
 	case NCT6683_CUSTOMER_ID_MSI:
-		break;
 	case NCT6683_CUSTOMER_ID_MSI2:
-		break;
 	case NCT6683_CUSTOMER_ID_MSI3:
-		break;
 	case NCT6683_CUSTOMER_ID_MSI4:
-		break;
 	case NCT6683_CUSTOMER_ID_AMD:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK2:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK3:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK4:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK5:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK6:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK7:
-		break;
 	case NCT6683_CUSTOMER_ID_ASROCK8:
+	case NCT6683_CUSTOMER_ID_ASROCK9:
 		break;
 	default:
 		if (!force)
