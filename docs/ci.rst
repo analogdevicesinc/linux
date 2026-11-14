@@ -225,6 +225,11 @@ resolutions are recorded for the next runs.
 The previous ``lts/<ref>`` heads are appended to ``.github/merge-conflict/forced-commits``
 and can be inspected until garbage collected.
 
+Stable changes merged without conflicts may still result in broken code. For example,
+when downstream changes code for features that are not upstream.
+Issues identified (e.g., by building) are fixed and stored at ``.github/merge-fixups``,
+applied in order after the merge as a separate commit, and replayed on the next runs.
+
 Setting up and running
 ----------------------
 
