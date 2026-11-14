@@ -414,9 +414,10 @@ static void ams_update_pl_alarm(struct ams *ams, u64 alarm_mask)
 
 static void ams_unmask(struct ams *ams)
 {
-	unsigned int status, unmask;
+	u64 status, unmask;
 
 	status = readl(ams->base + AMS_ISR_0);
+	status |= ((u64)readl(ams->base + AMS_ISR_1) << AMS_ISR1_ALARM_SHIFT);
 
 	/* Clear those bits which are not active anymore */
 	unmask = (ams->current_masked_alarm ^ status) & ams->current_masked_alarm;
@@ -430,7 +431,9 @@ static void ams_unmask(struct ams *ams)
 	ams->current_masked_alarm &= ~ams->intr_mask;
 
 	/* Clear the interrupts before we unmask them */
-	writel(unmask, ams->base + AMS_ISR_0);
+	writel((unmask & AMS_ISR0_ALARM_MASK), ams->base + AMS_ISR_0);
+	writel(((unmask >> AMS_ISR1_ALARM_SHIFT) & AMS_ISR1_ALARM_MASK),
+	       ams->base + AMS_ISR_1);
 
 	ams_update_intrmask(ams, ~AMS_ALARM_MASK, ~AMS_ALARM_MASK);
 }

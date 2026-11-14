@@ -2592,11 +2592,11 @@ static int spi_nor_octal_dtr_write(struct spi_nor *nor, loff_t to, size_t len,
 	if (IS_ALIGNED(to, 2) && IS_ALIGNED(len, 2))
 		return spi_nor_write_data(nor, to, len, buf);
 
-	tmp_buf = kmalloc(nor->params->page_size, GFP_KERNEL);
+	tmp_buf = kmalloc(spi_nor_get_params(nor, 0)->page_size, GFP_KERNEL);
 	if (!tmp_buf)
 		return -ENOMEM;
 
-	memset(tmp_buf, 0xff, nor->params->page_size);
+	memset(tmp_buf, 0xff, spi_nor_get_params(nor, 0)->page_size);
 
 	start = round_down(to, 2);
 	end = round_up(to + len, 2);

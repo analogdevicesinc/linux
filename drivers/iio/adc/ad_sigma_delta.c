@@ -544,7 +544,6 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	const struct iio_scan_type *scan_type = &indio_dev->channels[0].scan_type;
 	struct spi_transfer *xfer = sigma_delta->sample_xfer;
 	unsigned int i, slot, channel;
-	u8 *samples_buf;
 	int ret;
 
 	if (sigma_delta->num_slots == 1) {
@@ -576,7 +575,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 		xfer[1].bits_per_word = scan_type->realbits;
 		xfer[1].len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
 	} else {
-		unsigned int samples_buf_size, scan_size;
+		unsigned int scan_size;
 
 		if (sigma_delta->active_slots > 1) {
 			ret = ad_sigma_delta_append_status(sigma_delta, true);
@@ -584,17 +583,6 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 				return ret;
 		}
 
-		samples_buf_size =
-			ALIGN(slot * BITS_TO_BYTES(scan_type->storagebits),
-			      sizeof(s64));
-		samples_buf_size += sizeof(s64);
-		samples_buf = devm_krealloc(&sigma_delta->spi->dev,
-					    sigma_delta->samples_buf,
-					    samples_buf_size, GFP_KERNEL);
-		if (!samples_buf)
-			return -ENOMEM;
-
-		sigma_delta->samples_buf = samples_buf;
 		scan_size = BITS_TO_BYTES(scan_type->realbits + scan_type->shift);
 		/* For 24-bit data, there is an extra byte of padding. */
 		xfer[1].rx_buf = &sigma_delta->rx_buf[scan_size == 3 ? 1 : 0];

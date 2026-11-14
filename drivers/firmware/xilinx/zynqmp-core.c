@@ -677,6 +677,7 @@ int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 *ret_payload, u32 num_args, ...)
 	va_end(arg_list);
 	return ret;
 }
+EXPORT_SYMBOL_GPL(zynqmp_pm_invoke_fn);
 
 /**
  * zynqmp_pm_load_pdi_word_swap - Perform word swapping on a memory address.
