@@ -32,7 +32,8 @@ jobs:
     env:
       ref: ${{ inputs.ref }}
       sha: ${{ inputs.sha }}
-      rules: .github/merge-conflict
+      rules: .github/stable-merge
+      fixups: .github/stable-merge/fixups
       stable_url: https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git
 
     steps:
@@ -76,7 +77,7 @@ jobs:
           echo "latest=$latest" >> "$GITHUB_ENV"
           echo "::notice ::stable-patch: $ref${sha:+ @ $sha} is $version, merging v$latest"
 
-      - name: Get merge conflict rules
+      - name: Get stable merge rules
         run: |
           git ls-remote --exit-code --heads origin "lts/$ref" >/dev/null || exit 0
           git fetch --no-tags --depth=1 origin "+refs/heads/lts/$ref:refs/remotes/origin/lts/$ref"
@@ -110,6 +111,7 @@ jobs:
           echo "sh_source=$ci_worktree/ci/build.sh" >> "$GITHUB_ENV"
           echo "conflicts_file=$(mktemp -t conflicts.XXX.txt)" >> "$GITHUB_ENV"
           echo "resolved_dir=$(mktemp -dt resolved.XXX)" >> "$GITHUB_ENV"
+          echo "fixups_failed_file=$(mktemp -t fixups.XXX.txt)" >> "$GITHUB_ENV"
 
       - name: Merge stable
         id: merge
@@ -127,15 +129,24 @@ jobs:
           ret=0
           git -c rerere.enabled=false merge --no-ff --no-commit "v$latest" || ret=$?
           git rev-parse -q --verify MERGE_HEAD >/dev/null || exit $ret
-          [[ -n "$(git ls-files -u)" ]] || exit 0
+
+          if [[ -n "$(git ls-files -u)" ]]; then
+            ret=0
+            python3 "$CI_WORKTREE/ci/merge_conflict.py" replay "$rules" > "$conflicts_file" || ret=$?
+            [[ $ret -eq 0 || $ret -eq 2 ]] || exit $ret
+            if [[ $ret -eq 2 ]]; then
+              python3 "$CI_WORKTREE/ci/merge_conflict.py" capture "$rules" > "$conflicts_file"
+              echo "::warning ::stable-patch: no recorded resolution for: $(paste -sd ' ' "$conflicts_file")"
+              echo "llm=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
 
           ret=0
-          python3 "$CI_WORKTREE/ci/merge_conflict.py" replay "$rules" > "$conflicts_file" || ret=$?
+          python3 "$CI_WORKTREE/ci/merge_conflict.py" fixups "$rules" > "$fixups_failed_file" || ret=$?
           [[ $ret -eq 0 ]] && exit 0
           [[ $ret -eq 2 ]] || exit $ret
-
-          python3 "$CI_WORKTREE/ci/merge_conflict.py" capture "$rules" > "$conflicts_file"
-          echo "::warning ::stable-patch: no recorded resolution for: $(paste -sd ' ' "$conflicts_file")"
+          echo "::warning ::stable-patch: merge fixups do not apply: $(paste -sd ' ' "$fixups_failed_file")"
           echo "llm=true" >> "$GITHUB_OUTPUT"
 
       - name: Prepare prompt
@@ -145,26 +156,54 @@ jobs:
           echo "prompt_file=$prompt_file" >> "$GITHUB_ENV"
 
           cat <<'EOF' > "$prompt_file"
-          # Resolve stable merge conflicts
+          # Resolve a stable merge
 
           The current directory is a Linux Kernel tree with a merge in progress:
           branch $ref ($head_sha, Linux $version) is merging the stable tag v$latest.
-          Recorded resolutions from $rules were replayed. The files listed in
-          $conflicts_file still have conflicts, with diff3 markers: `ours` is $ref,
-          `base` is the merge base and `theirs` is v$latest.
+          Recorded conflict resolutions from $rules were replayed.
 
+          ## Conflicts
+
+          The files listed in $conflicts_file (if any) still have conflicts, with diff3
+          markers: `ours` is $ref, `base` is the merge base and `theirs` is v$latest.
           Resolve every conflict block in those files:
 
           - Keep the intent of both sides: the Xilinx/ADI change and the stable
-          fix. When they overlap, adapt the Xilinx/ADI change to the stable code.
+            fix. When they overlap, adapt the Xilinx/ADI change to the stable code.
           - Use `git log -p --merge -- <file>` and the commits of each side to understand
             the intent of the changes.
-          - Only edit lines inside the conflict blocks. Do not edit other lines or files.
+          - Only edit lines inside the conflict blocks. Do not edit other lines or files,
+            except for writing fixups at $fixups, see below.
           - Do not run `git add`, `git commit`, `git merge`, `git reset`, `git checkout`,
             `git restore` or `git stash`.
           - Do not leave conflict markers.
 
-          Validate the resolution by compiling the affected objects.
+          The resolution is recorded to $rules after you finish, and replayed in the
+          next runs.
+
+          ## Fixups
+
+          Stable changes merged without conflicts may still break the downstream code,
+          for example when $ref changed a structure for a feature that is not upstream.
+          Those are fixed with patches at $fixups, applied in order with `git apply`
+          after the merge is committed, and replayed in the next runs.
+
+          - The fixups listed in $fixups_failed_file (if any) no longer apply: update
+            or remove them. With conflicts, the fixups were not checked yet: after
+            resolving them, check that every fixup still applies.
+          - Write a new fixup for each build error or warning outside the conflict
+            blocks caused by the merge, as `$fixups/NNNN-<subject>.patch`, with paths
+            relative to the repository and `a/` and `b/` prefixes, for example from
+            `git diff -- <file>` for files without conflicts.
+            Start the file with a description: the stable commit, the downstream change,
+            and why the fix is needed. Prefer the upstream approach adapted to $ref.
+          - To test the fixups, apply them with `git apply`, and revert them with
+            `git apply -R` before finishing: the working tree must only contain the
+            conflict resolutions.
+
+          ## Validation
+
+          Validate by compiling the affected objects, with the fixups applied.
           `$CI_WORKTREE/ci/build.sh` is sourced and provides the CI methods, for example:
           ```
           $ set_arch gcc_aarch64
@@ -173,8 +212,7 @@ jobs:
           $ auto_set_kconfig
           $ make drivers/foo/bar.o
           ```
-          The resolution is recorded to $rules after you finish, so it is replayed in
-          the next runs. In the summary, explain each resolution and how it was validated.
+          In the summary, explain each resolution and fixup, and how they were validated.
           EOF
 
       - uses: analogdevicesinc/doctools/llm@action
@@ -197,9 +235,17 @@ jobs:
       - name: Record resolutions
         if: ${{ steps.merge.outputs.llm == 'true' }}
         run: |
-          python3 "$CI_WORKTREE/ci/merge_conflict.py" record "$rules"
+          if [[ -d "$rules/.pending" ]]; then
+            python3 "$CI_WORKTREE/ci/merge_conflict.py" record "$rules"
+          fi
           [[ -z "$(git ls-files -u)" ]]
           git diff --quiet
+          ret=0
+          python3 "$CI_WORKTREE/ci/merge_conflict.py" fixups "$rules" > "$fixups_failed_file" || ret=$?
+          if [[ $ret -eq 2 ]]; then
+            echo "::error ::stable-patch: merge fixups do not apply: $(paste -sd ' ' "$fixups_failed_file")"
+          fi
+          exit $ret
 
       - name: Commit
         run: |
@@ -210,8 +256,13 @@ jobs:
           [[ -d "$rules" ]] && git add -f "$rules"
           if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
             git commit -m "Merge tag 'v$latest' into lts/$ref"
+            for p in "$fixups"/*.patch; do
+              [[ -f "$p" ]] || continue
+              git apply --index "$p"
+            done
+            git diff --cached --quiet || git commit -m "Apply merge fixups"
           elif ! git diff --cached --quiet; then
-            git commit -m "Update merge conflict rules"
+            git commit -m "Update stable merge rules"
           fi
           echo "::notice ::stable-patch: lts/$ref at $(git rev-parse HEAD)"
 
@@ -224,15 +275,16 @@ jobs:
             git remote set-url origin "https://x-access-token:$WORKFLOW_SECRET@github.com/$GITHUB_REPOSITORY.git"
           git push -f origin "HEAD:refs/heads/lts/$ref"
 
-      - name: Store merge conflict rules
+      - name: Store stable merge rules
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: merge-conflict
+          name: stable-merge
           path: |
             ${{ env.rules }}
             ${{ env.conflicts_file }}
             ${{ env.resolved_dir }}
+            ${{ env.fixups_failed_file }}
           include-hidden-files: true
           if-no-files-found: ignore
 
@@ -244,4 +296,4 @@ jobs:
           git merge --abort 2>/dev/null || true
           git remote set-url origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
           git config --unset http.postBuffer || true
-          rm -rf "$CI_WORKTREE" "$prompt_file" "$conflicts_file" "$tags_file" "$resolved_dir"
+          rm -rf "$CI_WORKTREE" "$prompt_file" "$conflicts_file" "$tags_file" "$resolved_dir" "$fixups_failed_file"

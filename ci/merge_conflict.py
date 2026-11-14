@@ -8,6 +8,7 @@ import difflib
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -85,9 +86,10 @@ def save(directory, manifest):
 
 
 def resolve_block(directory, chunk, original):
-    patch = (directory / chunk["patch"]).resolve()
-    if patch.parent != directory.resolve():
-        raise ValueError("patch outside rules directory")
+    conflicts_dir = (directory / "conflicts").resolve()
+    patch = (conflicts_dir / chunk["patch"]).resolve()
+    if patch.parent != conflicts_dir:
+        raise ValueError("patch outside conflicts directory")
     if digest(patch.read_bytes()) != chunk["patch_hash"]:
         raise ValueError(f"patch checksum mismatch: {chunk['patch']}")
     with tempfile.TemporaryDirectory(prefix="merge-conflict-") as tmp:
@@ -223,17 +225,37 @@ def record(repo, directory):
             errors.append(f"{exc}: {path}")
     if errors:
         raise ValueError("\n".join(errors))
+    (directory / "conflicts").mkdir(parents=True, exist_ok=True)
     for name, patch in patches.items():
-        (directory / name).write_text(patch)
+        (directory / "conflicts" / name).write_text(patch)
     save(directory, manifest)
     shutil.rmtree(pending)
     git(repo, "add", "--", *index)
     return sorted(index)
 
 
+def fixups(repo, directory):
+    patches = sorted((directory / "fixups").glob("*.patch"))
+    if not patches:
+        return []
+    failed = []
+    index = Path(git(repo, "rev-parse", "--git-path", "index").decode().strip())
+    if not index.is_absolute():
+        index = repo / index
+    with tempfile.TemporaryDirectory(prefix="merge-fixups-") as tmp:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
+        shutil.copyfile(index, env["GIT_INDEX_FILE"])
+        for patch in patches:
+            ret = subprocess.run(["git", "-C", str(repo), "apply", "--cached", str(patch)],
+                                 env=env, stderr=subprocess.DEVNULL).returncode
+            if ret:
+                failed.append(str(patch.relative_to(repo)) if patch.is_relative_to(repo) else str(patch))
+    return failed
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Replay and record merge conflict resolutions")
-    parser.add_argument("action", choices=["replay", "capture", "record"])
+    parser = argparse.ArgumentParser(description="Replay and record stable merge conflicts and fixups")
+    parser.add_argument("action", choices=["replay", "capture", "record", "fixups"])
     parser.add_argument("rules", type=Path)
     parser.add_argument("--repo", type=Path, default=Path("."))
     args = parser.parse_args()
@@ -244,7 +266,7 @@ def main():
         return 1
     for path in paths:
         print(path)
-    return 2 if args.action == "replay" and paths else 0
+    return 2 if args.action in ("replay", "fixups") and paths else 0
 
 
 if __name__ == "__main__":
