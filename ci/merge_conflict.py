@@ -4,17 +4,19 @@
 # Copyright (C) 2026 Analog Devices Inc.
 #
 # Layer on top of git-rerere(1) to store the recorded merge conflict resolutions
-# in the tree.
+# in the tree, and of git-apply(1) to store fixes applied after the merge.
 # The rules directory holds the rr-cache entries (<id>/preimage and
 # <id>/postimage) of the merge and "paths", that maps them to the files.
 
 import argparse
 import json
+import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
 import sys
+import tempfile
 
 CONFLICTS = "merge-conflict.json"
 
@@ -26,6 +28,10 @@ def git(repo, *args, env=None):
 def git_path(repo, name):
     path = Path(git(repo, "rev-parse", "--git-path", name).decode().strip())
     return path if path.is_absolute() else repo / path
+
+
+def index_file(repo):
+    return git_path(repo, "index")
 
 
 def rerere(repo, autoupdate=False):
@@ -135,9 +141,25 @@ def record(repo, rules):
     return resolved
 
 
+def fixups(repo, directory):
+    patches = sorted(directory.glob("*.patch"))
+    if not patches:
+        return []
+    failed = []
+    with tempfile.TemporaryDirectory(prefix="merge-fixups-") as tmp:
+        env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
+        shutil.copyfile(index_file(repo), env["GIT_INDEX_FILE"])
+        for patch in patches:
+            ret = subprocess.run(["git", "-C", str(repo), "apply", "--cached", str(patch)],
+                                 env=env, stderr=subprocess.DEVNULL).returncode
+            if ret:
+                failed.append(str(patch.relative_to(repo)) if patch.is_relative_to(repo) else str(patch))
+    return failed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Replay and record merge conflict resolutions")
-    parser.add_argument("action", choices=["replay", "record"])
+    parser.add_argument("action", choices=["replay", "record", "fixups"])
     parser.add_argument("rules", type=Path)
     parser.add_argument("--repo", type=Path, default=Path("."))
     args = parser.parse_args()
@@ -148,7 +170,7 @@ def main():
         return 1
     for path in paths:
         print(path)
-    return 2 if args.action == "replay" and paths else 0
+    return 2 if args.action in ("replay", "fixups") and paths else 0
 
 
 if __name__ == "__main__":
