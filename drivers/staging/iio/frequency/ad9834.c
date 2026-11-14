@@ -412,7 +412,11 @@ static int ad9834_probe(struct spi_device *spi)
 	if (!indio_dev)
 		return -ENOMEM;
 	st = iio_priv(indio_dev);
-	mutex_init(&st->lock);
+
+	ret = devm_mutex_init(&spi->dev, &st->lock);
+	if (ret)
+		return ret;
+
 	st->mclk = devm_clk_get_enabled(&spi->dev, NULL);
 	if (IS_ERR(st->mclk))
 		return dev_err_probe(&spi->dev, PTR_ERR(st->mclk),
