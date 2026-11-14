@@ -645,7 +645,7 @@ Cocci files are applied only to <code class="docutils literal notranslate"><span
 <section id="automatic-long-term-support-branches">
 <h3>Automatic long-term-support branches<a class="headerlink" href="#automatic-long-term-support-branches" title="Link to this heading"></a></h3>
 <p>The <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/stable-patch.yml" target="_blank">.github/workflows/stable-patch.yml</a> (long-term-support)
-merges a branch with the latest stable release of its release line. It takes a
+merges a branch with the latest stable release of its release line. It takes an
 <code class="docutils literal notranslate"><span class="pre">inputs.ref</span></code> (optionally <code class="docutils literal notranslate"><span class="pre">inputs.sha</span></code> to <em>slow-roll</em>) and force pushes
 the branch <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> to the remote.</p>
 <p>Conflict resolutions are stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict</span></code> in <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>
@@ -654,8 +654,8 @@ and replayed on the next runs. For new or changed conflicts, an LLM agent
 resolutions are recorded for the next runs.
 The previous <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> heads are appended to <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict/forced-commits</span></code>
 and can be inspected until garbage collected.</p>
-<p>Stable changes merged without conflicts may still resolve in broken code. For example,
-when downstream chages code for features that are not upstream.
+<p>Stable changes merged without conflicts may still result in broken code. For example,
+when downstream changes code for features that are not upstream.
 Issues identified (e.g., by building) are fixed and stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-fixups</span></code>,
 applied in order after the merge as a separate commit, and replayed on the next runs.</p>
 </section>

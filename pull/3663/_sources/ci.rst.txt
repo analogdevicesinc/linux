@@ -214,7 +214,7 @@ Automatic long-term-support branches
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The :git+linux:`ci:.github/workflows/stable-patch.yml` (long-term-support)
-merges a branch with the latest stable release of its release line. It takes a
+merges a branch with the latest stable release of its release line. It takes an
 ``inputs.ref`` (optionally ``inputs.sha`` to *slow-roll*) and force pushes
 the branch ``lts/<ref>`` to the remote.
 
@@ -225,8 +225,8 @@ resolutions are recorded for the next runs.
 The previous ``lts/<ref>`` heads are appended to ``.github/merge-conflict/forced-commits``
 and can be inspected until garbage collected.
 
-Stable changes merged without conflicts may still resolve in broken code. For example,
-when downstream chages code for features that are not upstream.
+Stable changes merged without conflicts may still result in broken code. For example,
+when downstream changes code for features that are not upstream.
 Issues identified (e.g., by building) are fixed and stored at ``.github/merge-fixups``,
 applied in order after the merge as a separate commit, and replayed on the next runs.
 
