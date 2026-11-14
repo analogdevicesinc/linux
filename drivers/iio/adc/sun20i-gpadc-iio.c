@@ -157,13 +157,6 @@ static const struct iio_info sun20i_gpadc_iio_info = {
 	.fwnode_xlate = sun20i_gpadc_fwnode_xlate,
 };
 
-static void sun20i_gpadc_reset_assert(void *data)
-{
-	struct reset_control *rst = data;
-
-	reset_control_assert(rst);
-}
-
 static const struct iio_chan_spec sun20i_gpadc_chan_template = {
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
@@ -225,17 +218,10 @@ static int sun20i_gpadc_probe(struct platform_device *pdev)
 	if (ret == 0)
 		return dev_err_probe(dev, -ENODEV, "needs at least one clocks\n");
 
-	rst = devm_reset_control_get_exclusive(dev, NULL);
+	rst = devm_reset_control_get_exclusive_deasserted(dev, NULL);
 	if (IS_ERR(rst))
-		return dev_err_probe(dev, PTR_ERR(rst), "failed to get reset control\n");
-
-	ret = reset_control_deassert(rst);
-	if (ret)
-		return dev_err_probe(dev, ret, "failed to deassert reset\n");
-
-	ret = devm_add_action_or_reset(dev, sun20i_gpadc_reset_assert, rst);
-	if (ret)
-		return ret;
+		return dev_err_probe(dev, PTR_ERR(rst),
+				     "failed to get and deassert reset\n");
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
