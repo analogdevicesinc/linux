@@ -1661,6 +1661,8 @@ void set_pcie_port_type(struct pci_dev *pdev)
 		pdev->aspm_l1_support = 1;
 #endif
 
+	pdev->supported_speeds = pcie_get_supported_speeds(pdev);
+
 	parent = pci_upstream_bridge(pdev);
 	if (!parent)
 		return;
@@ -2045,9 +2047,6 @@ int pci_setup_device(struct pci_dev *dev)
 	set_pcie_thunderbolt(dev);
 
 	set_pcie_untrusted(dev);
-
-	if (pci_is_pcie(dev))
-		dev->supported_speeds = pcie_get_supported_speeds(dev);
 
 	/* "Unknown power state" */
 	dev->current_state = PCI_UNKNOWN;
@@ -2449,7 +2448,6 @@ static void pci_release_dev(struct device *dev)
 	pci_release_of_node(pci_dev);
 	pcibios_release_device(pci_dev);
 	pci_bus_put(pci_dev->bus);
-	kfree(pci_dev->driver_override);
 	bitmap_free(pci_dev->dma_alias_mask);
 	dev_dbg(dev, "device released\n");
 	kfree(pci_dev);

@@ -443,7 +443,7 @@ static void snd_mtpav_output_trigger(struct snd_rawmidi_substream *substream, in
 
 	scoped_guard(spinlock_irqsave, &mtp_card->spinlock) {
 		if (up) {
-			if ((portp->mode & MTPAV_MODE_OUTPUT_TRIGGERED)) {
+			if (!(portp->mode & MTPAV_MODE_OUTPUT_TRIGGERED)) {
 				if (mtp_card->istimer++ == 0)
 					snd_mtpav_add_output_timer(mtp_card);
 				portp->mode |= MTPAV_MODE_OUTPUT_TRIGGERED;
@@ -642,9 +642,7 @@ static void snd_mtpav_free(struct snd_card *card)
 {
 	struct mtpav *crd = card->private_data;
 
-	guard(spinlock_irqsave)(&crd->spinlock);
-	if (crd->istimer > 0)
-		snd_mtpav_remove_output_timer(crd);
+	timer_shutdown_sync(&crd->timer);
 }
 
 /*

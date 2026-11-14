@@ -289,18 +289,19 @@ int autopoll_all_devices(struct gpib_board *board)
 	dev_dbg(board->gpib_dev, "autopoll has board lock\n");
 
 	retval = serial_poll_all(board, serial_timeout);
-	if (retval < 0)	{
-		mutex_unlock(&board->big_gpib_mutex);
-		mutex_unlock(&board->user_mutex);
-		return retval;
+	if (retval >= 0) {
+		dev_dbg(board->gpib_dev, "complete\n");
+		/*
+		 * need to wake wait queue in case someone is
+		 * waiting on RQS
+		 */
+		wake_up_interruptible(&board->wait);
 	}
 
-	dev_dbg(board->gpib_dev, "complete\n");
-	/*
-	 * need to wake wait queue in case someone is
-	 * waiting on RQS
-	 */
-	wake_up_interruptible(&board->wait);
+	if (retval <= 0) {
+		atomic_set(&board->stuck_srq, 1);
+		set_bit(SRQI_NUM, &board->status);
+	}
 	mutex_unlock(&board->big_gpib_mutex);
 	mutex_unlock(&board->user_mutex);
 
@@ -613,7 +614,7 @@ long ibioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 	unsigned int minor = iminor(file_inode(filep));
 	struct gpib_board *board;
 	struct gpib_file_private *file_priv = filep->private_data;
-	long retval = -ENOTTY;
+	long retval = -EBADRQC;
 
 	if (minor >= GPIB_MAX_NUM_BOARDS) {
 		pr_err("gpib: invalid minor number of device file\n");
@@ -806,7 +807,6 @@ long ibioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&board->big_gpib_mutex);
 		return write_ioctl(file_priv, board, arg);
 	default:
-		retval = -ENOTTY;
 		goto done;
 	}
 
@@ -1018,7 +1018,6 @@ static int command_ioctl(struct gpib_file_private *file_priv,
 		userbuf += bytes_written;
 		if (retval < 0) {
 			atomic_set(&desc->io_in_progress, 0);
-			atomic_dec(&desc->descriptor_busy);
 
 			wake_up_interruptible(&board->wait);
 			break;

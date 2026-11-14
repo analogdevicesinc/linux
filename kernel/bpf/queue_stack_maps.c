@@ -59,6 +59,9 @@ static int queue_stack_map_alloc_check(union bpf_attr *attr)
 		 */
 		return -E2BIG;
 
+	if (attr->max_entries >= U32_MAX / attr->value_size)
+		return -E2BIG;
+
 	return 0;
 }
 
@@ -99,8 +102,10 @@ static long __queue_map_get(struct bpf_map *map, void *value, bool delete)
 	int err = 0;
 	void *ptr;
 
-	if (raw_res_spin_lock_irqsave(&qs->lock, flags))
+	if (raw_res_spin_lock_irqsave(&qs->lock, flags)) {
+		memset(value, 0, qs->map.value_size);
 		return -EBUSY;
+	}
 
 	if (queue_stack_map_is_empty(qs)) {
 		memset(value, 0, qs->map.value_size);
@@ -130,8 +135,10 @@ static long __stack_map_get(struct bpf_map *map, void *value, bool delete)
 	void *ptr;
 	u32 index;
 
-	if (raw_res_spin_lock_irqsave(&qs->lock, flags))
+	if (raw_res_spin_lock_irqsave(&qs->lock, flags)) {
+		memset(value, 0, qs->map.value_size);
 		return -EBUSY;
+	}
 
 	if (queue_stack_map_is_empty(qs)) {
 		memset(value, 0, qs->map.value_size);

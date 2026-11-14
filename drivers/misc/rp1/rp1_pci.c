@@ -148,6 +148,7 @@ static int rp1_irq_activate(struct irq_domain *d, struct irq_data *irqd,
 	struct rp1_dev *rp1 = d->host_data;
 
 	msix_cfg_set(rp1, (unsigned int)irqd->hwirq, MSIX_CFG_ENABLE);
+	msix_cfg_set(rp1, (unsigned int)irqd->hwirq, MSIX_CFG_IACK);
 
 	return 0;
 }
@@ -169,6 +170,9 @@ static void rp1_unregister_interrupts(struct pci_dev *pdev)
 {
 	struct rp1_dev *rp1 = pci_get_drvdata(pdev);
 	int irq, i;
+
+	for (i = 0; i < RP1_INT_END; i++)
+		irq_set_chained_handler_and_data(pci_irq_vector(pdev, i), NULL, NULL);
 
 	if (rp1->domain) {
 		for (i = 0; i < RP1_INT_END; i++) {

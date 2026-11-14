@@ -69,6 +69,9 @@ void pch_pic_set_irq(struct loongarch_pch_pic *s, int irq, int level)
 /* msi irq handler */
 void pch_msi_set_irq(struct kvm *kvm, int irq, int level)
 {
+	if (irq < 0 || irq >= EIOINTC_IRQS)
+		return;
+
 	eiointc_set_irq(kvm->arch.eiointc, irq, level);
 }
 
@@ -473,7 +476,9 @@ static void kvm_pch_pic_destroy(struct kvm_device *dev)
 	kvm = dev->kvm;
 	s = kvm->arch.pch_pic;
 	/* unregister pch pic device and free it's memory */
+	mutex_lock(&kvm->slots_lock);
 	kvm_io_bus_unregister_dev(kvm, KVM_MMIO_BUS, &s->device);
+	mutex_unlock(&kvm->slots_lock);
 	kfree(s);
 	kfree(dev);
 }
@@ -489,4 +494,9 @@ static struct kvm_device_ops kvm_pch_pic_dev_ops = {
 int kvm_loongarch_register_pch_pic_device(void)
 {
 	return kvm_register_device_ops(&kvm_pch_pic_dev_ops, KVM_DEV_TYPE_LOONGARCH_PCHPIC);
+}
+
+void kvm_loongarch_unregister_pch_pic_device(void)
+{
+	kvm_unregister_device_ops(KVM_DEV_TYPE_LOONGARCH_PCHPIC);
 }

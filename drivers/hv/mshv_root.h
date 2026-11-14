@@ -169,7 +169,7 @@ struct mshv_girq_routing_table {
 };
 
 struct hv_synic_pages {
-	struct hv_message_page *synic_message_page;
+	struct hv_message_page *hyp_synic_message_page;
 	struct hv_synic_event_flags_page *synic_event_flags_page;
 	struct hv_synic_event_ring_page *synic_event_ring_page;
 };
@@ -307,5 +307,15 @@ int hv_call_modify_spa_host_access(u64 partition_id, struct page **pages,
 extern struct mshv_root mshv_root;
 extern enum hv_scheduler_type hv_scheduler_type;
 extern u8 * __percpu *hv_synic_eventring_tail;
+
+struct mshv_mem_region *mshv_region_create(u64 guest_pfn, u64 nr_pages,
+					   u64 uaddr, u32 flags,
+					   bool is_mmio);
+int mshv_region_share(struct mshv_mem_region *region);
+int mshv_region_unshare(struct mshv_mem_region *region);
+int mshv_region_map(struct mshv_mem_region *region);
+void mshv_region_invalidate(struct mshv_mem_region *region);
+int mshv_region_pin(struct mshv_mem_region *region);
+void mshv_region_destroy(struct mshv_mem_region *region);
 
 #endif /* _MSHV_ROOT_H_ */

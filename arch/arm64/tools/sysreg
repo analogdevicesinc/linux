@@ -1793,7 +1793,7 @@ Res0	15:8
 UnsignedEnum	7:4	BWE
 	0b0000	NI
 	0b0001	FEAT_BWE
-	0b0002	FEAT_BWE2
+	0b0010	FEAT_BWE2
 EndEnum
 UnsignedEnum	3:0	STEP
 	0b0000	NI
@@ -3672,7 +3672,9 @@ Sysreg	ICC_CR0_EL1	3	1	12	0	1
 Res0	63:39
 Field	38	PID
 Field	37:32	IPPT
-Res0	31:1
+Res0	31:3
+Field	2	LINK_IDLE
+Field	1	LINK
 Field	0	EN
 EndSysreg
 

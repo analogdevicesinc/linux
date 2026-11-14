@@ -21,6 +21,7 @@ enum mt753x_id {
 	ID_MT7988 = 3,
 	ID_EN7581 = 4,
 	ID_AN7583 = 5,
+	ID_EN7528 = 6,
 };
 
 #define	NUM_TRGMII_CTRL			5
@@ -796,6 +797,7 @@ struct mt7530_fdb {
  * @pvid:	The VLAN specified is to be considered a PVID at ingress.  Any
  *		untagged frames will be assigned to the related VLAN.
  * @sgmii_pcs:	Pointer to PCS instance for SerDes ports
+ * @stats:	Cached port statistics for MDIO-connected switches
  */
 struct mt7530_port {
 	bool enable;
@@ -803,6 +805,7 @@ struct mt7530_port {
 	u32 pm;
 	u16 pvid;
 	struct phylink_pcs *sgmii_pcs;
+	struct rtnl_link_stats64 stats;
 };
 
 /* Port 5 mode definitions of the MT7530 switch */
@@ -875,6 +878,9 @@ struct mt753x_info {
  * @create_sgmii:	Pointer to function creating SGMII PCS instance(s)
  * @active_cpu_ports:	Holding the active CPU ports
  * @mdiodev:		The pointer to the MDIO device structure
+ * @stats_lock:		Protects cached per-port stats from concurrent access
+ * @stats_work:		Delayed work for polling MIB counters on MDIO switches
+ * @stats_last:		Jiffies timestamp of last MIB counter poll
  */
 struct mt7530_priv {
 	struct device		*dev;
@@ -900,6 +906,9 @@ struct mt7530_priv {
 	int (*create_sgmii)(struct mt7530_priv *priv);
 	u8 active_cpu_ports;
 	struct mdio_device *mdiodev;
+	spinlock_t stats_lock; /* protects cached stats counters */
+	struct delayed_work stats_work;
+	unsigned long stats_last;
 };
 
 struct mt7530_hw_vlan_entry {

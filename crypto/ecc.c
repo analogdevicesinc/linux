@@ -402,14 +402,26 @@ static uint128_t mul_64_64(u64 left, u64 right)
 	return result;
 }
 
-static uint128_t add_128_128(uint128_t a, uint128_t b)
+/* Calculate addition with overflow checking. Returns true on wrap-around,
+ * false otherwise.
+ */
+static bool check_add_128_128_overflow(uint128_t *result, uint128_t a,
+				       uint128_t b)
 {
-	uint128_t result;
+	bool carry;
 
-	result.m_low = a.m_low + b.m_low;
-	result.m_high = a.m_high + b.m_high + (result.m_low < a.m_low);
+	result->m_low = a.m_low + b.m_low;
+	carry = (result->m_low < a.m_low);
 
-	return result;
+	result->m_high = a.m_high + b.m_high + carry;
+
+	/* Using constant-time bitwise arithmetic to prevent timing
+	 * side-channels.
+	 */
+	carry = (result->m_high < a.m_high) |
+		((result->m_high == a.m_high) & carry);
+
+	return carry;
 }
 
 static void vli_mult(u64 *result, const u64 *left, const u64 *right,
@@ -434,9 +446,7 @@ static void vli_mult(u64 *result, const u64 *left, const u64 *right,
 			uint128_t product;
 
 			product = mul_64_64(left[i], right[k - i]);
-
-			r01 = add_128_128(r01, product);
-			r2 += (r01.m_high < product.m_high);
+			r2 += check_add_128_128_overflow(&r01, r01, product);
 		}
 
 		result[k] = r01.m_low;
@@ -459,7 +469,7 @@ static void vli_umult(u64 *result, const u64 *left, u32 right,
 		uint128_t product;
 
 		product = mul_64_64(left[k], right);
-		r01 = add_128_128(r01, product);
+		check_add_128_128_overflow(&r01, r01, product);
 		/* no carry */
 		result[k] = r01.m_low;
 		r01.m_low = r01.m_high;
@@ -496,8 +506,7 @@ static void vli_square(u64 *result, const u64 *left, unsigned int ndigits)
 				product.m_low <<= 1;
 			}
 
-			r01 = add_128_128(r01, product);
-			r2 += (r01.m_high < product.m_high);
+			r2 += check_add_128_128_overflow(&r01, r01, product);
 		}
 
 		result[k] = r01.m_low;
@@ -1401,9 +1410,22 @@ static void ecc_point_add(const struct ecc_point *result,
 	vli_set(result->x, q->x, ndigits);
 	vli_set(result->y, q->y, ndigits);
 	vli_mod_sub(z, result->x, p->x, curve->p, ndigits);
+	if (vli_is_zero(z, ndigits)) {
+		if (vli_cmp(p->y, q->y, ndigits)) {
+			/* P + (-P) is the point at infinity. */
+			vli_clear(result->x, ndigits);
+			vli_clear(result->y, ndigits);
+			return;
+		}
+		/* The co-Z addition formula does not handle P == Q. */
+		z[0] = 1;
+		ecc_point_double_jacobian(result->x, result->y, z, curve);
+		goto out;
+	}
 	vli_set(px, p->x, ndigits);
 	vli_set(py, p->y, ndigits);
 	xycz_add(px, py, result->x, result->y, curve);
+out:
 	vli_mod_inv(z, z, curve->p, ndigits);
 	apply_z(result->x, result->y, z, curve);
 }
@@ -1443,22 +1465,38 @@ void ecc_point_mult_shamir(const struct ecc_point *result,
 	vli_set(rx, point->x, ndigits);
 	vli_set(ry, point->y, ndigits);
 	vli_clear(z + 1, ndigits - 1);
-	z[0] = 1;
+	z[0] = !ecc_point_is_zero(point);
 
 	for (--i; i >= 0; i--) {
 		ecc_point_double_jacobian(rx, ry, z, curve);
 		idx = !!vli_test_bit(u1, i);
 		idx |= (!!vli_test_bit(u2, i)) << 1;
 		point = points[idx];
-		if (point) {
+		if (point && !ecc_point_is_zero(point)) {
 			u64 tx[ECC_MAX_DIGITS];
 			u64 ty[ECC_MAX_DIGITS];
 			u64 tz[ECC_MAX_DIGITS];
 
+			if (vli_is_zero(z, ndigits)) {
+				/* Adding to infinity starts a new accumulator. */
+				vli_set(rx, point->x, ndigits);
+				vli_set(ry, point->y, ndigits);
+				z[0] = 1;
+				continue;
+			}
 			vli_set(tx, point->x, ndigits);
 			vli_set(ty, point->y, ndigits);
 			apply_z(tx, ty, z, curve);
 			vli_mod_sub(tz, rx, tx, curve->p, ndigits);
+			if (vli_is_zero(tz, ndigits)) {
+				if (!vli_cmp(ry, ty, ndigits))
+					ecc_point_double_jacobian(rx, ry, z,
+								  curve);
+				else
+					/* Adding opposite points yields infinity. */
+					vli_clear(z, ndigits);
+				continue;
+			}
 			xycz_add(tx, ty, rx, ry, curve);
 			vli_mod_mult_fast(z, z, tz, curve);
 		}

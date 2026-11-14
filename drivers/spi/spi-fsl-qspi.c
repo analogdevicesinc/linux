@@ -271,6 +271,7 @@ struct fsl_qspi {
 	struct pm_qos_request pm_qos_req;
 	struct device *dev;
 	int selected;
+	u32 selected_freq;
 	u32 memmap_phy;
 };
 
@@ -528,7 +529,8 @@ static void fsl_qspi_select_mem(struct fsl_qspi *q, struct spi_device *spi,
 	unsigned long rate = op->max_freq;
 	int ret;
 
-	if (q->selected == spi_get_chipselect(spi, 0))
+	if (q->selected == spi_get_chipselect(spi, 0) &&
+	    q->selected_freq == op->max_freq)
 		return;
 
 	if (needs_4x_clock(q))
@@ -545,6 +547,7 @@ static void fsl_qspi_select_mem(struct fsl_qspi *q, struct spi_device *spi,
 		return;
 
 	q->selected = spi_get_chipselect(spi, 0);
+	q->selected_freq = op->max_freq;
 
 	fsl_qspi_invalidate(q);
 }
@@ -607,7 +610,7 @@ static int fsl_qspi_do_op(struct fsl_qspi *q, const struct spi_mem_op *op)
 	void __iomem *base = q->iobase;
 	int err = 0;
 
-	init_completion(&q->c);
+	reinit_completion(&q->c);
 
 	/*
 	 * Always start the sequence at the same index since we update
@@ -928,6 +931,7 @@ static int fsl_qspi_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	init_completion(&q->c);
 	ret = devm_request_irq(dev, ret,
 			fsl_qspi_irq_handler, 0, pdev->name, q);
 	if (ret) {

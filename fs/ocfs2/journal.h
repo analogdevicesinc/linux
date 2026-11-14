@@ -151,7 +151,6 @@ void ocfs2_recovery_exit(struct ocfs2_super *osb);
 void ocfs2_recovery_disable_quota(struct ocfs2_super *osb);
 
 int ocfs2_compute_replay_slots(struct ocfs2_super *osb);
-void ocfs2_free_replay_slots(struct ocfs2_super *osb);
 /*
  *  Journal Control:
  *  Initialize, Load, Shutdown, Wipe a journal.
@@ -194,6 +193,9 @@ static inline void ocfs2_checkpoint_inode(struct inode *inode)
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 
 	if (ocfs2_mount_local(osb))
+		return;
+
+	if (!osb->journal)
 		return;
 
 	if (!ocfs2_ci_fully_checkpointed(INODE_CACHE(inode))) {

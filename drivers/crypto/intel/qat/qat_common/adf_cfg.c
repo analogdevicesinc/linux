@@ -2,6 +2,7 @@
 /* Copyright(c) 2014 - 2020 Intel Corporation */
 #include <linux/mutex.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include <linux/list.h>
 #include <linux/seq_file.h>
 #include "adf_accel_devices.h"
@@ -102,16 +103,6 @@ void adf_cfg_dev_dbgfs_rm(struct adf_accel_dev *accel_dev)
 static void adf_cfg_section_del_all(struct list_head *head);
 static void adf_cfg_section_del_all_except(struct list_head *head,
 					   const char *section_name);
-
-void adf_cfg_del_all(struct adf_accel_dev *accel_dev)
-{
-	struct adf_cfg_device_data *dev_cfg_data = accel_dev->cfg;
-
-	down_write(&dev_cfg_data->lock);
-	adf_cfg_section_del_all(&dev_cfg_data->sec_list);
-	up_write(&dev_cfg_data->lock);
-	clear_bit(ADF_STATUS_CONFIGURED, &accel_dev->status);
-}
 
 void adf_cfg_del_all_except(struct adf_accel_dev *accel_dev,
 			    const char *section_name)
@@ -294,16 +285,13 @@ int adf_cfg_add_key_value_param(struct adf_accel_dev *accel_dev,
 		return -ENOMEM;
 
 	INIT_LIST_HEAD(&key_val->list);
-	strscpy(key_val->key, key, sizeof(key_val->key));
+	strscpy(key_val->key, key);
 
 	if (type == ADF_DEC) {
 		snprintf(key_val->val, ADF_CFG_MAX_VAL_LEN_IN_BYTES,
 			 "%ld", (*((long *)val)));
 	} else if (type == ADF_STR) {
-		strscpy(key_val->val, (char *)val, sizeof(key_val->val));
-	} else if (type == ADF_HEX) {
-		snprintf(key_val->val, ADF_CFG_MAX_VAL_LEN_IN_BYTES,
-			 "0x%lx", (unsigned long)val);
+		strscpy(key_val->val, (char *)val);
 	} else {
 		dev_err(&GET_DEV(accel_dev), "Unknown type given.\n");
 		kfree(key_val);
@@ -360,7 +348,7 @@ int adf_cfg_section_add(struct adf_accel_dev *accel_dev, const char *name)
 	if (!sec)
 		return -ENOMEM;
 
-	strscpy(sec->name, name, sizeof(sec->name));
+	strscpy(sec->name, name);
 	INIT_LIST_HEAD(&sec->param_head);
 	down_write(&cfg->lock);
 	list_add_tail(&sec->list, &cfg->sec_list);

@@ -836,7 +836,7 @@ static int bmp280_write_sampling_frequency(struct bmp280_data *data,
 					   int val, int val2)
 {
 	const int (*avail)[2] = data->chip_info->sampling_freq_avail;
-	const int n = data->chip_info->num_sampling_freq_avail;
+	const int n = data->chip_info->num_sampling_freq_avail / 2;
 	int ret, prev;
 	int i;
 
@@ -1910,7 +1910,7 @@ static irqreturn_t bmp380_trigger_handler(int irq, void *p)
 		u32 comp_press;
 		s32 comp_temp;
 		aligned_s64 timestamp;
-	} buffer;
+	} buffer = { };
 	int ret;
 
 	guard(mutex)(&data->lock);
@@ -2616,7 +2616,7 @@ static irqreturn_t bmp580_trigger_handler(int irq, void *p)
 		__le32 comp_temp;
 		__le32 comp_press;
 		aligned_s64 timestamp;
-	} buffer;
+	} buffer = { };
 	int ret;
 
 	guard(mutex)(&data->lock);

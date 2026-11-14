@@ -406,7 +406,7 @@ static int clk_wzrd_get_divisors(struct clk_hw *hw, unsigned long rate,
 			if (o < omin || o > omax)
 				continue;
 			freq = DIV_ROUND_CLOSEST_ULL(vco_freq, o);
-			diff = freq - rate;
+			diff = abs(freq - rate);
 			if (diff < best_diff) {
 				best_diff = diff;
 				divider->m = m >> 3;
@@ -663,8 +663,8 @@ static int clk_wzrd_determine_rate_all(struct clk_hw *hw,
 	d = divider->d;
 	o = divider->o;
 
-	req->rate = div_u64(req->best_parent_rate * (m * 1000 + divider->m_frac),
-			    d * (o * 1000 + divider->o_frac));
+	req->rate = mult_frac(req->best_parent_rate, m * 1000 + divider->m_frac,
+			      d * (o * 1000 + divider->o_frac));
 	return 0;
 }
 

@@ -15,11 +15,13 @@
 #include <linux/kthread.h>
 #include <linux/nls.h>
 #include <linux/unicode.h>
+#include <linux/workqueue.h>
 
 #include "smb_common.h"
 #include "ksmbd_work.h"
 
 struct smbdirect_buffer_descriptor_v1;
+struct ksmbd_session;
 
 #define KSMBD_SOCKET_BACKLOG		16
 
@@ -119,6 +121,7 @@ struct ksmbd_conn {
 	bool				binding;
 	atomic_t			refcnt;
 	bool				is_aapl;
+	struct work_struct		release_work;
 };
 
 struct ksmbd_conn_ops {
@@ -161,9 +164,15 @@ extern struct rw_semaphore conn_list_lock;
 
 bool ksmbd_conn_alive(struct ksmbd_conn *conn);
 void ksmbd_conn_wait_idle(struct ksmbd_conn *conn);
-int ksmbd_conn_wait_idle_sess_id(struct ksmbd_conn *curr_conn, u64 sess_id);
+int ksmbd_conn_wait_idle_sess(struct ksmbd_conn *curr_conn,
+			      struct ksmbd_session *sess);
 struct ksmbd_conn *ksmbd_conn_alloc(void);
 void ksmbd_conn_free(struct ksmbd_conn *conn);
+struct ksmbd_conn *ksmbd_conn_get(struct ksmbd_conn *conn);
+void ksmbd_conn_put(struct ksmbd_conn *conn);
+void ksmbd_conn_abort(struct ksmbd_conn *conn);
+int ksmbd_conn_wq_init(void);
+void ksmbd_conn_wq_destroy(void);
 bool ksmbd_conn_lookup_dialect(struct ksmbd_conn *c);
 int ksmbd_conn_write(struct ksmbd_work *work);
 int ksmbd_conn_rdma_read(struct ksmbd_conn *conn,
@@ -191,6 +200,11 @@ void ksmbd_conn_r_count_dec(struct ksmbd_conn *conn);
  * This is a hack. We will move status to a proper place once we land
  * a multi-sessions support.
  */
+static inline bool ksmbd_conn_new(struct ksmbd_conn *conn)
+{
+	return READ_ONCE(conn->status) == KSMBD_SESS_NEW;
+}
+
 static inline bool ksmbd_conn_good(struct ksmbd_conn *conn)
 {
 	return READ_ONCE(conn->status) == KSMBD_SESS_GOOD;
@@ -256,5 +270,5 @@ static inline void ksmbd_conn_set_releasing(struct ksmbd_conn *conn)
 	WRITE_ONCE(conn->status, KSMBD_SESS_RELEASING);
 }
 
-void ksmbd_all_conn_set_status(u64 sess_id, u32 status);
+void ksmbd_all_conn_set_status(struct ksmbd_session *sess, u32 status);
 #endif /* __CONNECTION_H__ */

@@ -55,7 +55,7 @@ bool can_dropped_invalid_skb(struct net_device *dev, struct sk_buff *skb);
  */
 struct can_skb_priv {
 	int ifindex;
-	int skbcnt;
+	u32 skbcnt;
 	unsigned int frame_len;
 	struct can_frame cf[];
 };

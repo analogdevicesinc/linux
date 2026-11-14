@@ -302,6 +302,14 @@ struct mana_recv_buf_oob {
 
 	void *buf_va;
 	bool from_pool; /* allocated from a page pool */
+	/* head page of the page_pool fragment; valid only when
+	 * from_pool && frag_count > 1.
+	 */
+	struct page *pp_page;
+	/* Fragment offset plus rxq->headroom, passed to
+	 * page_pool_dma_sync_for_cpu().
+	 */
+	u32 dma_sync_offset;
 
 	/* SGL of the buffer going to be sent as part of the work request. */
 	u32 num_sge;
@@ -317,7 +325,9 @@ struct mana_recv_buf_oob {
 #define MANA_RXBUF_PAD (SKB_DATA_ALIGN(sizeof(struct skb_shared_info)) \
 			+ ETH_HLEN)
 
-#define MANA_XDP_MTU_MAX (PAGE_SIZE - MANA_RXBUF_PAD - XDP_PACKET_HEADROOM)
+#define MANA_XDP_MTU_MAX(ndev) \
+	(PAGE_SIZE - MANA_RXBUF_PAD - \
+	 max_t(u32, LL_RESERVED_SPACE(ndev), XDP_PACKET_HEADROOM))
 
 struct mana_rxq {
 	struct gdma_queue *gdma_rq;
@@ -375,6 +385,14 @@ struct mana_tx_qp {
 struct mana_ethtool_stats {
 	u64 stop_queue;
 	u64 wake_queue;
+	u64 tx_cqe_err;
+	u64 tx_cqe_unknown_type;
+	u64 tx_linear_pkt_cnt;
+	u64 rx_coalesced_err;
+	u64 rx_cqe_unknown_type;
+};
+
+struct mana_ethtool_hc_stats {
 	u64 hc_rx_discards_no_wqe;
 	u64 hc_rx_err_vport_disabled;
 	u64 hc_rx_bytes;
@@ -402,10 +420,6 @@ struct mana_ethtool_stats {
 	u64 hc_tx_mcast_pkts;
 	u64 hc_tx_mcast_bytes;
 	u64 hc_tx_err_gdma;
-	u64 tx_cqe_err;
-	u64 tx_cqe_unknown_type;
-	u64 rx_coalesced_err;
-	u64 rx_cqe_unknown_type;
 };
 
 struct mana_ethtool_phy_stats {
@@ -473,15 +487,25 @@ struct mana_context {
 	u16 num_ports;
 	u8 bm_hostmode;
 
+	struct mana_ethtool_hc_stats hc_stats;
 	struct mana_eq *eqs;
 	struct dentry *mana_eqs_debugfs;
+	struct workqueue_struct *per_port_queue_reset_wq;
+	/* Workqueue for querying hardware stats */
+	struct delayed_work gf_stats_work;
+	bool hwc_timeout_occurred;
 
 	struct net_device *ports[MAX_PORTS_IN_MANA_DEV];
+
+	/* Link state change work */
+	struct work_struct link_change_work;
+	u32 link_event;
 };
 
 struct mana_port_context {
 	struct mana_context *ac;
 	struct net_device *ndev;
+	struct work_struct queue_reset_work;
 
 	u8 mac_addr[ETH_ALEN];
 
@@ -574,7 +598,7 @@ u32 mana_run_xdp(struct net_device *ndev, struct mana_rxq *rxq,
 struct bpf_prog *mana_xdp_get(struct mana_port_context *apc);
 void mana_chn_setxdp(struct mana_port_context *apc, struct bpf_prog *prog);
 int mana_bpf(struct net_device *ndev, struct netdev_bpf *bpf);
-void mana_query_gf_stats(struct mana_port_context *apc);
+int mana_query_gf_stats(struct mana_context *ac);
 int mana_query_link_cfg(struct mana_port_context *apc);
 int mana_set_bw_clamp(struct mana_port_context *apc, u32 speed,
 		      int enable_clamping);

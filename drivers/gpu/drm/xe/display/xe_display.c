@@ -109,6 +109,15 @@ int xe_display_init_early(struct xe_device *xe)
 
 	intel_display_driver_early_probe(display);
 
+	intel_display_device_info_runtime_init(display);
+
+	/* Display may have been disabled at runtime init */
+	if (!intel_display_device_present(display)) {
+		xe->info.probe_display = false;
+		unset_display_features(xe);
+		return 0;
+	}
+
 	/* Early display init.. */
 	intel_opregion_setup(display);
 
@@ -121,8 +130,6 @@ int xe_display_init_early(struct xe_device *xe)
 		goto err_opregion;
 
 	intel_bw_init_hw(display);
-
-	intel_display_device_info_runtime_init(display);
 
 	err = intel_display_driver_probe_noirq(display);
 	if (err)
@@ -324,7 +331,7 @@ void xe_display_pm_suspend(struct xe_device *xe)
 	 * properly.
 	 */
 	intel_power_domains_disable(display);
-	drm_client_dev_suspend(&xe->drm, false);
+	drm_client_dev_suspend(&xe->drm);
 
 	if (intel_display_device_present(display)) {
 		drm_kms_helper_poll_disable(&xe->drm);
@@ -356,7 +363,7 @@ void xe_display_pm_shutdown(struct xe_device *xe)
 		return;
 
 	intel_power_domains_disable(display);
-	drm_client_dev_suspend(&xe->drm, false);
+	drm_client_dev_suspend(&xe->drm);
 
 	if (intel_display_device_present(display)) {
 		drm_kms_helper_poll_disable(&xe->drm);
@@ -481,7 +488,7 @@ void xe_display_pm_resume(struct xe_device *xe)
 
 	intel_opregion_resume(display);
 
-	drm_client_dev_resume(&xe->drm, false);
+	drm_client_dev_resume(&xe->drm);
 
 	intel_power_domains_enable(display);
 }

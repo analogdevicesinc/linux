@@ -734,7 +734,8 @@ static struct link_encoder *dce80_link_encoder_create(
 				      enc_init_data,
 				      &link_enc_feature,
 				      &link_enc_regs[link_regs_id],
-				      &link_enc_aux_regs[enc_init_data->channel - 1],
+				      enc_init_data->channel == CHANNEL_ID_UNKNOWN ?
+				      NULL : &link_enc_aux_regs[enc_init_data->channel - 1],
 				      enc_init_data->hpd_source >= ARRAY_SIZE(link_enc_hpd_regs) ?
 				      NULL : &link_enc_hpd_regs[enc_init_data->hpd_source]);
 	return &enc110->base;
@@ -1120,6 +1121,7 @@ static bool dce81_construct(
 	dc->caps.max_cursor_size = 128;
 	dc->caps.min_horizontal_blanking_period = 80;
 	dc->caps.is_apu = true;
+	dc->debug = debug_defaults;
 
 	/*************************************************
 	 *  Create resources                             *

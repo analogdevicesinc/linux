@@ -340,6 +340,10 @@ static void fintek_get_rx_ir_data(struct fintek_dev *fintek, u8 rx_irqs)
 		sample = fintek_cir_reg_read(fintek, CIR_RX_DATA);
 		fit_dbg("%s: sample: 0x%02x", __func__, sample);
 
+		/* Process a full buffer before storing the next sample. */
+		if (fintek->pkts >= RX_BUF_LEN)
+			fintek_process_rx_ir_data(fintek);
+
 		fintek->buf[fintek->pkts] = sample;
 		fintek->pkts++;
 
@@ -568,6 +572,7 @@ static void fintek_remove(struct pnp_dev *pdev)
 	struct fintek_dev *fintek = pnp_get_drvdata(pdev);
 	unsigned long flags;
 
+	rc_unregister_device(fintek->rdev);
 	spin_lock_irqsave(&fintek->fintek_lock, flags);
 	/* disable CIR */
 	fintek_disable_cir(fintek);
@@ -580,7 +585,7 @@ static void fintek_remove(struct pnp_dev *pdev)
 	free_irq(fintek->cir_irq, fintek);
 	release_region(fintek->cir_addr, fintek->cir_port_len);
 
-	rc_unregister_device(fintek->rdev);
+	rc_free_device(fintek->rdev);
 
 	kfree(fintek);
 }

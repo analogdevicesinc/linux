@@ -586,7 +586,8 @@ static int quicki2c_alloc_report_buf(struct quicki2c_device *qcdev)
 	 */
 	max_report_len = max(le16_to_cpu(qcdev->dev_desc.max_input_len), SZ_4K);
 
-	qcdev->input_buf = devm_kzalloc(qcdev->dev, max_report_len, GFP_KERNEL);
+	qcdev->input_buf = devm_kzalloc(qcdev->dev,
+					HIDI2C_PACKET_LEN(max_report_len), GFP_KERNEL);
 	if (!qcdev->input_buf)
 		return -ENOMEM;
 
@@ -596,7 +597,8 @@ static int quicki2c_alloc_report_buf(struct quicki2c_device *qcdev)
 	max_report_len = max(le16_to_cpu(qcdev->dev_desc.max_output_len),
 			     max_report_len);
 
-	qcdev->report_buf = devm_kzalloc(qcdev->dev, max_report_len, GFP_KERNEL);
+	qcdev->report_buf = devm_kzalloc(qcdev->dev,
+					 HIDI2C_PACKET_LEN(max_report_len), GFP_KERNEL);
 	if (!qcdev->report_buf)
 		return -ENOMEM;
 
@@ -771,6 +773,7 @@ static void quicki2c_remove(struct pci_dev *pdev)
 	quicki2c_hid_remove(qcdev);
 	quicki2c_dma_deinit(qcdev);
 
+	pm_runtime_dont_use_autosuspend(qcdev->dev);
 	pm_runtime_get_noresume(qcdev->dev);
 
 	quicki2c_dev_deinit(qcdev);

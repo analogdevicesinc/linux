@@ -114,7 +114,6 @@ struct tps6598x_intel_vid_status_reg {
 	__le32 attention_vdo;
 	__le16 enter_vdo;
 	__le16 device_mode;
-	__le16 cable_mode;
 } __packed;
 
 /* Standard Task return codes */
@@ -341,7 +340,7 @@ static void tps6598x_set_data_role(struct tps6598x *tps,
 
 static int tps6598x_connect(struct tps6598x *tps, u32 status)
 {
-	struct typec_partner_desc desc;
+	struct typec_partner_desc desc = { };
 	enum typec_pwr_opmode mode;
 	int ret;
 
@@ -352,7 +351,6 @@ static int tps6598x_connect(struct tps6598x *tps, u32 status)
 
 	desc.usb_pd = mode == TYPEC_PWR_MODE_PD;
 	desc.accessory = TYPEC_ACCESSORY_NONE; /* XXX: handle accessories */
-	desc.identity = NULL;
 
 	if (desc.usb_pd) {
 		ret = tps6598x_read_partner_identity(tps);
@@ -694,9 +692,19 @@ static void cd321x_typec_update_mode(struct tps6598x *tps, struct cd321x_status 
 		   cd321x->state.mode == TYPEC_TBT_MODE)
 			return;
 
-		tbt_data.cable_mode = le16_to_cpu(st->intel_vid_status.cable_mode);
-		tbt_data.device_mode = le16_to_cpu(st->intel_vid_status.device_mode);
-		tbt_data.enter_vdo = le16_to_cpu(st->intel_vid_status.enter_vdo);
+		tbt_data.cable_mode = TBT_MODE |
+			TBT_SET_CABLE_SPEED(TPS_DATA_STATUS_TBT_CABLE_SPEED(st->data_status)) |
+			TBT_SET_CABLE_ROUNDED(TPS_DATA_STATUS_TBT_CABLE_GEN(st->data_status));
+		if (st->data_status & TPS_DATA_STATUS_OPTICAL_CABLE)
+			tbt_data.cable_mode |= TBT_CABLE_OPTICAL;
+		if (st->data_status & TPS_DATA_STATUS_ACTIVE_LINK_TRAIN)
+			tbt_data.cable_mode |= TBT_CABLE_LINK_TRAINING;
+		if (st->data_status & TPS_DATA_STATUS_ACTIVE_CABLE)
+			tbt_data.cable_mode |= TBT_CABLE_ACTIVE_PASSIVE;
+		tbt_data.device_mode = TBT_MODE |
+			(u32)le16_to_cpu(st->intel_vid_status.device_mode) << 16;
+		tbt_data.enter_vdo =
+			(u32)le16_to_cpu(st->intel_vid_status.enter_vdo) << 16;
 		cd321x->state.alt = cd321x->port_altmode_tbt;
 		cd321x->state.mode = TYPEC_TBT_MODE;
 		cd321x->state.data = &tbt_data;
@@ -804,18 +812,19 @@ static void cd321x_update_work(struct work_struct *work)
 
 	/* Set up partner if we were previously disconnected (or changed). */
 	if (!tps->partner) {
-		struct typec_partner_desc desc;
+		struct typec_partner_desc desc = { };
 
 		desc.usb_pd = is_pd;
 		desc.accessory = TYPEC_ACCESSORY_NONE; /* XXX: handle accessories */
-		desc.identity = NULL;
 
 		if (desc.usb_pd)
 			desc.identity = &st.partner_identity;
 
 		tps->partner = typec_register_partner(tps->port, &desc);
-		if (IS_ERR(tps->partner))
-			dev_warn(tps->dev, "%s: failed to register partnet\n", __func__);
+		if (IS_ERR(tps->partner)) {
+			dev_warn(tps->dev, "%s: failed to register partner\n", __func__);
+			return;
+		}
 
 		if (desc.identity) {
 			typec_partner_set_identity(tps->partner);
@@ -1734,6 +1743,7 @@ static int tps6598x_probe(struct i2c_client *client)
 	const struct tipd_data *data;
 	struct tps6598x *tps;
 	struct fwnode_handle *fwnode;
+	bool patch_loaded = false;
 	u32 status;
 	u32 vid;
 	int ret;
@@ -1786,6 +1796,7 @@ static int tps6598x_probe(struct i2c_client *client)
 		return ret;
 
 	if (ret == TPS_MODE_PTCH) {
+		patch_loaded = true;
 		ret = tps->data->init(tps);
 		if (ret)
 			return ret;
@@ -1826,6 +1837,7 @@ static int tps6598x_probe(struct i2c_client *client)
 		goto err_role_put;
 
 	if (status & TPS_STATUS_PLUG_PRESENT) {
+		ret = -EINVAL;
 		if (!tps6598x_read_power_status(tps))
 			goto err_unregister_port;
 		if (!tps->data->read_data_status(tps))
@@ -1873,7 +1885,8 @@ err_clear_mask:
 	tps6598x_write64(tps, TPS_REG_INT_MASK1, 0);
 err_reset_controller:
 	/* Reset PD controller to remove any applied patch */
-	tps->data->reset(tps);
+	if (patch_loaded)
+		tps->data->reset(tps);
 
 	return ret;
 }

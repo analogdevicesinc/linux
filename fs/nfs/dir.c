@@ -2275,6 +2275,13 @@ int nfs_atomic_open_v23(struct inode *dir, struct dentry *dentry,
 	if (open_flags & O_CREAT) {
 		error = nfs_do_create(dir, dentry, mode, open_flags);
 		if (!error) {
+			/* With UNCHECKED mode, a server may return NFS3_OK for
+			 * a pre-existing non-regular file (e.g. a symlink).
+			 * Let the VFS handle it; calling finish_open() would
+			 * hit no_open() and return -ENXIO.
+			 */
+			if (!d_is_reg(dentry))
+				return finish_no_open(file, NULL);
 			file->f_mode |= FMODE_CREATED;
 			return finish_open(file, dentry, NULL);
 		} else if (error != -EEXIST || open_flags & O_EXCL)
@@ -2435,6 +2442,8 @@ struct dentry *nfs_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 	trace_nfs_mkdir_enter(dir, dentry);
 	ret = NFS_PROTO(dir)->mkdir(dir, dentry, &attr);
 	trace_nfs_mkdir_exit(dir, dentry, PTR_ERR_OR_ZERO(ret));
+	if (IS_ERR(ret))
+		d_drop(dentry);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(nfs_mkdir);
@@ -2623,6 +2632,12 @@ int nfs_symlink(struct mnt_idmap *idmap, struct inode *dir,
 		d_drop(dentry);
 		folio_put(folio);
 		return error;
+	}
+
+	if (unlikely(!d_is_symlink(dentry))) {
+		d_drop(dentry);
+		folio_put(folio);
+		return 0;
 	}
 
 	nfs_set_verifier(dentry, nfs_save_change_attribute(dir));
@@ -3301,6 +3316,8 @@ static int nfs_open_permission_mask(int openflags)
 		if ((openflags & O_ACCMODE) != O_WRONLY)
 			mask |= MAY_READ;
 		if ((openflags & O_ACCMODE) != O_RDONLY)
+			mask |= MAY_WRITE;
+		if (openflags & O_TRUNC)
 			mask |= MAY_WRITE;
 	}
 

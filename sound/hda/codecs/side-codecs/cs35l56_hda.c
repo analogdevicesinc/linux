@@ -516,20 +516,6 @@ static void cs35l56_hda_request_firmware_files(struct cs35l56_hda *cs35l56,
 								  NULL, "bin");
 			return;
 		}
-
-		/*
-		 * Check for system-specific bin files without wmfw before
-		 * falling back to generic firmware
-		 */
-		if (amp_name)
-			cs35l56_hda_request_firmware_file(cs35l56, coeff_firmware, coeff_filename,
-							  base_name, system_name, amp_name, "bin");
-		if (!*coeff_firmware)
-			cs35l56_hda_request_firmware_file(cs35l56, coeff_firmware, coeff_filename,
-							  base_name, system_name, NULL, "bin");
-
-		if (*coeff_firmware)
-			return;
 	}
 
 	ret = cs35l56_hda_request_firmware_file(cs35l56, wmfw_firmware, wmfw_filename,
@@ -615,13 +601,15 @@ static void cs35l56_hda_fw_load(struct cs35l56_hda *cs35l56)
 					   &wmfw_firmware, &wmfw_filename,
 					   &coeff_firmware, &coeff_filename);
 
-	/*
-	 * If the BIOS didn't patch the firmware a bin file is mandatory to
-	 * enable the ASP·
-	 */
-	if (!coeff_firmware && firmware_missing) {
-		dev_err(cs35l56->base.dev, ".bin file required but not found\n");
-		goto err_fw_release;
+	/* If the BIOS didn't patch the firmware a wmfw and bin file are mandatory */
+	if (firmware_missing) {
+		if (!wmfw_firmware) {
+			dev_err(cs35l56->base.dev, ".%s file required but not found\n", "wmfw");
+			goto err_fw_release;
+		} else if (!coeff_firmware) {
+			dev_err(cs35l56->base.dev, ".%s file required but not found\n", "bin");
+			goto err_fw_release;
+		}
 	}
 
 	mutex_lock(&cs35l56->base.irq_lock);
@@ -884,6 +872,7 @@ static int cs35l56_hda_system_resume(struct device *dev)
 static int cs35l56_hda_fixup_yoga9(struct cs35l56_hda *cs35l56, int *bus_addr)
 {
 	/* The cirrus,dev-index property has the wrong values */
+	cs35l56->num_amps = 2;
 	switch (*bus_addr) {
 	case 0x30:
 		cs35l56->index = 1;
@@ -933,7 +922,6 @@ static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int hid, int id)
 	char hid_string[8];
 	struct acpi_device *adev;
 	const char *property, *sub;
-	size_t nval;
 	int i, ret;
 
 	/*
@@ -949,6 +937,7 @@ static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int hid, int id)
 			return -ENODEV;
 		}
 		ACPI_COMPANION_SET(cs35l56->base.dev, adev);
+		acpi_dev_put(adev);
 	}
 
 	/* Initialize things that could be overwritten by a fixup */
@@ -969,13 +958,14 @@ static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int hid, int id)
 			ret = -EINVAL;
 			goto err;
 		}
-		nval = ret;
+		cs35l56->num_amps = ret;
 
-		ret = device_property_read_u32_array(cs35l56->base.dev, property, values, nval);
+		ret = device_property_read_u32_array(cs35l56->base.dev, property, values,
+						     cs35l56->num_amps);
 		if (ret)
 			goto err;
 
-		for (i = 0; i < nval; i++) {
+		for (i = 0; i < cs35l56->num_amps; i++) {
 			if (values[i] == id) {
 				cs35l56->index = i;
 				break;
@@ -998,7 +988,8 @@ static int cs35l56_hda_read_acpi(struct cs35l56_hda *cs35l56, int hid, int id)
 			 "Read ACPI _SUB failed(%ld): fallback to generic firmware\n",
 			 PTR_ERR(sub));
 	} else {
-		ret = cirrus_scodec_get_speaker_id(cs35l56->base.dev, cs35l56->index, nval, -1);
+		ret = cirrus_scodec_get_speaker_id(cs35l56->base.dev, cs35l56->index,
+						   cs35l56->num_amps, -1);
 		if (ret == -ENOENT) {
 			cs35l56->system_name = sub;
 		} else if (ret >= 0) {

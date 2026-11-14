@@ -45,19 +45,6 @@ static struct vf_id_map *adf_find_vf(u32 bdf)
 	return NULL;
 }
 
-static int adf_get_vf_real_id(u32 fake)
-{
-	struct list_head *itr;
-
-	list_for_each(itr, &vfs_table) {
-		struct vf_id_map *ptr =
-			list_entry(itr, struct vf_id_map, list);
-		if (ptr->fake_id == fake)
-			return ptr->id;
-	}
-	return -1;
-}
-
 /**
  * adf_clean_vf_map() - Cleans VF id mappings
  * @vf: flag indicating whether mappings is cleaned
@@ -150,6 +137,13 @@ int adf_devmgr_add_dev(struct adf_accel_dev *accel_dev,
 
 	mutex_lock(&table_lock);
 	atomic_set(&accel_dev->ref_count, 0);
+	mutex_init(&accel_dev->state_lock);
+	/*
+	 * The VF2PF lock is used to send messages to the PF outside of the
+	 * device up/down cycle, so it must live as long as the accel device.
+	 */
+	if (accel_dev->is_vf)
+		mutex_init(&accel_dev->vf.vf2pf_lock);
 
 	/* PF on host or VF on guest - optimized to remove redundant is_vf */
 	if (!accel_dev->is_vf || !pf) {
@@ -223,7 +217,6 @@ int adf_devmgr_add_dev(struct adf_accel_dev *accel_dev,
 		map->attached = true;
 		list_add_tail(&map->list, &vfs_table);
 	}
-	mutex_init(&accel_dev->state_lock);
 unlock:
 	mutex_unlock(&table_lock);
 	return ret;
@@ -270,6 +263,8 @@ void adf_devmgr_rm_dev(struct adf_accel_dev *accel_dev,
 		}
 	}
 unlock:
+	if (accel_dev->is_vf)
+		mutex_destroy(&accel_dev->vf.vf2pf_lock);
 	mutex_destroy(&accel_dev->state_lock);
 	list_del(&accel_dev->list);
 	mutex_unlock(&table_lock);
@@ -303,63 +298,6 @@ struct adf_accel_dev *adf_devmgr_pci_to_accel_dev(struct pci_dev *pci_dev)
 	return NULL;
 }
 EXPORT_SYMBOL_GPL(adf_devmgr_pci_to_accel_dev);
-
-struct adf_accel_dev *adf_devmgr_get_dev_by_id(u32 id)
-{
-	struct list_head *itr;
-	int real_id;
-
-	mutex_lock(&table_lock);
-	real_id = adf_get_vf_real_id(id);
-	if (real_id < 0)
-		goto unlock;
-
-	id = real_id;
-
-	list_for_each(itr, &accel_table) {
-		struct adf_accel_dev *ptr =
-				list_entry(itr, struct adf_accel_dev, list);
-		if (ptr->accel_id == id) {
-			mutex_unlock(&table_lock);
-			return ptr;
-		}
-	}
-unlock:
-	mutex_unlock(&table_lock);
-	return NULL;
-}
-
-int adf_devmgr_verify_id(u32 id)
-{
-	if (id == ADF_CFG_ALL_DEVICES)
-		return 0;
-
-	if (adf_devmgr_get_dev_by_id(id))
-		return 0;
-
-	return -ENODEV;
-}
-
-static int adf_get_num_dettached_vfs(void)
-{
-	struct list_head *itr;
-	int vfs = 0;
-
-	mutex_lock(&table_lock);
-	list_for_each(itr, &vfs_table) {
-		struct vf_id_map *ptr =
-			list_entry(itr, struct vf_id_map, list);
-		if (ptr->bdf != ~0 && !ptr->attached)
-			vfs++;
-	}
-	mutex_unlock(&table_lock);
-	return vfs;
-}
-
-void adf_devmgr_get_num_dev(u32 *num)
-{
-	*num = num_devices - adf_get_num_dettached_vfs();
-}
 
 /**
  * adf_dev_in_use() - Check whether accel_dev is currently in use

@@ -516,6 +516,7 @@ static void mlx5e_stats_update_stats_rq_page_pool(struct mlx5e_channel *c)
 static MLX5E_DECLARE_STATS_GRP_OP_UPDATE_STATS(sw)
 {
 	struct mlx5e_sw_stats *s = &priv->stats.sw;
+	u16 nch = mlx5e_stats_nch_read(priv);
 	int i;
 
 	memset(s, 0, sizeof(*s));
@@ -523,7 +524,7 @@ static MLX5E_DECLARE_STATS_GRP_OP_UPDATE_STATS(sw)
 	for (i = 0; i < priv->channels.num; i++) /* for active channels only */
 		mlx5e_stats_update_stats_rq_page_pool(priv->channels.c[i]);
 
-	for (i = 0; i < priv->stats_nch; i++) {
+	for (i = 0; i < nch; i++) {
 		struct mlx5e_channel_stats *channel_stats =
 			priv->channel_stats[i];
 
@@ -1169,50 +1170,39 @@ void mlx5e_stats_rmon_get(struct mlx5e_priv *priv,
 void mlx5e_stats_ts_get(struct mlx5e_priv *priv,
 			struct ethtool_ts_stats *ts_stats)
 {
-	int i, j;
+	u16 nch = mlx5e_stats_nch_read(priv);
+	int i, tc;
 
-	mutex_lock(&priv->state_lock);
+	ts_stats->pkts = 0;
 
+	for (i = 0; i < nch; i++) {
+		struct mlx5e_channel_stats *channel_stats =
+			priv->channel_stats[i];
+
+		for (tc = 0; tc < priv->max_opened_tc; tc++)
+			ts_stats->pkts += channel_stats->sq[tc].timestamps;
+	}
+
+	/* Accumulate DMA and port timestamp counters so values stay monotonic
+	 * across channel teardown and mode switches.
+	 */
 	if (priv->tx_ptp_opened) {
-		struct mlx5e_ptp *ptp = priv->channels.ptp;
-
-		ts_stats->pkts = 0;
+		/* Err and Lost stats are only relevant for port timestamping,
+		 * as the DMA layer will always successfully timestamp packets.
+		 */
 		ts_stats->err = 0;
 		ts_stats->lost = 0;
 
-		if (!ptp)
-			goto out;
-
-		/* Aggregate stats across all TCs */
-		for (i = 0; i < ptp->num_tc; i++) {
+		for (tc = 0; tc < priv->max_opened_tc; tc++) {
 			struct mlx5e_ptp_cq_stats *stats =
-				ptp->ptpsq[i].cq_stats;
+				&priv->ptp_stats.cq[tc];
 
 			ts_stats->pkts += stats->cqe;
 			ts_stats->err += stats->abort + stats->err_cqe +
-				stats->late_cqe;
+					stats->late_cqe;
 			ts_stats->lost += stats->lost_cqe;
 		}
-	} else {
-		/* DMA layer will always successfully timestamp packets. Other
-		 * counters do not make sense for this layer.
-		 */
-		ts_stats->pkts = 0;
-
-		/* Aggregate stats across all SQs */
-		for (j = 0; j < priv->channels.num; j++) {
-			struct mlx5e_channel *c = priv->channels.c[j];
-
-			for (i = 0; i < c->num_tc; i++) {
-				struct mlx5e_sq_stats *stats = c->sq[i].stats;
-
-				ts_stats->pkts += stats->timestamps;
-			}
-		}
 	}
-
-out:
-	mutex_unlock(&priv->state_lock);
 }
 
 #define PPORT_PHY_LAYER_OFF(c) \
@@ -2585,7 +2575,7 @@ static MLX5E_DECLARE_STATS_GRP_OP_UPDATE_STATS(ptp) { return; }
 
 static MLX5E_DECLARE_STATS_GRP_OP_NUM_STATS(channels)
 {
-	int max_nch = priv->stats_nch;
+	int max_nch = mlx5e_stats_nch_read(priv);
 
 	return (NUM_RQ_STATS * max_nch) +
 	       (NUM_CH_STATS * max_nch) +
@@ -2598,8 +2588,8 @@ static MLX5E_DECLARE_STATS_GRP_OP_NUM_STATS(channels)
 
 static MLX5E_DECLARE_STATS_GRP_OP_FILL_STRS(channels)
 {
+	int max_nch = mlx5e_stats_nch_read(priv);
 	bool is_xsk = priv->xsk.ever_used;
-	int max_nch = priv->stats_nch;
 	int i, j, tc;
 
 	for (i = 0; i < max_nch; i++)
@@ -2631,8 +2621,8 @@ static MLX5E_DECLARE_STATS_GRP_OP_FILL_STRS(channels)
 
 static MLX5E_DECLARE_STATS_GRP_OP_FILL_STATS(channels)
 {
+	int max_nch = mlx5e_stats_nch_read(priv);
 	bool is_xsk = priv->xsk.ever_used;
-	int max_nch = priv->stats_nch;
 	int i, j, tc;
 
 	for (i = 0; i < max_nch; i++)

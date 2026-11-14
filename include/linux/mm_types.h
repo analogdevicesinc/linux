@@ -285,6 +285,8 @@ typedef struct {
 	unsigned long val;
 } swp_entry_t;
 
+typedef swp_entry_t softleaf_t;
+
 #if defined(CONFIG_MEMCG) || defined(CONFIG_SLAB_OBJ_EXT)
 /* We have some extra room after the refcount in tail pages. */
 #define NR_PAGES_IN_LARGE_FOLIO
@@ -1076,6 +1078,9 @@ struct mm_struct {
 		 * mmap_lock.
 		 */
 		seqcount_t mm_lock_seq;
+#endif
+#ifdef CONFIG_FUTEX
+		atomic64_t			futex_unique_id;
 #endif
 #ifdef CONFIG_FUTEX_PRIVATE_HASH
 		struct mutex			futex_hash_lock;

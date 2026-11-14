@@ -127,10 +127,11 @@ void udp_v6_rehash(struct sock *sk)
 	udp_lib_rehash(sk, new_hash, new_hash4);
 }
 
-static int compute_score(struct sock *sk, const struct net *net,
-			 const struct in6_addr *saddr, __be16 sport,
-			 const struct in6_addr *daddr, unsigned short hnum,
-			 int dif, int sdif)
+static __always_inline int
+compute_score(struct sock *sk, const struct net *net,
+	      const struct in6_addr *saddr, __be16 sport,
+	      const struct in6_addr *daddr, unsigned short hnum,
+	      int dif, int sdif)
 {
 	int bound_dev_if, score;
 	struct inet_sock *inet;
@@ -260,8 +261,8 @@ rescore:
 				continue;
 
 			/* compute_score is too long of a function to be
-			 * inlined, and calling it again here yields
-			 * measurable overhead for some
+			 * inlined twice here, and calling it uninlined
+			 * here yields measurable overhead for some
 			 * workloads. Work around it by jumping
 			 * backwards to rescore 'result'.
 			 */
@@ -465,7 +466,7 @@ static int udp6_skb_len(struct sk_buff *skb)
  */
 
 int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
-		  int flags, int *addr_len)
+		  int flags)
 {
 	struct ipv6_pinfo *np = inet6_sk(sk);
 	struct inet_sock *inet = inet_sk(sk);
@@ -478,10 +479,10 @@ int udpv6_recvmsg(struct sock *sk, struct msghdr *msg, size_t len,
 	int is_udp4;
 
 	if (flags & MSG_ERRQUEUE)
-		return ipv6_recv_error(sk, msg, len, addr_len);
+		return ipv6_recv_error(sk, msg, len);
 
 	if (np->rxopt.bits.rxpmtu && READ_ONCE(np->rxpmtu))
-		return ipv6_recv_rxpmtu(sk, msg, len, addr_len);
+		return ipv6_recv_rxpmtu(sk, msg, len);
 
 try_again:
 	off = sk_peek_offset(sk, flags);
@@ -553,11 +554,11 @@ try_again:
 				ipv6_iface_scope_id(&sin6->sin6_addr,
 						    inet6_iif(skb));
 		}
-		*addr_len = sizeof(*sin6);
+		msg->msg_namelen = sizeof(*sin6);
 
 		BPF_CGROUP_RUN_PROG_UDP6_RECVMSG_LOCK(sk,
 						      (struct sockaddr *)sin6,
-						      addr_len);
+						      &msg->msg_namelen);
 	}
 
 	if (udp_test_bit(GRO_ENABLED, sk))
@@ -700,6 +701,17 @@ out:
 	return sk;
 }
 
+static void udpv6_err_update_exception(struct net *net, struct sk_buff *skb,
+				       u8 type, __be32 info)
+{
+	if (type == ICMPV6_PKT_TOOBIG)
+		ip6_update_pmtu(skb, net, info, skb->dev->ifindex, 0,
+				sock_net_uid(net, NULL));
+	else if (type == NDISC_REDIRECT)
+		ip6_redirect(skb, net, skb->dev->ifindex, 0,
+			     sock_net_uid(net, NULL));
+}
+
 int __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 		   u8 type, u8 code, int offset, __be32 info,
 		   struct udp_table *udptable)
@@ -714,6 +726,8 @@ int __udp6_lib_err(struct sk_buff *skb, struct inet6_skb_parm *opt,
 	int harderr;
 	int err;
 	struct net *net = dev_net(skb->dev);
+
+	udpv6_err_update_exception(net, skb, type, info);
 
 	sk = __udp6_lib_lookup(net, daddr, uh->dest, saddr, uh->source,
 			       inet6_iif(skb), inet6_sdif(skb), udptable, NULL);

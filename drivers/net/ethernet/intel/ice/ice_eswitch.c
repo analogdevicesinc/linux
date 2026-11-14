@@ -95,7 +95,7 @@ ice_eswitch_release_repr(struct ice_pf *pf, struct ice_repr *repr)
 		return;
 
 	ice_vsi_update_security(vsi, ice_vsi_ctx_set_antispoof);
-	metadata_dst_free(repr->dst);
+	dst_release(&repr->dst->dst);
 	repr->dst = NULL;
 	ice_fltr_add_mac_and_broadcast(vsi, repr->parent_mac,
 				       ICE_FWD_TO_VSI);
@@ -116,8 +116,6 @@ static int ice_eswitch_setup_repr(struct ice_pf *pf, struct ice_repr *repr)
 				       GFP_KERNEL);
 	if (!repr->dst)
 		return -ENOMEM;
-
-	netif_keep_dst(uplink_vsi->netdev);
 
 	dst = repr->dst;
 	dst->u.port_info.port_id = vsi->vsi_num;
@@ -311,6 +309,8 @@ static int ice_eswitch_enable_switchdev(struct ice_pf *pf)
 
 	if (ice_eswitch_br_offloads_init(pf))
 		goto err_br_offloads;
+
+	netif_keep_dst(uplink_vsi->netdev);
 
 	pf->eswitch.is_running = true;
 
@@ -511,9 +511,6 @@ int ice_eswitch_attach_vf(struct ice_pf *pf, struct ice_vf *vf)
 	struct devlink *devlink = priv_to_devlink(pf);
 	struct ice_repr *repr;
 	int err;
-
-	if (!ice_is_eswitch_mode_switchdev(pf))
-		return 0;
 
 	repr = ice_repr_create_vf(vf);
 	if (IS_ERR(repr))

@@ -80,12 +80,6 @@ struct xrep_cow {
 	unsigned int		next_bno;
 };
 
-/* CoW staging extent. */
-struct xrep_cow_extent {
-	xfs_fsblock_t		fsbno;
-	xfs_extlen_t		len;
-};
-
 /*
  * Mark the part of the file range that corresponds to the given physical
  * space.  Caller must ensure that the physical range is within xc->irec.
@@ -205,29 +199,35 @@ xrep_cow_mark_missing_staging_rmap(
 	void				*priv)
 {
 	struct xrep_cow			*xc = priv;
-	xfs_agblock_t			rec_bno;
-	xfs_extlen_t			rec_len;
-	unsigned int			adj;
+	const xfs_agblock_t		rec_end =
+			rec->rm_startblock + rec->rm_blockcount;
+	int				error = 0;
 
-	if (rec->rm_owner == XFS_RMAP_OWN_COW)
-		return 0;
-
-	rec_bno = rec->rm_startblock;
-	rec_len = rec->rm_blockcount;
-	if (rec_bno < xc->irec_startbno) {
-		adj = xc->irec_startbno - rec_bno;
-		rec_len -= adj;
-		rec_bno += adj;
+	/* Was there a gap since the last rmap? */
+	if (xc->next_bno < rec->rm_startblock) {
+		error = xrep_cow_mark_file_range(xc,
+				xfs_gbno_to_fsb(cur->bc_group, xc->next_bno),
+				rec->rm_startblock - xc->next_bno);
+		if (error)
+			return error;
 	}
 
-	if (rec_bno + rec_len > xc->irec_startbno + xc->irec.br_blockcount) {
-		adj = (rec_bno + rec_len) -
-		      (xc->irec_startbno + xc->irec.br_blockcount);
-		rec_len -= adj;
+	if (rec->rm_owner != XFS_RMAP_OWN_COW) {
+		const xfs_agblock_t	bad_bno =
+				max(xc->irec_startbno, rec->rm_startblock);
+		const xfs_agblock_t	irec_end =
+				xc->irec_startbno + xc->irec.br_blockcount;
+		const xfs_extlen_t	bad_end = min(irec_end, rec_end);
+
+		error = xrep_cow_mark_file_range(xc,
+				xfs_gbno_to_fsb(cur->bc_group, bad_bno),
+				bad_end - bad_bno);
+		if (error)
+			return error;
 	}
 
-	return xrep_cow_mark_file_range(xc,
-			xfs_gbno_to_fsb(cur->bc_group, rec_bno), rec_len);
+	xc->next_bno = max(xc->next_bno, rec_end);
+	return error;
 }
 
 /*
@@ -245,10 +245,12 @@ xrep_cow_find_bad(
 	struct xfs_perag		*pag;
 	struct xfs_scrub		*sc = xc->sc;
 	xfs_agnumber_t			agno;
+	xfs_agblock_t			irec_end;
 	int				error;
 
 	agno = XFS_FSB_TO_AGNO(sc->mp, xc->irec.br_startblock);
 	xc->irec_startbno = XFS_FSB_TO_AGBNO(sc->mp, xc->irec.br_startblock);
+	irec_end = xc->irec_startbno + xc->irec.br_blockcount;
 
 	pag = xfs_perag_get(sc->mp, agno);
 	if (!pag)
@@ -260,7 +262,7 @@ xrep_cow_find_bad(
 
 	/* Mark any CoW fork extents that are shared. */
 	rc_low.rc_startblock = xc->irec_startbno;
-	rc_high.rc_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	rc_high.rc_startblock = irec_end - 1;
 	rc_low.rc_domain = rc_high.rc_domain = XFS_REFC_DOMAIN_SHARED;
 	error = xfs_refcount_query_range(sc->sa.refc_cur, &rc_low, &rc_high,
 			xrep_cow_mark_shared_staging, xc);
@@ -269,7 +271,7 @@ xrep_cow_find_bad(
 
 	/* Make sure there are CoW staging extents for the whole mapping. */
 	rc_low.rc_startblock = xc->irec_startbno;
-	rc_high.rc_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	rc_high.rc_startblock = irec_end - 1;
 	rc_low.rc_domain = rc_high.rc_domain = XFS_REFC_DOMAIN_COW;
 	xc->next_bno = xc->irec_startbno;
 	error = xfs_refcount_query_range(sc->sa.refc_cur, &rc_low, &rc_high,
@@ -277,11 +279,10 @@ xrep_cow_find_bad(
 	if (error)
 		goto out_sa;
 
-	if (xc->next_bno < xc->irec_startbno + xc->irec.br_blockcount) {
+	if (xc->next_bno < irec_end) {
 		error = xrep_cow_mark_file_range(xc,
 				xfs_agbno_to_fsb(pag, xc->next_bno),
-				xc->irec_startbno + xc->irec.br_blockcount -
-				xc->next_bno);
+				irec_end - xc->next_bno);
 		if (error)
 			goto out_sa;
 	}
@@ -290,28 +291,34 @@ xrep_cow_find_bad(
 	rm_low.rm_startblock = xc->irec_startbno;
 	memset(&rm_high, 0xFF, sizeof(rm_high));
 	rm_high.rm_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	xc->next_bno = xc->irec_startbno;
 	error = xfs_rmap_query_range(sc->sa.rmap_cur, &rm_low, &rm_high,
 			xrep_cow_mark_missing_staging_rmap, xc);
 	if (error)
 		goto out_sa;
+
+	if (xc->next_bno < irec_end) {
+		error = xrep_cow_mark_file_range(xc,
+				xfs_agbno_to_fsb(pag, xc->next_bno),
+				irec_end - xc->next_bno);
+		if (error)
+			goto out_sa;
+	}
 
 	/*
 	 * If userspace is forcing us to rebuild the CoW fork or someone turned
 	 * on the debugging knob, replace everything in the CoW fork.
 	 */
 	if ((sc->sm->sm_flags & XFS_SCRUB_IFLAG_FORCE_REBUILD) ||
-	    XFS_TEST_ERROR(sc->mp, XFS_ERRTAG_FORCE_SCRUB_REPAIR)) {
+	    XFS_TEST_ERROR(sc->mp, XFS_ERRTAG_FORCE_SCRUB_REPAIR))
 		error = xrep_cow_mark_file_range(xc, xc->irec.br_startblock,
 				xc->irec.br_blockcount);
-		if (error)
-			return error;
-	}
 
 out_sa:
 	xchk_ag_free(sc, &sc->sa);
 out_pag:
 	xfs_perag_put(pag);
-	return 0;
+	return error;
 }
 
 /*
@@ -328,9 +335,11 @@ xrep_cow_find_bad_rt(
 	struct xfs_rmap_irec		rm_high = { 0 };
 	struct xfs_scrub		*sc = xc->sc;
 	struct xfs_rtgroup		*rtg;
+	xfs_agblock_t			irec_end;
 	int				error = 0;
 
 	xc->irec_startbno = xfs_rtb_to_rgbno(sc->mp, xc->irec.br_startblock);
+	irec_end = xc->irec_startbno + xc->irec.br_blockcount;
 
 	rtg = xfs_rtgroup_get(sc->mp,
 			xfs_rtb_to_rgno(sc->mp, xc->irec.br_startblock));
@@ -344,7 +353,7 @@ xrep_cow_find_bad_rt(
 
 	/* Mark any CoW fork extents that are shared. */
 	rc_low.rc_startblock = xc->irec_startbno;
-	rc_high.rc_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	rc_high.rc_startblock = irec_end - 1;
 	rc_low.rc_domain = rc_high.rc_domain = XFS_REFC_DOMAIN_SHARED;
 	error = xfs_refcount_query_range(sc->sr.refc_cur, &rc_low, &rc_high,
 			xrep_cow_mark_shared_staging, xc);
@@ -353,7 +362,7 @@ xrep_cow_find_bad_rt(
 
 	/* Make sure there are CoW staging extents for the whole mapping. */
 	rc_low.rc_startblock = xc->irec_startbno;
-	rc_high.rc_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	rc_high.rc_startblock = irec_end - 1;
 	rc_low.rc_domain = rc_high.rc_domain = XFS_REFC_DOMAIN_COW;
 	xc->next_bno = xc->irec_startbno;
 	error = xfs_refcount_query_range(sc->sr.refc_cur, &rc_low, &rc_high,
@@ -361,11 +370,10 @@ xrep_cow_find_bad_rt(
 	if (error)
 		goto out_sr;
 
-	if (xc->next_bno < xc->irec_startbno + xc->irec.br_blockcount) {
+	if (xc->next_bno < irec_end) {
 		error = xrep_cow_mark_file_range(xc,
 				xfs_rgbno_to_rtb(rtg, xc->next_bno),
-				xc->irec_startbno + xc->irec.br_blockcount -
-				xc->next_bno);
+				irec_end - xc->next_bno);
 		if (error)
 			goto out_sr;
 	}
@@ -373,11 +381,20 @@ xrep_cow_find_bad_rt(
 	/* Mark any area has an rmap that isn't a COW staging extent. */
 	rm_low.rm_startblock = xc->irec_startbno;
 	memset(&rm_high, 0xFF, sizeof(rm_high));
-	rm_high.rm_startblock = xc->irec_startbno + xc->irec.br_blockcount - 1;
+	rm_high.rm_startblock = irec_end - 1;
+	xc->next_bno = xc->irec_startbno;
 	error = xfs_rmap_query_range(sc->sr.rmap_cur, &rm_low, &rm_high,
 			xrep_cow_mark_missing_staging_rmap, xc);
 	if (error)
 		goto out_sr;
+
+	if (xc->next_bno < irec_end) {
+		error = xrep_cow_mark_file_range(xc,
+				xfs_rgbno_to_rtb(rtg, xc->next_bno),
+				irec_end - xc->next_bno);
+		if (error)
+			goto out_sr;
+	}
 
 	/*
 	 * If userspace is forcing us to rebuild the CoW fork or someone
@@ -385,12 +402,9 @@ xrep_cow_find_bad_rt(
 	 * CoW fork and then scan for staging extents in the refcountbt.
 	 */
 	if ((sc->sm->sm_flags & XFS_SCRUB_IFLAG_FORCE_REBUILD) ||
-	    XFS_TEST_ERROR(sc->mp, XFS_ERRTAG_FORCE_SCRUB_REPAIR)) {
+	    XFS_TEST_ERROR(sc->mp, XFS_ERRTAG_FORCE_SCRUB_REPAIR))
 		error = xrep_cow_mark_file_range(xc, xc->irec.br_startblock,
 				xc->irec.br_blockcount);
-		if (error)
-			goto out_rtg;
-	}
 
 out_sr:
 	xchk_rtgroup_btcur_free(&sc->sr);
@@ -407,22 +421,21 @@ out_rtg:
 STATIC int
 xrep_cow_alloc(
 	struct xfs_scrub	*sc,
-	xfs_extlen_t		maxlen,
-	struct xrep_cow_extent	*repl)
+	struct xfs_bmbt_irec	*del)
 {
 	struct xfs_alloc_arg	args = {
 		.tp		= sc->tp,
 		.mp		= sc->mp,
 		.oinfo		= XFS_RMAP_OINFO_SKIP_UPDATE,
 		.minlen		= 1,
-		.maxlen		= maxlen,
+		.maxlen		= del->br_blockcount,
 		.prod		= 1,
 		.resv		= XFS_AG_RESV_NONE,
 		.datatype	= XFS_ALLOC_USERDATA,
 	};
 	int			error;
 
-	error = xfs_trans_reserve_more(sc->tp, maxlen, 0);
+	error = xfs_trans_reserve_more(sc->tp, del->br_blockcount, 0);
 	if (error)
 		return error;
 
@@ -435,8 +448,8 @@ xrep_cow_alloc(
 
 	xfs_refcount_alloc_cow_extent(sc->tp, false, args.fsbno, args.len);
 
-	repl->fsbno = args.fsbno;
-	repl->len = args.len;
+	del->br_startblock = args.fsbno;
+	del->br_blockcount = args.len;
 	return 0;
 }
 
@@ -447,10 +460,12 @@ xrep_cow_alloc(
 STATIC int
 xrep_cow_alloc_rt(
 	struct xfs_scrub	*sc,
-	xfs_extlen_t		maxlen,
-	struct xrep_cow_extent	*repl)
+	struct xfs_bmbt_irec	*del)
 {
-	xfs_rtxlen_t		maxrtx = xfs_rtb_to_rtx(sc->mp, maxlen);
+	xfs_fsblock_t		fsbno;
+	xfs_rtxlen_t		maxrtx =
+		min(U32_MAX, xfs_blen_to_rtbxlen(sc->mp, del->br_blockcount));
+	xfs_extlen_t		len;
 	int			error;
 
 	error = xfs_trans_reserve_more(sc->tp, 0, maxrtx);
@@ -458,11 +473,14 @@ xrep_cow_alloc_rt(
 		return error;
 
 	error = xfs_rtallocate_rtgs(sc->tp, NULLRTBLOCK, 1, maxrtx, 1, false,
-			false, &repl->fsbno, &repl->len);
+			false, &fsbno, &len);
 	if (error)
 		return error;
 
-	xfs_refcount_alloc_cow_extent(sc->tp, true, repl->fsbno, repl->len);
+	xfs_refcount_alloc_cow_extent(sc->tp, true, fsbno, len);
+
+	del->br_startblock = fsbno;
+	del->br_blockcount = len;
 	return 0;
 }
 
@@ -476,25 +494,43 @@ static inline int
 xrep_cow_find_mapping(
 	struct xrep_cow		*xc,
 	struct xfs_iext_cursor	*icur,
-	xfs_fileoff_t		startoff,
-	struct xfs_bmbt_irec	*got)
+	xfs_fileoff_t		badoff,
+	xfs_extlen_t		badlen,
+	struct xfs_bmbt_irec	*got,
+	struct xfs_bmbt_irec	*rep)
 {
 	struct xfs_inode	*ip = xc->sc->ip;
 	struct xfs_ifork	*ifp = xfs_ifork_ptr(ip, XFS_COW_FORK);
 
-	if (!xfs_iext_lookup_extent(ip, ifp, startoff, icur, got))
+	if (!xfs_iext_lookup_extent(ip, ifp, badoff, icur, got))
 		goto bad;
+	memcpy(rep, got, sizeof(*rep));
 
-	if (got->br_startoff > startoff)
-		goto bad;
-
-	if (got->br_blockcount == 0)
+	if (got->br_startoff > badoff)
 		goto bad;
 
 	if (isnullstartblock(got->br_startblock))
 		goto bad;
 
 	if (xfs_bmap_is_written_extent(got))
+		goto bad;
+
+	if (got->br_startoff < badoff) {
+		const int64_t	delta = badoff - got->br_startoff;
+
+		rep->br_blockcount -= delta;
+		rep->br_startoff += delta;
+		rep->br_startblock += delta;
+	}
+
+	if (got->br_startoff + got->br_blockcount > badoff + badlen) {
+		const int64_t	delta = (got->br_startoff + got->br_blockcount) -
+					(badoff + badlen);
+
+		rep->br_blockcount -= delta;
+	}
+
+	if (got->br_blockcount == 0)
 		goto bad;
 
 	return 0;
@@ -507,46 +543,92 @@ bad:
 #define REPLACE_RIGHT_SIDE	(1U << 1)
 
 /*
- * Given a CoW fork mapping @got and a replacement mapping @repl, remap the
- * beginning of @got with the space described by @rep.
+ * Given a CoW fork mapping @got and a replacement mapping @rep, map the space
+ * described by @rep into the cow fork, pushing aside @got as necessary.  @icur
+ * must point to iext tree leaf containing @got.
  */
 static inline void
 xrep_cow_replace_mapping(
-	struct xfs_inode		*ip,
-	struct xfs_iext_cursor		*icur,
-	const struct xfs_bmbt_irec	*got,
-	const struct xrep_cow_extent	*repl)
+	struct xfs_inode	*ip,
+	struct xfs_iext_cursor	*icur,
+	struct xfs_bmbt_irec	*got,
+	struct xfs_bmbt_irec	*rep)
 {
-	struct xfs_bmbt_irec		new = *got; /* struct copy */
+	struct xfs_ifork	*ifp = xfs_ifork_ptr(ip, XFS_COW_FORK);
+	xfs_fileoff_t		rep_endoff =
+			rep->br_startoff + rep->br_blockcount;
+	xfs_fileoff_t		got_endoff =
+			got->br_startoff + got->br_blockcount;
+	uint32_t		state = BMAP_COWFORK;
 
-	ASSERT(repl->len > 0);
+	ASSERT(rep->br_blockcount > 0);
 	ASSERT(!isnullstartblock(got->br_startblock));
+	ASSERT(got->br_startoff <= rep->br_startoff);
+	ASSERT(got_endoff >= rep_endoff);
 
-	trace_xrep_cow_replace_mapping(ip, got, repl->fsbno, repl->len);
+	trace_xrep_cow_replace_mapping(ip, got, rep);
 
-	if (got->br_blockcount == repl->len) {
+	if (got->br_startoff == rep->br_startoff)
+		state |= BMAP_LEFT_FILLING;
+	if (got_endoff == rep_endoff)
+		state |= BMAP_RIGHT_FILLING;
+
+	switch (state & (BMAP_LEFT_FILLING | BMAP_RIGHT_FILLING)) {
+	case BMAP_LEFT_FILLING | BMAP_RIGHT_FILLING:
 		/*
-		 * The new extent is a complete replacement for the existing
-		 * extent.  Update the COW fork record.
+		 * Replacement matches the whole mapping, update the record.
 		 */
-		new.br_startblock = repl->fsbno;
-		xfs_iext_update_extent(ip, BMAP_COWFORK, icur, &new);
-		return;
+		xfs_iext_update_extent(ip, state, icur, rep);
+		break;
+	case BMAP_LEFT_FILLING:
+		/*
+		 * Replace the first part of the mapping: Update the cursor
+		 * position with the new mapping, then add a record with the
+		 * tail of the old mapping.
+		 */
+		got->br_startoff = rep_endoff;
+		got->br_blockcount -= rep->br_blockcount;
+		got->br_startblock += rep->br_blockcount;
+
+		xfs_iext_update_extent(ip, state, icur, rep);
+		xfs_iext_next(ifp, icur);
+		xfs_iext_insert(ip, icur, got, state);
+		break;
+	case BMAP_RIGHT_FILLING:
+		/*
+		 * Replacing the last part of the mapping.  Shorten the current
+		 * mapping then add a record with the new mapping.
+		 */
+		got->br_blockcount -= rep->br_blockcount;
+
+		xfs_iext_update_extent(ip, state, icur, got);
+		xfs_iext_next(ifp, icur);
+		xfs_iext_insert(ip, icur, rep, state);
+		break;
+	case 0:
+		/*
+		 * Replacing the middle of the extent.  Shorten the current
+		 * mapping, add a new record with the new mapping, and add a
+		 * second new record with the tail of the old mapping.
+		 */
+		got->br_blockcount = rep->br_startoff - got->br_startoff;
+
+		struct xfs_bmbt_irec	new = {
+			.br_startoff	= rep_endoff,
+			.br_blockcount	= got_endoff - rep_endoff,
+			.br_state	= got->br_state,
+			.br_startblock	= got->br_startblock +
+						rep->br_blockcount +
+						got->br_blockcount,
+		};
+
+		xfs_iext_update_extent(ip, state, icur, got);
+		xfs_iext_next(ifp, icur);
+		xfs_iext_insert(ip, icur, rep, state);
+		xfs_iext_next(ifp, icur);
+		xfs_iext_insert(ip, icur, &new, state);
+		break;
 	}
-
-	/*
-	 * The new extent can replace the beginning of the COW fork record.
-	 * Move the left side of @got upwards, then insert the new record.
-	 */
-	new.br_startoff += repl->len;
-	new.br_startblock += repl->len;
-	new.br_blockcount -= repl->len;
-	xfs_iext_update_extent(ip, BMAP_COWFORK, icur, &new);
-
-	new.br_startoff = got->br_startoff;
-	new.br_startblock = repl->fsbno;
-	new.br_blockcount = repl->len;
-	xfs_iext_insert(ip, icur, &new, BMAP_COWFORK);
 }
 
 /*
@@ -560,33 +642,30 @@ xrep_cow_replace_range(
 	xfs_extlen_t		*blockcount)
 {
 	struct xfs_iext_cursor	icur;
-	struct xrep_cow_extent	repl;
-	struct xfs_bmbt_irec	got;
+	struct xfs_bmbt_irec	got, rep;
 	struct xfs_scrub	*sc = xc->sc;
-	xfs_fileoff_t		nextoff;
-	xfs_extlen_t		alloc_len;
+	xfs_fsblock_t		old_fsbno;
 	int			error;
 
 	/*
-	 * Put the existing CoW fork mapping in @got.  If @got ends before
-	 * @rep, truncate @rep so we only replace one extent mapping at a time.
+	 * Put the existing CoW fork mapping in @got, and put in @rep the
+	 * contents of @got trimmed to @startoff/@blockcount.  We only want
+	 * to replace the bad region, and only one mapping at a time.
 	 */
-	error = xrep_cow_find_mapping(xc, &icur, startoff, &got);
+	error = xrep_cow_find_mapping(xc, &icur, startoff, *blockcount, &got,
+			&rep);
 	if (error)
 		return error;
-	nextoff = min(startoff + *blockcount,
-		      got.br_startoff + got.br_blockcount);
+	old_fsbno = rep.br_startblock;
 
 	/*
 	 * Allocate a replacement extent.  If we don't fill all the blocks,
 	 * shorten the quantity that will be deleted in this step.
 	 */
-	alloc_len = min_t(xfs_fileoff_t, XFS_MAX_BMBT_EXTLEN,
-			  nextoff - startoff);
 	if (XFS_IS_REALTIME_INODE(sc->ip))
-		error = xrep_cow_alloc_rt(sc, alloc_len, &repl);
+		error = xrep_cow_alloc_rt(sc, &rep);
 	else
-		error = xrep_cow_alloc(sc, alloc_len, &repl);
+		error = xrep_cow_alloc(sc, &rep);
 	if (error)
 		return error;
 
@@ -594,7 +673,7 @@ xrep_cow_replace_range(
 	 * Replace the old mapping with the new one, and commit the metadata
 	 * changes made so far.
 	 */
-	xrep_cow_replace_mapping(sc->ip, &icur, &got, &repl);
+	xrep_cow_replace_mapping(sc->ip, &icur, &got, &rep);
 
 	xfs_inode_set_cowblocks_tag(sc->ip);
 	error = xfs_defer_finish(&sc->tp);
@@ -603,15 +682,15 @@ xrep_cow_replace_range(
 
 	/* Note the old CoW staging extents; we'll reap them all later. */
 	if (XFS_IS_REALTIME_INODE(sc->ip))
-		error = xrtb_bitmap_set(&xc->old_cowfork_rtblocks,
-				got.br_startblock, repl.len);
+		error = xrtb_bitmap_set(&xc->old_cowfork_rtblocks, old_fsbno,
+				rep.br_blockcount);
 	else
-		error = xfsb_bitmap_set(&xc->old_cowfork_fsblocks,
-				got.br_startblock, repl.len);
+		error = xfsb_bitmap_set(&xc->old_cowfork_fsblocks, old_fsbno,
+				rep.br_blockcount);
 	if (error)
 		return error;
 
-	*blockcount = repl.len;
+	*blockcount = rep.br_blockcount;
 	return 0;
 }
 

@@ -80,15 +80,6 @@ static struct in6_addr mld2_all_node = MLD2_ALL_NODE_INIT;
 static struct mld2_grec mldv2_zero_grec;
 #endif
 
-static struct amt_skb_cb *amt_skb_cb(struct sk_buff *skb)
-{
-	BUILD_BUG_ON(sizeof(struct amt_skb_cb) + sizeof(struct tc_skb_cb) >
-		     sizeof_field(struct sk_buff, cb));
-
-	return (struct amt_skb_cb *)((void *)skb->cb +
-		sizeof(struct tc_skb_cb));
-}
-
 static void __amt_source_gc_work(void)
 {
 	struct amt_source_node *snode;
@@ -789,6 +780,11 @@ out:
 	rcu_read_unlock();
 }
 
+static bool amt_send_membership_query(struct amt_dev *amt,
+				      struct sk_buff *skb,
+				      struct amt_tunnel_list *tunnel,
+				      bool v6);
+
 static void amt_send_igmp_gq(struct amt_dev *amt,
 			     struct amt_tunnel_list *tunnel)
 {
@@ -798,8 +794,11 @@ static void amt_send_igmp_gq(struct amt_dev *amt,
 	if (!skb)
 		return;
 
-	amt_skb_cb(skb)->tunnel = tunnel;
-	dev_queue_xmit(skb);
+	skb_pull(skb, sizeof(struct ethhdr));
+	if (amt_send_membership_query(amt, skb, tunnel, false)) {
+		amt->dev->stats.tx_dropped++;
+		kfree_skb(skb);
+	}
 }
 
 #if IS_ENABLED(CONFIG_IPV6)
@@ -883,8 +882,11 @@ static void amt_send_mld_gq(struct amt_dev *amt, struct amt_tunnel_list *tunnel)
 	if (!skb)
 		return;
 
-	amt_skb_cb(skb)->tunnel = tunnel;
-	dev_queue_xmit(skb);
+	skb_pull(skb, sizeof(struct ethhdr));
+	if (amt_send_membership_query(amt, skb, tunnel, true)) {
+		amt->dev->stats.tx_dropped++;
+		kfree_skb(skb);
+	}
 }
 #else
 static void amt_send_mld_gq(struct amt_dev *amt, struct amt_tunnel_list *tunnel)
@@ -1183,7 +1185,6 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	bool report = false;
 	struct igmphdr *ih;
-	bool query = false;
 	struct iphdr *iph;
 	bool data = false;
 	bool v6 = false;
@@ -1201,9 +1202,6 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			case IGMP_HOST_MEMBERSHIP_REPORT:
 				report = true;
 				break;
-			case IGMP_HOST_MEMBERSHIP_QUERY:
-				query = true;
-				break;
 			default:
 				goto free;
 			}
@@ -1211,7 +1209,7 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			data = true;
 		}
 		v6 = false;
-		group.ip4 = iph->daddr;
+		group.ip4 = ip_hdr(skb)->daddr;
 #if IS_ENABLED(CONFIG_IPV6)
 	} else if (iph->version == 6) {
 		ip6h = ipv6_hdr(skb);
@@ -1225,9 +1223,6 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			case ICMPV6_MLD2_REPORT:
 				report = true;
 				break;
-			case ICMPV6_MGM_QUERY:
-				query = true;
-				break;
 			default:
 				goto free;
 			}
@@ -1235,7 +1230,7 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			data = true;
 		}
 		v6 = true;
-		group.ip6 = ip6h->daddr;
+		group.ip6 = ipv6_hdr(skb)->daddr;
 #endif
 	} else {
 		dev->stats.tx_errors++;
@@ -1258,19 +1253,6 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			goto free;
 		goto unlock;
 	} else if (amt->mode == AMT_MODE_RELAY) {
-		if (query) {
-			tunnel = amt_skb_cb(skb)->tunnel;
-			if (!tunnel) {
-				WARN_ON(1);
-				goto free;
-			}
-
-			/* Do not forward unexpected query */
-			if (amt_send_membership_query(amt, skb, tunnel, v6))
-				goto free;
-			goto unlock;
-		}
-
 		if (!data)
 			goto free;
 		list_for_each_entry_rcu(tunnel, &amt->tunnel_list, list) {
@@ -1278,12 +1260,12 @@ static netdev_tx_t amt_dev_xmit(struct sk_buff *skb, struct net_device *dev)
 			hlist_for_each_entry_rcu(gnode, &tunnel->groups[hash],
 						 node) {
 				if (!v6) {
-					if (gnode->group_addr.ip4 == iph->daddr)
+					if (gnode->group_addr.ip4 == group.ip4)
 						goto found;
 #if IS_ENABLED(CONFIG_IPV6)
 				} else {
 					if (ipv6_addr_equal(&gnode->group_addr.ip6,
-							    &ip6h->daddr))
+							    &group.ip6))
 						goto found;
 #endif
 				}
@@ -2000,14 +1982,18 @@ static void amt_igmpv3_report_handler(struct amt_dev *amt, struct sk_buff *skb,
 	struct igmpv3_report *ihrv3 = igmpv3_report_hdr(skb);
 	int len = skb_transport_offset(skb) + sizeof(*ihrv3);
 	void *zero_grec = (void *)&igmpv3_zero_grec;
-	struct iphdr *iph = ip_hdr(skb);
 	struct amt_group_node *gnode;
 	union amt_addr group, host;
 	struct igmpv3_grec *grec;
+	__be32 saddr;
 	u16 nsrcs;
+	u16 ngrec;
 	int i;
 
-	for (i = 0; i < ntohs(ihrv3->ngrec); i++) {
+	saddr = ip_hdr(skb)->saddr;
+	ngrec = ntohs(ihrv3->ngrec);
+
+	for (i = 0; i < ngrec; i++) {
 		len += sizeof(*grec);
 		if (!ip_mc_may_pull(skb, len))
 			break;
@@ -2019,10 +2005,13 @@ static void amt_igmpv3_report_handler(struct amt_dev *amt, struct sk_buff *skb,
 		if (!ip_mc_may_pull(skb, len))
 			break;
 
+		grec = (void *)(skb->data + len - sizeof(*grec) -
+				nsrcs * sizeof(__be32));
+
 		memset(&group, 0, sizeof(union amt_addr));
 		group.ip4 = grec->grec_mca;
 		memset(&host, 0, sizeof(union amt_addr));
-		host.ip4 = iph->saddr;
+		host.ip4 = saddr;
 		gnode = amt_lookup_group(tunnel, &group, &host, false);
 		if (!gnode) {
 			gnode = amt_add_group(amt, tunnel, &group, &host,
@@ -2162,14 +2151,18 @@ static void amt_mldv2_report_handler(struct amt_dev *amt, struct sk_buff *skb,
 	struct mld2_report *mld2r = (struct mld2_report *)icmp6_hdr(skb);
 	int len = skb_transport_offset(skb) + sizeof(*mld2r);
 	void *zero_grec = (void *)&mldv2_zero_grec;
-	struct ipv6hdr *ip6h = ipv6_hdr(skb);
 	struct amt_group_node *gnode;
 	union amt_addr group, host;
 	struct mld2_grec *grec;
+	struct in6_addr saddr;
 	u16 nsrcs;
+	u16 ngrec;
 	int i;
 
-	for (i = 0; i < ntohs(mld2r->mld2r_ngrec); i++) {
+	saddr = ipv6_hdr(skb)->saddr;
+	ngrec = ntohs(mld2r->mld2r_ngrec);
+
+	for (i = 0; i < ngrec; i++) {
 		len += sizeof(*grec);
 		if (!ipv6_mc_may_pull(skb, len))
 			break;
@@ -2181,10 +2174,13 @@ static void amt_mldv2_report_handler(struct amt_dev *amt, struct sk_buff *skb,
 		if (!ipv6_mc_may_pull(skb, len))
 			break;
 
+		grec = (void *)(skb->data + len - sizeof(*grec) -
+				nsrcs * sizeof(struct in6_addr));
+
 		memset(&group, 0, sizeof(union amt_addr));
 		group.ip6 = grec->grec_mca;
 		memset(&host, 0, sizeof(union amt_addr));
-		host.ip6 = ip6h->saddr;
+		host.ip6 = saddr;
 		gnode = amt_lookup_group(tunnel, &group, &host, true);
 		if (!gnode) {
 			gnode = amt_add_group(amt, tunnel, &group, &host,
@@ -2305,7 +2301,9 @@ static bool amt_multicast_data_handler(struct amt_dev *amt, struct sk_buff *skb)
 	skb_push(skb, sizeof(*eth));
 	skb_reset_mac_header(skb);
 	skb_pull(skb, sizeof(*eth));
-	eth = eth_hdr(skb);
+
+	if (skb_cow_head(skb, 0))
+		return true;
 
 	if (!pskb_may_pull(skb, sizeof(*iph)))
 		return true;
@@ -2315,6 +2313,7 @@ static bool amt_multicast_data_handler(struct amt_dev *amt, struct sk_buff *skb)
 		if (!ipv4_is_multicast(iph->daddr))
 			return true;
 		skb->protocol = htons(ETH_P_IP);
+		eth = eth_hdr(skb);
 		eth->h_proto = htons(ETH_P_IP);
 		ip_eth_mc_map(iph->daddr, eth->h_dest);
 #if IS_ENABLED(CONFIG_IPV6)
@@ -2328,6 +2327,7 @@ static bool amt_multicast_data_handler(struct amt_dev *amt, struct sk_buff *skb)
 		if (!ipv6_addr_is_multicast(&ip6h->daddr))
 			return true;
 		skb->protocol = htons(ETH_P_IPV6);
+		eth = eth_hdr(skb);
 		eth->h_proto = htons(ETH_P_IPV6);
 		ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
 #endif
@@ -2351,10 +2351,12 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 					 struct sk_buff *skb)
 {
 	struct amt_header_membership_query *amtmq;
-	struct igmpv3_query *ihv3;
 	struct ethhdr *eth, *oeth;
+	struct igmpv3_query *ihv3;
+	u8 h_source[ETH_ALEN];
 	struct iphdr *iph;
 	int hdr_size, len;
+	u64 response_mac;
 
 	hdr_size = sizeof(*amtmq) + sizeof(struct udphdr);
 	if (!pskb_may_pull(skb, hdr_size))
@@ -2367,6 +2369,8 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 	if (amtmq->nonce != amt->nonce)
 		return true;
 
+	response_mac = amtmq->response_mac;
+
 	hdr_size -= sizeof(*eth);
 	if (iptunnel_pull_header(skb, hdr_size, htons(ETH_P_TEB), false))
 		return true;
@@ -2376,6 +2380,9 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 	skb_pull(skb, sizeof(*eth));
 	skb_reset_network_header(skb);
 	eth = eth_hdr(skb);
+	ether_addr_copy(h_source, oeth->h_source);
+	if (skb_cow_head(skb, 0))
+		return true;
 	if (!pskb_may_pull(skb, sizeof(*iph)))
 		return true;
 
@@ -2388,6 +2395,7 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 				   sizeof(*ihv3)))
 			return true;
 
+		iph = ip_hdr(skb);
 		if (!ipv4_is_multicast(iph->daddr))
 			return true;
 
@@ -2395,10 +2403,11 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 		skb_reset_transport_header(skb);
 		skb_push(skb, sizeof(*iph) + AMT_IPHDR_OPTS);
 		WRITE_ONCE(amt->ready4, true);
-		amt->mac = amtmq->response_mac;
+		amt->mac = response_mac;
 		amt->req_cnt = 0;
 		amt->qi = ihv3->qqic;
 		skb->protocol = htons(ETH_P_IP);
+		eth = eth_hdr(skb);
 		eth->h_proto = htons(ETH_P_IP);
 		ip_eth_mc_map(iph->daddr, eth->h_dest);
 #if IS_ENABLED(CONFIG_IPV6)
@@ -2421,10 +2430,11 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 		skb_reset_transport_header(skb);
 		skb_push(skb, sizeof(*ip6h) + AMT_IP6HDR_OPTS);
 		WRITE_ONCE(amt->ready6, true);
-		amt->mac = amtmq->response_mac;
+		amt->mac = response_mac;
 		amt->req_cnt = 0;
 		amt->qi = mld2q->mld2q_qqic;
 		skb->protocol = htons(ETH_P_IPV6);
+		eth = eth_hdr(skb);
 		eth->h_proto = htons(ETH_P_IPV6);
 		ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
 #endif
@@ -2432,7 +2442,7 @@ static bool amt_membership_query_handler(struct amt_dev *amt,
 		return true;
 	}
 
-	ether_addr_copy(eth->h_source, oeth->h_source);
+	ether_addr_copy(eth->h_source, h_source);
 	skb->pkt_type = PACKET_MULTICAST;
 	skb->ip_summed = CHECKSUM_NONE;
 	len = skb->len;
@@ -2455,8 +2465,11 @@ static bool amt_update_handler(struct amt_dev *amt, struct sk_buff *skb)
 	struct ethhdr *eth;
 	struct iphdr *iph;
 	int len, hdr_size;
+	u64 response_mac;
+	__be32 saddr;
+	__be32 nonce;
 
-	iph = ip_hdr(skb);
+	saddr = ip_hdr(skb)->saddr;
 
 	hdr_size = sizeof(*amtmu) + sizeof(struct udphdr);
 	if (!pskb_may_pull(skb, hdr_size))
@@ -2466,15 +2479,18 @@ static bool amt_update_handler(struct amt_dev *amt, struct sk_buff *skb)
 	if (amtmu->reserved || amtmu->version)
 		return true;
 
+	nonce = amtmu->nonce;
+	response_mac = amtmu->response_mac;
+
 	if (iptunnel_pull_header(skb, hdr_size, skb->protocol, false))
 		return true;
 
 	skb_reset_network_header(skb);
 
 	list_for_each_entry_rcu(tunnel, &amt->tunnel_list, list) {
-		if (tunnel->ip4 == iph->saddr) {
-			if ((amtmu->nonce == tunnel->nonce &&
-			     amtmu->response_mac == tunnel->mac)) {
+		if (tunnel->ip4 == saddr) {
+			if ((nonce == tunnel->nonce &&
+			     response_mac == tunnel->mac)) {
 				mod_delayed_work(amt_wq, &tunnel->gc_wq,
 						 msecs_to_jiffies(amt_gmi(amt))
 								  * 3);
@@ -2490,6 +2506,9 @@ static bool amt_update_handler(struct amt_dev *amt, struct sk_buff *skb)
 
 report:
 	if (!pskb_may_pull(skb, sizeof(*iph)))
+		return true;
+
+	if (skb_cow_head(skb, 0))
 		return true;
 
 	iph = ip_hdr(skb);
@@ -2508,6 +2527,7 @@ report:
 		eth = eth_hdr(skb);
 		skb->protocol = htons(ETH_P_IP);
 		eth->h_proto = htons(ETH_P_IP);
+		iph = ip_hdr(skb);
 		ip_eth_mc_map(iph->daddr, eth->h_dest);
 #if IS_ENABLED(CONFIG_IPV6)
 	} else if (iph->version == 6) {
@@ -2527,6 +2547,7 @@ report:
 		eth = eth_hdr(skb);
 		skb->protocol = htons(ETH_P_IPV6);
 		eth->h_proto = htons(ETH_P_IPV6);
+		ip6h = ipv6_hdr(skb);
 		ipv6_eth_mc_map(&ip6h->daddr, eth->h_dest);
 #endif
 	} else {
@@ -2772,7 +2793,7 @@ drop:
 static int amt_rcv(struct sock *sk, struct sk_buff *skb)
 {
 	struct amt_dev *amt;
-	struct iphdr *iph;
+	__be32 saddr;
 	int type;
 	bool err;
 
@@ -2785,7 +2806,7 @@ static int amt_rcv(struct sock *sk, struct sk_buff *skb)
 	}
 
 	skb->dev = amt->dev;
-	iph = ip_hdr(skb);
+	saddr = ip_hdr(skb)->saddr;
 	type = amt_parse_type(skb);
 	if (type == -1) {
 		err = true;
@@ -2795,7 +2816,7 @@ static int amt_rcv(struct sock *sk, struct sk_buff *skb)
 	if (amt->mode == AMT_MODE_GATEWAY) {
 		switch (type) {
 		case AMT_MSG_ADVERTISEMENT:
-			if (iph->saddr != amt->discovery_ip) {
+			if (saddr != amt->discovery_ip) {
 				netdev_dbg(amt->dev, "Invalid Relay IP\n");
 				err = true;
 				goto drop;
@@ -2807,7 +2828,7 @@ static int amt_rcv(struct sock *sk, struct sk_buff *skb)
 			}
 			goto out;
 		case AMT_MSG_MULTICAST_DATA:
-			if (iph->saddr != amt->remote_ip) {
+			if (saddr != amt->remote_ip) {
 				netdev_dbg(amt->dev, "Invalid Relay IP\n");
 				err = true;
 				goto drop;
@@ -2818,7 +2839,7 @@ static int amt_rcv(struct sock *sk, struct sk_buff *skb)
 			else
 				goto out;
 		case AMT_MSG_MEMBERSHIP_QUERY:
-			if (iph->saddr != amt->remote_ip) {
+			if (saddr != amt->remote_ip) {
 				netdev_dbg(amt->dev, "Invalid Relay IP\n");
 				err = true;
 				goto drop;
@@ -2995,9 +3016,15 @@ static int amt_dev_open(struct net_device *dev)
 	amt->event_idx = 0;
 	amt->nr_events = 0;
 
+	enable_delayed_work(&amt->discovery_wq);
+	enable_delayed_work(&amt->req_wq);
+
 	err = amt_socket_create(amt);
-	if (err)
+	if (err) {
+		disable_delayed_work(&amt->req_wq);
+		disable_delayed_work(&amt->discovery_wq);
 		return err;
+	}
 
 	amt->req_cnt = 0;
 	amt->remote_ip = 0;
@@ -3023,8 +3050,8 @@ static int amt_dev_stop(struct net_device *dev)
 	struct sk_buff *skb;
 	int i;
 
-	cancel_delayed_work_sync(&amt->req_wq);
-	cancel_delayed_work_sync(&amt->discovery_wq);
+	disable_delayed_work_sync(&amt->req_wq);
+	disable_delayed_work_sync(&amt->discovery_wq);
 	cancel_delayed_work_sync(&amt->secret_wq);
 
 	/* shutdown */
@@ -3176,6 +3203,9 @@ static int amt_newlink(struct net_device *dev,
 	struct nlattr **tb = params->tb;
 	int err = -EINVAL;
 
+	if (!net_eq(link_net, dev_net(dev)))
+		return err;
+
 	amt->net = link_net;
 	amt->mode = nla_get_u32(data[IFLA_AMT_MODE]);
 
@@ -3278,6 +3308,8 @@ static int amt_newlink(struct net_device *dev,
 	INIT_DELAYED_WORK(&amt->req_wq, amt_req_work);
 	INIT_DELAYED_WORK(&amt->secret_wq, amt_secret_work);
 	INIT_WORK(&amt->event_wq, amt_event_work);
+	disable_delayed_work(&amt->req_wq);
+	disable_delayed_work(&amt->discovery_wq);
 	INIT_LIST_HEAD(&amt->tunnel_list);
 	return 0;
 err:
@@ -3301,9 +3333,9 @@ static size_t amt_get_size(const struct net_device *dev)
 	       nla_total_size(sizeof(__u16)) + /* IFLA_AMT_GATEWAY_PORT */
 	       nla_total_size(sizeof(__u32)) + /* IFLA_AMT_LINK */
 	       nla_total_size(sizeof(__u32)) + /* IFLA_MAX_TUNNELS */
-	       nla_total_size(sizeof(struct iphdr)) + /* IFLA_AMT_DISCOVERY_IP */
-	       nla_total_size(sizeof(struct iphdr)) + /* IFLA_AMT_REMOTE_IP */
-	       nla_total_size(sizeof(struct iphdr)); /* IFLA_AMT_LOCAL_IP */
+	       nla_total_size(sizeof(__be32)) + /* IFLA_AMT_DISCOVERY_IP */
+	       nla_total_size(sizeof(__be32)) + /* IFLA_AMT_REMOTE_IP */
+	       nla_total_size(sizeof(__be32)); /* IFLA_AMT_LOCAL_IP */
 }
 
 static int amt_fill_info(struct sk_buff *skb, const struct net_device *dev)
