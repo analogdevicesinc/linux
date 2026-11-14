@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,12 +1 @@
+-<<<<<<< ours
+ 	ad7768_fill_samp_freq_tbl(st);
+-||||||| base
+-		iio_device_release_direct_mode(indio_dev);
+-		if (ret < 0)
+-			return ret;
+-=======
+-		iio_device_release_direct_mode(indio_dev);
+-		if (ret < 0)
+-			return ret;
+-		*val = sign_extend32(ret, chan->scan_type.realbits - 1);
+->>>>>>> theirs

@@ -1,0 +1,20 @@
+--- a/conflict
++++ b/conflict
+@@ -1,16 +1,5 @@
+-<<<<<<< ours
+-		ret = IRQ_HANDLED;
+ 	} else if ((mask & GQSPI_IER_RXNEMPTY_MASK)) {
+ 		zynqmp_qspi_readrxfifo(xqspi, GQSPI_RX_FIFO_FILL);
+-		ret = IRQ_HANDLED;
+ 	}
+ 	if (!(mask & GQSPI_IER_RXEMPTY_MASK) &&
+-	    (mask & GQSPI_IER_GENFIFOEMPTY_MASK)) {
+-||||||| base
+-		ret = IRQ_HANDLED;
+-	} else if (!(mask & GQSPI_IER_RXEMPTY_MASK) &&
+-			(mask & GQSPI_IER_GENFIFOEMPTY_MASK)) {
+-=======
+-	else if (!(mask & GQSPI_IER_RXEMPTY_MASK) &&
+-			(mask & GQSPI_IER_GENFIFOEMPTY_MASK))
+->>>>>>> theirs
++	    (mask & GQSPI_IER_GENFIFOEMPTY_MASK))

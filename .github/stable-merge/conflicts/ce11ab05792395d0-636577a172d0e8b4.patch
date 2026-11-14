@@ -1,0 +1,34 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ #define AXI_DAC_RSTN_REG			0x0040
+ #define   AXI_DAC_RSTN_CE_N			BIT(2)
+ #define   AXI_DAC_RSTN_MMCM_RSTN		BIT(1)
+@@ -29,26 +28,3 @@
+ #define AXI_DAC_CUSTOM_CTRL_STREAM_ENABLE	(AXI_DAC_CUSTOM_CTRL_TRANSFER_DATA | \
+ 						 AXI_DAC_CUSTOM_CTRL_STREAM)
+ 
+-||||||| base
+-#define AXI_DAC_REG_RSTN		0x0040
+-#define   AXI_DAC_RSTN_CE_N		BIT(2)
+-#define   AXI_DAC_RSTN_MMCM_RSTN	BIT(1)
+-#define   AXI_DAC_RSTN_RSTN		BIT(0)
+-#define AXI_DAC_REG_CNTRL_1		0x0044
+-#define   AXI_DAC_SYNC			BIT(0)
+-#define AXI_DAC_REG_CNTRL_2		0x0048
+-#define	  ADI_DAC_R1_MODE		BIT(4)
+-#define AXI_DAC_DRP_STATUS		0x0074
+-#define   AXI_DAC_DRP_LOCKED		BIT(17)
+-=======
+-#define AXI_DAC_REG_RSTN		0x0040
+-#define   AXI_DAC_RSTN_CE_N		BIT(2)
+-#define   AXI_DAC_RSTN_MMCM_RSTN	BIT(1)
+-#define   AXI_DAC_RSTN_RSTN		BIT(0)
+-#define AXI_DAC_REG_CNTRL_1		0x0044
+-#define   AXI_DAC_SYNC			BIT(0)
+-#define AXI_DAC_REG_CNTRL_2		0x0048
+-#define	  ADI_DAC_R1_MODE		BIT(5)
+-#define AXI_DAC_DRP_STATUS		0x0074
+-#define   AXI_DAC_DRP_LOCKED		BIT(17)
+->>>>>>> theirs

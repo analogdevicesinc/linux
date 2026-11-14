@@ -1,0 +1,18 @@
+--- a/conflict
++++ b/conflict
+@@ -1,15 +0,0 @@
+-<<<<<<< ours
+-||||||| base
+-	/*
+-	 * The number of address bytes should be equal to or less than 3 bytes.
+-	 */
+-	if (op->addr.nbytes > 3)
+-		return false;
+-
+-=======
+-	/*
+-	 * The number of address bytes should be equal to or less than 4 bytes.
+-	 */
+-	if (op->addr.nbytes > 4)
+-		return false;
+->>>>>>> theirs

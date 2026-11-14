@@ -1,0 +1,12 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,2 @@
+-<<<<<<< ours
+ struct device *iio_dma_buffer_get_dma_dev(struct iio_buffer *buffer);
+ #endif
+-||||||| base
+-
+-=======
+-struct device *iio_dma_buffer_get_dma_dev(struct iio_buffer *buffer);
+-
+->>>>>>> theirs

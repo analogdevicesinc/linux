@@ -1,0 +1,382 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 
+ const struct ad5686_chip_info ad5310r_chip_info = {
+ 	.channels = ad5310r_channels,
+@@ -52,374 +51,3 @@
+ 	.int_vref_mv = 2500,
+ 	.num_channels = 2,
+ 	.regmap_type = AD5686_REGMAP,
+-||||||| base
+-DECLARE_AD5686_CHANNELS(ad5684_channels, 12, 4);
+-DECLARE_AD5686_CHANNELS(ad5685r_channels, 14, 2);
+-DECLARE_AD5686_CHANNELS(ad5686_channels, 16, 0);
+-DECLARE_AD5693_CHANNELS(ad5693_channels, 16, 0);
+-DECLARE_AD5693_CHANNELS(ad5692r_channels, 14, 2);
+-DECLARE_AD5693_CHANNELS(ad5691r_channels, 12, 4);
+-
+-static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
+-	[ID_AD5310R] = {
+-		.channels = ad5310r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5310_REGMAP,
+-	},
+-	[ID_AD5311R] = {
+-		.channels = ad5311r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5337R] = {
+-		.channels = ad5337r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 2,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5338R] = {
+-		.channels = ad5338r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 2,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5671R] = {
+-		.channels = ad5672_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5672R] = {
+-		.channels = ad5672_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5673R] = {
+-		.channels = ad5674r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5674R] = {
+-		.channels = ad5674r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5675R] = {
+-		.channels = ad5676_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5676] = {
+-		.channels = ad5676_channels,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5676R] = {
+-		.channels = ad5676_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5677R] = {
+-		.channels = ad5679r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5679R] = {
+-		.channels = ad5679r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5681R] = {
+-		.channels = ad5691r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5682R] = {
+-		.channels = ad5692r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5683] = {
+-		.channels = ad5693_channels,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5683R] = {
+-		.channels = ad5693_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5684] = {
+-		.channels = ad5684_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5684R] = {
+-		.channels = ad5684_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5685R] = {
+-		.channels = ad5685r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5686] = {
+-		.channels = ad5686_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5686R] = {
+-		.channels = ad5686_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5691R] = {
+-		.channels = ad5691r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5692R] = {
+-		.channels = ad5692r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5693] = {
+-		.channels = ad5693_channels,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5693R] = {
+-		.channels = ad5693_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5694] = {
+-		.channels = ad5684_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5694R] = {
+-		.channels = ad5684_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5696] = {
+-		.channels = ad5686_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5696R] = {
+-		.channels = ad5686_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-=======
+-DECLARE_AD5686_CHANNELS(ad5684_channels, 12, 4);
+-DECLARE_AD5686_CHANNELS(ad5685r_channels, 14, 2);
+-DECLARE_AD5686_CHANNELS(ad5686_channels, 16, 0);
+-DECLARE_AD5693_CHANNELS(ad5693_channels, 16, 0);
+-DECLARE_AD5693_CHANNELS(ad5692r_channels, 14, 2);
+-DECLARE_AD5693_CHANNELS(ad5691r_channels, 12, 4);
+-
+-static const struct ad5686_chip_info ad5686_chip_info_tbl[] = {
+-	[ID_AD5310R] = {
+-		.channels = ad5310r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5310_REGMAP,
+-	},
+-	[ID_AD5311R] = {
+-		.channels = ad5311r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5337R] = {
+-		.channels = ad5337r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 2,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5338R] = {
+-		.channels = ad5338r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 2,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5671R] = {
+-		.channels = ad5672_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5672R] = {
+-		.channels = ad5672_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5673R] = {
+-		.channels = ad5674r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5674R] = {
+-		.channels = ad5674r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5675R] = {
+-		.channels = ad5676_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5676] = {
+-		.channels = ad5676_channels,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5676R] = {
+-		.channels = ad5676_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 8,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5677R] = {
+-		.channels = ad5679r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5679R] = {
+-		.channels = ad5679r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 16,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5681R] = {
+-		.channels = ad5691r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5682R] = {
+-		.channels = ad5692r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5683] = {
+-		.channels = ad5693_channels,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5683R] = {
+-		.channels = ad5693_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5683_REGMAP,
+-	},
+-	[ID_AD5684] = {
+-		.channels = ad5684_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5684R] = {
+-		.channels = ad5684_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5685R] = {
+-		.channels = ad5685r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5686] = {
+-		.channels = ad5686_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5686R] = {
+-		.channels = ad5686_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5691R] = {
+-		.channels = ad5691r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5692R] = {
+-		.channels = ad5692r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5693] = {
+-		.channels = ad5693_channels,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5693R] = {
+-		.channels = ad5693_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 1,
+-		.regmap_type = AD5693_REGMAP,
+-	},
+-	[ID_AD5694] = {
+-		.channels = ad5684_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5694R] = {
+-		.channels = ad5684_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5695R] = {
+-		.channels = ad5685r_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5696] = {
+-		.channels = ad5686_channels,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+-	[ID_AD5696R] = {
+-		.channels = ad5686_channels,
+-		.int_vref_mv = 2500,
+-		.num_channels = 4,
+-		.regmap_type = AD5686_REGMAP,
+-	},
+->>>>>>> theirs

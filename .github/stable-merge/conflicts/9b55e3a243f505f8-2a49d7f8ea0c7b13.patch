@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,14 +1,4 @@
+-<<<<<<< ours
+ 	guard(mutex)(&st->lock);
+ 
+ 	return sysfs_emit(buf, "%d\n",
+ 			  !!ad5686_pd_field_get(chan, st->pwr_down_mask));
+-||||||| base
+-	return sysfs_emit(buf, "%d\n", !!(st->pwr_down_mask &
+-				       (0x3 << (chan->channel * 2))));
+-=======
+-	guard(mutex)(&st->lock);
+-
+-	return sysfs_emit(buf, "%d\n", !!(st->pwr_down_mask &
+-				       (0x3 << (chan->channel * 2))));
+->>>>>>> theirs

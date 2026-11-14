@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,5 @@
+-<<<<<<< ours
+ 	ams_update_intrmask(ams,
+ 			    (AMS_ISR0_ALARM_MASK |
+ 			     ((u64)AMS_ISR1_ALARM_MASK << AMS_ISR1_ALARM_SHIFT)),
+ 			    ~alarm_mask);
+-||||||| base
+-	ams_update_intrmask(ams, AMS_ISR0_ALARM_MASK, ~alarm_mask);
+-=======
+-	ams_update_intrmask(ams, AMS_ISR0_ALARM_MASK, ~alarm_mask);
+ 	ams_unmask(ams);
+->>>>>>> theirs

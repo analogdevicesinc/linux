@@ -1,0 +1,36 @@
+--- a/conflict
++++ b/conflict
+@@ -1,29 +1,14 @@
+-<<<<<<< ours
+-	guard(mutex)(&buffer->dmabufs_mutex);
+-
+-#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
+-	iio_buffer_free_blocks(buffer);
+-#else
+-	/* Close all attached DMABUFs */
+-	list_for_each_entry_safe(priv, tmp, &buffer->dmabufs, entry) {
+-		list_del_init(&priv->entry);
+-		iio_buffer_dmabuf_put(priv->attach);
+-||||||| base
+-	guard(mutex)(&buffer->dmabufs_mutex);
+-
+-	/* Close all attached DMABUFs */
+-	list_for_each_entry_safe(priv, tmp, &buffer->dmabufs, entry) {
+-		list_del_init(&priv->entry);
+-		iio_buffer_dmabuf_put(priv->attach);
+-=======
+ 	/*
+ 	 * The mutex must be unlocked before iio_device_put(), which might drop the
+ 	 * last reference and free the buffer.
+ 	 */
++#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
++	scoped_guard(mutex, &buffer->dmabufs_mutex)
++		iio_buffer_free_blocks(buffer);
++#else
+ 	scoped_guard(mutex, &buffer->dmabufs_mutex) {
+ 		/* Close all attached DMABUFs */
+ 		list_for_each_entry_safe(priv, tmp, &buffer->dmabufs, entry) {
+ 			list_del_init(&priv->entry);
+ 			iio_buffer_dmabuf_put(priv->attach);
+ 		}
+->>>>>>> theirs

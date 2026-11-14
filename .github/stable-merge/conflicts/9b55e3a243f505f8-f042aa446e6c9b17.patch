@@ -1,0 +1,25 @@
+--- a/conflict
++++ b/conflict
+@@ -1,22 +1,4 @@
+-<<<<<<< ours
+ 		ret = ad5686_write(st, AD5686_CMD_INTERNAL_REFER_SETUP, 0,
+ 				   st->use_internal_vref ? 0 : AD5686_DATA_REF_MSK);
+ 		if (ret)
+ 			return ret;
+-||||||| base
+-		cmd = AD5686_CMD_INTERNAL_REFER_SETUP;
+-		ref_bit_msk = 0;
+-		break;
+-	case AD5693_REGMAP:
+-		cmd = AD5686_CMD_CONTROL_REG;
+-		ref_bit_msk = AD5693_REF_BIT_MSK;
+-		st->use_internal_vref = !voltage_uv;
+-=======
+-		cmd = AD5686_CMD_INTERNAL_REFER_SETUP;
+-		ref_bit_msk = AD5686_REF_BIT_MSK;
+-		break;
+-	case AD5693_REGMAP:
+-		cmd = AD5686_CMD_CONTROL_REG;
+-		ref_bit_msk = AD5693_REF_BIT_MSK;
+-		st->use_internal_vref = !voltage_uv;
+->>>>>>> theirs

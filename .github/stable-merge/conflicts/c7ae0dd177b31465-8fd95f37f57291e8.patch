@@ -1,0 +1,10 @@
+--- a/conflict
++++ b/conflict
+@@ -1,7 +1 @@
+-<<<<<<< ours
+-			if (chip == ina226 || chip == ina260)
+-||||||| base
+-			if (chip == ina226)
+-=======
+ 			if (has_update_interval)
+->>>>>>> theirs

@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,2 @@
+-<<<<<<< ours
+ 		cfg->requested_odr = 10;
+ 		ad7124_set_channel_odr(st, i);
+-||||||| base
+-		ad7124_set_channel_odr(st, i, 10);
+-=======
+-		ad7124_set_channel_odr(st, i, 10);
+-
+-		/* Disable all channels to prevent unintended conversions. */
+-		ad_sd_write_reg(&st->sd, AD7124_CHANNEL(i), 2, 0);
+->>>>>>> theirs

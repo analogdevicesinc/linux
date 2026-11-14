@@ -1,0 +1,20 @@
+--- a/conflict
++++ b/conflict
+@@ -1,17 +0,0 @@
+-<<<<<<< ours
+-||||||| base
+-	cmp_size = sizeof_field(struct ad7173_channel_config, config_props);
+-=======
+-	/*
+-	 * This is just to make sure that the comparison is adapted after
+-	 * struct ad7173_channel_config was changed.
+-	 */
+-	static_assert(sizeof_field(struct ad7173_channel_config, config_props) ==
+-		      sizeof(struct {
+-				     bool bipolar;
+-				     bool input_buf;
+-				     u8 odr;
+-				     u8 ref_sel;
+-			     }));
+-
+->>>>>>> theirs

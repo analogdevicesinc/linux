@@ -41,7 +41,7 @@ static int msg_enable;
  *
  * The @lock ensures that the chip is protected when certain operations are
  * in progress. When the read or write packet transfer is in progress, most
- * of the chip registers are not ccessible until the transfer is finished and
+ * of the chip registers are not accessible until the transfer is finished and
  * the DMA has been de-asserted.
  */
 struct ks8851_net_spi {
@@ -73,11 +73,10 @@ struct ks8851_net_spi {
 /**
  * ks8851_lock_spi - register access lock
  * @ks: The chip state
- * @flags: Spinlock flags
  *
  * Claim chip register access lock
  */
-static void ks8851_lock_spi(struct ks8851_net *ks, unsigned long *flags)
+static void ks8851_lock_spi(struct ks8851_net *ks)
 {
 	struct ks8851_net_spi *kss = to_ks8851_spi(ks);
 
@@ -87,11 +86,10 @@ static void ks8851_lock_spi(struct ks8851_net *ks, unsigned long *flags)
 /**
  * ks8851_unlock_spi - register access unlock
  * @ks: The chip state
- * @flags: Spinlock flags
  *
  * Release chip register access lock
  */
-static void ks8851_unlock_spi(struct ks8851_net *ks, unsigned long *flags)
+static void ks8851_unlock_spi(struct ks8851_net *ks)
 {
 	struct ks8851_net_spi *kss = to_ks8851_spi(ks);
 
@@ -300,7 +298,7 @@ static unsigned int calc_txlen(unsigned int len)
 
 /**
  * ks8851_tx_work - process tx packet(s)
- * @work: The work strucutre what was scheduled.
+ * @work: The work structure what was scheduled.
  *
  * This is called when a number of packets have been scheduled for
  * transmission and need to be sent to the device.
@@ -311,7 +309,6 @@ static void ks8851_tx_work(struct work_struct *work)
 	struct ks8851_net_spi *kss;
 	unsigned short tx_space;
 	struct ks8851_net *ks;
-	unsigned long flags;
 	struct sk_buff *txb;
 	bool last;
 
@@ -319,7 +316,7 @@ static void ks8851_tx_work(struct work_struct *work)
 	ks = &kss->ks8851;
 	last = skb_queue_empty(&ks->txq);
 
-	ks8851_lock_spi(ks, &flags);
+	ks8851_lock_spi(ks);
 
 	while (!last) {
 		txb = skb_dequeue(&ks->txq);
@@ -345,7 +342,7 @@ static void ks8851_tx_work(struct work_struct *work)
 	ks->tx_space = tx_space;
 	spin_unlock_bh(&ks->statelock);
 
-	ks8851_unlock_spi(ks, &flags);
+	ks8851_unlock_spi(ks);
 }
 
 /**

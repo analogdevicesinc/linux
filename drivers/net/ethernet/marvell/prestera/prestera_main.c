@@ -372,7 +372,7 @@ static int prestera_port_sfp_bind(struct prestera_port *port)
 	struct device_node *ports, *node;
 	struct fwnode_handle *fwnode;
 	struct phylink *phy_link;
-	int err;
+	int err = 0;
 
 	if (!sw->np)
 		return 0;
@@ -634,7 +634,7 @@ static int prestera_port_create(struct prestera_switch *sw, u32 id)
 		goto err_dl_port_register;
 
 	dev->features |= NETIF_F_HW_TC;
-	dev->netns_local = true;
+	dev->netns_immutable = true;
 	dev->netdev_ops = &prestera_netdev_ops;
 	dev->ethtool_ops = &prestera_ethtool_ops;
 	SET_NETDEV_DEV(dev, sw->dev->dev);

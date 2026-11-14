@@ -26,7 +26,6 @@ void intel_link_bw_init_limits(struct intel_atomic_state *state,
 			       struct intel_link_bw_limits *limits)
 {
 	struct intel_display *display = to_intel_display(state);
-	struct drm_i915_private *i915 = to_i915(state->base.dev);
 	enum pipe pipe;
 
 	limits->force_fec_pipes = 0;
@@ -34,9 +33,11 @@ void intel_link_bw_init_limits(struct intel_atomic_state *state,
 	for_each_pipe(display, pipe) {
 		const struct intel_crtc_state *crtc_state =
 			intel_atomic_get_new_crtc_state(state,
-							intel_crtc_for_pipe(i915, pipe));
+							intel_crtc_for_pipe(display, pipe));
 
-		if (state->base.duplicated && crtc_state) {
+		if ((state->base.duplicated && crtc_state) ||
+		    intel_dp_mst_stream_disconnected(state,
+						 intel_crtc_for_pipe(display, pipe))) {
 			limits->max_bpp_x16[pipe] = crtc_state->max_link_bpp_x16;
 			if (crtc_state->fec_enable)
 				limits->force_fec_pipes |= BIT(pipe);

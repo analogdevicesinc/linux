@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,5 @@
+-<<<<<<< ours
+ obj-$(CONFIG_AD3530R) += ad3530r.o
+ obj-$(CONFIG_AD3552R_HS) += ad3552r-hs.o
+ obj-$(CONFIG_AD3552R_LIB) += ad3552r-common.o
+ obj-$(CONFIG_AD3552R) += ad3552r.o
+ obj-$(CONFIG_AD5270) += ad5270.o
+-||||||| base
+-obj-$(CONFIG_AD3552R) += ad3552r.o
+-=======
+-obj-$(CONFIG_AD3552R) += ad3552r.o ad3552r-common.o
+->>>>>>> theirs

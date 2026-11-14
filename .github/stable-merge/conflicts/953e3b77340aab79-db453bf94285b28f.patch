@@ -1,0 +1,9 @@
+--- a/conflict
++++ b/conflict
+@@ -1,6 +1 @@
+-<<<<<<< ours
+ 	bool			multi_die;	/* flash with multiple dies*/
+-||||||| base
+-=======
+-
+->>>>>>> theirs

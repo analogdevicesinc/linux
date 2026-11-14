@@ -1,0 +1,981 @@
+{
+  "files": {
+    "Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml": {
+      "chunks": [
+        {
+          "patch": "b9c41c5066c9c8fa-5eff861316f4fe7d.patch",
+          "patch_hash": "05541d892b7fa1b155646fbcbe0e860fdb3d4d33361a200918c816b4b22e0b69",
+          "preimage": "5eff861316f4fe7db8288d3949e213532a53580c1e3a9b07f313af47bf919f8e",
+          "resolved": "8bb96613ee60d4bcf1e3bfbb334e012a3f779cced92cbbad747e3a2ca685b996"
+        }
+      ]
+    },
+    "Documentation/hwmon/ina2xx.rst": {
+      "chunks": [
+        {
+          "patch": "9366cd94f3c48a7e-8b165ab54fa33a55.patch",
+          "patch_hash": "7dde5291bcf32ac3e74600315f21feba0540303b03ea27e3bee6ce77a5118b84",
+          "preimage": "8b165ab54fa33a55fc976a983bcd16c7b763c25f4087ac5ade41c5719bfa6a34",
+          "resolved": "2763d80d959afee685904fe42a31d0f0b37fdc8639a3a5f75d045fc89216745c"
+        },
+        {
+          "patch": "9366cd94f3c48a7e-8fde1fd507cb0ec5.patch",
+          "patch_hash": "b8dcb5ca84788959e1a312a00634c42b2777241d50655345da294e1bcbd6fe5f",
+          "preimage": "8fde1fd507cb0ec54255098eb4e0b7d64d871058dd77ac1d00ab51561353267e",
+          "resolved": "ac500847d4c462d994f37b18b4c860b087cebef75347fc1769c997aa82023808"
+        },
+        {
+          "patch": "9366cd94f3c48a7e-9577d97ea0362472.patch",
+          "patch_hash": "ed571aecb6e248b48f8b817a1e8288e565be47c866de9abe5a2683c9275b4eaa",
+          "preimage": "9577d97ea0362472a23543cbe59dcfdca3249afbcfd5dfcba35b86b7b9f17a7c",
+          "resolved": "5207b297988762bc6a90314aef244bcf972191f17c5ddd5c244dd24d12ebffb5"
+        },
+        {
+          "patch": "9366cd94f3c48a7e-b6f53879fff541b4.patch",
+          "patch_hash": "ae7901c87e68e44b56b3ed6c927212964f0c8cfafe4f2ddc69e87bd830b42c81",
+          "preimage": "b6f53879fff541b4f7cf199fc2d35ca36615aa1e028a022ddb9685fbf70b5d67",
+          "resolved": "6aca1572cb035f997d421c50ae000c3414c0a05827b37a3a31876a3e05e5d245"
+        }
+      ]
+    },
+    "drivers/base/power/runtime.c": {
+      "chunks": [
+        {
+          "patch": "cf259a3aa6f89aa1-3c17bb76b290b16d.patch",
+          "patch_hash": "fc11e2674cd4b90a3e7f77503a501537d9ada93f3c2f76cdc8968b069a282971",
+          "preimage": "3c17bb76b290b16d9d0d9effce51e9832435dbe4b6942ebf9d5c6143cb3636a8",
+          "resolved": "3801dc482e1c48ec1ba4cdb6c1561300d84639de73c98ac9b44cba70eebcbf86"
+        }
+      ]
+    },
+    "drivers/clk/clk-axi-clkgen.c": {
+      "chunks": [
+        {
+          "patch": "e85f5b869f8dc226-1c316b199dc7c2d8.patch",
+          "patch_hash": "09483e55ea04081a355cdcdc840d8633c43e004bf67a82bc30e11d389176754c",
+          "preimage": "1c316b199dc7c2d84c2387b2bee380c06865ec1ca83dfc782bca477c9495d1c2",
+          "resolved": "a97538240d62ff7b13d4b6382e2cea7514f9dd60e1ef3b4d2786541307a3eb4c"
+        }
+      ]
+    },
+    "drivers/crypto/xilinx/zynqmp-sha.c": {
+      "chunks": [
+        {
+          "patch": "f2affb4c6a153334-2850a32c154bc39b.patch",
+          "patch_hash": "c50a7f62a68c2b0e974131e33a2428610863408b858c1e7a42d61d1276bdbbca",
+          "preimage": "2850a32c154bc39b24d9abf0a5da3fa63a95bbd274eb9748fbe99bcfa82fa6a6",
+          "resolved": "764f38b83021788428ac81635079177b5b9046151397dcf7db0aca254348fa49"
+        },
+        {
+          "patch": "f2affb4c6a153334-852e38571e01b9e7.patch",
+          "patch_hash": "b02cf593c98c6610e97f7ae312c54f9d3457e359b3c0f0810826955351a3ab62",
+          "preimage": "852e38571e01b9e772dc4db2f3ec704586512842c718e109e06038e5cd00058c",
+          "resolved": "9fb07fcb65804cae821f75d95ceff7a14cacd359cfc1b3051ed6437922167466"
+        },
+        {
+          "patch": "f2affb4c6a153334-bb57b41c7e7637d2.patch",
+          "patch_hash": "19140a85b91a2617f40ecf62ad85b69e566ba25fa92a6631205f5ad2b1b04721",
+          "preimage": "bb57b41c7e7637d2bce259f4c14b8845e0583b0b0ebd432c98e8f11ca1b0d0c3",
+          "resolved": "8b13b438e29039ca7f172288a607c87e95bbf384c625ff667e5af8570c03039e"
+        },
+        {
+          "patch": "f2affb4c6a153334-f0975f8f76ee4a15.patch",
+          "patch_hash": "bd2a0330b73ecbcd1e5b61cc86c0ad70ad2749fa5de44418f3e37420459753cc",
+          "preimage": "f0975f8f76ee4a15303c3c7ad2bf06b9a3481729e79801a6709c38c543758516",
+          "resolved": "3b3c896da1790348e8e503556f608cd8dadb6e1131ac53a748e42da887798104"
+        }
+      ]
+    },
+    "drivers/dma/dma-axi-dmac.c": {
+      "chunks": [
+        {
+          "patch": "1029d7d768e14c38-2cf440bc141bfb48.patch",
+          "patch_hash": "8964c664f188db3f260339eab66e33594b14590b7f847746515d319614267284",
+          "preimage": "2cf440bc141bfb48dab7d4ffd197b5a9718571c2588e14acb305faa8c0732f0f",
+          "resolved": "f4fba1d69803c7789e413ae02b1ae25ad03b6a6d052f08ccb48c923d1891f762"
+        },
+        {
+          "patch": "1029d7d768e14c38-ff90af8196a83061.patch",
+          "patch_hash": "0133d4b2227558fce6d2c146c6bd72316fd8e6a96adcf6b1862d6416ba32c424",
+          "preimage": "ff90af8196a83061a54de3fc27188b5ac37e1ab77b81f296ef88f4988075ff4c",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    "drivers/firmware/xilinx/zynqmp-pm.c": {
+      "chunks": [
+        {
+          "patch": "2b592d3d14dd5b93-ae9b819ac66fe78e.patch",
+          "patch_hash": "4fff3103a6f638f22eba4176c6f3ef5f318d16253b91d21b66710b53799669ec",
+          "preimage": "ae9b819ac66fe78e0c1ce684d9e3e05be60978dd40e3fe0c6d092567fe1f7a4f",
+          "resolved": "3d98e1a587c05e50d8aa557d492f018af3dc8d4520596a2cc14e939790db40d7"
+        },
+        {
+          "patch": "2b592d3d14dd5b93-e770f42abee7cbe5.patch",
+          "patch_hash": "5786732072f3505245fc1c9654866397605cd9f4f060751f2c1d0d621ca9c6c7",
+          "preimage": "e770f42abee7cbe5991d66a505fbe5fd4b1010c6247307b3c1c08cbb8e08e943",
+          "resolved": "f7262a594e1e35e3b87f8af03a8cb27fa4db28c982de40bff20953454b291034"
+        }
+      ]
+    },
+    "drivers/gpu/drm/drm_fbdev_dma.c": {
+      "chunks": [
+        {
+          "patch": "deae69f8c31ec1a9-1e5a7a67eb292bf1.patch",
+          "patch_hash": "4a0d1bc9f3ba7e8098ab64f6742bb8b11bd1d84d29c1c1281ca8b130669c822a",
+          "preimage": "1e5a7a67eb292bf1d74400e30e2a2a65d84d191a5f1c3727dcf429ee6e7c1dee",
+          "resolved": "e2b92d2a5cf71b7a295a627bf234c342789e18109f2334fdea6197ce42945f73"
+        }
+      ]
+    },
+    "drivers/hwmon/Kconfig": {
+      "chunks": [
+        {
+          "patch": "b3fa8aca3aeb1143-0bce123e733fe379.patch",
+          "patch_hash": "1dc0e2641804daa76b81c0d2596919e5db8c8427d5ebbfb8ab41236509868c80",
+          "preimage": "0bce123e733fe379b221a51e5c46c397569fff30d41dbf608f4e781639d53228",
+          "resolved": "2e35d000a78c1c95588684ea30dd6ce2588c4bf034d1c8f38cea78b702392eb0"
+        }
+      ]
+    },
+    "drivers/hwmon/ina2xx.c": {
+      "chunks": [
+        {
+          "patch": "c7ae0dd177b31465-1ca9ab7c69d8109a.patch",
+          "patch_hash": "be4a814f51b929d8795e06facf13af01dd3f60b7fb9ccfaa93c191191c480b97",
+          "preimage": "1ca9ab7c69d8109a3f4fceee3999e56ed6f6251070c4d8e05af84be793f97bc2",
+          "resolved": "aef6029b70cebf7dbc099bbb9ee44d5f7c294127c67d7cee20bb7651658f96f2"
+        },
+        {
+          "patch": "c7ae0dd177b31465-240070f91875087e.patch",
+          "patch_hash": "2d2f623fe79db4427de8caef1a8b264e18c44d6f1266d475e81cddbb7904b41f",
+          "preimage": "240070f91875087efb708eda65081b5deedc1618b10f357744bac6d7b0dfe1e0",
+          "resolved": "61e84b08ff6a93de217cfb55f57a4f841210ad8948e096baac5238bbab2d3482"
+        },
+        {
+          "patch": "c7ae0dd177b31465-2df84d4faabf05c7.patch",
+          "patch_hash": "c5c7d6c7d592ac1107ffe9d9291fc749a6a3edf729c5d8fc9bb210005fce08cc",
+          "preimage": "2df84d4faabf05c703d2ba6cfbf168a511c2a6590f4b12f26c469b49e5a413aa",
+          "resolved": "cd418c8798281558f9edc505fe10aa5d7c010c47bd47f0dc9263021014f6385a"
+        },
+        {
+          "patch": "c7ae0dd177b31465-59c8be2548002944.patch",
+          "patch_hash": "f494429e86ec620cdaa411057b9029bf9a67755bf06ebc821b863c5f06466370",
+          "preimage": "59c8be2548002944200182cb5665b60e87c6a26150475a6079c9580e08db11e2",
+          "resolved": "51323a4dc7b0c674f36e64980458dca89a99962108d07e12e28cfa2ec12cf3e9"
+        },
+        {
+          "patch": "c7ae0dd177b31465-5dc002fada361317.patch",
+          "patch_hash": "917bb84801726194e77575eff057216dd26cd268c47a790b75aafc180be1f215",
+          "preimage": "5dc002fada361317eca1d3b92f1215370e37b86508e3c2f795b8afcf486f271e",
+          "resolved": "72b1e4da5721a5da1aa08b421ff006f5d7f95960e8bc07a16fcb4515ed7368c1"
+        },
+        {
+          "patch": "c7ae0dd177b31465-8fd95f37f57291e8.patch",
+          "patch_hash": "f6a84c87439b90de49ad310bc392f260977d6c02b66e338d5b0c20847cb8df27",
+          "preimage": "8fd95f37f57291e82f960ae893cebe9b28c9e03847d7cb7009022c9701802d4b",
+          "resolved": "c669a2774ff7600a1cd8da4f72aec246ebdcd589091ba4c675a254c3ba5677aa"
+        },
+        {
+          "patch": "c7ae0dd177b31465-94a2f6b350975ba2.patch",
+          "patch_hash": "026f7fb78bc692faf050f85a8dc37879d0aa3e5d455b3ef0f38d7943c86d736f",
+          "preimage": "94a2f6b350975ba2a250d56007736bfc7b3c29b8b17e8e6c83aca5f91dd72a1e",
+          "resolved": "5b02189123ff0bc12d614d4fa616f2f3fa8a0e9348efdfec1573da5e60ec6d96"
+        },
+        {
+          "patch": "c7ae0dd177b31465-c90084f3c653858d.patch",
+          "patch_hash": "56cdfd1b3e7280e412e89babe43df39abee9f6bf5a3e6f759d68a894ea7c9c89",
+          "preimage": "c90084f3c653858ddb5f83a718890a1b22c2ee23bc932011daa6235691122eda",
+          "resolved": "34ced11bff28bef96ce28938727ddaab9c3ddb367f0ccc9e4ca675142fd527aa"
+        },
+        {
+          "patch": "c7ae0dd177b31465-cc454fb3ad92612f.patch",
+          "patch_hash": "3ff9a7c0fcbd7dce4b02b27eb666722bf37c9d35a637b3c4df00adce4c57460d",
+          "preimage": "cc454fb3ad92612fa19614f5d5e6f6b2374fc8de973c3ba3a77c6ec732cad055",
+          "resolved": "48399459f0449ded4112817e9a3e5a8b9628b4b3f7742e8e0ddb01a635ed596c"
+        },
+        {
+          "patch": "c7ae0dd177b31465-f6de679595cdd908.patch",
+          "patch_hash": "4b4ab75b8403101f41f439cd81fc0afa88b5837014e4feefa056f632984dc300",
+          "preimage": "f6de679595cdd908ab73d22284bd79d62d2a2779d4daeb98b7226a512ef18eb9",
+          "resolved": "f7cd35f9aa905e52e4417c8606683a2061af1f966c57610ffd2e34f441c911fd"
+        }
+      ]
+    },
+    "drivers/hwmon/pmbus/max34440.c": {
+      "chunks": [
+        {
+          "patch": "39c71555def584c1-810c27f46769b2fe.patch",
+          "patch_hash": "8bcbc3cfc3f89d8b9d766c52478cf355a56f16aad8ac54baac2caa640c938790",
+          "preimage": "810c27f46769b2fed76c9bde65c12a4e199ad1883899b84305f5216dfa3390f8",
+          "resolved": "02393c668a85f31f6ea61ce80de45a895480dd833e3365c666a06099d8c03eb3"
+        },
+        {
+          "patch": "39c71555def584c1-c45e02ed53c149b2.patch",
+          "patch_hash": "5c4e71db9ff9f6d603c1d83edc61cf89ce04f5e86178129b81c66879104ae422",
+          "preimage": "c45e02ed53c149b276f9943d0a64a62e21f2489f466c72b6e330e9e283f35aef",
+          "resolved": "2e269cd021c6b8ad0694872bbe1e43cdbdec9624214e614a796393ad60b58884"
+        },
+        {
+          "patch": "39c71555def584c1-ef8fbc7838f6f91c.patch",
+          "patch_hash": "a973f4d5249d1f0b38c2f9bad72def8154782b86ff0143d44860dd711a09afb3",
+          "preimage": "ef8fbc7838f6f91c835b5ce78ea7b2cab34d5026a4f9fa922003f1a2969c4c6d",
+          "resolved": "5cb659a02bee5f5a3ca9bd053e15f43021da0d605abe525256af0590f1e26d7c"
+        }
+      ]
+    },
+    "drivers/i2c/busses/i2c-xiic.c": {
+      "chunks": [
+        {
+          "patch": "848e13f769f4d13b-6f0ab16c1a0911d1.patch",
+          "patch_hash": "a02afc936413075972cf4672c810005fbcaf5beb17bb2b76434088425315b5c8",
+          "preimage": "6f0ab16c1a0911d1f6cee65f9aafd3ca4ed35c99dec166ab274981ffb3a88f38",
+          "resolved": "2b642d0c94832a08223628e2fb2ad8929e8912ffe2d255eccecf077837776078"
+        },
+        {
+          "patch": "848e13f769f4d13b-80c9db169c00bb19.patch",
+          "patch_hash": "518d28014c4c7c67d4f7c7aef755cbfacb5a219abc858edeecdd90c90da0d864",
+          "preimage": "80c9db169c00bb1942095e7b1213ebadf9140b2e8c42aa2519e2483c1eba31c3",
+          "resolved": "8e6da32fd4f7746eb51e592dcbf850cc30afc28e8fbb39cebee93a913c4d3aac"
+        }
+      ]
+    },
+    "drivers/iio/adc/Kconfig": {
+      "chunks": [
+        {
+          "patch": "986e75749b739088-f8714897d7f03ed0.patch",
+          "patch_hash": "101e6e457918c250bb5a315aec2932a29c9d1c4e671ec9e21e4afaa2c1405eac",
+          "preimage": "f8714897d7f03ed0ee92dcd16b2fd64afc4cd59e077b92c54ac14595ce446376",
+          "resolved": "cd1d4f479bccf4fd7d0f7a50fce6ac102694363551a09b67600ecb1d3d714783"
+        }
+      ]
+    },
+    "drivers/iio/adc/ad4130.c": {
+      "chunks": [
+        {
+          "patch": "9b6cf19506b30756-1024016231bcce31.patch",
+          "patch_hash": "549c12ec5b845bf4c02b25c6e17c19758423e938ac205594ddd5e1c86ab9dd32",
+          "preimage": "1024016231bcce31a5a650b8065f1d21259edd07242a21e47b5ed6b3c6d3db98",
+          "resolved": "566db80e108097fbc578a856fea328b584fbc73143963595cba1fec54e6aa653"
+        },
+        {
+          "patch": "9b6cf19506b30756-dd52c6dcec772d7b.patch",
+          "patch_hash": "93823798e2d9c496346c6aabeb36f0615d9cb4c3739f3baecb045b0dd71bc8ee",
+          "preimage": "dd52c6dcec772d7bfd3baac50057d470e6bec599902f985f12bc7e5556f15c71",
+          "resolved": "ffc33991196341257ccfd3df430d83e83a7d0cb1cc3d7a536f308bec07568b52"
+        }
+      ]
+    },
+    "drivers/iio/adc/ad7124.c": {
+      "chunks": [
+        {
+          "patch": "20dbeef81fb2f3c8-01dd63cb7ab1f722.patch",
+          "patch_hash": "b1090a458cb3444cff14b2d8cc16cc0e2e49b50662f2c4e78a6e255d0d32edf9",
+          "preimage": "01dd63cb7ab1f7222f0001ea0abb8ef79b5dd120c29d96e471b4cf7d5f85ba92",
+          "resolved": "e5be606bed88859ca96c604d2f7516c0ad3e8da88a9c2456ea5b0037045a9707"
+        },
+        {
+          "patch": "20dbeef81fb2f3c8-278219754b379655.patch",
+          "patch_hash": "2022379bf226bde271c53a0ec2d5ae2900e33265c5b29879b7283482e7ed7730",
+          "preimage": "278219754b3796550fd54c877b0a96bfaff0f0c6bdd6fc835b680a7cd4cb3b4e",
+          "resolved": "806903f289ef7b2e8fe4bd9062d8c337a70b96f247eb5b89f52cf97fa810b302"
+        },
+        {
+          "patch": "20dbeef81fb2f3c8-2c966c686f84a064.patch",
+          "patch_hash": "25db5bce0397246deca351183791f792ccfeccc3cabbd7be661b4204789c8474",
+          "preimage": "2c966c686f84a0647a06880f18896b03a60c3306b523dc66b3c330548ef9333f",
+          "resolved": "a08b62502c6217c6730eca2d8c8b1446f9a28e58be08402de2db1eedccbf0578"
+        },
+        {
+          "patch": "20dbeef81fb2f3c8-bfd987eef218a125.patch",
+          "patch_hash": "fd26fb1b31102b859c8af30768d887aa64dec2456db93c9bf58b267e0c08acdb",
+          "preimage": "bfd987eef218a125c0bbbadb8f7d7ccd3121a7d8e8ec383d814baf6c5a6de0b9",
+          "resolved": "8a41c843415f27d3906ac6b5baaac063e0119a0301e92d97f62e487c38179439"
+        },
+        {
+          "patch": "20dbeef81fb2f3c8-c7dc6045ba7e0e2a.patch",
+          "patch_hash": "2cc3ecfdc476ec5d28899f2f3abeb73d306278b2852261d5a396b3f4d7632c87",
+          "preimage": "c7dc6045ba7e0e2a4b0d75dfaab1338b6f2d2edacd8433a3f45f8859f2be0249",
+          "resolved": "b7f53c050eb0897998ab8191c5c018ae416f497c7df04c6b86154f121e1c7aa0"
+        }
+      ]
+    },
+    "drivers/iio/adc/ad7173.c": {
+      "chunks": [
+        {
+          "patch": "d22ee37c96e36d9b-27a8abdecfe4a4c2.patch",
+          "patch_hash": "e794736821fc41849c141609330f38f5e70f5a8d7511677ca698750c2268018f",
+          "preimage": "27a8abdecfe4a4c222352015361eb1843b4bc18f5d2bc94779d90ced722a9362",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-295df558f56cca4d.patch",
+          "patch_hash": "266cc16e67a38ff509ccdec3359899ce2bbbec61a5305fa8f2b83a0685f11722",
+          "preimage": "295df558f56cca4d0e511381caef69ffaba54a6b4ab80839df12d6e85fc0c7f7",
+          "resolved": "c6d560524850e7ad5532f1a37a3534c5f4eb9230497f9ed0c1264c6123da43fb"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-668fba03969314df.patch",
+          "patch_hash": "bc5a3b712da40147e12a1b15a87d579f0ebfe477eee99b8a6043cb1fa6ead1fa",
+          "preimage": "668fba03969314df264d4062369c77daa0b4adb09ec801e15aef2a375495e649",
+          "resolved": "76d8cf564143c6920862a151e266ba145361a87a876f600c8e6b5f2d528b7b42"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-9d460e5422baf75b.patch",
+          "patch_hash": "3a97a98bc71efc3565061fd423d9701f70bd34b01fcdcdbb195ffd9bef8f2196",
+          "preimage": "9d460e5422baf75b9118f6abcc32a63f42a1db4cc9847c9b9ab1553acd8607fb",
+          "resolved": "bae097b90e51dbeaa7b15997452ae4be11c0706301bd4b17822bb1eb339f989a"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-9f4200803ba08dec.patch",
+          "patch_hash": "7ac8d2545d28270035b542eab8335c6e465cbc68169c813b2ecec6c788ee728f",
+          "preimage": "9f4200803ba08dec8ccbedfaf516f0b7bd77cfb86f007b68f032541896021006",
+          "resolved": "10599862c331263aae41f9cd97e9a6ef3231f8d2c7956b636c5e48d0872299ce"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-ac73d734caac3e18.patch",
+          "patch_hash": "33035edfe8f7a36ec42a0a0317c20185df0ecaa539ea5737cbdaac11efcade31",
+          "preimage": "ac73d734caac3e1801446522ec79c428ea0d5bf19b522277e4ee38c12da461e6",
+          "resolved": "eab895dc392553861ae113a9989671f612748933b3f29c08153c275a049f1378"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-ad2d88062bd5978c.patch",
+          "patch_hash": "c398b3b6837c4ea2a99c51e0fb81d2cbe3b549fd7ca97f3a8bec3c72e45db2c9",
+          "preimage": "ad2d88062bd5978c83ec2f6ea662554f193154c3ab7fd8bb5fa468c994b79a80",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "patch": "d22ee37c96e36d9b-e2b811f28c25a359.patch",
+          "patch_hash": "1899987fd8cff9f1b228c16127597f43882bcaa5d02d2df2ef1fe26d705449c5",
+          "preimage": "e2b811f28c25a359aa49699aec9dec5841535b97b3066549f064618c99d963aa",
+          "resolved": "eab895dc392553861ae113a9989671f612748933b3f29c08153c275a049f1378"
+        }
+      ]
+    },
+    "drivers/iio/adc/ad7768-1.c": {
+      "chunks": [
+        {
+          "patch": "2af9723d153c1c97-050d6036d2c194d6.patch",
+          "patch_hash": "8bbd42663b8979defe13f1c98e214d6fd396a2c76e87d760b199bf2c782c5fb2",
+          "preimage": "050d6036d2c194d603781c534de7ac4769add1ae85f031bec4d7417c24f7ea4d",
+          "resolved": "4e6f541fa3be0535c6b2c0f362712b5e96bdccfadb7d9386f8ca032f54ed13ed"
+        },
+        {
+          "patch": "2af9723d153c1c97-0c95fdfb7f57ed14.patch",
+          "patch_hash": "05f3913c1da29c347498ab661eb3486959c6d8eea874cb2bb7ad44e03928756d",
+          "preimage": "0c95fdfb7f57ed1446569642cfa08a59ca5ab6122dbdfc1f2207b2fc34648505",
+          "resolved": "4bd73ad44c05450e9e6ead521bda76c7342c73a80010fa99234d2900942681a1"
+        },
+        {
+          "patch": "2af9723d153c1c97-282e2d6dda9a93b3.patch",
+          "patch_hash": "30e39f90d67d4e1ee9335b1d5aac6cdc2b0a4dc00b40c764cf31959042ecb391",
+          "preimage": "282e2d6dda9a93b3c28436a690110afa7dfa85d31c6efccf6abe60f8311bfc94",
+          "resolved": "56f358ffd00d530eeb5b7e09e5f644a3859f2352bc8ea00e94718216772d39b1"
+        },
+        {
+          "patch": "2af9723d153c1c97-53eff859da99c3bb.patch",
+          "patch_hash": "480db733bfe5b215d77e9072d07808c38088dde699cbff5c698426f6781e41dc",
+          "preimage": "53eff859da99c3bbeecfd1f613cc473e1695ea7fd6e5b7a52569b29aee215633",
+          "resolved": "61130f8c57624c396f2fb27fa7dbe2a90e54dae2eda3ad9b816e59d787b72c2d"
+        },
+        {
+          "patch": "2af9723d153c1c97-8e1bbbcd2c299d60.patch",
+          "patch_hash": "2c529fc6e5534b7e2c814da64f4d43960622c99b327fe10b78b94545c57edfe9",
+          "preimage": "8e1bbbcd2c299d609ce3d33ac509aad64334baf9ce21db66635293dfaccf0542",
+          "resolved": "7042c0d7d01b9b22451c1cbd899df6772d39e1bf3e35f2823ce5582c5157de72"
+        },
+        {
+          "patch": "2af9723d153c1c97-dfbb6d93c8fadb07.patch",
+          "patch_hash": "70ca36ce118676de4c5cc199ce8d050e51e8a29c697044eb3ff2fa08f45d2b15",
+          "preimage": "dfbb6d93c8fadb0771b241dd0dff3c8123792e88f8741275691d269835cde411",
+          "resolved": "65ebaa74bea8dec14b913143a72e7543bc629d2e26d609f91e0fff980a7478e9"
+        },
+        {
+          "patch": "2af9723d153c1c97-ed14ba5475776b03.patch",
+          "patch_hash": "a4b05b3503497d057664f5a482145bebc8ceadf7493d8d35be12afb9051498ea",
+          "preimage": "ed14ba5475776b039dfb11a38f60adce9b58ae2eca5b6c0ff7ac2104610439e7",
+          "resolved": "ba19af09a54e7a0f42f376055e946679be04969152e5c130e12a8601a68ff2ac"
+        }
+      ]
+    },
+    "drivers/iio/adc/ad_sigma_delta.c": {
+      "chunks": [
+        {
+          "patch": "9c0fed115ab1166d-5311ac183d3f0a20.patch",
+          "patch_hash": "8b2d68bac8fe3c91a7f2d1476cf5c4c6fd0b6277f2156a675c085e2a3b7f08df",
+          "preimage": "5311ac183d3f0a20b29c885bbbed348f12e6e41c88e3141fafeb96d05bfc0d76",
+          "resolved": "20ea4ced73c126d91b1a07125a1655eca96568c55079e05d27e4dab8c601172b"
+        },
+        {
+          "patch": "9c0fed115ab1166d-95cdcf4084b162ca.patch",
+          "patch_hash": "c98c4ff53d1ab16cd571fde2bd30e905a23d105258b809a4401e5c1ca6f41ce3",
+          "preimage": "95cdcf4084b162caa98846919de1a992d025bd37d2b56e007d2f24c9b6d4c5aa",
+          "resolved": "267bca6f33b9e39b2aa618a823fd79a85705a2c6263621cde72717c09f8d4a84"
+        },
+        {
+          "patch": "9c0fed115ab1166d-aec6a16009ad6066.patch",
+          "patch_hash": "ba9eb224fd6e2126f64b1574759688f461d619a5db6755ecce97e9f1ee444f67",
+          "preimage": "aec6a16009ad60668cc153d74649867a64ba553e5adeb62e6b669ca0aaa69810",
+          "resolved": "08e344daea967e834df97bca67864202e90c80ac4565380138703d01ec6116b3"
+        },
+        {
+          "patch": "9c0fed115ab1166d-bc61ac6497dcb9f6.patch",
+          "patch_hash": "08f16233bcaebdfaf65b6f6c8416e51c0e6772ffe7f2bd7009e0170e03f3d345",
+          "preimage": "bc61ac6497dcb9f699a57bedae1a0cb087f0f1ec441e6143d44bbd9342c0a82c",
+          "resolved": "27dacd7c82f596749c07c934295b910898bc691bf3ba48d3aa2c9ecc83add86b"
+        }
+      ]
+    },
+    "drivers/iio/adc/xilinx-ams.c": {
+      "chunks": [
+        {
+          "patch": "d0ec2caaabed322d-5c326b5e1005d152.patch",
+          "patch_hash": "0ccc1d483ace7edd8ef9078b540419677b5b9e6798ea59f21eebf3e65b661b2a",
+          "preimage": "5c326b5e1005d152271a88b85b19a6d5bb5f813d35c8c9c86375446297c0dfcd",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "patch": "d0ec2caaabed322d-85e36a0295724021.patch",
+          "patch_hash": "0a0214e8301c70e1b258bb96315a0eccd7a686dc810a48b75ffc5bc6755052c0",
+          "preimage": "85e36a0295724021323e584f162dc893816f9207fea83894efe83018b0cc6684",
+          "resolved": "82426f64ec784917f01426f19a2505df1ed01a4d061d63feffcbbf8e55a9e0a0"
+        },
+        {
+          "patch": "d0ec2caaabed322d-8de4eb14c6690065.patch",
+          "patch_hash": "f319ce1511f35b4a6ec4c6ebbe9681c3e5a0697191ce78f831912e2edaa2f0eb",
+          "preimage": "8de4eb14c66900651bd4832e7aaebcd347eed1d2e2240ff9c5b30238f421ecf7",
+          "resolved": "9f78ea3f39d0400095b6c46de7bd21998bff1451258a46c9e5d098d40ea0230f"
+        }
+      ]
+    },
+    "drivers/iio/buffer/industrialio-buffer-dmaengine.c": {
+      "chunks": [
+        {
+          "patch": "b808742a583fa677-5fcca173672d8001.patch",
+          "patch_hash": "a15cc8386058bcd84b30c276fbc36517808f552806b0612bfe6792c90eb46606",
+          "preimage": "5fcca173672d8001a104e3037e81ce4330acdc99fce0c9e765105dc045ece3a0",
+          "resolved": "6ac88fe48b9b5f85c5ac06ed15c99429acba7cb8a9a044e0c5488139b753c3f6"
+        },
+        {
+          "patch": "b808742a583fa677-916dc6dee18377d9.patch",
+          "patch_hash": "3b322842bcf86edab4f3c3429f93b20bbb8cc7f92b7031cf3626765226f80665",
+          "preimage": "916dc6dee18377d930f42fcbfaa2d420ca878c8df6d5f42efbdfc51236701a4b",
+          "resolved": "d3d1cc1d68a340cafb15ea36b7c297971c1f7e05105b51e65db88dceec84d707"
+        },
+        {
+          "patch": "b808742a583fa677-e296366d186aabd6.patch",
+          "patch_hash": "7b3159faaf3321c7f6ea74be2020eeea742794859595eff8798cff0792dacb21",
+          "preimage": "e296366d186aabd6c839d91d4a95348886b21dc143f97665184c1a93d34ac830",
+          "resolved": "976ec8d189d802517236bb08da64b5ded817ab1873536c1355931f8955c22038"
+        }
+      ]
+    },
+    "drivers/iio/dac/Makefile": {
+      "chunks": [
+        {
+          "patch": "72a598703f1a46ba-56c3a9f139e63016.patch",
+          "patch_hash": "fb662087e38d7ee1e543270d84606cbbea09d02bb69c442977745509759612d4",
+          "preimage": "56c3a9f139e63016b5455c5ceed4e8e53f593e5b7b879782e68a883b39c955ac",
+          "resolved": "e3801fd0c6e77dd23b9cffded7786b2d03619558bc59e0ff53cc88379e1ad27f"
+        }
+      ]
+    },
+    "drivers/iio/dac/ad3552r-common.c": {
+      "chunks": [
+        {
+          "patch": "34ca9978ef930334-00176cc898df0f97.patch",
+          "patch_hash": "db9368943e849ec5e5f599a6361f24afd6d06f41d470475f217a08d4c619d856",
+          "preimage": "00176cc898df0f9741afef6f75659e48981e180f1d9c7dbfc017f045fb6146f6",
+          "resolved": "659c8a7484f619953a8bc3bd5cf0b09c4ee3a4489a25726cb3e3f64b5e6c4904"
+        }
+      ]
+    },
+    "drivers/iio/dac/ad3552r.h": {
+      "chunks": [
+        {
+          "patch": "44f82b3ec878655a-108ddcf004dba8e2.patch",
+          "patch_hash": "e826bd4cd0e3dbcda190e22319fdc5f9793e4a1687c00f1011e1d28d8fa3e3d1",
+          "preimage": "108ddcf004dba8e2e63ff5d316a04a6e8bc3645c8470474cb16fb21617f9264b",
+          "resolved": "b432ce947d829c32003e3c5f780e8e12c4ca686ff359e1a2bd458669481447db"
+        }
+      ]
+    },
+    "drivers/iio/dac/ad5686.c": {
+      "chunks": [
+        {
+          "patch": "9b55e3a243f505f8-05964694da516d17.patch",
+          "patch_hash": "5aa0484aee508c5786500f03501de52c3efebdc168f3d8090a4d0e45f0cac1ad",
+          "preimage": "05964694da516d177388f879f2d05bc2571f8a97e8c4b4bfad3e556a0ee53570",
+          "resolved": "c06cb666ba3c993bbe68f24c8e19e0b76007d08d3818ba620567177dcc162224"
+        },
+        {
+          "patch": "9b55e3a243f505f8-0d16eaf442002f93.patch",
+          "patch_hash": "c1a4381cca1bb280ca549e8f1a8989723ea3ec5a2fcfb7ea74ea317484ab09ff",
+          "preimage": "0d16eaf442002f93207507f510f170905375bbc276f185951509f080f38688e9",
+          "resolved": "daa4265f972bee560f9a1bd72cabd87655f1b3f5dd89b84b934ba7475cc60a02"
+        },
+        {
+          "patch": "9b55e3a243f505f8-2a49d7f8ea0c7b13.patch",
+          "patch_hash": "26698bb6dcce19c2dd434f57d7bf76c1aced83fe381a334457157be042ec67d1",
+          "preimage": "2a49d7f8ea0c7b1363a0dc1d09393d724ac62e8cc472d4f8e90cf3977b865bd8",
+          "resolved": "e1f1a3ebb9e432423933e8ad94e5c09ee2c05f6557d817ab69944de5591c5bce"
+        },
+        {
+          "patch": "9b55e3a243f505f8-901c4a29fe4e6507.patch",
+          "patch_hash": "eb3af830601d83c692dc012e07fd9f550f42c087237ec7bdef5d75cdc141d619",
+          "preimage": "901c4a29fe4e6507ef1225268483573a419b9d839d230aff5500143cfcd8fb0a",
+          "resolved": "2b57645a127cfc3f8da33427e4f13e595e868311fb93a89568f263fe38d2e4a5"
+        },
+        {
+          "patch": "9b55e3a243f505f8-f042aa446e6c9b17.patch",
+          "patch_hash": "20168cabdec8d2e04774fb9968b7220adc08661242b0dfe9104d3ca9b1aba647",
+          "preimage": "f042aa446e6c9b1766ccaba99491877f24d146badb86f7cb05f3385aa11073f9",
+          "resolved": "9c891fee70c75646e75c89e514e11b942163dfcbe839227915d60a99ec63e670"
+        },
+        {
+          "patch": "9b55e3a243f505f8-f087b92bbb391caf.patch",
+          "patch_hash": "c510d98faa46ca9e34aa225829a38335806fcfa505b145ffa2bb0b71dd2746a3",
+          "preimage": "f087b92bbb391cafbbb783bff96a272b7d499c775e8d942c9e80a22f97227b25",
+          "resolved": "45fa9f2c47754dbf9095c41ec1aae728c670cd5be3f59a72438add54f213bbd5"
+        }
+      ]
+    },
+    "drivers/iio/dac/ad5686.h": {
+      "chunks": [
+        {
+          "patch": "33e4e34c7304ad77-d0a9097fed0e7cea.patch",
+          "patch_hash": "837cebed182dd4ee2a908702fd4bec7244ee99f22bc1a70d037b64d814e42ef5",
+          "preimage": "d0a9097fed0e7cea3ca9febc79fd650e21116ad71451e2f9d05360b4d0bd36a3",
+          "resolved": "48a446c27aeb527211875163fc71854fb8a712e2794fa6da4596b516fbaa435d"
+        }
+      ]
+    },
+    "drivers/iio/dac/adi-axi-dac.c": {
+      "chunks": [
+        {
+          "patch": "ce11ab05792395d0-636577a172d0e8b4.patch",
+          "patch_hash": "113e3bb41b2e0a121f711f4796fe959d0bd83d42dcdefab4850457b8e6df6573",
+          "preimage": "636577a172d0e8b48715e7d461d27fa38b6d14812646524e7fd5dfc9229baf53",
+          "resolved": "3ff462ef9abf1a832719b5395522ad2b0f8a54a7227135008680042a0ea6ad5c"
+        }
+      ]
+    },
+    "drivers/iio/frequency/adf4350.c": {
+      "chunks": [
+        {
+          "patch": "76998ea970d6c727-47f71578818ec247.patch",
+          "patch_hash": "aad8abc3bcca7450f261be40849e4682f8009644b66e18ddd4fcc78d80bf55a0",
+          "preimage": "47f71578818ec24735de722825966bb2a00735719e08c6ab6427305e8daeb995",
+          "resolved": "041f26d51ef510c25d6164bca18307ee54ce0a3d4a3c41a71b1319acde0ac97d"
+        }
+      ]
+    },
+    "drivers/iio/industrialio-buffer.c": {
+      "chunks": [
+        {
+          "patch": "484440a7cf1d881d-fca4a645ffa26921.patch",
+          "patch_hash": "800eb809800deba02184f0633cc1f7ee234dcc93b2047313505206dc70221acc",
+          "preimage": "fca4a645ffa269211b17eb71a9a0aed46aa836cbeb8a041e83304675d313b21e",
+          "resolved": "3fc12f5097ad7dbe2b58d442a86fd2aae0c20e8264ffa935441cc5cd5cd739ee"
+        }
+      ]
+    },
+    "drivers/mmc/host/sdhci-of-arasan.c": {
+      "chunks": [
+        {
+          "patch": "9252b676f36f87fb-32db92ae6df91fea.patch",
+          "patch_hash": "3ae65201fb752fe247c929105ef7b1c603497068f055a0a62ef07868de675685",
+          "preimage": "32db92ae6df91feaa450da194145d14db7866c5a9609ffd202cd4ef8c8c4a149",
+          "resolved": "95d6912272545dec74db67579e3dc117ede1539314e3e98ada003c5fecbc41a8"
+        }
+      ]
+    },
+    "drivers/mtd/spi-nor/core.c": {
+      "chunks": [
+        {
+          "patch": "e3f3bd844f3c88dd-5246efe03fcccbc7.patch",
+          "patch_hash": "d65e19464882902df13e023d33a6b601aafef0cd0133580853fc13490465a1f2",
+          "preimage": "5246efe03fcccbc7b4171dcc46a4476ef25ec58837dcbda99a16c9d548249686",
+          "resolved": "22cbf4b72cb53de2c538c9a9a61d72ba7da34e5b679de73743af05d25a489560"
+        },
+        {
+          "patch": "e3f3bd844f3c88dd-d7226f6a839e978a.patch",
+          "patch_hash": "ad0fb1106d41c1a299199241976200c806e115c5c451116b916987eb62c8cf40",
+          "preimage": "d7226f6a839e978a4e9f33769de246c804ffaeaca4b3d728e768d19e05c5929b",
+          "resolved": "bfd67eb8e7a05a3fde56bd3786984cfea25ac798d8d857000f53bad9fac059a0"
+        }
+      ]
+    },
+    "drivers/mtd/spi-nor/swp.c": {
+      "chunks": [
+        {
+          "patch": "7cf06811521681ee-09f1596da4c37f16.patch",
+          "patch_hash": "12a7f35d5a8531b09808a6ca2dc57fa2c55d98783be65da2e20387fe74f10f00",
+          "preimage": "09f1596da4c37f166f445b1913124f51af1e59743d91e81f66fa4900fa6c38b8",
+          "resolved": "84fb7dfe8f6f8010e039617644cc881b0ec7ecc23b975824d73e6fd082e26f6a"
+        }
+      ]
+    },
+    "drivers/mtd/spi-nor/winbond.c": {
+      "chunks": [
+        {
+          "patch": "dd8c1be1f00feb8c-bc8bc92ef178e0dd.patch",
+          "patch_hash": "cfad59a494db1ebbbcf62d551d3142d1f86f832ad367c7fcf9fdcda09e743653",
+          "preimage": "bc8bc92ef178e0ddec573ff98c2fa87d12acc5f26ae273ea88a26a368a0d421d",
+          "resolved": "246588e4306417e83395d345da242729bdafe1d2409165115cbe26f8802a8ade"
+        }
+      ]
+    },
+    "drivers/net/ethernet/xilinx/xilinx_axienet.h": {
+      "chunks": [
+        {
+          "patch": "e1fdf385430186bf-02ac8723ccda9052.patch",
+          "patch_hash": "28df8ccb831ae3d47777ce8aaac66cf3b836a07fa40249b5a2a1ea110c5de343",
+          "preimage": "02ac8723ccda9052d1480636ff379bae57280703f48d8bb46286430be3e0bf19",
+          "resolved": "d9810ec7984119114f174b6320a15fd753ce42460c40305350afe95154c175a5"
+        },
+        {
+          "patch": "e1fdf385430186bf-153ec7d6ab1d09e4.patch",
+          "patch_hash": "ae587431481a178a260b67bb2c365c8c0e817f3f17201f83f3e8f3d14b14b544",
+          "preimage": "153ec7d6ab1d09e4adfefdfa9ff88d6e71307c503fb4f01e4133ac8c3232d256",
+          "resolved": "da338b975309c912d84a5e126e73c042642ca802e355fdda93f40e79c2303f21"
+        },
+        {
+          "patch": "e1fdf385430186bf-f0afceeae02118d1.patch",
+          "patch_hash": "e8b2a8623548a1c665001ab9bb5524e81e706327c5ea6c21ae84f79f9ffc8c39",
+          "preimage": "f0afceeae02118d1cf3ed388e9e47a3dfd804a15bdc6978ac619d9d5fa883328",
+          "resolved": "ba8c3296f994acff31ba098454a592c6b8833a715440957b80f4baaabd1e506c"
+        }
+      ]
+    },
+    "drivers/net/ethernet/xilinx/xilinx_axienet_main.c": {
+      "chunks": [
+        {
+          "patch": "a1bfa446162b85e0-baf2a6d66fe75ee6.patch",
+          "patch_hash": "da6bf015fdf457e220063f25d468db1961279c0e9bd0f6ae3baab2d1358719ad",
+          "preimage": "baf2a6d66fe75ee6803d33eee2ac3dcb38c0c8f37f989ee7d271be5efc9d07a6",
+          "resolved": "03d6353aae4fb7431ef1f094dc760c7a343715d9971d382cc2a16efd88e7b542"
+        }
+      ]
+    },
+    "drivers/pci/controller/pcie-xilinx-cpm.c": {
+      "chunks": [
+        {
+          "patch": "525777756155535d-14b8015f8ef9cad0.patch",
+          "patch_hash": "7b2b2e31eb1b57006584ecb6642a42495b8214433988b0dc54998a5dc952ddb0",
+          "preimage": "14b8015f8ef9cad07cece74773f12a190ffc3326b75a236078f4fef8fcb7a0c4",
+          "resolved": "0a5eec0dba286138c2277275b18a0e52d2e8b7b55f2f9d7688eb7c72c19e10de"
+        },
+        {
+          "patch": "525777756155535d-f1c97ba022caa4a0.patch",
+          "patch_hash": "3fb5fbe69da91c43e625beb17c6022eb90bc0fe9c408a8195f1b958f7cd1668f",
+          "preimage": "f1c97ba022caa4a0af3198e576a1daf2ee5e52a1ecedbb076d36fd1fe6b8c0e7",
+          "resolved": "78dd7076de95d1bd05d9317b8bdb1619a9873a86e91d9df358ca962cb8585bc8"
+        }
+      ]
+    },
+    "drivers/pwm/pwm-imx27.c": {
+      "chunks": [
+        {
+          "patch": "d8a1c8b2d0b6ac23-62b1b6d6b4c20649.patch",
+          "patch_hash": "7f5e116eca4c88308ed27a5f9cd120a56f2431abf3bb4f0b59e4adb18d3e9f62",
+          "preimage": "62b1b6d6b4c20649d492d91ab3af23a4c68530d4d9d9949793adef452ae49507",
+          "resolved": "09d9aedd9d6a403472116d8296e393031d1ceafc0ad2617ce32f10062d6640f3"
+        },
+        {
+          "patch": "d8a1c8b2d0b6ac23-92772241dcee6fe9.patch",
+          "patch_hash": "6140091fb9f86d83f4bd64b89c18aaee4197a314a3eb1d116885d90960c49b7c",
+          "preimage": "92772241dcee6fe9ebdcdcccd3cfc97fd40d2883b316f59c2c157daab8e7c51f",
+          "resolved": "ee492be799ed8d8dc65dc0ac2437689c8f1135818834e9b02b4b3fcb2c840b5d"
+        }
+      ]
+    },
+    "drivers/pwm/pwm-stm32.c": {
+      "chunks": [
+        {
+          "patch": "0fee7a9f042bf743-ef9731bd6d3e9f87.patch",
+          "patch_hash": "a6bdc202405c930bac86eb004c4c93dd4ee3080e3a2866e21576d67ed2a32d57",
+          "preimage": "ef9731bd6d3e9f87b0ecb4d2b2cf706697da3fd45030f9bb59cf66c9b44e50f6",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    "drivers/rtc/rtc-zynqmp.c": {
+      "chunks": [
+        {
+          "patch": "2197b602bd01a780-6f5d5850ac7b1f00.patch",
+          "patch_hash": "60379126dedbb532488a25972869c35ba794d43ccf09168f0af8ba45b98b5e95",
+          "preimage": "6f5d5850ac7b1f00398e16351b2990d8c756d5dbd691a4cb49d54a117c85b6e3",
+          "resolved": "107f2b7f13129663cfec5b4f5aba9eae43191f76f73d23f88e9947d117c097fb"
+        }
+      ]
+    },
+    "drivers/spi/spi-cadence-quadspi.c": {
+      "chunks": [
+        {
+          "patch": "9aa79a016a9834ea-71c8d80de3b6615c.patch",
+          "patch_hash": "abc0c1e56ca2d046f86f097585e3d86d2fa49a17a71a883b6ec2e7bbe330bd4b",
+          "preimage": "71c8d80de3b6615c796c8cab85f9f48490f6553f1d8187ce0fd875d5312f2176",
+          "resolved": "df62fa3f218064418fff4a2d314eed80881e9c5c1c394a7490ce0f176df85376"
+        },
+        {
+          "patch": "9aa79a016a9834ea-91c3f5bea16c99e5.patch",
+          "patch_hash": "b82f13352d08ef2077336c50b99b7730f44ec0a3e4369d9997bb52b64f6e0ba9",
+          "preimage": "91c3f5bea16c99e54cd73ed5e898908e4d912db87b3975f88a08ef8a5fd1de29",
+          "resolved": "0cd6e0fefaaeb4511e7fc6b5d3a200ab32b63fd884710217db874668c8485d21"
+        },
+        {
+          "patch": "9aa79a016a9834ea-a6b8c56b9024fd28.patch",
+          "patch_hash": "3e4b393b33d4b7a0fc54957e27f653b9cedf8ad81a33c0f8575504b955c60168",
+          "preimage": "a6b8c56b9024fd28fc8ec7a3690fc328785de8ff0d971ea2c7c418860896fef4",
+          "resolved": "b137a0f312f1092cb75af491ccd11186bcbadf1e3d04dfafb382022c6b16fcc5"
+        },
+        {
+          "patch": "9aa79a016a9834ea-b03c019f38900258.patch",
+          "patch_hash": "971f2b456ff97983ab99132290a79020e8f6297c3100a050648fc96b17500dae",
+          "preimage": "b03c019f389002582996ace4e505009655274990a7d1f11db0cbbab1325f8eee",
+          "resolved": "2af9534528aa8b15e7acc263237c586250e6049a328e27835c5eb72e7cb06cb1"
+        },
+        {
+          "patch": "9aa79a016a9834ea-bc967da7e7c223f8.patch",
+          "patch_hash": "5b749d75fa66b555450aa1049023a471ac4cbc2bcab117dd33fc343299578ab1",
+          "preimage": "bc967da7e7c223f8f567a954730310624e08a15d72a1c34fd7ae5b685e7de943",
+          "resolved": "8fef3380c5dcadce4307896d2f20e9bb96aa522b0a07e3a4bb4fc0a1b5c4180a"
+        }
+      ]
+    },
+    "drivers/spi/spi-xilinx.c": {
+      "chunks": [
+        {
+          "patch": "0ca319426d4eda99-0ba6828e9653e2fa.patch",
+          "patch_hash": "fe2a4e13f79ad3727b5e020a2320acc91b7de1b595ead9b7a4699be235b89d98",
+          "preimage": "0ba6828e9653e2fa9cb92dc42554ad1798a2253e0809c9aa6582ec143dd390f6",
+          "resolved": "da6673dc2fe4ffa51055accb488aadc725dde8abb3c155571987cf779a411042"
+        },
+        {
+          "patch": "0ca319426d4eda99-a0dbc708005ee854.patch",
+          "patch_hash": "2d7a28b5830abb7206cb5b50df1e5471c45331bf8d5c78cd1ddfb9ea6361e7d4",
+          "preimage": "a0dbc708005ee8547fc9b8db2e486a9828da2de8f2eaeb4b076b89580acfdfd4",
+          "resolved": "4902bce67e8e3cb4d439cb9b707dab646ce961dd2808a4aacba71843ad03438a"
+        }
+      ]
+    },
+    "drivers/spi/spi-zynq-qspi.c": {
+      "chunks": [
+        {
+          "patch": "f6da615e3ef2dc87-0879ed122f476d0d.patch",
+          "patch_hash": "5629963c877837d0e21ed9131201b827db8c8bd289491a928140dae523ab068b",
+          "preimage": "0879ed122f476d0d0fbdde2bcb3698850d8f400511d57d9b25290b75ab45753c",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "patch": "f6da615e3ef2dc87-3190445ca7ac989f.patch",
+          "patch_hash": "d2111ccd3ffccf269856c0f43314b85f12ae1c14ad367291cb4deb0028d5d753",
+          "preimage": "3190445ca7ac989f75b0f1fe180a68cf9e4d7f3df28f25d68ba23541d5f6ffa4",
+          "resolved": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "patch": "f6da615e3ef2dc87-4a62a9ef9c81417f.patch",
+          "patch_hash": "735ce09c8c8724e8a58a6cf17b246d4be880ae0bfb8d02b8dd8f454dad732967",
+          "preimage": "4a62a9ef9c81417fc6618f8fd582fc4827fa0ae2beecbd884b069d7b5c9c6d5f",
+          "resolved": "bfc3edba54bf7286605eb13881bf77ef77cafccae766bd4a6ebcfc667618d404"
+        },
+        {
+          "patch": "f6da615e3ef2dc87-cf63ac21bfe72e3f.patch",
+          "patch_hash": "7cb588df3afb43292d778bbbe2232d201e1f91db00148776f35fb545602b1510",
+          "preimage": "cf63ac21bfe72e3ff475b391ff0b2f49d6d01ac00b7f8685b211021017926208",
+          "resolved": "db53c8dfc1b474cb8cd5e77ae865455d7de5bdc62e3e8554b7d2ca89fc819f9f"
+        },
+        {
+          "patch": "f6da615e3ef2dc87-f394d2b042756ceb.patch",
+          "patch_hash": "4129b4134cc7951524d9cecb787762a3afe52e64e89571795f8ae381b143cc8c",
+          "preimage": "f394d2b042756ceb6cfa674557b647f43f98fa2578e39dcee4af47c4caca9490",
+          "resolved": "30984a789aaf989386b82f0be5a133bbd3f9a9dc9cbaf5a780c1c70bf213c0cf"
+        }
+      ]
+    },
+    "drivers/spi/spi-zynqmp-gqspi.c": {
+      "chunks": [
+        {
+          "patch": "ebfce019dc6cb01d-780b9b706ae39fd4.patch",
+          "patch_hash": "44de95eb375b1b3df03a44bacbd1a3ecf72aac78d6afcc944d80c9b48f52aa19",
+          "preimage": "780b9b706ae39fd4a1e4ff248762df9f5aa9f246029bb47b6ec6f34c079d3b23",
+          "resolved": "41d64e1a46a234241b748bcc7192b054d561772bcca40eb3f592beee744998a5"
+        },
+        {
+          "patch": "ebfce019dc6cb01d-a3d660420e727c09.patch",
+          "patch_hash": "20148e2dc2bb68ded0d90b611b22be43ad7a81a49a249e6c7b758f068243e149",
+          "preimage": "a3d660420e727c0924aa17cab7a7b687c273b68df901e55dd9b9d18bcc013dcf",
+          "resolved": "2a6f9293738ab8bf55380f073af6d9088bbb457e8ea92db494992f49ff7acd28"
+        },
+        {
+          "patch": "ebfce019dc6cb01d-c2d70aee229b37fe.patch",
+          "patch_hash": "ed107deb1ea399d317255d76f12fb3ca0e8209ac775381ac28538c869994cc7f",
+          "preimage": "c2d70aee229b37fe7ece50d6fffb35937bfb666aa47c1916da156e2ddfaf40b9",
+          "resolved": "6cbd90d17726d14db24275cd51d543af1d00a59c28cdc4e3e44a778e7a628624"
+        },
+        {
+          "patch": "ebfce019dc6cb01d-ccb5090b78006b5f.patch",
+          "patch_hash": "642ef0f05788bcca5815c00d9c932734bb43cc696d0821277f28663033f73684",
+          "preimage": "ccb5090b78006b5f779b75e7a9437b584391502c2110d5cfb7c4b9db57121e0c",
+          "resolved": "1d1c5e6edd38ab469ca7e189ad89e76fc96b9537dd336014260441cd9efeb8d4"
+        }
+      ]
+    },
+    "drivers/staging/iio/frequency/ad9834.c": {
+      "chunks": [
+        {
+          "patch": "fe6089dbf0649461-e070f1129cb5cea7.patch",
+          "patch_hash": "d57249ee0a8ee29c568b70a58b10877986d5e5ad8e63e5cdbb2f0fe285e44795",
+          "preimage": "e070f1129cb5cea74bb08760e9d009b3c19f9800d3a755796ca30f495aa98e0c",
+          "resolved": "6b23bde1f98d0b5c36238b10aae52181e9069ebed7cdec6be5c2995180c415af"
+        }
+      ]
+    },
+    "drivers/usb/dwc3/core.h": {
+      "chunks": [
+        {
+          "patch": "af769677ea20a478-772e6cbe53b876f4.patch",
+          "patch_hash": "4c1516b3de2e44f47a2ece0fc9104bafdd4e20e4db95654045863da5f83b2c7a",
+          "preimage": "772e6cbe53b876f41529e17441ae29f4c1c87db8aa5a9035fce0668dc0b72e91",
+          "resolved": "20af18fd4e3b94c6e91df765cdee55fb8a4e5f336ebadf553b63e39a84f6124a"
+        },
+        {
+          "patch": "af769677ea20a478-cf650734a8fd946f.patch",
+          "patch_hash": "ce76c21e0c02bdb57acf98ecafac7eb259eb3922ce850209a57379327d44592a",
+          "preimage": "cf650734a8fd946f7904a0bc3450dd4120357da3dbaaf01e7ca5a355f5fdb456",
+          "resolved": "8bfbbd4dbc19e64923aa9b84ace556f8e8b2dbed5673ec895e0c5b51d1c23eb8"
+        }
+      ]
+    },
+    "drivers/usb/dwc3/dwc3-xilinx.c": {
+      "chunks": [
+        {
+          "patch": "d832d19e0a62e8a2-24e3c7cd512bbf5f.patch",
+          "patch_hash": "dcfd2ed53069a62807e79aec47d3bf1a1a616fc28bc3b762999e69133ebbcd6b",
+          "preimage": "24e3c7cd512bbf5f95129aff6056fd5cb2d8a279c74f2d783d2c0d1b227669c6",
+          "resolved": "e6a50a380c476518adacc252a644b826b722c937a1ed4f9dad543b38d2da6ebb"
+        }
+      ]
+    },
+    "drivers/usb/dwc3/gadget.c": {
+      "chunks": [
+        {
+          "patch": "5e9721ccc2bd0a32-703bd6bda20f35c4.patch",
+          "patch_hash": "9ae709ac04c13eaf62d26a0af2788a13d7768ad609761fc39bff174591b08e3b",
+          "preimage": "703bd6bda20f35c4ac5371bb900208613d8fed9b0b1831a48a92b23235479025",
+          "resolved": "387a2b69ae54669df4c2a40c8c555acce90ddf99b45dc84f2bf879a1ce14ed2d"
+        },
+        {
+          "patch": "5e9721ccc2bd0a32-7589504db2a3dc69.patch",
+          "patch_hash": "e45604206bbe44339a79c1b355fe27ca5ea04a81dfe974a4ed7473ea127b3e57",
+          "preimage": "7589504db2a3dc69ce9ea745fb08ece81b5d6b9cedab80736a2cf01561b294ae",
+          "resolved": "6779230a06b33b67e8bb2b5adca5177e27b95f9209dbff6d5349825a217f97d6"
+        },
+        {
+          "patch": "5e9721ccc2bd0a32-aa1c4830cfdd7bfb.patch",
+          "patch_hash": "f1781935f7e0e799bd6af3a378d27104070ed7b873e2ded3ca18725ac3d0c47b",
+          "preimage": "aa1c4830cfdd7bfbc62b180f4b7cf41658770256a2e0898b77ddf91cc465c164",
+          "resolved": "0833dfb48a2e8fcd8aba024f4143abd915b314afe4c0e16fd0f32620ee2cfad5"
+        },
+        {
+          "patch": "5e9721ccc2bd0a32-f23d65b7fd147d1b.patch",
+          "patch_hash": "c12b233872bcd0ab4e127a77016e5215431cf9a0231e8b069d1a2f4640b390ea",
+          "preimage": "f23d65b7fd147d1b97ce5f54249a3acfcdf726b2a39cc8c115c2ad51907e8093",
+          "resolved": "c6195348cff591df47e119a8fa3bde85e5c6d63fc863a1f6e892a5b1c7349a64"
+        },
+        {
+          "patch": "5e9721ccc2bd0a32-fbb722c102a02f9c.patch",
+          "patch_hash": "f398e6fe11c04336ea9b8740446765edabc25011b5f611a4183660cf6d7310a7",
+          "preimage": "fbb722c102a02f9c6a675676cfaee8dbd345c0ee87507d94ac6bb79b005e186d",
+          "resolved": "4009b4f80f95bf3ef39adba7cf2c21951a635bfece283263fd114399d221b37e"
+        }
+      ]
+    },
+    "drivers/usb/host/xhci.c": {
+      "chunks": [
+        {
+          "patch": "a0ebdad7125068d0-0105b1815ba43a20.patch",
+          "patch_hash": "78ad3aed01947fa0947ed78422fea1fbda987634656e247103b9cb29b1f4ab70",
+          "preimage": "0105b1815ba43a2064a0cc4e823eae10f5483be989628c39b315be8649de5e4a",
+          "resolved": "38124c1519eed2106c704d3cb42471670d84cf7d6cbe63ed76f91bb9a19b9aa9"
+        }
+      ]
+    },
+    "drivers/usb/misc/onboard_usb_dev.c": {
+      "chunks": [
+        {
+          "patch": "d17d4a03adc8fb46-ed47fca115815396.patch",
+          "patch_hash": "c7f4162fcb67006849f30a56295cc7d8e265e16b47bca9803904788044e99b2f",
+          "preimage": "ed47fca115815396ba0822762bb88c4e0dcf052db12196114edfb835f6734d92",
+          "resolved": "63c09324a589479b100e2561e7cc0c162b2555879fe3999a045afa5f3e29dd39"
+        }
+      ]
+    },
+    "include/linux/gpio/regmap.h": {
+      "chunks": [
+        {
+          "patch": "b5b48895db60fc10-15ee40594ea0baf3.patch",
+          "patch_hash": "fac2f46c122a2308bb91593d110157d380e5e3d58434a9d2db05671459e785a9",
+          "preimage": "15ee40594ea0baf378c1f07ef7e01f30de1586b46f006c51cd5dfb0ccfb37d44",
+          "resolved": "cce9ac9153b90e6fe090b3e3733325e685c081d55a4781287d512255b26016d0"
+        },
+        {
+          "patch": "b5b48895db60fc10-7ea258f631143e96.patch",
+          "patch_hash": "1089b8d6c618d3b58af0fae0437931e5ec72c8251966377d4bf6d438da014920",
+          "preimage": "7ea258f631143e968ac06da404d2cdd2f3e289d9500da84018b32b9151bfd1b4",
+          "resolved": "7ee1c69180bf88624a54eea5f5925236e35df05d6824382809fe7a942f223fc2"
+        }
+      ]
+    },
+    "include/linux/iio/buffer-dma.h": {
+      "chunks": [
+        {
+          "patch": "6ea9fb2ec0b88898-b99b1ea8184c0bf5.patch",
+          "patch_hash": "faf386964575c5edb594b34b8a3dcd38c2d6293941415cdd8b5b13e48ec3007c",
+          "preimage": "b99b1ea8184c0bf51163e24cb2e2d226a98fb26ff16bb6e662528a3359b94f98",
+          "resolved": "1e88abdb140443a55405d1b7646983fb8c927bbdd67b7e2b662dcae2d03fc811"
+        }
+      ]
+    },
+    "include/linux/spi/spi.h": {
+      "chunks": [
+        {
+          "patch": "953e3b77340aab79-9de870679d81229d.patch",
+          "patch_hash": "280b83e86aa2c996ebb38e0f481cc4984bb8042a7707118569b197c7851a7d9b",
+          "preimage": "9de870679d81229dd359c2dedb18778e227e49dd5cc9dba97d6d91723081ac23",
+          "resolved": "a143643c762094b3b7ba445e04930fecc62f76c2e0cad38d7e53b8652e21b067"
+        },
+        {
+          "patch": "953e3b77340aab79-b9188d22cdbf271d.patch",
+          "patch_hash": "357e9dad6dbf1313900be03c6d57014d53e0e45e23bd95664ea69ec80aac2cd1",
+          "preimage": "b9188d22cdbf271de59ae95e9a153d06d1087205fad4525c19beaa3903fd3571",
+          "resolved": "51dcb23f89e628b60e121421a035791b5b6fad0998a78942abcaf199f927e9cd"
+        },
+        {
+          "patch": "953e3b77340aab79-db453bf94285b28f.patch",
+          "patch_hash": "abb3f7f4516f6c6f81ec73122cf2d06bafd7f497f8f8a68a456f0ca3e0a4ee83",
+          "preimage": "db453bf94285b28ffafc396783a3ac187c2022c4d4d9b349e2681694d97728c3",
+          "resolved": "208a2a95100b5bd4b4ce00033c9955b91019c100a5775c6cc7ecad6d58c53ff8"
+        }
+      ]
+    },
+    "sound/soc/xilinx/xlnx_formatter_pcm.c": {
+      "chunks": [
+        {
+          "patch": "fb8f913638c72c62-c0fb7bd2c00101a9.patch",
+          "patch_hash": "a8bab39dee8d8b25d4c92e50d2edb8cb983f88214c2cbf3c9f16516b2c78f45f",
+          "preimage": "c0fb7bd2c00101a91e047ea7aca3964bf492d4d3de410d407bc3395a504c6880",
+          "resolved": "e93c37ab463c8c4b764dd5c3da094cd6375a835837cd7c092c2b40cc551cd494"
+        },
+        {
+          "patch": "fb8f913638c72c62-c48cf680abec569f.patch",
+          "patch_hash": "5b9a379239f2ca3c1529e219b631bb50c6da13c0c542c2caa074abfd62f612e1",
+          "preimage": "c48cf680abec569fcb3840761b2b8e1583230c8bc103870e84fc3c57e2fcc100",
+          "resolved": "a322a399b41d7f6c5f277aa2c6ae9dadf2cc2ef06a5eb6e7ded327612a65154e"
+        }
+      ]
+    }
+  },
+  "version": 3
+}

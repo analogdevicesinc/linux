@@ -1,0 +1,25 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	    list_empty(&dep->started_list)) {
+ 		if (list_empty(&dep->pending_list))
+ 			/*
+@@ -9,16 +8,5 @@
+ 			 */
+ 			dep->flags |= DWC3_EP_PENDING_REQUEST;
+ 		else if (status == -EXDEV)
+-			dwc3_stop_active_transfer(dep, true, true);
++			dwc3_stop_active_transfer(dep, false, true);
+ 	} else if (dwc3_gadget_ep_should_continue(dep))
+-||||||| base
+-		list_empty(&dep->started_list) &&
+-		(list_empty(&dep->pending_list) || status == -EXDEV))
+-		dwc3_stop_active_transfer(dep, true, true);
+-	else if (dwc3_gadget_ep_should_continue(dep))
+-=======
+-		list_empty(&dep->started_list) &&
+-		(list_empty(&dep->pending_list) || status == -EXDEV))
+-		dwc3_stop_active_transfer(dep, false, true);
+-	else if (dwc3_gadget_ep_should_continue(dep))
+->>>>>>> theirs

@@ -1,0 +1,39 @@
+iio: xilinx-ams: make the new ams_unmask() handle both ISR registers
+
+Stable commit bb9730d8c0635 ("iio: xilinx-ams: Unmask interrupts after updating
+alarms") factors the body of ams_unmask_worker() into a new ams_unmask() helper
+and calls it from ams_update_alarm() as well. The helper is written for the
+32-bit alarm status of the upstream driver (only AMS_ISR_0).
+
+Downstream main extends the alarm state to 64 bits (AMS_ISR_0 plus AMS_ISR_1,
+see the AMS_ISR1_ALARM_SHIFT handling in ams_update_alarm()). The conflicts in
+ams_update_alarm() and ams_unmask_worker() were resolved to call the helper, so
+adapt the helper (which was merged without conflict) to read, compute and clear
+both registers like the downstream worker did.
+
+diff --git a/drivers/iio/adc/xilinx-ams.c b/drivers/iio/adc/xilinx-ams.c
+--- a/drivers/iio/adc/xilinx-ams.c
++++ b/drivers/iio/adc/xilinx-ams.c
+@@ -414,9 +414,10 @@
+ 
+ static void ams_unmask(struct ams *ams)
+ {
+-	unsigned int status, unmask;
++	u64 status, unmask;
+ 
+ 	status = readl(ams->base + AMS_ISR_0);
++	status |= ((u64)readl(ams->base + AMS_ISR_1) << AMS_ISR1_ALARM_SHIFT);
+ 
+ 	/* Clear those bits which are not active anymore */
+ 	unmask = (ams->current_masked_alarm ^ status) & ams->current_masked_alarm;
+@@ -430,7 +431,9 @@
+ 	ams->current_masked_alarm &= ~ams->intr_mask;
+ 
+ 	/* Clear the interrupts before we unmask them */
+-	writel(unmask, ams->base + AMS_ISR_0);
++	writel((unmask & AMS_ISR0_ALARM_MASK), ams->base + AMS_ISR_0);
++	writel(((unmask >> AMS_ISR1_ALARM_SHIFT) & AMS_ISR1_ALARM_MASK),
++	       ams->base + AMS_ISR_1);
+ 
+ 	ams_update_intrmask(ams, ~AMS_ALARM_MASK, ~AMS_ALARM_MASK);
+ }

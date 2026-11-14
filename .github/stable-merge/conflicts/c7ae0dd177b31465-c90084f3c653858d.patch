@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,3 @@
+-<<<<<<< ours
+-	bool has_alerts = data->config->has_alerts;
+-	enum ina2xx_ids chip = data->chip;
+-||||||| base
+-	enum ina2xx_ids chip = data->chip;
+-=======
+ 	bool has_alerts = data->config->has_alerts;
+ 	bool has_power_average = data->config->has_power_average;
+ 	bool has_update_interval = data->config->has_update_interval;
+->>>>>>> theirs

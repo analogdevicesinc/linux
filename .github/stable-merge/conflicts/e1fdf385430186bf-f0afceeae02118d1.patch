@@ -1,0 +1,21 @@
+--- a/conflict
++++ b/conflict
+@@ -1,17 +1,3 @@
+-<<<<<<< ours
+- * @stopping:   Set when @dma_err_task shouldn't do anything because we are
+- *              about to stop the device.
+-||||||| base
+- * @dma_err_task: Work structure to process Axi DMA errors
+- * @stopping:   Set when @dma_err_task shouldn't do anything because we are
+- *              about to stop the device.
+- * @tx_irq:	Axidma TX IRQ number
+- * @rx_irq:	Axidma RX IRQ number
+-=======
+- * @dma_err_task: Work structure to process Axi DMA errors
+- * @stopping:   Set when we are about to stop the device: makes @dma_err_task
++ * @stopping:   Set when we are about to stop the device: makes @dma_err_tasklet
+  *              a no-op (legacy DMA path) and fences RX descriptor
+  *              resubmission in axienet_dma_rx_cb() (dmaengine path).
+- * @tx_irq:	Axidma TX IRQ number
+- * @rx_irq:	Axidma RX IRQ number
+->>>>>>> theirs

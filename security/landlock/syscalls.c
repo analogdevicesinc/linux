@@ -159,7 +159,9 @@ static const struct file_operations ruleset_fops = {
  *        the new ruleset.
  * @size: Size of the pointed &struct landlock_ruleset_attr (needed for
  *        backward and forward compatibility).
- * @flags: Supported value: %LANDLOCK_CREATE_RULESET_VERSION.
+ * @flags: Supported value:
+ *         - %LANDLOCK_CREATE_RULESET_VERSION
+ *         - %LANDLOCK_CREATE_RULESET_ERRATA
  *
  * This system call enables to create a new Landlock ruleset, and returns the
  * related file descriptor on success.
@@ -167,6 +169,10 @@ static const struct file_operations ruleset_fops = {
  * If @flags is %LANDLOCK_CREATE_RULESET_VERSION and @attr is NULL and @size is
  * 0, then the returned value is the highest supported Landlock ABI version
  * (starting at 1).
+ *
+ * If @flags is %LANDLOCK_CREATE_RULESET_ERRATA and @attr is NULL and @size is
+ * 0, then the returned value is a bitmask of fixed issues for the current
+ * Landlock ABI version.
  *
  * Possible returned errors are:
  *
@@ -191,9 +197,15 @@ SYSCALL_DEFINE3(landlock_create_ruleset,
 		return -EOPNOTSUPP;
 
 	if (flags) {
-		if ((flags == LANDLOCK_CREATE_RULESET_VERSION) && !attr &&
-		    !size)
-			return LANDLOCK_ABI_VERSION;
+		if (attr || size)
+			return -EINVAL;
+
+		if (flags == LANDLOCK_CREATE_RULESET_VERSION)
+			return landlock_abi_version;
+
+		if (flags == LANDLOCK_CREATE_RULESET_ERRATA)
+			return landlock_errata;
+
 		return -EINVAL;
 	}
 
@@ -234,6 +246,8 @@ SYSCALL_DEFINE3(landlock_create_ruleset,
 	return ruleset_fd;
 }
 
+const int landlock_abi_version = LANDLOCK_ABI_VERSION;
+
 /*
  * Returns an owned ruleset from a FD. It is thus needed to call
  * landlock_put_ruleset() on the return value.
@@ -241,31 +255,21 @@ SYSCALL_DEFINE3(landlock_create_ruleset,
 static struct landlock_ruleset *get_ruleset_from_fd(const int fd,
 						    const fmode_t mode)
 {
-	struct fd ruleset_f;
+	CLASS(fd, ruleset_f)(fd);
 	struct landlock_ruleset *ruleset;
 
-	ruleset_f = fdget(fd);
-	if (!fd_file(ruleset_f))
+	if (fd_empty(ruleset_f))
 		return ERR_PTR(-EBADF);
 
 	/* Checks FD type and access right. */
-	if (fd_file(ruleset_f)->f_op != &ruleset_fops) {
-		ruleset = ERR_PTR(-EBADFD);
-		goto out_fdput;
-	}
-	if (!(fd_file(ruleset_f)->f_mode & mode)) {
-		ruleset = ERR_PTR(-EPERM);
-		goto out_fdput;
-	}
+	if (fd_file(ruleset_f)->f_op != &ruleset_fops)
+		return ERR_PTR(-EBADFD);
+	if (!(fd_file(ruleset_f)->f_mode & mode))
+		return ERR_PTR(-EPERM);
 	ruleset = fd_file(ruleset_f)->private_data;
-	if (WARN_ON_ONCE(ruleset->num_layers != 1)) {
-		ruleset = ERR_PTR(-EINVAL);
-		goto out_fdput;
-	}
+	if (WARN_ON_ONCE(ruleset->num_layers != 1))
+		return ERR_PTR(-EINVAL);
 	landlock_get_ruleset(ruleset);
-
-out_fdput:
-	fdput(ruleset_f);
 	return ruleset;
 }
 

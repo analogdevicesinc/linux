@@ -1,0 +1,40 @@
+--- a/conflict
++++ b/conflict
+@@ -1,32 +1,3 @@
+-<<<<<<< ours
+-static void pm_runtime_set_suspended_action(void *data)
+-{
+-	pm_runtime_set_suspended(data);
+-}
+-
+-/**
+- * devm_pm_runtime_set_active_enabled - set_active version of devm_pm_runtime_enable.
+- *
+- * @dev: Device to handle.
+- */
+-int devm_pm_runtime_set_active_enabled(struct device *dev)
+-{
+-	int err;
+-
+-	err = pm_runtime_set_active(dev);
+-	if (err)
+-		return err;
+-
+-	err = devm_add_action_or_reset(dev, pm_runtime_set_suspended_action, dev);
+-	if (err)
+-		return err;
+-
+-	return devm_pm_runtime_enable(dev);
+-}
+-EXPORT_SYMBOL_GPL(devm_pm_runtime_set_active_enabled);
+-
+-||||||| base
+-=======
+ static void pm_runtime_set_suspended_action(void *data)
+ {
+ 	pm_runtime_set_suspended(data);
+@@ -70,4 +41,3 @@
+ 	return ret;
+ }
+ 
+->>>>>>> theirs

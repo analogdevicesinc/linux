@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,7 @@
+-<<<<<<< ours
+  * @init_valid_mask:	(Optional) Routine to initialize @valid_mask, to be used
+  *			if not all GPIOs are valid.
+-||||||| base
+-=======
+  * @regmap_irq_chip:	(Optional) Pointer on an regmap_irq_chip structure. If
+  *			set, a regmap-irq device will be created and the IRQ
+  *			domain will be set accordingly.
+  * @regmap_irq_line	(Optional) The IRQ the device uses to signal interrupts.
+  * @regmap_irq_flags	(Optional) The IRQF_ flags to use for the interrupt.
+->>>>>>> theirs

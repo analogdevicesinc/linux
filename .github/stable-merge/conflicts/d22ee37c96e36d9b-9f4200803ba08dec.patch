@@ -1,0 +1,18 @@
+--- a/conflict
++++ b/conflict
+@@ -1,15 +1,5 @@
+-<<<<<<< ours
+ 	/*
+ 	 * Following fields are used to compare equality. If you
+ 	 * make adaptations in it, you most likely also have to adapt
+ 	 * ad7173_is_setup_equal(), too.
+ 	 */
+-||||||| base
+-	/* Following fields are used to compare equality. */
+-=======
+-	/*
+-	 * Following fields are used to compare equality. If you
+-	 * make adaptations in it, you most likely also have to adapt
+-	 * ad7173_find_live_config(), too.
+-	 */
+->>>>>>> theirs

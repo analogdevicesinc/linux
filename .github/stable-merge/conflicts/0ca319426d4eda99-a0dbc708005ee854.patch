@@ -1,0 +1,102 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	xilinx_spi_setup_transfer(qspi, transfer);
+ 	cr = xqspi->read_fn(xqspi->regs + XSPI_CR_OFFSET);
+ 	/* Enable master transaction inhibit */
+@@ -13,94 +12,3 @@
+ 
+ 	return transfer->len;
+ }
+-||||||| base
+-	while (remaining_words) {
+-		int n_words, tx_words, rx_words;
+-		u32 sr;
+-		int stalled;
+-
+-		n_words = min(remaining_words, xspi->buffer_size);
+-
+-		tx_words = n_words;
+-		while (tx_words--)
+-			xilinx_spi_tx(xspi);
+-
+-		/* Start the transfer by not inhibiting the transmitter any
+-		 * longer
+-		 */
+-
+-		if (use_irq) {
+-			xspi->write_fn(cr, xspi->regs + XSPI_CR_OFFSET);
+-			wait_for_completion(&xspi->done);
+-			/* A transmit has just completed. Process received data
+-			 * and check for more data to transmit. Always inhibit
+-			 * the transmitter while the Isr refills the transmit
+-			 * register/FIFO, or make sure it is stopped if we're
+-			 * done.
+-			 */
+-			xspi->write_fn(cr | XSPI_CR_TRANS_INHIBIT,
+-				       xspi->regs + XSPI_CR_OFFSET);
+-			sr = XSPI_SR_TX_EMPTY_MASK;
+-		} else
+-			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
+-
+-		/* Read out all the data from the Rx FIFO */
+-		rx_words = n_words;
+-		stalled = 10;
+-		while (rx_words) {
+-			if (rx_words == n_words && !(stalled--) &&
+-			    !(sr & XSPI_SR_TX_EMPTY_MASK) &&
+-			    (sr & XSPI_SR_RX_EMPTY_MASK)) {
+-				dev_err(&spi->dev,
+-					"Detected stall. Check C_SPI_MODE and C_SPI_MEMORY\n");
+-				xspi_init_hw(xspi);
+-				return -EIO;
+-			}
+-=======
+-	while (remaining_words) {
+-		int n_words, tx_words, rx_words;
+-		u32 sr;
+-		int stalled;
+-
+-		n_words = min(remaining_words, xspi->buffer_size);
+-
+-		tx_words = n_words;
+-		while (tx_words--)
+-			xilinx_spi_tx(xspi);
+-
+-		/* Start the transfer by not inhibiting the transmitter any
+-		 * longer
+-		 */
+-
+-		if (use_irq) {
+-			xspi->write_fn(cr, xspi->regs + XSPI_CR_OFFSET);
+-			if (!wait_for_completion_timeout(&xspi->done, secs_to_jiffies(1))) {
+-				dev_err(&spi->dev, "SPI transfer timed out\n");
+-				xspi_init_hw(xspi);
+-				return -ETIMEDOUT;
+-			}
+-			/* A transmit has just completed. Process received data
+-			 * and check for more data to transmit. Always inhibit
+-			 * the transmitter while the Isr refills the transmit
+-			 * register/FIFO, or make sure it is stopped if we're
+-			 * done.
+-			 */
+-			xspi->write_fn(cr | XSPI_CR_TRANS_INHIBIT,
+-				       xspi->regs + XSPI_CR_OFFSET);
+-			sr = XSPI_SR_TX_EMPTY_MASK;
+-		} else
+-			sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
+-
+-		/* Read out all the data from the Rx FIFO */
+-		rx_words = n_words;
+-		stalled = 32;
+-		while (rx_words) {
+-			if (rx_words == n_words && !(stalled--) &&
+-			    !(sr & XSPI_SR_TX_EMPTY_MASK) &&
+-			    (sr & XSPI_SR_RX_EMPTY_MASK)) {
+-				dev_err(&spi->dev,
+-					"Detected stall. Check C_SPI_MODE and C_SPI_MEMORY\n");
+-				xspi_init_hw(xspi);
+-				return -EIO;
+-			}
+->>>>>>> theirs

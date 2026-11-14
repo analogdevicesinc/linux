@@ -1,0 +1,90 @@
+--- a/conflict
++++ b/conflict
+@@ -1,82 +1,3 @@
+-<<<<<<< ours
+-static int onboard_dev_5744_i2c_read_byte(struct i2c_client *client, u16 addr, u8 *data)
+-{
+-	struct i2c_msg msg[2];
+-	u8 rd_buf[3];
+-	int ret;
+-
+-	u8 wr_buf[7] = {0, USB5744_CREG_MEM_ADDR, 4,
+-			USB5744_CREG_READ, 1,
+-			addr >> 8 & 0xff,
+-			addr & 0xff};
+-	msg[0].addr = client->addr;
+-	msg[0].flags = 0;
+-	msg[0].len = sizeof(wr_buf);
+-	msg[0].buf = wr_buf;
+-
+-	ret = i2c_transfer(client->adapter, msg, 1);
+-	if (ret < 0)
+-		return ret;
+-
+-	wr_buf[0] = USB5744_CMD_CREG_ACCESS;
+-	wr_buf[1] = USB5744_CMD_CREG_ACCESS_LSB;
+-	wr_buf[2] = 0;
+-	msg[0].len = 3;
+-
+-	ret = i2c_transfer(client->adapter, msg, 1);
+-	if (ret < 0)
+-		return ret;
+-
+-	wr_buf[0] = 0;
+-	wr_buf[1] = USB5744_CREG_MEM_RD_ADDR;
+-	msg[0].len = 2;
+-
+-	msg[1].addr = client->addr;
+-	msg[1].flags = I2C_M_RD;
+-	msg[1].len = 2;
+-	msg[1].buf = rd_buf;
+-
+-	ret = i2c_transfer(client->adapter, msg, 2);
+-	if (ret < 0)
+-		return ret;
+-	*data = rd_buf[1];
+-
+-	return 0;
+-}
+-
+-static int onboard_dev_5744_i2c_write_byte(struct i2c_client *client, u16 addr, u8 data)
+-{
+-	struct i2c_msg msg[2];
+-	int ret;
+-
+-	u8 wr_buf[8] = {0, USB5744_CREG_MEM_ADDR, 5,
+-			USB5744_CREG_WRITE, 1,
+-			addr >> 8 & 0xff,
+-			addr & 0xff,
+-			data};
+-	msg[0].addr = client->addr;
+-	msg[0].flags = 0;
+-	msg[0].len = sizeof(wr_buf);
+-	msg[0].buf = wr_buf;
+-
+-	ret = i2c_transfer(client->adapter, msg, 1);
+-	if (ret < 0)
+-		return ret;
+-
+-	msg[0].len = 3;
+-	wr_buf[0] = USB5744_CMD_CREG_ACCESS;
+-	wr_buf[1] = USB5744_CMD_CREG_ACCESS_LSB;
+-	wr_buf[2] = 0;
+-
+-	ret = i2c_transfer(client->adapter, msg, 1);
+-	if (ret < 0)
+-		return ret;
+-
+-	return 0;
+-}
+-
+-||||||| base
+-=======
+ #if IS_ENABLED(CONFIG_USB_ONBOARD_DEV_USB5744)
+ static int onboard_dev_5744_i2c_read_byte(struct i2c_client *client, u16 addr, u8 *data)
+ {
+@@ -154,4 +75,3 @@
+ 	return 0;
+ }
+ 
+->>>>>>> theirs

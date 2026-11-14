@@ -337,8 +337,8 @@ int cec_register_adapter(struct cec_adapter *adap,
 	res = cec_devnode_register(&adap->devnode, adap->owner);
 	if (res) {
 #ifdef CONFIG_MEDIA_CEC_RC
-		/* Note: rc_unregister also calls rc_free */
 		rc_unregister_device(adap->rc);
+		rc_free_device(adap->rc);
 		adap->rc = NULL;
 #endif
 		return res;
@@ -370,9 +370,7 @@ void cec_unregister_adapter(struct cec_adapter *adap)
 		return;
 
 #ifdef CONFIG_MEDIA_CEC_RC
-	/* Note: rc_unregister also calls rc_free */
 	rc_unregister_device(adap->rc);
-	adap->rc = NULL;
 #endif
 	debugfs_remove_recursive(adap->cec_dir);
 #ifdef CONFIG_CEC_NOTIFIER
@@ -420,6 +418,7 @@ static int __init cec_devnode_init(void)
 
 	ret = bus_register(&cec_bus_type);
 	if (ret < 0) {
+		debugfs_remove_recursive(top_cec_dir);
 		unregister_chrdev_region(cec_dev_t, CEC_NUM_DEVICES);
 		pr_warn("cec: bus_register failed\n");
 		return -EIO;

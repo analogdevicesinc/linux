@@ -1,0 +1,52 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,16 @@
+-<<<<<<< ours
++	/*
++	 * Worst-case size: all sequencer slots can be active, capped
++	 * at num_slots by ad_sd_validate_scan_mask().
++	 */
++	samples_buf_size =
++		ALIGN(sigma_delta->num_slots *
++		      BITS_TO_BYTES(scan_type->storagebits),
++		      sizeof(s64));
++	samples_buf_size += sizeof(s64);
++	sigma_delta->samples_buf = devm_kzalloc(dev, samples_buf_size, GFP_KERNEL);
++	if (!sigma_delta->samples_buf)
++		return -ENOMEM;
++
+ 	if (ad_sigma_delta_has_spi_offload(sigma_delta)) {
+ 		struct dma_chan *rx_dma;
+ 
+@@ -22,31 +34,3 @@
+ 		if (ret)
+ 			return ret;
+ 	}
+-||||||| base
+-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
+-					      &iio_pollfunc_store_time,
+-					      &ad_sd_trigger_handler,
+-					      &ad_sd_buffer_setup_ops);
+-	if (ret)
+-		return ret;
+-=======
+-	/*
+-	 * Worst-case size: all sequencer slots can be active, capped
+-	 * at num_slots by ad_sd_validate_scan_mask().
+-	 */
+-	samples_buf_size =
+-		ALIGN(sigma_delta->num_slots *
+-		      BITS_TO_BYTES(scan_type->storagebits),
+-		      sizeof(s64));
+-	samples_buf_size += sizeof(s64);
+-	sigma_delta->samples_buf = devm_kzalloc(dev, samples_buf_size, GFP_KERNEL);
+-	if (!sigma_delta->samples_buf)
+-		return -ENOMEM;
+-
+-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
+-					      &iio_pollfunc_store_time,
+-					      &ad_sd_trigger_handler,
+-					      &ad_sd_buffer_setup_ops);
+-	if (ret)
+-		return ret;
+->>>>>>> theirs

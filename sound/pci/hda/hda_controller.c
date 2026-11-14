@@ -93,12 +93,12 @@ static int azx_pcm_close(struct snd_pcm_substream *substream)
 	struct azx_dev *azx_dev = get_azx_dev(substream);
 
 	trace_azx_pcm_close(chip, azx_dev);
-	mutex_lock(&chip->open_mutex);
-	azx_release_device(azx_dev);
-	if (hinfo->ops.close)
-		hinfo->ops.close(hinfo, apcm->codec, substream);
-	snd_hda_power_down(apcm->codec);
-	mutex_unlock(&chip->open_mutex);
+	scoped_guard(mutex, &chip->open_mutex) {
+		azx_release_device(azx_dev);
+		if (hinfo->ops.close)
+			hinfo->ops.close(hinfo, apcm->codec, substream);
+		snd_hda_power_down(apcm->codec);
+	}
 	snd_hda_codec_pcm_put(apcm->info);
 	return 0;
 }
@@ -593,11 +593,11 @@ static int azx_pcm_open(struct snd_pcm_substream *substream)
 	snd_hda_codec_pcm_get(apcm->info);
 	mutex_lock(&chip->open_mutex);
 	azx_dev = azx_assign_device(chip, substream);
-	trace_azx_pcm_open(chip, azx_dev);
 	if (azx_dev == NULL) {
 		err = -EBUSY;
 		goto unlock;
 	}
+	trace_azx_pcm_open(chip, azx_dev);
 	runtime->private_data = azx_dev;
 
 	runtime->hw = azx_pcm_hw;
@@ -1136,12 +1136,12 @@ static int probe_codec(struct azx *chip, int addr)
 	int err;
 	unsigned int res = -1;
 
-	mutex_lock(&bus->cmd_mutex);
-	chip->probing = 1;
-	azx_send_cmd(bus, cmd);
-	err = azx_get_response(bus, addr, &res);
-	chip->probing = 0;
-	mutex_unlock(&bus->cmd_mutex);
+	scoped_guard(mutex, &bus->cmd_mutex) {
+		chip->probing = 1;
+		azx_send_cmd(bus, cmd);
+		err = azx_get_response(bus, addr, &res);
+		chip->probing = 0;
+	}
 	if (err < 0 || res == -1)
 		return -EIO;
 	dev_dbg(chip->card->dev, "codec #%d probed OK\n", addr);

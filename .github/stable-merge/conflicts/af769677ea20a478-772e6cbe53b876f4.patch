@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,13 +1,9 @@
+-<<<<<<< ours
+  * @is_d3: set if the controller is in d3 state
+  * @saved_regs: registers to be saved/restored during hibernation/wakeup events
+  * @irq_wakeup: wakeup IRQ number, triggered when host asks to wakeup from
+  *              hibernation
+  * @force_hiber_wake: flag set when the gadget driver is forcefully triggering
+ 		a hibernation wakeup event
+-||||||| base
+-=======
+  * @wakeup_pending_funcs: Indicates whether any interface has requested for
+  *			 function wakeup in bitmap format where bit position
+  *			 represents interface_id.
+->>>>>>> theirs

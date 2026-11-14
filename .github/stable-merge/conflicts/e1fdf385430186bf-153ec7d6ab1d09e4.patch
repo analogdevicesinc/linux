@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+  * @eth_hasnobuf: Ethernet is configured in Non buf mode.
+  * @eth_hasptp: Ethernet is configured for ptp.
+  * @axienet_config: Ethernet config structure
+@@ -42,7 +41,4 @@
+  * @inetaddr_notifier: Notifier callback function for specific event.
+  * @rx_fs_list: RX queue filter rule set.
+  * @assigned_rx_port: Ports assigned to GRO Queue.
+-||||||| base
+-=======
+  * @rx_submit_lock: Protects RX ring resubmission vs teardown in dmaengine path.
+->>>>>>> theirs

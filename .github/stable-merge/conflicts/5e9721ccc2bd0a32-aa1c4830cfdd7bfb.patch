@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,3 @@
+-<<<<<<< ours
+-	if (!is_on) {
+-||||||| base
+-	if (!is_on)
+-=======
+ 	/* Serialize against dwc3_err_recovery_work() */
+ 	mutex_lock(&dwc->connect_mutex);
+-	if (!is_on)
+->>>>>>> theirs
++	if (!is_on) {

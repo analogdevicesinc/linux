@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,12 +1 @@
+-<<<<<<< ours
+ 		if (cfg_aux->live && ad7173_is_setup_equal(cfg, cfg_aux))
+-||||||| base
+-		if (cfg_aux->live &&
+-		    !memcmp(&cfg->config_props, &cfg_aux->config_props, cmp_size))
+-=======
+-		if (cfg_aux->live &&
+-		    cfg->bipolar == cfg_aux->bipolar &&
+-		    cfg->input_buf == cfg_aux->input_buf &&
+-		    cfg->odr == cfg_aux->odr &&
+-		    cfg->ref_sel == cfg_aux->ref_sel)
+->>>>>>> theirs

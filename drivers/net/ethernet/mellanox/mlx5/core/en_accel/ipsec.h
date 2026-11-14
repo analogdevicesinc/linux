@@ -76,11 +76,7 @@ struct mlx5_replay_esn {
 	u8 trigger : 1;
 };
 
-struct mlx5_accel_esp_xfrm_attrs {
-	u32   spi;
-	u32   mode;
-	struct aes_gcm_keymat aes_gcm;
-
+struct mlx5e_ipsec_addr {
 	union {
 		__be32 a4;
 		__be32 a6[4];
@@ -90,13 +86,19 @@ struct mlx5_accel_esp_xfrm_attrs {
 		__be32 a4;
 		__be32 a6[4];
 	} daddr;
+	u8 family;
+};
 
+struct mlx5_accel_esp_xfrm_attrs {
+	u32   spi;
+	u32   mode;
+	struct aes_gcm_keymat aes_gcm;
+	struct mlx5e_ipsec_addr addrs;
 	struct upspec upspec;
 	u8 dir : 2;
 	u8 type : 2;
 	u8 drop : 1;
 	u8 encap : 1;
-	u8 family;
 	struct mlx5_replay_esn replay_esn;
 	u32 authsize;
 	u32 reqid;
@@ -260,6 +262,7 @@ struct mlx5e_ipsec_limits {
 struct mlx5e_ipsec_sa_entry {
 	struct mlx5e_ipsec_esn_state esn_state;
 	struct xfrm_state *x;
+	struct net_device *dev;
 	struct mlx5e_ipsec *ipsec;
 	struct mlx5_accel_esp_xfrm_attrs attrs;
 	void (*set_iv_op)(struct sk_buff *skb, struct xfrm_state *x,
@@ -271,21 +274,12 @@ struct mlx5e_ipsec_sa_entry {
 	struct mlx5e_ipsec_dwork *dwork;
 	struct mlx5e_ipsec_limits limits;
 	u32 rx_mapped_id;
+	u8 ctx[MLX5_ST_SZ_BYTES(ipsec_aso)];
 };
 
 struct mlx5_accel_pol_xfrm_attrs {
-	union {
-		__be32 a4;
-		__be32 a6[4];
-	} saddr;
-
-	union {
-		__be32 a4;
-		__be32 a6[4];
-	} daddr;
-
+	struct mlx5e_ipsec_addr addrs;
 	struct upspec upspec;
-	u8 family;
 	u8 action;
 	u8 type : 2;
 	u8 dir : 2;
@@ -336,6 +330,7 @@ void mlx5e_ipsec_build_accel_xfrm_attrs(struct mlx5e_ipsec_sa_entry *sa_entry,
 void mlx5e_ipsec_handle_mpv_event(int event, struct mlx5e_priv *slave_priv,
 				  struct mlx5e_priv *master_priv);
 void mlx5e_ipsec_send_event(struct mlx5e_priv *priv, int event);
+void mlx5e_ipsec_disable_events(struct mlx5e_priv *priv);
 
 static inline struct mlx5_core_dev *
 mlx5e_ipsec_sa2dev(struct mlx5e_ipsec_sa_entry *sa_entry)
@@ -379,6 +374,10 @@ static inline void mlx5e_ipsec_handle_mpv_event(int event, struct mlx5e_priv *sl
 }
 
 static inline void mlx5e_ipsec_send_event(struct mlx5e_priv *priv, int event)
+{
+}
+
+static inline void mlx5e_ipsec_disable_events(struct mlx5e_priv *priv)
 {
 }
 #endif

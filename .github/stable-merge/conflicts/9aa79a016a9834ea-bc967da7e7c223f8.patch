@@ -1,0 +1,19 @@
+--- a/conflict
++++ b/conflict
+@@ -1,16 +1,3 @@
+-<<<<<<< ours
+-||||||| base
+-
+-		f_pdata = &cqspi->f_pdata[cs];
+-		f_pdata->cqspi = cqspi;
+-		f_pdata->cs = cs;
+-
+-=======
+ 
+ 		max_cs = max_t(int, cs, max_cs);
+ 
+-		f_pdata = &cqspi->f_pdata[cs];
+-		f_pdata->cqspi = cqspi;
+-		f_pdata->cs = cs;
+-
+->>>>>>> theirs

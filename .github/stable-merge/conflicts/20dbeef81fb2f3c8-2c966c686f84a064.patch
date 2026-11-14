@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,2 @@
+-<<<<<<< ours
+ 	struct ad7124_channel_config *cfg = &st->channels[channel].cfg;
+ 	unsigned int fclk, factor, divisor, odr_sel_bits;
+-||||||| base
+-	struct ad7124_channel_config *cfg_aux;
+-	ptrdiff_t cmp_size;
+-	int i;
+-=======
+-	struct ad7124_channel_config *cfg_aux;
+-	int i;
+->>>>>>> theirs

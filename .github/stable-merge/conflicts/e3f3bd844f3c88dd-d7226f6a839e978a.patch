@@ -1,0 +1,27 @@
+--- a/conflict
++++ b/conflict
+@@ -1,24 +1,6 @@
+-<<<<<<< ours
+-		ret = spi_nor_write_data(nor, addr, page_remain, buf + i);
+-||||||| base
+-		ret = spi_nor_write_enable(nor);
+-		if (ret) {
+-			spi_nor_unlock_device(nor);
+-			goto write_err;
+-		}
+-
+-		ret = spi_nor_write_data(nor, addr, page_remain, buf + i);
+-=======
+-		ret = spi_nor_write_enable(nor);
+-		if (ret) {
+-			spi_nor_unlock_device(nor);
+-			goto write_err;
+-		}
+-
+ 		if (nor->write_proto == SNOR_PROTO_8_8_8_DTR)
+ 			ret = spi_nor_octal_dtr_write(nor, addr, page_remain,
+ 						      buf + i);
+ 		else
+ 			ret = spi_nor_write_data(nor, addr, page_remain,
+ 						 buf + i);
+->>>>>>> theirs

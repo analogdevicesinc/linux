@@ -1031,9 +1031,8 @@ static struct dentry *afs_lookup(struct inode *dir, struct dentry *dentry,
 	inode = afs_do_lookup(dir, dentry, key);
 	key_put(key);
 	if (inode == ERR_PTR(-ENOENT))
-		inode = afs_try_auto_mntpt(dentry, dir);
-
-	if (!IS_ERR_OR_NULL(inode))
+		inode = NULL;
+	else if (!IS_ERR_OR_NULL(inode))
 		fid = AFS_FS_I(inode)->fid;
 
 	_debug("splice %p", dentry->d_inode);
@@ -1472,7 +1471,12 @@ static int afs_rmdir(struct inode *dir, struct dentry *dentry)
 		op->file[1].vnode = vnode;
 	}
 
-	return afs_do_sync_operation(op);
+	ret = afs_do_sync_operation(op);
+
+	/* Not all systems that can host afs servers have ENOTEMPTY. */
+	if (ret == -EEXIST)
+		ret = -ENOTEMPTY;
+	return ret;
 
 error:
 	return afs_put_operation(op);

@@ -14,9 +14,9 @@
 #include "../disk-io.h"
 #include "../btrfs_inode.h"
 
-#define PROCESS_UNLOCK		(1 << 0)
-#define PROCESS_RELEASE		(1 << 1)
-#define PROCESS_TEST_LOCKED	(1 << 2)
+#define PROCESS_UNLOCK		(1U << 0)
+#define PROCESS_RELEASE		(1U << 1)
+#define PROCESS_TEST_LOCKED	(1U << 2)
 
 static noinline int process_page_range(struct inode *inode, u64 start, u64 end,
 				       unsigned long flags)
@@ -191,7 +191,7 @@ static int test_find_delalloc(u32 sectorsize, u32 nodesize)
 			sectorsize - 1, start, end);
 		goto out_bits;
 	}
-	unlock_extent(tmp, start, end, NULL);
+	btrfs_unlock_extent(tmp, start, end, NULL);
 	unlock_page(locked_page);
 	put_page(locked_page);
 
@@ -227,7 +227,7 @@ static int test_find_delalloc(u32 sectorsize, u32 nodesize)
 		test_err("there were unlocked pages in the range");
 		goto out_bits;
 	}
-	unlock_extent(tmp, start, end, NULL);
+	btrfs_unlock_extent(tmp, start, end, NULL);
 	/* locked_page was unlocked above */
 	put_page(locked_page);
 
@@ -282,7 +282,7 @@ static int test_find_delalloc(u32 sectorsize, u32 nodesize)
 		test_err("pages in range were not all locked");
 		goto out_bits;
 	}
-	unlock_extent(tmp, start, end, NULL);
+	btrfs_unlock_extent(tmp, start, end, NULL);
 
 	/*
 	 * Now to test where we run into a page that is no longer dirty in the

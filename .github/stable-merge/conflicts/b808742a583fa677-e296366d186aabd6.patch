@@ -1,0 +1,25 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 		unsigned long flags;
+ 
+ 		/*
+@@ -8,17 +7,3 @@
+ 		 * orig_nents.
+ 		 */
+ 		nents = block->sg_table->nents;
+-||||||| base
+-		sgl = block->sg_table->sgl;
+-		nents = sg_nents_for_len(sgl, block->bytes_used);
+-		if (nents < 0)
+-			return nents;
+-=======
+-		/*
+-		 * Only the first sgt->nents entries carry a valid
+-		 * sg_dma_address()/sg_dma_len() pair as mapping the table may
+-		 * have coalesced entries, in which case nents is smaller than
+-		 * orig_nents.
+-		 */
+-		nents = block->sg_table->nents;
+->>>>>>> theirs

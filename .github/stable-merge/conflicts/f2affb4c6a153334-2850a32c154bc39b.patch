@@ -1,0 +1,24 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ static int versal_sha_digest(struct ahash_request *req)
+ {
+ 	int update_size, ret, flag = FIRST_PACKET;
+@@ -64,16 +63,3 @@
+ 
+ static struct xilinx_sha_drv_ctx zynqmp_sha3_drv_ctx = {
+ 	.sha3_384.base = {
+-||||||| base
+-static struct zynqmp_sha_drv_ctx sha3_drv_ctx = {
+-	.sha3_384 = {
+-=======
+-static int zynqmp_sha_digest(struct shash_desc *desc, const u8 *data, unsigned int len, u8 *out)
+-{
+-	scoped_guard(spinlock_bh, &zynqmp_sha_lock)
+-		return __zynqmp_sha_digest(desc, data, len, out);
+-}
+-
+-static struct zynqmp_sha_drv_ctx sha3_drv_ctx = {
+-	.sha3_384 = {
+->>>>>>> theirs

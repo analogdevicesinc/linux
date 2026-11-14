@@ -1,0 +1,24 @@
+--- a/conflict
++++ b/conflict
+@@ -1,20 +1,5 @@
+-<<<<<<< ours
+-	if (dma_status & GQSPI_QSPIDMA_DST_I_STS_DONE_MASK) {
+-||||||| base
+-
+-	if (mask & GQSPI_ISR_TXNOT_FULL_MASK) {
+-		zynqmp_qspi_filltxfifo(xqspi, GQSPI_TX_FIFO_FILL);
+-		ret = IRQ_HANDLED;
+-	}
+-
+-	if (dma_status & GQSPI_QSPIDMA_DST_I_STS_DONE_MASK) {
+-=======
+ 
+ 	if (!mask && !dma_status)
+ 		return IRQ_NONE;
+ 
+-	if (mask & GQSPI_ISR_TXNOT_FULL_MASK)
+-		zynqmp_qspi_filltxfifo(xqspi, GQSPI_TX_FIFO_FILL);
+-
+-	if (dma_status & GQSPI_QSPIDMA_DST_I_STS_DONE_MASK)
+->>>>>>> theirs
++	if (dma_status & GQSPI_QSPIDMA_DST_I_STS_DONE_MASK) {

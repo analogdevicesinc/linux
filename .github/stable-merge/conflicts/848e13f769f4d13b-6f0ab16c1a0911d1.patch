@@ -1,0 +1,23 @@
+--- a/conflict
++++ b/conflict
+@@ -1,17 +1,7 @@
+-<<<<<<< ours
++	/* A stale value from an aborted block read would truncate this msg. */
++	i2c->smbus_actual_len = 0;
++
+ 	if (!i2c->atomic)
+ 		dev_dbg(i2c->adap.dev.parent, "%s entry, ISR: 0x%x, CR: 0x%x\n",
+ 			__func__, xiic_getreg32(i2c, XIIC_IISR_OFFSET),
+ 			xiic_getreg8(i2c, XIIC_CR_REG_OFFSET));
+-||||||| base
+-	dev_dbg(i2c->adap.dev.parent, "%s entry, ISR: 0x%x, CR: 0x%x\n",
+-		__func__, xiic_getreg32(i2c, XIIC_IISR_OFFSET),
+-		xiic_getreg8(i2c, XIIC_CR_REG_OFFSET));
+-=======
+-	/* A stale value from an aborted block read would truncate this msg. */
+-	i2c->smbus_actual_len = 0;
+-
+-	dev_dbg(i2c->adap.dev.parent, "%s entry, ISR: 0x%x, CR: 0x%x\n",
+-		__func__, xiic_getreg32(i2c, XIIC_IISR_OFFSET),
+-		xiic_getreg8(i2c, XIIC_CR_REG_OFFSET));
+->>>>>>> theirs

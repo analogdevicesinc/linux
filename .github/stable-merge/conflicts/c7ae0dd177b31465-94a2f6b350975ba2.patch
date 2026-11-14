@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,5 @@
+-<<<<<<< ours
+-			if (has_alerts)
+-||||||| base
+-			if (chip == ina226)
+-=======
+ 			if (has_alerts)
+ 				return 0444;
+ 			break;
+ 		case hwmon_power_average:
+ 			if (has_power_average)
+->>>>>>> theirs

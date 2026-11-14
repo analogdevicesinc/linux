@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,2 @@
+-<<<<<<< ours
+ 	unsigned int cs_num[2] = {0};
+-	unsigned int cs;
+-	int ret;
+-||||||| base
+-	unsigned int cs;
+-	int ret;
+-=======
+ 	int ret, cs, max_cs = -1;
+->>>>>>> theirs

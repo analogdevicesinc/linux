@@ -1,0 +1,11 @@
+--- a/conflict
++++ b/conflict
+@@ -1,8 +1,2 @@
+-<<<<<<< ours
+ 	xqspi->ctlr = ctlr;
+-	platform_set_drvdata(pdev, xqspi);
+-||||||| base
+-	platform_set_drvdata(pdev, xqspi);
+-=======
+ 	platform_set_drvdata(pdev, ctlr);
+->>>>>>> theirs

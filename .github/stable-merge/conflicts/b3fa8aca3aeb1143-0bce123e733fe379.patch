@@ -1,0 +1,10 @@
+--- a/conflict
++++ b/conflict
+@@ -1,7 +1 @@
+-<<<<<<< ours
+-	  INA230, INA231, and INA260 power monitor chips.
+-||||||| base
+-	  INA230, and INA231 power monitor chips.
+-=======
+ 	  INA230, INA231, INA234, INA260, and SY24655 power monitor chips.
+->>>>>>> theirs

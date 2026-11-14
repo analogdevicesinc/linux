@@ -1,0 +1,21 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 		val = mult_frac(st->vref_uv, d, n);
+ 		/* Would multiply by NANO here, but value is already in milli */
+ 		tmp2 = ((u64)val * MICRO) >> val2;
+@@ -8,13 +7,3 @@
+ 	}
+ 
+ 	return 0;
+-||||||| base
+-	/* A sync-in pulse is required every time the filter dec rate changes */
+-	gpiod_set_value(st->gpio_sync_in, 1);
+-	gpiod_set_value(st->gpio_sync_in, 0);
+-
+-	return 0;
+-=======
+-	/* A sync-in pulse is required every time the filter dec rate changes */
+-	return ad7768_send_sync_pulse(st);
+->>>>>>> theirs

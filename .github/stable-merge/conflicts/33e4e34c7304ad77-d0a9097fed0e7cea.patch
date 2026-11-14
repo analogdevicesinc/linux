@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,14 +1,3 @@
+-<<<<<<< ours
+ #define AD5310_DATA_GAIN_MSK			BIT(7)
+ #define AD5310_DATA_REF_MSK			BIT(8)
+ #define AD5310_DATA_PD_MSK			GENMASK(10, 9)
+-||||||| base
+-#define AD5310_REF_BIT_MSK			BIT(8)
+-#define AD5683_REF_BIT_MSK			BIT(12)
+-#define AD5693_REF_BIT_MSK			BIT(12)
+-=======
+-#define AD5310_REF_BIT_MSK			BIT(8)
+-#define AD5683_REF_BIT_MSK			BIT(12)
+-#define AD5686_REF_BIT_MSK			BIT(0)
+-#define AD5693_REF_BIT_MSK			BIT(12)
+->>>>>>> theirs

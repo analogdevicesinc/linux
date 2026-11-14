@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,12 +1,4 @@
+-<<<<<<< ours
+ 	/* Update scale table: scale values vary according to the precision */
+ 	ret = ad7768_fill_scale_tbl(dev);
+ 	if (ret)
+ 		return ret;
+-||||||| base
+-		ret = ad7768_scan_direct(indio_dev);
+-		if (ret >= 0)
+-			*val = ret;
+-=======
+-		ret = ad7768_scan_direct(indio_dev);
+->>>>>>> theirs

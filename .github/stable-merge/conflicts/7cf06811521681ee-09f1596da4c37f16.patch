@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,3 @@
+-<<<<<<< ours
+-	if (!spi_nor_is_unlocked_sr(nor, ofs + len, mtd->size - (ofs + len),
++	if (!spi_nor_is_unlocked_sr(nor, ofs + len,
++				    spi_nor_get_params(nor, 0)->size - (ofs + len),
+ 				    status_old) || spi_nor_is_upper_area(nor, ofs, len))
+-||||||| base
+-	if (!spi_nor_is_unlocked_sr(nor, ofs + len, mtd->size - (ofs + len),
+-				    status_old))
+-=======
+-	if (!spi_nor_is_unlocked_sr(nor, ofs + len, nor->params->size - (ofs + len),
+-				    status_old))
+->>>>>>> theirs

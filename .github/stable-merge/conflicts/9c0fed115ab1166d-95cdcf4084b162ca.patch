@@ -1,0 +1,23 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	if (sigma_delta->info->has_registers) {
+ 		xfer[0].tx_buf = &sigma_delta->sample_addr;
+ 		xfer[0].len = 1;
+@@ -18,15 +17,3 @@
+ 	if (ret)
+ 		return ret;
+ 
+-||||||| base
+-	samples_buf_size = ALIGN(slot * indio_dev->channels[0].scan_type.storagebits, 8);
+-	samples_buf_size += sizeof(int64_t);
+-	samples_buf = devm_krealloc(&sigma_delta->spi->dev, sigma_delta->samples_buf,
+-				    samples_buf_size, GFP_KERNEL);
+-	if (!samples_buf)
+-		return -ENOMEM;
+-
+-	sigma_delta->samples_buf = samples_buf;
+-
+-=======
+->>>>>>> theirs

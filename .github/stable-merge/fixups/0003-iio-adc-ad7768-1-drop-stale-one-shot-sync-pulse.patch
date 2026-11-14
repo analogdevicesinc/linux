@@ -1,0 +1,31 @@
+iio: adc: ad7768-1: do not force a SYNC pulse in ad7768_scan_direct()
+
+Stable commit a12fb673b3a67 ("iio: adc: ad7768-1: fix one-shot mode data
+acquisition") makes ad7768_scan_direct() switch to one-shot mode first, and
+then re-init the completion and send a SYNC pulse to trigger the sample.
+
+Downstream main already carries the newer upstream rework (c14bb04412f13 /
+cbeebc5d1f94e "remove switch to one-shot mode" and "disable IRQ autoenable"),
+where the ADC stays in continuous mode and the IRQ is enabled around the wait.
+The conflict was resolved to the downstream scan_direct(), but the stable hunk
+that follows the conflict still got merged and added a second
+reinit_completion() plus an unneeded SYNC pulse, which would restart the
+continuous conversion. Drop those stale lines.
+
+diff --git a/drivers/iio/adc/ad7768-1.c b/drivers/iio/adc/ad7768-1.c
+--- a/drivers/iio/adc/ad7768-1.c
++++ b/drivers/iio/adc/ad7768-1.c
+@@ -487,13 +487,6 @@
+ 	reinit_completion(&st->completion);
+ 	enable_irq(st->spi->irq);
+ 
+-	reinit_completion(&st->completion);
+-
+-	/* One-shot mode requires a SYNC pulse to generate a new sample */
+-	ret = ad7768_send_sync_pulse(st);
+-	if (ret)
+-		return ret;
+-
+ 	ret = wait_for_completion_timeout(&st->completion,
+ 					  msecs_to_jiffies(1000));
+ 	disable_irq(st->spi->irq);

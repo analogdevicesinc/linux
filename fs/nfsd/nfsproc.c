@@ -32,10 +32,25 @@ static __be32 nfsd_map_status(__be32 status)
 		break;
 	case nfserr_symlink:
 	case nfserr_wrong_type:
-		status = nfserr_inval;
+		status = nfserr_io;
 		break;
 	}
 	return status;
+}
+
+/*
+ * Because NFSv2 does not have an NFSERR_SYMLINK, Solaris returns
+ * NFSERR_ISDIR when the target of a READ or WRITE is any object
+ * that is not a regular file.
+ */
+static __be32 nfsd_map_io_status(__be32 status)
+{
+	switch (status) {
+	case nfserr_symlink:
+	case nfserr_wrong_type:
+		return nfserr_isdir;
+	}
+	return nfsd_map_status(status);
 }
 
 static __be32
@@ -81,6 +96,7 @@ nfsd_proc_setattr(struct svc_rqst *rqstp)
 		.na_iattr	= iap,
 	};
 	struct svc_fh *fhp;
+	int hosterr;
 
 	dprintk("nfsd: SETATTR  %s, valid=%x, size=%ld\n",
 		SVCFH_fmt(&argp->fh),
@@ -115,6 +131,12 @@ nfsd_proc_setattr(struct svc_rqst *rqstp)
 		resp->status = fh_verify(rqstp, fhp, 0, NFSD_MAY_NOP);
 		if (resp->status != nfs_ok)
 			goto out;
+
+		hosterr = fh_want_write(fhp);
+		if (hosterr) {
+			resp->status = nfserrno(hosterr);
+			goto out;
+		}
 
 		if (delta < 0)
 			delta = -delta;
@@ -229,7 +251,7 @@ nfsd_proc_read(struct svc_rqst *rqstp)
 		resp->status = fh_getattr(&resp->fh, &resp->stat);
 	else if (resp->status == nfserr_jukebox)
 		set_bit(RQ_DROPME, &rqstp->rq_flags);
-	resp->status = nfsd_map_status(resp->status);
+	resp->status = nfsd_map_io_status(resp->status);
 	return rpc_success;
 }
 
@@ -265,7 +287,7 @@ nfsd_proc_write(struct svc_rqst *rqstp)
 		resp->status = fh_getattr(&resp->fh, &resp->stat);
 	else if (resp->status == nfserr_jukebox)
 		set_bit(RQ_DROPME, &rqstp->rq_flags);
-	resp->status = nfsd_map_status(resp->status);
+	resp->status = nfsd_map_io_status(resp->status);
 	return rpc_success;
 }
 

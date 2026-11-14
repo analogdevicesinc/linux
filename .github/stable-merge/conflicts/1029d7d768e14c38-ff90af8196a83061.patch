@@ -1,0 +1,22 @@
+--- a/conflict
++++ b/conflict
+@@ -1,19 +0,0 @@
+-<<<<<<< ours
+-||||||| base
+-	if (!desc) {
+-		vdesc = vchan_next_desc(&chan->vchan);
+-		if (!vdesc)
+-			return;
+-		list_move_tail(&vdesc->node, &chan->active_descs);
+-		desc = to_axi_dmac_desc(vdesc);
+-	}
+-=======
+-	if (!desc) {
+-		vdesc = vchan_next_desc(&chan->vchan);
+-		if (!vdesc)
+-			return;
+-		list_move_tail(&vdesc->node, &chan->active_descs);
+-		desc = to_axi_dmac_desc(vdesc);
+-		chan->next_desc = desc;
+-	}
+->>>>>>> theirs

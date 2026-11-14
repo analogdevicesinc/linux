@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,5 @@
+-<<<<<<< ours
+-		.has_alerts = false,
+-		.has_ishunt = false,
+-||||||| base
+-=======
+ 		.has_alerts = false,
+ 		.has_ishunt = false,
+ 		.has_power_average = false,
+ 		.current_shift = 0,
+ 		.has_update_interval = false,
+->>>>>>> theirs

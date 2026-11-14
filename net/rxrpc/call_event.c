@@ -44,8 +44,8 @@ void rxrpc_propose_delay_ACK(struct rxrpc_call *call, rxrpc_serial_t serial,
 
 	trace_rxrpc_propose_ack(call, why, RXRPC_ACK_DELAY, serial);
 
-	if (call->peer->srtt_us)
-		delay = (call->peer->srtt_us >> 3) * NSEC_PER_USEC;
+	if (call->srtt_us)
+		delay = (call->srtt_us >> 3) * NSEC_PER_USEC;
 	else
 		delay = ms_to_ktime(READ_ONCE(rxrpc_soft_ack_delay));
 	ktime_add_ms(delay, call->tx_backoff);
@@ -71,7 +71,8 @@ void rxrpc_resend(struct rxrpc_call *call, struct sk_buff *ack_skb)
 	struct rxrpc_skb_priv *sp;
 	struct rxrpc_txbuf *txb;
 	rxrpc_seq_t transmitted = call->tx_transmitted;
-	ktime_t next_resend = KTIME_MAX, rto = ns_to_ktime(call->peer->rto_us * NSEC_PER_USEC);
+	ktime_t next_resend = KTIME_MAX;
+	ktime_t rto = rxrpc_get_rto_backoff(call, false);
 	ktime_t resend_at = KTIME_MAX, now, delay;
 	bool unacked = false, did_send = false;
 	unsigned int i;
@@ -173,7 +174,7 @@ void rxrpc_resend(struct rxrpc_call *call, struct sk_buff *ack_skb)
 no_further_resend:
 no_resend:
 	if (resend_at < KTIME_MAX) {
-		delay = rxrpc_get_rto_backoff(call->peer, did_send);
+		delay = rxrpc_get_rto_backoff(call, did_send);
 		resend_at = ktime_add(resend_at, delay);
 		trace_rxrpc_timer_set(call, resend_at - now, rxrpc_timer_trace_resend_reset);
 	}
@@ -188,7 +189,7 @@ no_resend:
 	 */
 	if (!did_send) {
 		ktime_t next_ping = ktime_add_us(call->acks_latest_ts,
-						 call->peer->srtt_us >> 3);
+						 call->srtt_us >> 3);
 
 		if (ktime_sub(next_ping, now) <= 0)
 			rxrpc_send_ACK(call, RXRPC_ACK_PING, 0,
@@ -305,8 +306,8 @@ static void rxrpc_transmit_some_data(struct rxrpc_call *call)
  */
 static void rxrpc_send_initial_ping(struct rxrpc_call *call)
 {
-	if (call->peer->rtt_count < 3 ||
-	    ktime_before(ktime_add_ms(call->peer->rtt_last_req, 1000),
+	if (call->rtt_count < 3 ||
+	    ktime_before(ktime_add_ms(call->rtt_last_req, 1000),
 			 ktime_get_real()))
 		rxrpc_send_ACK(call, RXRPC_ACK_PING, 0,
 			       rxrpc_propose_ack_ping_for_params);
@@ -315,10 +316,11 @@ static void rxrpc_send_initial_ping(struct rxrpc_call *call)
 /*
  * Handle retransmission and deferred ACK/abort generation.
  */
-bool rxrpc_input_call_event(struct rxrpc_call *call, struct sk_buff *skb)
+bool rxrpc_input_call_event(struct rxrpc_call *call)
 {
+	struct sk_buff *skb;
 	ktime_t now, t;
-	bool resend = false;
+	bool resend = false, saw_ack = false;
 	s32 abort_code;
 
 	rxrpc_see_call(call, rxrpc_call_see_input);
@@ -328,9 +330,6 @@ bool rxrpc_input_call_event(struct rxrpc_call *call, struct sk_buff *skb)
 	       call->debug_id, rxrpc_call_states[__rxrpc_call_state(call)],
 	       call->events);
 
-	if (__rxrpc_call_is_complete(call))
-		goto out;
-
 	/* Handle abort request locklessly, vs rxrpc_propose_abort(). */
 	abort_code = smp_load_acquire(&call->send_abort);
 	if (abort_code) {
@@ -339,11 +338,20 @@ bool rxrpc_input_call_event(struct rxrpc_call *call, struct sk_buff *skb)
 		goto out;
 	}
 
-	if (skb && skb->mark == RXRPC_SKB_MARK_ERROR)
-		goto out;
+	while ((skb = __skb_dequeue(&call->rx_queue))) {
+		struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
 
-	if (skb)
+		if (__rxrpc_call_is_complete(call) ||
+		    skb->mark == RXRPC_SKB_MARK_ERROR) {
+			rxrpc_free_skb(skb, rxrpc_skb_put_call_rx);
+			goto out;
+		}
+
+		saw_ack |= sp->hdr.type == RXRPC_PACKET_TYPE_ACK;
+
 		rxrpc_input_call_packet(call, skb);
+		rxrpc_free_skb(skb, rxrpc_skb_put_call_rx);
+	}
 
 	/* If we see our async-event poke, check for timeout trippage. */
 	now = ktime_get_real();
@@ -409,12 +417,8 @@ bool rxrpc_input_call_event(struct rxrpc_call *call, struct sk_buff *skb)
 			       rxrpc_propose_ack_ping_for_keepalive);
 	}
 
-	if (skb) {
-		struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-
-		if (sp->hdr.type == RXRPC_PACKET_TYPE_ACK)
-			rxrpc_congestion_degrade(call);
-	}
+	if (saw_ack)
+		rxrpc_congestion_degrade(call);
 
 	if (test_and_clear_bit(RXRPC_CALL_EV_INITIAL_PING, &call->events))
 		rxrpc_send_initial_ping(call);
@@ -434,10 +438,10 @@ bool rxrpc_input_call_event(struct rxrpc_call *call, struct sk_buff *skb)
 			       rxrpc_propose_ack_rx_idle);
 
 	if (call->ackr_nr_unacked > 2) {
-		if (call->peer->rtt_count < 3)
+		if (call->rtt_count < 3)
 			rxrpc_send_ACK(call, RXRPC_ACK_PING, 0,
 				       rxrpc_propose_ack_ping_for_rtt);
-		else if (ktime_before(ktime_add_ms(call->peer->rtt_last_req, 1000),
+		else if (ktime_before(ktime_add_ms(call->rtt_last_req, 1000),
 				      ktime_get_real()))
 			rxrpc_send_ACK(call, RXRPC_ACK_PING, 0,
 				       rxrpc_propose_ack_ping_for_old_rtt);

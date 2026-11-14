@@ -1339,15 +1339,13 @@ static int ov08x40_read_reg(struct ov08x40 *ov08x,
 	return 0;
 }
 
-static int ov08x40_burst_fill_regs(struct ov08x40 *ov08x, u16 first_reg,
-				   u16 last_reg,  u8 val)
+static int __ov08x40_burst_fill_regs(struct i2c_client *client, u16 first_reg,
+				     u16 last_reg, size_t num_regs, u8 val)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&ov08x->sd);
 	struct i2c_msg msgs;
-	size_t i, num_regs;
+	size_t i;
 	int ret;
 
-	num_regs = last_reg - first_reg + 1;
 	msgs.addr = client->addr;
 	msgs.flags = 0;
 	msgs.len = 2 + num_regs;
@@ -1368,6 +1366,31 @@ static int ov08x40_burst_fill_regs(struct ov08x40 *ov08x, u16 first_reg,
 	if (ret != 1) {
 		dev_err(&client->dev, "Failed regs transferred: %d\n", ret);
 		return -EIO;
+	}
+
+	return 0;
+}
+
+static int ov08x40_burst_fill_regs(struct ov08x40 *ov08x, u16 first_reg,
+				   u16 last_reg,  u8 val)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&ov08x->sd);
+	size_t num_regs, num_write_regs;
+	int ret;
+
+	num_regs = last_reg - first_reg + 1;
+	num_write_regs = num_regs;
+
+	if (client->adapter->quirks && client->adapter->quirks->max_write_len)
+		num_write_regs = client->adapter->quirks->max_write_len - 2;
+
+	while (first_reg < last_reg) {
+		ret = __ov08x40_burst_fill_regs(client, first_reg, last_reg,
+						num_write_regs, val);
+		if (ret)
+			return ret;
+
+		first_reg += num_write_regs;
 	}
 
 	return 0;
@@ -1541,7 +1564,7 @@ static int ov08x40_set_ctrl_hflip(struct ov08x40 *ov08x, u32 ctrl_val)
 
 	return ov08x40_write_reg(ov08x, OV08X40_REG_MIRROR,
 				 OV08X40_REG_VALUE_08BIT,
-				 ctrl_val ? val | BIT(2) : val & ~BIT(2));
+				 ctrl_val ? val & ~BIT(2) : val | BIT(2));
 }
 
 static int ov08x40_set_ctrl_vflip(struct ov08x40 *ov08x, u32 ctrl_val)
@@ -1846,43 +1869,6 @@ static int ov08x40_stop_streaming(struct ov08x40 *ov08x)
 				 OV08X40_REG_VALUE_08BIT, OV08X40_MODE_STANDBY);
 }
 
-static int ov08x40_set_stream(struct v4l2_subdev *sd, int enable)
-{
-	struct ov08x40 *ov08x = to_ov08x40(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
-
-	mutex_lock(&ov08x->mutex);
-
-	if (enable) {
-		ret = pm_runtime_resume_and_get(&client->dev);
-		if (ret < 0)
-			goto err_unlock;
-
-		/*
-		 * Apply default & customized values
-		 * and then start streaming.
-		 */
-		ret = ov08x40_start_streaming(ov08x);
-		if (ret)
-			goto err_rpm_put;
-	} else {
-		ov08x40_stop_streaming(ov08x);
-		pm_runtime_put(&client->dev);
-	}
-
-	mutex_unlock(&ov08x->mutex);
-
-	return ret;
-
-err_rpm_put:
-	pm_runtime_put(&client->dev);
-err_unlock:
-	mutex_unlock(&ov08x->mutex);
-
-	return ret;
-}
-
 /* Verify chip ID */
 static int ov08x40_identify_module(struct ov08x40 *ov08x)
 {
@@ -1907,6 +1893,47 @@ static int ov08x40_identify_module(struct ov08x40 *ov08x)
 	ov08x->identified = true;
 
 	return 0;
+}
+
+static int ov08x40_set_stream(struct v4l2_subdev *sd, int enable)
+{
+	struct ov08x40 *ov08x = to_ov08x40(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret = 0;
+
+	mutex_lock(&ov08x->mutex);
+
+	if (enable) {
+		ret = pm_runtime_resume_and_get(&client->dev);
+		if (ret < 0)
+			goto err_unlock;
+
+		ret = ov08x40_identify_module(ov08x);
+		if (ret)
+			goto err_rpm_put;
+
+		/*
+		 * Apply default & customized values
+		 * and then start streaming.
+		 */
+		ret = ov08x40_start_streaming(ov08x);
+		if (ret)
+			goto err_rpm_put;
+	} else {
+		ov08x40_stop_streaming(ov08x);
+		pm_runtime_put(&client->dev);
+	}
+
+	mutex_unlock(&ov08x->mutex);
+
+	return ret;
+
+err_rpm_put:
+	pm_runtime_put(&client->dev);
+err_unlock:
+	mutex_unlock(&ov08x->mutex);
+
+	return ret;
 }
 
 static const struct v4l2_subdev_video_ops ov08x40_video_ops = {

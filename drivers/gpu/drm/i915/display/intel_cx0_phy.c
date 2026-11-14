@@ -2084,14 +2084,6 @@ static void intel_c10_pll_program(struct drm_i915_private *i915,
 		      0, C10_VDR_CTRL_MSGBUS_ACCESS,
 		      MB_WRITE_COMMITTED);
 
-	/* Custom width needs to be programmed to 0 for both the phy lanes */
-	intel_cx0_rmw(encoder, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CUSTOM_WIDTH,
-		      C10_VDR_CUSTOM_WIDTH_MASK, C10_VDR_CUSTOM_WIDTH_8_10,
-		      MB_WRITE_COMMITTED);
-	intel_cx0_rmw(encoder, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CONTROL(1),
-		      0, C10_VDR_CTRL_UPDATE_CFG,
-		      MB_WRITE_COMMITTED);
-
 	/* Program the pll values only for the master lane */
 	for (i = 0; i < ARRAY_SIZE(pll_state->pll); i++)
 		intel_cx0_write(encoder, INTEL_CX0_LANE0, PHY_C10_VDR_PLL(i),
@@ -2101,6 +2093,10 @@ static void intel_c10_pll_program(struct drm_i915_private *i915,
 	intel_cx0_write(encoder, INTEL_CX0_LANE0, PHY_C10_VDR_CMN(0), pll_state->cmn, MB_WRITE_COMMITTED);
 	intel_cx0_write(encoder, INTEL_CX0_LANE0, PHY_C10_VDR_TX(0), pll_state->tx, MB_WRITE_COMMITTED);
 
+	/* Custom width needs to be programmed to 0 for both the phy lanes */
+	intel_cx0_rmw(encoder, INTEL_CX0_BOTH_LANES, PHY_C10_VDR_CUSTOM_WIDTH,
+		      C10_VDR_CUSTOM_WIDTH_MASK, C10_VDR_CUSTOM_WIDTH_8_10,
+		      MB_WRITE_COMMITTED);
 	intel_cx0_rmw(encoder, INTEL_CX0_LANE0, PHY_C10_VDR_CONTROL(1),
 		      0, C10_VDR_CTRL_MASTER_LANE | C10_VDR_CTRL_UPDATE_CFG,
 		      MB_WRITE_COMMITTED);
@@ -3250,28 +3246,28 @@ static void intel_c10pll_state_verify(const struct intel_crtc_state *state,
 				      struct intel_encoder *encoder,
 				      struct intel_c10pll_state *mpllb_hw_state)
 {
-	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	struct intel_display *display = to_intel_display(state);
 	const struct intel_c10pll_state *mpllb_sw_state = &state->dpll_hw_state.cx0pll.c10;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(mpllb_sw_state->pll); i++) {
 		u8 expected = mpllb_sw_state->pll[i];
 
-		I915_STATE_WARN(i915, mpllb_hw_state->pll[i] != expected,
-				"[CRTC:%d:%s] mismatch in C10MPLLB: Register[%d] (expected 0x%02x, found 0x%02x)",
-				crtc->base.base.id, crtc->base.name, i,
-				expected, mpllb_hw_state->pll[i]);
+		INTEL_DISPLAY_STATE_WARN(display, mpllb_hw_state->pll[i] != expected,
+					 "[CRTC:%d:%s] mismatch in C10MPLLB: Register[%d] (expected 0x%02x, found 0x%02x)",
+					 crtc->base.base.id, crtc->base.name, i,
+					 expected, mpllb_hw_state->pll[i]);
 	}
 
-	I915_STATE_WARN(i915, mpllb_hw_state->tx != mpllb_sw_state->tx,
-			"[CRTC:%d:%s] mismatch in C10MPLLB: Register TX0 (expected 0x%02x, found 0x%02x)",
-			crtc->base.base.id, crtc->base.name,
-			mpllb_sw_state->tx, mpllb_hw_state->tx);
+	INTEL_DISPLAY_STATE_WARN(display, mpllb_hw_state->tx != mpllb_sw_state->tx,
+				 "[CRTC:%d:%s] mismatch in C10MPLLB: Register TX0 (expected 0x%02x, found 0x%02x)",
+				 crtc->base.base.id, crtc->base.name,
+				 mpllb_sw_state->tx, mpllb_hw_state->tx);
 
-	I915_STATE_WARN(i915, mpllb_hw_state->cmn != mpllb_sw_state->cmn,
-			"[CRTC:%d:%s] mismatch in C10MPLLB: Register CMN0 (expected 0x%02x, found 0x%02x)",
-			crtc->base.base.id, crtc->base.name,
-			mpllb_sw_state->cmn, mpllb_hw_state->cmn);
+	INTEL_DISPLAY_STATE_WARN(display, mpllb_hw_state->cmn != mpllb_sw_state->cmn,
+				 "[CRTC:%d:%s] mismatch in C10MPLLB: Register CMN0 (expected 0x%02x, found 0x%02x)",
+				 crtc->base.base.id, crtc->base.name,
+				 mpllb_sw_state->cmn, mpllb_hw_state->cmn);
 }
 
 void intel_cx0pll_readout_hw_state(struct intel_encoder *encoder,
@@ -3357,51 +3353,51 @@ static void intel_c20pll_state_verify(const struct intel_crtc_state *state,
 				      struct intel_encoder *encoder,
 				      struct intel_c20pll_state *mpll_hw_state)
 {
-	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
+	struct intel_display *display = to_intel_display(state);
 	const struct intel_c20pll_state *mpll_sw_state = &state->dpll_hw_state.cx0pll.c20;
 	bool sw_use_mpllb = intel_c20phy_use_mpllb(mpll_sw_state);
 	bool hw_use_mpllb = intel_c20phy_use_mpllb(mpll_hw_state);
 	int clock = intel_c20pll_calc_port_clock(encoder, mpll_sw_state);
 	int i;
 
-	I915_STATE_WARN(i915, mpll_hw_state->clock != clock,
-			"[CRTC:%d:%s] mismatch in C20: Register CLOCK (expected %d, found %d)",
-			crtc->base.base.id, crtc->base.name,
-			mpll_sw_state->clock, mpll_hw_state->clock);
+	INTEL_DISPLAY_STATE_WARN(display, mpll_hw_state->clock != clock,
+				 "[CRTC:%d:%s] mismatch in C20: Register CLOCK (expected %d, found %d)",
+				 crtc->base.base.id, crtc->base.name,
+				 mpll_sw_state->clock, mpll_hw_state->clock);
 
-	I915_STATE_WARN(i915, sw_use_mpllb != hw_use_mpllb,
-			"[CRTC:%d:%s] mismatch in C20: Register MPLLB selection (expected %d, found %d)",
-			crtc->base.base.id, crtc->base.name,
-			sw_use_mpllb, hw_use_mpllb);
+	INTEL_DISPLAY_STATE_WARN(display, sw_use_mpllb != hw_use_mpllb,
+				 "[CRTC:%d:%s] mismatch in C20: Register MPLLB selection (expected %d, found %d)",
+				 crtc->base.base.id, crtc->base.name,
+				 sw_use_mpllb, hw_use_mpllb);
 
 	if (hw_use_mpllb) {
 		for (i = 0; i < ARRAY_SIZE(mpll_sw_state->mpllb); i++) {
-			I915_STATE_WARN(i915, mpll_hw_state->mpllb[i] != mpll_sw_state->mpllb[i],
-					"[CRTC:%d:%s] mismatch in C20MPLLB: Register[%d] (expected 0x%04x, found 0x%04x)",
-					crtc->base.base.id, crtc->base.name, i,
-					mpll_sw_state->mpllb[i], mpll_hw_state->mpllb[i]);
+			INTEL_DISPLAY_STATE_WARN(display, mpll_hw_state->mpllb[i] != mpll_sw_state->mpllb[i],
+						 "[CRTC:%d:%s] mismatch in C20MPLLB: Register[%d] (expected 0x%04x, found 0x%04x)",
+						 crtc->base.base.id, crtc->base.name, i,
+						 mpll_sw_state->mpllb[i], mpll_hw_state->mpllb[i]);
 		}
 	} else {
 		for (i = 0; i < ARRAY_SIZE(mpll_sw_state->mplla); i++) {
-			I915_STATE_WARN(i915, mpll_hw_state->mplla[i] != mpll_sw_state->mplla[i],
-					"[CRTC:%d:%s] mismatch in C20MPLLA: Register[%d] (expected 0x%04x, found 0x%04x)",
-					crtc->base.base.id, crtc->base.name, i,
-					mpll_sw_state->mplla[i], mpll_hw_state->mplla[i]);
+			INTEL_DISPLAY_STATE_WARN(display, mpll_hw_state->mplla[i] != mpll_sw_state->mplla[i],
+						 "[CRTC:%d:%s] mismatch in C20MPLLA: Register[%d] (expected 0x%04x, found 0x%04x)",
+						 crtc->base.base.id, crtc->base.name, i,
+						 mpll_sw_state->mplla[i], mpll_hw_state->mplla[i]);
 		}
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mpll_sw_state->tx); i++) {
-		I915_STATE_WARN(i915, mpll_hw_state->tx[i] != mpll_sw_state->tx[i],
-				"[CRTC:%d:%s] mismatch in C20: Register TX[%i] (expected 0x%04x, found 0x%04x)",
-				crtc->base.base.id, crtc->base.name, i,
-				mpll_sw_state->tx[i], mpll_hw_state->tx[i]);
+		INTEL_DISPLAY_STATE_WARN(display, mpll_hw_state->tx[i] != mpll_sw_state->tx[i],
+					 "[CRTC:%d:%s] mismatch in C20: Register TX[%i] (expected 0x%04x, found 0x%04x)",
+					 crtc->base.base.id, crtc->base.name, i,
+					 mpll_sw_state->tx[i], mpll_hw_state->tx[i]);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mpll_sw_state->cmn); i++) {
-		I915_STATE_WARN(i915, mpll_hw_state->cmn[i] != mpll_sw_state->cmn[i],
-				"[CRTC:%d:%s] mismatch in C20: Register CMN[%i] (expected 0x%04x, found 0x%04x)",
-				crtc->base.base.id, crtc->base.name, i,
-				mpll_sw_state->cmn[i], mpll_hw_state->cmn[i]);
+		INTEL_DISPLAY_STATE_WARN(display, mpll_hw_state->cmn[i] != mpll_sw_state->cmn[i],
+					 "[CRTC:%d:%s] mismatch in C20: Register CMN[%i] (expected 0x%04x, found 0x%04x)",
+					 crtc->base.base.id, crtc->base.name, i,
+					 mpll_sw_state->cmn[i], mpll_hw_state->cmn[i]);
 	}
 }
 

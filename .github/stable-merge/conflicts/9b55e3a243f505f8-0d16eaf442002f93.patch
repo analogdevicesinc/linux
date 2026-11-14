@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,3 @@
+-<<<<<<< ours
+ 	guard(mutex)(&st->lock);
+ 
+ 	return ad5686_pd_field_get(chan, st->pwr_down_mode) - 1;
+-||||||| base
+-	return ((st->pwr_down_mode >> (chan->channel * 2)) & 0x3) - 1;
+-=======
+-	guard(mutex)(&st->lock);
+-
+-	return ((st->pwr_down_mode >> (chan->channel * 2)) & 0x3) - 1;
+->>>>>>> theirs

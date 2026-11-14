@@ -1,0 +1,27 @@
+--- a/conflict
++++ b/conflict
+@@ -1,5 +1,7 @@
+-<<<<<<< ours
+-	WARN_ON_ONCE(ret);
++
++	if (ret)
++		dev_err_ratelimited(dep->dwc->dev,
++				"end transfer failed: %d\n", ret);
+ 
+ 	/*
+ 	 * when transfer is stopped with force rm bit false, it can be
+@@ -7,14 +9,3 @@
+ 	 */
+ 	if (force)
+ 		dep->resource_index = 0;
+-||||||| base
+-	WARN_ON_ONCE(ret);
+-	dep->resource_index = 0;
+-=======
+-
+-	if (ret)
+-		dev_err_ratelimited(dep->dwc->dev,
+-				"end transfer failed: %d\n", ret);
+-
+-	dep->resource_index = 0;
+->>>>>>> theirs

@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,4 @@
+-<<<<<<< ours
+-		ret = spi_nor_read_data(nor, addr, read_len, readbuf);
+-||||||| base
+-		ret = spi_nor_read_data(nor, addr, len, buf);
+-=======
+ 		if (nor->read_proto == SNOR_PROTO_8_8_8_DTR)
+-			ret = spi_nor_octal_dtr_read(nor, addr, len, buf);
++			ret = spi_nor_octal_dtr_read(nor, addr, read_len, readbuf);
+ 		else
+-			ret = spi_nor_read_data(nor, addr, len, buf);
+-
+->>>>>>> theirs
++			ret = spi_nor_read_data(nor, addr, read_len, readbuf);

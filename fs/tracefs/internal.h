@@ -46,11 +46,11 @@ struct eventfs_attr {
  * @ino:	The saved inode number
  */
 struct eventfs_inode {
+	struct list_head	list;
 	union {
-		struct list_head	list;
+		struct list_head	children;
 		struct rcu_head		rcu;
 	};
-	struct list_head		children;
 	const struct eventfs_entry	*entries;
 	const char			*name;
 	struct eventfs_attr		*entry_attrs;
@@ -75,5 +75,8 @@ struct inode *tracefs_get_inode(struct super_block *sb);
 
 void eventfs_remount(struct tracefs_inode *ti, bool update_uid, bool update_gid);
 void eventfs_d_release(struct dentry *dentry);
+
+int eventfs_remount_lock(void);
+void eventfs_remount_unlock(int srcu_idx);
 
 #endif /* _TRACEFS_INTERNAL_H */

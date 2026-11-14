@@ -1,0 +1,12 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1 @@
+-<<<<<<< ours
+ static int zynqmp_sha_init_tfm(struct crypto_tfm *tfm)
+-||||||| base
+-static int zynqmp_sha_init_tfm(struct crypto_shash *hash)
+-=======
+-static DEFINE_SPINLOCK(zynqmp_sha_lock);
+-
+-static int zynqmp_sha_init_tfm(struct crypto_shash *hash)
+->>>>>>> theirs

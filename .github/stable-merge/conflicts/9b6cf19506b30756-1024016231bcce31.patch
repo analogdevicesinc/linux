@@ -1,0 +1,48 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ static irqreturn_t ad4130_trigger_handler(int irq, void *p)
+ {
+ 	struct iio_poll_func *pf = p;
+@@ -60,40 +59,3 @@
+ 	return true;
+ }
+ 
+-||||||| base
+-=======
+-static bool ad4130_setup_info_eq(struct ad4130_setup_info *a,
+-				 struct ad4130_setup_info *b)
+-{
+-	/*
+-	 * This is just to make sure that the comparison is adapted after
+-	 * struct ad4130_setup_info was changed.
+-	 */
+-	static_assert(sizeof(*a) ==
+-		      sizeof(struct {
+-				     unsigned int iout0_val;
+-				     unsigned int iout1_val;
+-				     unsigned int burnout;
+-				     unsigned int pga;
+-				     unsigned int fs;
+-				     u32 ref_sel;
+-				     enum ad4130_filter_mode filter_mode;
+-				     bool ref_bufp;
+-				     bool ref_bufm;
+-			     }));
+-
+-	if (a->iout0_val != b->iout0_val ||
+-	    a->iout1_val != b->iout1_val ||
+-	    a->burnout != b->burnout ||
+-	    a->pga != b->pga ||
+-	    a->fs != b->fs ||
+-	    a->ref_sel != b->ref_sel ||
+-	    a->filter_mode != b->filter_mode ||
+-	    a->ref_bufp != b->ref_bufp ||
+-	    a->ref_bufm != b->ref_bufm)
+-		return false;
+-
+-	return true;
+-}
+-
+->>>>>>> theirs

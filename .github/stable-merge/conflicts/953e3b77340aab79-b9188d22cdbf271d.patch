@@ -1,0 +1,15 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,6 @@
+-<<<<<<< ours
++ * @cs_gpiod: Array of GPIO descriptors of the corresponding chipselect lines
++ *	(optional, NULL when not using a GPIO line)
+  * @tx_lane_map: Map of peripheral lanes (index) to controller lanes (value).
+  * @num_tx_lanes: Number of transmit lanes wired up.
+  * @rx_lane_map: Map of peripheral lanes (index) to controller lanes (value).
+  * @num_rx_lanes: Number of receive lanes wired up.
+-||||||| base
+-=======
+- * @cs_gpiod: Array of GPIO descriptors of the corresponding chipselect lines
+- *	(optional, NULL when not using a GPIO line)
+->>>>>>> theirs

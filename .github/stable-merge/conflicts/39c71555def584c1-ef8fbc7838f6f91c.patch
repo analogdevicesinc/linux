@@ -1,0 +1,33 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	bool max34451_na6 = false;
+ 
+ 	rv = i2c_smbus_read_word_data(client, PMBUS_MFR_REVISION);
+@@ -30,25 +29,3 @@
+ 		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
+ 		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
+ 	}
+-||||||| base
+-=======
+-	bool max34451_na6 = false;
+-
+-	rv = i2c_smbus_read_word_data(client, PMBUS_MFR_REVISION);
+-	if (rv < 0)
+-		return rv;
+-
+-	if (rv >= MAX34451ETNA6_MFR_REV) {
+-		max34451_na6 = true;
+-		data->info.format[PSC_VOLTAGE_IN] = direct;
+-		data->info.format[PSC_CURRENT_IN] = direct;
+-		data->info.m[PSC_VOLTAGE_IN] = 1;
+-		data->info.b[PSC_VOLTAGE_IN] = 0;
+-		data->info.R[PSC_VOLTAGE_IN] = 3;
+-		data->info.m[PSC_CURRENT_IN] = 1;
+-		data->info.b[PSC_CURRENT_IN] = 0;
+-		data->info.R[PSC_CURRENT_IN] = 2;
+-		data->iout_oc_fault_limit = PMBUS_IOUT_OC_FAULT_LIMIT;
+-		data->iout_oc_warn_limit = PMBUS_IOUT_OC_WARN_LIMIT;
+-	}
+->>>>>>> theirs

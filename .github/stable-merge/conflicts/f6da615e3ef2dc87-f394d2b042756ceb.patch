@@ -1,0 +1,10 @@
+--- a/conflict
++++ b/conflict
+@@ -1,6 +1 @@
+-<<<<<<< ours
+-	u8 opaddr[ZYNQ_QSPI_MAX_ADDR_WIDTH];
+-||||||| base
+-=======
+-	u8 opaddr[4] __aligned(4);
+->>>>>>> theirs
++	u8 opaddr[ZYNQ_QSPI_MAX_ADDR_WIDTH] __aligned(4);

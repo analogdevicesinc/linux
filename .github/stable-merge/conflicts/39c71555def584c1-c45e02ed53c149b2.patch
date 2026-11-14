@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 					   data->iout_oc_warn_limit);
+ 		break;
+ 	case PMBUS_VIN_OV_FAULT_LIMIT:
+@@ -28,8 +27,3 @@
+ 		    data->id == adpm12250 || data->id == adpm12886)
+ 			return -ENXIO;
+ 		ret = -ENODATA;
+-||||||| base
+-					   MAX34440_IOUT_OC_WARN_LIMIT);
+-=======
+-					   data->iout_oc_warn_limit);
+->>>>>>> theirs

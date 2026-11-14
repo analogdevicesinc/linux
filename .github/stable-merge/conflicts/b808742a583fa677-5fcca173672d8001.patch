@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 		nents = i;
+ 
+ 		if (block->cyclic)
+@@ -11,8 +10,3 @@
+ 		 * before it can run, so always set the EOT flag.
+ 		 */
+ 		flags |= DMA_PREP_LOAD_EOT;
+-||||||| base
+-=======
+-		nents = i;
+-
+->>>>>>> theirs

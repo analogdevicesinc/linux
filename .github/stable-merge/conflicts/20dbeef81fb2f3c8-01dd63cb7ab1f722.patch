@@ -1,0 +1,59 @@
+--- a/conflict
++++ b/conflict
+@@ -1,33 +1,6 @@
+-<<<<<<< ours
+ 	fclk = ad7124_get_fclk_hz(st);
+ 	factor = ad7124_get_fs_factor(st, channel);
+-||||||| base
+-	cmp_size = sizeof_field(struct ad7124_channel_config, config_props);
+-	for (i = 0; i < st->num_channels; i++) {
+-		cfg_aux = &st->channels[i].cfg;
+-=======
+-	/*
+-	 * This is just to make sure that the comparison is adapted after
+-	 * struct ad7124_channel_config was changed.
+-	 */
+-	static_assert(sizeof_field(struct ad7124_channel_config, config_props) ==
+-		      sizeof(struct {
+-				     enum ad7124_ref_sel refsel;
+-				     bool bipolar;
+-				     bool buf_positive;
+-				     bool buf_negative;
+-				     unsigned int vref_mv;
+-				     unsigned int pga_bits;
+-				     unsigned int odr;
+-				     unsigned int odr_sel_bits;
+-				     unsigned int filter_type;
+-			     }));
+ 
+-	for (i = 0; i < st->num_channels; i++) {
+-		cfg_aux = &st->channels[i].cfg;
+->>>>>>> theirs
+-
+-<<<<<<< ours
+ 	/*
+ 	 * FS[10:0] = fCLK / (fADC x 32 * N) where:
+ 	 * fADC is the output data rate
+@@ -39,22 +12,3 @@
+ 	divisor = cfg->requested_odr * factor +
+ 		  cfg->requested_odr_micro * factor / MICRO;
+ 	odr_sel_bits = clamp(DIV_ROUND_CLOSEST(fclk, divisor), 1, 2047);
+-||||||| base
+-		if (cfg_aux->live &&
+-		    !memcmp(&cfg->config_props, &cfg_aux->config_props, cmp_size))
+-			return cfg_aux;
+-	}
+-=======
+-		if (cfg_aux->live &&
+-		    cfg->refsel == cfg_aux->refsel &&
+-		    cfg->bipolar == cfg_aux->bipolar &&
+-		    cfg->buf_positive == cfg_aux->buf_positive &&
+-		    cfg->buf_negative == cfg_aux->buf_negative &&
+-		    cfg->vref_mv == cfg_aux->vref_mv &&
+-		    cfg->pga_bits == cfg_aux->pga_bits &&
+-		    cfg->odr == cfg_aux->odr &&
+-		    cfg->odr_sel_bits == cfg_aux->odr_sel_bits &&
+-		    cfg->filter_type == cfg_aux->filter_type)
+-			return cfg_aux;
+-	}
+->>>>>>> theirs

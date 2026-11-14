@@ -1,0 +1,29 @@
+--- a/conflict
++++ b/conflict
+@@ -1,26 +1,3 @@
+-<<<<<<< ours
+ 	/* Disable master transaction inhibit */
+ 	cr &= ~XSPI_CR_TRANS_INHIBIT;
+ 	xspi->write_fn(cr, xspi->regs + XSPI_CR_OFFSET);
+-||||||| base
+-	/* Fill the Tx FIFO with as many words as possible */
+-	do {
+-		xspi->write_fn(0, xspi->regs + XSPI_TXD_OFFSET);
+-		sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
+-		n_words++;
+-	} while (!(sr & XSPI_SR_TX_FULL_MASK));
+-=======
+-	/* Fill the Tx FIFO with as many words as possible */
+-	while (1) {
+-		xspi->write_fn(0, xspi->regs + XSPI_TXD_OFFSET);
+-		sr = xspi->read_fn(xspi->regs + XSPI_SR_OFFSET);
+-		if (sr & XSPI_SR_TX_FULL_MASK)
+-			break;
+-
+-		n_words++;
+-	}
+-
+-	/* Handle the NO FIFO case separately */
+-	if (!n_words)
+-		return 1;
+->>>>>>> theirs

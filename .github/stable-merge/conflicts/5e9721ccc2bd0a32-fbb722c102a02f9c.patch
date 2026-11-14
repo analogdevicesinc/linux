@@ -1,0 +1,21 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	/* Prevent interrupt generation when hibernated */
+ 	if (!dwc->is_hibernated) {
+ 		/* Unmask interrupt */
+@@ -7,8 +6,6 @@
+ 		dwc3_writel(dwc->regs, DWC3_GEVNTSIZ(0), reg);
+ 	}
+ 
+-||||||| base
+-=======
+ 	evt->flags &= ~DWC3_EVENT_PENDING;
+ 	/*
+ 	 * Add an explicit write memory barrier to make sure that the update of
+@@ -16,4 +13,3 @@
+ 	 */
+ 	wmb();
+ 
+->>>>>>> theirs

@@ -1,0 +1,24 @@
+--- a/conflict
++++ b/conflict
+@@ -1,21 +1,3 @@
+-<<<<<<< ours
+ 	ret = spi_sync_locked(sigma_delta->spi, &sigma_delta->sample_msg);
+ 	if (ret)
+ 		goto irq_handled;
+-||||||| base
+-		/* We store 24 bit samples in a 32 bit word. Keep the upper
+-		 * byte set to zero. */
+-		ad_sd_read_reg_raw(sigma_delta, data_reg, transfer_size, &data[1]);
+-		break;
+-	}
+-=======
+-		/* We store 24 bit samples in a 32 bit word. Keep the upper
+-		 * byte set to zero. */
+-		ad_sd_read_reg_raw(sigma_delta, data_reg, transfer_size, &data[1]);
+-		break;
+-
+-	default:
+-		dev_err_ratelimited(&indio_dev->dev, "Unsupported reg_size: %u\n", reg_size);
+-		goto irq_handled;
+-	}
+->>>>>>> theirs

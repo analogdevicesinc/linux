@@ -295,7 +295,7 @@ int squashfs_copy_data(void *buffer, struct squashfs_cache_entry *entry,
 {
 	int remaining = length;
 
-	if (length == 0)
+	if (length == 0 || offset < 0)
 		return 0;
 	else if (buffer == NULL)
 		return min(length, entry->length - offset);
@@ -338,6 +338,9 @@ int squashfs_read_metadata(struct super_block *sb, void *buffer,
 	TRACE("Entered squashfs_read_metadata [%llx:%x]\n", *block, *offset);
 
 	if (unlikely(length < 0))
+		return -EIO;
+
+	if (unlikely(*offset < 0 || *offset >= SQUASHFS_METADATA_SIZE))
 		return -EIO;
 
 	while (length) {

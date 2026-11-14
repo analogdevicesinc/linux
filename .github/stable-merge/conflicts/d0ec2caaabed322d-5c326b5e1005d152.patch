@@ -1,0 +1,9 @@
+--- a/conflict
++++ b/conflict
+@@ -1,6 +0,0 @@
+-<<<<<<< ours
+-	u64 status, unmask;
+-||||||| base
+-	unsigned int status, unmask;
+-=======
+->>>>>>> theirs

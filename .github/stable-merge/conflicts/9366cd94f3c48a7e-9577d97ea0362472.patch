@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,13 +1,6 @@
+-<<<<<<< ours
+-shunt_resistor		Shunt resistance(uOhm) channel (not for ina260)
+-======================= ===============================================
+-||||||| base
+-shunt_resistor		Shunt resistance(uOhm) channel
+-======================= ===============================
+ =======
+ shunt_resistor		Shunt resistance(uOhm) channel (not for ina260)
+ ======================= ===============================================
+ 
+ Additional sysfs entries
+ ------------------------
+->>>>>>> theirs

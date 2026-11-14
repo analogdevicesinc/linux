@@ -1,0 +1,12 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,3 @@
+-<<<<<<< ours
+ 	int ret;
+ 
+-	if (phase > BIT(AD9834_PHASE_BITS))
+-||||||| base
+-	if (phase > BIT(AD9834_PHASE_BITS))
+-=======
+ 	if (phase >= BIT(AD9834_PHASE_BITS))
+->>>>>>> theirs

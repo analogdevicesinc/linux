@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,3 @@
+-<<<<<<< ours
+ err_free_irq_domains:
+ 	if (port->variant->version != CPM5NC_HOST)
+ 		xilinx_cpm_free_irq_domains(port);
+-||||||| base
+-err_parse_dt:
+-	xilinx_cpm_free_irq_domains(port);
+-=======
+-err_free_irq_domains:
+-	xilinx_cpm_free_irq_domains(port);
+->>>>>>> theirs

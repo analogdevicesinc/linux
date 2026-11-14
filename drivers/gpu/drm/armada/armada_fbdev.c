@@ -43,10 +43,10 @@ static int armada_fbdev_create(struct drm_fb_helper *fbh,
 	struct drm_fb_helper_surface_size *sizes)
 {
 	struct drm_device *dev = fbh->dev;
+	struct fb_info *info = fbh->info;
 	struct drm_mode_fb_cmd2 mode;
 	struct armada_framebuffer *dfb;
 	struct armada_gem_object *obj;
-	struct fb_info *info;
 	int size, ret;
 	void *ptr;
 
@@ -87,12 +87,6 @@ static int armada_fbdev_create(struct drm_fb_helper *fbh,
 	if (IS_ERR(dfb))
 		return PTR_ERR(dfb);
 
-	info = drm_fb_helper_alloc_info(fbh);
-	if (IS_ERR(info)) {
-		ret = PTR_ERR(info);
-		goto err_fballoc;
-	}
-
 	info->fbops = &armada_fb_ops;
 	info->fix.smem_start = obj->phys_addr;
 	info->fix.smem_len = obj->obj.size;
@@ -107,10 +101,6 @@ static int armada_fbdev_create(struct drm_fb_helper *fbh,
 		(unsigned long long)obj->phys_addr);
 
 	return 0;
-
- err_fballoc:
-	dfb->fb.funcs->destroy(&dfb->fb);
-	return ret;
 }
 
 static int armada_fb_probe(struct drm_fb_helper *fbh,
@@ -147,9 +137,9 @@ static void armada_fbdev_client_unregister(struct drm_client_dev *client)
 	}
 }
 
-static int armada_fbdev_client_restore(struct drm_client_dev *client)
+static int armada_fbdev_client_restore(struct drm_client_dev *client, bool force)
 {
-	drm_fb_helper_lastclose(client->dev);
+	drm_fb_helper_restore_fbdev_mode_unlocked(client->dev->fb_helper, force);
 
 	return 0;
 }

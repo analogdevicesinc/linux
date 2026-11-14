@@ -1,0 +1,58 @@
+--- a/conflict
++++ b/conflict
+@@ -1,55 +1,3 @@
+-<<<<<<< ours
+ 		ret = configure_mm2s(aud_drv_data, pdev);
+ 		if (ret)
+ 			return ret;
+-||||||| base
+-		aud_drv_data->mm2s_presence = true;
+-		ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio +
+-					       XLNX_MM2S_OFFSET);
+-		if (ret) {
+-			dev_err(dev, "audio formatter reset failed\n");
+-			goto clk_err;
+-		}
+-		xlnx_formatter_disable_irqs(aud_drv_data->mmio +
+-					    XLNX_MM2S_OFFSET,
+-					    SNDRV_PCM_STREAM_PLAYBACK);
+-
+-		aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev,
+-								 "irq_mm2s");
+-		if (aud_drv_data->mm2s_irq < 0) {
+-			ret = aud_drv_data->mm2s_irq;
+-			goto clk_err;
+-		}
+-		ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
+-				       xlnx_mm2s_irq_handler, 0,
+-				       "xlnx_formatter_pcm_mm2s_irq", dev);
+-		if (ret) {
+-			dev_err(dev, "xlnx audio mm2s irq request failed\n");
+-			goto clk_err;
+-		}
+-=======
+-		aud_drv_data->mm2s_presence = true;
+-		ret = xlnx_formatter_pcm_reset(aud_drv_data->mmio +
+-					       XLNX_MM2S_OFFSET);
+-		if (ret) {
+-			dev_err(dev, "audio formatter reset failed\n");
+-			goto clk_err;
+-		}
+-		xlnx_formatter_disable_irqs(aud_drv_data->mmio +
+-					    XLNX_MM2S_OFFSET,
+-					    SNDRV_PCM_STREAM_PLAYBACK);
+-
+-		aud_drv_data->mm2s_irq = platform_get_irq_byname(pdev,
+-								 "irq_mm2s");
+-		if (aud_drv_data->mm2s_irq < 0) {
+-			ret = aud_drv_data->mm2s_irq;
+-			goto clk_err;
+-		}
+-		ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
+-				       xlnx_mm2s_irq_handler, 0,
+-				       "xlnx_formatter_pcm_mm2s_irq", aud_drv_data);
+-		if (ret) {
+-			dev_err(dev, "xlnx audio mm2s irq request failed\n");
+-			goto clk_err;
+-		}
+->>>>>>> theirs

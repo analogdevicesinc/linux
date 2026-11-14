@@ -1,0 +1,11 @@
+--- a/conflict
++++ b/conflict
+@@ -1,8 +1 @@
+-<<<<<<< ours
+ static int zynqmp_sha_digest(struct ahash_request *req)
+-||||||| base
+-static int zynqmp_sha_digest(struct shash_desc *desc, const u8 *data, unsigned int len, u8 *out)
+-=======
+-static int __zynqmp_sha_digest(struct shash_desc *desc, const u8 *data,
+-			       unsigned int len, u8 *out)
+->>>>>>> theirs

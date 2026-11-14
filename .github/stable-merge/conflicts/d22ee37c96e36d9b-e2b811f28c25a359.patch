@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,6 @@
+-<<<<<<< ours
+ 		chan_st_priv->cfg.sinc3_odr_div = ad7173_sinc3_odr_div_from_odr(
+ 			st->info->sinc5_data_rates[st->info->odr_start_value]
+ 		);
+ 		chan_st_priv->cfg.sinc5_odr_index = st->info->odr_start_value;
+ 		chan_st_priv->cfg.filter_type = AD7173_FILTER_SINC5_SINC1;
+ 		chan_st_priv->cfg.openwire_comp_chan = -1;
+-||||||| base
+-=======
+-		chan_st_priv->cfg.odr = st->info->odr_start_value;
+->>>>>>> theirs

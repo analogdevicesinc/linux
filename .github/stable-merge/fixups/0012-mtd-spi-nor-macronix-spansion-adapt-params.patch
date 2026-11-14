@@ -1,0 +1,105 @@
+mtd: spi-nor: adapt the stable macronix/spansion hunks to downstream spi-nor
+
+Stable commits cca96fd4837f5 / 917e9e6b2ce42 (Macronix post_sfdp fixups for
+Quad Input Page Program, new mx66{l2,u1}g45g entries) and c2e061c2a5ec0
+(Spansion: fixup params->set_4byte_addr_mode for SEMPER) use nor->params, a single
+struct spi_nor_flash_parameter *. Downstream main has nor->params as an array
+(parallel/stacked flash support), so use spi_nor_get_params(nor, 0) as the rest
+of the downstream spi-nor code does.
+
+The Macronix stable change also adds new flash_info entries for MX66L2G45G
+(0xc2 0x20 0x1c) and MX66U1G45G (0xc2 0x25 0x3b) that only carry the new fixup.
+Downstream main already has fully populated entries for these IDs (name, size,
+lock flags, 4B opcodes), which come first in the table or are shadowed by the
+new ones. Drop the two bare duplicates and attach the new fixups to the
+downstream entries (also for mx66u2g45g), so that the downstream flags are kept
+and the fixup still applies.
+
+diff --git a/drivers/mtd/spi-nor/macronix.c b/drivers/mtd/spi-nor/macronix.c
+--- a/drivers/mtd/spi-nor/macronix.c
++++ b/drivers/mtd/spi-nor/macronix.c
+@@ -225,7 +225,7 @@
+ macronix_qpp4b_post_sfdp_fixups(struct spi_nor *nor)
+ {
+ 	/* PP_1_1_4_4B is supported but missing in 4BAIT. */
+-	struct spi_nor_flash_parameter *params = nor->params;
++	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
+ 
+ 	params->hwcaps.mask |= SNOR_HWCAPS_PP_1_1_4;
+ 	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP_1_1_4],
+@@ -307,10 +307,6 @@
+ 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+ 		.fixups = &macronix_qpp4b_fixups,
+ 	}, {
+-		/* MX66L2G45G */
+-		.id = SNOR_ID(0xc2, 0x20, 0x1c),
+-		.fixups = &macronix_qpp4b_fixups,
+-	}, {
+ 		.id = SNOR_ID(0xc2, 0x20, 0x1c),
+ 		.name = "mx66l2g45g",
+ 		.size = SZ_256M,
+@@ -319,6 +315,7 @@
+ 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
+ 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+ 		.fixup_flags = SPI_NOR_4B_OPCODES,
++		.fixups = &macronix_qpp4b_fixups,
+ 	}, {
+ 		.id = SNOR_ID(0xc2, 0x25, 0x3b),
+ 		.name = "mx66u1g45g",
+@@ -328,6 +325,7 @@
+ 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
+ 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+ 		.fixup_flags = SPI_NOR_4B_OPCODES,
++		.fixups = &macronix_qpp4b_fixups,
+ 	}, {
+ 		.id = SNOR_ID(0xc2, 0x25, 0x3c),
+ 		.name = "mx66u2g45g",
+@@ -337,6 +335,7 @@
+ 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
+ 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+ 		.fixup_flags = SPI_NOR_4B_OPCODES,
++		.fixups = &macronix_qpp4b_fixups,
+ 	}, {
+ 		.id = SNOR_ID(0xc2, 0x23, 0x14),
+ 		.name = "mx25v8035f",
+@@ -393,10 +392,6 @@
+ 		.fixup_flags = SPI_NOR_4B_OPCODES,
+ 		.fixups = &macronix_qpp4b_fixups,
+ 	}, {
+-		/* MX66U1G45G */
+-		.id = SNOR_ID(0xc2, 0x25, 0x3b),
+-		.fixups = &macronix_qpp4b_fixups,
+-	}, {
+ 		.id = SNOR_ID(0xc2, 0x25, 0x3c),
+ 		.name = "mx66u2g45g",
+ 		.size = SZ_256M,
+diff --git a/drivers/mtd/spi-nor/spansion.c b/drivers/mtd/spi-nor/spansion.c
+--- a/drivers/mtd/spi-nor/spansion.c
++++ b/drivers/mtd/spi-nor/spansion.c
+@@ -606,7 +606,7 @@
+ 	int ret;
+ 
+ 	/* Assign 4-byte address mode method that is not determined in BFPT */
+-	nor->params->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
++	spi_nor_get_params(nor, 0)->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
+ 
+ 	ret = cypress_nor_set_addr_mode_nbytes(nor);
+ 	if (ret)
+@@ -675,7 +675,7 @@
+ 	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
+ 
+ 	/* Assign 4-byte address mode method that is not determined in BFPT */
+-	nor->params->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
++	params->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
+ 
+ 	ret = cypress_nor_set_addr_mode_nbytes(nor);
+ 	if (ret)
+@@ -807,7 +807,7 @@
+ 				   const struct sfdp_bfpt *bfpt)
+ {
+ 	/* Assign 4-byte address mode method that is not determined in BFPT */
+-	nor->params->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
++	spi_nor_get_params(nor, 0)->set_4byte_addr_mode = cypress_nor_set_4byte_addr_mode;
+ 
+ 	return cypress_nor_set_addr_mode_nbytes(nor);
+ }

@@ -1,0 +1,33 @@
+ASoC: xilinx: formatter_pcm: pass aud_drv_data as IRQ cookie in configure_{mm2s,s2mm}()
+
+Stable commit 0d58a70b6dc7b ("ASoC: xilinx: formatter_pcm: pass aud_drv_data to
+irq handlers") changes xlnx_mm2s_irq_handler()/xlnx_s2mm_irq_handler() to take
+the struct xlnx_pcm_drv_data as dev_id, and passes aud_drv_data to
+devm_request_irq() in xlnx_formatter_pcm_probe(). Downstream main moved the IRQ
+requests into configure_mm2s() and configure_s2mm() and the probe conflicts were
+resolved to call those helpers, so the cookie change was lost: the handlers
+(merged without conflict) would treat the struct device as xlnx_pcm_drv_data.
+
+Pass aud_drv_data in the downstream helpers as well.
+
+diff --git a/sound/soc/xilinx/xlnx_formatter_pcm.c b/sound/soc/xilinx/xlnx_formatter_pcm.c
+--- a/sound/soc/xilinx/xlnx_formatter_pcm.c
++++ b/sound/soc/xilinx/xlnx_formatter_pcm.c
+@@ -673,7 +673,7 @@
+ 
+ 	ret = devm_request_irq(dev, aud_drv_data->mm2s_irq,
+ 			       xlnx_mm2s_irq_handler, 0,
+-			       "xlnx_formatter_pcm_mm2s_irq", dev);
++			       "xlnx_formatter_pcm_mm2s_irq", aud_drv_data);
+ 	if (ret) {
+ 		dev_err(dev, "xlnx audio mm2s irq request failed\n");
+ 		return ret;
+@@ -723,7 +723,7 @@
+ 	ret = devm_request_irq(dev, aud_drv_data->s2mm_irq,
+ 			       xlnx_s2mm_irq_handler, 0,
+ 			       "xlnx_formatter_pcm_s2mm_irq",
+-			       dev);
++			       aud_drv_data);
+ 	if (ret) {
+ 		dev_err(dev, "xlnx audio s2mm irq request failed\n");
+ 		return ret;

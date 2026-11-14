@@ -1,0 +1,80 @@
+--- a/conflict
++++ b/conflict
+@@ -1,77 +1,3 @@
+-<<<<<<< ours
+-		info->fbops = &drm_fbdev_dma_fb_ops;
+-
+-	/* screen */
+-	info->flags |= FBINFO_VIRTFB; /* system memory */
+-	if (dma_obj->map_noncoherent)
+-		info->flags |= FBINFO_READS_FAST; /* signal caching */
+-	info->screen_size = sizes->surface_height * fb->pitches[0];
+-	info->screen_buffer = map.vaddr;
+-	if (!(info->flags & FBINFO_HIDE_SMEM_START))
+-		info->fix.smem_start = dma_obj->dma_addr;
+-	info->fix.smem_len = info->screen_size;
+-
+-	/*
+-	 * Only set up deferred I/O if the screen buffer supports
+-	 * it. If this disagrees with the previous test for ->dirty,
+-	 * mmap on the /dev/fb file might not work correctly.
+-	 */
+-	if (!is_vmalloc_addr(info->screen_buffer) && info->fix.smem_start) {
+-		unsigned long pfn = info->fix.smem_start >> PAGE_SHIFT;
+-
+-		if (drm_WARN_ON(dev, !pfn_to_page(pfn)))
+-			use_deferred_io = false;
+-	}
+-
+-	/* deferred I/O */
+-	if (use_deferred_io) {
+-		fb_helper->fbdefio.delay = HZ / 20;
+-		fb_helper->fbdefio.deferred_io = drm_fb_helper_deferred_io;
+-
+-		info->fbdefio = &fb_helper->fbdefio;
+-		ret = fb_deferred_io_init(info);
+-		if (ret)
+-			goto err_drm_fb_helper_release_info;
+-	}
+-||||||| base
+-		info->fbops = &drm_fbdev_dma_fb_ops;
+-
+-	/* screen */
+-	info->flags |= FBINFO_VIRTFB; /* system memory */
+-	if (dma_obj->map_noncoherent)
+-		info->flags |= FBINFO_READS_FAST; /* signal caching */
+-	info->screen_size = sizes->surface_height * fb->pitches[0];
+-	info->screen_buffer = map.vaddr;
+-	if (!(info->flags & FBINFO_HIDE_SMEM_START)) {
+-		if (!drm_WARN_ON(dev, is_vmalloc_addr(info->screen_buffer)))
+-			info->fix.smem_start = page_to_phys(virt_to_page(info->screen_buffer));
+-	}
+-	info->fix.smem_len = info->screen_size;
+-
+-	/*
+-	 * Only set up deferred I/O if the screen buffer supports
+-	 * it. If this disagrees with the previous test for ->dirty,
+-	 * mmap on the /dev/fb file might not work correctly.
+-	 */
+-	if (!is_vmalloc_addr(info->screen_buffer) && info->fix.smem_start) {
+-		unsigned long pfn = info->fix.smem_start >> PAGE_SHIFT;
+-
+-		if (drm_WARN_ON(dev, !pfn_to_page(pfn)))
+-			use_deferred_io = false;
+-	}
+-
+-	/* deferred I/O */
+-	if (use_deferred_io) {
+-		fb_helper->fbdefio.delay = HZ / 20;
+-		fb_helper->fbdefio.deferred_io = drm_fb_helper_deferred_io;
+-
+-		info->fbdefio = &fb_helper->fbdefio;
+-		ret = fb_deferred_io_init(info);
+-		if (ret)
+-			goto err_drm_fb_helper_release_info;
+-	}
+-=======
+ 		ret = drm_fbdev_dma_driver_fbdev_probe_tail(fb_helper, sizes);
+ 	if (ret)
+ 		goto err_drm_client_buffer_vunmap;
+->>>>>>> theirs

@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,6 @@
+-<<<<<<< ours
+  * @reg_mask_xlate_op:	(Optional) Operation-aware variant of
+  *			@reg_mask_xlate. Takes precedence when both are set.
+-||||||| base
+-=======
+  * @fixed_direction_output:
+  *			(Optional) Bitmap representing the fixed direction of
+  *			the GPIO lines. Useful when there are GPIO lines with a
+  *			fixed direction mixed together in the same register.
+->>>>>>> theirs

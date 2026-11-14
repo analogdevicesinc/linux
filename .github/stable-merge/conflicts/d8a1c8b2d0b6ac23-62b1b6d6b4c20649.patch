@@ -1,0 +1,10 @@
+--- a/conflict
++++ b/conflict
+@@ -1,7 +1 @@
+-<<<<<<< ours
+-	unsigned long period_cycles, duty_cycles, prescale, period_us, tmp;
+-||||||| base
+-	unsigned long period_cycles, duty_cycles, prescale;
+-=======
+ 	unsigned long period_cycles, duty_cycles, prescale, period_us;
+->>>>>>> theirs

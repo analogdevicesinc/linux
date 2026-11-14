@@ -557,7 +557,7 @@ typedef union smb_com_session_setup_andx {
 		__le16 MaxBufferSize;
 		__le16 MaxMpxCount;
 		__le16 VcNumber;
-		__u32 SessionKey;
+		__le32 SessionKey;
 		__le16 SecurityBlobLength;
 		__u32 Reserved;
 		__le32 Capabilities;	/* see below */
@@ -576,7 +576,7 @@ typedef union smb_com_session_setup_andx {
 		__le16 MaxBufferSize;
 		__le16 MaxMpxCount;
 		__le16 VcNumber;
-		__u32 SessionKey;
+		__le32 SessionKey;
 		__le16 CaseInsensitivePasswordLength; /* ASCII password len */
 		__le16 CaseSensitivePasswordLength; /* Unicode password length*/
 		__u32 Reserved;	/* see below */
@@ -614,7 +614,7 @@ typedef union smb_com_session_setup_andx {
 		__le16 MaxBufferSize;
 		__le16 MaxMpxCount;
 		__le16 VcNumber;
-		__u32 SessionKey;
+		__le32 SessionKey;
 		__le16 PasswordLength;
 		__u32 Reserved; /* encrypt key len and offset */
 		__le16 ByteCount;
@@ -1226,10 +1226,9 @@ typedef struct smb_com_query_information_rsp {
 typedef struct smb_com_setattr_req {
 	struct smb_hdr hdr; /* wct = 8 */
 	__le16 attr;
-	__le16 time_low;
-	__le16 time_high;
+	__le32 last_write_time;
 	__le16 reserved[5]; /* must be zero */
-	__u16  ByteCount;
+	__le16 ByteCount;
 	__u8   BufferFormat; /* 4 = ASCII */
 	unsigned char fileName[];
 } __attribute__((packed)) SETATTR_REQ;
@@ -1283,14 +1282,6 @@ typedef struct smb_com_ntransact_rsp {
 	/* __u8 Pad[3]; */
 	/* parms and data follow */
 } __attribute__((packed)) NTRANSACT_RSP;
-
-/* See MS-SMB 2.2.7.2.1.1 */
-struct srv_copychunk {
-	__le64 SourceOffset;
-	__le64 DestinationOffset;
-	__le32 CopyLength;
-	__u32  Reserved;
-} __packed;
 
 typedef struct smb_com_transaction_ioctl_req {
 	struct smb_hdr hdr;	/* wct = 23 */
@@ -1482,36 +1473,6 @@ struct file_notify_information {
 	__le32 Action;
 	__le32 FileNameLength;
 	__u8  FileName[];
-} __attribute__((packed));
-
-/* For IO_REPARSE_TAG_SYMLINK */
-struct reparse_symlink_data {
-	__le32	ReparseTag;
-	__le16	ReparseDataLength;
-	__u16	Reserved;
-	__le16	SubstituteNameOffset;
-	__le16	SubstituteNameLength;
-	__le16	PrintNameOffset;
-	__le16	PrintNameLength;
-	__le32	Flags;
-	char	PathBuffer[];
-} __attribute__((packed));
-
-/* Flag above */
-#define SYMLINK_FLAG_RELATIVE 0x00000001
-
-/* For IO_REPARSE_TAG_NFS */
-#define NFS_SPECFILE_LNK	0x00000000014B4E4C
-#define NFS_SPECFILE_CHR	0x0000000000524843
-#define NFS_SPECFILE_BLK	0x00000000004B4C42
-#define NFS_SPECFILE_FIFO	0x000000004F464946
-#define NFS_SPECFILE_SOCK	0x000000004B434F53
-struct reparse_posix_data {
-	__le32	ReparseTag;
-	__le16	ReparseDataLength;
-	__u16	Reserved;
-	__le64	InodeType; /* LNK, FIFO, CHR etc. */
-	__u8	DataBuffer[];
 } __attribute__((packed));
 
 struct cifs_quota_data {

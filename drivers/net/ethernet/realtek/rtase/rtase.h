@@ -9,7 +9,10 @@
 #ifndef RTASE_H
 #define RTASE_H
 
-#define RTASE_HW_VER_MASK 0x7C800000
+#define RTASE_HW_VER_MASK     0x7C800000
+#define RTASE_HW_VER_906X_7XA 0x00800000
+#define RTASE_HW_VER_906X_7XC 0x04000000
+#define RTASE_HW_VER_907XD_V1 0x04800000
 
 #define RTASE_RX_DMA_BURST_256       4
 #define RTASE_TX_DMA_BURST_UNLIMITED 7
@@ -149,6 +152,10 @@ enum rtase_registers {
 #define RTASE_FORCE_TXFLOW_EN BIT(10)
 #define RTASE_RX_CHKSUM       BIT(5)
 
+	RTASE_GPHY_STD_00 = 0x6024,
+#define RTASE_RXFLOW_EN BIT(7)
+#define RTASE_TXFLOW_EN BIT(6)
+
 	RTASE_Q0_RX_DESC_ADDR0 = 0x00E4,
 	RTASE_Q0_RX_DESC_ADDR4 = 0x00E8,
 	RTASE_Q1_RX_DESC_ADDR0 = 0x4000,
@@ -181,6 +188,12 @@ enum rtase_desc_status_bit {
 enum rtase_sw_flag_content {
 	RTASE_SWF_MSI_ENABLED  = BIT(1),
 	RTASE_SWF_MSIX_ENABLED = BIT(2),
+};
+
+enum rtase_parse_result {
+	RTASE_PARSE_OK,
+	RTASE_PARSE_SKIP,
+	RTASE_PARSE_DROP,
 };
 
 #define RSVD_MASK 0x3FFFC000
@@ -236,7 +249,7 @@ union rtase_rx_desc {
 #define RTASE_RX_RES        BIT(20)
 #define RTASE_RX_RUNT       BIT(19)
 #define RTASE_RX_RWT        BIT(18)
-#define RTASE_RX_CRC        BIT(16)
+#define RTASE_RX_CRC        BIT(17)
 #define RTASE_RX_V6F        BIT(31)
 #define RTASE_RX_V4F        BIT(30)
 #define RTASE_RX_UDPT       BIT(29)
@@ -327,6 +340,8 @@ struct rtase_private {
 	u16 int_nums;
 	u16 tx_int_mit;
 	u16 rx_int_mit;
+
+	u32 hw_ver;
 };
 
 #define RTASE_LSO_64K 64000
@@ -336,5 +351,7 @@ struct rtase_private {
 #define RTASE_TCPHO_MASK GENMASK(24, 18)
 
 #define RTASE_MSS_MASK GENMASK(28, 18)
+
+#define RTASE_MIN_PAD_LEN 47
 
 #endif /* RTASE_H */

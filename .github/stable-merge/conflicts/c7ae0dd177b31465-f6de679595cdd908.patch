@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,8 +1,3 @@
+-<<<<<<< ours
+-enum ina2xx_ids { ina219, ina226, ina260 };
+-||||||| base
+-enum ina2xx_ids { ina219, ina226 };
+-=======
+ enum ina2xx_ids {
+ 	ina219,
+ 	ina226,
+@@ -10,4 +5,3 @@
+ 	ina260,
+ 	sy24655
+ };
+->>>>>>> theirs

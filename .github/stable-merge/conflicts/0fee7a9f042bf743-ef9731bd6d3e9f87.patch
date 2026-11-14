@@ -1,0 +1,444 @@
+--- a/conflict
++++ b/conflict
+@@ -1,441 +0,0 @@
+-<<<<<<< ours
+-||||||| base
+-static int stm32_pwm_config(struct stm32_pwm *priv, unsigned int ch,
+-			    u64 duty_ns, u64 period_ns)
+-{
+-	unsigned long long prd, dty;
+-	unsigned long long prescaler;
+-	u32 ccmr, mask, shift;
+-
+-	/*
+-	 * .probe() asserted that clk_get_rate() is not bigger than 1 GHz, so
+-	 * the calculations here won't overflow.
+-	 * First we need to find the minimal value for prescaler such that
+-	 *
+-	 *        period_ns * clkrate
+-	 *   ------------------------------ < max_arr + 1
+-	 *   NSEC_PER_SEC * (prescaler + 1)
+-	 *
+-	 * This equation is equivalent to
+-	 *
+-	 *        period_ns * clkrate
+-	 *   ---------------------------- < prescaler + 1
+-	 *   NSEC_PER_SEC * (max_arr + 1)
+-	 *
+-	 * Using integer division and knowing that the right hand side is
+-	 * integer, this is further equivalent to
+-	 *
+-	 *   (period_ns * clkrate) // (NSEC_PER_SEC * (max_arr + 1)) ≤ prescaler
+-	 */
+-
+-	prescaler = mul_u64_u64_div_u64(period_ns, clk_get_rate(priv->clk),
+-					(u64)NSEC_PER_SEC * ((u64)priv->max_arr + 1));
+-	if (prescaler > MAX_TIM_PSC)
+-		return -EINVAL;
+-
+-	prd = mul_u64_u64_div_u64(period_ns, clk_get_rate(priv->clk),
+-				  (u64)NSEC_PER_SEC * (prescaler + 1));
+-	if (!prd)
+-		return -EINVAL;
+-
+-	/*
+-	 * All channels share the same prescaler and counter so when two
+-	 * channels are active at the same time we can't change them
+-	 */
+-	if (active_channels(priv) & ~(1 << ch * 4)) {
+-		u32 psc, arr;
+-
+-		regmap_read(priv->regmap, TIM_PSC, &psc);
+-		regmap_read(priv->regmap, TIM_ARR, &arr);
+-
+-		if ((psc != prescaler) || (arr != prd - 1))
+-			return -EBUSY;
+-	}
+-
+-	regmap_write(priv->regmap, TIM_PSC, prescaler);
+-	regmap_write(priv->regmap, TIM_ARR, prd - 1);
+-	regmap_set_bits(priv->regmap, TIM_CR1, TIM_CR1_ARPE);
+-
+-	/* Calculate the duty cycles */
+-	dty = mul_u64_u64_div_u64(duty_ns, clk_get_rate(priv->clk),
+-				  (u64)NSEC_PER_SEC * (prescaler + 1));
+-
+-	regmap_write(priv->regmap, TIM_CCRx(ch + 1), dty);
+-
+-	/* Configure output mode */
+-	shift = (ch & 0x1) * CCMR_CHANNEL_SHIFT;
+-	ccmr = (TIM_CCMR_PE | TIM_CCMR_M1) << shift;
+-	mask = CCMR_CHANNEL_MASK << shift;
+-
+-	if (ch < 2)
+-		regmap_update_bits(priv->regmap, TIM_CCMR1, mask, ccmr);
+-	else
+-		regmap_update_bits(priv->regmap, TIM_CCMR2, mask, ccmr);
+-
+-	regmap_set_bits(priv->regmap, TIM_BDTR, TIM_BDTR_MOE);
+-
+-	return 0;
+-}
+-
+-static int stm32_pwm_set_polarity(struct stm32_pwm *priv, unsigned int ch,
+-				  enum pwm_polarity polarity)
+-{
+-	u32 mask;
+-
+-	mask = TIM_CCER_CCxP(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNP(ch + 1);
+-
+-	regmap_update_bits(priv->regmap, TIM_CCER, mask,
+-			   polarity == PWM_POLARITY_NORMAL ? 0 : mask);
+-
+-	return 0;
+-}
+-
+-static int stm32_pwm_enable(struct stm32_pwm *priv, unsigned int ch)
+-{
+-	u32 mask;
+-	int ret;
+-
+-	ret = clk_enable(priv->clk);
+-	if (ret)
+-		return ret;
+-
+-	/* Enable channel */
+-	mask = TIM_CCER_CCxE(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNE(ch + 1);
+-
+-	regmap_set_bits(priv->regmap, TIM_CCER, mask);
+-
+-	/* Make sure that registers are updated */
+-	regmap_set_bits(priv->regmap, TIM_EGR, TIM_EGR_UG);
+-
+-	/* Enable controller */
+-	regmap_set_bits(priv->regmap, TIM_CR1, TIM_CR1_CEN);
+-
+-	return 0;
+-}
+-
+-static void stm32_pwm_disable(struct stm32_pwm *priv, unsigned int ch)
+-{
+-	u32 mask;
+-
+-	/* Disable channel */
+-	mask = TIM_CCER_CCxE(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNE(ch + 1);
+-
+-	regmap_clear_bits(priv->regmap, TIM_CCER, mask);
+-
+-	/* When all channels are disabled, we can disable the controller */
+-	if (!active_channels(priv))
+-		regmap_clear_bits(priv->regmap, TIM_CR1, TIM_CR1_CEN);
+-
+-	clk_disable(priv->clk);
+-}
+-
+-static int stm32_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+-			   const struct pwm_state *state)
+-{
+-	bool enabled;
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ret;
+-
+-	enabled = pwm->state.enabled;
+-
+-	if (!state->enabled) {
+-		if (enabled)
+-			stm32_pwm_disable(priv, pwm->hwpwm);
+-		return 0;
+-	}
+-
+-	if (state->polarity != pwm->state.polarity)
+-		stm32_pwm_set_polarity(priv, pwm->hwpwm, state->polarity);
+-
+-	ret = stm32_pwm_config(priv, pwm->hwpwm,
+-			       state->duty_cycle, state->period);
+-	if (ret)
+-		return ret;
+-
+-	if (!enabled && state->enabled)
+-		ret = stm32_pwm_enable(priv, pwm->hwpwm);
+-
+-	return ret;
+-}
+-
+-static int stm32_pwm_apply_locked(struct pwm_chip *chip, struct pwm_device *pwm,
+-				  const struct pwm_state *state)
+-{
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ret;
+-
+-	/* protect common prescaler for all active channels */
+-	mutex_lock(&priv->lock);
+-	ret = stm32_pwm_apply(chip, pwm, state);
+-	mutex_unlock(&priv->lock);
+-
+-	return ret;
+-}
+-
+-static int stm32_pwm_get_state(struct pwm_chip *chip,
+-			       struct pwm_device *pwm, struct pwm_state *state)
+-{
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ch = pwm->hwpwm;
+-	unsigned long rate;
+-	u32 ccer, psc, arr, ccr;
+-	u64 dty, prd;
+-	int ret;
+-
+-	mutex_lock(&priv->lock);
+-
+-	ret = regmap_read(priv->regmap, TIM_CCER, &ccer);
+-	if (ret)
+-		goto out;
+-
+-	state->enabled = ccer & TIM_CCER_CCxE(ch + 1);
+-	state->polarity = (ccer & TIM_CCER_CCxP(ch + 1)) ?
+-			  PWM_POLARITY_INVERSED : PWM_POLARITY_NORMAL;
+-	ret = regmap_read(priv->regmap, TIM_PSC, &psc);
+-	if (ret)
+-		goto out;
+-	ret = regmap_read(priv->regmap, TIM_ARR, &arr);
+-	if (ret)
+-		goto out;
+-	ret = regmap_read(priv->regmap, TIM_CCRx(ch + 1), &ccr);
+-	if (ret)
+-		goto out;
+-
+-	rate = clk_get_rate(priv->clk);
+-
+-	prd = (u64)NSEC_PER_SEC * (psc + 1) * (arr + 1);
+-	state->period = DIV_ROUND_UP_ULL(prd, rate);
+-	dty = (u64)NSEC_PER_SEC * (psc + 1) * ccr;
+-	state->duty_cycle = DIV_ROUND_UP_ULL(dty, rate);
+-
+-out:
+-	mutex_unlock(&priv->lock);
+-	return ret;
+-}
+-
+-=======
+-static int stm32_pwm_config(struct stm32_pwm *priv, unsigned int ch,
+-			    u64 duty_ns, u64 period_ns)
+-{
+-	unsigned long long prd, dty;
+-	unsigned long long prescaler;
+-	u32 ccmr, mask, shift;
+-
+-	/*
+-	 * .probe() asserted that clk_get_rate() is not bigger than 1 GHz, so
+-	 * the calculations here won't overflow.
+-	 * First we need to find the minimal value for prescaler such that
+-	 *
+-	 *        period_ns * clkrate
+-	 *   ------------------------------ < max_arr + 1
+-	 *   NSEC_PER_SEC * (prescaler + 1)
+-	 *
+-	 * This equation is equivalent to
+-	 *
+-	 *        period_ns * clkrate
+-	 *   ---------------------------- < prescaler + 1
+-	 *   NSEC_PER_SEC * (max_arr + 1)
+-	 *
+-	 * Using integer division and knowing that the right hand side is
+-	 * integer, this is further equivalent to
+-	 *
+-	 *   (period_ns * clkrate) // (NSEC_PER_SEC * (max_arr + 1)) ≤ prescaler
+-	 */
+-
+-	prescaler = mul_u64_u64_div_u64(period_ns, clk_get_rate(priv->clk),
+-					(u64)NSEC_PER_SEC * ((u64)priv->max_arr + 1));
+-	if (prescaler > MAX_TIM_PSC)
+-		return -EINVAL;
+-
+-	prd = mul_u64_u64_div_u64(period_ns, clk_get_rate(priv->clk),
+-				  (u64)NSEC_PER_SEC * (prescaler + 1));
+-	if (!prd)
+-		return -EINVAL;
+-
+-	/*
+-	 * All channels share the same prescaler and counter so when two
+-	 * channels are active at the same time we can't change them
+-	 */
+-	if (active_channels(priv) & ~(1 << ch * 4)) {
+-		u32 psc, arr;
+-
+-		regmap_read(priv->regmap, TIM_PSC, &psc);
+-		regmap_read(priv->regmap, TIM_ARR, &arr);
+-
+-		if ((psc != prescaler) || (arr != prd - 1))
+-			return -EBUSY;
+-	}
+-
+-	regmap_write(priv->regmap, TIM_PSC, prescaler);
+-	regmap_write(priv->regmap, TIM_ARR, prd - 1);
+-	regmap_set_bits(priv->regmap, TIM_CR1, TIM_CR1_ARPE);
+-
+-	/* Calculate the duty cycles */
+-	dty = mul_u64_u64_div_u64(duty_ns, clk_get_rate(priv->clk),
+-				  (u64)NSEC_PER_SEC * (prescaler + 1));
+-
+-	regmap_write(priv->regmap, TIM_CCRx(ch + 1), dty);
+-
+-	/* Configure output mode */
+-	shift = (ch & 0x1) * CCMR_CHANNEL_SHIFT;
+-	ccmr = (TIM_CCMR_PE | TIM_CCMR_M1) << shift;
+-	mask = CCMR_CHANNEL_MASK << shift;
+-
+-	if (ch < 2)
+-		regmap_update_bits(priv->regmap, TIM_CCMR1, mask, ccmr);
+-	else
+-		regmap_update_bits(priv->regmap, TIM_CCMR2, mask, ccmr);
+-
+-	regmap_set_bits(priv->regmap, TIM_BDTR, TIM_BDTR_MOE);
+-
+-	return 0;
+-}
+-
+-static int stm32_pwm_set_polarity(struct stm32_pwm *priv, unsigned int ch,
+-				  enum pwm_polarity polarity)
+-{
+-	u32 mask;
+-
+-	mask = TIM_CCER_CCxP(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNP(ch + 1);
+-
+-	regmap_update_bits(priv->regmap, TIM_CCER, mask,
+-			   polarity == PWM_POLARITY_NORMAL ? 0 : mask);
+-
+-	return 0;
+-}
+-
+-static int stm32_pwm_enable(struct stm32_pwm *priv, unsigned int ch)
+-{
+-	u32 mask;
+-	int ret;
+-
+-	ret = clk_enable(priv->clk);
+-	if (ret)
+-		return ret;
+-
+-	/* Enable channel */
+-	mask = TIM_CCER_CCxE(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNE(ch + 1);
+-
+-	regmap_set_bits(priv->regmap, TIM_CCER, mask);
+-
+-	/* Make sure that registers are updated */
+-	regmap_set_bits(priv->regmap, TIM_EGR, TIM_EGR_UG);
+-
+-	/* Enable controller */
+-	regmap_set_bits(priv->regmap, TIM_CR1, TIM_CR1_CEN);
+-
+-	return 0;
+-}
+-
+-static void stm32_pwm_disable(struct stm32_pwm *priv, unsigned int ch)
+-{
+-	u32 mask;
+-
+-	/* Disable channel */
+-	mask = TIM_CCER_CCxE(ch + 1);
+-	if (priv->have_complementary_output)
+-		mask |= TIM_CCER_CCxNE(ch + 1);
+-
+-	regmap_clear_bits(priv->regmap, TIM_CCER, mask);
+-
+-	/* When all channels are disabled, we can disable the controller */
+-	if (!active_channels(priv))
+-		regmap_clear_bits(priv->regmap, TIM_CR1, TIM_CR1_CEN);
+-
+-	clk_disable(priv->clk);
+-}
+-
+-static int stm32_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+-			   const struct pwm_state *state)
+-{
+-	bool enabled;
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ret;
+-
+-	enabled = pwm->state.enabled;
+-
+-	if (!state->enabled) {
+-		if (enabled)
+-			stm32_pwm_disable(priv, pwm->hwpwm);
+-		return 0;
+-	}
+-
+-	stm32_pwm_set_polarity(priv, pwm->hwpwm, state->polarity);
+-
+-	ret = stm32_pwm_config(priv, pwm->hwpwm,
+-			       state->duty_cycle, state->period);
+-	if (ret)
+-		return ret;
+-
+-	if (!enabled && state->enabled)
+-		ret = stm32_pwm_enable(priv, pwm->hwpwm);
+-
+-	return ret;
+-}
+-
+-static int stm32_pwm_apply_locked(struct pwm_chip *chip, struct pwm_device *pwm,
+-				  const struct pwm_state *state)
+-{
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ret;
+-
+-	/* protect common prescaler for all active channels */
+-	mutex_lock(&priv->lock);
+-	ret = stm32_pwm_apply(chip, pwm, state);
+-	mutex_unlock(&priv->lock);
+-
+-	return ret;
+-}
+-
+-static int stm32_pwm_get_state(struct pwm_chip *chip,
+-			       struct pwm_device *pwm, struct pwm_state *state)
+-{
+-	struct stm32_pwm *priv = to_stm32_pwm_dev(chip);
+-	int ch = pwm->hwpwm;
+-	unsigned long rate;
+-	u32 ccer, psc, arr, ccr;
+-	u64 dty, prd;
+-	int ret;
+-
+-	mutex_lock(&priv->lock);
+-
+-	ret = regmap_read(priv->regmap, TIM_CCER, &ccer);
+-	if (ret)
+-		goto out;
+-
+-	state->enabled = ccer & TIM_CCER_CCxE(ch + 1);
+-	state->polarity = (ccer & TIM_CCER_CCxP(ch + 1)) ?
+-			  PWM_POLARITY_INVERSED : PWM_POLARITY_NORMAL;
+-	ret = regmap_read(priv->regmap, TIM_PSC, &psc);
+-	if (ret)
+-		goto out;
+-	ret = regmap_read(priv->regmap, TIM_ARR, &arr);
+-	if (ret)
+-		goto out;
+-	ret = regmap_read(priv->regmap, TIM_CCRx(ch + 1), &ccr);
+-	if (ret)
+-		goto out;
+-
+-	rate = clk_get_rate(priv->clk);
+-
+-	prd = (u64)NSEC_PER_SEC * (psc + 1) * (arr + 1);
+-	state->period = DIV_ROUND_UP_ULL(prd, rate);
+-	dty = (u64)NSEC_PER_SEC * (psc + 1) * ccr;
+-	state->duty_cycle = DIV_ROUND_UP_ULL(dty, rate);
+-
+-out:
+-	mutex_unlock(&priv->lock);
+-	return ret;
+-}
+-
+->>>>>>> theirs

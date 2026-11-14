@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,14 +1,4 @@
+-<<<<<<< ours
+ 	ret = devm_iio_triggered_buffer_setup_ext(dev, indio_dev, NULL,
+ 						  &ad5686_trigger_handler,
+ 						  IIO_BUFFER_DIRECTION_OUT,
+ 						  NULL, NULL);
+-||||||| base
+-	val = (voltage_uv | ref_bit_msk);
+-
+-	ret = st->write(st, cmd, 0, !!val);
+-=======
+-	val = voltage_uv ? ref_bit_msk : 0;
+-
+-	ret = st->write(st, cmd, 0, val);
+->>>>>>> theirs

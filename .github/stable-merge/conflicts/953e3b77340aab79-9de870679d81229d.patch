@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,12 +1,8 @@
+-<<<<<<< ours
++	struct gpio_desc	*cs_gpiod[SPI_CS_CNT_MAX];	/* Chip select gpio desc */
++
+ 	/* Multi-lane SPI controller support. */
+ 	u8			tx_lane_map[SPI_DEVICE_DATA_LANE_CNT_MAX];
+ 	u8			num_tx_lanes;
+ 	u8			rx_lane_map[SPI_DEVICE_DATA_LANE_CNT_MAX];
+ 	u8			num_rx_lanes;
+ 
+-||||||| base
+-=======
+-	struct gpio_desc	*cs_gpiod[SPI_CS_CNT_MAX];	/* Chip select gpio desc */
+-
+->>>>>>> theirs

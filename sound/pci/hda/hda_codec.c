@@ -31,6 +31,28 @@
 #define codec_has_clkstop(codec) \
 	((codec)->core.power_caps & AC_PWRST_CLKSTOP)
 
+static int call_exec_verb(struct hda_bus *bus, struct hda_codec *codec,
+			  unsigned int cmd, unsigned int flags,
+			  unsigned int *res)
+{
+	int err;
+
+	CLASS(snd_hda_power_pm, pm)(codec);
+	if (pm.err < 0 && !bus->core.chip_init) {
+		codec_warn(codec,
+			   "Failed to send cmd 0x%x ret=[%d], hda control stopped\n",
+			   cmd, pm.err);
+		return pm.err;
+	}
+	guard(mutex)(&bus->core.cmd_mutex);
+	if (flags & HDA_RW_NO_RESPONSE_FALLBACK)
+		bus->no_response_fallback = 1;
+	err = snd_hdac_bus_exec_verb_unlocked(&bus->core, codec->core.addr,
+					      cmd, res);
+	bus->no_response_fallback = 0;
+	return err;
+}
+
 /*
  * Send and receive a verb - passed to exec_verb override for hdac_device
  */
@@ -45,15 +67,7 @@ static int codec_exec_verb(struct hdac_device *dev, unsigned int cmd,
 		return -1;
 
  again:
-	snd_hda_power_up_pm(codec);
-	mutex_lock(&bus->core.cmd_mutex);
-	if (flags & HDA_RW_NO_RESPONSE_FALLBACK)
-		bus->no_response_fallback = 1;
-	err = snd_hdac_bus_exec_verb_unlocked(&bus->core, codec->core.addr,
-					      cmd, res);
-	bus->no_response_fallback = 0;
-	mutex_unlock(&bus->core.cmd_mutex);
-	snd_hda_power_down_pm(codec);
+	err = call_exec_verb(bus, codec, cmd, flags, res);
 	if (!codec_in_pm(codec) && res && err == -EAGAIN) {
 		if (bus->response_reset) {
 			codec_dbg(codec,
@@ -532,11 +546,11 @@ unsigned int snd_hda_codec_get_pincfg(struct hda_codec *codec, hda_nid_t nid)
 #ifdef CONFIG_SND_HDA_RECONFIG
 	{
 		unsigned int cfg = 0;
-		mutex_lock(&codec->user_mutex);
-		pin = look_up_pincfg(codec, &codec->user_pins, nid);
-		if (pin)
-			cfg = pin->cfg;
-		mutex_unlock(&codec->user_mutex);
+		scoped_guard(mutex, &codec->user_mutex) {
+			pin = look_up_pincfg(codec, &codec->user_pins, nid);
+			if (pin)
+				cfg = pin->cfg;
+		}
 		if (cfg)
 			return cfg;
 	}
@@ -639,24 +653,15 @@ static void hda_jackpoll_work(struct work_struct *work)
 	struct hda_codec *codec =
 		container_of(work, struct hda_codec, jackpoll_work.work);
 
-	/* for non-polling trigger: we need nothing if already powered on */
-	if (!codec->jackpoll_interval && snd_hdac_is_power_on(&codec->core))
-		return;
-
-	/* the power-up/down sequence triggers the runtime resume */
-	snd_hda_power_up_pm(codec);
-	/* update jacks manually if polling is required, too */
-	if (codec->jackpoll_interval) {
-		snd_hda_jack_set_dirty_all(codec);
-		snd_hda_jack_poll_all(codec);
-	}
-	snd_hda_power_down_pm(codec);
-
 	if (!codec->jackpoll_interval)
 		return;
 
-	schedule_delayed_work(&codec->jackpoll_work,
-			      codec->jackpoll_interval);
+	/* the power-up/down sequence triggers the runtime resume */
+	CLASS(snd_hda_power, pm)(codec);
+	/* update jacks manually if polling is required, too */
+	snd_hda_jack_set_dirty_all(codec);
+	snd_hda_jack_poll_all(codec);
+	schedule_delayed_work(&codec->jackpoll_work, codec->jackpoll_interval);
 }
 
 /* release all pincfg lists */
@@ -1844,6 +1849,12 @@ int snd_hda_codec_reset(struct hda_codec *codec)
 {
 	struct hda_bus *bus = codec->bus;
 
+	/* ASoC: driver unbind frees the card, incl. the hwdep issuing the reset */
+	if (bus->core.ext_ops) {
+		codec_err(codec, "Codec reset is not supported with ASoC\n");
+		return -EOPNOTSUPP;
+	}
+
 	if (snd_hda_lock_devices(bus) < 0)
 		return -EBUSY;
 
@@ -2218,13 +2229,12 @@ static int snd_hda_spdif_default_get(struct snd_kcontrol *kcontrol,
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return -EINVAL;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	ucontrol->value.iec958.status[0] = spdif->status & 0xff;
 	ucontrol->value.iec958.status[1] = (spdif->status >> 8) & 0xff;
 	ucontrol->value.iec958.status[2] = (spdif->status >> 16) & 0xff;
 	ucontrol->value.iec958.status[3] = (spdif->status >> 24) & 0xff;
-	mutex_unlock(&codec->spdif_mutex);
 
 	return 0;
 }
@@ -2322,14 +2332,16 @@ static int snd_hda_spdif_default_put(struct snd_kcontrol *kcontrol,
 	int idx = kcontrol->private_value;
 	struct hda_spdif_out *spdif;
 	hda_nid_t nid;
+	unsigned int old_status;
 	unsigned short val;
 	int change;
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return -EINVAL;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	nid = spdif->nid;
+	old_status = spdif->status;
 	spdif->status = ucontrol->value.iec958.status[0] |
 		((unsigned int)ucontrol->value.iec958.status[1] << 8) |
 		((unsigned int)ucontrol->value.iec958.status[2] << 16) |
@@ -2340,8 +2352,7 @@ static int snd_hda_spdif_default_put(struct snd_kcontrol *kcontrol,
 	spdif->ctls = val;
 	if (change && nid != (u16)-1)
 		set_dig_out_convert(codec, nid, val & 0xff, (val >> 8) & 0xff);
-	mutex_unlock(&codec->spdif_mutex);
-	return change;
+	return change || spdif->status != old_status;
 }
 
 #define snd_hda_spdif_out_switch_info	snd_ctl_boolean_mono_info
@@ -2355,10 +2366,9 @@ static int snd_hda_spdif_out_switch_get(struct snd_kcontrol *kcontrol,
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return -EINVAL;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	ucontrol->value.integer.value[0] = spdif->ctls & AC_DIG1_ENABLE;
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 
@@ -2385,7 +2395,7 @@ static int snd_hda_spdif_out_switch_put(struct snd_kcontrol *kcontrol,
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return -EINVAL;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	nid = spdif->nid;
 	val = spdif->ctls & ~AC_DIG1_ENABLE;
@@ -2395,7 +2405,6 @@ static int snd_hda_spdif_out_switch_put(struct snd_kcontrol *kcontrol,
 	spdif->ctls = val;
 	if (change && nid != (u16)-1)
 		set_spdif_ctls(codec, nid, val & 0xff, -1);
-	mutex_unlock(&codec->spdif_mutex);
 	return change;
 }
 
@@ -2470,7 +2479,9 @@ int snd_hda_create_dig_out_ctls(struct hda_codec *codec,
 				break;
 			id = kctl->id;
 			id.index = spdif_index;
-			snd_ctl_rename_id(codec->card, &kctl->id, &id);
+			err = snd_ctl_rename_id(codec->card, &kctl->id, &id);
+			if (err < 0)
+				return err;
 		}
 		bus->primary_dig_out_type = HDA_PCM_TYPE_HDMI;
 	}
@@ -2538,10 +2549,9 @@ void snd_hda_spdif_ctls_unassign(struct hda_codec *codec, int idx)
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	spdif->nid = (u16)-1;
-	mutex_unlock(&codec->spdif_mutex);
 }
 EXPORT_SYMBOL_GPL(snd_hda_spdif_ctls_unassign);
 
@@ -2560,14 +2570,13 @@ void snd_hda_spdif_ctls_assign(struct hda_codec *codec, int idx, hda_nid_t nid)
 
 	if (WARN_ON(codec->spdif_out.used <= idx))
 		return;
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	spdif = snd_array_elem(&codec->spdif_out, idx);
 	if (spdif->nid != nid) {
 		spdif->nid = nid;
 		val = spdif->ctls;
 		set_spdif_ctls(codec, nid, val & 0xff, (val >> 8) & 0xff);
 	}
-	mutex_unlock(&codec->spdif_mutex);
 }
 EXPORT_SYMBOL_GPL(snd_hda_spdif_ctls_assign);
 
@@ -2642,14 +2651,13 @@ static int snd_hda_spdif_in_switch_put(struct snd_kcontrol *kcontrol,
 	unsigned int val = !!ucontrol->value.integer.value[0];
 	int change;
 
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	change = codec->spdif_in_enable != val;
 	if (change) {
 		codec->spdif_in_enable = val;
 		snd_hdac_regmap_write(&codec->core, nid,
 				      AC_VERB_SET_DIGI_CONVERT_1, val);
 	}
-	mutex_unlock(&codec->spdif_mutex);
 	return change;
 }
 
@@ -2924,12 +2932,12 @@ static void hda_call_codec_resume(struct hda_codec *codec)
 		snd_hda_regmap_sync(codec);
 	}
 
-	if (codec->jackpoll_interval)
-		hda_jackpoll_work(&codec->jackpoll_work.work);
-	else
-		snd_hda_jack_report_sync(codec);
+	snd_hda_jack_report_sync(codec);
 	codec->core.dev.power.power_state = PMSG_ON;
 	snd_hdac_leave_pm(&codec->core);
+	if (codec->jackpoll_interval)
+		schedule_delayed_work(&codec->jackpoll_work,
+				      codec->jackpoll_interval);
 }
 
 static int hda_codec_runtime_suspend(struct device *dev)
@@ -2941,8 +2949,6 @@ static int hda_codec_runtime_suspend(struct device *dev)
 	if (!codec->card)
 		return 0;
 
-	cancel_delayed_work_sync(&codec->jackpoll_work);
-
 	state = hda_call_codec_suspend(codec);
 	if (codec->link_down_at_suspend ||
 	    (codec_has_clkstop(codec) && codec_has_epss(codec) &&
@@ -2950,10 +2956,6 @@ static int hda_codec_runtime_suspend(struct device *dev)
 		snd_hdac_codec_link_down(&codec->core);
 	snd_hda_codec_display_power(codec, false);
 
-	if (codec->bus->jackpoll_in_suspend &&
-		(dev->power.power_state.event != PM_EVENT_SUSPEND))
-		schedule_delayed_work(&codec->jackpoll_work,
-					codec->jackpoll_interval);
 	return 0;
 }
 
@@ -3050,6 +3052,7 @@ void snd_hda_codec_shutdown(struct hda_codec *codec)
 	if (!codec->core.registered)
 		return;
 
+	codec->jackpoll_interval = 0; /* don't poll any longer */
 	cancel_delayed_work_sync(&codec->jackpoll_work);
 	list_for_each_entry(cpcm, &codec->pcm_list_head, list)
 		snd_pcm_suspend_all(cpcm->pcm);
@@ -3116,10 +3119,11 @@ int snd_hda_codec_build_controls(struct hda_codec *codec)
 	if (err < 0)
 		return err;
 
+	snd_hda_jack_report_sync(codec); /* call at the last init point */
 	if (codec->jackpoll_interval)
-		hda_jackpoll_work(&codec->jackpoll_work.work);
-	else
-		snd_hda_jack_report_sync(codec); /* call at the last init point */
+		schedule_delayed_work(&codec->jackpoll_work,
+				      codec->jackpoll_interval);
+
 	sync_power_up_states(codec);
 	return 0;
 }
@@ -3206,7 +3210,8 @@ int snd_hda_codec_prepare(struct hda_codec *codec,
 			  struct snd_pcm_substream *substream)
 {
 	int ret;
-	mutex_lock(&codec->bus->prepare_mutex);
+
+	guard(mutex)(&codec->bus->prepare_mutex);
 	if (hinfo->ops.prepare)
 		ret = hinfo->ops.prepare(hinfo, codec, stream, format,
 					 substream);
@@ -3214,7 +3219,6 @@ int snd_hda_codec_prepare(struct hda_codec *codec,
 		ret = -ENODEV;
 	if (ret >= 0)
 		purify_inactive_streams(codec);
-	mutex_unlock(&codec->bus->prepare_mutex);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(snd_hda_codec_prepare);
@@ -3231,10 +3235,9 @@ void snd_hda_codec_cleanup(struct hda_codec *codec,
 			   struct hda_pcm_stream *hinfo,
 			   struct snd_pcm_substream *substream)
 {
-	mutex_lock(&codec->bus->prepare_mutex);
+	guard(mutex)(&codec->bus->prepare_mutex);
 	if (hinfo->ops.cleanup)
 		hinfo->ops.cleanup(hinfo, codec, substream);
-	mutex_unlock(&codec->bus->prepare_mutex);
 }
 EXPORT_SYMBOL_GPL(snd_hda_codec_cleanup);
 
@@ -3663,12 +3666,11 @@ static void cleanup_dig_out_stream(struct hda_codec *codec, hda_nid_t nid)
 int snd_hda_multi_out_dig_open(struct hda_codec *codec,
 			       struct hda_multi_out *mout)
 {
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	if (mout->dig_out_used == HDA_DIG_ANALOG_DUP)
 		/* already opened as analog dup; reset it once */
 		cleanup_dig_out_stream(codec, mout->dig_out_nid);
 	mout->dig_out_used = HDA_DIG_EXCLUSIVE;
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_open);
@@ -3687,9 +3689,8 @@ int snd_hda_multi_out_dig_prepare(struct hda_codec *codec,
 				  unsigned int format,
 				  struct snd_pcm_substream *substream)
 {
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	setup_dig_out_stream(codec, mout->dig_out_nid, stream_tag, format);
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_prepare);
@@ -3702,9 +3703,8 @@ EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_prepare);
 int snd_hda_multi_out_dig_cleanup(struct hda_codec *codec,
 				  struct hda_multi_out *mout)
 {
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	cleanup_dig_out_stream(codec, mout->dig_out_nid);
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_cleanup);
@@ -3717,9 +3717,8 @@ EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_cleanup);
 int snd_hda_multi_out_dig_close(struct hda_codec *codec,
 				struct hda_multi_out *mout)
 {
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	mout->dig_out_used = 0;
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_dig_close);
@@ -3759,7 +3758,7 @@ int snd_hda_multi_out_analog_open(struct hda_codec *codec,
 						    NULL,
 						    &mout->spdif_maxbps);
 		}
-		mutex_lock(&codec->spdif_mutex);
+		guard(mutex)(&codec->spdif_mutex);
 		if (mout->share_spdif) {
 			if ((runtime->hw.rates & mout->spdif_rates) &&
 			    (runtime->hw.formats & mout->spdif_formats)) {
@@ -3772,7 +3771,6 @@ int snd_hda_multi_out_analog_open(struct hda_codec *codec,
 				/* FIXME: need notify? */
 			}
 		}
-		mutex_unlock(&codec->spdif_mutex);
 	}
 	return snd_pcm_hw_constraint_step(substream->runtime, 0,
 					  SNDRV_PCM_HW_PARAM_CHANNELS, 2);
@@ -3801,23 +3799,23 @@ int snd_hda_multi_out_analog_prepare(struct hda_codec *codec,
 	struct hda_spdif_out *spdif;
 	int i;
 
-	mutex_lock(&codec->spdif_mutex);
-	spdif = snd_hda_spdif_out_of_nid(codec, mout->dig_out_nid);
-	if (mout->dig_out_nid && mout->share_spdif &&
-	    mout->dig_out_used != HDA_DIG_EXCLUSIVE) {
-		if (chs == 2 && spdif != NULL &&
-		    snd_hda_is_supported_format(codec, mout->dig_out_nid,
-						format) &&
-		    !(spdif->status & IEC958_AES0_NONAUDIO)) {
-			mout->dig_out_used = HDA_DIG_ANALOG_DUP;
-			setup_dig_out_stream(codec, mout->dig_out_nid,
-					     stream_tag, format);
-		} else {
-			mout->dig_out_used = 0;
-			cleanup_dig_out_stream(codec, mout->dig_out_nid);
+	scoped_guard(mutex, &codec->spdif_mutex) {
+		spdif = snd_hda_spdif_out_of_nid(codec, mout->dig_out_nid);
+		if (mout->dig_out_nid && mout->share_spdif &&
+		    mout->dig_out_used != HDA_DIG_EXCLUSIVE) {
+			if (chs == 2 && spdif != NULL &&
+			    snd_hda_is_supported_format(codec, mout->dig_out_nid,
+							format) &&
+			    !(spdif->status & IEC958_AES0_NONAUDIO)) {
+				mout->dig_out_used = HDA_DIG_ANALOG_DUP;
+				setup_dig_out_stream(codec, mout->dig_out_nid,
+						     stream_tag, format);
+			} else {
+				mout->dig_out_used = 0;
+				cleanup_dig_out_stream(codec, mout->dig_out_nid);
+			}
 		}
 	}
-	mutex_unlock(&codec->spdif_mutex);
 
 	/* front */
 	snd_hda_codec_setup_stream(codec, nids[HDA_FRONT], stream_tag,
@@ -3884,12 +3882,11 @@ int snd_hda_multi_out_analog_cleanup(struct hda_codec *codec,
 		if (mout->extra_out_nid[i])
 			snd_hda_codec_cleanup_stream(codec,
 						     mout->extra_out_nid[i]);
-	mutex_lock(&codec->spdif_mutex);
+	guard(mutex)(&codec->spdif_mutex);
 	if (mout->dig_out_nid && mout->dig_out_used == HDA_DIG_ANALOG_DUP) {
 		cleanup_dig_out_stream(codec, mout->dig_out_nid);
 		mout->dig_out_used = 0;
 	}
-	mutex_unlock(&codec->spdif_mutex);
 	return 0;
 }
 EXPORT_SYMBOL_GPL(snd_hda_multi_out_analog_cleanup);

@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,4 @@
+-<<<<<<< ours
++	spinlock_t rx_submit_lock;
+ 	bool eth_hasnobuf;
+ 	bool eth_hasptp;
+ 	const struct axienet_config *axienet_config;
+@@ -164,7 +164,3 @@
+ 	u32 tx_ptplen;
+ 	u8 ts_header_len;
+ 	int (*gt_reset)(struct net_device *ndev);
+-||||||| base
+-=======
+-	spinlock_t rx_submit_lock;
+->>>>>>> theirs

@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,4 @@
+-<<<<<<< ours
+-	bool has_alerts;	/* chip supports alerts and limits */
+-	bool has_ishunt;	/* chip has internal shunt resistor */
+-||||||| base
+-=======
+ 	bool has_alerts;	/* chip supports alerts and limits */
+ 	bool has_ishunt;	/* chip has internal shunt resistor */
+ 	bool has_power_average;	/* chip supports average power */
+ 	bool has_update_interval;
+->>>>>>> theirs

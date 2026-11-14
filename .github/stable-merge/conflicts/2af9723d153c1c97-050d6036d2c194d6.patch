@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,14 +1,2 @@
+-<<<<<<< ours
+ 	reinit_completion(&st->completion);
+ 	enable_irq(st->spi->irq);
+-||||||| base
+-	reinit_completion(&st->completion);
+-
+-	ret = ad7768_set_mode(st, AD7768_ONE_SHOT);
+-	if (ret < 0)
+-		return ret;
+-=======
+-	ret = ad7768_set_mode(st, AD7768_ONE_SHOT);
+-	if (ret < 0)
+-		return ret;
+->>>>>>> theirs

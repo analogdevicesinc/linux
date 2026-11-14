@@ -1,0 +1,18 @@
+--- a/conflict
++++ b/conflict
+@@ -1,13 +1,5 @@
+-<<<<<<< ours
+ 
+-	return ret;
++	if (mask & GQSPI_ISR_TXNOT_FULL_MASK)
++		zynqmp_qspi_filltxfifo(xqspi, GQSPI_TX_FIFO_FILL);
+ 
+-transfer_complete:
+-	zynqmp_gqspi_write(xqspi, GQSPI_IDR_OFST, GQSPI_ISR_IDR_MASK);
+-	complete(&xqspi->data_completion);
+ 	return IRQ_HANDLED;
+-||||||| base
+-	return ret;
+-=======
+-	return IRQ_HANDLED;
+->>>>>>> theirs

@@ -1,0 +1,12 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,5 @@
+-<<<<<<< ours
+ 	bool			is_d3;
+ 	u32			*saved_regs;
+ 	u32			irq_wakeup;
+ 	bool			force_hiber_wake;
+-||||||| base
+-=======
+ 	u32			wakeup_pending_funcs;
+->>>>>>> theirs

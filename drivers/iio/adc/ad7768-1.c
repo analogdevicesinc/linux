@@ -337,7 +337,7 @@ struct ad7768_state {
 	union {
 		struct {
 			__be32 chan;
-			s64 timestamp;
+			aligned_s64 timestamp;
 		} scan;
 		__be32 d32;
 		u8 d8[2];
@@ -486,6 +486,13 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 
 	reinit_completion(&st->completion);
 	enable_irq(st->spi->irq);
+
+	reinit_completion(&st->completion);
+
+	/* One-shot mode requires a SYNC pulse to generate a new sample */
+	ret = ad7768_send_sync_pulse(st);
+	if (ret)
+		return ret;
 
 	ret = wait_for_completion_timeout(&st->completion,
 					  msecs_to_jiffies(1000));

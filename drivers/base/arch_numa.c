@@ -105,6 +105,18 @@ static void __init setup_node_to_cpumask_map(void)
 	if (nr_node_ids == MAX_NUMNODES)
 		setup_nr_node_ids();
 
+	/*
+	 * This check should never be true but it makes it clear to compilers
+	 * that node_to_cpumask_map is bound by nr_node_ids, avoiding false
+	 * positive fortify warnings when accessing node_to_cpumask_map in the
+	 * for loop below.
+	 */
+	if (unlikely(nr_node_ids > MAX_NUMNODES)) {
+		pr_err("nr_node_ids (%u) is larger than MAX_NUMNODES (%u)\n",
+		       nr_node_ids, MAX_NUMNODES);
+		return;
+	}
+
 	/* allocate and clear the mapping */
 	for (node = 0; node < nr_node_ids; node++) {
 		alloc_bootmem_cpumask_var(&node_to_cpumask_map[node]);
@@ -207,6 +219,10 @@ static void __init setup_node_data(int nid, u64 start_pfn, u64 end_pfn)
 static int __init numa_register_nodes(void)
 {
 	int nid;
+
+	/* Check the validity of the memblock/node mapping */
+	if (!memblock_validate_numa_coverage(0))
+		return -EINVAL;
 
 	/* Finally register nodes. */
 	for_each_node_mask(nid, numa_nodes_parsed) {

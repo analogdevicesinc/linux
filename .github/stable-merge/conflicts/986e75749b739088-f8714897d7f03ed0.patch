@@ -1,0 +1,9 @@
+--- a/conflict
++++ b/conflict
+@@ -1,6 +1,2 @@
+-<<<<<<< ours
+ 	select SPI_OFFLOAD
+-||||||| base
+-=======
+ 	select REGMAP
+->>>>>>> theirs

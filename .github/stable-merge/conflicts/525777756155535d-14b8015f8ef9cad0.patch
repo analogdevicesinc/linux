@@ -1,0 +1,20 @@
+--- a/conflict
++++ b/conflict
+@@ -1,17 +1,5 @@
+-<<<<<<< ours
+ 	if (port->variant->version != CPM5NC_HOST) {
+ 		err = xilinx_cpm_pcie_init_irq_domain(port);
+ 		if (err)
+ 			return err;
+ 	}
+-||||||| base
+-	bus = resource_list_first_type(&bridge->windows, IORESOURCE_BUS);
+-	if (!bus)
+-		return -ENODEV;
+-=======
+-	bus = resource_list_first_type(&bridge->windows, IORESOURCE_BUS);
+-	if (!bus) {
+-		err = -ENODEV;
+-		goto err_free_irq_domains;
+-	}
+->>>>>>> theirs

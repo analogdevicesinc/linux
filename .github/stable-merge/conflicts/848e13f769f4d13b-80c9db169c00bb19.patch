@@ -1,0 +1,37 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ static int xiic_i2c_runtime_suspend(struct device *dev)
+ {
+ 	struct xiic_i2c *i2c = dev_get_drvdata(dev);
+@@ -22,29 +21,3 @@
+ 	return 0;
+ }
+ 
+-||||||| base
+-=======
+-static int __maybe_unused xiic_i2c_runtime_suspend(struct device *dev)
+-{
+-	struct xiic_i2c *i2c = dev_get_drvdata(dev);
+-
+-	clk_disable(i2c->clk);
+-
+-	return 0;
+-}
+-
+-static int __maybe_unused xiic_i2c_runtime_resume(struct device *dev)
+-{
+-	struct xiic_i2c *i2c = dev_get_drvdata(dev);
+-	int ret;
+-
+-	ret = clk_enable(i2c->clk);
+-	if (ret) {
+-		dev_err(dev, "Cannot enable clock.\n");
+-		return ret;
+-	}
+-
+-	return 0;
+-}
+-
+->>>>>>> theirs

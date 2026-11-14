@@ -140,6 +140,8 @@ struct blkg_policy_data {
 	struct blkcg_gq			*blkg;
 	int				plid;
 	bool				online;
+
+	struct rcu_head			rcu_head;
 };
 
 /*
@@ -453,6 +455,12 @@ static inline bool blk_cgroup_mergeable(struct request *rq, struct bio *bio)
 {
 	return rq->bio->bi_blkg == bio->bi_blkg &&
 		bio_issue_as_root_blkg(rq->bio) == bio_issue_as_root_blkg(bio);
+}
+
+static inline bool blkcg_policy_enabled(struct request_queue *q,
+				const struct blkcg_policy *pol)
+{
+	return pol && test_bit(pol->plid, q->blkcg_pols);
 }
 
 void blk_cgroup_bio_start(struct bio *bio);

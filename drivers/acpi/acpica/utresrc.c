@@ -165,6 +165,28 @@ acpi_ut_walk_aml_resources(struct acpi_walk_state *walk_state,
 	/* Walk the byte list, abort on any invalid descriptor type or length */
 
 	while (aml < end_aml) {
+		/*
+		 * Validate that the remaining buffer space can hold enough
+		 * bytes to safely access fields during validation.
+		 * For large resource descriptors (bit 7 set), we need enough
+		 * bytes to access the Type field in serial_bus resources.
+		 * Small resource descriptors only need sizeof(struct aml_resource_end_tag).
+		 */
+		if ((acpi_size)(end_aml - aml) <
+		    sizeof(struct aml_resource_end_tag)) {
+			return_ACPI_STATUS(AE_AML_BUFFER_LENGTH);
+		}
+
+		/*
+		 * For large resource descriptors, ensure enough space for
+		 * the header plus serial_bus Type field access.
+		 */
+		if ((ACPI_GET8(aml) & ACPI_RESOURCE_NAME_LARGE) &&
+		    ((acpi_size)(end_aml - aml) <
+		     ACPI_OFFSET(struct aml_resource_common_serialbus,
+				 type) + 1)) {
+			return_ACPI_STATUS(AE_AML_BUFFER_LENGTH);
+		}
 
 		/* Validate the Resource Type and Resource Length */
 
@@ -181,6 +203,14 @@ acpi_ut_walk_aml_resources(struct acpi_walk_state *walk_state,
 		/* Get the length of this descriptor */
 
 		length = acpi_ut_get_descriptor_length(aml);
+
+		/*
+		 * Validate that the descriptor length doesn't exceed the
+		 * remaining buffer size to prevent reading beyond the end.
+		 */
+		if (length > (acpi_size)(end_aml - aml)) {
+			return_ACPI_STATUS(AE_AML_BUFFER_LENGTH);
+		}
 
 		/* Invoke the user function */
 
@@ -361,20 +391,16 @@ acpi_ut_validate_resource(struct acpi_walk_state *walk_state,
 	aml_resource = ACPI_CAST_PTR(union aml_resource, aml);
 	if (resource_type == ACPI_RESOURCE_NAME_SERIAL_BUS) {
 
-		/* Avoid undefined behavior: member access within misaligned address */
-
-		struct aml_resource_common_serialbus common_serial_bus;
-		memcpy(&common_serial_bus, aml_resource,
-		       sizeof(common_serial_bus));
-
 		/* Validate the bus_type field */
 
-		if ((common_serial_bus.type == 0) ||
-		    (common_serial_bus.type > AML_RESOURCE_MAX_SERIALBUSTYPE)) {
+		if ((aml_resource->common_serial_bus.type == 0) ||
+		    (aml_resource->common_serial_bus.type >
+		     AML_RESOURCE_MAX_SERIALBUSTYPE)) {
 			if (walk_state) {
 				ACPI_ERROR((AE_INFO,
 					    "Invalid/unsupported SerialBus resource descriptor: BusType 0x%2.2X",
-					    common_serial_bus.type));
+					    aml_resource->common_serial_bus.
+					    type));
 			}
 			return (AE_AML_INVALID_RESOURCE_TYPE);
 		}

@@ -1,0 +1,21 @@
+spi: offload: quote the default symbol namespace
+
+Stable commit 889433a2ed5aa ("module: Convert default symbol namespace to string
+literal") makes _EXPORT_SYMBOL() use DEFAULT_SYMBOL_NAMESPACE as a string
+literal instead of __stringify()ing it. drivers/spi/spi-offload.c exists in
+main only through the upstream SPI offload backport, so it still defines the
+namespace as a bare identifier and the EXPORT_SYMBOL_NS_GPL() expansions in the
+file fail to assemble ("expected string"). Convert it like the other users.
+
+diff --git a/drivers/spi/spi-offload.c b/drivers/spi/spi-offload.c
+--- a/drivers/spi/spi-offload.c
++++ b/drivers/spi/spi-offload.c
+@@ -14,7 +14,7 @@
+  * processor core to offload the work.
+  */
+ 
+-#define DEFAULT_SYMBOL_NAMESPACE SPI_OFFLOAD
++#define DEFAULT_SYMBOL_NAMESPACE "SPI_OFFLOAD"
+ 
+ #include <linux/cleanup.h>
+ #include <linux/device.h>

@@ -1,0 +1,18 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,3 @@
+-<<<<<<< ours
+-Additional sysfs entries for ina226, ina230, ina231, and ina260
+----------------------------------------------------------------
+-||||||| base
+-Sysfs entries for ina226, ina230 and ina231 only
+-------------------------------------------------
+-=======
+ Additional entries are available for the following chips:
+ 
+   * ina226
+@@ -13,4 +6,3 @@
+   * ina234
+   * ina260
+   * sy24655
+->>>>>>> theirs

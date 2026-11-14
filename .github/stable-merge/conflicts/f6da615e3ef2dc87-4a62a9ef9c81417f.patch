@@ -1,0 +1,14 @@
+--- a/conflict
++++ b/conflict
+@@ -1,11 +1,2 @@
+-<<<<<<< ours
+-		xqspi->txbuf = opaddr;
+-		for (i = 0; i < op->addr.nbytes; i++) {
+-			xqspi->txbuf[i] = op->addr.val >>
+-||||||| base
+-		for (i = 0; i < op->addr.nbytes; i++) {
+-			xqspi->txbuf[i] = op->addr.val >>
+-=======
+ 		for (i = 0; i < op->addr.nbytes; i++)
+ 			opaddr[i] = op->addr.val >>
+->>>>>>> theirs

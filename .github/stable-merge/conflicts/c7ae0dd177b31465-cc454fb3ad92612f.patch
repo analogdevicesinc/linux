@@ -1,0 +1,25 @@
+--- a/conflict
++++ b/conflict
+@@ -1,17 +1,3 @@
+-<<<<<<< ours
+-		.has_alerts = true,
+-		.has_ishunt = false,
+-	},
+-	[ina260] = {
+-		.config_default = INA260_CONFIG_DEFAULT,
+-		.shunt_div = 400,
+-		.bus_voltage_shift = 0,
+-		.bus_voltage_lsb = 1250,
+-		.power_lsb_factor = 8,
+-		.has_alerts = true,
+-		.has_ishunt = true,
+-||||||| base
+-=======
+ 		.has_alerts = true,
+ 		.has_ishunt = false,
+ 		.has_power_average = false,
+@@ -58,4 +44,3 @@
+ 		.has_power_average = true,
+ 		.current_shift = 0,
+ 		.has_update_interval = false,
+->>>>>>> theirs

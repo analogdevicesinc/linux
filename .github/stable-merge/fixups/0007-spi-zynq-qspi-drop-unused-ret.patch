@@ -1,0 +1,22 @@
+spi: zynq-qspi: drop unused 'ret' in zynq_qspi_setup_op()
+
+Stable commit fe87fca86911a ("spi: zynq-qspi: Simplify clock handling with
+devm_clk_get_enabled()") converts the probe to devm_clk_get_enabled() and
+removes the clk_enable() calls from zynq_qspi_setup_op(). Downstream main had
+added error handling around those calls (a92908d2a341c, same change as stable
+87662cb2e8c5c "spi: zynq-qspi: Add check for clk_enable()"); the conflict was
+resolved in favour of the stable removal, since the clocks are now enabled (and
+released) by devres and enabling them again here would leak an enable count on
+every setup. 'ret' is now unused in zynq_qspi_setup_op().
+
+diff --git a/drivers/spi/spi-zynq-qspi.c b/drivers/spi/spi-zynq-qspi.c
+--- a/drivers/spi/spi-zynq-qspi.c
++++ b/drivers/spi/spi-zynq-qspi.c
+@@ -435,7 +435,6 @@
+ {
+ 	struct spi_controller *ctlr = spi->controller;
+ 	struct zynq_qspi *qspi = spi_controller_get_devdata(ctlr);
+-	int ret;
+ 
+ 	if (ctlr->busy)
+ 		return -EBUSY;

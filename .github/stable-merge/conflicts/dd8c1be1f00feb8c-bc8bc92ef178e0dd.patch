@@ -1,0 +1,32 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	}, {
+ 		.id = SNOR_ID(0xef, 0x80, 0x22),
+ 		.name = "w25q02nw",
+@@ -17,8 +16,6 @@
+ 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
+ 		.fixup_flags = SPI_NOR_4B_OPCODES,
+ 		.fixups = &w25q02_fixups,
+-||||||| base
+-=======
+ 	}, {
+ 		/* W25Q01NWxxIQ */
+ 		.id = SNOR_ID(0xef, 0x60, 0x21),
+@@ -26,10 +23,6 @@
+ 	}, {
+ 		/* W25Q01NWxxIM */
+ 		.id = SNOR_ID(0xef, 0x80, 0x21),
+-		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 | SPI_NOR_4BIT_BP,
+-	}, {
+-		/* W25Q02NWxxIM */
+-		.id = SNOR_ID(0xef, 0x80, 0x22),
+ 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 | SPI_NOR_4BIT_BP,
+ 	}, {
+ 		/* W25H512NWxxAM */
+@@ -43,4 +36,3 @@
+ 		/* W25H02NWxxAM */
+ 		.id = SNOR_ID(0xef, 0xa0, 0x22),
+ 		.flags = SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 | SPI_NOR_4BIT_BP,
+->>>>>>> theirs

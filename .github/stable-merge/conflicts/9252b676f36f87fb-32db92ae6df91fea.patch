@@ -1,0 +1,12 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,2 @@
+-<<<<<<< ours
+-	.set_power = sdhci_set_power_and_bus_voltage,
+-	.hw_reset = sdhci_arasan_hw_reset,
+-||||||| base
+-	.set_power = sdhci_set_power_and_bus_voltage,
+-=======
+ 	.set_power = sdhci_arasan_set_power_and_bus_voltage,
+ 	.hw_reset = sdhci_arasan_hw_reset,
+->>>>>>> theirs

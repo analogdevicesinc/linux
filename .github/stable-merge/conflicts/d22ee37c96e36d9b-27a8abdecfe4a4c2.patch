@@ -1,0 +1,19 @@
+--- a/conflict
++++ b/conflict
+@@ -1,16 +0,0 @@
+-<<<<<<< ours
+-||||||| base
+-	ret = fwnode_irq_get_byname(dev_fwnode(dev), "rdy");
+-	if (ret < 0)
+-		return dev_err_probe(dev, ret, "Interrupt 'rdy' is required\n");
+-
+-	ad7173_sigma_delta_info.irq_line = ret;
+-
+-=======
+-	ret = fwnode_irq_get_byname(dev_fwnode(dev), "rdy");
+-	if (ret < 0)
+-		return dev_err_probe(dev, ret, "Interrupt 'rdy' is required\n");
+-
+-	st->sigma_delta_info.irq_line = ret;
+-
+->>>>>>> theirs

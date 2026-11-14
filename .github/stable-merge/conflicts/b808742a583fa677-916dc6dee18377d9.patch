@@ -1,0 +1,11 @@
+--- a/conflict
++++ b/conflict
+@@ -1,8 +1,2 @@
+-<<<<<<< ours
+ 	.get_dma_dev = iio_dma_buffer_get_dma_dev,
+ #endif
+-||||||| base
+-=======
+-	.get_dma_dev = iio_dma_buffer_get_dma_dev,
+-
+->>>>>>> theirs

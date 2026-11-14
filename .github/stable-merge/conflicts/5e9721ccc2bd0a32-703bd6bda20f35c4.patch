@@ -1,0 +1,19 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	} else {
+ 		/*
+ 		 * In the Synopsys DWC_usb31 1.90a programming guide section
+@@ -12,11 +11,4 @@
+ 		__dwc3_gadget_start(dwc);
+ 		ret = dwc3_gadget_run_stop(dwc, true, false);
+ 	}
+-||||||| base
+-	else
+-		ret = dwc3_gadget_soft_connect(dwc);
+-=======
+-	else
+-		ret = dwc3_gadget_soft_connect(dwc);
+ 	mutex_unlock(&dwc->connect_mutex);
+->>>>>>> theirs

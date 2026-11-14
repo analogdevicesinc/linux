@@ -11,6 +11,7 @@
 #define _ACPI_FAN_H_
 
 #include <linux/kconfig.h>
+#include <linux/limits.h>
 
 #define ACPI_FAN_DEVICE_IDS	\
 	{"INT3404", }, /* Fan */ \
@@ -47,7 +48,9 @@ struct acpi_fan_fst {
 };
 
 struct acpi_fan {
+	acpi_handle handle;
 	bool acpi4;
+	bool has_fst;
 	struct acpi_fan_fif fif;
 	struct acpi_fan_fps *fps;
 	int fps_count;
@@ -56,14 +59,46 @@ struct acpi_fan {
 	struct device_attribute fine_grain_control;
 };
 
-int acpi_fan_get_fst(struct acpi_device *device, struct acpi_fan_fst *fst);
+/**
+ * acpi_fan_speed_valid - Check if fan speed value is valid
+ * @speeed: Speed value returned by the ACPI firmware
+ *
+ * Check if the fan speed value returned by the ACPI firmware is valid. This function is
+ * necessary as ACPI firmware implementations can return 0xFFFFFFFF to signal that the
+ * ACPI fan does not support speed reporting. Additionally, some buggy ACPI firmware
+ * implementations return a value larger than the 32-bit integer value defined by
+ * the ACPI specification when using placeholder values. Such invalid values are also
+ * detected by this function.
+ *
+ * Returns: True if the fan speed value is valid, false otherwise.
+ */
+static inline bool acpi_fan_speed_valid(u64 speed)
+{
+	return speed < U32_MAX;
+}
+
+/**
+ * acpi_fan_power_valid - Check if fan power value is valid
+ * @power: Power value returned by the ACPI firmware
+ *
+ * Check if the fan power value returned by the ACPI firmware is valid.
+ * See acpi_fan_speed_valid() for details.
+ *
+ * Returns: True if the fan power value is valid, false otherwise.
+ */
+static inline bool acpi_fan_power_valid(u64 power)
+{
+	return power < U32_MAX;
+}
+
+int acpi_fan_get_fst(acpi_handle handle, struct acpi_fan_fst *fst);
 int acpi_fan_create_attributes(struct acpi_device *device);
 void acpi_fan_delete_attributes(struct acpi_device *device);
 
 #if IS_REACHABLE(CONFIG_HWMON)
-int devm_acpi_fan_create_hwmon(struct acpi_device *device);
+int devm_acpi_fan_create_hwmon(struct device *dev);
 #else
-static inline int devm_acpi_fan_create_hwmon(struct acpi_device *device) { return 0; };
+static inline int devm_acpi_fan_create_hwmon(struct device *dev) { return 0; };
 #endif
 
 #endif

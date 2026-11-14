@@ -1,0 +1,19 @@
+--- a/conflict
++++ b/conflict
+@@ -1,16 +0,0 @@
+-<<<<<<< ours
+-	ret = clk_enable(qspi->refclk);
+-	if (ret)
+-		return ret;
+-
+-	ret = clk_enable(qspi->pclk);
+-	if (ret) {
+-		clk_disable(qspi->refclk);
+-		return ret;
+-	}
+-
+-||||||| base
+-	clk_enable(qspi->refclk);
+-	clk_enable(qspi->pclk);
+-=======
+->>>>>>> theirs

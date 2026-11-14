@@ -1,0 +1,22 @@
+--- a/conflict
++++ b/conflict
+@@ -1,4 +1,3 @@
+-<<<<<<< ours
+ 	case AD7124_FILTER_TYPE_SINC4:
+ 	case AD7124_FILTER_TYPE_SINC4_REJ60:
+ 		return 4 * 32;
+@@ -6,14 +5,3 @@
+ 		return 4 * avg * 32;
+ 	case AD7124_FILTER_TYPE_SINC3_SINC1:
+ 		return 3 * avg * 32;
+-||||||| base
+-	case AD7124_SINC3_FILTER:
+-		return DIV_ROUND_CLOSEST(fadc * 230, 1000);
+-	case AD7124_SINC4_FILTER:
+-		return DIV_ROUND_CLOSEST(fadc * 262, 1000);
+-=======
+-	case AD7124_SINC3_FILTER:
+-		return DIV_ROUND_CLOSEST(fadc * 272, 1000);
+-	case AD7124_SINC4_FILTER:
+-		return DIV_ROUND_CLOSEST(fadc * 230, 1000);
+->>>>>>> theirs

@@ -1,0 +1,13 @@
+--- a/conflict
++++ b/conflict
+@@ -1,10 +1,5 @@
+-<<<<<<< ours
+-#define INA260_CONFIG_DEFAULT		0x6527	/* averages=16 */
+-||||||| base
+-=======
+ #define INA260_CONFIG_DEFAULT		0x6527	/* averages=16 */
+ #define SY24655_CONFIG_DEFAULT		0x4527	/* averages=16 */
+ 
+ /* (only for sy24655) */
+ #define SY24655_ACCUM_CONFIG_DEFAULT	0x044C	/* continuous mode, clear after read*/
+->>>>>>> theirs

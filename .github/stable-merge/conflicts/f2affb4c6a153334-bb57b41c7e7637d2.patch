@@ -1,0 +1,10 @@
+--- a/conflict
++++ b/conflict
+@@ -1,7 +1 @@
+-<<<<<<< ours
+-#include <linux/cacheflush.h>
+ #include <crypto/engine.h>
+-||||||| base
+-#include <linux/cacheflush.h>
+-=======
+->>>>>>> theirs

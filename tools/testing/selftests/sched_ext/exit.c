@@ -22,9 +22,17 @@ static enum scx_test_status run(void *ctx)
 		struct bpf_link *link;
 		char buf[16];
 
+		/*
+		 * On single-CPU systems, ops.select_cpu() is never
+		 * invoked, so skip this test to avoid getting stuck
+		 * indefinitely.
+		 */
+		if (tc == EXIT_SELECT_CPU && libbpf_num_possible_cpus() == 1)
+			continue;
+
 		skel = exit__open();
 		skel->rodata->exit_point = tc;
-		exit__load(skel);
+		SCX_FAIL_IF(exit__load(skel), "Failed to load skel");
 		link = bpf_map__attach_struct_ops(skel->maps.exit_ops);
 		if (!link) {
 			SCX_ERR("Failed to attach scheduler");

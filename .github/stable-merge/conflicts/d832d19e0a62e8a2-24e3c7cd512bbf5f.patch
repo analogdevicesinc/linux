@@ -1,0 +1,36 @@
+--- a/conflict
++++ b/conflict
+@@ -1,28 +1,4 @@
+-<<<<<<< ours
+ 	dwc3_xlnx_set_coherency(priv_data, XLNX_USB_TRAFFIC_ROUTE_CONFIG);
+-||||||| base
+-	/*
+-	 * This routes the USB DMA traffic to go through FPD path instead
+-	 * of reaching DDR directly. This traffic routing is needed to
+-	 * make SMMU and CCI work with USB DMA.
+-	 */
+-	if (of_dma_is_coherent(dev->of_node) || device_iommu_mapped(dev)) {
+-		reg = readl(priv_data->regs + XLNX_USB_TRAFFIC_ROUTE_CONFIG);
+-		reg |= XLNX_USB_TRAFFIC_ROUTE_FPD;
+-		writel(reg, priv_data->regs + XLNX_USB_TRAFFIC_ROUTE_CONFIG);
+-	}
+-
+-=======
+-	/*
+-	 * This routes the USB DMA traffic to go through FPD path instead
+-	 * of reaching DDR directly. This traffic routing is needed to
+-	 * make SMMU and CCI work with USB DMA.
+-	 */
+-	if (of_dma_is_coherent(dev->of_node) || device_iommu_mapped(dev)) {
+-		reg = readl(priv_data->regs + XLNX_USB_TRAFFIC_ROUTE_CONFIG);
+-		reg |= XLNX_USB_TRAFFIC_ROUTE_FPD;
+-		writel(reg, priv_data->regs + XLNX_USB_TRAFFIC_ROUTE_CONFIG);
+-	}
+ 
+ 	return 0;
+ 
+@@ -30,4 +6,3 @@
+ 	phy_power_off(priv_data->usb3_phy);
+ err_phy_exit:
+ 	phy_exit(priv_data->usb3_phy);
+->>>>>>> theirs

@@ -1,0 +1,16 @@
+--- a/conflict
++++ b/conflict
+@@ -1,13 +1,4 @@
+-<<<<<<< ours
+ 	const struct iio_scan_type *scan_type = &indio_dev->channels[0].scan_type;
+ 	struct spi_transfer *xfer = sigma_delta->sample_xfer;
+ 	unsigned int i, slot, channel;
+ 	u8 *samples_buf;
+-||||||| base
+-	unsigned int i, slot, samples_buf_size;
+-	unsigned int channel;
+-	uint8_t *samples_buf;
+-=======
+-	unsigned int i, slot;
+-	unsigned int channel;
+->>>>>>> theirs

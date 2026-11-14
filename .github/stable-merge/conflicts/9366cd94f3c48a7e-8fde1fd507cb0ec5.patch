@@ -1,0 +1,17 @@
+--- a/conflict
++++ b/conflict
+@@ -1,9 +1,3 @@
+-<<<<<<< ours
+-INA260 is a high or low side current and power monitor with integrated shunt
+-resistor.
+-
+-||||||| base
+-=======
+ INA260 is a high or low side current and power monitor with integrated shunt
+ resistor.
+ 
+@@ -12,4 +6,3 @@
+ programmable calibration value and conversion times. The SY24655 can also
+ calculate average power for use in energy conversion.
+ 
+->>>>>>> theirs
