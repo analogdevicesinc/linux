@@ -798,15 +798,13 @@ static int sx9360_probe(struct i2c_client *client)
 	return sx_common_probe(client, &sx9360_chip_info, &sx9360_regmap_config);
 }
 
-static int sx9360_suspend(struct device *dev)
+static int sx9360_sleep(struct sx_common_data *data)
 {
-	struct sx_common_data *data = iio_priv(dev_get_drvdata(dev));
 	unsigned int regval;
 	int ret;
 
-	disable_irq_nosync(data->client->irq);
-
 	guard(mutex)(&data->mutex);
+
 	ret = regmap_read(data->regmap, SX9360_REG_GNRL_CTRL0, &regval);
 	if (ret < 0)
 		return ret;
@@ -814,25 +812,42 @@ static int sx9360_suspend(struct device *dev)
 	data->suspend_ctrl =
 		FIELD_GET(SX9360_REG_GNRL_CTRL0_PHEN_MASK, regval);
 
-
 	/* Disable all phases, send the device to sleep. */
 	return regmap_write(data->regmap, SX9360_REG_GNRL_CTRL0, 0);
+}
+
+static int sx9360_suspend(struct device *dev)
+{
+	struct sx_common_data *data = iio_priv(dev_get_drvdata(dev));
+	int ret;
+
+	/*
+	 * Before taking the mutex, as disable_irq() waits for the threaded
+	 * handlers and they take it too.
+	 */
+	if (data->client->irq)
+		disable_irq(data->client->irq);
+
+	ret = sx9360_sleep(data);
+	/* Resume isn't called if suspend fails. */
+	if (ret && data->client->irq)
+		enable_irq(data->client->irq);
+
+	return ret;
 }
 
 static int sx9360_resume(struct device *dev)
 {
 	struct sx_common_data *data = iio_priv(dev_get_drvdata(dev));
 
-	scoped_guard(mutex, &data->mutex) {
-		int ret = regmap_update_bits(data->regmap,
-					     SX9360_REG_GNRL_CTRL0,
-					     SX9360_REG_GNRL_CTRL0_PHEN_MASK,
-					     data->suspend_ctrl);
-		if (ret)
-			return ret;
-	}
-	enable_irq(data->client->irq);
-	return 0;
+	if (data->client->irq)
+		enable_irq(data->client->irq);
+
+	guard(mutex)(&data->mutex);
+
+	return regmap_update_bits(data->regmap, SX9360_REG_GNRL_CTRL0,
+				  SX9360_REG_GNRL_CTRL0_PHEN_MASK,
+				  data->suspend_ctrl);
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(sx9360_pm_ops, sx9360_suspend, sx9360_resume);
