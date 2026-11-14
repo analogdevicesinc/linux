@@ -648,16 +648,22 @@ Cocci files are applied only to <code class="docutils literal notranslate"><span
 merges a branch with the latest stable release of its release line. It takes an
 <code class="docutils literal notranslate"><span class="pre">inputs.ref</span></code> (optionally <code class="docutils literal notranslate"><span class="pre">inputs.sha</span></code> to <em>slow-roll</em>) and force pushes
 the branch <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> to the remote.</p>
-<p>Conflict resolutions are stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict</span></code> in <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>
-and replayed on the next runs. For new or changed conflicts, an LLM agent
+<p>The merge state is stored at <code class="docutils literal notranslate"><span class="pre">.github/stable-merge</span></code> in <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">conflicts/</span></code> and <code class="docutils literal notranslate"><span class="pre">manifest.json</span></code>: conflict resolutions, replayed on the
+next runs. For new or changed conflicts, an LLM agent
 (<a class="icon git reference external" href="https://github.com/analogdevicesinc/doctools/tree/action/llm/action.yml" target="_blank">llm</a>) resolves them, and its
-resolutions are recorded for the next runs.
-The previous <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> heads are appended to <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict/forced-commits</span></code>
-and can be inspected until garbage collected.</p>
-<p>Stable changes merged without conflicts may still result in broken code. For example,
-when downstream changes code for features that are not upstream.
-Issues identified (e.g., by building) are fixed and stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-fixups</span></code>,
-applied in order after the merge as a separate commit, and replayed on the next runs.</p>
+resolutions are recorded for the next runs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fixups/</span></code>: stable changes merged without conflicts may still result in
+broken code, for example, when downstream changes code for features that are
+not upstream. Issues identified (e.g., by building) are fixed with patches,
+applied in order after the merge as a separate commit, and replayed on the
+next runs.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">forced-commits</span></code>: the previous <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> heads, that can be inspected
+until garbage collected.</p></li>
+</ul>
+<p>Commits to <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> that change <code class="docutils literal notranslate"><span class="pre">.github/stable-merge</span></code> are used by the
+next run, other changes are lost on the force push.</p>
 </section>
 </section>
 <section id="setting-up-and-running">
