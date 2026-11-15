@@ -29,6 +29,7 @@
 
 #include <linux/i2c.h>
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
@@ -1156,7 +1157,9 @@ static int msa311_probe(struct i2c_client *i2c)
 	if (err)
 		return err;
 
-	mutex_init(&msa311->lock);
+	err = devm_mutex_init(dev, &msa311->lock);
+	if (err)
+		return err;
 
 	err = devm_regulator_get_enable(dev, "vdd");
 	if (err)
