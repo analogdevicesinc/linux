@@ -478,10 +478,10 @@ static irqreturn_t max1027_handler(int irq, void *private)
 	 * with another device. The core will then call the relevant handler to
 	 * perform the data processing step.
 	 */
-	if (!iio_buffer_enabled(indio_dev))
-		complete(&st->complete);
-	else
+	if (iio_buffer_enabled(indio_dev) && iio_trigger_using_own(indio_dev))
 		iio_trigger_poll(st->trig);
+	else
+		complete(&st->complete);
 
 	return IRQ_HANDLED;
 }
