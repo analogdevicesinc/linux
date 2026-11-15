@@ -234,6 +234,7 @@ enum board_family {
 	family_intel_200_series,
 	family_intel_300_series,
 	family_intel_400_series,
+	family_intel_500_series,
 	family_intel_600_series,
 	family_intel_700_series
 };
@@ -431,6 +432,15 @@ static const struct ec_sensor_info sensors_family_intel_400[] = {
 	[ec_sensor_fan_cpu_opt] =
 		EC_SENSOR("CPU_Opt", hwmon_fan, 2, 0x00, 0xb0),
 	[ec_sensor_fan_vrm_hs] = EC_SENSOR("VRM HS", hwmon_fan, 2, 0x00, 0xb2),
+};
+
+static const struct ec_sensor_info sensors_family_intel_500[] = {
+	[ec_sensor_temp_mb] =
+		EC_SENSOR("Motherboard", hwmon_temp, 1, 0x00, 0x3c),
+	[ec_sensor_temp_t_sensor] =
+		EC_SENSOR("T_Sensor", hwmon_temp, 1, 0x00, 0x3d),
+	[ec_sensor_temp_vrm] = EC_SENSOR("VRM", hwmon_temp, 1, 0x00, 0x3e),
+	[ec_sensor_curr_cpu] = EC_SENSOR("CPU_Current", hwmon_curr, 1, 0x00, 0xf4),
 };
 
 static const struct ec_sensor_info sensors_family_intel_600[] = {
@@ -634,6 +644,13 @@ static const struct ec_board_info board_info_prime_z270_a = {
 		SENSOR_TEMP_T_SENSOR | SENSOR_FAN_CPU_OPT,
 	.mutex_path = ASUS_HW_ACCESS_MUTEX_SB_PCI0_LPCB_SIO1_MUT0,
 	.family = family_intel_200_series,
+};
+
+static const struct ec_board_info board_info_prime_z590_a = {
+	.sensors = SENSOR_TEMP_MB | SENSOR_TEMP_T_SENSOR | SENSOR_TEMP_VRM |
+		SENSOR_CURR_CPU,
+	.mutex_path = ASUS_HW_ACCESS_MUTEX_RMTW_ASMX,
+	.family = family_intel_500_series,
 };
 
 static const struct ec_board_info board_info_pro_art_b550_creator = {
@@ -938,6 +955,8 @@ static const struct dmi_system_id dmi_table[] = {
 					&board_info_prime_x670e_pro_wifi),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("PRIME Z270-A",
 					&board_info_prime_z270_a),
+	DMI_EXACT_MATCH_ASUS_BOARD_NAME("PRIME Z590-A",
+					&board_info_prime_z590_a),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ProArt B550-CREATOR",
 					&board_info_pro_art_b550_creator),
 	DMI_EXACT_MATCH_ASUS_BOARD_NAME("ProArt X570-CREATOR WIFI",
@@ -1585,6 +1604,9 @@ static int asus_ec_probe(struct platform_device *pdev)
 		break;
 	case family_intel_400_series:
 		ec_data->sensors_info = sensors_family_intel_400;
+		break;
+	case family_intel_500_series:
+		ec_data->sensors_info = sensors_family_intel_500;
 		break;
 	case family_intel_600_series:
 		ec_data->sensors_info = sensors_family_intel_600;
