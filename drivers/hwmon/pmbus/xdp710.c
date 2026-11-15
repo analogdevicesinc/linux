@@ -71,24 +71,18 @@ static int xdp710_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	ret = i2c_smbus_read_word_data(client, XDP710_CS_RNG);
-	if (ret < 0) {
-		dev_err(&client->dev, "Can't get CS_RNG");
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(&client->dev, ret, "Can't get CS_RNG\n");
 	cs_rng = (ret >> 6) & GENMASK(1, 0);
 
 	ret = i2c_smbus_read_word_data(client, XDP710_V_SNS_CFG);
-	if (ret < 0) {
-		dev_err(&client->dev, "Can't get V_SNS_CFG");
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(&client->dev, ret, "Can't get V_SNS_CFG\n");
 	vtlm_rng = ret & GENMASK(1, 0);
 
 	ret = i2c_smbus_read_word_data(client, XDP710_REG_CFG);
-	if (ret < 0) {
-		dev_err(&client->dev, "Can't get REG_CFG");
-		return ret;
-	}
+	if (ret < 0)
+		return dev_err_probe(&client->dev, ret, "Can't get REG_CFG\n");
 	ret &= GENMASK(5, 0);
 	rsense = micro_ohm_rsense[ret];
 
