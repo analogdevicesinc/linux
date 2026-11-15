@@ -325,6 +325,7 @@ const struct iio_chan_spec
 			return &indio_dev->channels[i];
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(iio_find_channel_from_si);
 
 /* This turns up an awful lot */
 ssize_t iio_read_const_attr(struct device *dev,
