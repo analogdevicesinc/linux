@@ -166,7 +166,6 @@ struct si1145_part_info {
  * @scan_mask:	Saved scan mask to avoid duplicate set_chlist
  * @autonomous: If automatic measurements are active (for buffer support)
  * @part_info:	Part information
- * @trig:	Pointer to iio trigger
  * @meas_rate:	Value of MEAS_RATE register. Only set in HW in auto mode
  * @buffer:	Used to pack data read from sensor.
  */
@@ -178,7 +177,6 @@ struct si1145_data {
 	const struct si1145_part_info *part_info;
 	unsigned long scan_mask;
 	bool autonomous;
-	struct iio_trigger *trig;
 	int meas_rate;
 	/*
 	 * Ensure timestamp will be naturally aligned if present.
@@ -1258,8 +1256,7 @@ static int si1145_probe_trigger(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	data->trig = trig;
-	indio_dev->trig = iio_trigger_get(data->trig);
+	indio_dev->default_trigger = trig;
 
 	return 0;
 }
