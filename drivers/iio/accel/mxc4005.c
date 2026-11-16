@@ -502,7 +502,7 @@ static int mxc4005_probe(struct i2c_client *client)
 			return ret;
 		}
 
-		indio_dev->trig = iio_trigger_get(data->dready_trig);
+		indio_dev->default_trigger = data->dready_trig;
 	}
 
 	return devm_iio_device_register(&client->dev, indio_dev);
