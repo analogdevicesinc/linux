@@ -851,7 +851,7 @@ static int ads131e08_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = st->trig;
 
 	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
 		NULL, &ads131e08_trigger_handler, NULL);
