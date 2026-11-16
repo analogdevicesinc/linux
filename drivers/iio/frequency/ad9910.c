@@ -1626,8 +1626,8 @@ static int ad9910_write_raw(struct iio_dev *indio_dev,
 			if (val < 0 || val2 < 0)
 				return -EINVAL;
 
-			tmp64 = ad9910_rational_scale((u64)val * NANO + val2, BIT_ULL(32),
-						      (u64)st->data.sysclk_freq_hz * NANO);
+			tmp64 = mul_u64_u64_div_u64_roundup((u64)val * NANO + val2, BIT_ULL(32),
+							    (u64)st->data.sysclk_freq_hz * NANO);
 			tmp64 = roundup_pow_of_two(clamp(tmp64, 1ULL, BIT_ULL(15)));
 			tmp32 = FIELD_PREP(AD9910_CFR2_FM_GAIN_MSK, ilog2(tmp64));
 			return ad9910_reg32_update(st, AD9910_REG_CFR2,
