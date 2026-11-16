@@ -309,11 +309,10 @@ static int ens160_setup_trigger(struct iio_dev *indio_dev, int irq)
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(trig);
+	indio_dev->default_trigger = trig;
 
 	ret = devm_request_irq(dev, irq, iio_trigger_generic_data_rdy_poll,
-			       IRQF_NO_THREAD, indio_dev->name,
-			       indio_dev->trig);
+			       IRQF_NO_THREAD, indio_dev->name, trig);
 	if (ret)
 		return ret;
 
