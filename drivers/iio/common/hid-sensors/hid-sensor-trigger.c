@@ -278,11 +278,12 @@ int hid_sensor_setup_trigger(struct iio_dev *indio_dev, const char *name,
 		goto error_free_trig;
 	}
 	attrb->trigger = trig;
-	indio_dev->trig = iio_trigger_get(trig);
 
 	ret = pm_runtime_set_active(&indio_dev->dev);
 	if (ret)
 		goto error_unreg_trigger;
+
+	indio_dev->default_trigger = trig;
 
 	iio_device_set_drvdata(indio_dev, attrb);
 
