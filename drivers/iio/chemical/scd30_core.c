@@ -675,7 +675,7 @@ static int scd30_setup_trigger(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(trig);
+	indio_dev->default_trigger = trig;
 
 	/*
 	 * Interrupt is enabled just before taking a fresh measurement
