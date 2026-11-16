@@ -1781,7 +1781,7 @@ int bma400_probe(struct device *dev, struct regmap *regmap, int irq,
 			return dev_err_probe(data->dev, ret,
 					     "iio trigger register fail\n");
 
-		indio_dev->trig = iio_trigger_get(data->trig);
+		indio_dev->default_trigger = data->trig;
 		ret = devm_request_threaded_irq(dev, irq, NULL,
 						&bma400_interrupt,
 						IRQF_TRIGGER_RISING | IRQF_ONESHOT,
