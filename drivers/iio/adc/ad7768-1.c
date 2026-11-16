@@ -1505,7 +1505,7 @@ static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = st->trig;
 
 	return devm_iio_triggered_buffer_setup(indio_dev->dev.parent, indio_dev,
 					       &iio_pollfunc_store_time,
