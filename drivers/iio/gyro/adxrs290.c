@@ -72,7 +72,6 @@ struct adxrs290_state {
 	enum adxrs290_mode	mode;
 	unsigned int		lpf_3db_freq_idx;
 	unsigned int		hpf_3db_freq_idx;
-	struct iio_trigger      *dready_trig;
 	/* Ensure correct alignment of timestamp when present */
 	struct {
 		s16 channels[3];
@@ -566,6 +565,7 @@ static const struct iio_info adxrs290_info = {
 static int adxrs290_probe_trigger(struct iio_dev *indio_dev)
 {
 	struct adxrs290_state *st = iio_priv(indio_dev);
+	struct iio_trigger *trig;
 	int ret;
 
 	if (!st->spi->irq) {
@@ -573,28 +573,27 @@ static int adxrs290_probe_trigger(struct iio_dev *indio_dev)
 		return 0;
 	}
 
-	st->dready_trig = devm_iio_trigger_alloc(&st->spi->dev, "%s-dev%d",
-						 indio_dev->name,
-						 iio_device_id(indio_dev));
-	if (!st->dready_trig)
+	trig = devm_iio_trigger_alloc(&st->spi->dev, "%s-dev%d", indio_dev->name,
+				      iio_device_id(indio_dev));
+	if (!trig)
 		return -ENOMEM;
 
-	st->dready_trig->ops = &adxrs290_trigger_ops;
-	iio_trigger_set_drvdata(st->dready_trig, indio_dev);
+	trig->ops = &adxrs290_trigger_ops;
+	iio_trigger_set_drvdata(trig, indio_dev);
 
 	ret = devm_request_irq(&st->spi->dev, st->spi->irq,
 			       &iio_trigger_generic_data_rdy_poll,
-			       IRQF_NO_THREAD, "adxrs290_irq", st->dready_trig);
+			       IRQF_NO_THREAD, "adxrs290_irq", trig);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_trigger_register(&st->spi->dev, st->dready_trig);
+	ret = devm_iio_trigger_register(&st->spi->dev, trig);
 	if (ret) {
 		dev_err(&st->spi->dev, "iio trigger register failed\n");
 		return ret;
 	}
 
-	indio_dev->trig = iio_trigger_get(st->dready_trig);
+	indio_dev->default_trigger = trig;
 
 	return 0;
 }
