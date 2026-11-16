@@ -32,8 +32,28 @@
 	};
 
 	chosen {
-		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait";
+		/* 64 MiB blocks keep a 16 GB/s RX stream with a few buffers */
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=67108864";
 		stdout-path = "serial1:115200";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The RX DMA only reaches DDR_LOW0, so its buffers must come
+		 * from the lower 2 GB; the kernel's default 256 MiB pool cannot
+		 * hold 4 streaming buffers of 64 MiB
+		 */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x20000000>;
+			alloc-ranges = <0x0 0x0 0x0 0x80000000>;
+			linux,cma-default;
+		};
 	};
 
 	gpio-poweroff {
