@@ -736,7 +736,7 @@ static int vl6180_probe(struct i2c_client *client)
 		if (ret)
 			return ret;
 
-		indio_dev->trig = iio_trigger_get(data->trig);
+		indio_dev->default_trigger = data->trig;
 	}
 
 	return devm_iio_device_register(&client->dev, indio_dev);
