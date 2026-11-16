@@ -433,12 +433,12 @@
 			};
 		};
 
-		jesd_tx_data_offload_i_data_offload: data_offload@bc440000 {
+		jesd_tx_data_offload_i_data_offload: tx_data_offload@bc440000 {
 			compatible = "adi,axi-data-offload-1.0.a";
 			reg = <0x0 0xbc440000 0x0 0x10000>;
 		};
 
-		jesd_rx_data_offload_i_data_offload: data_offload@bc450000 {
+		jesd_rx_data_offload_i_data_offload: rx_data_offload@bc450000 {
 			compatible = "adi,axi-data-offload-1.0.a";
 			reg = <0x0 0xbc450000 0x0 0x10000>;
 		};
