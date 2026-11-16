@@ -33,7 +33,8 @@
 
 	memory: memory@0 {
 		device_type = "memory";
-		reg = <0 0 0 0x80000000>;  /* 2GB */
+		/* 2 x 2 GB LPDDR4 (U4, U5), interleaved over DDR_LOW0 and DDR_LOW1 */
+		reg = <0 0 0 0x80000000>, <0x8 0 0 0x80000000>;
 	};
 
 	chosen {
