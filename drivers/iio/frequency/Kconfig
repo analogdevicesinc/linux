@@ -29,6 +29,7 @@ config AD9910
 	tristate "Analog Devices AD9910 Direct Digital Synthesizer"
 	depends on SPI
 	depends on GPIOLIB
+	depends on PWM
 	select CRC32
 	select FW_LOADER
 	select FW_UPLOAD

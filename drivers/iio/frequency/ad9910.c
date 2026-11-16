@@ -21,6 +21,7 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/property.h>
+#include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/seq_file.h>
@@ -324,11 +325,15 @@ union ad9910_reg {
 struct ad9910_state {
 	struct spi_device *spi;
 	struct clk *refclk;
+	struct pwm_device *drctl_pwm;
 	struct fw_upload *ram_fwu;
 
 	struct gpio_desc *gpio_pwdown;
 	struct gpio_desc *gpio_update;
 	struct gpio_descs *gpio_profile;
+
+	s64 ramp_up_time_ns;
+	s64 ramp_down_time_ns;
 
 	/* cached registers */
 	union ad9910_reg reg[AD9910_REG_NUM_CACHED];
@@ -609,6 +614,58 @@ static int ad9910_sw_powerdown_set(struct ad9910_state *st, bool enable)
 				   AD9910_CFR1_SW1_POWER_DOWN_MSK, 0, true);
 }
 
+static int ad9910_drctl_sync(struct ad9910_state *st)
+{
+	struct pwm_waveform wf = { };
+	bool ndh, ndl;
+	int ret;
+
+	if (!st->drctl_pwm)
+		return 0;
+
+	ndh = FIELD_GET(AD9910_CFR2_DRG_NO_DWELL_HIGH_MSK,
+			st->reg[AD9910_REG_CFR2].val32);
+	ndl = FIELD_GET(AD9910_CFR2_DRG_NO_DWELL_LOW_MSK,
+			st->reg[AD9910_REG_CFR2].val32);
+
+	if (!ndh && !ndl) {
+		wf.period_length_ns = st->ramp_up_time_ns + st->ramp_down_time_ns;
+		wf.duty_length_ns = st->ramp_up_time_ns;
+	} else if (!ndh) {
+		/* DRCTL low on the first half, so that it ramps down first */
+		wf.period_length_ns = st->ramp_down_time_ns;
+		wf.duty_offset_ns = st->ramp_down_time_ns / 2;
+		wf.duty_length_ns = wf.period_length_ns - wf.duty_offset_ns;
+	} else if (!ndl) {
+		wf.period_length_ns = st->ramp_up_time_ns;
+		wf.duty_length_ns = st->ramp_up_time_ns / 2;
+	} else {
+		wf.period_length_ns = st->ramp_up_time_ns + st->ramp_down_time_ns;
+	}
+
+	/* a zero period disables the PWM, nothing to round */
+	if (wf.period_length_ns) {
+		ret = pwm_round_waveform_might_sleep(st->drctl_pwm, &wf);
+		if (ret < 0)
+			return ret;
+	}
+
+	ret = pwm_set_waveform_might_sleep(st->drctl_pwm, &wf, false);
+	if (ret)
+		return ret;
+
+	if (!ndh && !ndl) {
+		st->ramp_up_time_ns = wf.duty_length_ns;
+		st->ramp_down_time_ns = wf.period_length_ns - wf.duty_length_ns;
+	} else if (!ndh) {
+		st->ramp_down_time_ns = wf.period_length_ns;
+	} else if (!ndl) {
+		st->ramp_up_time_ns = wf.period_length_ns;
+	}
+
+	return 0;
+}
+
 static ssize_t ad9910_ext_info_read(struct iio_dev *indio_dev,
 				    uintptr_t private,
 				    const struct iio_chan_spec *chan,
@@ -675,6 +732,13 @@ static ssize_t ad9910_ext_info_write(struct iio_dev *indio_dev,
 			if (ret)
 				return ret;
 		}
+
+		/*
+		 * DRCTL waveform depends on the dwell configuration, but the
+		 * previous integration time values may not suit the new
+		 * waveform, which should not prevent dwell_en from changing.
+		 */
+		ad9910_drctl_sync(st);
 		break;
 	default:
 		return -EINVAL;
@@ -1054,7 +1118,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_FREQ_RAMP_UP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_FREQ],
 	},
@@ -1065,7 +1130,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_FREQ_RAMP_DOWN,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_FREQ],
 	},
@@ -1076,7 +1142,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_PHASE_RAMP_UP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_PHASE],
 	},
@@ -1087,7 +1154,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_PHASE_RAMP_DOWN,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_PHASE],
 	},
@@ -1098,7 +1166,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_UP,
 		.address = AD9910_CHAN_IDX_DRG_AMP_RAMP_UP,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_AMP],
 	},
@@ -1109,7 +1178,8 @@ static const struct iio_chan_spec ad9910_channels[] = {
 		.channel = AD9910_CHANNEL_DRG_RAMP_DOWN,
 		.address = AD9910_CHAN_IDX_DRG_AMP_RAMP_DOWN,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-				      BIT(IIO_CHAN_INFO_SAMP_FREQ),
+				      BIT(IIO_CHAN_INFO_SAMP_FREQ) |
+				      BIT(IIO_CHAN_INFO_INT_TIME),
 		.ext_info = ad9910_drg_ramp_ext_info,
 		.parent = &ad9910_channels[AD9910_CHAN_IDX_DRG_AMP],
 	},
@@ -1334,6 +1404,17 @@ static int ad9910_read_raw(struct iio_dev *indio_dev,
 					  st->reg[AD9910_REG_POW].val16);
 			iio_val_s64_decompose(MICRO * tmp32 >> 8, val, val2);
 			return IIO_VAL_DECIMAL64_MICRO;
+		default:
+			return -EINVAL;
+		}
+	case IIO_CHAN_INFO_INT_TIME:
+		switch (chan->channel) {
+		case AD9910_CHANNEL_DRG_RAMP_UP:
+			iio_val_s64_decompose(st->ramp_up_time_ns, val, val2);
+			return IIO_VAL_DECIMAL64_NANO;
+		case AD9910_CHANNEL_DRG_RAMP_DOWN:
+			iio_val_s64_decompose(st->ramp_down_time_ns, val, val2);
+			return IIO_VAL_DECIMAL64_NANO;
 		default:
 			return -EINVAL;
 		}
@@ -1637,6 +1718,34 @@ static int ad9910_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	}
+	case IIO_CHAN_INFO_INT_TIME: {
+		s64 val64 = iio_val_s64_compose(val, val2);
+		s64 *time_ns, prev_ns;
+
+		if (!st->drctl_pwm)
+			return -EOPNOTSUPP;
+		if (val64 < 0)
+			return -EINVAL;
+
+		switch (chan->channel) {
+		case AD9910_CHANNEL_DRG_RAMP_UP:
+			time_ns = &st->ramp_up_time_ns;
+			break;
+		case AD9910_CHANNEL_DRG_RAMP_DOWN:
+			time_ns = &st->ramp_down_time_ns;
+			break;
+		default:
+			return -EINVAL;
+		}
+
+		prev_ns = *time_ns;
+		*time_ns = val64;
+		ret = ad9910_drctl_sync(st);
+		if (ret)
+			*time_ns = prev_ns;
+
+		return ret;
+	}
 	default:
 		return -EINVAL;
 	}
@@ -1671,6 +1780,8 @@ static int ad9910_write_raw_get_fmt(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_PLUS_NANO;
 	case IIO_CHAN_INFO_OFFSET:
 		return IIO_VAL_DECIMAL64_MICRO;
+	case IIO_CHAN_INFO_INT_TIME:
+		return IIO_VAL_DECIMAL64_NANO;
 	default:
 		return -EINVAL;
 	}
@@ -1956,6 +2067,11 @@ static int ad9910_parse_fw(struct ad9910_state *st)
 static void ad9910_sw_powerdown_action(void *data)
 {
 	ad9910_sw_powerdown_set(data, true);
+}
+
+static void ad9910_drctl_disable_action(void *data)
+{
+	pwm_disable(data);
 }
 
 static void ad9910_hw_powerdown_action(void *data)
@@ -2248,6 +2364,26 @@ static int ad9910_probe(struct spi_device *spi)
 				     "failed to add hw powerdown action\n");
 
 	fsleep(AD9910_WAKEUP_DELAY_us);
+
+	/*
+	 * DRCTL is the only PWM used, so it is looked up by index. A named
+	 * lookup would fail with -EINVAL when pwm-names is absent, preventing
+	 * the optional handling below.
+	 */
+	st->drctl_pwm = devm_pwm_get(dev, NULL);
+	if (IS_ERR(st->drctl_pwm)) {
+		ret = PTR_ERR(st->drctl_pwm);
+		if (ret != -ENOENT && ret != -ENODEV)
+			return dev_err_probe(dev, PTR_ERR(st->drctl_pwm),
+					     "failed to get drctl pwm\n");
+		st->drctl_pwm = NULL;
+	} else {
+		ret = devm_add_action_or_reset(dev, ad9910_drctl_disable_action,
+					       st->drctl_pwm);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "failed to add drctl disable action\n");
+	}
 
 	ret = ad9910_parse_fw(st);
 	if (ret)
