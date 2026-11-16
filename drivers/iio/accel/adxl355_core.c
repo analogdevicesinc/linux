@@ -227,7 +227,6 @@ struct adxl355_data {
 	enum adxl355_hpf_3db hpf_3db;
 	int calibbias[3];
 	int adxl355_hpf_3db_table[7][2];
-	struct iio_trigger *dready_trig;
 	union {
 		u8 transf_buf[3];
 		struct {
@@ -754,27 +753,27 @@ static const struct iio_chan_spec adxl355_channels[] = {
 static int adxl355_probe_trigger(struct iio_dev *indio_dev, int irq)
 {
 	struct adxl355_data *data = iio_priv(indio_dev);
+	struct iio_trigger *trig;
 	int ret;
 
-	data->dready_trig = devm_iio_trigger_alloc(data->dev, "%s-dev%d",
-						   indio_dev->name,
-						   iio_device_id(indio_dev));
-	if (!data->dready_trig)
+	trig = devm_iio_trigger_alloc(data->dev, "%s-dev%d", indio_dev->name,
+				      iio_device_id(indio_dev));
+	if (!trig)
 		return -ENOMEM;
 
-	data->dready_trig->ops = &adxl355_trigger_ops;
-	iio_trigger_set_drvdata(data->dready_trig, indio_dev);
+	trig->ops = &adxl355_trigger_ops;
+	iio_trigger_set_drvdata(trig, indio_dev);
 
 	ret = devm_request_irq(data->dev, irq, &iio_trigger_generic_data_rdy_poll,
-			       IRQF_NO_THREAD, "adxl355_irq", data->dready_trig);
+			       IRQF_NO_THREAD, "adxl355_irq", trig);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_trigger_register(data->dev, data->dready_trig);
+	ret = devm_iio_trigger_register(data->dev, trig);
 	if (ret)
 		return dev_err_probe(data->dev, ret, "iio trigger register failed\n");
 
-	indio_dev->trig = iio_trigger_get(data->dready_trig);
+	indio_dev->default_trigger = trig;
 
 	return 0;
 }
