@@ -2830,7 +2830,7 @@ static int ad4170_trigger_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to register trigger\n");
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = st->trig;
 
 	return 0;
 }
