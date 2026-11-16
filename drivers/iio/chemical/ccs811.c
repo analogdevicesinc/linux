@@ -502,7 +502,7 @@ static int ccs811_probe(struct i2c_client *client)
 		if (ret)
 			goto err_poweroff;
 
-		indio_dev->trig = iio_trigger_get(data->drdy_trig);
+		indio_dev->default_trigger = data->drdy_trig;
 	}
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
