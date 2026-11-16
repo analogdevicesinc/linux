@@ -1345,7 +1345,7 @@ static int __bmp280_trigger_probe(struct iio_dev *indio_dev,
 	if (ret)
 		return dev_err_probe(dev, ret, "iio trigger register failed.\n");
 
-	indio_dev->trig = iio_trigger_get(data->trig);
+	indio_dev->default_trigger = data->trig;
 
 	return 0;
 }
