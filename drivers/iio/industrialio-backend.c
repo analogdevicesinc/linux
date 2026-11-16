@@ -1034,7 +1034,7 @@ static struct iio_backend *__devm_iio_backend_fwnode_get(struct device *dev, con
 	int ret;
 
 	if (name) {
-		ret = device_property_match_string(dev, "io-backend-names", name);
+		ret = fwnode_property_match_string(fwnode, "io-backend-names", name);
 		if (ret < 0)
 			return ERR_PTR(ret);
 		index = ret;
