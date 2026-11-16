@@ -2,6 +2,8 @@
 #ifndef _LINUX_LTC2947_H
 #define _LINUX_LTC2947_H
 
+#include <linux/device-id/of.h>
+
 struct regmap;
 
 extern const struct of_device_id ltc2947_of_match[];
