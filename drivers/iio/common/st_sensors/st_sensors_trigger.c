@@ -219,7 +219,7 @@ int st_sensors_allocate_trigger(struct iio_dev *indio_dev,
 		dev_err(parent, "failed to register iio trigger.\n");
 		return err;
 	}
-	indio_dev->trig = iio_trigger_get(sdata->trig);
+	indio_dev->default_trigger = sdata->trig;
 
 	return 0;
 }
