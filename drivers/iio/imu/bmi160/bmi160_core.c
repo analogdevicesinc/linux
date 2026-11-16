@@ -778,31 +778,31 @@ static const struct iio_trigger_ops bmi160_trigger_ops = {
 int bmi160_probe_trigger(struct iio_dev *indio_dev, int irq, u32 irq_type)
 {
 	struct bmi160_data *data = iio_priv(indio_dev);
+	struct iio_trigger *trig;
 	int ret;
 
-	data->trig = devm_iio_trigger_alloc(&indio_dev->dev, "%s-dev%d",
-					    indio_dev->name,
-					    iio_device_id(indio_dev));
-
-	if (data->trig == NULL)
+	trig = devm_iio_trigger_alloc(&indio_dev->dev, "%s-dev%d",
+				      indio_dev->name,
+				      iio_device_id(indio_dev));
+	if (!trig)
 		return -ENOMEM;
 
 	ret = devm_request_irq(&indio_dev->dev, irq,
 			       &iio_trigger_generic_data_rdy_poll,
 			       irq_type | IRQF_NO_THREAD,
-			       "bmi160", data->trig);
+			       "bmi160", trig);
 	if (ret)
 		return ret;
 
-	data->trig->dev.parent = regmap_get_device(data->regmap);
-	data->trig->ops = &bmi160_trigger_ops;
-	iio_trigger_set_drvdata(data->trig, indio_dev);
+	trig->dev.parent = regmap_get_device(data->regmap);
+	trig->ops = &bmi160_trigger_ops;
+	iio_trigger_set_drvdata(trig, indio_dev);
 
-	ret = devm_iio_trigger_register(&indio_dev->dev, data->trig);
+	ret = devm_iio_trigger_register(&indio_dev->dev, trig);
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(data->trig);
+	indio_dev->default_trigger = trig;
 
 	return 0;
 }
