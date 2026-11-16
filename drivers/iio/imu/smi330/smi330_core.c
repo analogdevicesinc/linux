@@ -888,8 +888,7 @@ int smi330_core_probe(struct device *dev, struct regmap *regmap)
 			return dev_err_probe(dev, ret,
 					     "IIO register trigger failed\n");
 
-		/* Set default operation mode to data ready. */
-		indio_dev->trig = iio_trigger_get(data->trig);
+		indio_dev->default_trigger = data->trig;
 	}
 
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
