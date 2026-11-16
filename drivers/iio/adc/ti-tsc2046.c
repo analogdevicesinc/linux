@@ -805,8 +805,7 @@ static int tsc2046_adc_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	/* set default trigger */
-	indio_dev->trig = iio_trigger_get(priv->trig);
+	indio_dev->default_trigger = priv->trig;
 
 	return devm_iio_device_register(dev, indio_dev);
 }
