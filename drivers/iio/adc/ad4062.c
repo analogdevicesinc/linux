@@ -745,7 +745,7 @@ static int ad4062_request_trigger(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(st->trigger);
+	indio_dev->default_trigger = st->trigger;
 
 	return 0;
 }
