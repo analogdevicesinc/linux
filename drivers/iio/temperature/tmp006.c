@@ -45,7 +45,6 @@
 struct tmp006_data {
 	struct i2c_client *client;
 	u16 config;
-	struct iio_trigger *drdy_trig;
 };
 
 static int tmp006_read_measurement(struct tmp006_data *data, u8 reg)
@@ -297,6 +296,7 @@ static int tmp006_probe(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev;
 	struct tmp006_data *data;
+	struct iio_trigger *trig;
 	int ret;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_SMBUS_WORD_DATA))
@@ -340,25 +340,23 @@ static int tmp006_probe(struct i2c_client *client)
 		return ret;
 
 	if (client->irq > 0) {
-		data->drdy_trig = devm_iio_trigger_alloc(&client->dev,
-							 "%s-dev%d",
-							 indio_dev->name,
-							 iio_device_id(indio_dev));
-		if (!data->drdy_trig)
+		trig = devm_iio_trigger_alloc(&client->dev, "%s-dev%d",
+					      indio_dev->name,
+					      iio_device_id(indio_dev));
+		if (!trig)
 			return -ENOMEM;
 
-		data->drdy_trig->ops = &tmp006_trigger_ops;
-		iio_trigger_set_drvdata(data->drdy_trig, indio_dev);
-		ret = devm_iio_trigger_register(&client->dev, data->drdy_trig);
+		trig->ops = &tmp006_trigger_ops;
+		iio_trigger_set_drvdata(trig, indio_dev);
+		ret = devm_iio_trigger_register(&client->dev, trig);
 		if (ret)
 			return ret;
 
-		indio_dev->trig = iio_trigger_get(data->drdy_trig);
+		indio_dev->default_trigger = trig;
 
 		ret = devm_request_irq(&client->dev, client->irq,
 				       iio_trigger_generic_data_rdy_poll,
-				       IRQF_NO_THREAD, "tmp006_irq",
-				       data->drdy_trig);
+				       IRQF_NO_THREAD, "tmp006_irq", trig);
 		if (ret < 0)
 			return ret;
 	}
