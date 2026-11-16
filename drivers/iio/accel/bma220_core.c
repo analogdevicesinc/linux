@@ -539,7 +539,7 @@ int bma220_common_probe(struct device *dev, struct regmap *regmap, int irq)
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "iio trigger register fail\n");
-		indio_dev->trig = iio_trigger_get(data->trig);
+		indio_dev->default_trigger = data->trig;
 		ret = devm_request_threaded_irq(dev, irq, NULL,
 						&bma220_irq_handler, IRQF_ONESHOT,
 						indio_dev->name, indio_dev);
