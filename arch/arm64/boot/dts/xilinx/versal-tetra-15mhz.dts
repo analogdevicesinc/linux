@@ -47,7 +47,7 @@
 		spi1 = &spi1;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
-		ethernet0 = &axi_ethernet;
+		ethernet0 = &gem0;
 	};
 };
 
@@ -125,8 +125,22 @@
 	status = "okay";
 };
 
+/* GEM0 over EMIO, SGMII to the ADIN1320 PHY through a PL PCS/PMA */
 &gem0 {
-	status = "disabled";
+	status = "okay";
+	phy-mode = "gmii";
+	phy-handle = <&gem0_pcs_pma>;
+	local-mac-address = [00 0a 35 00 00 00];
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		gem0_pcs_pma: ethernet-phy@1 {
+			reg = <1>;
+			xlnx,phy-type = <0x4>;
+		};
+	};
 };
 
 &gem1 {
@@ -377,78 +391,6 @@
 			datapath-reset-gpios = <&axi_gpio 38 0>;
 		};
 
-		/* AXI Ethernet + DMA — SGMII to ADIN1320 PHY */
-		axi_ethernet_dma: dma@a6e10000 {
-			#dma-cells = <1>;
-			axistream-connected = <&axi_ethernet>;
-			axistream-control-connected = <&axi_ethernet>;
-			clock-names = "m_axi_mm2s_aclk", "m_axi_s2mm_aclk", "m_axi_sg_aclk", "s_axi_lite_aclk";
-			clocks = <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>, <&versal_clk 65>;
-			compatible = "xlnx,eth-dma";
-			interrupt-names = "mm2s_introut", "s2mm_introut";
-			interrupt-parent = <&gic>;
-			interrupts = <0 86 IRQ_TYPE_LEVEL_HIGH 0 87 IRQ_TYPE_LEVEL_HIGH>;
-			reg = <0x0 0xa6e10000 0x0 0x1000>;
-			xlnx,addrwidth = /bits/ 8 <0x20>;
-			xlnx,include-dre;
-			xlnx,num-queues = /bits/ 16 <0x1>;
-		};
-
-		axi_ethernet: ethernet@a5e00000 {
-			axistream-connected = <&axi_ethernet_dma>;
-			axistream-control-connected = <&axi_ethernet_dma>;
-			clock-frequency = <100000000>;
-			clock-names = "axis_clk", "clk125m", "s_axi_lite_clk";
-			clocks = <&versal_clk 65>, <&misc_clk_0>, <&versal_clk 65>;
-			compatible = "xlnx,axi-ethernet-7.2", "xlnx,axi-ethernet-1.00.a";
-			device_type = "network";
-			interrupt-names = "interrupt";
-			interrupt-parent = <&gic>;
-			interrupts = <0 85 IRQ_TYPE_LEVEL_HIGH>;
-			local-mac-address = [00 0a 35 00 00 00];
-			max-speed = <1000>;
-			phy-mode = "sgmii";
-			managed = "in-band-status";
-			pcs-handle = <&pcs_phy>;
-			reg = <0x0 0xa5e00000 0x0 0x40000>;
-			xlnx,axiliteclkrate = <0x0>;
-			xlnx,axisclkrate = <0x0>;
-			xlnx,channel-ids = "1";
-			xlnx,clockselection = <0x0>;
-			xlnx,enableasyncsgmii = <0x1>;
-			xlnx,gt-type = <0x0>;
-			xlnx,gtinex = <0x0>;
-			xlnx,gtlocation = <0x0>;
-			xlnx,gtrefclksrc = <0x0>;
-			xlnx,include-dre;
-			xlnx,instantiatebitslice0 = <0x0>;
-			xlnx,num-queues = /bits/ 16 <0x1>;
-			xlnx,phyaddr = <0x1>;
-			xlnx,phyrst-board-interface-dummy-port = <0x0>;
-			xlnx,rable = <0x0>;
-			xlnx,rxcsum = <0x2>;
-			xlnx,rxlane0-placement = <0x2>;
-			xlnx,rxlane1-placement = <0x0>;
-			xlnx,rxmem = <0x2000>;
-			xlnx,rxnibblebitslice0used = <0x0>;
-			xlnx,switch-x-sgmii;
-			xlnx,tx-in-upper-nibble = <0x0>;
-			xlnx,txcsum = <0x2>;
-			xlnx,txlane0-placement = <0x2>;
-			xlnx,txlane1-placement = <0x0>;
-			xlnx,versal-gt-board-flow = <0x0>;
-
-			axi_ethernet_mdio: mdio {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				clock-frequency = <1000000>;
-
-				pcs_phy: ethernet-phy@1 {
-					reg = <1>;
-				};
-			};
-		};
-
 		axi_timer: timer@a4c00000 {
 			clock-frequency = <99999908>;
 			clock-names = "s_axi_aclk";
@@ -541,13 +483,6 @@
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&axi_jesd_tx_tx_axi 0 DEFRAMER0_LINK_TX>;
 		};
-	};
-
-	/* Clock for AXI Ethernet clk125m */
-	misc_clk_0: misc_clk_0 {
-		#clock-cells = <0>;
-		clock-frequency = <125000000>;
-		compatible = "fixed-clock";
 	};
 };
 
