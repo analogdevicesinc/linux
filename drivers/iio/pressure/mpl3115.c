@@ -686,7 +686,7 @@ static int mpl3115_trigger_probe(struct mpl3115_data *data,
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(data->drdy_trig);
+	indio_dev->default_trigger = data->drdy_trig;
 
 	return 0;
 }
