@@ -888,6 +888,8 @@ static long hmc7044_clk_round_rate(struct clk_hw *hw,
 	unsigned long rate_best = 0;
 	unsigned long vco_best = 0;
 
+	if (!rate)
+		return -EINVAL;
 
 	mutex_lock(&hmc->lock);
 	vcxo_freq = hmc->vcxo_freq;
