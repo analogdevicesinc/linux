@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Versal Tetra UC3, RX DMA without the RX data offload
+ *
+ * HDL: the UC3 (tetra_uc3_uhb) make arguments and RX_OFFLOAD=0
+ *
+ * The RX DMA writes the samples straight into the capture buffer, so one
+ * capture is one DMA buffer.
+ *
+ * (C) Copyright 2026, Analog Devices Inc.
+ */
+
+#include "versal-tetra-uc3-100mhz_vcxo.dts"
+
+/delete-node/ &jesd_rx_data_offload_i_data_offload;
+
+/ {
+	chosen {
+		/* One block can hold a full 1 GiB capture */
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=1073741824";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The RX DMA only reaches DDR_LOW0, so the capture buffer must
+		 * come from the lower 2 GB. A page in the pool that cannot be
+		 * migrated at that moment fails a 1 GiB allocation (EBUSY), so
+		 * keep the capture buffer allocated rather than allocating it
+		 * for each capture.
+		 */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x48000000>;
+			alloc-ranges = <0x0 0x0 0x0 0x80000000>;
+			linux,cma-default;
+		};
+	};
+};
