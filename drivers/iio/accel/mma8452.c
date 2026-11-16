@@ -1529,7 +1529,7 @@ static int mma8452_trigger_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	data->trig = trig;
-	indio_dev->trig = iio_trigger_get(trig);
+	indio_dev->default_trigger = trig;
 
 	return 0;
 }
