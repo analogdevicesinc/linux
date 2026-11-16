@@ -1397,7 +1397,7 @@ static int ad74413r_probe(struct spi_device *spi)
 	indio_dev->name = st->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad74413r_info;
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = st->trig;
 
 	ret = ad74413r_reset(st);
 	if (ret)
