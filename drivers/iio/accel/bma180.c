@@ -998,7 +998,7 @@ static int bma180_probe(struct i2c_client *client)
 		if (ret)
 			goto err_trigger_free;
 
-		indio_dev->trig = iio_trigger_get(data->trig);
+		indio_dev->default_trigger = data->trig;
 	}
 
 	ret = iio_triggered_buffer_setup(indio_dev, NULL,
