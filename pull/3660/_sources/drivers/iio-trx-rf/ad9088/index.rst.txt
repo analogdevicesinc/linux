@@ -293,10 +293,10 @@ multiple of the internal SYSREF period. See :ref:`ad9088 mcs` for alignment
 and trigger synchronization.
 
 On 32-bit MicroBlaze, clock callbacks that return a signed ``long`` cannot
-represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes a
-scaled rate to the clock framework. The AD9084 node uses
-``dev_clk-clock-scales = <1 10>`` to convert it back to Hz. Provider and
-consumer scales must match.
+represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes its
+rate divided by 10 to the clock framework, on every architecture. Every AD9084
+node, including the Versal ones, uses ``dev_clk-clock-scales = <1 10>`` to
+convert it back to Hz. Provider and consumer scales must match.
 
 Single AD9084
 ^^^^^^^^^^^^^
@@ -459,7 +459,7 @@ parameters. For the quad HDL project:
 
 .. code:: bash
 
-   make JESD_MODE=64B66B RX_RATE=20.625 TX_RATE=20.625 \\
+   make JESD_MODE=64B66B RX_RATE=20.625 TX_RATE=20.625 \
        RX_JESD_M=4 TX_JESD_M=4 RX_JESD_L=2 TX_JESD_L=2
 
 

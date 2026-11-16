@@ -8,8 +8,8 @@
 
     <title>AD9084/AD9088 &#8212; Linux Drivers  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8e8a900e" />
-    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=a3ee7af8" />
-    <script async="async" src="../../../_static/app.umd.js?v=048c1170"></script>
+    <link rel="stylesheet" type="text/css" href="../../../_static/app.min.css?v=07ad7716" />
+    <script async="async" src="../../../_static/app.umd.js?v=2fe15c61"></script>
     <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
     <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.12.1/dist/mermaid.esm.min.mjs";
 
@@ -1113,10 +1113,10 @@ For example, 20 GHz / (8 * 256) gives 9.765625 MHz, the LEMC frequency for
 multiple of the internal SYSREF period. See <a class="reference internal" href="mcs/#ad9088-mcs"><span class="std std-ref">Multi-Chip Synchronization</span></a> for alignment
 and trigger synchronization.</p>
 <p>On 32-bit MicroBlaze, clock callbacks that return a signed <code class="docutils literal notranslate"><span class="pre">long</span></code> cannot
-represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes a
-scaled rate to the clock framework. The AD9084 node uses
-<code class="docutils literal notranslate"><span class="pre">dev_clk-clock-scales</span> <span class="pre">=</span> <span class="pre">&lt;1</span> <span class="pre">10&gt;</span></code> to convert it back to Hz. Provider and
-consumer scales must match.</p>
+represent rates above 2147483647 Hz. The ADF4382 driver therefore exposes its
+rate divided by 10 to the clock framework, on every architecture. Every AD9084
+node, including the Versal ones, uses <code class="docutils literal notranslate"><span class="pre">dev_clk-clock-scales</span> <span class="pre">=</span> <span class="pre">&lt;1</span> <span class="pre">10&gt;</span></code> to
+convert it back to Hz. Provider and consumer scales must match.</p>
 <section id="single-ad9084">
 <h4>Single AD9084<a class="headerlink" href="#single-ad9084" title="Link to this heading"></a></h4>
 <p>The VCU118 (<code class="docutils literal notranslate"><span class="pre">vcu118_ad9084*.dts</span></code>) and Versal
@@ -1288,7 +1288,7 @@ a 2.5 GHz VCO can make the LTC6952 probe fail with <code class="docutils literal
 <p>Use <code class="docutils literal notranslate"><span class="pre">vcu118_quad_ad9084_204C_M4_L2_NP16_20p0_8x4_revB.dts</span></code> as the 20 GSPS,
 M4 L2 NP16 S1 example. The device profile and HDL must use the same link
 parameters. For the quad HDL project:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span><span class="nv">JESD_MODE</span><span class="o">=</span>64B66B<span class="w"> </span><span class="nv">RX_RATE</span><span class="o">=</span><span class="m">20</span>.625<span class="w"> </span><span class="nv">TX_RATE</span><span class="o">=</span><span class="m">20</span>.625<span class="w"> </span><span class="se">\\</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span><span class="nv">JESD_MODE</span><span class="o">=</span>64B66B<span class="w"> </span><span class="nv">RX_RATE</span><span class="o">=</span><span class="m">20</span>.625<span class="w"> </span><span class="nv">TX_RATE</span><span class="o">=</span><span class="m">20</span>.625<span class="w"> </span><span class="se">\</span>
 <span class="w">    </span><span class="nv">RX_JESD_M</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">TX_JESD_M</span><span class="o">=</span><span class="m">4</span><span class="w"> </span><span class="nv">RX_JESD_L</span><span class="o">=</span><span class="m">2</span><span class="w"> </span><span class="nv">TX_JESD_L</span><span class="o">=</span><span class="m">2</span>
 </pre></div>
 </div>
