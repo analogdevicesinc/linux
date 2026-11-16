@@ -632,6 +632,9 @@ struct iio_buffer_setup_ops {
  * @active_scan_mask:	[INTERN] union of all scan masks requested by buffers
  * @scan_timestamp:	[INTERN] set if any buffers have requested timestamp
  * @trig:		[INTERN] current device trigger (buffer modes)
+ * @default_trigger:	[DRIVER] optional trigger to use by default. The driver
+ *			does not hold a reference to it; the IIO core takes
+ *			one in iio_device_register().
  * @pollfunc:		[DRIVER] function run on trigger being received
  * @pollfunc_event:	[DRIVER] function run on events trigger being received
  * @channels:		[DRIVER] channel specification structure table
@@ -657,6 +660,7 @@ struct iio_dev {
 	const unsigned long		*active_scan_mask;
 	bool				__private scan_timestamp;
 	struct iio_trigger		*trig;
+	struct iio_trigger		*default_trigger;
 	struct iio_poll_func		*pollfunc;
 	struct iio_poll_func		*pollfunc_event;
 

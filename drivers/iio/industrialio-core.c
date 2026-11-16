@@ -2180,8 +2180,14 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 			"Failed to register event set\n");
 		goto error_free_sysfs;
 	}
-	if (indio_dev->modes & INDIO_ALL_TRIGGERED_MODES)
-		iio_device_register_trigger_consumer(indio_dev);
+	if (indio_dev->modes & INDIO_ALL_TRIGGERED_MODES) {
+		ret = iio_device_register_trigger_consumer(indio_dev);
+		if (ret) {
+			dev_err(indio_dev->dev.parent,
+				"Failed to register trigger consumer\n");
+			goto error_unreg_eventset;
+		}
+	}
 
 	if ((indio_dev->modes & INDIO_ALL_BUFFER_MODES) &&
 		indio_dev->setup_ops == NULL)
@@ -2202,10 +2208,13 @@ int __iio_device_register(struct iio_dev *indio_dev, struct module *this_mod)
 
 	ret = cdev_device_add(&iio_dev_opaque->chrdev, &indio_dev->dev);
 	if (ret < 0)
-		goto error_unreg_eventset;
+		goto error_unreg_trigger_consumer;
 
 	return 0;
 
+error_unreg_trigger_consumer:
+	if (indio_dev->modes & INDIO_ALL_TRIGGERED_MODES)
+		iio_device_unregister_trigger_consumer(indio_dev);
 error_unreg_eventset:
 	iio_device_unregister_eventset(indio_dev);
 error_free_sysfs:

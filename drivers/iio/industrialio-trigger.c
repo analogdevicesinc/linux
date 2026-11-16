@@ -760,15 +760,30 @@ EXPORT_SYMBOL(iio_trigger_validate_own_device);
 
 int iio_device_register_trigger_consumer(struct iio_dev *indio_dev)
 {
-	return iio_device_register_sysfs_group(indio_dev,
-					       &iio_trigger_consumer_attr_group);
+	int ret;
+
+	/* Drivers must not both set a default trigger and take a reference */
+	if (indio_dev->default_trigger && WARN_ON(indio_dev->trig))
+		return -EINVAL;
+
+	ret = iio_device_register_sysfs_group(indio_dev,
+					      &iio_trigger_consumer_attr_group);
+	if (ret)
+		return ret;
+
+	if (indio_dev->default_trigger)
+		indio_dev->trig = iio_trigger_get(indio_dev->default_trigger);
+
+	return 0;
 }
 
 void iio_device_unregister_trigger_consumer(struct iio_dev *indio_dev)
 {
 	/* Clean up an associated but not attached trigger reference */
-	if (indio_dev->trig)
+	if (indio_dev->trig) {
 		iio_trigger_put(indio_dev->trig);
+		indio_dev->trig = NULL;
+	}
 }
 
 int iio_device_suspend_triggering(struct iio_dev *indio_dev)
