@@ -1,0 +1,50 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Xilinx Versal Tetra UC3, RX data offload storage in LPDDR4
+ *
+ * HDL: the UC3 (tetra_uc3_uhb) make arguments and ADC_DO_MEM_TYPE=1
+ *
+ * The 512 MB RX storage holds the samples as the DMA receives them, so the RX
+ * offload transfer_length is the DMA buffer size, a multiple of 64 bytes.
+ *
+ * (C) Copyright 2026, Analog Devices Inc.
+ */
+
+#include "versal-tetra-uc3-100mhz_vcxo.dts"
+
+/ {
+	chosen {
+		/* One block can hold a full 512 MiB capture */
+		bootargs = "console=ttyAMA1,115200 earlycon=pl011,mmio32,0xFF010000,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait industrialio_buffer_dma.max_block_size=536870912";
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/*
+		 * The RX DMA only reaches DDR_LOW0, so the capture buffer must
+		 * come from the lower 2 GB. A page that cannot be migrated at
+		 * that moment fails every window over it (EBUSY), so the pool
+		 * is twice a full 512 MiB capture plus 128 MiB: one such page
+		 * still leaves 576 MiB on one side of it.
+		 */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0x0 0x48000000>;
+			alloc-ranges = <0x0 0x0 0x0 0x80000000>;
+			linux,cma-default;
+		};
+
+		/*
+		 * RX data offload storage, written by the PL; Linux uses the
+		 * rest of DDR_LOW1
+		 */
+		rx_offload_storage: rx-offload@800000000 {
+			reg = <0x8 0x0 0x0 0x20000000>;
+			no-map;
+		};
+	};
+};
