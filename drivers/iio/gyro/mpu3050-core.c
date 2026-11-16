@@ -1171,7 +1171,7 @@ static int mpu3050_trigger_probe(struct iio_dev *indio_dev, int irq)
 	if (ret)
 		goto err_iio_trigger;
 
-	indio_dev->trig = iio_trigger_get(mpu3050->trig);
+	indio_dev->default_trigger = mpu3050->trig;
 
 	return 0;
 
