@@ -141,7 +141,6 @@ struct ad7779_state {
 	struct spi_device *spi;
 	const struct ad7779_chip_info *chip_info;
 	struct clk *mclk;
-	struct iio_trigger *trig;
 	unsigned int sampling_freq;
 	enum ad7779_filter filter_enabled;
 	struct iio_backend *back;
@@ -821,33 +820,34 @@ static int ad7779_setup_channels(struct iio_dev *indio_dev, const struct ad7779_
 
 static int ad7779_setup_without_backend(struct ad7779_state *st, struct iio_dev *indio_dev)
 {
-	int ret;
 	struct device *dev = &st->spi->dev;
+	struct iio_trigger *trig;
+	int ret;
 
 	indio_dev->info = &ad7779_info;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7779_channels);
 
-	st->trig = devm_iio_trigger_alloc(dev, "%s-dev%d", indio_dev->name,
-					  iio_device_id(indio_dev));
-	if (!st->trig)
+	trig = devm_iio_trigger_alloc(dev, "%s-dev%d", indio_dev->name,
+				      iio_device_id(indio_dev));
+	if (!trig)
 		return -ENOMEM;
 
-	st->trig->ops = &ad7779_trigger_ops;
+	trig->ops = &ad7779_trigger_ops;
 
-	iio_trigger_set_drvdata(st->trig, st);
+	iio_trigger_set_drvdata(trig, st);
 
 	ret = devm_request_irq(dev, st->spi->irq, iio_trigger_generic_data_rdy_poll,
 			       IRQF_NO_THREAD | IRQF_NO_AUTOEN, indio_dev->name,
-			       st->trig);
+			       trig);
 	if (ret)
 		return ret;
 
-	ret = devm_iio_trigger_register(dev, st->trig);
+	ret = devm_iio_trigger_register(dev, trig);
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = trig;
 
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 					      &iio_pollfunc_store_time,
