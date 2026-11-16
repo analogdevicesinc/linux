@@ -1272,7 +1272,7 @@ static int adxl372_buffer_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	indio_dev->trig = iio_trigger_get(st->dready_trig);
+	indio_dev->default_trigger = st->dready_trig;
 
 	return devm_request_irq(dev, st->irq,
 				iio_trigger_generic_data_rdy_poll,
