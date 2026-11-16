@@ -126,7 +126,7 @@ static int probe_trigger(struct iio_dev *indio_dev, int irq)
 	if (ret)
 		goto error_free_irq;
 
-	indio_dev->trig = iio_trigger_get(st->trig);
+	indio_dev->default_trigger = st->trig;
 
 	return 0;
 
