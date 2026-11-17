@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * EVAL-AD-FMCOMMS4-EBZ on the PolarFire SoC Video Kit (SEV Kit), HDL project
+ * projects/fmcomms2/mpfs_video_kit
+ *
+ * The FMCOMMS4 is the FMCOMMS2/3 board with the AD9364 (1 Rx, 1 Tx). As on
+ * the Zynq ones (zynq-zed-adv7511-ad9364-fmcomms4.dts), only the transceiver
+ * and the DDS core differ from the FMCOMMS2 devicetree.
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+
+#include "mpfs-sev-kit-ad9361-fmcomms2-3.dts"
+
+/ {
+	model = "Analog Devices EVAL-AD-FMCOMMS4-EBZ on Microchip PolarFire SoC Video Kit";
+};
+
+&adc0_ad9361 {
+	compatible = "adi,ad9364";
+	/delete-property/ adi,2rx-2tx-mode-enable;
+	/delete-property/ adi,gc-rx2-mode;
+};
+
+&cf_ad9361_dac_core_0 {
+	compatible = "adi,axi-ad9364-dds-6.00.a";
+};
