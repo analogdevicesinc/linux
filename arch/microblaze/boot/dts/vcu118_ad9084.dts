@@ -585,14 +585,14 @@
 		hmc7044_c1: channel@1 {
 			reg = <1>;
 			adi,extended-name = "ADF4030_REFIN";
-			adi,divider = <20>;	// 125
+			adi,divider = <20>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
 		hmc7044_c3: channel@3 {
 			reg = <3>;
 			adi,extended-name = "ADF4030_BSYNC0";
-			adi,divider = <512>;	// 9.765
+			adi,divider = <512>;
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;	// change to LVPECL
 			adi,jesd204-sysref-chan;
 		};
@@ -665,10 +665,18 @@
 #endif /* WITH_AXI_AION_TRIG */
 
 		adi,vco-frequency-hz = <AION_VCO_FREQ_HZ>; /* 2.5 GHz */
+#ifdef SYSREF_CLK_UHZ
+		adi,bsync-frequency-uhz = /bits/ 64 <SYSREF_CLK_UHZ>;
+#else
 		adi,bsync-frequency-hz = <SYSREF_CLK_MHz>;
+#endif
 		adi,bsync-autoalign-reference-channel = <0>;
 		adi,bsync-autoalign-iteration-count = <6>;
-		adi,bsync-secondary-frequency-hz = <SYSREF_CLK_MHz>; /* 12.5 MHz */
+#ifdef SYSREF_CLK_UHZ
+		adi,bsync-secondary-frequency-uhz = /bits/ 64 <SYSREF_CLK_UHZ>;
+#else
+		adi,bsync-secondary-frequency-hz = <SYSREF_CLK_MHz>;
+#endif
 
 		channel@0 {
 			/* hmc output */
