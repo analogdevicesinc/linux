@@ -145,11 +145,6 @@ struct opt4060_chip {
 	bool thresh_event_hi_active;
 };
 
-struct opt4060_channel_factor {
-	u32 mul;
-	u32 div;
-};
-
 static const int opt4060_int_time_available[][2] = {
 	{ 0,    600 },
 	{ 0,   1000 },
