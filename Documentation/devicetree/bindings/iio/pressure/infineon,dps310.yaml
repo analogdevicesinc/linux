@@ -11,12 +11,13 @@ maintainers:
 
 description:
   The DPS310 is a barometric pressure and temperature sensor with an I2C
-  interface. The Zilltek ZTS8032 is register compatible with it, but has
-  additional calibration coefficients.
+  interface. The Goermicro SPL07-003 and the Zilltek ZTS8032 are register
+  compatible with it, but have additional calibration coefficients.
 
 properties:
   compatible:
     enum:
+      - goermicro,spl07-003
       - infineon,dps310
       - zilltek,zts8032
 
