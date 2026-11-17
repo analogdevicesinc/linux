@@ -116,6 +116,7 @@ config DPS310
 	select IIO_TRIGGERED_BUFFER
 	help
 	  Support for the following digital barometric pressure sensors:
+	  - Goermicro SPL07-003
 	  - Infineon DPS310
 	  - Zilltek ZTS8032
 	  They can be accessed over I2C bus.

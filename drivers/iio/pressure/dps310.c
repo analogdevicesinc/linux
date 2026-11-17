@@ -9,6 +9,11 @@
  * calibration coefficients (c31, c40) and temperature calibrated against
  * the internal sensor.
  *
+ * The Goermicro SPL07-003 has c31 and c40 too, as 12 bit values, and its
+ * datasheet recommends the internal temperature sensor.
+ *
+ * https://media.digikey.com/pdf/Data%20Sheets/Goertek%20Microelectronics%20PDFs/SPL07-003.pdf
+ *
  * Temperature calculation:
  *   c0 * 0.5 + c1 * T_raw / kT °C
  */
@@ -71,6 +76,7 @@
 #define  DPS310_RESET_MAGIC	0x09
 #define DPS310_COEF_BASE	0x10
 #define DPS310_COEF_LEN		18
+#define SPL07_COEF_LEN		21
 #define ZTS8032_COEF_LEN	22
 
 #define MAX_COEF_LEN		22
@@ -115,12 +121,21 @@ struct dps310_chip_info {
 	bool coef_for_ext_sensor;
 	u8 coef_len;
 	bool has_c31_c40;
+	bool c31_c40_12bit;
 };
 
 static const struct dps310_chip_info dps310_chip_info = {
 	.name = "dps310",
 	.coef_for_ext_sensor = true,
 	.coef_len = DPS310_COEF_LEN,
+};
+
+static const struct dps310_chip_info spl07_chip_info = {
+	.name = "spl07-003",
+	.coef_for_ext_sensor = false,
+	.coef_len = SPL07_COEF_LEN,
+	.has_c31_c40 = true,
+	.c31_c40_12bit = true,
 };
 
 static const struct dps310_chip_info zts8032_chip_info = {
@@ -234,8 +249,8 @@ static int dps310_get_coefs(struct dps310_data *data)
 
 	/*
 	 * Calculate pressure calibration coefficients. c00 and c10 are 20 bit
-	 * 2's complement numbers, while the rest are 16 bit 2's complement
-	 * numbers.
+	 * 2's complement numbers, while c01, c11, c20, c21 and c30 are 16 bit
+	 * 2's complement numbers.
 	 */
 	c00 = (coef[3] << 12) | (coef[4] << 4) | (coef[5] >> 4);
 	data->c00 = sign_extend32(c00, 19);
@@ -258,7 +273,14 @@ static int dps310_get_coefs(struct dps310_data *data)
 	c30 = (coef[16] << 8) | coef[17];
 	data->c30 = sign_extend32(c30, 15);
 
-	if (data->info->has_c31_c40) {
+	if (!data->info->has_c31_c40)
+		return 0;
+
+	if (data->info->c31_c40_12bit) {
+		/* Two 12 bit values in three bytes, like c0 and c1 */
+		data->c31 = sign_extend32(get_unaligned_be16(&coef[18]) >> 4, 11);
+		data->c40 = sign_extend32(get_unaligned_be16(&coef[19]), 11);
+	} else {
 		data->c31 = sign_extend32(get_unaligned_be16(&coef[18]), 15);
 		data->c40 = sign_extend32(get_unaligned_be16(&coef[20]), 15);
 	}
@@ -810,7 +832,7 @@ static int dps310_calculate_pressure(struct dps310_data *data, int *val)
 
 	/*
 	 * Section 4.9.1 of the DPS310 spec, Horner form to avoid overflow.
-	 * c40 and c31 are ZTS8032 only and zero on the DPS310.
+	 * c40 and c31 are zero on the DPS310.
 	 */
 	if (!dps310_horner_step(&prs, data->c40, p, kp) ||
 	    !dps310_horner_step(&prs, data->c30, p, kp) ||
@@ -1505,6 +1527,7 @@ static int dps310_probe(struct i2c_client *client)
 }
 
 static const struct i2c_device_id dps310_id[] = {
+	{ .name = "spl07-003", .driver_data = (kernel_ulong_t)&spl07_chip_info },
 	{ .name = "dps310", .driver_data = (kernel_ulong_t)&dps310_chip_info },
 	{ .name = "zts8032", .driver_data = (kernel_ulong_t)&zts8032_chip_info },
 	{ }
@@ -1512,6 +1535,7 @@ static const struct i2c_device_id dps310_id[] = {
 MODULE_DEVICE_TABLE(i2c, dps310_id);
 
 static const struct of_device_id dps310_of_match[] = {
+	{ .compatible = "goermicro,spl07-003", .data = &spl07_chip_info },
 	{ .compatible = "infineon,dps310", .data = &dps310_chip_info },
 	{ .compatible = "zilltek,zts8032", .data = &zts8032_chip_info },
 	{ }
