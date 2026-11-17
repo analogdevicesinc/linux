@@ -47,14 +47,31 @@ properties:
       - lltc,ltc2499
 
   reg: true
-  vref-supply: true
+
+  vref-supply:
+    description:
+      Reference voltage supply. The LTC2305 and LTC2309 have an internal
+      4.096V reference which is used when this property is absent.
+
   "#io-channel-cells":
     const: 1
 
 required:
   - compatible
   - reg
-  - vref-supply
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - lltc,ltc2493
+              - lltc,ltc2497
+              - lltc,ltc2499
+    then:
+      required:
+        - vref-supply
 
 additionalProperties: false
 
