@@ -696,6 +696,8 @@ patternProperties:
     description: Global Mixed-mode Technology, Inc.
   "^gocontroll,.*":
     description: GOcontroll Modular Embedded Electronics B.V.
+  "^goermicro,.*":
+    description: Goertek Microelectronics Inc.
   "^goldelico,.*":
     description: Golden Delicious Computers GmbH & Co. KG
   "^goodix,.*":
