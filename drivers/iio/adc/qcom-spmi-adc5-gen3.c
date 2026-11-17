@@ -561,13 +561,12 @@ static int adc5_get_fw_data(struct adc5_chip *adc)
 	if (!adc->nchannels)
 		return dev_err_probe(dev, -EINVAL, "No ADC channels found\n");
 
-	adc->iio_chans = devm_kcalloc(dev, adc->nchannels,
-				      sizeof(*adc->iio_chans), GFP_KERNEL);
+	adc->iio_chans = devm_kzalloc_objs(dev, *adc->iio_chans, adc->nchannels);
 	if (!adc->iio_chans)
 		return -ENOMEM;
 
-	adc->chan_props = devm_kcalloc(dev, adc->nchannels,
-				       sizeof(*adc->chan_props), GFP_KERNEL);
+	adc->chan_props = devm_kzalloc_objs(dev, *adc->chan_props,
+					    adc->nchannels);
 	if (!adc->chan_props)
 		return -ENOMEM;
 
@@ -610,22 +609,23 @@ static void adc5_gen3_delete_aux(void *data)
 
 static void adc5_gen3_aux_device_release(struct device *dev) {}
 
-static int adc5_gen3_add_aux_tm_device(struct adc5_chip *adc)
+static int adc5_gen3_add_aux_tm_device(struct adc5_chip *adc, int id)
 {
 	struct tm5_aux_dev_wrapper *aux_device;
 	int i, ret, i_tm = 0;
 
-	aux_device = devm_kzalloc(adc->dev, sizeof(*aux_device), GFP_KERNEL);
+	aux_device = devm_kzalloc_obj(adc->dev, *aux_device);
 	if (!aux_device)
 		return -ENOMEM;
 
 	aux_device->aux_dev.name = "adc5_tm_gen3";
+	aux_device->aux_dev.id = id;
 	aux_device->aux_dev.dev.parent = adc->dev;
 	aux_device->aux_dev.dev.release = adc5_gen3_aux_device_release;
 
-	aux_device->tm_props = devm_kcalloc(adc->dev, adc->n_tm_channels,
-					    sizeof(*aux_device->tm_props),
-					    GFP_KERNEL);
+	aux_device->tm_props = devm_kzalloc_objs(adc->dev,
+						 *aux_device->tm_props,
+						 adc->n_tm_channels);
 	if (!aux_device->tm_props)
 		return -ENOMEM;
 
@@ -741,8 +741,7 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 
 	adc->dev_data.num_sdams = ret;
 
-	reg = devm_kcalloc(dev, adc->dev_data.num_sdams, sizeof(u32),
-			   GFP_KERNEL);
+	reg = devm_kzalloc_objs(dev, u32, adc->dev_data.num_sdams);
 	if (!reg)
 		return -ENOMEM;
 
@@ -752,9 +751,8 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, ret,
 				     "Failed to read reg property\n");
 
-	adc->dev_data.base = devm_kcalloc(dev, adc->dev_data.num_sdams,
-					  sizeof(*adc->dev_data.base),
-					  GFP_KERNEL);
+	adc->dev_data.base = devm_kzalloc_objs(dev, *adc->dev_data.base,
+					       adc->dev_data.num_sdams);
 	if (!adc->dev_data.base)
 		return -ENOMEM;
 
@@ -799,7 +797,7 @@ static int adc5_gen3_probe(struct platform_device *pdev)
 		return ret;
 
 	if (adc->n_tm_channels > 0) {
-		ret = adc5_gen3_add_aux_tm_device(adc);
+		ret = adc5_gen3_add_aux_tm_device(adc, iio_device_id(indio_dev));
 		if (ret)
 			dev_err_probe(dev, ret,
 				      "Failed to add auxiliary TM device\n");

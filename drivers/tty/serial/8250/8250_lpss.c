@@ -83,6 +83,9 @@ static void byt_set_termios(struct uart_port *p, struct ktermios *termios,
 	/* Gracefully handle the B0 case: fall back to B9600 */
 	fuart = fuart ? fuart : 9600 * 16;
 
+	/* Fuart <= Fref: leave it to the core to refuse a higher baud rate */
+	fuart = min(fuart, fref);
+
 	/* Get Fuart closer to Fref */
 	fuart *= rounddown_pow_of_two(fref / fuart);
 
@@ -320,7 +323,7 @@ static int lpss8250_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	pci_set_master(pdev);
 
-	lpss = devm_kzalloc(&pdev->dev, sizeof(*lpss), GFP_KERNEL);
+	lpss = devm_kzalloc_obj(&pdev->dev, *lpss);
 	if (!lpss)
 		return -ENOMEM;
 

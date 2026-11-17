@@ -939,7 +939,7 @@ static int kmx61_write_event_config(struct iio_dev *indio_dev,
 	struct kmx61_data *data = kmx61_get_data(indio_dev);
 	int ret = 0;
 
-	if (state && data->ev_enable_state)
+	if (state == data->ev_enable_state)
 		return 0;
 
 	guard(mutex)(&data->lock);
@@ -1279,7 +1279,7 @@ static int kmx61_probe(struct i2c_client *client)
 	struct kmx61_data *data;
 	const char *name = NULL;
 
-	data = devm_kzalloc(&client->dev, sizeof(*data), GFP_KERNEL);
+	data = devm_kzalloc_obj(&client->dev, *data);
 	if (!data)
 		return -ENOMEM;
 

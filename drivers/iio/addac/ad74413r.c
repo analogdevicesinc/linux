@@ -312,7 +312,7 @@ static int ad74413r_gpio_set_multiple(struct gpio_chip *chip,
 			return ret;
 
 		real_mask |= BIT(real_offset);
-		if (*bits & offset)
+		if (test_bit(offset, bits))
 			real_bits |= BIT(real_offset);
 	}
 
@@ -1269,8 +1269,8 @@ static int ad74413r_setup_channels(struct iio_dev *indio_dev)
 	unsigned int i, num_chans, chan_i;
 	int ret;
 
-	channels = devm_kcalloc(st->dev, sizeof(*channels),
-				indio_dev->num_channels, GFP_KERNEL);
+	channels = devm_kzalloc_objs(st->dev, *channels,
+				     indio_dev->num_channels);
 	if (!channels)
 		return -ENOMEM;
 
