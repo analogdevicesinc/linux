@@ -18,9 +18,9 @@
 
 #define AD5766_UPPER_WORD_SPI_MASK		GENMASK(31, 16)
 #define AD5766_LOWER_WORD_SPI_MASK		GENMASK(15, 0)
-#define AD5766_DITHER_SOURCE_MASK(ch)		GENMASK(((2 * ch) + 1), (2 * ch))
+#define AD5766_DITHER_SOURCE_MASK(ch)		(GENMASK(1, 0) << ((ch) * 2))
 #define AD5766_DITHER_SOURCE(ch, source)	BIT((ch * 2) + source)
-#define AD5766_DITHER_SCALE_MASK(x)		AD5766_DITHER_SOURCE_MASK(x)
+#define AD5766_DITHER_SCALE_MASK(ch)		(GENMASK(1, 0) << ((ch) * 2))
 #define AD5766_DITHER_SCALE(ch, scale)		(scale << (ch * 2))
 #define AD5766_DITHER_ENABLE_MASK(ch)		BIT(ch)
 #define AD5766_DITHER_ENABLE(ch, state)		((!state) << ch)
