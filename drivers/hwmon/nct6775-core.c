@@ -20,6 +20,7 @@
  *
  * Chip        #vin    #fan    #pwm    #temp  chip IDs       man ID
  * nct5525d     8      3       3       3+3    0xd2b3 0xc1    0x5ca3
+ * nct5525d-s   8      3       3       3+3    0xd294 0xc1    0x5ca3
  * nct6106d     9      3       3       6+3    0xc450 0xc1    0x5ca3
  * nct6116d     9      5       5       3+3    0xd280 0xc1    0x5ca3
  * nct6126d    10      5       5       3+3    0xd283 0xc1    0x5ca3

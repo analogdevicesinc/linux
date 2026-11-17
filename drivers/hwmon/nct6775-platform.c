@@ -77,6 +77,7 @@ MODULE_PARM_DESC(fan_debounce, "Enable debouncing for fan RPM signal");
 #define SIO_REG_ADDR		0x60	/* Logical device address (2 bytes) */
 
 #define SIO_NCT5525_ID		0xd2b0
+#define SIO_NCT5525_S_ID	0xd290
 #define SIO_NCT6106_ID		0xc450
 #define SIO_NCT6116_ID		0xd280
 #define SIO_NCT6122_ID		0xd2a0
@@ -1042,6 +1043,7 @@ static int __init nct6775_find(int sioaddr, struct nct6775_sio_data *sio_data)
 
 	switch (val & SIO_ID_MASK) {
 	case SIO_NCT5525_ID:
+	case SIO_NCT5525_S_ID:
 		sio_data->kind = nct5525;
 		break;
 	case SIO_NCT6106_ID:
