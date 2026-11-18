@@ -239,6 +239,12 @@ the ``ci`` branch:
    # curl https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py > \
        /tmp/merge_conflict.py
    $ python3 /tmp/merge_conflict.py list
+    resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml: 1 chunk(s)
+    resolution Documentation/hwmon/ina2xx.rst: 4 chunk(s)
+    resolution drivers/base/power/runtime.c: 1 chunk(s)
+    [ ... ]
+    fixup 0001-firmware-xilinx-export-zynqmp_pm_invoke_fn.patch: firmware:  ... from zynqmp-core.c
+    fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in probe_tail
 
 Adjust .github/merge-conflict
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -247,19 +253,25 @@ To correct a conflict resolution, resolve it again in the working tree:
 
 .. shell::
 
-   $ python3 /tmp/merge_conflict.py resolve drivers/iio/adc/xilinx-ams.c
-   $ # edit the conflict blocks: ours is <ref>, theirs is stable
-   $ python3 /tmp/merge_conflict.py resolve --continue
-   $ git add -f .github/merge-conflict drivers/iio/adc/xilinx-ams.c
-   $ git commit -m ".github/merge-conflict: Resolve xilinx-ams again"
-   $ git push origin HEAD:lts/<ref>
+   $ python3 /tmp/merge_conflict.py resolve  drivers/usb/misc/onboard_usb_dev.c
+     resolve: edit the conflict blocks of the files below,
+     then run 'resolve --continue', or 'resolve --abort' to give up
 
-``resolve`` redoes the merge in a temporary worktree and restores the conflict
-markers of the file; ``resolve --continue`` records the resolution, applies the
-fixups on top of it and lists the ones that no longer apply; ``resolve --abort``
-restores the file. Only lines inside the conflict blocks can be edited, other
-changes belong to a fixup. Alternatively, ``forget <path>`` drops the recorded
-resolution, and the LLM agent resolves it again on the next run.
+     drivers/usb/misc/onboard_usb_dev.c
+
+   # Resolve the conflict blocks, and
+   $ python3 /tmp/merge_conflict.py resolve --continue
+     resolve: recorded drivers/usb/misc/onboard_usb_dev.c
+   $ git status
+     modified:   .github/merge-conflict/d17d4a03adc8fb46-ed47fca115815396.patch
+     modified:   .github/merge-conflict/manifest.json
+     modified:   drivers/usb/misc/onboard_usb_dev.c
+
+   $ git add -f \
+      .github/merge-conflict \
+      drivers/usb/misc/onboard_usb_dev.c
+   $ git commit -m ".github/merge-conflict: Fix resolve of usb-dev"
+   $ git push origin HEAD:lts/<ref>
 
 Adjust .github/merge-fixups
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -269,17 +281,16 @@ as the next fixup:
 
 .. shell::
 
-   $ # edit the sources and build
+   $ vi drivers/mtd/spi-nor/macronix.c
+   # Edit with added fixes
    $ python3 /tmp/merge_conflict.py fixup spi-nor-use-get-params \
-         -m "mtd: spi-nor: use spi_nor_get_params()" \
-         -m "Stable commit <sha> (...) uses nor->params, downstream has an array..."
+         -m "mtd: spi-nor: change..." \
+         -m "Stable commit <sha> ..."
+     .github/merge-fixups/0013-spi-nor....patch
    $ python3 /tmp/merge_conflict.py verify
    $ git add -f .github/merge-fixups drivers/mtd/spi-nor
-   $ git commit -m "mtd: spi-nor: use spi_nor_get_params() (merge fixup)"
+   $ git commit -m "mtd: spi-nor: ..."
    $ git push origin HEAD:lts/<ref>
-
-``verify`` replays every fixup on the stable merge and compares the result with
-the working tree.
 
 Setting up and running
 ----------------------
