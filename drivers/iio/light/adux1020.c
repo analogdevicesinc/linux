@@ -362,6 +362,7 @@ static int adux1020_read_raw(struct iio_dev *indio_dev,
 			     int *val, int *val2, long mask)
 {
 	struct adux1020_data *data = iio_priv(indio_dev);
+	struct regmap *map = data->regmap;
 	u16 buf[3];
 	unsigned int regval;
 	int ret;
@@ -370,61 +371,54 @@ static int adux1020_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		switch (chan->type) {
-		case IIO_PROXIMITY:
-			ret = adux1020_set_mode(data, ADUX1020_MODE_PROX_I);
-			if (ret < 0)
-				return ret;
-
-			ret = adux1020_measure(data, ADUX1020_MODE_PROX_I, buf);
-			if (ret < 0)
-				return ret;
-
-			*val = buf[0];
-			return IIO_VAL_INT;
-		default:
+		if (chan->type != IIO_PROXIMITY)
 			return -EINVAL;
-		}
+
+		ret = adux1020_set_mode(data, ADUX1020_MODE_PROX_I);
+		if (ret < 0)
+			return ret;
+
+		ret = adux1020_measure(data, ADUX1020_MODE_PROX_I, buf);
+		if (ret < 0)
+			return ret;
+
+		*val = buf[0];
+
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PROCESSED:
-		switch (chan->type) {
-		case IIO_CURRENT:
-			ret = regmap_read(data->regmap,
-					  ADUX1020_REG_LED_CURRENT, &regval);
-			if (ret < 0)
-				return ret;
-
-			regval = regval & ADUX1020_LED_CURRENT_MASK;
-
-			*val = adux1020_led_currents[regval][0];
-			*val2 = adux1020_led_currents[regval][1];
-
-			return IIO_VAL_INT_PLUS_MICRO;
-		default:
+		if (chan->type != IIO_CURRENT)
 			return -EINVAL;
-		}
+
+		ret = regmap_read(map, ADUX1020_REG_LED_CURRENT, &regval);
+		if (ret)
+			return ret;
+
+		regval = regval & ADUX1020_LED_CURRENT_MASK;
+
+		*val = adux1020_led_currents[regval][0];
+		*val2 = adux1020_led_currents[regval][1];
+
+		return IIO_VAL_INT_PLUS_MICRO;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		switch (chan->type) {
-		case IIO_PROXIMITY:
-			ret = regmap_read(data->regmap, ADUX1020_REG_FREQUENCY,
-					  &regval);
-			if (ret < 0)
-				return ret;
-
-			regval = FIELD_GET(ADUX1020_PROX_FREQ_MASK, regval);
-			if (regval >= ARRAY_SIZE(adux1020_rates))
-				return -EINVAL;
-
-			*val = adux1020_rates[regval][0];
-			*val2 = adux1020_rates[regval][1];
-
-			return IIO_VAL_INT_PLUS_MICRO;
-		default:
+		if (chan->type != IIO_PROXIMITY)
 			return -EINVAL;
-		}
+
+		ret = regmap_read(map, ADUX1020_REG_FREQUENCY, &regval);
+		if (ret)
+			return ret;
+
+		regval = FIELD_GET(ADUX1020_PROX_FREQ_MASK, regval);
+		if (regval >= ARRAY_SIZE(adux1020_rates))
+			return -EINVAL;
+
+		*val = adux1020_rates[regval][0];
+		*val2 = adux1020_rates[regval][1];
+
+		return IIO_VAL_INT_PLUS_MICRO;
 	default:
 		return -EINVAL;
 	}
-};
+}
 
 static inline int adux1020_find_index(const int array[][2], int count, int val,
 				      int val2)
@@ -443,43 +437,40 @@ static int adux1020_write_raw(struct iio_dev *indio_dev,
 			      int val, int val2, long mask)
 {
 	struct adux1020_data *data = iio_priv(indio_dev);
+	struct regmap *map = data->regmap;
 	int i;
 
 	guard(mutex)(&data->lock);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (chan->type == IIO_PROXIMITY) {
-			i = adux1020_find_index(adux1020_rates,
-						ARRAY_SIZE(adux1020_rates),
-						val, val2);
-			if (i < 0)
-				return i;
+		if (chan->type != IIO_PROXIMITY)
+			return -EINVAL;
 
-			return regmap_update_bits(data->regmap,
-						  ADUX1020_REG_FREQUENCY,
-						  ADUX1020_PROX_FREQ_MASK,
-						  ADUX1020_PROX_FREQ(i));
-		}
-		break;
+		i = adux1020_find_index(adux1020_rates,
+					ARRAY_SIZE(adux1020_rates),
+					val, val2);
+		if (i < 0)
+			return i;
+
+		return regmap_update_bits(map, ADUX1020_REG_FREQUENCY,
+					  ADUX1020_PROX_FREQ_MASK,
+					  ADUX1020_PROX_FREQ(i));
 	case IIO_CHAN_INFO_PROCESSED:
-		if (chan->type == IIO_CURRENT) {
-			i = adux1020_find_index(adux1020_led_currents,
+		if (chan->type != IIO_CURRENT)
+			return -EINVAL;
+
+		i = adux1020_find_index(adux1020_led_currents,
 					ARRAY_SIZE(adux1020_led_currents),
 					val, val2);
-			if (i < 0)
-				return i;
+		if (i < 0)
+			return i;
 
-			return regmap_update_bits(data->regmap,
-						  ADUX1020_REG_LED_CURRENT,
-						  ADUX1020_LED_CURRENT_MASK, i);
-		}
-		break;
+		return regmap_update_bits(map, ADUX1020_REG_LED_CURRENT,
+					  ADUX1020_LED_CURRENT_MASK, i);
 	default:
-		break;
+		return -EINVAL;
 	}
-
-	return -EINVAL;
 }
 
 static int adux1020_write_event_config(struct iio_dev *indio_dev,
