@@ -219,6 +219,17 @@
 		spi-rx-bus-width = <8>;
 		m25p,fast-read;
 		label = "xspi0-nor";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "xspi0-data";
+				reg = <0x0 0x2000000>;
+			};
+		};
 	};
 };
 
