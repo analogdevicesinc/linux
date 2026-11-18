@@ -9,6 +9,7 @@
  */
 
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
@@ -362,10 +363,10 @@ static int adux1020_read_raw(struct iio_dev *indio_dev,
 {
 	struct adux1020_data *data = iio_priv(indio_dev);
 	u16 buf[3];
-	int ret = -EINVAL;
 	unsigned int regval;
+	int ret;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
@@ -373,69 +374,56 @@ static int adux1020_read_raw(struct iio_dev *indio_dev,
 		case IIO_PROXIMITY:
 			ret = adux1020_set_mode(data, ADUX1020_MODE_PROX_I);
 			if (ret < 0)
-				goto fail;
+				return ret;
 
 			ret = adux1020_measure(data, ADUX1020_MODE_PROX_I, buf);
 			if (ret < 0)
-				goto fail;
+				return ret;
 
 			*val = buf[0];
-			ret = IIO_VAL_INT;
-			break;
+			return IIO_VAL_INT;
 		default:
-			break;
+			return -EINVAL;
 		}
-		break;
 	case IIO_CHAN_INFO_PROCESSED:
 		switch (chan->type) {
 		case IIO_CURRENT:
 			ret = regmap_read(data->regmap,
 					  ADUX1020_REG_LED_CURRENT, &regval);
 			if (ret < 0)
-				goto fail;
+				return ret;
 
 			regval = regval & ADUX1020_LED_CURRENT_MASK;
 
 			*val = adux1020_led_currents[regval][0];
 			*val2 = adux1020_led_currents[regval][1];
 
-			ret = IIO_VAL_INT_PLUS_MICRO;
-			break;
+			return IIO_VAL_INT_PLUS_MICRO;
 		default:
-			break;
+			return -EINVAL;
 		}
-		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		switch (chan->type) {
 		case IIO_PROXIMITY:
 			ret = regmap_read(data->regmap, ADUX1020_REG_FREQUENCY,
 					  &regval);
 			if (ret < 0)
-				goto fail;
+				return ret;
 
 			regval = FIELD_GET(ADUX1020_PROX_FREQ_MASK, regval);
-			if (regval >= ARRAY_SIZE(adux1020_rates)) {
-				ret = -EINVAL;
-				goto fail;
-			}
+			if (regval >= ARRAY_SIZE(adux1020_rates))
+				return -EINVAL;
 
 			*val = adux1020_rates[regval][0];
 			*val2 = adux1020_rates[regval][1];
 
-			ret = IIO_VAL_INT_PLUS_MICRO;
-			break;
+			return IIO_VAL_INT_PLUS_MICRO;
 		default:
-			break;
+			return -EINVAL;
 		}
-		break;
 	default:
-		break;
+		return -EINVAL;
 	}
-
-fail:
-	mutex_unlock(&data->lock);
-
-	return ret;
 };
 
 static inline int adux1020_find_index(const int array[][2], int count, int val,
@@ -455,9 +443,9 @@ static int adux1020_write_raw(struct iio_dev *indio_dev,
 			      int val, int val2, long mask)
 {
 	struct adux1020_data *data = iio_priv(indio_dev);
-	int i, ret = -EINVAL;
+	int i;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -465,15 +453,13 @@ static int adux1020_write_raw(struct iio_dev *indio_dev,
 			i = adux1020_find_index(adux1020_rates,
 						ARRAY_SIZE(adux1020_rates),
 						val, val2);
-			if (i < 0) {
-				ret = i;
-				goto fail;
-			}
+			if (i < 0)
+				return i;
 
-			ret = regmap_update_bits(data->regmap,
-						 ADUX1020_REG_FREQUENCY,
-						 ADUX1020_PROX_FREQ_MASK,
-						 ADUX1020_PROX_FREQ(i));
+			return regmap_update_bits(data->regmap,
+						  ADUX1020_REG_FREQUENCY,
+						  ADUX1020_PROX_FREQ_MASK,
+						  ADUX1020_PROX_FREQ(i));
 		}
 		break;
 	case IIO_CHAN_INFO_PROCESSED:
@@ -481,24 +467,19 @@ static int adux1020_write_raw(struct iio_dev *indio_dev,
 			i = adux1020_find_index(adux1020_led_currents,
 					ARRAY_SIZE(adux1020_led_currents),
 					val, val2);
-			if (i < 0) {
-				ret = i;
-				goto fail;
-			}
+			if (i < 0)
+				return i;
 
-			ret = regmap_update_bits(data->regmap,
-						 ADUX1020_REG_LED_CURRENT,
-						 ADUX1020_LED_CURRENT_MASK, i);
+			return regmap_update_bits(data->regmap,
+						  ADUX1020_REG_LED_CURRENT,
+						  ADUX1020_LED_CURRENT_MASK, i);
 		}
 		break;
 	default:
 		break;
 	}
 
-fail:
-	mutex_unlock(&data->lock);
-
-	return ret;
+	return -EINVAL;
 }
 
 static int adux1020_write_event_config(struct iio_dev *indio_dev,
@@ -510,16 +491,16 @@ static int adux1020_write_event_config(struct iio_dev *indio_dev,
 	struct adux1020_data *data = iio_priv(indio_dev);
 	int ret, mask;
 
-	mutex_lock(&data->lock);
+	guard(mutex)(&data->lock);
 
 	ret = regmap_write(data->regmap, ADUX1020_REG_INT_ENABLE,
 			   ADUX1020_INT_ENABLE);
 	if (ret < 0)
-		goto fail;
+		return ret;
 
 	ret = regmap_write(data->regmap, ADUX1020_REG_INT_POLARITY, 0);
 	if (ret < 0)
-		goto fail;
+		return ret;
 
 	switch (chan->type) {
 	case IIO_PROXIMITY:
@@ -535,7 +516,7 @@ static int adux1020_write_event_config(struct iio_dev *indio_dev,
 			ret = regmap_set_bits(data->regmap,
 					      ADUX1020_REG_INT_MASK, mask);
 		if (ret < 0)
-			goto fail;
+			return ret;
 
 		/*
 		 * Trigger proximity interrupt when the intensity is above
@@ -544,20 +525,13 @@ static int adux1020_write_event_config(struct iio_dev *indio_dev,
 		ret = regmap_set_bits(data->regmap, ADUX1020_REG_PROX_TYPE,
 				      ADUX1020_PROX_TYPE);
 		if (ret < 0)
-			goto fail;
+			return ret;
 
 		/* Set proximity mode */
-		ret = adux1020_set_mode(data, ADUX1020_MODE_PROX_I);
-		break;
+		return adux1020_set_mode(data, ADUX1020_MODE_PROX_I);
 	default:
-		ret = -EINVAL;
-		break;
+		return -EINVAL;
 	}
-
-fail:
-	mutex_unlock(&data->lock);
-
-	return ret;
 }
 
 static int adux1020_read_event_config(struct iio_dev *indio_dev,
