@@ -1,0 +1,24 @@
+serial: sc16is7xx: return false instead of setting the removed rc
+
+Stable commit 76a91352fbd6e ("serial: sc16is7xx: use guards for simple mutex
+locks") converts sc16is7xx_port_irq() to guard(mutex) and removes the 'rc'
+local and the out_port_irq label, returning directly. Downstream rpi-6.12.y
+carries f9ac7286c1223 ("serial: sc16is7xx: Don't spin if no data received"),
+that sets rc = false when no data was received. The stable commit merged
+without conflict, leaving that assignment to an undeclared variable.
+
+Return false directly, as the guard releases the lock on return.
+
+diff --git a/drivers/tty/serial/sc16is7xx.c b/drivers/tty/serial/sc16is7xx.c
+index e2eee7440d8c6..5abd8b945bc53 100644
+--- a/drivers/tty/serial/sc16is7xx.c
++++ b/drivers/tty/serial/sc16is7xx.c
+@@ -844,7 +844,7 @@ static bool sc16is7xx_port_irq(struct sc16is7xx_port *s, int portno)
+ 		if (rxlen)
+ 			sc16is7xx_handle_rx(port, rxlen, iir);
+ 		else
+-			rc = false;
++			return false;
+ 		break;
+ 		/* CTSRTS interrupt comes only when CTS goes inactive */
+ 	case SC16IS7XX_IIR_CTSRTS_SRC:
