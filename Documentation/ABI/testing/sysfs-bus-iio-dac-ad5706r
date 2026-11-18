@@ -1,0 +1,41 @@
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Controls the static signal level on the LDAC/TGP/DCK pin. The
+		active function of this pin depends on the DAC operating mode.
+		Valid values are:
+		- "low": pin driven low (0% duty cycle)
+		- "high": pin driven high (100% duty cycle)
+
+		Setting this overrides hw_ldac_tg_pwm.
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_state_available
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available LDAC GPIO states: "low high"
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable or disable 50% duty cycle PWM on the LDAC/TGP/DCK pin.
+		The active function of this pin depends on the DAC operating mode.
+		Valid values are:
+		- "disable": PWM disabled, pin returns to hw_ldac_tg_state level
+		- "enable": PWM enabled with 50% duty cycle
+
+		The PWM frequency is set via sampling_frequency. Valid range is
+		1 kHz to 10 MHz. Default is 1 MHz.
+
+		Requires optional PWM device tree configuration.
+
+What:		/sys/bus/iio/devices/iio:deviceX/hw_ldac_tg_pwm_available
+KernelVersion:	6.13
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Returns the available PWM states: "disable enable"
+
