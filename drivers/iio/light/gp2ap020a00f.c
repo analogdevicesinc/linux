@@ -1406,6 +1406,10 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	data = iio_priv(indio_dev);
 
+	err = devm_regulator_get_enable(dev, "vcc");
+	if (err)
+		return dev_err_probe(dev, err, "Failed to enable VCC supply\n");
+
 	data->vled_reg = devm_regulator_get(dev, "vled");
 	if (IS_ERR(data->vled_reg))
 		return PTR_ERR(data->vled_reg);
