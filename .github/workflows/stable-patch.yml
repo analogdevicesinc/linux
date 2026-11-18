@@ -1,0 +1,31 @@
+name: Stable patch
+run-name: Stable patch ${{ inputs.ref }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch to stable patch"
+        required: true
+        type: string
+      sha:
+        description: "Commit of the branch to stable patch, defaults to the branch head"
+        required: false
+        type: string
+      dry-run:
+        description: "Dry-run, don't push merged branch"
+        default: false
+        type: boolean
+
+jobs:
+  stable-patch:
+    uses: analogdevicesinc/linux/.github/workflows/stable-patch.yml@ci
+    permissions:
+      contents: write
+    secrets:
+      PORTKEY_API_KEY: ${{ secrets.PORTKEY_API_KEY }}
+      WORKFLOW_SECRET: ${{ secrets.WORKFLOW_SECRET }}
+    with:
+      ref: ${{ inputs.ref }}
+      sha: ${{ inputs.sha }}
+      dry-run: ${{ inputs.dry-run }}
