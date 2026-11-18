@@ -276,8 +276,8 @@ static const struct mfd_cell exynos_pmu_devs[] = {
  */
 struct regmap *exynos_get_pmu_regmap(void)
 {
-	struct device_node *np = of_find_matching_node(NULL,
-						      exynos_pmu_of_device_ids);
+	struct device_node *np __free(device_node) =
+		of_find_matching_node(NULL, exynos_pmu_of_device_ids);
 	if (np)
 		return exynos_get_pmu_regmap_by_phandle(np, NULL);
 	return ERR_PTR(-ENODEV);
@@ -321,6 +321,8 @@ struct regmap *exynos_get_pmu_regmap_by_phandle(struct device_node *np,
 
 	if (!dev)
 		return ERR_PTR(-EPROBE_DEFER);
+
+	put_device(dev);
 
 	return syscon_node_to_regmap(pmu_np);
 }

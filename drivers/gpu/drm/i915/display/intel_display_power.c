@@ -1150,7 +1150,7 @@ static void icl_mbus_init(struct drm_i915_private *dev_priv)
 	if (DISPLAY_VER(dev_priv) == 12)
 		abox_regs |= BIT(0);
 
-	for_each_set_bit(i, &abox_regs, sizeof(abox_regs))
+	for_each_set_bit(i, &abox_regs, BITS_PER_TYPE(abox_regs))
 		intel_de_rmw(dev_priv, MBUS_ABOX_CTL(i), mask, val);
 }
 
@@ -1176,43 +1176,44 @@ static void hsw_assert_cdclk(struct drm_i915_private *dev_priv)
 
 static void assert_can_disable_lcpll(struct drm_i915_private *dev_priv)
 {
+	struct intel_display *display = &dev_priv->display;
 	struct intel_crtc *crtc;
 
-	for_each_intel_crtc(&dev_priv->drm, crtc)
-		I915_STATE_WARN(dev_priv, crtc->active,
-				"CRTC for pipe %c enabled\n",
-				pipe_name(crtc->pipe));
+	for_each_intel_crtc(display->drm, crtc)
+		INTEL_DISPLAY_STATE_WARN(display, crtc->active,
+					 "CRTC for pipe %c enabled\n",
+					 pipe_name(crtc->pipe));
 
-	I915_STATE_WARN(dev_priv, intel_de_read(dev_priv, HSW_PWR_WELL_CTL2),
-			"Display power well on\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, SPLL_CTL) & SPLL_PLL_ENABLE,
-			"SPLL enabled\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, WRPLL_CTL(0)) & WRPLL_PLL_ENABLE,
-			"WRPLL1 enabled\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, WRPLL_CTL(1)) & WRPLL_PLL_ENABLE,
-			"WRPLL2 enabled\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, PP_STATUS(dev_priv, 0)) & PP_ON,
-			"Panel power on\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, BLC_PWM_CPU_CTL2) & BLM_PWM_ENABLE,
-			"CPU PWM1 enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display, intel_de_read(display, HSW_PWR_WELL_CTL2),
+				 "Display power well on\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, SPLL_CTL) & SPLL_PLL_ENABLE,
+				 "SPLL enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, WRPLL_CTL(0)) & WRPLL_PLL_ENABLE,
+				 "WRPLL1 enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, WRPLL_CTL(1)) & WRPLL_PLL_ENABLE,
+				 "WRPLL2 enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, PP_STATUS(display, 0)) & PP_ON,
+				 "Panel power on\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, BLC_PWM_CPU_CTL2) & BLM_PWM_ENABLE,
+				 "CPU PWM1 enabled\n");
 	if (IS_HASWELL(dev_priv))
-		I915_STATE_WARN(dev_priv,
-				intel_de_read(dev_priv, HSW_BLC_PWM2_CTL) & BLM_PWM_ENABLE,
-				"CPU PWM2 enabled\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, BLC_PWM_PCH_CTL1) & BLM_PCH_PWM_ENABLE,
-			"PCH PWM1 enabled\n");
-	I915_STATE_WARN(dev_priv,
-			(intel_de_read(dev_priv, UTIL_PIN_CTL) & (UTIL_PIN_ENABLE | UTIL_PIN_MODE_MASK)) == (UTIL_PIN_ENABLE | UTIL_PIN_MODE_PWM),
-			"Utility pin enabled in PWM mode\n");
-	I915_STATE_WARN(dev_priv,
-			intel_de_read(dev_priv, PCH_GTC_CTL) & PCH_GTC_ENABLE,
-			"PCH GTC enabled\n");
+		INTEL_DISPLAY_STATE_WARN(display,
+					 intel_de_read(display, HSW_BLC_PWM2_CTL) & BLM_PWM_ENABLE,
+					 "CPU PWM2 enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, BLC_PWM_PCH_CTL1) & BLM_PCH_PWM_ENABLE,
+				 "PCH PWM1 enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 (intel_de_read(display, UTIL_PIN_CTL) & (UTIL_PIN_ENABLE | UTIL_PIN_MODE_MASK)) == (UTIL_PIN_ENABLE | UTIL_PIN_MODE_PWM),
+				 "Utility pin enabled in PWM mode\n");
+	INTEL_DISPLAY_STATE_WARN(display,
+				 intel_de_read(display, PCH_GTC_CTL) & PCH_GTC_ENABLE,
+				 "PCH GTC enabled\n");
 
 	/*
 	 * In theory we can still leave IRQs enabled, as long as only the HPD
@@ -1220,8 +1221,8 @@ static void assert_can_disable_lcpll(struct drm_i915_private *dev_priv)
 	 * gen-specific and since we only disable LCPLL after we fully disable
 	 * the interrupts, the check below should be enough.
 	 */
-	I915_STATE_WARN(dev_priv, intel_irqs_enabled(dev_priv),
-			"IRQs enabled\n");
+	INTEL_DISPLAY_STATE_WARN(display, intel_irqs_enabled(dev_priv),
+				 "IRQs enabled\n");
 }
 
 static u32 hsw_read_dcomp(struct drm_i915_private *dev_priv)
@@ -1603,11 +1604,11 @@ static void tgl_bw_buddy_init(struct drm_i915_private *dev_priv)
 	if (table[config].page_mask == 0) {
 		drm_dbg(&dev_priv->drm,
 			"Unknown memory configuration; disabling address buddy logic.\n");
-		for_each_set_bit(i, &abox_mask, sizeof(abox_mask))
+		for_each_set_bit(i, &abox_mask, BITS_PER_TYPE(abox_mask))
 			intel_de_write(dev_priv, BW_BUDDY_CTL(i),
 				       BW_BUDDY_DISABLE);
 	} else {
-		for_each_set_bit(i, &abox_mask, sizeof(abox_mask)) {
+		for_each_set_bit(i, &abox_mask, BITS_PER_TYPE(abox_mask)) {
 			intel_de_write(dev_priv, BW_BUDDY_PAGE_MASK(i),
 				       table[config].page_mask);
 

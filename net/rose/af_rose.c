@@ -170,7 +170,7 @@ void rose_kill_by_neigh(struct rose_neigh *neigh)
 
 		if (rose->neighbour == neigh) {
 			rose_disconnect(s, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
-			rose->neighbour->use--;
+			rose_neigh_put(rose->neighbour);
 			rose->neighbour = NULL;
 		}
 	}
@@ -205,14 +205,27 @@ start:
 	spin_unlock_bh(&rose_list_lock);
 
 	for (i = 0; i < cnt; i++) {
-		sk = array[cnt];
+		sk = array[i];
 		rose = rose_sk(sk);
 		lock_sock(sk);
 		spin_lock_bh(&rose_list_lock);
 		if (rose->device == dev) {
 			rose_disconnect(sk, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
-			if (rose->neighbour)
-				rose->neighbour->use--;
+			/* Mark for destruction so rose_heartbeat_expiry()
+			 * cleans up the socket at its next tick rather than
+			 * looping forever in ROSE_STATE_0 with no owner.
+			 */
+			sock_set_flag(sk, SOCK_DESTROY);
+			if (rose->neighbour) {
+				rose_neigh_put(rose->neighbour);
+				/* Clear the pointer after dropping the reference, as
+				 * every other rose_neigh_put() site does.  Otherwise
+				 * rose_heartbeat_expiry() (STATE_0 reaping) sees a stale
+				 * rose->neighbour and puts it a second time -> rose_neigh
+				 * refcount underflow / use-after-free.
+				 */
+				rose->neighbour = NULL;
+			}
 			netdev_put(rose->device, &rose->dev_tracker);
 			rose->device = NULL;
 		}
@@ -265,7 +278,7 @@ static void rose_insert_socket(struct sock *sk)
 
 /*
  *	Find a socket that wants to accept the Call Request we just
- *	received.
+ *	received. A reference is taken on the socket found.
  */
 static struct sock *rose_find_listener(rose_address *addr, ax25_address *call)
 {
@@ -291,48 +304,73 @@ static struct sock *rose_find_listener(rose_address *addr, ax25_address *call)
 	}
 	s = NULL;
 found:
+	if (s)
+		sock_hold(s);
 	spin_unlock_bh(&rose_list_lock);
 	return s;
 }
 
 /*
  *	Find a connected ROSE socket given my LCI and device.
+ *	The caller holds rose_list_lock.
+ */
+static struct sock *__rose_find_socket(unsigned int lci, struct rose_neigh *neigh)
+{
+	struct sock *s;
+
+	sk_for_each(s, &rose_list) {
+		struct rose_sock *rose = rose_sk(s);
+
+		if (rose->lci == lci && rose->neighbour == neigh)
+			return s;
+	}
+
+	return NULL;
+}
+
+/*
+ *	Find a connected ROSE socket given my LCI and device. A reference is
+ *	taken on the socket found: it can be released and destroyed as soon
+ *	as rose_list_lock is dropped.
  */
 struct sock *rose_find_socket(unsigned int lci, struct rose_neigh *neigh)
 {
 	struct sock *s;
 
 	spin_lock_bh(&rose_list_lock);
-	sk_for_each(s, &rose_list) {
-		struct rose_sock *rose = rose_sk(s);
-
-		if (rose->lci == lci && rose->neighbour == neigh)
-			goto found;
-	}
-	s = NULL;
-found:
+	s = __rose_find_socket(lci, neigh);
+	if (s)
+		sock_hold(s);
 	spin_unlock_bh(&rose_list_lock);
 	return s;
 }
 
 /*
  *	Find a unique LCI for a given device.
+ *	The caller holds rose_route_list_lock.
  */
 unsigned int rose_new_lci(struct rose_neigh *neigh)
 {
+	unsigned int res = 0;
 	int lci;
 
+	spin_lock_bh(&rose_list_lock);
 	if (neigh->dce_mode) {
 		for (lci = 1; lci <= sysctl_rose_maximum_vcs; lci++)
-			if (rose_find_socket(lci, neigh) == NULL && rose_route_free_lci(lci, neigh) == NULL)
-				return lci;
+			if (!__rose_find_socket(lci, neigh) && !rose_route_free_lci(lci, neigh)) {
+				res = lci;
+				break;
+			}
 	} else {
 		for (lci = sysctl_rose_maximum_vcs; lci > 0; lci--)
-			if (rose_find_socket(lci, neigh) == NULL && rose_route_free_lci(lci, neigh) == NULL)
-				return lci;
+			if (!__rose_find_socket(lci, neigh) && !rose_route_free_lci(lci, neigh)) {
+				res = lci;
+				break;
+			}
 	}
+	spin_unlock_bh(&rose_list_lock);
 
-	return 0;
+	return res;
 }
 
 /*
@@ -358,6 +396,7 @@ static void rose_destroy_timer(struct timer_list *t)
  */
 void rose_destroy_socket(struct sock *sk)
 {
+	struct rose_sock *rose = rose_sk(sk);
 	struct sk_buff *skb;
 
 	rose_remove_socket(sk);
@@ -365,14 +404,36 @@ void rose_destroy_socket(struct sock *sk)
 	rose_stop_idletimer(sk);
 	rose_stop_timer(sk);
 
+	/* Drop any device reference not already released by rose_kill_by_device()
+	 * or rose_release() -- e.g. incoming sockets that were never accepted.
+	 */
+	if (rose->device) {
+		netdev_put(rose->device, &rose->dev_tracker);
+		rose->device = NULL;
+	}
+
 	rose_clear_queues(sk);		/* Flush the queues */
 
 	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL) {
-		if (skb->sk != sk) {	/* A pending connection */
-			/* Queue the unaccepted socket for death */
-			sock_set_flag(skb->sk, SOCK_DEAD);
-			rose_start_heartbeat(skb->sk);
-			rose_sk(skb->sk)->state = ROSE_STATE_0;
+		struct sock *child = skb->sk;
+
+		if (child != sk) {	/* A pending connection */
+			/* Queue the unaccepted socket for death, unless
+			 * rose_heartbeat_expiry() has already reaped it or is
+			 * about to (SOCK_DESTROY).
+			 */
+			local_bh_disable();
+			bh_lock_sock_nested(child);
+			if (!sock_flag(child, SOCK_DESTROY)) {
+				sock_set_flag(child, SOCK_DEAD);
+				rose_start_heartbeat(child);
+				rose_sk(child)->state = ROSE_STATE_0;
+			}
+			bh_unlock_sock(child);
+			local_bh_enable();
+
+			skb->sk = NULL;
+			sock_put(child);	/* the queue's reference */
 		}
 
 		kfree_skb(skb);
@@ -562,6 +623,7 @@ static int rose_create(struct net *net, struct socket *sock, int protocol,
 	rose = rose_sk(sk);
 
 	sock_init_data(sock, sk);
+	sk->sk_backlog_rcv = rose_backlog_rcv;
 
 	skb_queue_head_init(&rose->ack_queue);
 #ifdef M_BIT
@@ -601,6 +663,7 @@ static struct sock *rose_make_new(struct sock *osk)
 	rose = rose_sk(sk);
 
 	sock_init_data(NULL, sk);
+	sk->sk_backlog_rcv = rose_backlog_rcv;
 
 	skb_queue_head_init(&rose->ack_queue);
 #ifdef M_BIT
@@ -626,9 +689,7 @@ static struct sock *rose_make_new(struct sock *osk)
 	rose->hb	= orose->hb;
 	rose->idle	= orose->idle;
 	rose->defer	= orose->defer;
-	rose->device	= orose->device;
-	if (rose->device)
-		netdev_hold(rose->device, &rose->dev_tracker, GFP_ATOMIC);
+	rose->device	= NULL;  /* rose_rx_call_request() sets this */
 	rose->qbitincl	= orose->qbitincl;
 
 	return sk;
@@ -637,6 +698,7 @@ static struct sock *rose_make_new(struct sock *osk)
 static int rose_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
+	struct rose_neigh *neigh;
 	struct rose_sock *rose;
 
 	if (sk == NULL) return 0;
@@ -655,10 +717,21 @@ static int rose_release(struct socket *sock)
 		break;
 
 	case ROSE_STATE_2:
-		rose->neighbour->use--;
-		release_sock(sk);
+		/*
+		 * Disconnect before the socket lock is dropped: frames put on
+		 * the backlog meanwhile, a Clear Confirmation for one, then
+		 * find it in state 0 instead of dropping the neighbour
+		 * reference a second time. rose_kill_by_neigh() does not take
+		 * the socket lock: take the neighbour under rose_list_lock, as
+		 * it does, so that only one of them drops the reference.
+		 */
 		rose_disconnect(sk, 0, -1, -1);
-		lock_sock(sk);
+		spin_lock_bh(&rose_list_lock);
+		neigh = rose->neighbour;
+		rose->neighbour = NULL;
+		spin_unlock_bh(&rose_list_lock);
+		if (neigh)
+			rose_neigh_put(neigh);
 		rose_destroy_socket(sk);
 		break;
 
@@ -810,21 +883,13 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 		goto out_release;
 	}
 
+	if (sk->sk_state == TCP_SYN_SENT) {
+		err = -EALREADY;
+		goto out_release;
+	}
+
 	sk->sk_state   = TCP_CLOSE;
 	sock->state = SS_UNCONNECTED;
-
-	rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause,
-					 &diagnostic, 0);
-	if (!rose->neighbour) {
-		err = -ENETUNREACH;
-		goto out_release;
-	}
-
-	rose->lci = rose_new_lci(rose->neighbour);
-	if (!rose->lci) {
-		err = -ENETUNREACH;
-		goto out_release;
-	}
 
 	if (sock_flag(sk, SOCK_ZAPPED)) {	/* Must bind first - autobinding in this may or may not work */
 		struct net_device *dev;
@@ -853,6 +918,21 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 
 		rose_insert_socket(sk);		/* Finish the bind */
 	}
+
+	rose->neighbour = rose_get_neigh(&addr->srose_addr, &cause,
+					 &diagnostic, 0);
+	if (!rose->neighbour) {
+		err = -ENETUNREACH;
+		goto out_release;
+	}
+
+	/* The socket is on the list now, so others see the LCI it gets */
+	if (!rose_assign_lci(sk)) {
+		err = -ENETUNREACH;
+		rose_neigh_put(rose->neighbour);
+		goto out_release;
+	}
+
 	rose->dest_addr   = addr->srose_addr;
 	rose->dest_call   = addr->srose_call;
 	rose->rand        = ((long)rose & 0xFFFF) + rose->lci;
@@ -873,8 +953,6 @@ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_le
 	sk->sk_state     = TCP_SYN_SENT;
 
 	rose->state = ROSE_STATE_1;
-
-	rose->neighbour->use++;
 
 	rose_write_internal(sk, ROSE_CALL_REQUEST);
 	rose_start_heartbeat(sk);
@@ -954,6 +1032,7 @@ static int rose_accept(struct socket *sock, struct socket *newsock,
 	 *	The write queue this time is holding sockets ready to use
 	 *	hooked into the SABM we saved
 	 */
+again:
 	for (;;) {
 		prepare_to_wait(sk_sleep(sk), &wait, TASK_INTERRUPTIBLE);
 
@@ -979,12 +1058,27 @@ static int rose_accept(struct socket *sock, struct socket *newsock,
 		goto out_release;
 
 	newsk = skb->sk;
+	lock_sock_nested(newsk, SINGLE_DEPTH_NESTING);
+	if (sock_flag(newsk, SOCK_DESTROY)) {
+		/* The call went away and rose_heartbeat_expiry() reaped (or
+		 * is about to reap) the socket before it was accepted: drop
+		 * it and wait for the next one.
+		 */
+		release_sock(newsk);
+		skb->sk = NULL;
+		kfree_skb(skb);
+		sk_acceptq_removed(sk);
+		sock_put(newsk);	/* the queue's reference */
+		goto again;
+	}
 	sock_graft(newsk, newsock);
+	release_sock(newsk);
 
 	/* Now attach up the new socket */
 	skb->sk = NULL;
 	kfree_skb(skb);
 	sk_acceptq_removed(sk);
+	sock_put(newsk);		/* the queue's reference */
 
 out_release:
 	release_sock(sk);
@@ -1045,12 +1139,31 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
 	}
 
 	sk = rose_find_listener(&facilities.source_addr, &facilities.source_call);
+	if (!sk) {
+		rose_transmit_clear_request(neigh, lci, ROSE_NETWORK_CONGESTION, 120);
+		return 0;
+	}
+
+	/*
+	 * The listener may be closed by rose_release() at any time. It is
+	 * marked dead before rose_destroy_socket() empties its queue, so
+	 * once it is locked a listener that is not dead will see the new
+	 * socket on its queue, either in rose_accept() or when it is
+	 * destroyed.
+	 */
+	bh_lock_sock(sk);
 
 	/*
 	 * We can't accept the Call Request.
 	 */
-	if (sk == NULL || sk_acceptq_is_full(sk) ||
-	    (make = rose_make_new(sk)) == NULL) {
+	if (sock_flag(sk, SOCK_DEAD) || sk->sk_state != TCP_LISTEN ||
+	    sk_acceptq_is_full(sk))
+		make = NULL;
+	else
+		make = rose_make_new(sk);
+	if (!make) {
+		bh_unlock_sock(sk);
+		sock_put(sk);
 		rose_transmit_clear_request(neigh, lci, ROSE_NETWORK_CONGESTION, 120);
 		return 0;
 	}
@@ -1072,12 +1185,14 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
 		make_rose->source_digis[n] = facilities.source_digis[n];
 	make_rose->neighbour     = neigh;
 	make_rose->device        = dev;
-	/* Caller got a reference for us. */
-	netdev_tracker_alloc(make_rose->device, &make_rose->dev_tracker,
-			     GFP_ATOMIC);
+	/* Take an independent reference for this socket; callers keep their
+	 * own reference (from rose_dev_get / dev_hold) and will release it
+	 * themselves via dev_put().
+	 */
+	netdev_hold(make_rose->device, &make_rose->dev_tracker, GFP_ATOMIC);
 	make_rose->facilities    = facilities;
 
-	make_rose->neighbour->use++;
+	rose_neigh_hold(make_rose->neighbour);
 
 	if (rose_sk(sk)->defer) {
 		make_rose->state = ROSE_STATE_5;
@@ -1096,12 +1211,17 @@ int rose_rx_call_request(struct sk_buff *skb, struct net_device *dev, struct ros
 
 	rose_insert_socket(make);
 
+	/* The listener's queue holds a reference on the pending socket
+	 * until rose_accept() or rose_destroy_socket() takes it off.
+	 */
+	sock_hold(make);
 	skb_queue_head(&sk->sk_receive_queue, skb);
 
 	rose_start_heartbeat(make);
 
-	if (!sock_flag(sk, SOCK_DEAD))
-		sk->sk_data_ready(sk);
+	sk->sk_data_ready(sk);
+	bh_unlock_sock(sk);
+	sock_put(sk);
 
 	return 1;
 }
@@ -1264,7 +1384,10 @@ static int rose_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
 	skb_queue_tail(&sk->sk_write_queue, skb);	/* Shove it onto the queue */
 #endif
 
+	/* The receive path and the timers run rose_kick() too */
+	lock_sock(sk);
 	rose_kick(sk);
+	release_sock(sk);
 
 	return len;
 }
@@ -1661,18 +1784,27 @@ static void __exit rose_exit(void)
 #ifdef CONFIG_SYSCTL
 	rose_unregister_sysctl();
 #endif
-	unregister_netdevice_notifier(&rose_dev_notifier);
-
 	sock_unregister(PF_ROSE);
 
 	for (i = 0; i < rose_ndevs; i++) {
 		struct net_device *dev = dev_rose[i];
 
 		if (dev) {
+			/* unregister_netdev() fires NETDEV_DOWN, which -- while the
+			 * notifier is still registered below -- invokes
+			 * rose_kill_by_device(dev).  That releases every socket's
+			 * netdev reference and disconnects all active circuits.
+			 * Unregistering the notifier before this loop was the
+			 * original bug: NETDEV_DOWN was never delivered, leaving
+			 * 165 netdev_tracker entries leaked and stale timers live.
+			 */
 			unregister_netdev(dev);
 			free_netdev(dev);
 		}
 	}
+
+	/* Now safe to remove the notifier -- all ROSE devices are gone. */
+	unregister_netdevice_notifier(&rose_dev_notifier);
 
 	kfree(dev_rose);
 	proto_unregister(&rose_proto);

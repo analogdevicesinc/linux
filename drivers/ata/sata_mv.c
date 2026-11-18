@@ -687,7 +687,7 @@ static struct ata_port_operations mv5_ops = {
 
 	.freeze			= mv_eh_freeze,
 	.thaw			= mv_eh_thaw,
-	.hardreset		= mv_hardreset,
+	.reset.hardreset	= mv_hardreset,
 
 	.scr_read		= mv5_scr_read,
 	.scr_write		= mv5_scr_write,
@@ -709,10 +709,10 @@ static struct ata_port_operations mv6_ops = {
 
 	.freeze			= mv_eh_freeze,
 	.thaw			= mv_eh_thaw,
-	.hardreset		= mv_hardreset,
-	.softreset		= mv_softreset,
-	.pmp_hardreset		= mv_pmp_hardreset,
-	.pmp_softreset		= mv_softreset,
+	.reset.hardreset	= mv_hardreset,
+	.reset.softreset	= mv_softreset,
+	.pmp_reset.hardreset	= mv_pmp_hardreset,
+	.pmp_reset.softreset	= mv_softreset,
 	.error_handler		= mv_pmp_error_handler,
 
 	.scr_read		= mv_scr_read,
@@ -4026,7 +4026,7 @@ static int mv_platform_probe(struct platform_device *pdev)
 	/*
 	 * Simple resource validation ..
 	 */
-	if (unlikely(pdev->num_resources != 1)) {
+	if (unlikely(pdev->num_resources != 1 && pdev->num_resources != 2)) {
 		dev_err(&pdev->dev, "invalid number of resources\n");
 		return -EINVAL;
 	}

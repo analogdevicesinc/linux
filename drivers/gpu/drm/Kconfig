@@ -85,7 +85,6 @@ config DRM_KUNIT_TEST
 	select DRM_EXPORT_FOR_TESTS if m
 	select DRM_GEM_SHMEM_HELPER
 	select DRM_KUNIT_TEST_HELPERS
-	select DRM_LIB_RANDOM
 	select PRIME_NUMBERS
 	default KUNIT_ALL_TESTS
 	help
@@ -105,10 +104,15 @@ config DRM_KMS_HELPER
 	help
 	  CRTC helpers for KMS drivers.
 
+config DRM_DRAW
+	bool
+	depends on DRM
+
 config DRM_PANIC
 	bool "Display a user-friendly message when a kernel panic occurs"
 	depends on DRM
 	select FONT_SUPPORT
+	select DRM_DRAW
 	help
 	  Enable a drm panic handler, which will display a user-friendly message
 	  when a kernel panic occurs. It's useful when using a user-space
@@ -320,6 +324,7 @@ config DRM_GPUVM
 config DRM_BUDDY
 	tristate
 	depends on DRM
+	select GPU_BUDDY
 	help
 	  A page based buddy allocator
 
@@ -505,10 +510,6 @@ config DRM_EXPORT_FOR_TESTS
 # Separate option as not all DRM drivers use it
 config DRM_PANEL_BACKLIGHT_QUIRKS
 	tristate
-
-config DRM_LIB_RANDOM
-	bool
-	default n
 
 config DRM_PRIVACY_SCREEN
 	bool

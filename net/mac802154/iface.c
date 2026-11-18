@@ -469,7 +469,9 @@ static int mac802154_header_create(struct sk_buff *skb,
 }
 
 static int
-mac802154_header_parse(const struct sk_buff *skb, unsigned char *haddr)
+mac802154_header_parse(const struct sk_buff *skb,
+		       const struct net_device *dev,
+		       unsigned char *haddr)
 {
 	struct ieee802154_hdr hdr;
 
@@ -692,6 +694,7 @@ void ieee802154_if_remove(struct ieee802154_sub_if_data *sdata)
 	mutex_unlock(&sdata->local->iflist_mtx);
 
 	synchronize_rcu();
+	mac802154_flush_queued_pkts(sdata->local, sdata);
 	unregister_netdevice(sdata->dev);
 }
 
@@ -701,8 +704,13 @@ void ieee802154_remove_interfaces(struct ieee802154_local *local)
 
 	mutex_lock(&local->iflist_mtx);
 	list_for_each_entry_safe(sdata, tmp, &local->interfaces, list) {
-		list_del(&sdata->list);
+		list_del_rcu(&sdata->list);
 
+		/* Best-effort: a frame the RX softirq queues for this sdata
+		 * after the flush still pins the netdev, so the
+		 * unregister_netdevice() below waits it out.
+		 */
+		mac802154_flush_queued_pkts(local, sdata);
 		unregister_netdevice(sdata->dev);
 	}
 	mutex_unlock(&local->iflist_mtx);

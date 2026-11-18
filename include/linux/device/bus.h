@@ -63,8 +63,9 @@ struct fwnode_handle;
  *			this bus.
  * @pm:		Power management operations of this bus, callback the specific
  *		device driver's pm-ops.
- * @need_parent_lock:	When probing or removing a device on this bus, the
- *			device core should lock the device's parent.
+ * @driver_override:	Set to true if this bus supports the driver_override
+ *			mechanism, which allows userspace to force a specific
+ *			driver to bind to a device via a sysfs attribute.
  *
  * A bus is a channel between the processor and one or more devices. For the
  * purposes of the device model, all devices are connected via a bus, even if
@@ -104,7 +105,7 @@ struct bus_type {
 
 	const struct dev_pm_ops *pm;
 
-	bool need_parent_lock;
+	bool driver_override;
 };
 
 int __must_check bus_register(const struct bus_type *bus);

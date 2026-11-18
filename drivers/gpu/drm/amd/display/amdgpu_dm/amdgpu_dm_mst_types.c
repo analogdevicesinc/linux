@@ -816,13 +816,20 @@ void amdgpu_dm_initialize_dp_connector(struct amdgpu_display_manager *dm,
 	drm_connector_attach_dp_subconnector_property(&aconnector->base);
 }
 
-int dm_mst_get_pbn_divider(struct dc_link *link)
+uint32_t dm_mst_get_pbn_divider(struct dc_link *link)
 {
+	uint32_t pbn_div_x100;
+	uint64_t dividend, divisor;
+
 	if (!link)
 		return 0;
 
-	return dc_link_bandwidth_kbps(link,
-			dc_link_get_link_cap(link)) / (8 * 1000 * 54);
+	dividend = (uint64_t)dc_link_bandwidth_kbps(link, dc_link_get_link_cap(link)) * 100;
+	divisor = 8 * 1000 * 54;
+
+	pbn_div_x100 = div64_u64(dividend, divisor);
+
+	return dfixed_const(pbn_div_x100) / 100;
 }
 
 struct dsc_mst_fairness_params {
@@ -1696,9 +1703,11 @@ int pre_validate_dsc(struct drm_atomic_state *state,
 			int ind = find_crtc_index_in_state_by_stream(state, stream);
 
 			if (ind >= 0) {
+				struct dm_crtc_state *dm_new_crtc_state = to_dm_crtc_state(state->crtcs[ind].new_state);
+
 				DRM_INFO_ONCE("%s:%d MST_DSC no mode changed for stream 0x%p\n",
 						__func__, __LINE__, stream);
-				state->crtcs[ind].new_state->mode_changed = 0;
+				dm_new_crtc_state->base.mode_changed = dm_new_crtc_state->mode_changed_independent_from_dsc;
 			}
 		}
 	}
@@ -1809,6 +1818,9 @@ enum dc_status dm_dp_mst_is_port_support_mode(
 	struct dc_dsc_bw_range bw_range = {0};
 	struct dc_dsc_config_options dsc_options = {0};
 	uint32_t stream_kbps;
+
+	if (!aconnector->dc_sink)
+		return DC_FAIL_BANDWIDTH_VALIDATE;
 
 	/* DSC unnecessary case
 	 * Check if timing could be supported within end-to-end BW

@@ -403,11 +403,11 @@ static void lan966x_es0_read_esdx_counter(struct lan966x *lan966x,
 	u32 counter;
 
 	id = id & 0xff; /* counter limit */
-	mutex_lock(&lan966x->stats_lock);
+	spin_lock(&lan966x->stats_lock);
 	lan_wr(SYS_STAT_CFG_STAT_VIEW_SET(id), lan966x, SYS_STAT_CFG);
 	counter = lan_rd(lan966x, SYS_CNT(LAN966X_STAT_ESDX_GRN_PKTS)) +
 		  lan_rd(lan966x, SYS_CNT(LAN966X_STAT_ESDX_YEL_PKTS));
-	mutex_unlock(&lan966x->stats_lock);
+	spin_unlock(&lan966x->stats_lock);
 	if (counter)
 		admin->cache.counter = counter;
 }
@@ -417,14 +417,14 @@ static void lan966x_es0_write_esdx_counter(struct lan966x *lan966x,
 {
 	id = id & 0xff; /* counter limit */
 
-	mutex_lock(&lan966x->stats_lock);
+	spin_lock(&lan966x->stats_lock);
 	lan_wr(SYS_STAT_CFG_STAT_VIEW_SET(id), lan966x, SYS_STAT_CFG);
 	lan_wr(0, lan966x, SYS_CNT(LAN966X_STAT_ESDX_GRN_BYTES));
 	lan_wr(admin->cache.counter, lan966x,
 	       SYS_CNT(LAN966X_STAT_ESDX_GRN_PKTS));
 	lan_wr(0, lan966x, SYS_CNT(LAN966X_STAT_ESDX_YEL_BYTES));
 	lan_wr(0, lan966x, SYS_CNT(LAN966X_STAT_ESDX_YEL_PKTS));
-	mutex_unlock(&lan966x->stats_lock);
+	spin_unlock(&lan966x->stats_lock);
 }
 
 static void lan966x_vcap_cache_write(struct net_device *dev,
@@ -601,7 +601,6 @@ static void lan966x_vcap_admin_free(struct vcap_admin *admin)
 	kfree(admin->cache.keystream);
 	kfree(admin->cache.maskstream);
 	kfree(admin->cache.actionstream);
-	mutex_destroy(&admin->lock);
 	kfree(admin);
 }
 
@@ -615,7 +614,7 @@ lan966x_vcap_admin_alloc(struct lan966x *lan966x, struct vcap_control *ctrl,
 	if (!admin)
 		return ERR_PTR(-ENOMEM);
 
-	mutex_init(&admin->lock);
+	admin->vctrl = ctrl;
 	INIT_LIST_HEAD(&admin->list);
 	INIT_LIST_HEAD(&admin->rules);
 	INIT_LIST_HEAD(&admin->enabled);
@@ -721,6 +720,7 @@ int lan966x_vcap_init(struct lan966x *lan966x)
 	ctrl->ops = &lan966x_vcap_ops;
 
 	INIT_LIST_HEAD(&ctrl->list);
+	mutex_init(&ctrl->lock);
 	for (int i = 0; i < ARRAY_SIZE(lan966x_vcap_inst_cfg); ++i) {
 		cfg = &lan966x_vcap_inst_cfg[i];
 
@@ -780,5 +780,6 @@ void lan966x_vcap_deinit(struct lan966x *lan966x)
 		lan966x_vcap_admin_free(admin);
 	}
 
+	mutex_destroy(&ctrl->lock);
 	kfree(ctrl);
 }

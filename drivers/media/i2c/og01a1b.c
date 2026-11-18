@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (c) 2022 Intel Corporation.
 
-#include <linux/unaligned.h>
 #include <linux/acpi.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -10,6 +9,8 @@
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/unaligned.h>
+
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-fwnode.h>
@@ -421,6 +422,7 @@ static const struct og01a1b_mode supported_modes[] = {
 };
 
 struct og01a1b {
+	struct device *dev;
 	struct clk *xvclk;
 	struct gpio_desc *reset_gpio;
 	struct regulator *avdd;
@@ -440,9 +442,6 @@ struct og01a1b {
 
 	/* Current mode */
 	const struct og01a1b_mode *cur_mode;
-
-	/* To serialize asynchronus callbacks */
-	struct mutex mutex;
 };
 
 static u64 to_pixel_rate(u32 f_index)
@@ -512,7 +511,6 @@ static int og01a1b_write_reg(struct og01a1b *og01a1b, u16 reg, u16 len, u32 val)
 static int og01a1b_write_reg_list(struct og01a1b *og01a1b,
 				  const struct og01a1b_reg_list *r_list)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
 	unsigned int i;
 	int ret;
 
@@ -520,7 +518,7 @@ static int og01a1b_write_reg_list(struct og01a1b *og01a1b,
 		ret = og01a1b_write_reg(og01a1b, r_list->regs[i].address, 1,
 					r_list->regs[i].val);
 		if (ret) {
-			dev_err_ratelimited(&client->dev,
+			dev_err_ratelimited(og01a1b->dev,
 					    "failed to write reg 0x%4.4x. error = %d",
 					    r_list->regs[i].address, ret);
 			return ret;
@@ -544,7 +542,6 @@ static int og01a1b_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct og01a1b *og01a1b = container_of(ctrl->handler,
 					       struct og01a1b, ctrl_handler);
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
 	s64 exposure_max;
 	int ret = 0;
 
@@ -560,7 +557,7 @@ static int og01a1b_set_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 	/* V4L2 controls values will be applied only when power is already up */
-	if (!pm_runtime_get_if_in_use(&client->dev))
+	if (!pm_runtime_get_if_in_use(og01a1b->dev))
 		return 0;
 
 	switch (ctrl->id) {
@@ -596,7 +593,7 @@ static int og01a1b_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 
-	pm_runtime_put(&client->dev);
+	pm_runtime_put(og01a1b->dev);
 
 	return ret;
 }
@@ -616,7 +613,6 @@ static int og01a1b_init_controls(struct og01a1b *og01a1b)
 	if (ret)
 		return ret;
 
-	ctrl_hdlr->lock = &og01a1b->mutex;
 	og01a1b->link_freq = v4l2_ctrl_new_int_menu(ctrl_hdlr,
 						    &og01a1b_ctrl_ops,
 						    V4L2_CID_LINK_FREQ,
@@ -682,82 +678,70 @@ static void og01a1b_update_pad_format(const struct og01a1b_mode *mode,
 {
 	fmt->width = mode->width;
 	fmt->height = mode->height;
-	fmt->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	fmt->code = MEDIA_BUS_FMT_Y10_1X10;
 	fmt->field = V4L2_FIELD_NONE;
 }
 
-static int og01a1b_start_streaming(struct og01a1b *og01a1b)
+static int og01a1b_enable_streams(struct v4l2_subdev *sd,
+				  struct v4l2_subdev_state *state, u32 pad,
+				  u64 streams_mask)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
+	struct og01a1b *og01a1b = to_og01a1b(sd);
+	unsigned int link_freq_index = og01a1b->cur_mode->link_freq_index;
 	const struct og01a1b_reg_list *reg_list;
-	int link_freq_index, ret;
+	int ret;
 
-	link_freq_index = og01a1b->cur_mode->link_freq_index;
+	ret = pm_runtime_resume_and_get(og01a1b->dev);
+	if (ret)
+		return ret;
+
 	reg_list = &link_freq_configs[link_freq_index].reg_list;
-
 	ret = og01a1b_write_reg_list(og01a1b, reg_list);
 	if (ret) {
-		dev_err(&client->dev, "failed to set plls");
-		return ret;
+		dev_err(og01a1b->dev, "failed to set plls: %d\n", ret);
+		goto error;
 	}
 
 	reg_list = &og01a1b->cur_mode->reg_list;
 	ret = og01a1b_write_reg_list(og01a1b, reg_list);
 	if (ret) {
-		dev_err(&client->dev, "failed to set mode");
-		return ret;
+		dev_err(og01a1b->dev, "failed to set mode: %d\n", ret);
+		goto error;
 	}
 
 	ret = __v4l2_ctrl_handler_setup(og01a1b->sd.ctrl_handler);
 	if (ret)
-		return ret;
+		goto error;
 
 	ret = og01a1b_write_reg(og01a1b, OG01A1B_REG_MODE_SELECT,
 				OG01A1B_REG_VALUE_08BIT,
 				OG01A1B_MODE_STREAMING);
 	if (ret) {
-		dev_err(&client->dev, "failed to set stream");
-		return ret;
+		dev_err(og01a1b->dev, "failed to start streaming: %d\n", ret);
+		goto error;
 	}
 
 	return 0;
+
+error:
+	pm_runtime_put_autosuspend(og01a1b->dev);
+
+	return ret;
 }
 
-static void og01a1b_stop_streaming(struct og01a1b *og01a1b)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
-
-	if (og01a1b_write_reg(og01a1b, OG01A1B_REG_MODE_SELECT,
-			      OG01A1B_REG_VALUE_08BIT, OG01A1B_MODE_STANDBY))
-		dev_err(&client->dev, "failed to set stream");
-}
-
-static int og01a1b_set_stream(struct v4l2_subdev *sd, int enable)
+static int og01a1b_disable_streams(struct v4l2_subdev *sd,
+				   struct v4l2_subdev_state *state, u32 pad,
+				   u64 streams_mask)
 {
 	struct og01a1b *og01a1b = to_og01a1b(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
+	int ret;
 
-	mutex_lock(&og01a1b->mutex);
-	if (enable) {
-		ret = pm_runtime_resume_and_get(&client->dev);
-		if (ret) {
-			mutex_unlock(&og01a1b->mutex);
-			return ret;
-		}
+	ret = og01a1b_write_reg(og01a1b, OG01A1B_REG_MODE_SELECT,
+				OG01A1B_REG_VALUE_08BIT, OG01A1B_MODE_STANDBY);
+	if (ret)
+		dev_err(og01a1b->dev, "failed to stop streaming: %d\n", ret);
 
-		ret = og01a1b_start_streaming(og01a1b);
-		if (ret) {
-			enable = 0;
-			og01a1b_stop_streaming(og01a1b);
-			pm_runtime_put(&client->dev);
-		}
-	} else {
-		og01a1b_stop_streaming(og01a1b);
-		pm_runtime_put(&client->dev);
-	}
-
-	mutex_unlock(&og01a1b->mutex);
+	pm_runtime_put_autosuspend(og01a1b->dev);
 
 	return ret;
 }
@@ -775,7 +759,6 @@ static int og01a1b_set_format(struct v4l2_subdev *sd,
 				      height, fmt->format.width,
 				      fmt->format.height);
 
-	mutex_lock(&og01a1b->mutex);
 	og01a1b_update_pad_format(mode, &fmt->format);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		*v4l2_subdev_state_get_format(sd_state, fmt->pad) = fmt->format;
@@ -798,8 +781,6 @@ static int og01a1b_set_format(struct v4l2_subdev *sd,
 					 h_blank);
 	}
 
-	mutex_unlock(&og01a1b->mutex);
-
 	return 0;
 }
 
@@ -809,14 +790,11 @@ static int og01a1b_get_format(struct v4l2_subdev *sd,
 {
 	struct og01a1b *og01a1b = to_og01a1b(sd);
 
-	mutex_lock(&og01a1b->mutex);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
 		fmt->format = *v4l2_subdev_state_get_format(sd_state,
 							    fmt->pad);
 	else
 		og01a1b_update_pad_format(og01a1b->cur_mode, &fmt->format);
-
-	mutex_unlock(&og01a1b->mutex);
 
 	return 0;
 }
@@ -828,7 +806,7 @@ static int og01a1b_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index > 0)
 		return -EINVAL;
 
-	code->code = MEDIA_BUS_FMT_SGRBG10_1X10;
+	code->code = MEDIA_BUS_FMT_Y10_1X10;
 
 	return 0;
 }
@@ -840,7 +818,7 @@ static int og01a1b_enum_frame_size(struct v4l2_subdev *sd,
 	if (fse->index >= ARRAY_SIZE(supported_modes))
 		return -EINVAL;
 
-	if (fse->code != MEDIA_BUS_FMT_SGRBG10_1X10)
+	if (fse->code != MEDIA_BUS_FMT_Y10_1X10)
 		return -EINVAL;
 
 	fse->min_width = supported_modes[fse->index].width;
@@ -853,18 +831,14 @@ static int og01a1b_enum_frame_size(struct v4l2_subdev *sd,
 
 static int og01a1b_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	struct og01a1b *og01a1b = to_og01a1b(sd);
-
-	mutex_lock(&og01a1b->mutex);
 	og01a1b_update_pad_format(&supported_modes[0],
 				  v4l2_subdev_state_get_format(fh->state, 0));
-	mutex_unlock(&og01a1b->mutex);
 
 	return 0;
 }
 
 static const struct v4l2_subdev_video_ops og01a1b_video_ops = {
-	.s_stream = og01a1b_set_stream,
+	.s_stream = v4l2_subdev_s_stream_helper,
 };
 
 static const struct v4l2_subdev_pad_ops og01a1b_pad_ops = {
@@ -872,6 +846,8 @@ static const struct v4l2_subdev_pad_ops og01a1b_pad_ops = {
 	.get_fmt = og01a1b_get_format,
 	.enum_mbus_code = og01a1b_enum_mbus_code,
 	.enum_frame_size = og01a1b_enum_frame_size,
+	.enable_streams = og01a1b_enable_streams,
+	.disable_streams = og01a1b_disable_streams,
 };
 
 static const struct v4l2_subdev_ops og01a1b_subdev_ops = {
@@ -889,7 +865,6 @@ static const struct v4l2_subdev_internal_ops og01a1b_internal_ops = {
 
 static int og01a1b_identify_module(struct og01a1b *og01a1b)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
 	int ret;
 	u32 val;
 
@@ -899,7 +874,7 @@ static int og01a1b_identify_module(struct og01a1b *og01a1b)
 		return ret;
 
 	if (val != OG01A1B_CHIP_ID) {
-		dev_err(&client->dev, "chip id mismatch: %x!=%x",
+		dev_err(og01a1b->dev, "chip id mismatch: %x!=%x",
 			OG01A1B_CHIP_ID, val);
 		return -ENXIO;
 	}
@@ -909,8 +884,7 @@ static int og01a1b_identify_module(struct og01a1b *og01a1b)
 
 static int og01a1b_check_hwcfg(struct og01a1b *og01a1b)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(&og01a1b->sd);
-	struct device *dev = &client->dev;
+	struct device *dev = og01a1b->dev;
 	struct fwnode_handle *ep;
 	struct fwnode_handle *fwnode = dev_fwnode(dev);
 	struct v4l2_fwnode_endpoint bus_cfg = {
@@ -1064,10 +1038,15 @@ static void og01a1b_remove(struct i2c_client *client)
 	struct og01a1b *og01a1b = to_og01a1b(sd);
 
 	v4l2_async_unregister_subdev(sd);
+	v4l2_subdev_cleanup(&og01a1b->sd);
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
-	pm_runtime_disable(&client->dev);
-	mutex_destroy(&og01a1b->mutex);
+	pm_runtime_disable(og01a1b->dev);
+
+	if (!pm_runtime_status_suspended(og01a1b->dev)) {
+		og01a1b_power_off(og01a1b->dev);
+		pm_runtime_set_suspended(og01a1b->dev);
+	}
 }
 
 static int og01a1b_probe(struct i2c_client *client)
@@ -1079,34 +1058,36 @@ static int og01a1b_probe(struct i2c_client *client)
 	if (!og01a1b)
 		return -ENOMEM;
 
+	og01a1b->dev = &client->dev;
+
 	v4l2_i2c_subdev_init(&og01a1b->sd, client, &og01a1b_subdev_ops);
 
-	og01a1b->xvclk = devm_clk_get_optional(&client->dev, NULL);
+	og01a1b->xvclk = devm_clk_get_optional(og01a1b->dev, NULL);
 	if (IS_ERR(og01a1b->xvclk)) {
 		ret = PTR_ERR(og01a1b->xvclk);
-		dev_err(&client->dev, "failed to get xvclk clock: %d\n", ret);
+		dev_err(og01a1b->dev, "failed to get xvclk clock: %d\n", ret);
 		return ret;
 	}
 
 	ret = og01a1b_check_hwcfg(og01a1b);
 	if (ret) {
-		dev_err(&client->dev, "failed to check HW configuration: %d",
+		dev_err(og01a1b->dev, "failed to check HW configuration: %d",
 			ret);
 		return ret;
 	}
 
-	og01a1b->reset_gpio = devm_gpiod_get_optional(&client->dev, "reset",
+	og01a1b->reset_gpio = devm_gpiod_get_optional(og01a1b->dev, "reset",
 						      GPIOD_OUT_LOW);
 	if (IS_ERR(og01a1b->reset_gpio)) {
-		dev_err(&client->dev, "cannot get reset GPIO\n");
+		dev_err(og01a1b->dev, "cannot get reset GPIO\n");
 		return PTR_ERR(og01a1b->reset_gpio);
 	}
 
-	og01a1b->avdd = devm_regulator_get_optional(&client->dev, "avdd");
+	og01a1b->avdd = devm_regulator_get_optional(og01a1b->dev, "avdd");
 	if (IS_ERR(og01a1b->avdd)) {
 		ret = PTR_ERR(og01a1b->avdd);
 		if (ret != -ENODEV) {
-			dev_err_probe(&client->dev, ret,
+			dev_err_probe(og01a1b->dev, ret,
 				      "Failed to get 'avdd' regulator\n");
 			return ret;
 		}
@@ -1114,11 +1095,11 @@ static int og01a1b_probe(struct i2c_client *client)
 		og01a1b->avdd = NULL;
 	}
 
-	og01a1b->dovdd = devm_regulator_get_optional(&client->dev, "dovdd");
+	og01a1b->dovdd = devm_regulator_get_optional(og01a1b->dev, "dovdd");
 	if (IS_ERR(og01a1b->dovdd)) {
 		ret = PTR_ERR(og01a1b->dovdd);
 		if (ret != -ENODEV) {
-			dev_err_probe(&client->dev, ret,
+			dev_err_probe(og01a1b->dev, ret,
 				      "Failed to get 'dovdd' regulator\n");
 			return ret;
 		}
@@ -1126,11 +1107,11 @@ static int og01a1b_probe(struct i2c_client *client)
 		og01a1b->dovdd = NULL;
 	}
 
-	og01a1b->dvdd = devm_regulator_get_optional(&client->dev, "dvdd");
+	og01a1b->dvdd = devm_regulator_get_optional(og01a1b->dev, "dvdd");
 	if (IS_ERR(og01a1b->dvdd)) {
 		ret = PTR_ERR(og01a1b->dvdd);
 		if (ret != -ENODEV) {
-			dev_err_probe(&client->dev, ret,
+			dev_err_probe(og01a1b->dev, ret,
 				      "Failed to get 'dvdd' regulator\n");
 			return ret;
 		}
@@ -1139,24 +1120,24 @@ static int og01a1b_probe(struct i2c_client *client)
 	}
 
 	/* The sensor must be powered on to read the CHIP_ID register */
-	ret = og01a1b_power_on(&client->dev);
+	ret = og01a1b_power_on(og01a1b->dev);
 	if (ret)
 		return ret;
 
 	ret = og01a1b_identify_module(og01a1b);
 	if (ret) {
-		dev_err(&client->dev, "failed to find sensor: %d", ret);
+		dev_err(og01a1b->dev, "failed to find sensor: %d", ret);
 		goto power_off;
 	}
 
-	mutex_init(&og01a1b->mutex);
 	og01a1b->cur_mode = &supported_modes[0];
 	ret = og01a1b_init_controls(og01a1b);
 	if (ret) {
-		dev_err(&client->dev, "failed to init controls: %d", ret);
+		dev_err(og01a1b->dev, "failed to init controls: %d", ret);
 		goto probe_error_v4l2_ctrl_handler_free;
 	}
 
+	og01a1b->sd.state_lock = og01a1b->ctrl_handler.lock;
 	og01a1b->sd.internal_ops = &og01a1b_internal_ops;
 	og01a1b->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	og01a1b->sd.entity.ops = &og01a1b_subdev_entity_ops;
@@ -1164,33 +1145,42 @@ static int og01a1b_probe(struct i2c_client *client)
 	og01a1b->pad.flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&og01a1b->sd.entity, 1, &og01a1b->pad);
 	if (ret) {
-		dev_err(&client->dev, "failed to init entity pads: %d", ret);
+		dev_err(og01a1b->dev, "failed to init entity pads: %d", ret);
 		goto probe_error_v4l2_ctrl_handler_free;
+	}
+
+	ret = v4l2_subdev_init_finalize(&og01a1b->sd);
+	if (ret < 0) {
+		dev_err_probe(og01a1b->dev, ret,
+			      "failed to finalize subdevice init\n");
+		goto probe_error_media_entity_cleanup;
 	}
 
 	ret = v4l2_async_register_subdev_sensor(&og01a1b->sd);
 	if (ret < 0) {
-		dev_err(&client->dev, "failed to register V4L2 subdev: %d",
+		dev_err(og01a1b->dev, "failed to register V4L2 subdev: %d",
 			ret);
-		goto probe_error_media_entity_cleanup;
+		goto probe_error_v4l2_subdev_cleanup;
 	}
 
 	/* Enable runtime PM and turn off the device */
-	pm_runtime_set_active(&client->dev);
-	pm_runtime_enable(&client->dev);
-	pm_runtime_idle(&client->dev);
+	pm_runtime_set_active(og01a1b->dev);
+	pm_runtime_enable(og01a1b->dev);
+	pm_runtime_idle(og01a1b->dev);
 
 	return 0;
+
+probe_error_v4l2_subdev_cleanup:
+	v4l2_subdev_cleanup(&og01a1b->sd);
 
 probe_error_media_entity_cleanup:
 	media_entity_cleanup(&og01a1b->sd.entity);
 
 probe_error_v4l2_ctrl_handler_free:
 	v4l2_ctrl_handler_free(og01a1b->sd.ctrl_handler);
-	mutex_destroy(&og01a1b->mutex);
 
 power_off:
-	og01a1b_power_off(&client->dev);
+	og01a1b_power_off(og01a1b->dev);
 
 	return ret;
 }

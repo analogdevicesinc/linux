@@ -141,7 +141,6 @@ struct zpci_dev {
 	u8		has_resources	: 1;
 	u8		is_physfn	: 1;
 	u8		util_str_avail	: 1;
-	u8		irqs_registered	: 1;
 	u8		tid_avail	: 1;
 	u8		reserved	: 1;
 	unsigned int	devfn;		/* DEVFN part of the RID*/
@@ -216,6 +215,7 @@ extern struct airq_iv *zpci_aif_sbv;
 struct zpci_dev *zpci_create_device(u32 fid, u32 fh, enum zpci_state state);
 int zpci_add_device(struct zpci_dev *zdev);
 int zpci_enable_device(struct zpci_dev *);
+int zpci_reenable_device(struct zpci_dev *zdev);
 int zpci_disable_device(struct zpci_dev *);
 int zpci_scan_configured_device(struct zpci_dev *zdev, u32 fh);
 int zpci_deconfigure_device(struct zpci_dev *zdev);
@@ -244,6 +244,7 @@ void update_uid_checking(bool new);
 /* IOMMU Interface */
 int zpci_init_iommu(struct zpci_dev *zdev);
 void zpci_destroy_iommu(struct zpci_dev *zdev);
+int zpci_iommu_register_ioat(struct zpci_dev *zdev, u8 *status);
 
 #ifdef CONFIG_PCI
 static inline bool zpci_use_mio(struct zpci_dev *zdev)

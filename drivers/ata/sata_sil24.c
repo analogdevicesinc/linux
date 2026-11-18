@@ -394,10 +394,10 @@ static struct ata_port_operations sil24_ops = {
 
 	.freeze			= sil24_freeze,
 	.thaw			= sil24_thaw,
-	.softreset		= sil24_softreset,
-	.hardreset		= sil24_hardreset,
-	.pmp_softreset		= sil24_softreset,
-	.pmp_hardreset		= sil24_pmp_hardreset,
+	.reset.softreset	= sil24_softreset,
+	.reset.hardreset	= sil24_hardreset,
+	.pmp_reset.softreset	= sil24_softreset,
+	.pmp_reset.hardreset	= sil24_pmp_hardreset,
 	.error_handler		= sil24_error_handler,
 	.post_internal_cmd	= sil24_post_internal_cmd,
 	.dev_config		= sil24_dev_config,
@@ -790,6 +790,7 @@ static int sil24_qc_defer(struct ata_queued_cmd *qc)
 	struct ata_link *link = qc->dev->link;
 	struct ata_port *ap = link->ap;
 	u8 prot = qc->tf.protocol;
+	int ret;
 
 	/*
 	 * There is a bug in the chip:
@@ -827,7 +828,10 @@ static int sil24_qc_defer(struct ata_queued_cmd *qc)
 		qc->flags |= ATA_QCFLAG_CLEAR_EXCL;
 	}
 
-	return ata_std_qc_defer(qc);
+	ret = ata_std_qc_defer(qc);
+	if (ret == ATA_DEFER_LINK)
+		return ATA_DEFER_LINK_EXCL;
+	return ret;
 }
 
 static enum ata_completion_errors sil24_qc_prep(struct ata_queued_cmd *qc)

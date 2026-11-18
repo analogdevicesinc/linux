@@ -1,0 +1,42 @@
+kbuild: drop the Makefile.dtbs include moved by stable
+
+Stable commit 2c39c0b6de01 ("kbuild: fix compilation of dtb specified on
+command-line without make rule") moves the conditional include of
+scripts/Makefile.dtbs and the $(obj)/ build rule after the point where
+'targets' is final.
+
+rpi-6.12.y does not use scripts/Makefile.dtbs: the device tree rules are
+still provided by scripts/Makefile.lib, and Makefile.build keeps its own
+$(obj)/ build rule. The moved hunk merges without conflict and re-adds the
+include and a second $(obj)/ rule. Its condition expands $(dtb-), which
+Makefile.lib defines as 'dtb-$(CONFIG_OF_ALL_DTBS) += $(dtb-)', so before
+the configuration exists (e.g. 'make olddefconfig') make fails with:
+
+  scripts/Makefile.lib:85: *** Recursive variable 'dtb-' references itself (eventually).  Stop.
+
+The issue the stable commit fixes does not apply to rpi-6.12.y, so drop
+the moved block.
+
+--- a/scripts/Makefile.build
++++ b/scripts/Makefile.build
+@@ -497,20 +497,6 @@
+ targets += $(filter-out $(single-subdir-goals), $(MAKECMDGOALS))
+ targets := $(filter-out $(PHONY), $(targets))
+ 
+-# Now that targets is fully known, include dtb rules if needed
+-ifneq ($(need-dtbslist)$(dtb-y)$(dtb-)$(filter %.dtb %.dtb.o %.dtbo.o,$(targets)),)
+-include $(srctree)/scripts/Makefile.dtbs
+-endif
+-
+-# Build
+-# Needs to be after the include of Makefile.dtbs, which updates always-y
+-# ---------------------------------------------------------------------------
+-
+-$(obj)/: $(if $(KBUILD_BUILTIN), $(targets-for-builtin)) \
+-	 $(if $(KBUILD_MODULES), $(targets-for-modules)) \
+-	 $(subdir-ym) $(always-y)
+-	@:
+-
+ # Read all saved command lines and dependencies for the $(targets) we
+ # may be building above, using $(if_changed{,_dep}). As an
+ # optimization, we don't need to read them if the target does not

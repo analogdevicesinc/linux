@@ -49,7 +49,7 @@ ktime_t do_timens_ktime_to_host(clockid_t clockid, ktime_t tim,
 		tim = 0;
 	} else {
 		tim = ktime_sub(tim, offset);
-		if (unlikely(tim > KTIME_MAX))
+		if (unlikely(tim < 0))
 			tim = KTIME_MAX;
 	}
 
@@ -406,6 +406,11 @@ int proc_timens_set_offset(struct file *file, struct task_struct *p,
 			ktime_get_boottime_ts64(&tp);
 			break;
 		default:
+			err = -EINVAL;
+			goto out;
+		}
+
+		if (off->val.tv_nsec < 0 || off->val.tv_nsec >= NSEC_PER_SEC) {
 			err = -EINVAL;
 			goto out;
 		}

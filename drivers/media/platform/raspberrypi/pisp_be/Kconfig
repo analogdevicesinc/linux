@@ -4,6 +4,7 @@ config VIDEO_RASPBERRYPI_PISP_BE
 	depends on VIDEO_DEV
 	depends on PM
 	depends on ARCH_BCM2835 || COMPILE_TEST
+	depends on PM
 	select VIDEO_V4L2_SUBDEV_API
 	select MEDIA_CONTROLLER
 	select VIDEOBUF2_DMA_CONTIG

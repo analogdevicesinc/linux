@@ -412,6 +412,11 @@ pti_clone_pgtable(unsigned long start, unsigned long end,
 			BUG();
 		}
 	}
+
+	if (cpu_feature_enabled(X86_FEATURE_FRED)) {
+		pr_debug("PTI enabled, disabling FRED\n");
+		setup_clear_cpu_cap(X86_FEATURE_FRED);
+	}
 }
 
 #ifdef CONFIG_X86_64

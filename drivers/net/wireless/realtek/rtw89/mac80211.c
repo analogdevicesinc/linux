@@ -36,7 +36,7 @@ static void rtw89_ops_tx(struct ieee80211_hw *hw,
 		return;
 	}
 
-	ret = rtw89_core_tx_write(rtwdev, vif, sta, skb, &qsel);
+	ret = rtw89_core_tx_write(rtwdev, vif, sta, skb, &qsel, NULL);
 	if (ret) {
 		rtw89_err(rtwdev, "failed to transmit skb: %d\n", ret);
 		ieee80211_free_txskb(hw, skb);
@@ -1550,7 +1550,8 @@ static void rtw89_ops_rfkill_poll(struct ieee80211_hw *hw)
 	mutex_lock(&rtwdev->mutex);
 
 	/* wl_disable GPIO get floating when entering LPS */
-	if (test_bit(RTW89_FLAG_RUNNING, rtwdev->flags))
+	if (test_bit(RTW89_FLAG_RUNNING, rtwdev->flags) ||
+	    test_bit(RTW89_FLAG_SHUTDOWN, rtwdev->flags))
 		goto out;
 
 	rtw89_core_rfkill_poll(rtwdev, false);

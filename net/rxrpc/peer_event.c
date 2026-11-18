@@ -205,23 +205,38 @@ static void rxrpc_distribute_error(struct rxrpc_peer *peer, struct sk_buff *skb,
 	struct rxrpc_call *call;
 	HLIST_HEAD(error_targets);
 
-	spin_lock(&peer->lock);
+	spin_lock_irq(&peer->lock);
 	hlist_move_list(&peer->error_targets, &error_targets);
 
 	while (!hlist_empty(&error_targets)) {
 		call = hlist_entry(error_targets.first,
 				   struct rxrpc_call, error_link);
 		hlist_del_init(&call->error_link);
-		spin_unlock(&peer->lock);
+		spin_unlock_irq(&peer->lock);
 
 		rxrpc_see_call(call, rxrpc_call_see_distribute_error);
 		rxrpc_set_call_completion(call, compl, 0, -err);
-		rxrpc_input_call_event(call, skb);
+		rxrpc_input_call_event(call);
 
-		spin_lock(&peer->lock);
+		spin_lock_irq(&peer->lock);
 	}
 
-	spin_unlock(&peer->lock);
+	spin_unlock_irq(&peer->lock);
+}
+
+/*
+ * Reconstruct the last transmission time.  The difference calculated should be
+ * valid provided no more than ~68 years elapsed since the last transmission.
+ */
+static time64_t rxrpc_peer_get_tx_mark(const struct rxrpc_peer *peer, time64_t base)
+{
+	s32 last_tx_at = READ_ONCE(peer->last_tx_at);
+	s32 base_lsw = base;
+	s32 diff = last_tx_at - base_lsw;
+
+	diff = clamp(diff, -RXRPC_KEEPALIVE_TIME, RXRPC_KEEPALIVE_TIME);
+
+	return diff + base;
 }
 
 /*
@@ -252,7 +267,7 @@ static void rxrpc_peer_keepalive_dispatch(struct rxrpc_net *rxnet,
 		spin_unlock_bh(&rxnet->peer_hash_lock);
 
 		if (use) {
-			keepalive_at = peer->last_tx_at + RXRPC_KEEPALIVE_TIME;
+			keepalive_at = rxrpc_peer_get_tx_mark(peer, base) + RXRPC_KEEPALIVE_TIME;
 			slot = keepalive_at - base;
 			_debug("%02x peer %u t=%d {%pISp}",
 			       cursor, peer->debug_id, slot, &peer->srx.transport);

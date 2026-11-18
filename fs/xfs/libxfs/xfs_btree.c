@@ -300,7 +300,7 @@ xfs_btree_check_block(
 
 	fa = __xfs_btree_check_block(cur, block, level, bp);
 	if (XFS_IS_CORRUPT(mp, fa != NULL) ||
-	    XFS_TEST_ERROR(false, mp, xfs_btree_block_errtag(cur))) {
+	    XFS_TEST_ERROR(mp, xfs_btree_block_errtag(cur))) {
 		if (bp)
 			trace_xfs_btree_corrupt(bp, _RET_IP_);
 		xfs_btree_mark_sick(cur);
@@ -2568,7 +2568,7 @@ xfs_btree_lshift(
 		if (XFS_IS_CORRUPT(tcur->bc_mp, i != 1)) {
 			xfs_btree_mark_sick(cur);
 			error = -EFSCORRUPTED;
-			goto error0;
+			goto error1;
 		}
 
 		error = xfs_btree_decrement(tcur, level, &i);
@@ -2738,7 +2738,7 @@ xfs_btree_rshift(
 	if (XFS_IS_CORRUPT(tcur->bc_mp, i != 1)) {
 		xfs_btree_mark_sick(cur);
 		error = -EFSCORRUPTED;
-		goto error0;
+		goto error1;
 	}
 
 	error = xfs_btree_increment(tcur, level, &i);

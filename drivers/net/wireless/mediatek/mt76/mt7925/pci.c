@@ -410,10 +410,12 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
 
 	ret = mt7925_register_device(dev);
 	if (ret)
-		goto err_free_irq;
+		goto err_free_dma;
 
 	return 0;
 
+err_free_dma:
+	mt792x_dma_cleanup(dev);
 err_free_irq:
 	devm_free_irq(&pdev->dev, pdev->irq, dev);
 err_free_dev:
@@ -442,9 +444,10 @@ static int mt7925_pci_suspend(struct device *device)
 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct mt76_connac_pm *pm = &dev->pm;
-	int i, err;
+	int i, err, ret;
 
 	pm->suspended = true;
+	dev->hif_resumed = false;
 	flush_work(&dev->reset_work);
 	cancel_delayed_work_sync(&pm->ps_work);
 	cancel_work_sync(&pm->wake_work);
@@ -455,14 +458,21 @@ static int mt7925_pci_suspend(struct device *device)
 	if (err < 0)
 		goto restore_suspend;
 
+	wait_event_timeout(dev->wait,
+			   !dev->regd_in_progress, 5 * HZ);
+
 	/* always enable deep sleep during suspend to reduce
 	 * power consumption
 	 */
 	mt7925_mcu_set_deep_sleep(dev, true);
 
-	err = mt76_connac_mcu_set_hif_suspend(mdev, true);
-	if (err)
+	mt76_connac_mcu_set_hif_suspend(mdev, true, false);
+	ret = wait_event_timeout(dev->wait,
+				 dev->hif_idle, 3 * HZ);
+	if (!ret) {
+		err = -ETIMEDOUT;
 		goto restore_suspend;
+	}
 
 	napi_disable(&mdev->tx_napi);
 	mt76_worker_disable(&mdev->tx_worker);
@@ -503,8 +513,11 @@ restore_napi:
 	if (!pm->ds_enable)
 		mt7925_mcu_set_deep_sleep(dev, false);
 
-	mt76_connac_mcu_set_hif_suspend(mdev, false);
-
+	mt76_connac_mcu_set_hif_suspend(mdev, false, false);
+	ret = wait_event_timeout(dev->wait,
+				 dev->hif_resumed, 3 * HZ);
+	if (!ret)
+		err = -ETIMEDOUT;
 restore_suspend:
 	pm->suspended = false;
 
@@ -520,8 +533,9 @@ static int mt7925_pci_resume(struct device *device)
 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
 	struct mt76_connac_pm *pm = &dev->pm;
-	int i, err;
+	int i, err, ret;
 
+	dev->hif_idle = false;
 	err = mt792x_mcu_drv_pmctrl(dev);
 	if (err < 0)
 		goto failed;
@@ -550,12 +564,19 @@ static int mt7925_pci_resume(struct device *device)
 	napi_schedule(&mdev->tx_napi);
 	local_bh_enable();
 
-	err = mt76_connac_mcu_set_hif_suspend(mdev, false);
+	mt76_connac_mcu_set_hif_suspend(mdev, false, false);
+	ret = wait_event_timeout(dev->wait,
+				 dev->hif_resumed, 3 * HZ);
+	if (!ret) {
+		err = -ETIMEDOUT;
+		goto failed;
+	}
 
 	/* restore previous ds setting */
 	if (!pm->ds_enable)
 		mt7925_mcu_set_deep_sleep(dev, false);
 
+	mt7925_regd_update(dev);
 failed:
 	pm->suspended = false;
 

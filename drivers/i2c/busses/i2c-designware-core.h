@@ -80,6 +80,7 @@
 #define DW_IC_CLR_RESTART_DET			0xa8
 #define DW_IC_SCL_STUCK_AT_LOW_TIMEOUT		0xac
 #define DW_IC_SDA_STUCK_AT_LOW_TIMEOUT		0xb0
+#define DW_IC_SMBUS_INTR_MASK			0xcc
 #define DW_IC_COMP_PARAM_1			0xf4
 #define DW_IC_COMP_VERSION			0xf8
 #define DW_IC_SDA_HOLD_MIN_VERS			0x3131312A /* "111*" == v1.11* */

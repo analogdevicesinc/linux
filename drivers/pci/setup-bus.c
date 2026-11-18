@@ -2297,17 +2297,15 @@ enable_all:
 }
 EXPORT_SYMBOL_GPL(pci_assign_unassigned_bridge_resources);
 
-int pci_reassign_bridge_resources(struct pci_dev *bridge, unsigned long type)
+static int pci_reassign_bridge_resources(struct pci_dev *bridge, unsigned long type,
+					 struct list_head *saved)
 {
 	struct pci_dev_resource *dev_res;
 	struct pci_dev *next;
-	LIST_HEAD(saved);
 	LIST_HEAD(added);
 	LIST_HEAD(failed);
 	unsigned int i;
 	int ret;
-
-	down_read(&pci_bus_sem);
 
 	/* Walk to the root hub, releasing bridge BARs when possible */
 	next = bridge;
@@ -2325,9 +2323,9 @@ int pci_reassign_bridge_resources(struct pci_dev *bridge, unsigned long type)
 			if (res->child)
 				continue;
 
-			ret = add_to_list(&saved, bridge, res, 0, 0);
+			ret = add_to_list(saved, bridge, res, 0, 0);
 			if (ret)
-				goto cleanup;
+				return ret;
 
 			pci_info(bridge, "%s %pR: releasing\n", res_name, res);
 
@@ -2343,62 +2341,144 @@ int pci_reassign_bridge_resources(struct pci_dev *bridge, unsigned long type)
 		next = bridge->bus ? bridge->bus->self : NULL;
 	} while (next);
 
-	if (list_empty(&saved)) {
-		up_read(&pci_bus_sem);
+	if (list_empty(saved))
 		return -ENOENT;
-	}
 
 	__pci_bus_size_bridges(bridge->subordinate, &added);
 	__pci_bridge_assign_resources(bridge, &added, &failed);
 	BUG_ON(!list_empty(&added));
 
 	if (!list_empty(&failed)) {
-		ret = -ENOSPC;
-		goto cleanup;
+		free_list(&failed);
+		return -ENOSPC;
 	}
 
-	list_for_each_entry(dev_res, &saved, list) {
+	list_for_each_entry(dev_res, saved, list) {
 		/* Skip the bridge we just assigned resources for */
 		if (bridge == dev_res->dev)
+			continue;
+
+		if (!dev_res->dev->subordinate)
 			continue;
 
 		bridge = dev_res->dev;
 		pci_setup_bridge(bridge->subordinate);
 	}
 
-	free_list(&saved);
-	up_read(&pci_bus_sem);
 	return 0;
+}
 
-cleanup:
-	/* Restore size and flags */
-	list_for_each_entry(dev_res, &failed, list) {
-		struct resource *res = dev_res->res;
+/* Keep the resize follow-up compatible with the 6.12 resource helpers. */
+#define pbus_reassign_bridge_resources(bus, res, saved) \
+	pci_reassign_bridge_resources((bus)->self, (res)->flags, (saved))
+#define resource_assigned(res) ((res)->parent != NULL)
 
-		res->start = dev_res->start;
-		res->end = dev_res->end;
-		res->flags = dev_res->flags;
+int pci_do_resource_release_and_resize(struct pci_dev *pdev, int resno, int size,
+				       int exclude_bars)
+{
+	struct resource *res = pdev->resource + resno;
+	unsigned long flags = res->flags;
+	struct pci_dev_resource *dev_res;
+	struct pci_bus *bus = pdev->bus;
+	struct pci_dev *bridge = pci_upstream_bridge(pdev);
+	struct resource *b_win, *r;
+	LIST_HEAD(saved);
+	unsigned int i;
+	int old, ret;
+
+	b_win = res->parent;
+
+	old = pci_rebar_get_current_size(pdev, resno);
+	if (old < 0)
+		return old;
+
+	ret = pci_rebar_set_size(pdev, resno, size);
+	if (ret)
+		return ret;
+
+	down_read(&pci_bus_sem);
+
+	pci_dev_for_each_resource(pdev, r, i) {
+		if (i >= PCI_BRIDGE_RESOURCES)
+			break;
+
+		if (exclude_bars & BIT(i))
+			continue;
+
+		if (!pci_resource_len(pdev, i))
+			continue;
+
+		if (b_win ? r->parent != b_win : r->flags != flags)
+			continue;
+
+		ret = add_to_list(&saved, pdev, r, 0, 0);
+		if (ret)
+			goto restore;
+		pci_release_resource(pdev, i);
 	}
-	free_list(&failed);
 
-	/* Revert to the old configuration */
+	res->end = res->start + pci_rebar_size_to_bytes(size) - 1;
+
+	if (bridge) {
+		ret = pbus_reassign_bridge_resources(bus, res, &saved);
+		if (ret)
+			goto restore;
+	} else {
+		/* No bridge window to adjust; let the core reassign the bus. */
+		pci_bus_assign_resources(bus);
+
+		list_for_each_entry(dev_res, &saved, list) {
+			if (!resource_assigned(dev_res->res)) {
+				ret = -ENOSPC;
+				goto restore;
+			}
+		}
+	}
+
+out:
+	up_read(&pci_bus_sem);
+	free_list(&saved);
+	return ret;
+
+restore:
+	/*
+	 * Revert to the old configuration.
+	 *
+	 * BAR Size must be restored first because it affects the read-only
+	 * bits in BAR (the old address might not be restorable otherwise
+	 * due to low address bits).
+	 */
+	pci_rebar_set_size(pdev, resno, old);
+
 	list_for_each_entry(dev_res, &saved, list) {
 		struct resource *res = dev_res->res;
+		struct pci_dev *dev = dev_res->dev;
 
-		bridge = dev_res->dev;
-		i = res - bridge->resource;
+		i = res - dev->resource;
+
+		if (resource_assigned(res)) {
+			release_child_resources(res);
+			pci_release_resource(dev, i);
+		}
 
 		res->start = dev_res->start;
 		res->end = dev_res->end;
 		res->flags = dev_res->flags;
 
-		pci_claim_resource(bridge, i);
-		pci_setup_bridge(bridge->subordinate);
-	}
-	free_list(&saved);
-	up_read(&pci_bus_sem);
+		if (pci_claim_resource(dev, i))
+			continue;
 
-	return ret;
+		if (i < PCI_BRIDGE_RESOURCES) {
+			const char *res_name = pci_resource_name(dev, i);
+
+			pci_update_resource(dev, i);
+			pci_info(dev, "%s %pR: old value restored\n",
+				 res_name, res);
+		}
+		if (dev->subordinate)
+			pci_setup_bridge(dev->subordinate);
+	}
+	goto out;
 }
 
 void pci_assign_unassigned_bus_resources(struct pci_bus *bus)

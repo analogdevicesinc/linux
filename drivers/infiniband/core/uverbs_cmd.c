@@ -46,6 +46,7 @@
 
 #include "uverbs.h"
 #include "core_priv.h"
+#include "restrack.h"
 
 /*
  * Copy a response to userspace. If the provided 'resp' is larger than the
@@ -813,6 +814,10 @@ static int ib_uverbs_rereg_mr(struct uverbs_attr_bundle *attrs)
 			ret = PTR_ERR(new_pd);
 			goto put_uobjs;
 		}
+		if (new_pd == orig_pd) {
+			uobj_put_obj_read(new_pd);
+			cmd.flags &= ~IB_MR_REREG_PD;
+		}
 	} else {
 		new_pd = mr->pd;
 	}
@@ -858,9 +863,10 @@ static int ib_uverbs_rereg_mr(struct uverbs_attr_bundle *attrs)
 		mr = new_mr;
 	} else {
 		if (cmd.flags & IB_MR_REREG_PD) {
-			atomic_dec(&orig_pd->usecnt);
-			mr->pd = new_pd;
 			atomic_inc(&new_pd->usecnt);
+			WRITE_ONCE(mr->pd, new_pd);
+			rdma_restrack_sync(&mr->res);
+			atomic_dec(&orig_pd->usecnt);
 		}
 		if (cmd.flags & IB_MR_REREG_TRANS) {
 			mr->iova = cmd.hca_va;
@@ -2031,7 +2037,10 @@ static int ib_uverbs_post_send(struct uverbs_attr_bundle *attrs)
 	if (ret)
 		return ret;
 
-	user_wr = kmalloc(cmd.wqe_size, GFP_KERNEL);
+	if (cmd.wqe_size < sizeof(struct ib_uverbs_send_wr))
+		return -EINVAL;
+
+	user_wr = kmalloc(cmd.wqe_size, GFP_KERNEL | __GFP_NOWARN);
 	if (!user_wr)
 		return -ENOMEM;
 
@@ -2221,7 +2230,7 @@ ib_uverbs_unmarshall_recv(struct uverbs_req_iter *iter, u32 wr_count,
 	if (ret)
 		return ERR_PTR(ret);
 
-	user_wr = kmalloc(wqe_size, GFP_KERNEL);
+	user_wr = kmalloc(wqe_size, GFP_KERNEL | __GFP_NOWARN);
 	if (!user_wr)
 		return ERR_PTR(-ENOMEM);
 

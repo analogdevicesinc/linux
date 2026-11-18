@@ -1,0 +1,27 @@
+media: i2c: ov5647: pass dev to ov5647_init_controls()
+
+Stable commit 2dedda97a64e ("media: i2c: ov5647: Initialize subdev before
+controls") moves the ov5647_init_controls() call in ov5647_probe() after
+v4l2_i2c_subdev_init(), so ov5647_init_controls() can use the subdev data.
+
+In rpi-6.12.y, ov5647_init_controls() takes an additional struct device
+argument, used to parse the fwnode properties of the sensor. The conflict
+resolution drops the old call site, but the moved call merges without
+conflict using the upstream single-argument signature, which fails to
+build:
+
+  error: too few arguments to function 'ov5647_init_controls'
+
+Pass dev to the moved call, as the rpi-6.12.y call did.
+
+--- a/drivers/media/i2c/ov5647.c
++++ b/drivers/media/i2c/ov5647.c
+@@ -1425,7 +1425,7 @@
+ 	sd->internal_ops = &ov5647_subdev_internal_ops;
+ 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
+ 
+-	ret = ov5647_init_controls(sensor);
++	ret = ov5647_init_controls(sensor, dev);
+ 	if (ret)
+ 		goto mutex_destroy;
+ 

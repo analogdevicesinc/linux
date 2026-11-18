@@ -47,10 +47,12 @@
 	EM(netfs_trace_tcon_ref_get_cached_laundromat,	"GET Ch-Lau") \
 	EM(netfs_trace_tcon_ref_get_cached_lease_break,	"GET Ch-Lea") \
 	EM(netfs_trace_tcon_ref_get_cancelled_close,	"GET Cn-Cls") \
+	EM(netfs_trace_tcon_ref_get_close_defer_files,	"GET Cl-Def") \
 	EM(netfs_trace_tcon_ref_get_dfs_refer,		"GET DfsRef") \
 	EM(netfs_trace_tcon_ref_get_find,		"GET Find  ") \
 	EM(netfs_trace_tcon_ref_get_find_sess_tcon,	"GET FndSes") \
 	EM(netfs_trace_tcon_ref_get_reconnect_server,	"GET Reconn") \
+	EM(netfs_trace_tcon_ref_get_swn_notify,		"GET SwnNot") \
 	EM(netfs_trace_tcon_ref_new,			"NEW       ") \
 	EM(netfs_trace_tcon_ref_new_ipc,		"NEW Ipc   ") \
 	EM(netfs_trace_tcon_ref_new_reconnect_server,	"NEW Reconn") \
@@ -58,8 +60,11 @@
 	EM(netfs_trace_tcon_ref_put_cancelled_close,	"PUT Cn-Cls") \
 	EM(netfs_trace_tcon_ref_put_cancelled_close_fid, "PUT Cn-Fid") \
 	EM(netfs_trace_tcon_ref_put_cancelled_mid,	"PUT Cn-Mid") \
+	EM(netfs_trace_tcon_ref_put_close_defer_files,	"PUT Cl-Def") \
 	EM(netfs_trace_tcon_ref_put_mnt_ctx,		"PUT MntCtx") \
+	EM(netfs_trace_tcon_ref_put_dfs_refer,		"PUT DfsRfr") \
 	EM(netfs_trace_tcon_ref_put_reconnect_server,	"PUT Reconn") \
+	EM(netfs_trace_tcon_ref_put_swn_notify,		"PUT SwnNot") \
 	EM(netfs_trace_tcon_ref_put_tlink,		"PUT Tlink ") \
 	EM(netfs_trace_tcon_ref_see_cancelled_close,	"SEE Cn-Cls") \
 	EM(netfs_trace_tcon_ref_see_fscache_collision,	"SEE FV-CO!") \
@@ -266,7 +271,7 @@ DEFINE_EVENT(smb3_copy_range_err_class, smb3_##name, \
 	TP_ARGS(xid, src_fid, target_fid, tid, sesid, src_offset, target_offset, len, rc))
 
 DEFINE_SMB3_COPY_RANGE_ERR_EVENT(clone_err);
-/* TODO: Add SMB3_COPY_RANGE_ERR_EVENT(copychunk_err) */
+DEFINE_SMB3_COPY_RANGE_ERR_EVENT(copychunk_err);
 
 DECLARE_EVENT_CLASS(smb3_copy_range_done_class,
 	TP_PROTO(unsigned int xid,
@@ -1098,8 +1103,9 @@ DECLARE_EVENT_CLASS(smb3_open_done_class,
 		__u32	tid,
 		__u64	sesid,
 		int	create_options,
-		int	desired_access),
-	TP_ARGS(xid, fid, tid, sesid, create_options, desired_access),
+		int	desired_access,
+		__u8	oplock),
+	TP_ARGS(xid, fid, tid, sesid, create_options, desired_access, oplock),
 	TP_STRUCT__entry(
 		__field(unsigned int, xid)
 		__field(__u64, fid)
@@ -1107,6 +1113,7 @@ DECLARE_EVENT_CLASS(smb3_open_done_class,
 		__field(__u64, sesid)
 		__field(int, create_options)
 		__field(int, desired_access)
+		__field(__u8, oplock)
 	),
 	TP_fast_assign(
 		__entry->xid = xid;
@@ -1115,10 +1122,11 @@ DECLARE_EVENT_CLASS(smb3_open_done_class,
 		__entry->sesid = sesid;
 		__entry->create_options = create_options;
 		__entry->desired_access = desired_access;
+		__entry->oplock = oplock;
 	),
-	TP_printk("xid=%u sid=0x%llx tid=0x%x fid=0x%llx cr_opts=0x%x des_access=0x%x",
+	TP_printk("xid=%u sid=0x%llx tid=0x%x fid=0x%llx cr_opts=0x%x des_access=0x%x oplock=0x%x",
 		__entry->xid, __entry->sesid, __entry->tid, __entry->fid,
-		__entry->create_options, __entry->desired_access)
+		__entry->create_options, __entry->desired_access, __entry->oplock)
 )
 
 #define DEFINE_SMB3_OPEN_DONE_EVENT(name)        \
@@ -1128,8 +1136,9 @@ DEFINE_EVENT(smb3_open_done_class, smb3_##name,  \
 		__u32	tid,			\
 		__u64	sesid,			\
 		int	create_options,		\
-		int	desired_access),	\
-	TP_ARGS(xid, fid, tid, sesid, create_options, desired_access))
+		int	desired_access,		\
+		__u8	oplock),		\
+	TP_ARGS(xid, fid, tid, sesid, create_options, desired_access, oplock))
 
 DEFINE_SMB3_OPEN_DONE_EVENT(open_done);
 DEFINE_SMB3_OPEN_DONE_EVENT(posix_mkdir_done);

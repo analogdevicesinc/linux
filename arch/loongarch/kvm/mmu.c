@@ -95,7 +95,7 @@ static int kvm_flush_pte(kvm_pte_t *pte, phys_addr_t addr, kvm_ptw_ctx *ctx)
 	else
 		kvm->stat.pages--;
 
-	*pte = ctx->invalid_entry;
+	kvm_set_pte(pte, ctx->invalid_entry);
 
 	return 1;
 }
@@ -382,6 +382,16 @@ int kvm_arch_prepare_memory_region(struct kvm *kvm, const struct kvm_memory_slot
 	gpa_t gpa_start;
 	hva_t hva_start;
 	size_t size, gpa_offset, hva_offset;
+
+	/*
+	 * The generic code allocates a fresh, zeroed memslot for every change,
+	 * so the arch flags computed below must be carried over when only the
+	 * userspace flags change, e.g. when dirty logging is toggled.
+	 */
+	if (change == KVM_MR_FLAGS_ONLY) {
+		new->arch = old->arch;
+		return 0;
+	}
 
 	if ((change != KVM_MR_MOVE) && (change != KVM_MR_CREATE))
 		return 0;

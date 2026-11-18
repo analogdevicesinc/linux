@@ -3,6 +3,7 @@
 #define _LINUX_PANIC_H
 
 #include <linux/compiler_attributes.h>
+#include <linux/stdarg.h>
 #include <linux/types.h>
 
 struct pt_regs;
@@ -10,7 +11,10 @@ struct pt_regs;
 extern long (*panic_blink)(int state);
 __printf(1, 2)
 void panic(const char *fmt, ...) __noreturn __cold;
-void nmi_panic(struct pt_regs *regs, const char *msg);
+__printf(1, 0)
+void vpanic(const char *fmt, va_list args) __noreturn __cold;
+__printf(2, 3)
+void nmi_panic(struct pt_regs *regs, const char *fmt, ...);
 void check_panic_on_warn(const char *origin);
 extern void oops_enter(void);
 extern void oops_exit(void);
@@ -43,6 +47,12 @@ void abort(void);
  */
 extern atomic_t panic_cpu;
 #define PANIC_CPU_INVALID	-1
+
+bool panic_try_start(void);
+void panic_reset(void);
+bool panic_in_progress(void);
+bool panic_on_this_cpu(void);
+bool panic_on_other_cpu(void);
 
 /*
  * Only to be used by arch init code. If the user over-wrote the default

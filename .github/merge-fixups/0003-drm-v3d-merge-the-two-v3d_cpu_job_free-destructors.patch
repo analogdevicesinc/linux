@@ -1,0 +1,50 @@
+drm/v3d: merge the two v3d_cpu_job_free() destructors
+
+Stable commit acd55ea40d03 ("drm/v3d: Fix use-after-free of CPU job query
+arrays on error path") adds a v3d_cpu_job_free() kref destructor to
+v3d_submit.c, which frees the timestamp and performance query arrays (and,
+with c41ca6b0a0ac, the indirect CSD BO reference) and then calls
+v3d_job_free().
+
+rpi-6.12.y commit 2d693f4d08ff ("drm/v3d: CPU job submissions shouldn't
+affect V3D GPU clock") already has a v3d_cpu_job_free() kref destructor,
+which calls v3d_job_free_common(job, false) so that CPU jobs do not drop a
+V3D clock reference they never took. Both merge without conflict, and the
+build fails with:
+
+  drivers/gpu/drm/v3d/v3d_submit.c:184:1: error: redefinition of 'v3d_cpu_job_free'
+
+Keep the stable destructor and end it with
+v3d_job_free_common(&job->base, false) instead of v3d_job_free(), so the
+CPU job keeps skipping v3d_clock_up_put(), matching v3d_job_init() which
+skips v3d_clock_up_get() for V3D_CPU.
+
+
+diff --git a/drivers/gpu/drm/v3d/v3d_submit.c b/drivers/gpu/drm/v3d/v3d_submit.c
+index 687a4a8ed90b..b772c21b7e34 100644
+--- a/drivers/gpu/drm/v3d/v3d_submit.c
++++ b/drivers/gpu/drm/v3d/v3d_submit.c
+@@ -158,14 +158,6 @@ v3d_job_free(struct kref *ref)
+ 	v3d_job_free_common(job, true);
+ }
+ 
+-static void
+-v3d_cpu_job_free(struct kref *ref)
+-{
+-	struct v3d_job *job = container_of(ref, struct v3d_job, refcount);
+-
+-	v3d_job_free_common(job, false);
+-}
+-
+ static void
+ v3d_render_job_free(struct kref *ref)
+ {
+@@ -195,7 +187,7 @@ v3d_cpu_job_free(struct kref *ref)
+ 	if (job->indirect_csd.indirect)
+ 		drm_gem_object_put(job->indirect_csd.indirect);
+ 
+-	v3d_job_free(ref);
++	v3d_job_free_common(&job->base, false);
+ }
+ 
+ void v3d_job_cleanup(struct v3d_job *job)

@@ -207,7 +207,7 @@ static int radeon_fbdev_fb_helper_fb_probe(struct drm_fb_helper *fb_helper,
 {
 	struct radeon_device *rdev = fb_helper->dev->dev_private;
 	struct drm_mode_fb_cmd2 mode_cmd = { };
-	struct fb_info *info;
+	struct fb_info *info = fb_helper->info;
 	struct drm_gem_object *gobj;
 	struct radeon_bo *rbo;
 	struct drm_framebuffer *fb;
@@ -245,13 +245,6 @@ static int radeon_fbdev_fb_helper_fb_probe(struct drm_fb_helper *fb_helper,
 	/* setup helper */
 	fb_helper->fb = fb;
 
-	/* okay we have an object now allocate the framebuffer */
-	info = drm_fb_helper_alloc_info(fb_helper);
-	if (IS_ERR(info)) {
-		ret = PTR_ERR(info);
-		goto err_drm_framebuffer_unregister_private;
-	}
-
 	info->fbops = &radeon_fbdev_fb_ops;
 
 	/* radeon resume is fragile and needs a vt switch to help it along */
@@ -277,10 +270,6 @@ static int radeon_fbdev_fb_helper_fb_probe(struct drm_fb_helper *fb_helper,
 
 	return 0;
 
-err_drm_framebuffer_unregister_private:
-	fb_helper->fb = NULL;
-	drm_framebuffer_unregister_private(fb);
-	drm_framebuffer_cleanup(fb);
 err_kfree:
 	kfree(fb);
 err_radeon_fbdev_destroy_pinned_object:
@@ -300,10 +289,8 @@ static void radeon_fbdev_client_unregister(struct drm_client_dev *client)
 {
 	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
 	struct drm_device *dev = fb_helper->dev;
-	struct radeon_device *rdev = dev->dev_private;
 
 	if (fb_helper->info) {
-		vga_switcheroo_client_fb_set(rdev->pdev, NULL);
 		drm_helper_force_disable_all(dev);
 		drm_fb_helper_unregister_info(fb_helper);
 	} else {
@@ -313,9 +300,9 @@ static void radeon_fbdev_client_unregister(struct drm_client_dev *client)
 	}
 }
 
-static int radeon_fbdev_client_restore(struct drm_client_dev *client)
+static int radeon_fbdev_client_restore(struct drm_client_dev *client, bool force)
 {
-	drm_fb_helper_lastclose(client->dev);
+	drm_fb_helper_restore_fbdev_mode_unlocked(client->dev->fb_helper, force);
 	vga_switcheroo_process_delayed_switch();
 
 	return 0;
@@ -325,7 +312,6 @@ static int radeon_fbdev_client_hotplug(struct drm_client_dev *client)
 {
 	struct drm_fb_helper *fb_helper = drm_fb_helper_from_client(client);
 	struct drm_device *dev = client->dev;
-	struct radeon_device *rdev = dev->dev_private;
 	int ret;
 
 	if (dev->fb_helper)
@@ -341,8 +327,6 @@ static int radeon_fbdev_client_hotplug(struct drm_client_dev *client)
 	ret = drm_fb_helper_initial_config(fb_helper);
 	if (ret)
 		goto err_drm_fb_helper_fini;
-
-	vga_switcheroo_client_fb_set(rdev->pdev, fb_helper->info);
 
 	return 0;
 
