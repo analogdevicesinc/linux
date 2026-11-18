@@ -9,6 +9,7 @@ Linux documentation.
    :titlesonly:
 
    getting_started
+   kernel_modules
    drivers/index
    contribute
    ci
