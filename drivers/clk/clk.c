@@ -4372,15 +4372,8 @@ static int clk_core_populate_parent_map(struct clk_core *core,
 			WARN(1, "Must specify parents if num_parents > 0\n");
 		}
 
-		if (ret) {
-			do {
-				kfree_const(parents[i].name);
-				kfree_const(parents[i].fw_name);
-			} while (--i >= 0);
-			kfree(parents);
-
+		if (ret)
 			return ret;
-		}
 	}
 
 	return 0;
@@ -4390,7 +4383,7 @@ static void clk_core_free_parent_map(struct clk_core *core)
 {
 	int i = core->num_parents;
 
-	if (!core->num_parents)
+	if (!core->parents)
 		return;
 
 	while (--i >= 0) {

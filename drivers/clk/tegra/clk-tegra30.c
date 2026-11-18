@@ -1010,12 +1010,12 @@ static void __init tegra30_periph_clk_init(void)
 	clks[TEGRA30_CLK_DSIA] = clk;
 
 	/* csia_pad */
-	clk = clk_register_gate(NULL, "csia_pad", "pll_d", CLK_SET_RATE_PARENT,
+	clk = clk_register_gate(NULL, "csia_pad", "pll_d", 0,
 				clk_base + PLLD_BASE, 26, 0, &pll_d_lock);
 	clks[TEGRA30_CLK_CSIA_PAD] = clk;
 
 	/* csib_pad */
-	clk = clk_register_gate(NULL, "csib_pad", "pll_d2", CLK_SET_RATE_PARENT,
+	clk = clk_register_gate(NULL, "csib_pad", "pll_d2", 0,
 				clk_base + PLLD2_BASE, 26, 0, &pll_d2_lock);
 	clks[TEGRA30_CLK_CSIB_PAD] = clk;
 

@@ -47,6 +47,7 @@
 #define CPU_FINETRIM_R_FCPU_6_MASK	(0x3 << CPU_FINETRIM_R_FCPU_6_SHIFT)
 
 #define TEGRA114_CLK_PERIPH_BANKS	5
+#define TEGRA114_CLK_CLK_MAX		314
 
 #define PLLC_BASE 0x80
 #define PLLC_MISC2 0x88
@@ -1039,6 +1040,16 @@ static __init void tegra114_periph_clk_init(void __iomem *clk_base,
 	clk = tegra_clk_register_periph_gate("dsib", "dsib_mux", 0, clk_base,
 					     0, 82, periph_clk_enb_refcnt);
 	clks[TEGRA114_CLK_DSIB] = clk;
+
+	/* csia_pad */
+	clk = clk_register_gate(NULL, "csia_pad", "pll_d", 0,
+				clk_base + PLLD_BASE, 26, 0, &pll_d_lock);
+	clks[TEGRA114_CLK_CSIA_PAD] = clk;
+
+	/* csib_pad */
+	clk = clk_register_gate(NULL, "csib_pad", "pll_d2", 0,
+				clk_base + PLLD2_BASE, 26, 0, &pll_d2_lock);
+	clks[TEGRA114_CLK_CSIB_PAD] = clk;
 
 	/* csus */
 	clk = tegra_clk_register_periph_gate("csus", "vi_sensor", 0,

@@ -642,6 +642,7 @@ static int get_alignment_from_regulator(struct device *dev,
 					 struct rail_alignment *align)
 {
 	struct regulator *reg = regulator_get(dev, "vdd-cpu");
+	int i, n_voltages, uv, prev_uv = 0;
 
 	if (IS_ERR(reg))
 		return PTR_ERR(reg);
@@ -649,7 +650,32 @@ static int get_alignment_from_regulator(struct device *dev,
 	align->offset_uv = regulator_list_voltage(reg, 0);
 	align->step_uv = regulator_get_linear_step(reg);
 
+	/*
+	 * Regulators described by linear ranges (e.g. the Palmas SMPS) don't
+	 * report a linear step. Use the smallest step between the voltages
+	 * that are usable on this board instead.
+	 */
+	if (!align->step_uv) {
+		n_voltages = regulator_count_voltages(reg);
+		for (i = 0; i < n_voltages; i++) {
+			uv = regulator_list_voltage(reg, i);
+			if (uv <= 0)
+				continue;
+
+			if (prev_uv && uv > prev_uv &&
+			    (!align->step_uv || uv - prev_uv < align->step_uv))
+				align->step_uv = uv - prev_uv;
+
+			prev_uv = uv;
+		}
+	}
+
 	regulator_put(reg);
+
+	if (!align->step_uv) {
+		dev_err(dev, "failed to get vdd-cpu voltage step\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }

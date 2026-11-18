@@ -16,6 +16,9 @@
 #define STM32MP1_RESET_ID_MASK GENMASK(15, 0)
 #define RCC_CLR_OFFSET		0x4
 
+/* Number of clock identifiers of the binding: highest ID + 1 */
+#define STM32MP13_LAST_CLK	(SPI5 + 1)
+
 /* STM32 Gates definition */
 enum enum_gate_cfg {
 	GATE_MCO1,
@@ -714,6 +717,16 @@ static struct clk_stm32_gate tim17_k = {
 };
 
 /* Peripheral clocks */
+static struct clk_stm32_gate spi2 = {
+	.gate_id = GATE_SPI2,
+	.hw.init = CLK_HW_INIT("spi2", "pclk1", &clk_stm32_gate_ops, 0),
+};
+
+static struct clk_stm32_gate spi3 = {
+	.gate_id = GATE_SPI3,
+	.hw.init = CLK_HW_INIT("spi3", "pclk1", &clk_stm32_gate_ops, 0),
+};
+
 static struct clk_stm32_gate sai1 = {
 	.gate_id = GATE_SAI1,
 	.hw.init = CLK_HW_INIT("sai1", "pclk2", &clk_stm32_gate_ops, 0),
@@ -722,6 +735,11 @@ static struct clk_stm32_gate sai1 = {
 static struct clk_stm32_gate sai2 = {
 	.gate_id = GATE_SAI2,
 	.hw.init = CLK_HW_INIT("sai2", "pclk2", &clk_stm32_gate_ops, 0),
+};
+
+static struct clk_stm32_gate spi1 = {
+	.gate_id = GATE_SPI1,
+	.hw.init = CLK_HW_INIT("spi1", "pclk2", &clk_stm32_gate_ops, 0),
 };
 
 static struct clk_stm32_gate syscfg = {
@@ -827,6 +845,16 @@ static struct clk_stm32_gate iwdg1 = {
 static struct clk_stm32_gate bsec = {
 	.gate_id = GATE_BSEC,
 	.hw.init = CLK_HW_INIT("bsec", "pclk5", &clk_stm32_gate_ops, 0),
+};
+
+static struct clk_stm32_gate spi4 = {
+	.gate_id = GATE_SPI4,
+	.hw.init = CLK_HW_INIT("spi4", "pclk6", &clk_stm32_gate_ops, 0),
+};
+
+static struct clk_stm32_gate spi5 = {
+	.gate_id = GATE_SPI5,
+	.hw.init = CLK_HW_INIT("spi5", "pclk6", &clk_stm32_gate_ops, 0),
 };
 
 static struct clk_stm32_gate dma1 = {
@@ -1353,6 +1381,9 @@ static const struct clock_config stm32mp13_clock_cfg[] = {
 	STM32_GATE_CFG(TIM17_K, tim17_k, SECF_TIM17),
 
 	/* Peripheral clocks */
+	STM32_GATE_CFG(SPI1, spi1, SECF_NONE),
+	STM32_GATE_CFG(SPI2, spi2, SECF_NONE),
+	STM32_GATE_CFG(SPI3, spi3, SECF_NONE),
 	STM32_GATE_CFG(SAI1, sai1, SECF_NONE),
 	STM32_GATE_CFG(SAI2, sai2, SECF_NONE),
 	STM32_GATE_CFG(SYSCFG, syscfg, SECF_NONE),
@@ -1365,6 +1396,8 @@ static const struct clock_config stm32mp13_clock_cfg[] = {
 	STM32_GATE_CFG(TZPC, tzpc, SECF_TZC),
 	STM32_GATE_CFG(IWDG1, iwdg1, SECF_IWDG1),
 	STM32_GATE_CFG(BSEC, bsec, SECF_BSEC),
+	STM32_GATE_CFG(SPI4, spi4, SECF_SPI4),
+	STM32_GATE_CFG(SPI5, spi5, SECF_SPI5),
 	STM32_GATE_CFG(DMA1, dma1, SECF_NONE),
 	STM32_GATE_CFG(DMA2, dma2, SECF_NONE),
 	STM32_GATE_CFG(DMAMUX1, dmamux1, SECF_NONE),
@@ -1523,7 +1556,7 @@ static const struct stm32_rcc_match_data stm32mp13_data = {
 	.num_clocks	= ARRAY_SIZE(stm32mp13_clock_cfg),
 	.clock_data	= &stm32mp13_clock_data,
 	.check_security = &stm32mp13_clock_is_provided_by_secure,
-	.maxbinding	= STM32MP1_LAST_CLK,
+	.maxbinding	= STM32MP13_LAST_CLK,
 	.reset_data	= &stm32mp13_reset_data,
 };
 

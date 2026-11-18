@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: GPL-2.0-only OR BSD-2-Clause
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/reset/xlnx,zynq-reset.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Xilinx Zynq Reset Manager
+
+maintainers:
+  - Michal Simek <michal.simek@amd.com>
+
+description:
+  The Zynq AP-SoC has several different resets, driven from registers in the
+  System Level Control Registers (SLCR). The reset manager is a child node of
+  the SLCR. See Chapter 26 of the Zynq TRM (UG585) for more information about
+  Zynq resets.
+
+properties:
+  compatible:
+    const: xlnx,zynq-reset
+
+  reg:
+    maxItems: 1
+    description:
+      Offset and length of the reset registers within the SLCR.
+
+  syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description: phandle to the SLCR registers
+
+  "#reset-cells":
+    const: 1
+    description: |
+      The single cell indexes the reset within the register block at 32
+      resets per register, so it is the register's position in the block
+      times 32 plus the bit number within that register:
+
+        0   soft
+        32  ddr
+        64  topsw
+        96  dmac
+        128 usb0
+        129 usb1
+        160 gem0
+        161 gem1
+        164 gem0 rx
+        165 gem1 rx
+        166 gem0 ref
+        167 gem1 ref
+        192 sdio0
+        193 sdio1
+        196 sdio0 ref
+        197 sdio1 ref
+        224 spi0
+        225 spi1
+        226 spi0 ref
+        227 spi1 ref
+        256 can0
+        257 can1
+        258 can0 ref
+        259 can1 ref
+        288 i2c0
+        289 i2c1
+        320 uart0
+        321 uart1
+        322 uart0 ref
+        323 uart1 ref
+        352 gpio
+        384 lqspi
+        385 qspi ref
+        416 smc
+        417 smc ref
+        448 ocm
+        512 fpga0 out
+        513 fpga1 out
+        514 fpga2 out
+        515 fpga3 out
+        544 a9 reset 0
+        545 a9 reset 1
+        552 peri
+
+required:
+  - compatible
+  - reg
+  - syscon
+  - "#reset-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    reset-controller@200 {
+        compatible = "xlnx,zynq-reset";
+        reg = <0x200 0x48>;
+        #reset-cells = <1>;
+        syscon = <&slcr>;
+    };
+
+...

@@ -120,7 +120,7 @@ static const char * const ref3_parents[] = {
 };
 
 static const char * const ref4_parents[] = {
-	"ck_hsi", "ck_hse", "ck_csi"
+	"ck_hsi", "ck_hse", "ck_csi", "i2s_ckin"
 };
 
 static const char * const cpu_src[] = {
@@ -755,6 +755,7 @@ struct stm32_pll_obj {
 
 #define PLL_ON		BIT(0)
 #define PLL_RDY		BIT(1)
+#define PLL_DIV_PQR_EN	GENMASK(6, 4)
 #define DIVN_MASK	0x1FF
 #define DIVM_MASK	0x3F
 #define DIVM_SHIFT	16
@@ -820,8 +821,12 @@ static void pll_disable(struct clk_hw *hw)
 	spin_lock_irqsave(clk_elem->lock, flags);
 
 	reg = readl_relaxed(clk_elem->reg);
-	reg &= ~PLL_ON;
-	writel_relaxed(reg, clk_elem->reg);
+
+	/* Keep the PLL on as long as one of its P/Q/R outputs is enabled */
+	if (!(reg & PLL_DIV_PQR_EN)) {
+		reg &= ~PLL_ON;
+		writel_relaxed(reg, clk_elem->reg);
+	}
 
 	spin_unlock_irqrestore(clk_elem->lock, flags);
 }
@@ -2085,7 +2090,8 @@ static const struct clock_config stm32mp1_clock_cfg[] = {
 	GATE(CK_DBG, "ck_sys_dbg", "ck_axi", CLK_IGNORE_UNUSED,
 	     RCC_DBGCFGR, 8, 0),
 
-	COMPOSITE(CK_TRACE, "ck_trace", ck_trace_src, CLK_OPS_PARENT_ENABLE,
+	COMPOSITE(CK_TRACE, "ck_trace", ck_trace_src,
+		  CLK_OPS_PARENT_ENABLE | CLK_IGNORE_UNUSED,
 		  _GATE(RCC_DBGCFGR, 9, 0),
 		  _NO_MUX,
 		  _DIV(RCC_DBGCFGR, 0, 3, 0, ck_trace_div_table)),
