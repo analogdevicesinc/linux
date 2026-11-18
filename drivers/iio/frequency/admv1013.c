@@ -566,7 +566,7 @@ static int admv1013_properties_parse(struct admv1013_state *st)
 		return ret;
 	}
 
-	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
+	return of_clk_get_scale(dev->of_node, NULL, &st->clkscale);
 }
 
 static int admv1013_probe(struct spi_device *spi)

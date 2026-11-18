@@ -210,7 +210,6 @@ static const struct drm_fb_helper_funcs drm_fbdev_dma_helper_funcs = {
 static int drm_fbdev_dma_driver_fbdev_probe_tail(struct drm_fb_helper *fb_helper,
 						 struct drm_fb_helper_surface_size *sizes)
 {
-	struct drm_device *dev = fb_helper->dev;
 	struct drm_client_buffer *buffer = fb_helper->buffer;
 	struct drm_gem_dma_object *dma_obj = to_drm_gem_dma_obj(buffer->gem);
 	struct drm_framebuffer *fb = fb_helper->fb;
@@ -225,10 +224,8 @@ static int drm_fbdev_dma_driver_fbdev_probe_tail(struct drm_fb_helper *fb_helper
 		info->flags |= FBINFO_READS_FAST; /* signal caching */
 	info->screen_size = sizes->surface_height * fb->pitches[0];
 	info->screen_buffer = map.vaddr;
-	if (!(info->flags & FBINFO_HIDE_SMEM_START)) {
-		if (!drm_WARN_ON(dev, is_vmalloc_addr(info->screen_buffer)))
-			info->fix.smem_start = page_to_phys(virt_to_page(info->screen_buffer));
-	}
+	if (!(info->flags & FBINFO_HIDE_SMEM_START))
+		info->fix.smem_start = dma_obj->dma_addr;
 	info->fix.smem_len = info->screen_size;
 
 	return 0;

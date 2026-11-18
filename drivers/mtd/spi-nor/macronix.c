@@ -225,7 +225,7 @@ static int
 macronix_qpp4b_post_sfdp_fixups(struct spi_nor *nor)
 {
 	/* PP_1_1_4_4B is supported but missing in 4BAIT. */
-	struct spi_nor_flash_parameter *params = nor->params;
+	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 
 	params->hwcaps.mask |= SNOR_HWCAPS_PP_1_1_4;
 	spi_nor_set_pp_settings(&params->page_programs[SNOR_CMD_PP_1_1_4],
@@ -307,10 +307,6 @@ static const struct flash_info macronix_nor_parts[] = {
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.fixups = &macronix_qpp4b_fixups,
 	}, {
-		/* MX66L2G45G */
-		.id = SNOR_ID(0xc2, 0x20, 0x1c),
-		.fixups = &macronix_qpp4b_fixups,
-	}, {
 		.id = SNOR_ID(0xc2, 0x20, 0x1c),
 		.name = "mx66l2g45g",
 		.size = SZ_256M,
@@ -319,6 +315,7 @@ static const struct flash_info macronix_nor_parts[] = {
 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.fixup_flags = SPI_NOR_4B_OPCODES,
+		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x25, 0x3b),
 		.name = "mx66u1g45g",
@@ -328,6 +325,7 @@ static const struct flash_info macronix_nor_parts[] = {
 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.fixup_flags = SPI_NOR_4B_OPCODES,
+		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x25, 0x3c),
 		.name = "mx66u2g45g",
@@ -337,6 +335,7 @@ static const struct flash_info macronix_nor_parts[] = {
 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.fixup_flags = SPI_NOR_4B_OPCODES,
+		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x23, 0x14),
 		.name = "mx25v8035f",
@@ -391,10 +390,6 @@ static const struct flash_info macronix_nor_parts[] = {
 		.size = SZ_64M,
 		.no_sfdp_flags = SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.fixup_flags = SPI_NOR_4B_OPCODES,
-		.fixups = &macronix_qpp4b_fixups,
-	}, {
-		/* MX66U1G45G */
-		.id = SNOR_ID(0xc2, 0x25, 0x3b),
 		.fixups = &macronix_qpp4b_fixups,
 	}, {
 		.id = SNOR_ID(0xc2, 0x25, 0x3c),
