@@ -159,14 +159,6 @@ v3d_job_free(struct kref *ref)
 }
 
 static void
-v3d_cpu_job_free(struct kref *ref)
-{
-	struct v3d_job *job = container_of(ref, struct v3d_job, refcount);
-
-	v3d_job_free_common(job, false);
-}
-
-static void
 v3d_render_job_free(struct kref *ref)
 {
 	struct v3d_render_job *job = container_of(ref, struct v3d_render_job,
@@ -195,7 +187,7 @@ v3d_cpu_job_free(struct kref *ref)
 	if (job->indirect_csd.indirect)
 		drm_gem_object_put(job->indirect_csd.indirect);
 
-	v3d_job_free(ref);
+	v3d_job_free_common(&job->base, false);
 }
 
 void v3d_job_cleanup(struct v3d_job *job)
