@@ -233,7 +233,15 @@ enum gp2ap020a00f_thresh_val_id {
 	GP2AP020A00F_THRESH_PH,
 };
 
+struct gp2ap020a00f_chip_info {
+	const char *name;
+	const u8 *reg_init_tab;
+	const struct iio_chan_spec *channels;
+	unsigned int num_channels;
+};
+
 struct gp2ap020a00f_data {
+	const struct gp2ap020a00f_chip_info *chip_info;
 	struct i2c_client *client;
 	struct mutex lock;
 	char *buffer;
@@ -1301,6 +1309,13 @@ static const struct iio_chan_spec gp2ap020a00f_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(GP2AP020A00F_CHAN_TIMESTAMP),
 };
 
+static const struct gp2ap020a00f_chip_info gp2ap020a00f_chip_info = {
+	.name = "gp2ap020a00f",
+	.reg_init_tab = gp2ap020a00f_reg_init_tab,
+	.channels = gp2ap020a00f_channels,
+	.num_channels = ARRAY_SIZE(gp2ap020a00f_channels),
+};
+
 static const struct iio_info gp2ap020a00f_info = {
 	.read_raw = &gp2ap020a00f_read_raw,
 	.read_event_value = &gp2ap020a00f_read_event_val,
@@ -1393,7 +1408,6 @@ static const struct iio_buffer_setup_ops gp2ap020a00f_buffer_setup_ops = {
 
 static int gp2ap020a00f_probe(struct i2c_client *client)
 {
-	const struct i2c_device_id *id = i2c_client_get_device_id(client);
 	struct device *dev = &client->dev;
 	struct gp2ap020a00f_data *data;
 	struct iio_dev *indio_dev;
@@ -1405,6 +1419,9 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	data = iio_priv(indio_dev);
+	data->chip_info = i2c_get_match_data(client);
+	if (!data->chip_info)
+		return -ENODATA;
 
 	err = devm_regulator_get_enable(dev, "vcc");
 	if (err)
@@ -1427,7 +1444,7 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 
 	/* Initialize device registers */
 	err = regmap_bulk_write(regmap, GP2AP020A00F_OP_REG,
-			gp2ap020a00f_reg_init_tab,
+			data->chip_info->reg_init_tab,
 			ARRAY_SIZE(gp2ap020a00f_reg_init_tab));
 
 	if (err < 0) {
@@ -1443,10 +1460,10 @@ static int gp2ap020a00f_probe(struct i2c_client *client)
 	init_waitqueue_head(&data->data_ready_queue);
 
 	mutex_init(&data->lock);
-	indio_dev->channels = gp2ap020a00f_channels;
-	indio_dev->num_channels = ARRAY_SIZE(gp2ap020a00f_channels);
+	indio_dev->channels = data->chip_info->channels;
+	indio_dev->num_channels = data->chip_info->num_channels;
 	indio_dev->info = &gp2ap020a00f_info;
-	indio_dev->name = id->name;
+	indio_dev->name = data->chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
 	/* Allocate buffer */
@@ -1519,13 +1536,16 @@ static void gp2ap020a00f_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id gp2ap020a00f_id[] = {
-	{ .name = "gp2ap020a00f" },
+	{
+		.name = "gp2ap020a00f",
+		.driver_data = (kernel_ulong_t)&gp2ap020a00f_chip_info,
+	},
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, gp2ap020a00f_id);
 
 static const struct of_device_id gp2ap020a00f_of_match[] = {
-	{ .compatible = "sharp,gp2ap020a00f" },
+	{ .compatible = "sharp,gp2ap020a00f", .data = &gp2ap020a00f_chip_info },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, gp2ap020a00f_of_match);
