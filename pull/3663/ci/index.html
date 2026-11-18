@@ -652,8 +652,9 @@ Cocci files are applied only to <code class="docutils literal notranslate"><span
 merges a branch with the latest stable release of its release line. It takes an
 <code class="docutils literal notranslate"><span class="pre">inputs.ref</span></code> (optionally <code class="docutils literal notranslate"><span class="pre">inputs.sha</span></code> to <em>slow-roll</em>) and force pushes
 the branch <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> to the remote.</p>
-<p>Conflict resolutions are stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict</span></code> in <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>
-and replayed on the next runs. For new or changed conflicts, an LLM agent
+<p>Conflict resolutions are recorded with <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">rerere</span></code>, stored at
+<code class="docutils literal notranslate"><span class="pre">.github/merge-conflict</span></code> in <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> and replayed on the next runs. For
+new or changed conflicts, an LLM agent
 (<a class="icon git reference external" href="https://github.com/analogdevicesinc/doctools/tree/action/llm/action.yml" target="_blank">llm</a>) resolves them, and its
 resolutions are recorded for the next runs.
 The previous <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> heads are appended to <code class="docutils literal notranslate"><span class="pre">.github/merge-conflict/forced-commits</span></code>
@@ -678,9 +679,9 @@ the <code class="docutils literal notranslate"><span class="pre">ci</span></code
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>list
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml: 1 chunk(s)
-resolution Documentation/hwmon/ina2xx.rst: 4 chunk(s)
-resolution drivers/base/power/runtime.c: 1 chunk(s)
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span>resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml
+resolution Documentation/hwmon/ina2xx.rst
+resolution drivers/base/power/runtime.c
 [ ... ]
 fixup 0001-firmware-xilinx-export-zynqmp_pm_invoke_fn.patch: firmware:  ... from zynqmp-core.c
 fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in probe_tail
@@ -718,8 +719,7 @@ fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in p
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>status
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> modified:   .github/merge-conflict/d17d4a03adc8fb46-ed47fca115815396.patch
- modified:   .github/merge-conflict/manifest.json
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> modified:   .github/merge-conflict/2c75d633a3de77aeecb426888b246d0115cea8cc/postimage
  modified:   drivers/usb/misc/onboard_usb_dev.c
 </pre></div>
 </div>

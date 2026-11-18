@@ -218,8 +218,9 @@ merges a branch with the latest stable release of its release line. It takes an
 ``inputs.ref`` (optionally ``inputs.sha`` to *slow-roll*) and force pushes
 the branch ``lts/<ref>`` to the remote.
 
-Conflict resolutions are stored at ``.github/merge-conflict`` in ``lts/<ref>``
-and replayed on the next runs. For new or changed conflicts, an LLM agent
+Conflict resolutions are recorded with ``git rerere``, stored at
+``.github/merge-conflict`` in ``lts/<ref>`` and replayed on the next runs. For
+new or changed conflicts, an LLM agent
 (:git+doctools:`llm <action:llm/action.yml>`) resolves them, and its
 resolutions are recorded for the next runs.
 The previous ``lts/<ref>`` heads are appended to ``.github/merge-conflict/forced-commits``
@@ -239,9 +240,9 @@ the ``ci`` branch:
    $ curl -fsSL https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py \
        -o /tmp/merge_conflict.py
    $ python3 /tmp/merge_conflict.py list
-    resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml: 1 chunk(s)
-    resolution Documentation/hwmon/ina2xx.rst: 4 chunk(s)
-    resolution drivers/base/power/runtime.c: 1 chunk(s)
+    resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml
+    resolution Documentation/hwmon/ina2xx.rst
+    resolution drivers/base/power/runtime.c
     [ ... ]
     fixup 0001-firmware-xilinx-export-zynqmp_pm_invoke_fn.patch: firmware:  ... from zynqmp-core.c
     fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in probe_tail
@@ -262,8 +263,7 @@ To correct a conflict resolution, resolve it again in the working tree:
    $ python3 /tmp/merge_conflict.py resolve --continue
      resolve: recorded drivers/usb/misc/onboard_usb_dev.c
    $ git status
-     modified:   .github/merge-conflict/d17d4a03adc8fb46-ed47fca115815396.patch
-     modified:   .github/merge-conflict/manifest.json
+     modified:   .github/merge-conflict/2c75d633a3de77aeecb426888b246d0115cea8cc/postimage
      modified:   drivers/usb/misc/onboard_usb_dev.c
 
    $ git add -f \
