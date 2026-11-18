@@ -150,7 +150,9 @@ check_checkpatch() {
 							prefix=
 							if [[ "$msg" =~ ^"Macros with complex values should be enclosed in parentheses" &&
 							    ( "$file" =~ "/dt-bindings/" ||
-							      "$file" =~ "/boot/dts/" ) ]]; then
+							      "$file" =~ "/boot/dts/" ) ]] ||
+							   [[ "$msg" =~ ^"trailing whitespace" &&
+							      "$file" =~ \.patch$ ]]; then
 								prefix=ignored
 								((ignored++))
 							else

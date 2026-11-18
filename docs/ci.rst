@@ -210,6 +210,87 @@ Here is a simple example that changes a method argument type:
    + enum iio_event_direction_ex arg
    , ... ) { ... }
 
+Automatic long-term-support branches
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The :git+linux:`ci:.github/workflows/stable-patch.yml` (long-term-support)
+merges a branch with the latest stable release of its release line. It takes an
+``inputs.ref`` (optionally ``inputs.sha`` to *slow-roll*) and force pushes
+the branch ``lts/<ref>`` to the remote.
+
+Conflict resolutions are recorded with ``git rerere``, stored at
+``.github/merge-conflict`` in ``lts/<ref>`` and replayed on the next runs. For
+new or changed conflicts, an LLM agent
+(:git+doctools:`llm <action:llm/action.yml>`) resolves them, and its
+resolutions are recorded for the next runs.
+The previous ``lts/<ref>`` heads are appended to ``.github/merge-conflict/forced-commits``
+and can be inspected until garbage collected.
+
+Stable changes merged without conflicts may still result in broken code. For example,
+when downstream changes code for features that are not upstream.
+Issues identified (e.g., by building) are fixed and stored at ``.github/merge-fixups``,
+applied in order after the merge as a separate commit, and replayed on the next runs.
+
+To adjust ``lts/<ref>``, commit to it and push; the next run reads the patches
+from its head. From the root of the ``lts/<ref>`` worktree, get the script from
+the ``ci`` branch:
+
+.. shell::
+
+   $ curl -fsSL https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py \
+       -o /tmp/merge_conflict.py
+   $ python3 /tmp/merge_conflict.py list
+    resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml
+    resolution Documentation/hwmon/ina2xx.rst
+    resolution drivers/base/power/runtime.c
+    [ ... ]
+    fixup 0001-firmware-xilinx-export-zynqmp_pm_invoke_fn.patch: firmware:  ... from zynqmp-core.c
+    fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in probe_tail
+
+Adjust .github/merge-conflict
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To correct a conflict resolution, resolve it again in the working tree:
+
+.. shell::
+
+   $ python3 /tmp/merge_conflict.py resolve drivers/usb/misc/onboard_usb_dev.c
+     resolve: edit the conflict blocks (ours is the branch, theirs is stable) of the files below,
+     then run 'resolve --continue', or 'resolve --abort' to give up
+     drivers/usb/misc/onboard_usb_dev.c
+
+   # Resolve the conflict blocks, and
+   $ python3 /tmp/merge_conflict.py resolve --continue
+     resolve: recorded drivers/usb/misc/onboard_usb_dev.c
+   $ git status
+     modified:   .github/merge-conflict/2c75d633a3de77aeecb426888b246d0115cea8cc/postimage
+     modified:   drivers/usb/misc/onboard_usb_dev.c
+
+   $ git add -f \
+      .github/merge-conflict \
+      drivers/usb/misc/onboard_usb_dev.c
+   $ git commit -m ".github/merge-conflict: Fix resolve of usb-dev"
+   $ git push origin HEAD:lts/<ref>
+
+Adjust .github/merge-fixups
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To fix code outside the conflict blocks, edit the sources and store the changes
+as the next fixup:
+
+.. shell::
+
+   $ vi drivers/mtd/spi-nor/macronix.c
+   # Edit with added fixes
+   $ python3 /tmp/merge_conflict.py fixup spi-nor-use-get-params \
+         -m "mtd: spi-nor: change..." \
+         -m "Stable commit <sha> ..."
+     .github/merge-fixups/0013-spi-nor....patch
+   $ python3 /tmp/merge_conflict.py verify
+   $ git add -f .github/merge-fixups drivers/mtd/spi-nor
+   $ git commit -m "mtd: spi-nor: ..."
+   $ git push origin HEAD:lts/<ref>
+
 Setting up and running
 ----------------------
 
