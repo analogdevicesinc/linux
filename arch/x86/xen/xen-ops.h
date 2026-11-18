@@ -261,9 +261,6 @@ void xen_mc_callback(void (*fn)(void *), void *data);
  */
 struct multicall_space xen_mc_extend_args(unsigned long op, size_t arg_size);
 
-/* Do percpu data initialization for multicalls. */
-void mc_percpu_init(unsigned int cpu);
-
 extern bool is_xen_pmu;
 
 irqreturn_t xen_pmu_irq_handler(int irq, void *dev_id);
@@ -325,5 +322,14 @@ static inline int xen_smp_intr_init_pv(unsigned int cpu)
 static inline void xen_smp_intr_free_pv(unsigned int cpu) {}
 static inline void xen_smp_count_cpus(void) { }
 #endif /* CONFIG_SMP */
+
+#ifdef CONFIG_XEN_PV
+void xen_hypercall_pv(void);
+#endif
+void xen_hypercall_hvm(void);
+void xen_hypercall_amd(void);
+void xen_hypercall_intel(void);
+void xen_hypercall_setfunc(void);
+void *__xen_hypercall_setfunc(void);
 
 #endif /* XEN_OPS_H */

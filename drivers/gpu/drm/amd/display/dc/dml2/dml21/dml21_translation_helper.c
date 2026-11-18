@@ -339,11 +339,22 @@ void dml21_apply_soc_bb_overrides(struct dml2_initialize_instance_in_out *dml_in
 	// }
 }
 
+static unsigned int calc_max_hardware_v_total(const struct dc_stream_state *stream)
+{
+	unsigned int max_hw_v_total = stream->ctx->dc->caps.max_v_total;
+
+	if (stream->ctx->dc->caps.vtotal_limited_by_fp2) {
+		max_hw_v_total -= stream->timing.v_front_porch + 1;
+	}
+
+	return max_hw_v_total;
+}
+
 static void populate_dml21_timing_config_from_stream_state(struct dml2_timing_cfg *timing,
 		struct dc_stream_state *stream,
 		struct dml2_context *dml_ctx)
 {
-	unsigned int hblank_start, vblank_start;
+	unsigned int hblank_start, vblank_start, min_hardware_refresh_in_uhz;
 
 	timing->h_active = stream->timing.h_addressable + stream->timing.h_border_left + stream->timing.h_border_right;
 	timing->v_active = stream->timing.v_addressable + stream->timing.v_border_bottom + stream->timing.v_border_top;
@@ -371,10 +382,22 @@ static void populate_dml21_timing_config_from_stream_state(struct dml2_timing_cf
 		- stream->timing.v_border_top - stream->timing.v_border_bottom;
 
 	timing->drr_config.enabled = stream->ignore_msa_timing_param;
-	timing->drr_config.min_refresh_uhz = stream->timing.min_refresh_in_uhz;
 	timing->drr_config.drr_active_variable = stream->vrr_active_variable;
 	timing->drr_config.drr_active_fixed = stream->vrr_active_fixed;
 	timing->drr_config.disallowed = !stream->allow_freesync;
+
+	/* limit min refresh rate to DC cap */
+	min_hardware_refresh_in_uhz = stream->timing.min_refresh_in_uhz;
+	if (stream->ctx->dc->caps.max_v_total != 0) {
+		min_hardware_refresh_in_uhz = div64_u64((stream->timing.pix_clk_100hz * 100000000ULL),
+				(stream->timing.h_total * (long long)calc_max_hardware_v_total(stream)));
+	}
+
+	if (stream->timing.min_refresh_in_uhz > min_hardware_refresh_in_uhz) {
+		timing->drr_config.min_refresh_uhz = stream->timing.min_refresh_in_uhz;
+	} else {
+		timing->drr_config.min_refresh_uhz = min_hardware_refresh_in_uhz;
+	}
 
 	if (dml_ctx->config.callbacks.get_max_flickerless_instant_vtotal_increase &&
 			stream->ctx->dc->config.enable_fpo_flicker_detection == 1)
@@ -739,6 +762,7 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 		plane->pixel_format = dml2_420_10;
 		break;
 	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616:
+	case SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616:
 	case SURFACE_PIXEL_FORMAT_GRPH_ARGB16161616F:
 	case SURFACE_PIXEL_FORMAT_GRPH_ABGR16161616F:
 		plane->pixel_format = dml2_444_64;
@@ -859,12 +883,12 @@ static void populate_dml21_plane_config_from_plane_state(struct dml2_context *dm
 	plane->immediate_flip = plane_state->flip_immediate;
 
 	plane->composition.rect_out_height_spans_vactive =
-		plane_state->dst_rect.height >= stream->timing.v_addressable &&
+		plane_state->dst_rect.height >= stream->src.height &&
 		stream->dst.height >= stream->timing.v_addressable;
 }
 
 //TODO : Could be possibly moved to a common helper layer.
-static bool dml21_wrapper_get_plane_id(const struct dc_state *context, const struct dc_plane_state *plane, unsigned int *plane_id)
+static bool dml21_wrapper_get_plane_id(const struct dc_state *context, unsigned int stream_id, const struct dc_plane_state *plane, unsigned int *plane_id)
 {
 	int i, j;
 
@@ -872,10 +896,12 @@ static bool dml21_wrapper_get_plane_id(const struct dc_state *context, const str
 		return false;
 
 	for (i = 0; i < context->stream_count; i++) {
-		for (j = 0; j < context->stream_status[i].plane_count; j++) {
-			if (context->stream_status[i].plane_states[j] == plane) {
-				*plane_id = (i << 16) | j;
-				return true;
+		if (context->streams[i]->stream_id == stream_id) {
+			for (j = 0; j < context->stream_status[i].plane_count; j++) {
+				if (context->stream_status[i].plane_states[j] == plane) {
+					*plane_id = (i << 16) | j;
+					return true;
+				}
 			}
 		}
 	}
@@ -898,14 +924,14 @@ static unsigned int map_stream_to_dml21_display_cfg(const struct dml2_context *d
 	return location;
 }
 
-static unsigned int map_plane_to_dml21_display_cfg(const struct dml2_context *dml_ctx,
+static unsigned int map_plane_to_dml21_display_cfg(const struct dml2_context *dml_ctx, unsigned int stream_id,
 		const struct dc_plane_state *plane, const struct dc_state *context)
 {
 	unsigned int plane_id;
 	int i = 0;
 	int location = -1;
 
-	if (!dml21_wrapper_get_plane_id(context, plane, &plane_id)) {
+	if (!dml21_wrapper_get_plane_id(context, stream_id, plane, &plane_id)) {
 		ASSERT(false);
 		return -1;
 	}
@@ -971,7 +997,7 @@ bool dml21_map_dc_state_into_dml_display_cfg(const struct dc *in_dc, struct dc_s
 		if (disp_cfg_stream_location < 0)
 			disp_cfg_stream_location = dml_dispcfg->num_streams++;
 
-		ASSERT(disp_cfg_stream_location >= 0 && disp_cfg_stream_location <= __DML2_WRAPPER_MAX_STREAMS_PLANES__);
+		ASSERT(disp_cfg_stream_location >= 0 && disp_cfg_stream_location < __DML2_WRAPPER_MAX_STREAMS_PLANES__);
 		populate_dml21_timing_config_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location].timing, context->streams[stream_index], dml_ctx);
 		populate_dml21_output_config_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location].output, context->streams[stream_index], &context->res_ctx.pipe_ctx[stream_index]);
 		populate_dml21_stream_overrides_from_stream_state(&dml_dispcfg->stream_descriptors[disp_cfg_stream_location], context->streams[stream_index]);
@@ -990,18 +1016,18 @@ bool dml21_map_dc_state_into_dml_display_cfg(const struct dc *in_dc, struct dc_s
 			dml_dispcfg->plane_descriptors[disp_cfg_plane_location].stream_index = disp_cfg_stream_location;
 		} else {
 			for (plane_index = 0; plane_index < context->stream_status[stream_index].plane_count; plane_index++) {
-				disp_cfg_plane_location = map_plane_to_dml21_display_cfg(dml_ctx, context->stream_status[stream_index].plane_states[plane_index], context);
+				disp_cfg_plane_location = map_plane_to_dml21_display_cfg(dml_ctx, context->streams[stream_index]->stream_id, context->stream_status[stream_index].plane_states[plane_index], context);
 
 				if (disp_cfg_plane_location < 0)
 					disp_cfg_plane_location = dml_dispcfg->num_planes++;
 
-				ASSERT(disp_cfg_plane_location >= 0 && disp_cfg_plane_location <= __DML2_WRAPPER_MAX_STREAMS_PLANES__);
+				ASSERT(disp_cfg_plane_location >= 0 && disp_cfg_plane_location < __DML2_WRAPPER_MAX_STREAMS_PLANES__);
 
 				populate_dml21_surface_config_from_plane_state(in_dc, &dml_dispcfg->plane_descriptors[disp_cfg_plane_location].surface, context->stream_status[stream_index].plane_states[plane_index]);
 				populate_dml21_plane_config_from_plane_state(dml_ctx, &dml_dispcfg->plane_descriptors[disp_cfg_plane_location], context->stream_status[stream_index].plane_states[plane_index], context, stream_index);
 				dml_dispcfg->plane_descriptors[disp_cfg_plane_location].stream_index = disp_cfg_stream_location;
 
-				if (dml21_wrapper_get_plane_id(context, context->stream_status[stream_index].plane_states[plane_index], &dml_ctx->v21.dml_to_dc_pipe_mapping.disp_cfg_to_plane_id[disp_cfg_plane_location]))
+				if (dml21_wrapper_get_plane_id(context, context->streams[stream_index]->stream_id, context->stream_status[stream_index].plane_states[plane_index], &dml_ctx->v21.dml_to_dc_pipe_mapping.disp_cfg_to_plane_id[disp_cfg_plane_location]))
 					dml_ctx->v21.dml_to_dc_pipe_mapping.disp_cfg_to_plane_id_valid[disp_cfg_plane_location] = true;
 
 				/* apply forced pstate policy */

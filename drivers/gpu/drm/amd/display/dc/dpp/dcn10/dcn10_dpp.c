@@ -194,6 +194,9 @@ void dpp_reset(struct dpp *dpp_base)
 	dpp->filter_h = NULL;
 	dpp->filter_v = NULL;
 
+	memset(&dpp_base->pos, 0, sizeof(dpp_base->pos));
+	memset(&dpp_base->att, 0, sizeof(dpp_base->att));
+
 	memset(&dpp->scl_data, 0, sizeof(dpp->scl_data));
 	memset(&dpp->pwl_data, 0, sizeof(dpp->pwl_data));
 }
@@ -514,6 +517,15 @@ void dpp1_dppclk_control(
 			REG_UPDATE(DPP_CONTROL, DPP_CLOCK_ENABLE, 1);
 	} else
 		REG_UPDATE(DPP_CONTROL, DPP_CLOCK_ENABLE, 0);
+}
+
+void dpp_force_disable_cursor(struct dpp *dpp_base)
+{
+	struct dcn10_dpp *dpp = TO_DCN10_DPP(dpp_base);
+
+	/* Force disable cursor */
+	REG_UPDATE(CURSOR0_CONTROL, CUR0_ENABLE, 0);
+	dpp_base->pos.cur0_ctl.bits.cur0_enable = 0;
 }
 
 static const struct dpp_funcs dcn10_dpp_funcs = {

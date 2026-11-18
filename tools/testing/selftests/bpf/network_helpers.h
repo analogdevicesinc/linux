@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef __NETWORK_HELPERS_H
 #define __NETWORK_HELPERS_H
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <linux/types.h>
@@ -20,6 +21,11 @@ typedef __u16 __sum16;
 #define NUM_ITER 100000
 #define VIP_NUM 5
 #define MAGIC_BYTES 123
+
+/* include/linux/net.h */
+#ifndef SOCK_TYPE_MASK
+#define SOCK_TYPE_MASK 0xf
+#endif
 
 struct network_helper_opts {
 	int timeout_ms;

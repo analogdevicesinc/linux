@@ -216,6 +216,12 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 				     unsigned long vm_flags,
 				     bool wp_async)
 {
+	if (vma->vm_flags & VM_SHADOW_STACK)
+		return false;
+
+	if (!is_vm_hugetlb_page(vma) && (vma->vm_flags & VM_SPECIAL))
+		return false;
+
 	vm_flags &= __VM_UFFD_FLAGS;
 
 	if (vm_flags & VM_DROPPABLE)
@@ -245,6 +251,13 @@ static inline bool vma_can_userfault(struct vm_area_struct *vma,
 	/* By default, allow any of anon|shmem|hugetlb */
 	return vma_is_anonymous(vma) || is_vm_hugetlb_page(vma) ||
 	    vma_is_shmem(vma);
+}
+
+static inline bool vma_has_uffd_without_event_remap(struct vm_area_struct *vma)
+{
+	struct userfaultfd_ctx *uffd_ctx = vma->vm_userfaultfd_ctx.ctx;
+
+	return uffd_ctx && (uffd_ctx->features & UFFD_FEATURE_EVENT_REMAP) == 0;
 }
 
 extern int dup_userfaultfd(struct vm_area_struct *, struct list_head *);
@@ -398,6 +411,11 @@ static inline bool userfaultfd_wp_unpopulated(struct vm_area_struct *vma)
 }
 
 static inline bool userfaultfd_wp_async(struct vm_area_struct *vma)
+{
+	return false;
+}
+
+static inline bool vma_has_uffd_without_event_remap(struct vm_area_struct *vma)
 {
 	return false;
 }

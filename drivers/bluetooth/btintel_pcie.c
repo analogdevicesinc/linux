@@ -36,6 +36,7 @@
 /* Intel Bluetooth PCIe device id table */
 static const struct pci_device_id btintel_pcie_table[] = {
 	{ BTINTEL_PCI_DEVICE(0xA876, PCI_ANY_ID) },
+	{ BTINTEL_PCI_DEVICE(0xE476, PCI_ANY_ID) },
 	{ 0 }
 };
 MODULE_DEVICE_TABLE(pci, btintel_pcie_table);
@@ -47,6 +48,17 @@ MODULE_DEVICE_TABLE(pci, btintel_pcie_table);
 #define BTINTEL_PCIE_HCI_SCO_PKT	0x00000003
 #define BTINTEL_PCIE_HCI_EVT_PKT	0x00000004
 #define BTINTEL_PCIE_HCI_ISO_PKT	0x00000005
+
+/* Alive interrupt context */
+enum {
+	BTINTEL_PCIE_ROM,
+	BTINTEL_PCIE_FW_DL,
+	BTINTEL_PCIE_HCI_RESET,
+	BTINTEL_PCIE_INTEL_HCI_RESET1,
+	BTINTEL_PCIE_INTEL_HCI_RESET2,
+	BTINTEL_PCIE_D0,
+	BTINTEL_PCIE_D3
+};
 
 static inline void ipc_print_ia_ring(struct hci_dev *hdev, struct ia *ia,
 				     u16 queue_num)
@@ -62,24 +74,6 @@ static inline void ipc_print_urbd1(struct hci_dev *hdev, struct urbd1 *urbd1,
 {
 	bt_dev_dbg(hdev, "RXQ:urbd1(%u) frbd_tag:%u status: 0x%x fixed:0x%x",
 		   index, urbd1->frbd_tag, urbd1->status, urbd1->fixed);
-}
-
-static int btintel_pcie_poll_bit(struct btintel_pcie_data *data, u32 offset,
-				 u32 bits, u32 mask, int timeout_us)
-{
-	int t = 0;
-	u32 reg;
-
-	do {
-		reg = btintel_pcie_rd_reg32(data, offset);
-
-		if ((reg & mask) == (bits & mask))
-			return t;
-		udelay(POLL_INTERVAL_US);
-		t += POLL_INTERVAL_US;
-	} while (t < timeout_us);
-
-	return -ETIMEDOUT;
 }
 
 static struct btintel_pcie_data *btintel_pcie_get_data(struct msix_entry *entry)
@@ -133,7 +127,7 @@ static int btintel_pcie_send_sync(struct btintel_pcie_data *data,
 
 	tfd_index = data->ia.tr_hia[BTINTEL_PCIE_TXQ_NUM];
 
-	if (tfd_index > txq->count)
+	if (tfd_index >= txq->count)
 		return -ERANGE;
 
 	/* Prepare for TX. It updates the TFD with the length of data and
@@ -198,7 +192,7 @@ static int btintel_pcie_submit_rx(struct btintel_pcie_data *data)
 
 	frbd_index = data->ia.tr_hia[BTINTEL_PCIE_RXQ_NUM];
 
-	if (frbd_index > rxq->count)
+	if (frbd_index >= rxq->count)
 		return -ERANGE;
 
 	/* Prepare for RX submit. It updates the FRBD with the address of DMA
@@ -219,8 +213,13 @@ static int btintel_pcie_submit_rx(struct btintel_pcie_data *data)
 static int btintel_pcie_start_rx(struct btintel_pcie_data *data)
 {
 	int i, ret;
+	struct rxq *rxq = &data->rxq;
 
-	for (i = 0; i < BTINTEL_PCIE_RX_MAX_QUEUE; i++) {
+	/* Post (BTINTEL_PCIE_RX_DESCS_COUNT - 3) buffers to overcome the
+	 * hardware issues leading to race condition at the firmware.
+	 */
+
+	for (i = 0; i < rxq->count - 3; i++) {
 		ret = btintel_pcie_submit_rx(data);
 		if (ret)
 			return ret;
@@ -237,10 +236,52 @@ static void btintel_pcie_reset_ia(struct btintel_pcie_data *data)
 	memset(data->ia.cr_tia, 0, sizeof(u16) * BTINTEL_PCIE_NUM_QUEUES);
 }
 
-static void btintel_pcie_reset_bt(struct btintel_pcie_data *data)
+static int btintel_pcie_reset_bt(struct btintel_pcie_data *data)
 {
-	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG,
-			      BTINTEL_PCIE_CSR_FUNC_CTRL_SW_RESET);
+	u32 reg;
+	int retry = 3;
+
+	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+
+	reg &= ~(BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_ENA |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_INIT |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_INIT);
+	reg |= BTINTEL_PCIE_CSR_FUNC_CTRL_BUS_MASTER_DISCON;
+
+	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG, reg);
+
+	do {
+		reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+		if (reg & BTINTEL_PCIE_CSR_FUNC_CTRL_BUS_MASTER_STS)
+			break;
+		usleep_range(10000, 12000);
+
+	} while (--retry > 0);
+	usleep_range(10000, 12000);
+
+	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+
+	reg &= ~(BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_ENA |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_INIT |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_INIT);
+	reg |= BTINTEL_PCIE_CSR_FUNC_CTRL_SW_RESET;
+	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG, reg);
+	usleep_range(10000, 12000);
+
+	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+	bt_dev_dbg(data->hdev, "csr register after reset: 0x%8.8x", reg);
+
+	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_BOOT_STAGE_REG);
+
+	/* If shared hardware reset is success then boot stage register shall be
+	 * set to 0
+	 */
+	return reg == 0 ? 0 : -ENODEV;
+}
+
+static bool btintel_pcie_is_blazariw(struct pci_dev *pdev)
+{
+	return pdev->device == 0x4D76;
 }
 
 /* This function enables BT function by setting BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_INIT bit in
@@ -252,6 +293,7 @@ static void btintel_pcie_reset_bt(struct btintel_pcie_data *data)
 static int btintel_pcie_enable_bt(struct btintel_pcie_data *data)
 {
 	int err;
+	u32 reg;
 
 	data->gp0_received = false;
 
@@ -261,28 +303,31 @@ static int btintel_pcie_enable_bt(struct btintel_pcie_data *data)
 	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_CI_ADDR_MSB_REG,
 			      (u64)data->ci_p_addr >> 32);
 
+	/* On BlazarIW, the D0 entry to MAC init does not complete in
+	 * time. Wait 50 ms (worst case as per HW analysis) for the
+	 * shared hardware reset flow to complete before proceeding with
+	 * MAC init.
+	 */
+	if (btintel_pcie_is_blazariw(data->pdev))
+		msleep(50);
+
 	/* Reset the cached value of boot stage. it is updated by the MSI-X
 	 * gp0 interrupt handler.
 	 */
 	data->boot_stage_cache = 0x0;
 
 	/* Set MAC_INIT bit to start primary bootloader */
-	btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
+	reg &= ~(BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_INIT |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_BUS_MASTER_DISCON |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_SW_RESET);
+	reg |= (BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_ENA |
+			BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_INIT);
 
-	btintel_pcie_set_reg_bits(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG,
-				  BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_INIT);
-
-	/* Wait until MAC_ACCESS is granted */
-	err = btintel_pcie_poll_bit(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG,
-				    BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_STS,
-				    BTINTEL_PCIE_CSR_FUNC_CTRL_MAC_ACCESS_STS,
-				    BTINTEL_DEFAULT_MAC_ACCESS_TIMEOUT_US);
-	if (err < 0)
-		return -ENODEV;
+	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG, reg);
 
 	/* MAC is ready. Enable BT FUNC */
 	btintel_pcie_set_reg_bits(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG,
-				  BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_ENA |
 				  BTINTEL_PCIE_CSR_FUNC_CTRL_FUNC_INIT);
 
 	btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_FUNC_CTRL_REG);
@@ -290,8 +335,9 @@ static int btintel_pcie_enable_bt(struct btintel_pcie_data *data)
 	/* wait for interrupt from the device after booting up to primary
 	 * bootloader.
 	 */
+	data->alive_intr_ctxt = BTINTEL_PCIE_ROM;
 	err = wait_event_timeout(data->gp0_wait_q, data->gp0_received,
-				 msecs_to_jiffies(BTINTEL_DEFAULT_INTR_TIMEOUT));
+				 msecs_to_jiffies(BTINTEL_DEFAULT_INTR_TIMEOUT_MS));
 	if (!err)
 		return -ETIME;
 
@@ -302,12 +348,78 @@ static int btintel_pcie_enable_bt(struct btintel_pcie_data *data)
 	return 0;
 }
 
+/* BIT(0) - ROM, BIT(1) - IML and BIT(3) - OP
+ * Sometimes during firmware image switching from ROM to IML or IML to OP image,
+ * the previous image bit is not cleared by firmware when alive interrupt is
+ * received. Driver needs to take care of these sticky bits when deciding the
+ * current image running on controller.
+ * Ex: 0x10 and 0x11 - both represents that controller is running IML
+ */
+static inline bool btintel_pcie_in_rom(struct btintel_pcie_data *data)
+{
+	return data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_ROM &&
+		!(data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_IML) &&
+		!(data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_OPFW);
+}
+
+static inline bool btintel_pcie_in_op(struct btintel_pcie_data *data)
+{
+	return data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_OPFW;
+}
+
+static inline bool btintel_pcie_in_iml(struct btintel_pcie_data *data)
+{
+	return data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_IML &&
+		!(data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_OPFW);
+}
+
+static inline bool btintel_pcie_in_d3(struct btintel_pcie_data *data)
+{
+	return data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_D3_STATE_READY;
+}
+
+static inline bool btintel_pcie_in_d0(struct btintel_pcie_data *data)
+{
+	return !(data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_D3_STATE_READY);
+}
+
+static void btintel_pcie_wr_sleep_cntrl(struct btintel_pcie_data *data,
+					u32 dxstate)
+{
+	bt_dev_dbg(data->hdev, "writing sleep_ctl_reg: 0x%8.8x", dxstate);
+	btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_IPC_SLEEP_CTL_REG, dxstate);
+}
+
+static inline char *btintel_pcie_alivectxt_state2str(u32 alive_intr_ctxt)
+{
+	switch (alive_intr_ctxt) {
+	case BTINTEL_PCIE_ROM:
+		return "rom";
+	case BTINTEL_PCIE_FW_DL:
+		return "fw_dl";
+	case BTINTEL_PCIE_D0:
+		return "d0";
+	case BTINTEL_PCIE_D3:
+		return "d3";
+	case BTINTEL_PCIE_HCI_RESET:
+		return "hci_reset";
+	case BTINTEL_PCIE_INTEL_HCI_RESET1:
+		return "intel_reset1";
+	case BTINTEL_PCIE_INTEL_HCI_RESET2:
+		return "intel_reset2";
+	default:
+		return "unknown";
+	}
+	return "null";
+}
+
 /* This function handles the MSI-X interrupt for gp0 cause (bit 0 in
  * BTINTEL_PCIE_CSR_MSIX_HW_INT_CAUSES) which is sent for boot stage and image response.
  */
 static void btintel_pcie_msix_gp0_handler(struct btintel_pcie_data *data)
 {
-	u32 reg;
+	bool submit_rx, signal_waitq;
+	u32 reg, old_ctxt;
 
 	/* This interrupt is for three different causes and it is not easy to
 	 * know what causes the interrupt. So, it compares each register value
@@ -317,20 +429,87 @@ static void btintel_pcie_msix_gp0_handler(struct btintel_pcie_data *data)
 	if (reg != data->boot_stage_cache)
 		data->boot_stage_cache = reg;
 
+	bt_dev_dbg(data->hdev, "Alive context: %s old_boot_stage: 0x%8.8x new_boot_stage: 0x%8.8x",
+		   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt),
+		   data->boot_stage_cache, reg);
 	reg = btintel_pcie_rd_reg32(data, BTINTEL_PCIE_CSR_IMG_RESPONSE_REG);
 	if (reg != data->img_resp_cache)
 		data->img_resp_cache = reg;
 
 	data->gp0_received = true;
 
-	/* If the boot stage is OP or IML, reset IA and start RX again */
-	if (data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_OPFW ||
-	    data->boot_stage_cache & BTINTEL_PCIE_CSR_BOOT_STAGE_IML) {
+	old_ctxt = data->alive_intr_ctxt;
+	submit_rx = false;
+	signal_waitq = false;
+
+	switch (data->alive_intr_ctxt) {
+	case BTINTEL_PCIE_ROM:
+		data->alive_intr_ctxt = BTINTEL_PCIE_FW_DL;
+		signal_waitq = true;
+		break;
+	case BTINTEL_PCIE_FW_DL:
+		/* Error case is already handled. Ideally control shall not
+		 * reach here
+		 */
+		break;
+	case BTINTEL_PCIE_INTEL_HCI_RESET1:
+		if (btintel_pcie_in_op(data)) {
+			submit_rx = true;
+			break;
+		}
+
+		if (btintel_pcie_in_iml(data)) {
+			submit_rx = true;
+			data->alive_intr_ctxt = BTINTEL_PCIE_FW_DL;
+			break;
+		}
+		break;
+	case BTINTEL_PCIE_INTEL_HCI_RESET2:
+		if (btintel_test_and_clear_flag(data->hdev, INTEL_WAIT_FOR_D0)) {
+			btintel_wake_up_flag(data->hdev, INTEL_WAIT_FOR_D0);
+			data->alive_intr_ctxt = BTINTEL_PCIE_D0;
+		}
+		break;
+	case BTINTEL_PCIE_D0:
+		if (btintel_pcie_in_d3(data)) {
+			data->alive_intr_ctxt = BTINTEL_PCIE_D3;
+			signal_waitq = true;
+			break;
+		}
+		break;
+	case BTINTEL_PCIE_D3:
+		if (btintel_pcie_in_d0(data)) {
+			data->alive_intr_ctxt = BTINTEL_PCIE_D0;
+			submit_rx = true;
+			signal_waitq = true;
+			break;
+		}
+		break;
+	case BTINTEL_PCIE_HCI_RESET:
+		data->alive_intr_ctxt = BTINTEL_PCIE_D0;
+		submit_rx = true;
+		signal_waitq = true;
+		break;
+	default:
+		bt_dev_err(data->hdev, "Unknown state: 0x%2.2x",
+			   data->alive_intr_ctxt);
+		break;
+	}
+
+	if (submit_rx) {
 		btintel_pcie_reset_ia(data);
 		btintel_pcie_start_rx(data);
 	}
 
-	wake_up(&data->gp0_wait_q);
+	if (signal_waitq) {
+		bt_dev_dbg(data->hdev, "wake up gp0 wait_q");
+		wake_up(&data->gp0_wait_q);
+	}
+
+	if (old_ctxt != data->alive_intr_ctxt)
+		bt_dev_dbg(data->hdev, "alive context changed: %s  ->  %s",
+			   btintel_pcie_alivectxt_state2str(old_ctxt),
+			   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
 }
 
 /* This function handles the MSX-X interrupt for rx queue 0 which is for TX
@@ -349,13 +528,18 @@ static void btintel_pcie_msix_tx_handle(struct btintel_pcie_data *data)
 
 	txq = &data->txq;
 
+	if (cr_hia >= txq->count) {
+		bt_dev_err(data->hdev, "TXQ: invalid cr_hia %u", cr_hia);
+		return;
+	}
+
 	while (cr_tia != cr_hia) {
 		data->tx_wait_done = true;
 		wake_up(&data->tx_wait_q);
 
 		urbd0 = &txq->urbd0s[cr_tia];
 
-		if (urbd0->tfd_index > txq->count)
+		if (urbd0->tfd_index >= txq->count)
 			return;
 
 		cr_tia = (cr_tia + 1) % txq->count;
@@ -364,6 +548,85 @@ static void btintel_pcie_msix_tx_handle(struct btintel_pcie_data *data)
 	}
 }
 
+static int btintel_pcie_recv_event(struct hci_dev *hdev, struct sk_buff *skb)
+{
+	struct hci_event_hdr *hdr = (void *)skb->data;
+	const char diagnostics_hdr[] = { 0x87, 0x80, 0x03 };
+	struct btintel_pcie_data *data = hci_get_drvdata(hdev);
+
+	if (skb->len > HCI_EVENT_HDR_SIZE && hdr->evt == 0xff &&
+	    hdr->plen > 0) {
+		const void *ptr = skb->data + HCI_EVENT_HDR_SIZE + 1;
+		unsigned int len = skb->len - HCI_EVENT_HDR_SIZE - 1;
+
+		if (btintel_test_flag(hdev, INTEL_BOOTLOADER)) {
+			switch (skb->data[2]) {
+			case 0x02:
+				/* When switching to the operational firmware
+				 * the device sends a vendor specific event
+				 * indicating that the bootup completed.
+				 */
+				btintel_bootup(hdev, ptr, len);
+
+				/* If bootup event is from operational image,
+				 * driver needs to write sleep control register to
+				 * move into D0 state
+				 */
+				if (btintel_pcie_in_op(data)) {
+					btintel_pcie_wr_sleep_cntrl(data, BTINTEL_PCIE_STATE_D0);
+					data->alive_intr_ctxt = BTINTEL_PCIE_INTEL_HCI_RESET2;
+					kfree_skb(skb);
+					return 0;
+				}
+
+				if (btintel_pcie_in_iml(data)) {
+					/* In case of IML, there is no concept
+					 * of D0 transition. Just mimic as if
+					 * IML moved to D0 by clearing INTEL_WAIT_FOR_D0
+					 * bit and waking up the task waiting on
+					 * INTEL_WAIT_FOR_D0. This is required
+					 * as intel_boot() is common function for
+					 * both IML and OP image loading.
+					 */
+					if (btintel_test_and_clear_flag(data->hdev,
+									INTEL_WAIT_FOR_D0))
+						btintel_wake_up_flag(data->hdev,
+								     INTEL_WAIT_FOR_D0);
+				}
+				kfree_skb(skb);
+				return 0;
+			case 0x06:
+				/* When the firmware loading completes the
+				 * device sends out a vendor specific event
+				 * indicating the result of the firmware
+				 * loading.
+				 */
+				btintel_secure_send_result(hdev, ptr, len);
+				kfree_skb(skb);
+				return 0;
+			}
+		}
+
+		/* Handle all diagnostics events separately. May still call
+		 * hci_recv_frame.
+		 */
+		if (len >= sizeof(diagnostics_hdr) &&
+		    memcmp(&skb->data[2], diagnostics_hdr,
+			   sizeof(diagnostics_hdr)) == 0) {
+			return btintel_diagnostics(hdev, skb);
+		}
+
+		/* This is a debug event that comes from IML and OP image when it
+		 * starts execution. There is no need pass this event to stack.
+		 */
+		if (skb->data[2] == 0x97) {
+			hci_recv_diag(hdev, skb);
+			return 0;
+		}
+	}
+
+	return hci_recv_frame(hdev, skb);
+}
 /* Process the received rx data
  * It check the frame header to identify the data type and create skb
  * and calling HCI API
@@ -373,9 +636,8 @@ static int btintel_pcie_recv_frame(struct btintel_pcie_data *data,
 {
 	int ret;
 	u8 pkt_type;
-	u16 plen;
+	u32 plen;
 	u32 pcie_pkt_type;
-	struct sk_buff *new_skb;
 	void *pdata;
 	struct hci_dev *hdev = data->hdev;
 
@@ -452,24 +714,20 @@ static int btintel_pcie_recv_frame(struct btintel_pcie_data *data,
 
 	bt_dev_dbg(hdev, "pkt_type: 0x%2.2x len: %u", pkt_type, plen);
 
-	new_skb = bt_skb_alloc(plen, GFP_ATOMIC);
-	if (!new_skb) {
-		bt_dev_err(hdev, "Failed to allocate memory for skb of len: %u",
-			   skb->len);
-		ret = -ENOMEM;
-		goto exit_error;
-	}
-
-	hci_skb_pkt_type(new_skb) = pkt_type;
-	skb_put_data(new_skb, skb->data, plen);
+	hci_skb_pkt_type(skb) = pkt_type;
 	hdev->stat.byte_rx += plen;
+	skb_trim(skb, plen);
 
 	if (pcie_pkt_type == BTINTEL_PCIE_HCI_EVT_PKT)
-		ret = btintel_recv_event(hdev, new_skb);
+		ret = btintel_pcie_recv_event(hdev, skb);
 	else
-		ret = hci_recv_frame(hdev, new_skb);
+		ret = hci_recv_frame(hdev, skb);
+	skb = NULL; /* skb is freed in the callee  */
 
 exit_error:
+	if (skb)
+		kfree_skb(skb);
+
 	if (ret)
 		hdev->stat.err_rx++;
 
@@ -483,16 +741,10 @@ static void btintel_pcie_rx_work(struct work_struct *work)
 	struct btintel_pcie_data *data = container_of(work,
 					struct btintel_pcie_data, rx_work);
 	struct sk_buff *skb;
-	int err;
-	struct hci_dev *hdev = data->hdev;
 
 	/* Process the sk_buf in queue and send to the HCI layer */
 	while ((skb = skb_dequeue(&data->rx_skb_q))) {
-		err = btintel_pcie_recv_frame(data, skb);
-		if (err)
-			bt_dev_err(hdev, "Failed to send received frame: %d",
-				   err);
-		kfree_skb(skb);
+		btintel_pcie_recv_frame(data, skb);
 	}
 }
 
@@ -507,7 +759,9 @@ static int btintel_pcie_submit_rx_work(struct btintel_pcie_data *data, u8 status
 	rfh_hdr = buf;
 
 	len = rfh_hdr->packet_len;
-	if (len <= 0) {
+	if (len == 0 || len > BTINTEL_PCIE_BUFFER_SIZE - sizeof(*rfh_hdr)) {
+		bt_dev_err(data->hdev, "Invalid packet_len %d (max %zu)", len,
+			   BTINTEL_PCIE_BUFFER_SIZE - sizeof(*rfh_hdr));
 		ret = -EINVAL;
 		goto resubmit;
 	}
@@ -547,12 +801,15 @@ static void btintel_pcie_msix_rx_handle(struct btintel_pcie_data *data)
 	bt_dev_dbg(hdev, "RXQ: cr_hia: %u  cr_tia: %u", cr_hia, cr_tia);
 
 	/* Check CR_TIA and CR_HIA for change */
-	if (cr_tia == cr_hia) {
-		bt_dev_warn(hdev, "RXQ: no new CD found");
+	if (cr_tia == cr_hia)
 		return;
-	}
 
 	rxq = &data->rxq;
+
+	if (cr_hia >= rxq->count) {
+		bt_dev_err(hdev, "RXQ: invalid cr_hia %u", cr_hia);
+		return;
+	}
 
 	/* The firmware sends multiple CD in a single MSI-X and it needs to
 	 * process all received CDs in this interrupt.
@@ -560,6 +817,12 @@ static void btintel_pcie_msix_rx_handle(struct btintel_pcie_data *data)
 	while (cr_tia != cr_hia) {
 		urbd1 = &rxq->urbd1s[cr_tia];
 		ipc_print_urbd1(data->hdev, urbd1, cr_tia);
+
+		if (urbd1->frbd_tag >= rxq->count) {
+			bt_dev_err(hdev, "RXQ: invalid frbd_tag %u",
+				   urbd1->frbd_tag);
+			return;
+		}
 
 		buf = &rxq->bufs[urbd1->frbd_tag];
 		if (!buf) {
@@ -581,9 +844,14 @@ static void btintel_pcie_msix_rx_handle(struct btintel_pcie_data *data)
 	}
 }
 
-static irqreturn_t btintel_pcie_msix_isr(int irq, void *data)
+static inline bool btintel_pcie_is_rxq_empty(struct btintel_pcie_data *data)
 {
-	return IRQ_WAKE_THREAD;
+	return data->ia.cr_hia[BTINTEL_PCIE_RXQ_NUM] == data->ia.cr_tia[BTINTEL_PCIE_RXQ_NUM];
+}
+
+static inline bool btintel_pcie_is_txackq_empty(struct btintel_pcie_data *data)
+{
+	return data->ia.cr_tia[BTINTEL_PCIE_TXQ_NUM] == data->ia.cr_hia[BTINTEL_PCIE_TXQ_NUM];
 }
 
 static irqreturn_t btintel_pcie_irq_msix_handler(int irq, void *dev_id)
@@ -603,6 +871,9 @@ static irqreturn_t btintel_pcie_irq_msix_handler(int irq, void *dev_id)
 
 	if (unlikely(!(intr_fh | intr_hw))) {
 		/* Ignore interrupt, inta == 0 */
+		bt_warn_ratelimited("Bluetooth: btintel_pcie: Received spurious interrupt\n");
+		btintel_pcie_wr_reg32(data, BTINTEL_PCIE_CSR_MSIX_AUTOMASK_ST,
+				      BIT(entry->entry));
 		return IRQ_NONE;
 	}
 
@@ -613,12 +884,18 @@ static irqreturn_t btintel_pcie_irq_msix_handler(int irq, void *dev_id)
 		btintel_pcie_msix_gp0_handler(data);
 
 	/* For TX */
-	if (intr_fh & BTINTEL_PCIE_MSIX_FH_INT_CAUSES_0)
+	if (intr_fh & BTINTEL_PCIE_MSIX_FH_INT_CAUSES_0) {
 		btintel_pcie_msix_tx_handle(data);
+		if (!btintel_pcie_is_rxq_empty(data))
+			btintel_pcie_msix_rx_handle(data);
+	}
 
 	/* For RX */
-	if (intr_fh & BTINTEL_PCIE_MSIX_FH_INT_CAUSES_1)
+	if (intr_fh & BTINTEL_PCIE_MSIX_FH_INT_CAUSES_1) {
 		btintel_pcie_msix_rx_handle(data);
+		if (!btintel_pcie_is_txackq_empty(data))
+			btintel_pcie_msix_tx_handle(data);
+	}
 
 	/*
 	 * Before sending the interrupt the HW disables it to prevent a nested
@@ -640,7 +917,7 @@ static irqreturn_t btintel_pcie_irq_msix_handler(int irq, void *dev_id)
 static int btintel_pcie_setup_irq(struct btintel_pcie_data *data)
 {
 	int err;
-	int num_irqs, i;
+	int num_irqs, i, j;
 
 	for (i = 0; i < BTINTEL_PCIE_MSIX_VEC_MAX; i++)
 		data->msix_entries[i].entry = i;
@@ -663,12 +940,16 @@ static int btintel_pcie_setup_irq(struct btintel_pcie_data *data)
 
 		err = devm_request_threaded_irq(&data->pdev->dev,
 						msix_entry->vector,
-						btintel_pcie_msix_isr,
+						NULL,
 						btintel_pcie_irq_msix_handler,
-						IRQF_SHARED,
+						IRQF_ONESHOT | IRQF_SHARED,
 						KBUILD_MODNAME,
 						msix_entry);
 		if (err) {
+			for (j = 0; j < i; j++)
+				devm_free_irq(&data->pdev->dev,
+					      data->msix_entries[j].vector,
+					      &data->msix_entries[j]);
 			pci_free_irq_vectors(data->pdev);
 			data->alloc_vecs = 0;
 			return err;
@@ -741,6 +1022,13 @@ static int btintel_pcie_config_pcie(struct pci_dev *pdev,
 	data->base_addr = pcim_iomap_table(pdev)[0];
 	if (!data->base_addr)
 		return -ENODEV;
+
+	/* Do shared hardware reset to ensure a clean start before
+	 * configuring interrupts.
+	 */
+	err = btintel_pcie_reset_bt(data);
+	if (err)
+		return err;
 
 	err = btintel_pcie_setup_irq(data);
 	if (err)
@@ -919,8 +1207,8 @@ static int btintel_pcie_alloc(struct btintel_pcie_data *data)
 	 *  + size of index * Number of queues(2) * type of index array(4)
 	 *  + size of context information
 	 */
-	total = (sizeof(struct tfd) + sizeof(struct urbd0) + sizeof(struct frbd)
-		+ sizeof(struct urbd1)) * BTINTEL_DESCS_COUNT;
+	total = (sizeof(struct tfd) + sizeof(struct urbd0)) * BTINTEL_PCIE_TX_DESCS_COUNT;
+	total += (sizeof(struct frbd) + sizeof(struct urbd1)) * BTINTEL_PCIE_RX_DESCS_COUNT;
 
 	/* Add the sum of size of index array and size of ci struct */
 	total += (sizeof(u16) * BTINTEL_PCIE_NUM_QUEUES * 4) + sizeof(struct ctx_info);
@@ -945,36 +1233,36 @@ static int btintel_pcie_alloc(struct btintel_pcie_data *data)
 	data->dma_v_addr = v_addr;
 
 	/* Setup descriptor count */
-	data->txq.count = BTINTEL_DESCS_COUNT;
-	data->rxq.count = BTINTEL_DESCS_COUNT;
+	data->txq.count = BTINTEL_PCIE_TX_DESCS_COUNT;
+	data->rxq.count = BTINTEL_PCIE_RX_DESCS_COUNT;
 
 	/* Setup tfds */
 	data->txq.tfds_p_addr = p_addr;
 	data->txq.tfds = v_addr;
 
-	p_addr += (sizeof(struct tfd) * BTINTEL_DESCS_COUNT);
-	v_addr += (sizeof(struct tfd) * BTINTEL_DESCS_COUNT);
+	p_addr += (sizeof(struct tfd) * BTINTEL_PCIE_TX_DESCS_COUNT);
+	v_addr += (sizeof(struct tfd) * BTINTEL_PCIE_TX_DESCS_COUNT);
 
 	/* Setup urbd0 */
 	data->txq.urbd0s_p_addr = p_addr;
 	data->txq.urbd0s = v_addr;
 
-	p_addr += (sizeof(struct urbd0) * BTINTEL_DESCS_COUNT);
-	v_addr += (sizeof(struct urbd0) * BTINTEL_DESCS_COUNT);
+	p_addr += (sizeof(struct urbd0) * BTINTEL_PCIE_TX_DESCS_COUNT);
+	v_addr += (sizeof(struct urbd0) * BTINTEL_PCIE_TX_DESCS_COUNT);
 
 	/* Setup FRBD*/
 	data->rxq.frbds_p_addr = p_addr;
 	data->rxq.frbds = v_addr;
 
-	p_addr += (sizeof(struct frbd) * BTINTEL_DESCS_COUNT);
-	v_addr += (sizeof(struct frbd) * BTINTEL_DESCS_COUNT);
+	p_addr += (sizeof(struct frbd) * BTINTEL_PCIE_RX_DESCS_COUNT);
+	v_addr += (sizeof(struct frbd) * BTINTEL_PCIE_RX_DESCS_COUNT);
 
 	/* Setup urbd1 */
 	data->rxq.urbd1s_p_addr = p_addr;
 	data->rxq.urbd1s = v_addr;
 
-	p_addr += (sizeof(struct urbd1) * BTINTEL_DESCS_COUNT);
-	v_addr += (sizeof(struct urbd1) * BTINTEL_DESCS_COUNT);
+	p_addr += (sizeof(struct urbd1) * BTINTEL_PCIE_RX_DESCS_COUNT);
+	v_addr += (sizeof(struct urbd1) * BTINTEL_PCIE_RX_DESCS_COUNT);
 
 	/* Setup data buffers for txq */
 	err = btintel_pcie_setup_txq_bufs(data, &data->txq);
@@ -1053,8 +1341,21 @@ static int btintel_pcie_send_frame(struct hci_dev *hdev,
 				       struct sk_buff *skb)
 {
 	struct btintel_pcie_data *data = hci_get_drvdata(hdev);
+	struct hci_command_hdr *cmd;
+	__u16 opcode = ~0;
 	int ret;
 	u32 type;
+	u32 old_ctxt;
+
+	/* Account for the 4-byte PCIe type header prepended before the
+	 * DMA copy.  Written as a subtraction to avoid wrap-around on
+	 * attacker-controlled skb->len.
+	 */
+	if (skb->len > BTINTEL_PCIE_BUFFER_SIZE - BTINTEL_PCIE_HCI_TYPE_LEN) {
+		bt_dev_err(hdev, "Packet too large: %u > %u", skb->len,
+			   BTINTEL_PCIE_BUFFER_SIZE - BTINTEL_PCIE_HCI_TYPE_LEN);
+		return -EMSGSIZE;
+	}
 
 	/* Due to the fw limitation, the type header of the packet should be
 	 * 4 bytes unlike 1 byte for UART. In UART, the firmware can read
@@ -1073,6 +1374,8 @@ static int btintel_pcie_send_frame(struct hci_dev *hdev,
 	switch (hci_skb_pkt_type(skb)) {
 	case HCI_COMMAND_PKT:
 		type = BTINTEL_PCIE_HCI_CMD_PKT;
+		cmd = (void *)skb->data;
+		opcode = le16_to_cpu(cmd->opcode);
 		if (btintel_test_flag(hdev, INTEL_BOOTLOADER)) {
 			struct hci_command_hdr *cmd = (void *)skb->data;
 			__u16 opcode = le16_to_cpu(cmd->opcode);
@@ -1085,6 +1388,10 @@ static int btintel_pcie_send_frame(struct hci_dev *hdev,
 			if (opcode == 0xfc01)
 				btintel_pcie_inject_cmd_complete(hdev, opcode);
 		}
+		/* Firmware raises alive interrupt on HCI_OP_RESET */
+		if (opcode == HCI_OP_RESET)
+			data->gp0_received = false;
+
 		hdev->stat.cmd_tx++;
 		break;
 	case HCI_ACLDATA_PKT:
@@ -1111,6 +1418,29 @@ static int btintel_pcie_send_frame(struct hci_dev *hdev,
 		bt_dev_err(hdev, "Failed to send frame (%d)", ret);
 		goto exit_error;
 	}
+
+	if (type == BTINTEL_PCIE_HCI_CMD_PKT &&
+	    (opcode == HCI_OP_RESET || opcode == 0xfc01)) {
+		old_ctxt = data->alive_intr_ctxt;
+		data->alive_intr_ctxt =
+			(opcode == 0xfc01 ? BTINTEL_PCIE_INTEL_HCI_RESET1 :
+				BTINTEL_PCIE_HCI_RESET);
+		bt_dev_dbg(data->hdev, "sent cmd: 0x%4.4x alive context changed: %s  ->  %s",
+			   opcode, btintel_pcie_alivectxt_state2str(old_ctxt),
+			   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
+		if (opcode == HCI_OP_RESET) {
+			ret = wait_event_timeout(data->gp0_wait_q,
+						 data->gp0_received,
+						 msecs_to_jiffies(BTINTEL_DEFAULT_INTR_TIMEOUT_MS));
+			if (!ret) {
+				hdev->stat.err_tx++;
+				bt_dev_err(hdev, "No alive interrupt received for %s",
+					   btintel_pcie_alivectxt_state2str(data->alive_intr_ctxt));
+				ret = -ETIME;
+				goto exit_error;
+			}
+		}
+	}
 	hdev->stat.byte_tx += skb->len;
 	kfree_skb(skb);
 
@@ -1128,7 +1458,7 @@ static void btintel_pcie_release_hdev(struct btintel_pcie_data *data)
 	data->hdev = NULL;
 }
 
-static int btintel_pcie_setup(struct hci_dev *hdev)
+static int btintel_pcie_setup_internal(struct hci_dev *hdev)
 {
 	const u8 param[1] = { 0xFF };
 	struct intel_version_tlv ver_tlv;
@@ -1216,6 +1546,32 @@ static int btintel_pcie_setup(struct hci_dev *hdev)
 exit_error:
 	kfree_skb(skb);
 
+	return err;
+}
+
+static int btintel_pcie_setup(struct hci_dev *hdev)
+{
+	int err, fw_dl_retry = 0;
+	struct btintel_pcie_data *data = hci_get_drvdata(hdev);
+
+	while ((err = btintel_pcie_setup_internal(hdev)) && fw_dl_retry++ < 1) {
+		bt_dev_err(hdev, "Firmware download retry count: %d",
+			   fw_dl_retry);
+		err = btintel_pcie_reset_bt(data);
+		if (err) {
+			bt_dev_err(hdev, "Failed to do shr reset: %d", err);
+			break;
+		}
+		usleep_range(10000, 12000);
+		btintel_pcie_reset_ia(data);
+		btintel_pcie_config_msix(data);
+		err = btintel_pcie_enable_bt(data);
+		if (err) {
+			bt_dev_err(hdev, "Failed to enable hardware: %d", err);
+			break;
+		}
+		btintel_pcie_start_rx(data);
+	}
 	return err;
 }
 
@@ -1344,7 +1700,7 @@ static void btintel_pcie_remove(struct pci_dev *pdev)
 		struct msix_entry *msix_entry;
 
 		msix_entry = &data->msix_entries[i];
-		free_irq(msix_entry->vector, msix_entry);
+		devm_free_irq(&pdev->dev, msix_entry->vector, msix_entry);
 	}
 
 	pci_free_irq_vectors(pdev);

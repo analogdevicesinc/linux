@@ -102,9 +102,15 @@ mlx5e_xmit_xdp_buff(struct mlx5e_xdpsq *sq, struct mlx5e_rq *rq,
 
 		xdptxd->dma_addr = dma_addr;
 
-		if (unlikely(!INDIRECT_CALL_2(sq->xmit_xdp_frame, mlx5e_xmit_xdp_frame_mpwqe,
-					      mlx5e_xmit_xdp_frame, sq, xdptxd, 0, NULL)))
+		if (unlikely(!INDIRECT_CALL_2(sq->xmit_xdp_frame,
+					      mlx5e_xmit_xdp_frame_mpwqe,
+					      mlx5e_xmit_xdp_frame,
+					      sq, xdptxd, 0, NULL))) {
+			dma_unmap_single(sq->pdev, dma_addr, xdptxd->len,
+					 DMA_TO_DEVICE);
+			xdp_return_frame(xdpf);
 			return false;
+		}
 
 		/* xmit_mode == MLX5E_XDP_XMIT_MODE_FRAME */
 		mlx5e_xdpi_fifo_push(&sq->db.xdpi_fifo,
@@ -285,6 +291,9 @@ static u64 mlx5e_xsk_fill_timestamp(void *_priv)
 {
 	struct mlx5e_xsk_tx_complete *priv = _priv;
 	u64 ts;
+
+	if (!priv->cqe)
+		return 0;
 
 	ts = get_cqe_ts(priv->cqe);
 
@@ -546,6 +555,7 @@ mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
 	bool inline_ok;
 	bool linear;
 	u16 pi;
+	int i;
 
 	struct mlx5e_xdpsq_stats *stats = sq->stats;
 
@@ -612,41 +622,33 @@ mlx5e_xmit_xdp_frame(struct mlx5e_xdpsq *sq, struct mlx5e_xmit_data *xdptxd,
 
 	cseg->opmod_idx_opcode = cpu_to_be32((sq->pc << 8) | MLX5_OPCODE_SEND);
 
-	if (test_bit(MLX5E_SQ_STATE_XDP_MULTIBUF, &sq->state)) {
-		int i;
+	memset(&cseg->trailer, 0, sizeof(cseg->trailer));
+	memset(eseg, 0, sizeof(*eseg) - sizeof(eseg->trailer));
 
-		memset(&cseg->trailer, 0, sizeof(cseg->trailer));
-		memset(eseg, 0, sizeof(*eseg) - sizeof(eseg->trailer));
+	eseg->inline_hdr.sz = cpu_to_be16(inline_hdr_sz);
 
-		eseg->inline_hdr.sz = cpu_to_be16(inline_hdr_sz);
+	for (i = 0; i < num_frags; i++) {
+		skb_frag_t *frag = &xdptxdf->sinfo->frags[i];
+		dma_addr_t addr;
 
-		for (i = 0; i < num_frags; i++) {
-			skb_frag_t *frag = &xdptxdf->sinfo->frags[i];
-			dma_addr_t addr;
+		addr = xdptxdf->dma_arr ? xdptxdf->dma_arr[i] :
+			page_pool_get_dma_addr(skb_frag_page(frag)) +
+			skb_frag_off(frag);
 
-			addr = xdptxdf->dma_arr ? xdptxdf->dma_arr[i] :
-				page_pool_get_dma_addr(skb_frag_page(frag)) +
-				skb_frag_off(frag);
-
-			dseg->addr = cpu_to_be64(addr);
-			dseg->byte_count = cpu_to_be32(skb_frag_size(frag));
-			dseg->lkey = sq->mkey_be;
-			dseg++;
-		}
-
-		cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | ds_cnt);
-
-		sq->db.wqe_info[pi] = (struct mlx5e_xdp_wqe_info) {
-			.num_wqebbs = num_wqebbs,
-			.num_pkts = 1,
-		};
-
-		sq->pc += num_wqebbs;
-	} else {
-		cseg->fm_ce_se = 0;
-
-		sq->pc++;
+		dseg->addr = cpu_to_be64(addr);
+		dseg->byte_count = cpu_to_be32(skb_frag_size(frag));
+		dseg->lkey = sq->mkey_be;
+		dseg++;
 	}
+
+	cseg->qpn_ds = cpu_to_be32((sq->sqn << 8) | ds_cnt);
+
+	sq->db.wqe_info[pi] = (struct mlx5e_xdp_wqe_info) {
+		.num_wqebbs = num_wqebbs,
+		.num_pkts = 1,
+	};
+
+	sq->pc += num_wqebbs;
 
 	xsk_tx_metadata_request(meta, &mlx5e_xsk_tx_metadata_ops, eseg);
 
@@ -713,8 +715,8 @@ static void mlx5e_free_xdpsq_desc(struct mlx5e_xdpsq *sq,
 				xdpi = mlx5e_xdpi_fifo_pop(xdpi_fifo);
 				page = xdpi.page.page;
 
-				/* No need to check ((page->pp_magic & ~0x3UL) == PP_SIGNATURE)
-				 * as we know this is a page_pool page.
+				/* No need to check page_pool_page_is_pp() as we
+				 * know this is a page_pool page.
 				 */
 				page_pool_recycle_direct(page->pp, page);
 			} while (++n < num);

@@ -487,8 +487,7 @@ xfarray_sortinfo_alloc(
 	xfarray_sortinfo_lo(si)[0] = 0;
 	xfarray_sortinfo_hi(si)[0] = array->nr - 1;
 	si->relax = INIT_XCHK_RELAX;
-	if (flags & XFARRAY_SORT_KILLABLE)
-		si->relax.interruptible = false;
+	si->relax.killable = !!(flags & XFARRAY_SORT_KILLABLE);
 
 	trace_xfarray_sort(si, nr_bytes);
 	*infop = si;
@@ -944,8 +943,10 @@ xfarray_sort(
 		 * problems, we're done.
 		 */
 		ret = xfarray_foliosort(si, lo, hi);
-		if (ret < 0)
+		if (ret < 0) {
+			error = ret;
 			goto out_free;
+		}
 		if (ret == 1) {
 			si->stack_depth--;
 			continue;

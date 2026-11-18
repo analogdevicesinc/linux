@@ -34,7 +34,7 @@
 		sleep_clk: sleep-clk {
 			compatible = "fixed-clock";
 			#clock-cells = <0>;
-			clock-frequency = <32768>;
+			clock-frequency = <32764>;
 		};
 	};
 
@@ -1217,6 +1217,8 @@
 				      "vsync";
 
 			power-domains = <&gcc MDSS_GDSC>;
+
+			resets = <&gcc GCC_MDSS_BCR>;
 
 			#address-cells = <1>;
 			#size-cells = <1>;

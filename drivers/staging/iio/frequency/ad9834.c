@@ -167,7 +167,7 @@ static int ad9834_write_phase(struct ad9834_state *st,
 {
 	int ret;
 
-	if (phase > BIT(AD9834_PHASE_BITS))
+	if (phase >= BIT(AD9834_PHASE_BITS))
 		return -EINVAL;
 	st->data = cpu_to_be16(AD9834_REG_PHASE(addr) | phase);
 

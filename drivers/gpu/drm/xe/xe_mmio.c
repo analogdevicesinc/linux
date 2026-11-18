@@ -36,13 +36,19 @@ static void tiles_fini(void *arg)
 /*
  * On multi-tile devices, partition the BAR space for MMIO on each tile,
  * possibly accounting for register override on the number of tiles available.
+ * tile_mmio_size contains both the tile's 4MB register space, as well as
+ * additional space for the GTT and other (possibly unused) regions).
  * Resulting memory layout is like below:
  *
  * .----------------------. <- tile_count * tile_mmio_size
  * |         ....         |
  * |----------------------| <- 2 * tile_mmio_size
+ * |   tile1 GTT + other  |
+ * |----------------------| <- 1 * tile_mmio_size + 4MB
  * |   tile1->mmio.regs   |
  * |----------------------| <- 1 * tile_mmio_size
+ * |   tile0 GTT + other  |
+ * |----------------------| <- 4MB
  * |   tile0->mmio.regs   |
  * '----------------------' <- 0MB
  */
@@ -90,8 +96,9 @@ static void mmio_multi_tile_setup(struct xe_device *xe, size_t tile_mmio_size)
 
 	regs = xe->mmio.regs;
 	for_each_tile(tile, xe, id) {
-		tile->mmio.size = tile_mmio_size;
+		tile->mmio.regs_size = SZ_4M;
 		tile->mmio.regs = regs;
+		tile->mmio.tile = tile;
 		regs += tile_mmio_size;
 	}
 }
@@ -126,8 +133,9 @@ static void mmio_extension_setup(struct xe_device *xe, size_t tile_mmio_size,
 
 	regs = xe->mmio.regs + tile_mmio_size * xe->info.tile_count;
 	for_each_tile(tile, xe, id) {
-		tile->mmio_ext.size = tile_mmio_ext_size;
+		tile->mmio_ext.regs_size = tile_mmio_ext_size;
 		tile->mmio_ext.regs = regs;
+		tile->mmio_ext.tile = tile;
 		regs += tile_mmio_ext_size;
 	}
 }
@@ -172,8 +180,9 @@ int xe_mmio_init(struct xe_device *xe)
 	}
 
 	/* Setup first tile; other tiles (if present) will be setup later. */
-	root_tile->mmio.size = SZ_16M;
+	root_tile->mmio.regs_size = SZ_4M;
 	root_tile->mmio.regs = xe->mmio.regs;
+	root_tile->mmio.tile = root_tile;
 
 	return devm_add_action_or_reset(xe->drm.dev, mmio_fini, xe);
 }

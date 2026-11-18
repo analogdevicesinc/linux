@@ -354,7 +354,7 @@ create_trampoline(struct ftrace_ops *ops, unsigned int *tramp_size)
 		goto fail;
 
 	ip = trampoline + size;
-	if (cpu_feature_enabled(X86_FEATURE_RETHUNK))
+	if (cpu_wants_rethunk_at(ip))
 		__text_gen_insn(ip, JMP32_INSN_OPCODE, ip, x86_return_thunk, JMP32_INSN_SIZE);
 	else
 		memcpy(ip, retq, sizeof(retq));
@@ -369,6 +369,13 @@ create_trampoline(struct ftrace_ops *ops, unsigned int *tramp_size)
 		if (ret < 0)
 			goto fail;
 	}
+
+	/*
+	 * Generated trampoline may contain rIP-relative addressing which
+	 * displacement needs to be fixed.
+	 */
+	text_poke_apply_relocation(trampoline, trampoline, size,
+				   (void *)start_offset, size);
 
 	/*
 	 * The address of the ftrace_ops that is used for this trampoline
@@ -647,7 +654,7 @@ void prepare_ftrace_return(unsigned long ip, unsigned long *parent,
 void ftrace_graph_func(unsigned long ip, unsigned long parent_ip,
 		       struct ftrace_ops *op, struct ftrace_regs *fregs)
 {
-	struct pt_regs *regs = &fregs->regs;
+	struct pt_regs *regs = &arch_ftrace_regs(fregs)->regs;
 	unsigned long *stack = (unsigned long *)kernel_stack_pointer(regs);
 
 	prepare_ftrace_return(ip, (unsigned long *)stack, 0);

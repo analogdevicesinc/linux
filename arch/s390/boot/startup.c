@@ -75,7 +75,7 @@ static int cmma_test_essa(void)
 		: [reg1] "=&d" (reg1),
 		  [reg2] "=&a" (reg2),
 		  [rc] "+&d" (rc),
-		  [tmp] "=&d" (tmp),
+		  [tmp] "+&d" (tmp),
 		  "+Q" (get_lowcore()->program_new_psw),
 		  "=Q" (old)
 		: [psw_old] "a" (&old),
@@ -231,6 +231,8 @@ static unsigned long get_vmem_size(unsigned long identity_size,
 	vsize = round_up(SZ_2G + max_mappable, rte_size) +
 		round_up(vmemmap_size, rte_size) +
 		FIXMAP_SIZE + MODULES_LEN + KASLR_LEN;
+	if (IS_ENABLED(CONFIG_KMSAN))
+		vsize += MODULES_LEN * 2;
 	return size_add(vsize, vmalloc_size);
 }
 

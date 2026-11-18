@@ -24,7 +24,7 @@
 #include "super.h"
 
 #define ZSTD_BTRFS_MAX_WINDOWLOG 17
-#define ZSTD_BTRFS_MAX_INPUT (1 << ZSTD_BTRFS_MAX_WINDOWLOG)
+#define ZSTD_BTRFS_MAX_INPUT (1U << ZSTD_BTRFS_MAX_WINDOWLOG)
 #define ZSTD_BTRFS_DEFAULT_LEVEL 3
 #define ZSTD_BTRFS_MAX_LEVEL 15
 /* 307s to avoid pathologically clashing with transaction commit */
@@ -290,8 +290,17 @@ again:
 		DEFINE_WAIT(wait);
 
 		prepare_to_wait(&wsm.wait, &wait, TASK_UNINTERRUPTIBLE);
-		schedule();
+		/*
+		 * Re-check after being queued: zstd_put_workspace() only wakes
+		 * a queue that already has a sleeper, so a workspace returned
+		 * since the failed allocation woke nobody.
+		 */
+		ws = zstd_find_workspace(level);
+		if (!ws)
+			schedule();
 		finish_wait(&wsm.wait, &wait);
+		if (ws)
+			return ws;
 
 		goto again;
 	}

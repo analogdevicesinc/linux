@@ -94,7 +94,7 @@ static int create_wc_cq(struct mlx5_wc_cq *cq, void *cqc_data)
 
 	MLX5_SET(cqc,   cqc, cq_period_mode, MLX5_CQ_PERIOD_MODE_START_FROM_EQE);
 	MLX5_SET(cqc,   cqc, c_eqn_or_apu_element, eqn);
-	MLX5_SET(cqc,   cqc, uar_page,      mdev->priv.uar->index);
+	MLX5_SET(cqc,   cqc, uar_page,      mdev->priv.bfreg.up->index);
 	MLX5_SET(cqc,   cqc, log_page_size, cq->wq_ctrl.buf.page_shift -
 					    MLX5_ADAPTER_PAGE_SHIFT);
 	MLX5_SET64(cqc, cqc, dbr_addr,      cq->wq_ctrl.db.dma);
@@ -116,7 +116,7 @@ static int mlx5_wc_create_cq(struct mlx5_core_dev *mdev, struct mlx5_wc_cq *cq)
 		return -ENOMEM;
 
 	MLX5_SET(cqc, cqc, log_cq_size, TEST_WC_LOG_CQ_SZ);
-	MLX5_SET(cqc, cqc, uar_page, mdev->priv.uar->index);
+	MLX5_SET(cqc, cqc, uar_page, mdev->priv.bfreg.up->index);
 	if (MLX5_CAP_GEN(mdev, cqe_128_always) && cache_line_size() >= 128)
 		MLX5_SET(cqc, cqc, cqe_sz, CQE_STRIDE_128_PAD);
 
@@ -382,6 +382,7 @@ err_alloc_bfreg:
 
 bool mlx5_wc_support_get(struct mlx5_core_dev *mdev)
 {
+	struct mutex *wc_state_lock = &mdev->wc_state_lock;
 	struct mlx5_core_dev *parent = NULL;
 
 	if (!MLX5_CAP_GEN(mdev, bf)) {
@@ -400,32 +401,31 @@ bool mlx5_wc_support_get(struct mlx5_core_dev *mdev)
 		 */
 		goto out;
 
-	mutex_lock(&mdev->wc_state_lock);
+#ifdef CONFIG_MLX5_SF
+	if (mlx5_core_is_sf(mdev)) {
+		parent = mdev->priv.parent_mdev;
+		wc_state_lock = &parent->wc_state_lock;
+	}
+#endif
+
+	mutex_lock(wc_state_lock);
 
 	if (mdev->wc_state != MLX5_WC_STATE_UNINITIALIZED)
 		goto unlock;
 
-#ifdef CONFIG_MLX5_SF
-	if (mlx5_core_is_sf(mdev))
-		parent = mdev->priv.parent_mdev;
-#endif
-
 	if (parent) {
-		mutex_lock(&parent->wc_state_lock);
-
 		mlx5_core_test_wc(parent);
 
 		mlx5_core_dbg(mdev, "parent set wc_state=%d\n",
 			      parent->wc_state);
 		mdev->wc_state = parent->wc_state;
 
-		mutex_unlock(&parent->wc_state_lock);
+	} else {
+		mlx5_core_test_wc(mdev);
 	}
 
-	mlx5_core_test_wc(mdev);
-
 unlock:
-	mutex_unlock(&mdev->wc_state_lock);
+	mutex_unlock(wc_state_lock);
 out:
 	mlx5_core_dbg(mdev, "wc_state=%d\n", mdev->wc_state);
 

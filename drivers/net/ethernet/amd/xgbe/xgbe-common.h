@@ -514,7 +514,7 @@
 #define MAC_SSIR_SSINC_INDEX		16
 #define MAC_SSIR_SSINC_WIDTH		8
 #define MAC_TCR_SS_INDEX		29
-#define MAC_TCR_SS_WIDTH		2
+#define MAC_TCR_SS_WIDTH		3
 #define MAC_TCR_TE_INDEX		0
 #define MAC_TCR_TE_WIDTH		1
 #define MAC_TCR_VNE_INDEX		24
@@ -1372,6 +1372,8 @@
 #ifndef MDIO_VEND2_CTRL1_SS13
 #define MDIO_VEND2_CTRL1_SS13		BIT(13)
 #endif
+
+#define XGBE_VEND2_MAC_AUTO_SW		BIT(9)
 
 /* MDIO mask values */
 #define XGBE_AN_CL73_INT_CMPLT		BIT(0)

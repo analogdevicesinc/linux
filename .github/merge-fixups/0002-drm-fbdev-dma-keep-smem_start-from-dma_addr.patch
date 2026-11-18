@@ -1,0 +1,38 @@
+drm/fbdev-dma: keep downstream "leak framebuffer physical address" in probe_tail
+
+Stable commits 25998ed87f0c8 ("drm/fbdev-dma: Support struct
+drm_driver.fbdev_probe") and 0d087de947bab ("drm/fbdev-dma: Add shadow
+buffering for deferred I/O") move the framebuffer setup of
+drm_fbdev_dma_helper_fb_probe() into drm_fbdev_dma_driver_fbdev_probe_tail().
+The merge conflict was resolved to the stable structure, but the downstream
+commits 12983dfc95f6d/d09eefcfa6871 ("drm/fbdev_dma: Leak framebuffer physical
+address" / "Make framebuffer leak reliable") changed the old function to always
+set info->fix.smem_start from dma_obj->dma_addr (Mali userspace relies on it).
+
+Re-apply that downstream change to the non-shadowed tail function and drop the
+now unused 'dev' local.
+
+diff --git a/drivers/gpu/drm/drm_fbdev_dma.c b/drivers/gpu/drm/drm_fbdev_dma.c
+--- a/drivers/gpu/drm/drm_fbdev_dma.c
++++ b/drivers/gpu/drm/drm_fbdev_dma.c
+@@ -210,7 +210,6 @@
+ static int drm_fbdev_dma_driver_fbdev_probe_tail(struct drm_fb_helper *fb_helper,
+ 						 struct drm_fb_helper_surface_size *sizes)
+ {
+-	struct drm_device *dev = fb_helper->dev;
+ 	struct drm_client_buffer *buffer = fb_helper->buffer;
+ 	struct drm_gem_dma_object *dma_obj = to_drm_gem_dma_obj(buffer->gem);
+ 	struct drm_framebuffer *fb = fb_helper->fb;
+@@ -225,10 +224,8 @@
+ 		info->flags |= FBINFO_READS_FAST; /* signal caching */
+ 	info->screen_size = sizes->surface_height * fb->pitches[0];
+ 	info->screen_buffer = map.vaddr;
+-	if (!(info->flags & FBINFO_HIDE_SMEM_START)) {
+-		if (!drm_WARN_ON(dev, is_vmalloc_addr(info->screen_buffer)))
+-			info->fix.smem_start = page_to_phys(virt_to_page(info->screen_buffer));
+-	}
++	if (!(info->flags & FBINFO_HIDE_SMEM_START))
++		info->fix.smem_start = dma_obj->dma_addr;
+ 	info->fix.smem_len = info->screen_size;
+ 
+ 	return 0;

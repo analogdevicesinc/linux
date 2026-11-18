@@ -13,6 +13,7 @@
 #include <linux/lsm_hooks.h>
 #include <linux/rcupdate.h>
 #include <linux/sched.h>
+#include <linux/sched/signal.h>
 #include <net/af_unix.h>
 #include <net/sock.h>
 
@@ -264,6 +265,17 @@ static int hook_task_kill(struct task_struct *const p,
 		/* Dealing with USB IO. */
 		dom = landlock_cred(cred)->domain;
 	} else {
+		/*
+		 * Always allow sending signals between threads of the same process.
+		 * This is required for process credential changes by the Native POSIX
+		 * Threads Library and implemented by the set*id(2) wrappers and
+		 * libcap(3) with tgkill(2).  See nptl(7) and libpsx(3).
+		 *
+		 * This exception is similar to the __ptrace_may_access() one.
+		 */
+		if (same_thread_group(p, current))
+			return 0;
+
 		dom = landlock_get_current_domain();
 	}
 	dom = landlock_get_applicable_domain(dom, signal_scope);
@@ -285,22 +297,40 @@ static int hook_task_kill(struct task_struct *const p,
 static int hook_file_send_sigiotask(struct task_struct *tsk,
 				    struct fown_struct *fown, int signum)
 {
-	const struct landlock_ruleset *dom;
+	const struct landlock_cred_security *subject;
 	bool is_scoped = false;
 
 	/* Lock already held by send_sigio() and send_sigurg(). */
 	lockdep_assert_held(&fown->lock);
-	dom = landlock_get_applicable_domain(
-		landlock_file(fown->file)->fown_domain, signal_scope);
+	subject = &landlock_file(fown->file)->fown_subject;
 
-	/* Quick return for unowned socket. */
-	if (!dom)
+	/*
+	 * Quick return for unowned socket.
+	 *
+	 * subject->domain has already been filtered when saved by
+	 * hook_file_set_fowner(), so there is no need to call
+	 * landlock_get_applicable_subject() here.
+	 */
+	if (!subject->domain)
 		return 0;
 
-	rcu_read_lock();
-	is_scoped = domain_is_scoped(dom, landlock_get_task_domain(tsk),
-				     LANDLOCK_SCOPE_SIGNAL);
-	rcu_read_unlock();
+	/*
+	 * Always allow delivery to the file owner's own process, including a
+	 * thread-group leader reached through a process-group owner.  This
+	 * mirrors hook_task_kill()'s same-process exemption and preserves the
+	 * guarantee of commit 18eb75f3af40 ("landlock: Always allow signals
+	 * between threads of the same process"), which the registration-time
+	 * check cannot honor for a process-group target.
+	 */
+	if (task_tgid(tsk) == landlock_file(fown->file)->fown_tg)
+		return 0;
+
+	scoped_guard(rcu)
+	{
+		is_scoped = domain_is_scoped(subject->domain,
+					     landlock_get_task_domain(tsk),
+					     signal_scope.scope);
+	}
 	if (is_scoped)
 		return -EPERM;
 

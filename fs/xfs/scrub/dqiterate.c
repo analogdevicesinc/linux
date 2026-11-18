@@ -58,6 +58,7 @@ xchk_dquot_iter_revalidate_bmap(
 	 * no need to reread the bmbt.
 	 */
 	if (cursor->bmap.br_startoff != NULLFILEOFF &&
+	    cursor->bmap.br_startoff <= fileoff &&
 	    cursor->if_seq == ifp->if_seq &&
 	    cursor->bmap.br_startoff + cursor->bmap.br_blockcount > fileoff)
 		return 0;
@@ -205,7 +206,7 @@ xchk_dquot_iter(
 	if (error)
 		return error;
 
-	cursor->id = dq->q_id + 1;
+	cursor->id = (uint64_t)dq->q_id + 1;
 	*dqpp = dq;
 	return 1;
 }

@@ -141,7 +141,7 @@ static int __xsk_rcv_zc(struct xdp_sock *xs, struct xdp_buff_xsk *xskb, u32 len,
 	u64 addr;
 	int err;
 
-	addr = xp_get_handle(xskb);
+	addr = xp_get_handle(xskb, xskb->pool);
 	err = xskq_prod_reserve_desc(xs->rx, addr, len, flags);
 	if (err) {
 		xs->rx_queue_full++;
@@ -152,6 +152,17 @@ static int __xsk_rcv_zc(struct xdp_sock *xs, struct xdp_buff_xsk *xskb, u32 len,
 	return 0;
 }
 
+static void __xsk_rcv_zc_safe(struct xdp_sock *xs, struct xdp_buff_xsk *xskb,
+			      u32 len, u32 flags)
+{
+	u64 addr;
+
+	addr = xp_get_handle(xskb, xskb->pool);
+	__xskq_prod_reserve_desc(xs->rx, addr, len, flags);
+
+	xp_release(xskb);
+}
+
 static int xsk_rcv_zc(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
 {
 	struct xdp_buff_xsk *xskb = container_of(xdp, struct xdp_buff_xsk, xdp);
@@ -159,26 +170,32 @@ static int xsk_rcv_zc(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
 	struct xdp_buff_xsk *pos, *tmp;
 	struct list_head *xskb_list;
 	u32 contd = 0;
+	u32 num_desc;
 	int err;
 
-	if (frags)
-		contd = XDP_PKT_CONTD;
-
-	err = __xsk_rcv_zc(xs, xskb, len, contd);
-	if (err)
-		goto err;
-	if (likely(!frags))
+	if (likely(!frags)) {
+		err = __xsk_rcv_zc(xs, xskb, len, contd);
+		if (err)
+			goto err;
 		return 0;
+	}
 
+	contd = XDP_PKT_CONTD;
+	num_desc = xdp_get_shared_info_from_buff(xdp)->nr_frags + 1;
+	if (xskq_prod_nb_free(xs->rx, num_desc) < num_desc) {
+		xs->rx_queue_full++;
+		err = -ENOBUFS;
+		goto err;
+	}
+
+	__xsk_rcv_zc(xs, xskb, len, contd);
 	xskb_list = &xskb->pool->xskb_list;
-	list_for_each_entry_safe(pos, tmp, xskb_list, xskb_list_node) {
+	list_for_each_entry_safe(pos, tmp, xskb_list, list_node) {
 		if (list_is_singular(xskb_list))
 			contd = 0;
 		len = pos->xdp.data_end - pos->xdp.data;
-		err = __xsk_rcv_zc(xs, pos, len, contd);
-		if (err)
-			goto err;
-		list_del(&pos->xskb_list_node);
+		__xsk_rcv_zc(xs, pos, len, contd);
+		list_del_init(&pos->list_node);
 	}
 
 	return 0;
@@ -225,12 +242,14 @@ static u32 xsk_copy_xdp(void *to, void **from, u32 to_len,
 
 static int __xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
 {
-	u32 frame_size = xsk_pool_get_rx_frame_size(xs->pool);
+	u32 frame_size = __xsk_pool_get_rx_frame_size(xs->pool);
 	void *copy_from = xsk_copy_xdp_start(xdp), *copy_to;
 	u32 from_len, meta_len, rem, num_desc;
-	struct xdp_buff_xsk *xskb;
+	struct xdp_buff_xsk *xskb, *tmp;
 	struct xdp_buff *xsk_xdp;
+	LIST_HEAD(xsk_buffs);
 	skb_frag_t *frag;
+	u32 i;
 
 	from_len = xdp->data_end - copy_from;
 	meta_len = xdp->data - copy_from;
@@ -273,22 +292,45 @@ static int __xsk_rcv(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
 		frag =  &sinfo->frags[0];
 	}
 
+	for (i = 0; i < num_desc; i++) {
+		xsk_xdp = xsk_buff_alloc(xs->pool);
+		if (!xsk_xdp)
+			goto err_alloc;
+
+		xskb = container_of(xsk_xdp, struct xdp_buff_xsk, xdp);
+		if (unlikely(!list_empty(&xskb->list_node)))
+			goto err_alloc;
+
+		list_add_tail(&xskb->list_node, &xsk_buffs);
+	}
+
 	do {
 		u32 to_len = frame_size + meta_len;
 		u32 copied;
 
-		xsk_xdp = xsk_buff_alloc(xs->pool);
+		xskb = list_first_entry(&xsk_buffs, struct xdp_buff_xsk,
+					list_node);
+		list_del_init(&xskb->list_node);
+		xsk_xdp = &xskb->xdp;
 		copy_to = xsk_xdp->data - meta_len;
 
 		copied = xsk_copy_xdp(copy_to, &copy_from, to_len, &from_len, &frag, rem);
 		rem -= copied;
 
-		xskb = container_of(xsk_xdp, struct xdp_buff_xsk, xdp);
-		__xsk_rcv_zc(xs, xskb, copied - meta_len, rem ? XDP_PKT_CONTD : 0);
+		__xsk_rcv_zc_safe(xs, xskb, copied - meta_len,
+				  rem ? XDP_PKT_CONTD : 0);
 		meta_len = 0;
 	} while (rem);
 
 	return 0;
+
+err_alloc:
+	list_for_each_entry_safe(xskb, tmp, &xsk_buffs, list_node) {
+		list_del_init(&xskb->list_node);
+		xsk_buff_free(&xskb->xdp);
+	}
+	xs->rx_dropped++;
+	return -ENOMEM;
 }
 
 static bool xsk_tx_writeable(struct xdp_sock *xs)
@@ -317,7 +359,7 @@ static int xsk_rcv_check(struct xdp_sock *xs, struct xdp_buff *xdp, u32 len)
 	if (xs->dev != xdp->rxq->dev || xs->queue_id != xdp->rxq->queue_index)
 		return -EINVAL;
 
-	if (len > xsk_pool_get_rx_frame_size(xs->pool) && !xs->sg) {
+	if (len > __xsk_pool_get_rx_frame_size(xs->pool) && !xs->sg) {
 		xs->rx_dropped++;
 		return -ENOSPC;
 	}
@@ -338,13 +380,14 @@ int xsk_generic_rcv(struct xdp_sock *xs, struct xdp_buff *xdp)
 	u32 len = xdp_get_buff_len(xdp);
 	int err;
 
-	spin_lock_bh(&xs->rx_lock);
 	err = xsk_rcv_check(xs, xdp, len);
 	if (!err) {
+		spin_lock_bh(&xs->pool->rx_lock);
 		err = __xsk_rcv(xs, xdp, len);
 		xsk_flush(xs);
+		spin_unlock_bh(&xs->pool->rx_lock);
 	}
-	spin_unlock_bh(&xs->rx_lock);
+
 	return err;
 }
 
@@ -397,6 +440,23 @@ void __xsk_map_flush(struct list_head *flush_list)
 
 void xsk_tx_completed(struct xsk_buff_pool *pool, u32 nb_entries)
 {
+	u32 reclaim_descs = READ_ONCE(pool->reclaim_descs);
+
+	if (unlikely(reclaim_descs)) {
+		u32 pending_descs = READ_ONCE(pool->tx_zc_pending_descs);
+
+		if (nb_entries < pending_descs) {
+			WRITE_ONCE(pool->tx_zc_pending_descs,
+				   pending_descs - nb_entries);
+			xskq_prod_submit_n(pool->cq, nb_entries);
+			return;
+		}
+
+		WRITE_ONCE(pool->tx_zc_pending_descs, 0);
+		nb_entries += reclaim_descs;
+		WRITE_ONCE(pool->reclaim_descs, 0);
+	}
+
 	xskq_prod_submit_n(pool->cq, nb_entries);
 }
 EXPORT_SYMBOL(xsk_tx_completed);
@@ -475,24 +535,158 @@ static u32 xsk_tx_peek_release_fallback(struct xsk_buff_pool *pool, u32 max_entr
 	return nb_pkts;
 }
 
-u32 xsk_tx_peek_release_desc_batch(struct xsk_buff_pool *pool, u32 nb_pkts)
+static void xsk_tx_commit_batch(struct xsk_buff_pool *pool,
+				struct xsk_tx_batch *batch)
 {
+	u32 nb_descs = xsk_tx_batch_cq_descs(batch);
+	u32 cq_cached_prod;
+
+	if (!nb_descs)
+		return;
+
+	cq_cached_prod = pool->cq->cached_prod;
+	xskq_prod_write_addr_batch(pool->cq, pool->tx_descs, nb_descs);
+
+	if (unlikely(batch->reclaim_descs)) {
+		u32 cq_pending_descs;
+
+		/* CQ is positional. Descriptors already written but not
+		 * submitted must complete before any reclaim-only descriptors
+		 * appended below.
+		 */
+		cq_pending_descs = cq_cached_prod -
+				  READ_ONCE(pool->cq->ring->producer);
+
+		WRITE_ONCE(pool->tx_zc_pending_descs,
+			   batch->tx_descs + cq_pending_descs);
+		WRITE_ONCE(pool->reclaim_descs, batch->reclaim_descs);
+		if (unlikely(!pool->tx_zc_pending_descs))
+			xsk_tx_completed(pool, 0);
+	}
+}
+
+static struct xsk_tx_batch
+__xsk_tx_peek_release_desc_batch(struct xsk_buff_pool *pool, struct xdp_sock *xs,
+				 struct xdp_desc *descs, u32 max_descs)
+{
+	struct xsk_tx_batch batch = {};
+	u32 entries;
+
+	entries = xskq_cons_nb_entries(xs->tx, max_descs);
+	if (!entries)
+		return batch;
+
+	batch = xskq_cons_read_desc_batch(xs, pool, descs, max_descs);
+	if (!xsk_tx_batch_cq_descs(&batch)) {
+		xs->tx->queue_empty_descs++;
+	} else {
+		__xskq_cons_release(xs->tx);
+		xs->sk.sk_write_space(&xs->sk);
+	}
+	return batch;
+}
+
+static struct xsk_tx_batch
+xsk_tx_peek_release_shared_desc_batch(struct xsk_buff_pool *pool, u32 max_descs)
+{
+	u32 cq_descs_before, cq_descs_after;
+	struct xsk_tx_batch sum_batch = {};
+	bool budget_exhausted;
+	u32 per_socket_budget;
 	struct xdp_sock *xs;
 
+	/* The fairness quota must allow one maximum-sized valid packet. */
+	per_socket_budget = max_t(u32, MAX_PER_SOCKET_BUDGET,
+				  pool->netdev->xdp_zc_max_segs);
+
+again:
+	budget_exhausted = false;
+	cq_descs_before = xsk_tx_batch_cq_descs(&sum_batch);
+	list_for_each_entry_rcu(xs, &pool->xsk_tx_list, tx_list) {
+		u32 budget, budget_left, offset, remaining, used;
+		struct xsk_tx_batch curr_batch;
+
+		/* Once reclaim-only descriptors have been appended to the CQ
+		 * address area, do not append driver-visible Tx descriptors
+		 * from another socket after them. xsk_tx_completed() relies on
+		 * all driver-visible descriptors preceding all reclaim-only
+		 * descriptors in CQ order.
+		 */
+		if (sum_batch.reclaim_descs)
+			break;
+
+		/* be gentle when playing with pool->tx_descs */
+		offset = xsk_tx_batch_cq_descs(&sum_batch);
+		if (offset >= max_descs)
+			break;
+
+		if (xs->tx_budget_spent >= per_socket_budget) {
+			if (xskq_cons_nb_entries(xs->tx, 1))
+				budget_exhausted = true;
+			continue;
+		}
+
+		budget_left = per_socket_budget - xs->tx_budget_spent;
+		remaining = max_descs - offset;
+		budget = min(remaining, budget_left);
+
+		curr_batch = __xsk_tx_peek_release_desc_batch(pool, xs,
+							      pool->tx_descs + offset,
+							      budget);
+		used = xsk_tx_batch_cq_descs(&curr_batch);
+		if (!used) {
+			if (curr_batch.budget_limited && budget_left < remaining)
+				budget_exhausted = true;
+			continue;
+		}
+
+		xs->tx_budget_spent += used;
+		sum_batch.tx_descs += curr_batch.tx_descs;
+		sum_batch.reclaim_descs = curr_batch.reclaim_descs;
+	}
+
+	cq_descs_after = xsk_tx_batch_cq_descs(&sum_batch);
+
+	if (sum_batch.reclaim_descs || cq_descs_after >= max_descs)
+		return sum_batch;
+
+	/* Continue filling the batch while this pass made progress */
+	if (cq_descs_before != cq_descs_after)
+		goto again;
+
+	if (!budget_exhausted)
+		return sum_batch;
+
+	list_for_each_entry_rcu(xs, &pool->xsk_tx_list, tx_list)
+		xs->tx_budget_spent = 0;
+	goto again;
+}
+
+u32 xsk_tx_peek_release_desc_batch(struct xsk_buff_pool *pool, u32 nb_pkts)
+{
+	struct xsk_tx_batch batch = {};
+	struct xdp_sock *xs;
+	bool umem_shared;
+
 	rcu_read_lock();
-	if (!list_is_singular(&pool->xsk_tx_list)) {
-		/* Fallback to the non-batched version */
+	if (unlikely(READ_ONCE(pool->reclaim_descs)))
+		goto out;
+
+	xs = list_first_or_null_rcu(&pool->xsk_tx_list, struct xdp_sock,
+				    tx_list);
+	if (!xs)
+		goto out;
+
+	nb_pkts = min(nb_pkts, pool->tx_descs_nentries);
+	if (!nb_pkts)
+		goto out;
+
+	umem_shared = !list_is_singular(&pool->xsk_tx_list);
+
+	if (umem_shared && !(pool->umem->flags & XDP_UMEM_SG_FLAG)) {
 		rcu_read_unlock();
 		return xsk_tx_peek_release_fallback(pool, nb_pkts);
 	}
-
-	xs = list_first_or_null_rcu(&pool->xsk_tx_list, struct xdp_sock, tx_list);
-	if (!xs) {
-		nb_pkts = 0;
-		goto out;
-	}
-
-	nb_pkts = xskq_cons_nb_entries(xs->tx, nb_pkts);
 
 	/* This is the backpressure mechanism for the Tx path. Try to
 	 * reserve space in the completion queue for all packets, but
@@ -504,19 +698,16 @@ u32 xsk_tx_peek_release_desc_batch(struct xsk_buff_pool *pool, u32 nb_pkts)
 	if (!nb_pkts)
 		goto out;
 
-	nb_pkts = xskq_cons_read_desc_batch(xs->tx, pool, nb_pkts);
-	if (!nb_pkts) {
-		xs->tx->queue_empty_descs++;
-		goto out;
-	}
-
-	__xskq_cons_release(xs->tx);
-	xskq_prod_write_addr_batch(pool->cq, pool->tx_descs, nb_pkts);
-	xs->sk.sk_write_space(&xs->sk);
+	batch = umem_shared ?
+		xsk_tx_peek_release_shared_desc_batch(pool, nb_pkts) :
+		__xsk_tx_peek_release_desc_batch(pool, xs,
+						 pool->tx_descs,
+						 nb_pkts);
+	xsk_tx_commit_batch(pool, &batch);
 
 out:
 	rcu_read_unlock();
-	return nb_pkts;
+	return batch.tx_descs;
 }
 EXPORT_SYMBOL(xsk_tx_peek_release_desc_batch);
 
@@ -555,6 +746,28 @@ static void xsk_cq_cancel_locked(struct xdp_sock *xs, u32 n)
 	spin_lock_irqsave(&xs->pool->cq_lock, flags);
 	xskq_prod_cancel_n(xs->pool->cq, n);
 	spin_unlock_irqrestore(&xs->pool->cq_lock, flags);
+}
+
+static int xsk_cq_submit_addr_single_locked(struct xsk_buff_pool *pool,
+					    struct xdp_desc *desc)
+{
+	struct xsk_queue *cq = pool->cq;
+	unsigned long flags;
+	int err = -EAGAIN;
+
+	spin_lock_irqsave(&pool->cq_lock, flags);
+	/* Addresses are written at reserve time and publishing is positional,
+	 * so the entry can only be published if no earlier Tx is still in
+	 * flight in front of it. The caller retries later otherwise.
+	 */
+	if (cq->cached_prod == READ_ONCE(cq->ring->producer)) {
+		err = xskq_prod_reserve_addr(cq, desc->addr);
+		if (!err)
+			xskq_prod_submit_n(cq, 1);
+	}
+	spin_unlock_irqrestore(&pool->cq_lock, flags);
+
+	return err;
 }
 
 static u32 xsk_get_num_desc(struct sk_buff *skb)
@@ -658,6 +871,7 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 	struct xsk_tx_metadata *meta = NULL;
 	struct net_device *dev = xs->dev;
 	struct sk_buff *skb = xs->skb;
+	u16 csum_start, csum_offset;
 	bool first_frag = false;
 	int err;
 
@@ -675,6 +889,8 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 		len = desc->len;
 
 		if (!skb) {
+			first_frag = true;
+
 			hr = max(NET_SKB_PAD, L1_CACHE_ALIGN(dev->needed_headroom));
 			tr = dev->needed_tailroom;
 			skb = sock_alloc_send_skb(&xs->sk, hr + len + tr, 1, &err);
@@ -685,12 +901,8 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 			skb_put(skb, len);
 
 			err = skb_store_bits(skb, 0, buffer, len);
-			if (unlikely(err)) {
-				kfree_skb(skb);
+			if (unlikely(err))
 				goto free_err;
-			}
-
-			first_frag = true;
 		} else {
 			int nr_frags = skb_shinfo(skb)->nr_frags;
 			struct page *page;
@@ -728,15 +940,17 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 			}
 
 			if (meta->flags & XDP_TXMD_FLAGS_CHECKSUM) {
-				if (unlikely(meta->request.csum_start +
-					     meta->request.csum_offset +
+				csum_start = READ_ONCE(meta->request.csum_start);
+				csum_offset = READ_ONCE(meta->request.csum_offset);
+
+				if (unlikely(csum_start + csum_offset +
 					     sizeof(__sum16) > len)) {
 					err = -EINVAL;
 					goto free_err;
 				}
 
-				skb->csum_start = hr + meta->request.csum_start;
-				skb->csum_offset = meta->request.csum_offset;
+				skb->csum_start = hr + csum_start;
+				skb->csum_offset = csum_offset;
 				skb->ip_summed = CHECKSUM_PARTIAL;
 
 				if (unlikely(xs->pool->tx_sw_csum)) {
@@ -758,6 +972,9 @@ static struct sk_buff *xsk_build_skb(struct xdp_sock *xs,
 	return skb;
 
 free_err:
+	if (first_frag && skb)
+		kfree_skb(skb);
+
 	if (err == -EOVERFLOW) {
 		/* Drop the packet */
 		xsk_set_destructor_arg(xs->skb);
@@ -775,12 +992,13 @@ static int __xsk_generic_xmit(struct sock *sk)
 {
 	struct xdp_sock *xs = xdp_sk(sk);
 	u32 max_batch = TX_BATCH_SIZE;
-	bool sent_frame = false;
 	struct xdp_desc desc;
 	struct sk_buff *skb;
+	u32 cached_cons;
 	int err = 0;
 
 	mutex_lock(&xs->mutex);
+	cached_cons = xs->tx->cached_cons;
 
 	/* Since we dropped the RCU read lock, the socket state might have changed. */
 	if (unlikely(!xsk_is_bound(xs))) {
@@ -797,6 +1015,17 @@ static int __xsk_generic_xmit(struct sock *sk)
 			goto out;
 		}
 
+		if (unlikely(xs->drain_cont)) {
+			if (xsk_cq_submit_addr_single_locked(xs->pool, &desc)) {
+				err = -EAGAIN;
+				goto out;
+			}
+			xs->tx->invalid_descs++;
+			xskq_cons_release(xs->tx);
+			xs->drain_cont = xp_mb_desc(&desc);
+			continue;
+		}
+
 		/* This is the backpressure mechanism for the Tx path.
 		 * Reserve space in the completion queue and only proceed
 		 * if there is space in it. This avoids having to implement
@@ -810,6 +1039,8 @@ static int __xsk_generic_xmit(struct sock *sk)
 			err = PTR_ERR(skb);
 			if (err != -EOVERFLOW)
 				goto out;
+			if (xp_mb_desc(&desc))
+				xs->drain_cont = true;
 			err = 0;
 			continue;
 		}
@@ -838,18 +1069,29 @@ static int __xsk_generic_xmit(struct sock *sk)
 			goto out;
 		}
 
-		sent_frame = true;
 		xs->skb = NULL;
 	}
 
 	if (xskq_has_descs(xs->tx)) {
+		bool drain = xs->skb || xs->drain_cont || xp_mb_desc(&desc);
+
 		if (xs->skb)
 			xsk_drop_skb(xs->skb);
+
+		err = xsk_cq_submit_addr_single_locked(xs->pool, &desc);
+		if (err) {
+			xs->tx->invalid_descs--;
+			xs->drain_cont = drain;
+			err = -EAGAIN;
+			goto out;
+		}
+
 		xskq_cons_release(xs->tx);
+		xs->drain_cont = xp_mb_desc(&desc);
 	}
 
 out:
-	if (sent_frame)
+	if (xs->tx->cached_cons != cached_cons)
 		if (xsk_tx_writeable(xs))
 			sk->sk_write_space(sk);
 
@@ -1223,7 +1465,8 @@ static int xsk_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 			 * and/or device.
 			 */
 			xs->pool = xp_create_and_assign_umem(xs,
-							     umem_xs->umem);
+							     umem_xs->umem,
+							     dev->xdp_zc_max_segs);
 			if (!xs->pool) {
 				err = -ENOMEM;
 				sockfd_put(sock);
@@ -1255,7 +1498,8 @@ static int xsk_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 			 * utilizes
 			 */
 			if (xs->tx && !xs->pool->tx_descs) {
-				err = xp_alloc_tx_descs(xs->pool, xs);
+				err = xp_alloc_tx_descs(xs->pool, xs,
+							dev->xdp_zc_max_segs);
 				if (err) {
 					xp_put_pool(xs->pool);
 					xs->pool = NULL;
@@ -1273,7 +1517,9 @@ static int xsk_bind(struct socket *sock, struct sockaddr *addr, int addr_len)
 		goto out_unlock;
 	} else {
 		/* This xsk has its own umem. */
-		xs->pool = xp_create_and_assign_umem(xs, xs->umem);
+		xs->pool = xp_create_and_assign_umem(xs, xs->umem,
+						     dev->xdp_zc_max_segs);
+
 		if (!xs->pool) {
 			err = -ENOMEM;
 			goto out_unlock;
@@ -1719,7 +1965,6 @@ static int xsk_create(struct net *net, struct socket *sock, int protocol,
 	xs = xdp_sk(sk);
 	xs->state = XSK_READY;
 	mutex_init(&xs->mutex);
-	spin_lock_init(&xs->rx_lock);
 
 	INIT_LIST_HEAD(&xs->map_list);
 	spin_lock_init(&xs->map_list_lock);

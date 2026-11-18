@@ -77,6 +77,12 @@ static void imsic_handle_irq(struct irq_desc *desc)
 	struct imsic_vector *vec;
 	unsigned long local_id;
 
+	/*
+	 * Process pending local synchronization instead of waiting
+	 * for per-CPU local timer to expire.
+	 */
+	imsic_local_sync_all(false);
+
 	chained_irq_enter(chip, desc);
 
 	while ((local_id = csr_swap(CSR_TOPEI, 0))) {
@@ -120,7 +126,7 @@ static int imsic_starting_cpu(unsigned int cpu)
 	 * Interrupts identities might have been enabled/disabled while
 	 * this CPU was not running so sync-up local enable/disable state.
 	 */
-	imsic_local_sync_all();
+	imsic_local_sync_all(true);
 
 	/* Enable local interrupt delivery */
 	imsic_local_delivery(true);
@@ -132,6 +138,8 @@ static int imsic_dying_cpu(unsigned int cpu)
 {
 	/* Cleanup IPIs */
 	imsic_ipi_dying_cpu();
+
+	imsic_local_sync_all(false);
 
 	/* Mark per-CPU IMSIC state as offline */
 	imsic_state_offline();
@@ -228,16 +236,13 @@ static int __init imsic_early_acpi_init(union acpi_subtable_headers *header,
 	rc = imsic_setup_state(imsic_acpi_fwnode, imsic);
 	if (rc) {
 		pr_err("%pfwP: failed to setup state (error %d)\n", imsic_acpi_fwnode, rc);
-		return rc;
+		goto cleanup;
 	}
 
 	/* Do early setup of IMSIC state and IPIs */
 	rc = imsic_early_probe(imsic_acpi_fwnode);
-	if (rc) {
-		irq_domain_free_fwnode(imsic_acpi_fwnode);
-		imsic_acpi_fwnode = NULL;
-		return rc;
-	}
+	if (rc)
+		goto cleanup;
 
 	rc = imsic_platform_acpi_probe(imsic_acpi_fwnode);
 
@@ -256,8 +261,12 @@ static int __init imsic_early_acpi_init(union acpi_subtable_headers *header,
 	 * DT where IPI works but MSI probe fails for some reason.
 	 */
 	return 0;
-}
 
+cleanup:
+	irq_domain_free_fwnode(imsic_acpi_fwnode);
+	imsic_acpi_fwnode = NULL;
+	return rc;
+}
 IRQCHIP_ACPI_DECLARE(riscv_imsic, ACPI_MADT_TYPE_IMSIC, NULL,
 		     1, imsic_early_acpi_init);
 #endif

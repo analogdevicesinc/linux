@@ -80,11 +80,16 @@ struct vc4_perfmon {
 	u64 counters[] __counted_by(ncounters);
 };
 
+enum vc4_gen {
+	VC4_GEN_4,
+	VC4_GEN_5,
+};
+
 struct vc4_dev {
 	struct drm_device base;
 	struct device *dev;
 
-	bool is_vc5;
+	enum vc4_gen gen;
 
 	unsigned int irq;
 
@@ -315,6 +320,7 @@ struct vc4_hvs {
 	struct platform_device *pdev;
 	void __iomem *regs;
 	u32 __iomem *dlist;
+	unsigned int dlist_mem_size;
 
 	struct clk *core_clk;
 
@@ -1032,7 +1038,7 @@ void vc4_plane_async_set_fb(struct drm_plane *plane,
 /* vc4_v3d.c */
 extern struct platform_driver vc4_v3d_driver;
 extern const struct of_device_id vc4_v3d_dt_match[];
-int vc4_v3d_get_bin_slot(struct vc4_dev *vc4);
+int vc4_v3d_get_bin_slot(struct vc4_dev *vc4, long timeout);
 int vc4_v3d_bin_bo_get(struct vc4_dev *vc4, bool *used);
 void vc4_v3d_bin_bo_put(struct vc4_dev *vc4);
 int vc4_v3d_pm_get(struct vc4_dev *vc4);

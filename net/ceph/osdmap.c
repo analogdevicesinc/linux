@@ -241,22 +241,26 @@ static struct crush_choose_arg_map *alloc_choose_arg_map(void)
 
 static void free_choose_arg_map(struct crush_choose_arg_map *arg_map)
 {
-	if (arg_map) {
-		int i, j;
+	int i, j;
 
-		WARN_ON(!RB_EMPTY_NODE(&arg_map->node));
+	if (!arg_map)
+		return;
 
+	WARN_ON(!RB_EMPTY_NODE(&arg_map->node));
+
+	if (arg_map->args) {
 		for (i = 0; i < arg_map->size; i++) {
 			struct crush_choose_arg *arg = &arg_map->args[i];
-
-			for (j = 0; j < arg->weight_set_size; j++)
-				kfree(arg->weight_set[j].weights);
-			kfree(arg->weight_set);
+			if (arg->weight_set) {
+				for (j = 0; j < arg->weight_set_size; j++)
+					kfree(arg->weight_set[j].weights);
+				kfree(arg->weight_set);
+			}
 			kfree(arg->ids);
 		}
 		kfree(arg_map->args);
-		kfree(arg_map);
 	}
+	kfree(arg_map);
 }
 
 DEFINE_RB_FUNCS(choose_arg_map, struct crush_choose_arg_map, choose_args_index,
@@ -374,23 +378,39 @@ static int decode_choose_args(void **p, void *end, struct crush_map *c)
 		ceph_decode_32_safe(p, end, num_buckets, e_inval);
 		while (num_buckets--) {
 			struct crush_choose_arg *arg;
+			struct crush_bucket *bucket;
 			u32 bucket_index;
+			u32 i;
 
 			ceph_decode_32_safe(p, end, bucket_index, e_inval);
 			if (bucket_index >= arg_map->size)
 				goto e_inval;
 
 			arg = &arg_map->args[bucket_index];
+			if (arg->ids || arg->weight_set)
+				goto e_inval;
 			ret = decode_choose_arg(p, end, arg);
 			if (ret)
 				goto fail;
 
+			bucket = c->buckets[bucket_index];
 			if (arg->ids_size &&
-			    arg->ids_size != c->buckets[bucket_index]->size)
+			    (!bucket || arg->ids_size != bucket->size))
 				goto e_inval;
+
+			if (arg->weight_set_size && !bucket)
+				goto e_inval;
+
+			for (i = 0; i < arg->weight_set_size; i++) {
+				if (arg->weight_set[i].size != bucket->size)
+					goto e_inval;
+			}
 		}
 
-		insert_choose_arg_map(&c->choose_args, arg_map);
+		if (!__insert_choose_arg_map(&c->choose_args, arg_map)) {
+			ret = -EEXIST;
+			goto fail;
+		}
 	}
 
 	return 0;
@@ -511,8 +531,16 @@ static struct crush_map *crush_decode(void *pbyval, void *end)
 
 		ceph_decode_need(p, end, 4*sizeof(u32), bad);
 		b->id = ceph_decode_32(p);
+		if (b->id != -1 - i)
+			goto bad;
 		b->type = ceph_decode_16(p);
+		if (b->type == 0)
+			goto bad;
 		b->alg = ceph_decode_8(p);
+		if (b->alg != alg) {
+			b->alg = 0;
+			goto bad;
+		}
 		b->hash = ceph_decode_8(p);
 		b->weight = ceph_decode_32(p);
 		b->size = ceph_decode_32(p);
@@ -806,51 +834,49 @@ static int decode_pool(void **p, void *end, struct ceph_pg_pool_info *pi)
 	ceph_decode_need(p, end, len, bad);
 	pool_end = *p + len;
 
+	ceph_decode_need(p, end, 4 + 4 + 4, bad);
 	pi->type = ceph_decode_8(p);
 	pi->size = ceph_decode_8(p);
 	pi->crush_ruleset = ceph_decode_8(p);
 	pi->object_hash = ceph_decode_8(p);
-
 	pi->pg_num = ceph_decode_32(p);
 	pi->pgp_num = ceph_decode_32(p);
 
-	*p += 4 + 4;  /* skip lpg* */
-	*p += 4;      /* skip last_change */
-	*p += 8 + 4;  /* skip snap_seq, snap_epoch */
+	/* lpg*, last_change, snap_seq, snap_epoch */
+	ceph_decode_skip_n(p, end, 8 + 4 + 8 + 4, bad);
 
 	/* skip snaps */
-	num = ceph_decode_32(p);
+	ceph_decode_32_safe(p, end, num, bad);
 	while (num--) {
-		*p += 8;  /* snapid key */
-		*p += 1 + 1; /* versions */
-		len = ceph_decode_32(p);
-		*p += len;
+		/* snapid key, pool snap (with versions) */
+		ceph_decode_skip_n(p, end, 8 + 2, bad);
+		ceph_decode_skip_string(p, end, bad);
 	}
 
-	/* skip removed_snaps */
-	num = ceph_decode_32(p);
-	*p += num * (8 + 8);
+	/* removed_snaps */
+	ceph_decode_skip_map(p, end, 64, 64, bad);
 
+	ceph_decode_need(p, end, 8 + 8 + 4, bad);
 	*p += 8;  /* skip auid */
 	pi->flags = ceph_decode_64(p);
 	*p += 4;  /* skip crash_replay_interval */
 
 	if (ev >= 7)
-		pi->min_size = ceph_decode_8(p);
+		ceph_decode_8_safe(p, end, pi->min_size, bad);
 	else
 		pi->min_size = pi->size - pi->size / 2;
 
 	if (ev >= 8)
-		*p += 8 + 8;  /* skip quota_max_* */
+		/* quota_max_* */
+		ceph_decode_skip_n(p, end, 8 + 8, bad);
 
 	if (ev >= 9) {
-		/* skip tiers */
-		num = ceph_decode_32(p);
-		*p += num * 8;
+		/* tiers */
+		ceph_decode_skip_set(p, end, 64, bad);
 
+		ceph_decode_need(p, end, 8 + 1 + 8 + 8, bad);
 		*p += 8;  /* skip tier_of */
 		*p += 1;  /* skip cache_mode */
-
 		pi->read_tier = ceph_decode_64(p);
 		pi->write_tier = ceph_decode_64(p);
 	} else {
@@ -858,86 +884,76 @@ static int decode_pool(void **p, void *end, struct ceph_pg_pool_info *pi)
 		pi->write_tier = -1;
 	}
 
-	if (ev >= 10) {
-		/* skip properties */
-		num = ceph_decode_32(p);
-		while (num--) {
-			len = ceph_decode_32(p);
-			*p += len; /* key */
-			len = ceph_decode_32(p);
-			*p += len; /* val */
-		}
-	}
+	if (ev >= 10)
+		/* properties */
+		ceph_decode_skip_map(p, end, string, string, bad);
 
 	if (ev >= 11) {
-		/* skip hit_set_params */
-		*p += 1 + 1; /* versions */
-		len = ceph_decode_32(p);
-		*p += len;
+		/* hit_set_params (with versions) */
+		ceph_decode_skip_n(p, end, 2, bad);
+		ceph_decode_skip_string(p, end, bad);
 
-		*p += 4; /* skip hit_set_period */
-		*p += 4; /* skip hit_set_count */
+		/* hit_set_period, hit_set_count */
+		ceph_decode_skip_n(p, end, 4 + 4, bad);
 	}
 
 	if (ev >= 12)
-		*p += 4; /* skip stripe_width */
+		/* stripe_width */
+		ceph_decode_skip_32(p, end, bad);
 
-	if (ev >= 13) {
-		*p += 8; /* skip target_max_bytes */
-		*p += 8; /* skip target_max_objects */
-		*p += 4; /* skip cache_target_dirty_ratio_micro */
-		*p += 4; /* skip cache_target_full_ratio_micro */
-		*p += 4; /* skip cache_min_flush_age */
-		*p += 4; /* skip cache_min_evict_age */
-	}
+	if (ev >= 13)
+		/* target_max_*, cache_target_*, cache_min_* */
+		ceph_decode_skip_n(p, end, 16 + 8 + 8, bad);
 
-	if (ev >=  14) {
-		/* skip erasure_code_profile */
-		len = ceph_decode_32(p);
-		*p += len;
-	}
+	if (ev >= 14)
+		/* erasure_code_profile */
+		ceph_decode_skip_string(p, end, bad);
 
 	/*
 	 * last_force_op_resend_preluminous, will be overridden if the
 	 * map was encoded with RESEND_ON_SPLIT
 	 */
 	if (ev >= 15)
-		pi->last_force_request_resend = ceph_decode_32(p);
+		ceph_decode_32_safe(p, end, pi->last_force_request_resend, bad);
 	else
 		pi->last_force_request_resend = 0;
 
 	if (ev >= 16)
-		*p += 4; /* skip min_read_recency_for_promote */
+		/* min_read_recency_for_promote */
+		ceph_decode_skip_32(p, end, bad);
 
 	if (ev >= 17)
-		*p += 8; /* skip expected_num_objects */
+		/* expected_num_objects */
+		ceph_decode_skip_64(p, end, bad);
 
 	if (ev >= 19)
-		*p += 4; /* skip cache_target_dirty_high_ratio_micro */
+		/* cache_target_dirty_high_ratio_micro */
+		ceph_decode_skip_32(p, end, bad);
 
 	if (ev >= 20)
-		*p += 4; /* skip min_write_recency_for_promote */
+		/* min_write_recency_for_promote */
+		ceph_decode_skip_32(p, end, bad);
 
 	if (ev >= 21)
-		*p += 1; /* skip use_gmt_hitset */
+		/* use_gmt_hitset */
+		ceph_decode_skip_8(p, end, bad);
 
 	if (ev >= 22)
-		*p += 1; /* skip fast_read */
+		/* fast_read */
+		ceph_decode_skip_8(p, end, bad);
 
-	if (ev >= 23) {
-		*p += 4; /* skip hit_set_grade_decay_rate */
-		*p += 4; /* skip hit_set_search_last_n */
-	}
+	if (ev >= 23)
+		/* hit_set_grade_decay_rate, hit_set_search_last_n */
+		ceph_decode_skip_n(p, end, 4 + 4, bad);
 
 	if (ev >= 24) {
-		/* skip opts */
-		*p += 1 + 1; /* versions */
-		len = ceph_decode_32(p);
-		*p += len;
+		/* opts (with versions) */
+		ceph_decode_skip_n(p, end, 2, bad);
+		ceph_decode_skip_string(p, end, bad);
 	}
 
 	if (ev >= 25)
-		pi->last_force_request_resend = ceph_decode_32(p);
+		ceph_decode_32_safe(p, end, pi->last_force_request_resend, bad);
 
 	/* ignore the rest */
 
@@ -1438,7 +1454,7 @@ static struct ceph_pg_mapping *__decode_pg_temp(void **p, void *end,
 	ceph_decode_32_safe(p, end, len, e_inval);
 	if (len == 0 && incremental)
 		return NULL;	/* new_pg_temp: [] to remove */
-	if (len > (SIZE_MAX - sizeof(*pg)) / sizeof(u32))
+	if (len > CEPH_PG_MAX_SIZE)
 		return ERR_PTR(-EINVAL);
 
 	ceph_decode_need(p, end, len * sizeof(u32), e_inval);
@@ -1504,8 +1520,6 @@ static int decode_new_primary_temp(void **p, void *end,
 
 u32 ceph_get_primary_affinity(struct ceph_osdmap *map, int osd)
 {
-	BUG_ON(osd >= map->max_osd);
-
 	if (!map->osd_primary_affinity)
 		return CEPH_OSD_DEFAULT_PRIMARY_AFFINITY;
 
@@ -1514,8 +1528,6 @@ u32 ceph_get_primary_affinity(struct ceph_osdmap *map, int osd)
 
 static int set_primary_affinity(struct ceph_osdmap *map, int osd, u32 aff)
 {
-	BUG_ON(osd >= map->max_osd);
-
 	if (!map->osd_primary_affinity) {
 		int i;
 
@@ -1577,6 +1589,8 @@ static int decode_new_primary_affinity(void **p, void *end,
 
 		ceph_decode_32_safe(p, end, osd, e_inval);
 		ceph_decode_32_safe(p, end, aff, e_inval);
+		if (osd >= map->max_osd)
+			goto e_inval;
 
 		ret = set_primary_affinity(map, osd, aff);
 		if (ret)
@@ -1621,7 +1635,7 @@ static struct ceph_pg_mapping *__decode_pg_upmap_items(void **p, void *end,
 	u32 len, i;
 
 	ceph_decode_32_safe(p, end, len, e_inval);
-	if (len > (SIZE_MAX - sizeof(*pg)) / (2 * sizeof(u32)))
+	if (len > CEPH_PG_MAX_SIZE)
 		return ERR_PTR(-EINVAL);
 
 	ceph_decode_need(p, end, 2 * len * sizeof(u32), e_inval);
@@ -1713,7 +1727,7 @@ static int osdmap_decode(void **p, void *end, bool msgr2,
 	ceph_decode_need(p, end, 3*sizeof(u32) +
 			 map->max_osd*(struct_v >= 5 ? sizeof(u32) :
 						       sizeof(u8)) +
-				       sizeof(*map->osd_weight), e_inval);
+			 map->max_osd*sizeof(*map->osd_weight), e_inval);
 	if (ceph_decode_32(p) != map->max_osd)
 		goto e_inval;
 
@@ -1846,6 +1860,8 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
 	void *new_up_client;
 	void *new_state;
 	void *new_weight_end;
+	const u32 new_state_item_size =
+	    sizeof(u32) + (struct_v >= 5 ? sizeof(u32) : sizeof(u8));
 	u32 len;
 	int ret;
 	int i;
@@ -1866,7 +1882,8 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
 
 	new_state = *p;
 	ceph_decode_32_safe(p, end, len, e_inval);
-	len *= sizeof(u32) + (struct_v >= 5 ? sizeof(u32) : sizeof(u8));
+	if (check_mul_overflow(len, new_state_item_size, &len))
+		goto e_inval;
 	ceph_decode_need(p, end, len, e_inval);
 	*p += len;
 
@@ -1879,7 +1896,9 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
 		ceph_decode_need(p, end, 2*sizeof(u32), e_inval);
 		osd = ceph_decode_32(p);
 		w = ceph_decode_32(p);
-		BUG_ON(osd >= map->max_osd);
+		if (osd >= map->max_osd)
+			goto e_inval;
+
 		osdmap_info(map, "osd%d weight 0x%x %s\n", osd, w,
 			    w == CEPH_OSD_IN ? "(in)" :
 			    (w == CEPH_OSD_OUT ? "(out)" : ""));
@@ -1905,13 +1924,15 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
 		u32 xorstate;
 
 		osd = ceph_decode_32(p);
+		if (osd >= map->max_osd)
+			goto e_inval;
+
 		if (struct_v >= 5)
 			xorstate = ceph_decode_32(p);
 		else
 			xorstate = ceph_decode_8(p);
 		if (xorstate == 0)
 			xorstate = CEPH_OSD_UP;
-		BUG_ON(osd >= map->max_osd);
 		if ((map->osd_state[osd] & CEPH_OSD_UP) &&
 		    (xorstate & CEPH_OSD_UP))
 			osdmap_info(map, "osd%d down\n", osd);
@@ -1937,7 +1958,9 @@ static int decode_new_up_state_weight(void **p, void *end, u8 struct_v,
 		struct ceph_entity_addr addr;
 
 		osd = ceph_decode_32(p);
-		BUG_ON(osd >= map->max_osd);
+		if (osd >= map->max_osd)
+			goto e_inval;
+
 		if (struct_v >= 7)
 			ret = ceph_decode_entity_addrvec(p, end, msgr2, &addr);
 		else
@@ -1987,10 +2010,12 @@ struct ceph_osdmap *osdmap_apply_incremental(void **p, void *end, bool msgr2,
 			 sizeof(u64) + sizeof(u32), e_inval);
 	ceph_decode_copy(p, &fsid, sizeof(fsid));
 	epoch = ceph_decode_32(p);
-	BUG_ON(epoch != map->epoch+1);
 	ceph_decode_copy(p, &modified, sizeof(modified));
 	new_pool_max = ceph_decode_64(p);
 	new_flags = ceph_decode_32(p);
+
+	if (epoch != map->epoch + 1)
+		goto e_inval;
 
 	/* full map? */
 	ceph_decode_32_safe(p, end, len, e_inval);
@@ -2800,9 +2825,10 @@ static void get_temp_osds(struct ceph_osdmap *osdmap,
 		}
 	}
 
-	/* primary_temp? */
+	/* primary_temp? (shouldn't ever be a nonexistent or down OSD) */
 	pg = lookup_pg_mapping(&osdmap->primary_temp, pgid);
-	if (pg)
+	if (pg && !WARN_ON_ONCE(ceph_osd_is_down(osdmap,
+						 pg->primary_temp.osd)))
 		temp->primary = pg->primary_temp.osd;
 }
 
@@ -3051,8 +3077,11 @@ static int get_immediate_parent(struct crush_map *c, int id,
 			if (b->items[j] != id)
 				continue;
 
-			*parent_type_id = b->type;
 			type_cn = lookup_crush_name(&c->type_names, b->type);
+			if (WARN_ON_ONCE(!type_cn))
+				continue;
+
+			*parent_type_id = b->type;
 			parent_loc->cl_type_name = type_cn->cn_name;
 			parent_loc->cl_name = cn->cn_name;
 			return b->id;

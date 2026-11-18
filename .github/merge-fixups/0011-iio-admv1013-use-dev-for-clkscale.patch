@@ -1,0 +1,20 @@
+iio: frequency: admv1013: use dev in admv1013_properties_parse()
+
+Stable commit 417e1fb55a791 ("iio: frequency: admv1013: add dev variable") and
+the following property-parsing cleanup (merged without conflict) removes the local 'struct spi_device *spi = st->spi'
+from admv1013_properties_parse() and uses 'dev' instead. The downstream-only
+clock-scale lookup at the end of the function (of_clk_get_scale()) still uses
+'spi', which no longer exists. Use dev->of_node, which is the same node.
+
+diff --git a/drivers/iio/frequency/admv1013.c b/drivers/iio/frequency/admv1013.c
+--- a/drivers/iio/frequency/admv1013.c
++++ b/drivers/iio/frequency/admv1013.c
+@@ -566,7 +566,7 @@
+ 		return ret;
+ 	}
+ 
+-	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
++	return of_clk_get_scale(dev->of_node, NULL, &st->clkscale);
+ }
+ 
+ static int admv1013_probe(struct spi_device *spi)

@@ -10,7 +10,7 @@ for pkg in $_extrapackages; do
 	pkgname+=("${pkgbase}-${pkg}")
 done
 
-pkgver="${KERNELRELEASE//-/_}"
+pkgver="$(echo "${KERNELRELEASE}" | sed 's/-\(rc[0-9]\+\)/\1/;s/-/_/g')"
 # The PKGBUILD is evaluated multiple times.
 # Running scripts/build-version from here would introduce inconsistencies.
 pkgrel="${KBUILD_REVISION}"
@@ -103,7 +103,7 @@ _package-headers() {
 
 _package-api-headers() {
 	pkgdesc="Kernel headers sanitized for use in userspace"
-	provides=(linux-api-headers)
+	provides=(linux-api-headers="${pkgver}")
 	conflicts=(linux-api-headers)
 
 	_prologue

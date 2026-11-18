@@ -53,6 +53,17 @@ struct parsed_desc {
 	u32 valid;
 };
 
+struct xsk_tx_batch {
+	u32 tx_descs;
+	u32 reclaim_descs;
+	bool budget_limited;
+};
+
+static inline u32 xsk_tx_batch_cq_descs(const struct xsk_tx_batch *batch)
+{
+	return batch->tx_descs + batch->reclaim_descs;
+}
+
 /* The structure of the shared state of the rings are a simple
  * circular buffer, as outlined in
  * Documentation/core-api/circular-buffers.rst. For the Rx and
@@ -143,14 +154,24 @@ static inline bool xp_unused_options_set(u32 options)
 static inline bool xp_aligned_validate_desc(struct xsk_buff_pool *pool,
 					    struct xdp_desc *desc)
 {
-	u64 addr = desc->addr - pool->tx_metadata_len;
-	u64 len = desc->len + pool->tx_metadata_len;
-	u64 offset = addr & (pool->chunk_size - 1);
+	u64 len = desc->len;
+	u64 addr, offset;
 
-	if (!desc->len)
+	if (!len)
 		return false;
 
-	if (offset + len > pool->chunk_size)
+	/* Can overflow if desc->addr < pool->tx_metadata_len */
+	if (check_sub_overflow(desc->addr, pool->tx_metadata_len, &addr))
+		return false;
+
+	offset = addr & (pool->chunk_size - 1);
+
+	/*
+	 * Can't overflow: @offset is guaranteed to be < ``U32_MAX``
+	 * (pool->chunk_size is ``u32``), @len is guaranteed
+	 * to be <= ``U32_MAX``.
+	 */
+	if (offset + len + pool->tx_metadata_len > pool->chunk_size)
 		return false;
 
 	if (addr >= pool->addrs_cnt)
@@ -158,27 +179,42 @@ static inline bool xp_aligned_validate_desc(struct xsk_buff_pool *pool,
 
 	if (xp_unused_options_set(desc->options))
 		return false;
+
 	return true;
 }
 
 static inline bool xp_unaligned_validate_desc(struct xsk_buff_pool *pool,
 					      struct xdp_desc *desc)
 {
-	u64 addr = xp_unaligned_add_offset_to_addr(desc->addr) - pool->tx_metadata_len;
-	u64 len = desc->len + pool->tx_metadata_len;
+	u64 len = desc->len;
+	u64 addr, end;
 
-	if (!desc->len)
+	if (!len)
 		return false;
 
+	/* Can't overflow: @len is guaranteed to be <= ``U32_MAX`` */
+	len += pool->tx_metadata_len;
 	if (len > pool->chunk_size)
 		return false;
 
-	if (addr >= pool->addrs_cnt || addr + len > pool->addrs_cnt ||
-	    xp_desc_crosses_non_contig_pg(pool, addr, len))
+	/* Can overflow if desc->addr is close to 0 */
+	if (check_sub_overflow(xp_unaligned_add_offset_to_addr(desc->addr),
+			       pool->tx_metadata_len, &addr))
+		return false;
+
+	if (addr >= pool->addrs_cnt)
+		return false;
+
+	/* Can overflow if pool->addrs_cnt is high enough */
+	if (check_add_overflow(addr, len, &end) || end > pool->addrs_cnt)
+		return false;
+
+	if (xp_desc_crosses_non_contig_pg(pool, addr, len))
 		return false;
 
 	if (xp_unused_options_set(desc->options))
 		return false;
+
 	return true;
 }
 
@@ -233,17 +269,18 @@ static inline void parse_desc(struct xsk_queue *q, struct xsk_buff_pool *pool,
 	parsed->mb = xp_mb_desc(desc);
 }
 
-static inline
-u32 xskq_cons_read_desc_batch(struct xsk_queue *q, struct xsk_buff_pool *pool,
-			      u32 max)
+static inline struct xsk_tx_batch
+xskq_cons_read_desc_batch(struct xdp_sock *xs, struct xsk_buff_pool *pool,
+			  struct xdp_desc *descs, u32 max)
 {
-	u32 cached_cons = q->cached_cons, nb_entries = 0;
-	struct xdp_desc *descs = pool->tx_descs;
-	u32 total_descs = 0, nr_frags = 0;
+	bool drain = READ_ONCE(xs->drain_cont);
+	u32 cached_cons, nb_entries = 0;
+	struct xsk_tx_batch batch = {};
+	struct xsk_queue *q = xs->tx;
+	u32 nr_frags = 0;
 
-	/* track first entry, if stumble upon *any* invalid descriptor, rewind
-	 * current packet that consists of frags and stop the processing
-	 */
+	cached_cons = q->cached_cons;
+
 	while (cached_cons != q->cached_prod && nb_entries < max) {
 		struct xdp_rxtx_ring *ring = (struct xdp_rxtx_ring *)q->ring;
 		u32 idx = cached_cons & q->ring_mask;
@@ -253,25 +290,42 @@ u32 xskq_cons_read_desc_batch(struct xsk_queue *q, struct xsk_buff_pool *pool,
 		cached_cons++;
 		parse_desc(q, pool, &descs[nb_entries], &parsed);
 		if (unlikely(!parsed.valid))
-			break;
+			drain = true;
+
+		nr_frags++;
+		nb_entries++;
 
 		if (likely(!parsed.mb)) {
-			total_descs += (nr_frags + 1);
-			nr_frags = 0;
-		} else {
-			nr_frags++;
-			if (nr_frags == pool->netdev->xdp_zc_max_segs) {
+			if (unlikely(drain)) {
+				batch.reclaim_descs = nr_frags;
+				WRITE_ONCE(xs->drain_cont, false);
 				nr_frags = 0;
 				break;
 			}
+
+			batch.tx_descs += nr_frags;
+			nr_frags = 0;
+			continue;
 		}
-		nb_entries++;
+
+		if (nr_frags == pool->netdev->xdp_zc_max_segs)
+			drain = true;
 	}
 
-	cached_cons -= nr_frags;
+	if (nr_frags) {
+		if (drain) {
+			batch.reclaim_descs = nr_frags;
+			WRITE_ONCE(xs->drain_cont, true);
+		} else {
+			if (nb_entries == max)
+				batch.budget_limited = true;
+			cached_cons -= nr_frags;
+		}
+	}
+
 	/* Release valid plus any invalid entries */
 	xskq_cons_release_n(q, cached_cons - q->cached_cons);
-	return total_descs;
+	return batch;
 }
 
 /* Functions for consumers */
@@ -403,20 +457,26 @@ static inline void xskq_prod_write_addr_batch(struct xsk_queue *q, struct xdp_de
 	q->cached_prod = cached_prod;
 }
 
-static inline int xskq_prod_reserve_desc(struct xsk_queue *q,
-					 u64 addr, u32 len, u32 flags)
+static inline void __xskq_prod_reserve_desc(struct xsk_queue *q,
+					    u64 addr, u32 len, u32 flags)
 {
 	struct xdp_rxtx_ring *ring = (struct xdp_rxtx_ring *)q->ring;
 	u32 idx;
-
-	if (xskq_prod_is_full(q))
-		return -ENOBUFS;
 
 	/* A, matches D */
 	idx = q->cached_prod++ & q->ring_mask;
 	ring->desc[idx].addr = addr;
 	ring->desc[idx].len = len;
 	ring->desc[idx].options = flags;
+}
+
+static inline int xskq_prod_reserve_desc(struct xsk_queue *q,
+					 u64 addr, u32 len, u32 flags)
+{
+	if (xskq_prod_is_full(q))
+		return -ENOBUFS;
+
+	__xskq_prod_reserve_desc(q, addr, len, flags);
 
 	return 0;
 }

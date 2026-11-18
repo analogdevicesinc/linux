@@ -264,6 +264,8 @@ struct afs_super_info {
 	struct afs_volume	*volume;	/* volume record */
 	enum afs_flock_mode	flock_mode:8;	/* File locking emulation mode */
 	bool			dyn_root;	/* True if dynamic root */
+	/* afs_atcell_get_link() reads ->net_ns in rcu pathwalk */
+	struct rcu_head		rcu;
 };
 
 static inline struct afs_super_info *AFS_FS_S(struct super_block *sb)
@@ -302,9 +304,8 @@ struct afs_net {
 
 	/* Cell database */
 	struct rb_root		cells;
-	struct afs_cell		*ws_cell;
-	struct work_struct	cells_manager;
-	struct timer_list	cells_timer;
+	struct idr		cells_dyn_ino;	/* cell->dynroot_ino mapping */
+	struct afs_cell __rcu	*ws_cell;
 	atomic_t		cells_outstanding;
 	struct rw_semaphore	cells_lock;
 	struct mutex		cells_alias_lock;
@@ -316,17 +317,10 @@ struct afs_net {
 	 * cell, but in practice, people create aliases and subsets and there's
 	 * no easy way to distinguish them.
 	 */
-	seqlock_t		fs_lock;	/* For fs_servers, fs_probe_*, fs_proc */
-	struct rb_root		fs_servers;	/* afs_server (by server UUID or address) */
+	seqlock_t		fs_lock;	/* For fs_probe_*, fs_proc */
 	struct list_head	fs_probe_fast;	/* List of afs_server to probe at 30s intervals */
 	struct list_head	fs_probe_slow;	/* List of afs_server to probe at 5m intervals */
 	struct hlist_head	fs_proc;	/* procfs servers list */
-
-	struct hlist_head	fs_addresses;	/* afs_server (by lowest IPv6 addr) */
-	seqlock_t		fs_addr_lock;	/* For fs_addresses[46] */
-
-	struct work_struct	fs_manager;
-	struct timer_list	fs_timer;
 
 	struct work_struct	fs_prober;
 	struct timer_list	fs_probe_timer;
@@ -360,13 +354,11 @@ struct afs_net {
 extern const char afs_init_sysname[];
 
 enum afs_cell_state {
-	AFS_CELL_UNSET,
-	AFS_CELL_ACTIVATING,
+	AFS_CELL_SETTING_UP,
+	AFS_CELL_UNLOOKED,
 	AFS_CELL_ACTIVE,
-	AFS_CELL_DEACTIVATING,
-	AFS_CELL_INACTIVE,
-	AFS_CELL_FAILED,
-	AFS_CELL_REMOVED,
+	AFS_CELL_REMOVING,
+	AFS_CELL_DEAD,
 };
 
 /*
@@ -397,7 +389,9 @@ struct afs_cell {
 	struct afs_cell		*alias_of;	/* The cell this is an alias of */
 	struct afs_volume	*root_volume;	/* The root.cell volume if there is one */
 	struct key		*anonymous_key;	/* anonymous user key for this cell */
+	struct work_struct	destroyer;	/* Destroyer for cell */
 	struct work_struct	manager;	/* Manager for init/deinit/dns */
+	struct timer_list	management_timer; /* General management timer */
 	struct hlist_node	proc_link;	/* /proc cell list link */
 	time64_t		dns_expiry;	/* Time AFSDB/SRV record expires */
 	time64_t		last_inactive;	/* Time of last drop of usage count */
@@ -413,6 +407,7 @@ struct afs_cell {
 	enum dns_lookup_status	dns_status:8;	/* Latest status of data from lookup */
 	unsigned int		dns_lookup_count; /* Counter of DNS lookups */
 	unsigned int		debug_id;
+	unsigned int		dynroot_ino;	/* Inode numbers for dynroot (a pair) */
 
 	/* The volumes belonging to this cell */
 	struct rw_semaphore	vs_lock;	/* Lock for server->volumes */
@@ -422,7 +417,7 @@ struct afs_cell {
 
 	/* Active fileserver interaction state. */
 	struct rb_root		fs_servers;	/* afs_server (by server UUID) */
-	seqlock_t		fs_lock;	/* For fs_servers  */
+	struct rw_semaphore	fs_lock;	/* For fs_servers  */
 
 	/* VL server list. */
 	rwlock_t		vl_servers_lock; /* Lock on vl_servers */
@@ -430,6 +425,7 @@ struct afs_cell {
 
 	u8			name_len;	/* Length of name */
 	char			*name;		/* Cell name, case-flattened and NUL-padded */
+	char			*key_desc;	/* Authentication key description */
 };
 
 /*
@@ -557,22 +553,22 @@ struct afs_server {
 	};
 
 	struct afs_cell		*cell;		/* Cell to which belongs (pins ref) */
-	struct rb_node		uuid_rb;	/* Link in net->fs_servers */
-	struct afs_server __rcu	*uuid_next;	/* Next server with same UUID */
-	struct afs_server	*uuid_prev;	/* Previous server with same UUID */
-	struct list_head	probe_link;	/* Link in net->fs_probe_list */
-	struct hlist_node	addr_link;	/* Link in net->fs_addresses6 */
+	struct rb_node		uuid_rb;	/* Link in cell->fs_servers */
+	struct list_head	probe_link;	/* Link in net->fs_probe_* */
 	struct hlist_node	proc_link;	/* Link in net->fs_proc */
 	struct list_head	volumes;	/* RCU list of afs_server_entry objects */
-	struct afs_server	*gc_next;	/* Next server in manager's list */
+	struct work_struct	destroyer;	/* Work item to try and destroy a server */
+	struct timer_list	timer;		/* Management timer */
 	time64_t		unuse_time;	/* Time at which last unused */
 	unsigned long		flags;
 #define AFS_SERVER_FL_RESPONDING 0		/* The server is responding */
 #define AFS_SERVER_FL_UPDATING	1
 #define AFS_SERVER_FL_NEEDS_UPDATE 2		/* Fileserver address list is out of date */
-#define AFS_SERVER_FL_NOT_READY	4		/* The record is not ready for use */
-#define AFS_SERVER_FL_NOT_FOUND	5		/* VL server says no such server */
-#define AFS_SERVER_FL_VL_FAIL	6		/* Failed to access VL server */
+#define AFS_SERVER_FL_UNCREATED	3		/* The record needs creating */
+#define AFS_SERVER_FL_CREATING	4		/* The record is being created */
+#define AFS_SERVER_FL_EXPIRED	5		/* The record has expired */
+#define AFS_SERVER_FL_NOT_FOUND	6		/* VL server says no such server */
+#define AFS_SERVER_FL_VL_FAIL	7		/* Failed to access VL server */
 #define AFS_SERVER_FL_MAY_HAVE_CB 8		/* May have callbacks on this fileserver */
 #define AFS_SERVER_FL_IS_YFS	16		/* Server is YFS not AFS */
 #define AFS_SERVER_FL_NO_IBULK	17		/* Fileserver doesn't support FS.InlineBulkStatus */
@@ -582,6 +578,7 @@ struct afs_server {
 	atomic_t		active;		/* Active user count */
 	u32			addr_version;	/* Address list version */
 	u16			service_id;	/* Service ID we're using. */
+	short			create_error;	/* Creation error */
 	unsigned int		rtt;		/* Server's current RTT in uS */
 	unsigned int		debug_id;	/* Debugging ID for traces */
 
@@ -714,7 +711,6 @@ struct afs_vnode {
 #define AFS_VNODE_ZAP_DATA	3		/* set if vnode's data should be invalidated */
 #define AFS_VNODE_DELETED	4		/* set if vnode deleted on server */
 #define AFS_VNODE_MOUNTPOINT	5		/* set if vnode is a mountpoint symlink */
-#define AFS_VNODE_AUTOCELL	6		/* set if Vnode is an auto mount point */
 #define AFS_VNODE_PSEUDODIR	7 		/* set if Vnode is a pseudo directory */
 #define AFS_VNODE_NEW_CONTENT	8		/* Set if file has new content (create/trunc-0) */
 #define AFS_VNODE_SILLY_DELETED	9		/* Set if file has been silly-deleted */
@@ -1003,6 +999,9 @@ extern int afs_merge_fs_addr4(struct afs_net *net, struct afs_addr_list *addr,
 			      __be32 xdr, u16 port);
 extern int afs_merge_fs_addr6(struct afs_net *net, struct afs_addr_list *addr,
 			      __be32 *xdr, u16 port);
+void afs_set_peer_appdata(struct afs_server *server,
+			  struct afs_addr_list *old_alist,
+			  struct afs_addr_list *new_alist);
 
 /*
  * addr_prefs.c
@@ -1039,16 +1038,26 @@ static inline bool afs_cb_is_broken(unsigned int cb_break,
 extern int afs_cell_init(struct afs_net *, const char *);
 extern struct afs_cell *afs_find_cell(struct afs_net *, const char *, unsigned,
 				      enum afs_cell_trace);
-extern struct afs_cell *afs_lookup_cell(struct afs_net *, const char *, unsigned,
-					const char *, bool);
+enum afs_lookup_cell_for {
+	AFS_LOOKUP_CELL_DYNROOT,
+	AFS_LOOKUP_CELL_MOUNTPOINT,
+	AFS_LOOKUP_CELL_DIRECT_MOUNT,
+	AFS_LOOKUP_CELL_PRELOAD,
+	AFS_LOOKUP_CELL_ROOTCELL,
+	AFS_LOOKUP_CELL_ALIAS_CHECK,
+};
+struct afs_cell *afs_lookup_cell(struct afs_net *net,
+				 const char *name, unsigned int namesz,
+				 const char *vllist,
+				 enum afs_lookup_cell_for reason,
+				 enum afs_cell_trace trace);
 extern struct afs_cell *afs_use_cell(struct afs_cell *, enum afs_cell_trace);
-extern void afs_unuse_cell(struct afs_net *, struct afs_cell *, enum afs_cell_trace);
+void afs_unuse_cell(struct afs_cell *cell, enum afs_cell_trace reason);
 extern struct afs_cell *afs_get_cell(struct afs_cell *, enum afs_cell_trace);
 extern void afs_see_cell(struct afs_cell *, enum afs_cell_trace);
 extern void afs_put_cell(struct afs_cell *, enum afs_cell_trace);
 extern void afs_queue_cell(struct afs_cell *, enum afs_cell_trace);
-extern void afs_manage_cells(struct work_struct *);
-extern void afs_cells_timer(struct timer_list *);
+void afs_set_cell_timer(struct afs_cell *cell, unsigned int delay_secs);
 extern void __net_exit afs_cell_purge(struct afs_net *);
 
 /*
@@ -1089,11 +1098,7 @@ extern int afs_silly_iput(struct dentry *, struct inode *);
 extern const struct inode_operations afs_dynroot_inode_operations;
 extern const struct dentry_operations afs_dynroot_dentry_operations;
 
-extern struct inode *afs_try_auto_mntpt(struct dentry *, struct inode *);
-extern int afs_dynroot_mkdir(struct afs_net *, struct afs_cell *);
-extern void afs_dynroot_rmdir(struct afs_net *, struct afs_cell *);
-extern int afs_dynroot_populate(struct super_block *);
-extern void afs_dynroot_depopulate(struct super_block *);
+struct inode *afs_dynroot_iget_root(struct super_block *sb);
 
 /*
  * file.c
@@ -1191,8 +1196,8 @@ struct afs_endpoint_state *afs_get_endpoint_state(struct afs_endpoint_state *est
 						  enum afs_estate_trace where);
 void afs_put_endpoint_state(struct afs_endpoint_state *estate, enum afs_estate_trace where);
 extern void afs_fileserver_probe_result(struct afs_call *);
-void afs_fs_probe_fileserver(struct afs_net *net, struct afs_server *server,
-			     struct afs_addr_list *new_addrs, struct key *key);
+int afs_fs_probe_fileserver(struct afs_net *net, struct afs_server *server,
+			    struct afs_addr_list *new_alist, struct key *key);
 int afs_wait_for_fs_probes(struct afs_operation *op, struct afs_server_state *states, bool intr);
 extern void afs_probe_fileserver(struct afs_net *, struct afs_server *);
 extern void afs_fs_probe_dispatcher(struct work_struct *);
@@ -1208,7 +1213,6 @@ extern const struct afs_operation_ops afs_fetch_status_operation;
 extern void afs_vnode_commit_status(struct afs_operation *, struct afs_vnode_param *);
 extern int afs_fetch_status(struct afs_vnode *, struct key *, bool, afs_access_t *);
 extern int afs_ilookup5_test_by_fid(struct inode *, void *);
-extern struct inode *afs_iget_pseudo_dir(struct super_block *, bool);
 extern struct inode *afs_iget(struct afs_operation *, struct afs_vnode_param *);
 extern struct inode *afs_root_iget(struct super_block *, struct key *);
 extern int afs_getattr(struct mnt_idmap *idmap, const struct path *,
@@ -1334,6 +1338,7 @@ extern int __net_init afs_open_socket(struct afs_net *);
 extern void __net_exit afs_close_socket(struct afs_net *);
 extern void afs_charge_preallocation(struct work_struct *);
 extern void afs_put_call(struct afs_call *);
+extern struct afs_call *afs_get_call(struct afs_call *call, enum afs_call_trace why);
 void afs_deferred_put_call(struct afs_call *call);
 void afs_make_call(struct afs_call *call, gfp_t gfp);
 void afs_wait_for_call_to_complete(struct afs_call *call);
@@ -1346,12 +1351,21 @@ extern void afs_send_simple_reply(struct afs_call *, const void *, size_t);
 extern int afs_extract_data(struct afs_call *, bool);
 extern int afs_protocol_error(struct afs_call *, enum afs_eproto_cause);
 
+static inline void afs_see_call(struct afs_call *call, enum afs_call_trace why)
+{
+	int r = refcount_read(&call->ref);
+
+	trace_afs_call(call->debug_id, why, r,
+		       atomic_read(&call->net->nr_outstanding_calls),
+		       __builtin_return_address(0));
+}
+
 static inline void afs_make_op_call(struct afs_operation *op, struct afs_call *call,
 				    gfp_t gfp)
 {
 	struct afs_addr_list *alist = op->estate->addresses;
 
-	op->call	= call;
+	op->call	= afs_get_call(call, afs_call_trace_get);
 	op->type	= call->type;
 	call->op	= op;
 	call->key	= op->key;
@@ -1359,6 +1373,7 @@ static inline void afs_make_op_call(struct afs_operation *op, struct afs_call *c
 	call->peer	= rxrpc_kernel_get_peer(alist->addrs[op->addr_index].peer);
 	call->service_id = op->server->service_id;
 	afs_make_call(call, gfp);
+	afs_put_call(call);
 }
 
 static inline void afs_extract_begin(struct afs_call *call, void *buf, size_t size)
@@ -1467,19 +1482,29 @@ extern void __exit afs_clean_up_permit_cache(void);
  */
 extern spinlock_t afs_server_peer_lock;
 
-extern struct afs_server *afs_find_server(struct afs_net *, const struct rxrpc_peer *);
-extern struct afs_server *afs_find_server_by_uuid(struct afs_net *, const uuid_t *);
+struct afs_server *afs_find_server(const struct rxrpc_peer *peer);
 extern struct afs_server *afs_lookup_server(struct afs_cell *, struct key *, const uuid_t *, u32);
 extern struct afs_server *afs_get_server(struct afs_server *, enum afs_server_trace);
-extern struct afs_server *afs_use_server(struct afs_server *, enum afs_server_trace);
-extern void afs_unuse_server(struct afs_net *, struct afs_server *, enum afs_server_trace);
-extern void afs_unuse_server_notime(struct afs_net *, struct afs_server *, enum afs_server_trace);
+struct afs_server *afs_use_server(struct afs_server *server, bool activate,
+				  enum afs_server_trace reason);
+void afs_unuse_server(struct afs_net *net, struct afs_server *server,
+		      enum afs_server_trace reason);
+void afs_unuse_server_notime(struct afs_net *net, struct afs_server *server,
+			     enum afs_server_trace reason);
 extern void afs_put_server(struct afs_net *, struct afs_server *, enum afs_server_trace);
-extern void afs_manage_servers(struct work_struct *);
-extern void afs_servers_timer(struct timer_list *);
+void afs_purge_servers(struct afs_cell *cell);
 extern void afs_fs_probe_timer(struct timer_list *);
-extern void __net_exit afs_purge_servers(struct afs_net *);
+void __net_exit afs_wait_for_servers(struct afs_net *net);
 bool afs_check_server_record(struct afs_operation *op, struct afs_server *server, struct key *key);
+
+static inline void afs_see_server(struct afs_server *server, enum afs_server_trace trace)
+{
+	int r = refcount_read(&server->ref);
+	int a = atomic_read(&server->active);
+
+	trace_afs_server(server->debug_id, r, a, trace);
+
+}
 
 static inline void afs_inc_servers_outstanding(struct afs_net *net)
 {

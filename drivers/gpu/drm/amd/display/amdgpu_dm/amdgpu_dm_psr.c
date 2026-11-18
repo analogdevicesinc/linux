@@ -54,7 +54,8 @@ static bool link_supports_psrsu(struct dc_link *link)
 	if (amdgpu_dc_debug_mask & DC_DISABLE_PSR_SU)
 		return false;
 
-	return dc_dmub_check_min_version(dc->ctx->dmub_srv->dmub);
+	/* Temporarily disable PSR-SU to avoid glitches */
+	return false;
 }
 
 /*
@@ -126,8 +127,10 @@ bool amdgpu_dm_link_setup_psr(struct dc_stream_state *stream)
 		psr_config.allow_multi_disp_optimizations =
 			(amdgpu_dc_feature_mask & DC_PSR_ALLOW_MULTI_DISP_OPT);
 
-		if (!psr_su_set_dsc_slice_height(dc, link, stream, &psr_config))
-			return false;
+		if (link->psr_settings.psr_version == DC_PSR_VERSION_SU_1) {
+			if (!psr_su_set_dsc_slice_height(dc, link, stream, &psr_config))
+				return false;
+		}
 
 		ret = dc_link_setup_psr(link, stream, &psr_config, &psr_context);
 
@@ -201,14 +204,13 @@ void amdgpu_dm_psr_enable(struct dc_stream_state *stream)
  *
  * Return: true if success
  */
-bool amdgpu_dm_psr_disable(struct dc_stream_state *stream)
+bool amdgpu_dm_psr_disable(struct dc_stream_state *stream, bool wait)
 {
-	unsigned int power_opt = 0;
 	bool psr_enable = false;
 
 	DRM_DEBUG_DRIVER("Disabling psr...\n");
 
-	return dc_link_set_psr_allow_active(stream->link, &psr_enable, true, false, &power_opt);
+	return dc_link_set_psr_allow_active(stream->link, &psr_enable, wait, false, NULL);
 }
 
 /*
@@ -250,4 +252,34 @@ bool amdgpu_dm_psr_is_active_allowed(struct amdgpu_display_manager *dm)
 	}
 
 	return allow_active;
+}
+
+/**
+ * amdgpu_dm_psr_wait_disable() - Wait for eDP panel to exit PSR
+ * @stream: stream state attached to the eDP link
+ *
+ * Waits for a max of 500ms for the eDP panel to exit PSR.
+ *
+ * Return: true if panel exited PSR, false otherwise.
+ */
+bool amdgpu_dm_psr_wait_disable(struct dc_stream_state *stream)
+{
+	enum dc_psr_state psr_state = PSR_STATE0;
+	struct dc_link *link = stream->link;
+	int retry_count;
+
+	if (link == NULL)
+		return false;
+
+	for (retry_count = 0; retry_count <= 1000; retry_count++) {
+		dc_link_get_psr_state(link, &psr_state);
+		if (psr_state == PSR_STATE0)
+			break;
+		udelay(500);
+	}
+
+	if (retry_count == 1000)
+		return false;
+
+	return true;
 }

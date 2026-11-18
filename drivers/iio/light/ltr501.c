@@ -1285,7 +1285,7 @@ static irqreturn_t ltr501_trigger_handler(int irq, void *p)
 	struct ltr501_data *data = iio_priv(indio_dev);
 	struct {
 		u16 channels[3];
-		s64 ts __aligned(8);
+		aligned_s64 ts;
 	} scan;
 	__le16 als_buf[2];
 	u8 mask = 0;
@@ -1613,6 +1613,8 @@ static const struct acpi_device_id ltr_acpi_match[] = {
 	{ "LTER0501", ltr501 },
 	{ "LTER0559", ltr559 },
 	{ "LTER0301", ltr301 },
+	/* https://www.catalog.update.microsoft.com/Search.aspx?q=lter0303 */
+	{ "LTER0303", ltr303 },
 	{ },
 };
 MODULE_DEVICE_TABLE(acpi, ltr_acpi_match);

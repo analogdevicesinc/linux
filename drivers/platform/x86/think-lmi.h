@@ -65,7 +65,7 @@ struct tlmi_pwdcfg {
 /* password setting details */
 struct tlmi_pwd_setting {
 	struct kobject kobj;
-	bool valid;
+	bool pwd_enabled;
 	char password[TLMI_PWD_BUFSIZE];
 	const char *pwd_type;
 	const char *role;
@@ -84,6 +84,7 @@ struct tlmi_pwd_setting {
 struct tlmi_attr_setting {
 	struct kobject kobj;
 	int index;
+	char name[TLMI_SETTINGS_MAXLEN];
 	char display_name[TLMI_SETTINGS_MAXLEN];
 	char *possible_values;
 };

@@ -113,6 +113,9 @@ size_t alloc_tag_top_users(struct codetag_bytes *tags, size_t count, bool can_sl
 	struct codetag_bytes n;
 	unsigned int i, nr = 0;
 
+	if (IS_ERR_OR_NULL(alloc_tag_cttype))
+		return 0;
+
 	if (can_sleep)
 		codetag_lock_module_list(alloc_tag_cttype, true);
 	else if (!codetag_trylock_module_list(alloc_tag_cttype))
@@ -179,6 +182,15 @@ static bool mem_profiling_support __meminitdata = true;
 #else
 static bool mem_profiling_support __meminitdata;
 #endif
+
+/*
+ * Memory allocation profiling is permanently disabled and cannot be enabled.
+ * Must be called after setup_early_mem_profiling().
+ */
+bool __init mem_alloc_profiling_permanently_disabled(void)
+{
+	return !mem_profiling_support;
+}
 
 static int __init setup_early_mem_profiling(char *str)
 {

@@ -459,8 +459,7 @@ int smu_cmn_send_smc_msg_with_param(struct smu_context *smu,
 	}
 	if (read_arg) {
 		smu_cmn_read_arg(smu, read_arg);
-		dev_dbg(adev->dev, "smu send message: %s(%d) param: 0x%08x, resp: 0x%08x,\
-			readval: 0x%08x\n",
+		dev_dbg(adev->dev, "smu send message: %s(%d) param: 0x%08x, resp: 0x%08x, readval: 0x%08x\n",
 			smu_get_message_name(smu, msg), index, param, reg, *read_arg);
 	} else {
 		dev_dbg(adev->dev, "smu send message: %s(%d) param: 0x%08x, resp: 0x%08x\n",
@@ -956,7 +955,7 @@ int smu_cmn_update_table(struct smu_context *smu,
 						      table_index);
 	uint32_t table_size;
 	int ret = 0;
-	if (!table_data || table_id >= SMU_TABLE_COUNT || table_id < 0)
+	if (!table_data || table_index >= SMU_TABLE_COUNT || table_id < 0)
 		return -EINVAL;
 
 	table_size = smu_table->tables[table_index].size;
@@ -1050,64 +1049,6 @@ int smu_cmn_get_combo_pptable(struct smu_context *smu)
 				    0,
 				    pptable,
 				    false);
-}
-
-void smu_cmn_init_soft_gpu_metrics(void *table, uint8_t frev, uint8_t crev)
-{
-	struct metrics_table_header *header = (struct metrics_table_header *)table;
-	uint16_t structure_size;
-
-#define METRICS_VERSION(a, b)	((a << 16) | b)
-
-	switch (METRICS_VERSION(frev, crev)) {
-	case METRICS_VERSION(1, 0):
-		structure_size = sizeof(struct gpu_metrics_v1_0);
-		break;
-	case METRICS_VERSION(1, 1):
-		structure_size = sizeof(struct gpu_metrics_v1_1);
-		break;
-	case METRICS_VERSION(1, 2):
-		structure_size = sizeof(struct gpu_metrics_v1_2);
-		break;
-	case METRICS_VERSION(1, 3):
-		structure_size = sizeof(struct gpu_metrics_v1_3);
-		break;
-	case METRICS_VERSION(1, 4):
-		structure_size = sizeof(struct gpu_metrics_v1_4);
-		break;
-	case METRICS_VERSION(1, 5):
-		structure_size = sizeof(struct gpu_metrics_v1_5);
-		break;
-	case METRICS_VERSION(2, 0):
-		structure_size = sizeof(struct gpu_metrics_v2_0);
-		break;
-	case METRICS_VERSION(2, 1):
-		structure_size = sizeof(struct gpu_metrics_v2_1);
-		break;
-	case METRICS_VERSION(2, 2):
-		structure_size = sizeof(struct gpu_metrics_v2_2);
-		break;
-	case METRICS_VERSION(2, 3):
-		structure_size = sizeof(struct gpu_metrics_v2_3);
-		break;
-	case METRICS_VERSION(2, 4):
-		structure_size = sizeof(struct gpu_metrics_v2_4);
-		break;
-	case METRICS_VERSION(3, 0):
-		structure_size = sizeof(struct gpu_metrics_v3_0);
-		break;
-	default:
-		return;
-	}
-
-#undef METRICS_VERSION
-
-	memset(header, 0xFF, structure_size);
-
-	header->format_revision = frev;
-	header->content_revision = crev;
-	header->structure_size = structure_size;
-
 }
 
 int smu_cmn_set_mp1_state(struct smu_context *smu,
@@ -1214,4 +1155,29 @@ static struct smu_dpm_policy_desc xgmi_plpd_policy_desc = {
 void smu_cmn_generic_plpd_policy_desc(struct smu_dpm_policy *policy)
 {
 	policy->desc = &xgmi_plpd_policy_desc;
+}
+
+void smu_cmn_get_backend_workload_mask(struct smu_context *smu,
+				       u32 workload_mask,
+				       u32 *backend_workload_mask)
+{
+	int workload_type;
+	u32 profile_mode;
+
+	*backend_workload_mask = 0;
+
+	for (profile_mode = 0; profile_mode < PP_SMC_POWER_PROFILE_COUNT; profile_mode++) {
+		if (!(workload_mask & (1 << profile_mode)))
+			continue;
+
+		/* conv PP_SMC_POWER_PROFILE* to WORKLOAD_PPLIB_*_BIT */
+		workload_type = smu_cmn_to_asic_specific_index(smu,
+							       CMN2ASIC_MAPPING_WORKLOAD,
+							       profile_mode);
+
+		if (workload_type < 0)
+			continue;
+
+		*backend_workload_mask |= 1 << workload_type;
+	}
 }

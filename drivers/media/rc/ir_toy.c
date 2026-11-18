@@ -373,7 +373,7 @@ static int irtoy_tx_carrier(struct rc_dev *rc, uint32_t carrier)
 	u8 buf[3];
 	int err;
 
-	if (carrier < 11800)
+	if (carrier < 11800 || carrier > 3000000)
 		return -EINVAL;
 
 	buf[0] = 0x06;
@@ -536,6 +536,7 @@ static void irtoy_disconnect(struct usb_interface *intf)
 	usb_free_urb(ir->urb_out);
 	usb_kill_urb(ir->urb_in);
 	usb_free_urb(ir->urb_in);
+	rc_free_device(ir->rc);
 	kfree(ir->in);
 	kfree(ir->out);
 	kfree(ir);

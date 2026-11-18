@@ -12,12 +12,12 @@
 #include <asm/cpufeatures.h>
 #include <asm/page.h>
 #include <asm/percpu.h>
-#include <asm/runtime-const.h>
 
-/*
- * Virtual variable: there's no actual backing store for this,
- * it can purely be used as 'runtime_const_ptr(USER_PTR_MAX)'
- */
+#ifdef MODULE
+  #define runtime_const_ptr(sym) (sym)
+#else
+  #include <asm/runtime-const.h>
+#endif
 extern unsigned long USER_PTR_MAX;
 
 #ifdef CONFIG_ADDRESS_MASKING
@@ -63,13 +63,13 @@ static inline unsigned long __untagged_addr_remote(struct mm_struct *mm,
  */
 static inline void __user *mask_user_address(const void __user *ptr)
 {
-	unsigned long mask;
+	void __user *ret;
 	asm("cmp %1,%0\n\t"
-	    "sbb %0,%0"
-		:"=r" (mask)
-		:"r" (ptr),
-		 "0" (runtime_const_ptr(USER_PTR_MAX)));
-	return (__force void __user *)(mask | (__force unsigned long)ptr);
+	    "cmova %1,%0"
+		:"=r" (ret)
+		:"r" (runtime_const_ptr(USER_PTR_MAX)),
+		 "0" (ptr));
+	return ret;
 }
 #define masked_user_access_begin(x) ({				\
 	__auto_type __masked_ptr = (x);				\
@@ -147,26 +147,28 @@ raw_copy_to_user(void __user *dst, const void *src, unsigned long size)
 	return copy_user_generic((__force void *)dst, src, size);
 }
 
-extern long __copy_user_nocache(void *dst, const void __user *src, unsigned size);
-extern long __copy_user_flushcache(void *dst, const void __user *src, unsigned size);
+#define copy_to_nontemporal copy_to_nontemporal
+extern size_t copy_to_nontemporal(void *dst, const void *src, size_t size);
+extern size_t copy_user_flushcache(void *dst, const void __user *src, size_t size);
 
 static inline int
-__copy_from_user_inatomic_nocache(void *dst, const void __user *src,
+copy_from_user_inatomic_nontemporal(void *dst, const void __user *src,
 				  unsigned size)
 {
 	long ret;
 	kasan_check_write(dst, size);
+	src = mask_user_address(src);
 	stac();
-	ret = __copy_user_nocache(dst, src, size);
+	ret = copy_to_nontemporal(dst, (__force const void *)src, size);
 	clac();
 	return ret;
 }
 
-static inline int
-__copy_from_user_flushcache(void *dst, const void __user *src, unsigned size)
+static inline size_t
+copy_from_user_flushcache(void *dst, const void __user *src, size_t size)
 {
 	kasan_check_write(dst, size);
-	return __copy_user_flushcache(dst, src, size);
+	return copy_user_flushcache(dst, src, size);
 }
 
 /*

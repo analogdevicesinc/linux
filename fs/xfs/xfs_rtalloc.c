@@ -118,7 +118,7 @@ xfs_rtcopy_summary(
 	error = 0;
 out:
 	xfs_rtbuf_cache_relse(oargs);
-	return 0;
+	return error;
 }
 /*
  * Mark an extent specified by start and len allocated.
@@ -1295,7 +1295,7 @@ xfs_rtallocate(
 	 * For an allocation to an empty file at offset 0, pick an extent that
 	 * will space things out in the rt area.
 	 */
-	if (bno_hint)
+	if (bno_hint != NULLFSBLOCK)
 		start = xfs_rtb_to_rtx(args.mp, bno_hint);
 	else if (initial_user_data)
 		start = xfs_rtpick_extent(args.mp, tp, maxlen);

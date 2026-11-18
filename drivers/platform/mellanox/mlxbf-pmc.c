@@ -15,6 +15,7 @@
 #include <linux/hwmon.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
+#include <linux/string_helpers.h>
 #include <uapi/linux/psci.h>
 
 #define MLXBF_PMC_WRITE_REG_32 0x82000009
@@ -710,7 +711,7 @@ static const struct mlxbf_pmc_events mlxbf_pmc_llt_events[] = {
 	{101, "GDC_BANK0_HIT_DCL_PARTIAL"},
 	{102, "GDC_BANK0_EVICT_DCL"},
 	{103, "GDC_BANK0_G_RSE_PIPE_CACHE_DATA0"},
-	{103, "GDC_BANK0_G_RSE_PIPE_CACHE_DATA1"},
+	{104, "GDC_BANK0_G_RSE_PIPE_CACHE_DATA1"},
 	{105, "GDC_BANK0_ARB_STRB"},
 	{106, "GDC_BANK0_ARB_WAIT"},
 	{107, "GDC_BANK0_GGA_STRB"},
@@ -795,18 +796,18 @@ static const struct mlxbf_pmc_events mlxbf_pmc_llt_miss_events[] = {
 	{11, "GDC_MISS_MACHINE_CHI_TXDAT"},
 	{12, "GDC_MISS_MACHINE_CHI_RXDAT"},
 	{13, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_0"},
-	{14, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_1 "},
+	{14, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_1"},
 	{15, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_2"},
-	{16, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_3 "},
-	{17, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_0 "},
-	{18, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_1 "},
-	{19, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_2 "},
-	{20, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_3 "},
+	{16, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC0_3"},
+	{17, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_0"},
+	{18, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_1"},
+	{19, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_2"},
+	{20, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC1_3"},
 	{21, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE0_0"},
 	{22, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE0_1"},
 	{23, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE0_2"},
 	{24, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE0_3"},
-	{25, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE1_0 "},
+	{25, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE1_0"},
 	{26, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE1_1"},
 	{27, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE1_2"},
 	{28, "GDC_MISS_MACHINE_G_FIFO_FF_EXEC_DONE1_3"},
@@ -1067,7 +1068,7 @@ static int mlxbf_pmc_get_event_num(const char *blk, const char *evt)
 	return -ENODEV;
 }
 
-/* Get the event number given the name */
+/* Get the event name given the number */
 static char *mlxbf_pmc_get_event_name(const char *blk, u32 evt)
 {
 	const struct mlxbf_pmc_events *events;
@@ -1168,7 +1169,7 @@ static int mlxbf_pmc_program_l3_counter(unsigned int blk_num, u32 cnt_num, u32 e
 /* Method to handle crspace counter programming */
 static int mlxbf_pmc_program_crspace_counter(unsigned int blk_num, u32 cnt_num, u32 evt)
 {
-	void *addr;
+	void __iomem *addr;
 	u32 word;
 	int ret;
 
@@ -1192,7 +1193,7 @@ static int mlxbf_pmc_program_crspace_counter(unsigned int blk_num, u32 cnt_num, 
 /* Method to clear crspace counter value */
 static int mlxbf_pmc_clear_crspace_counter(unsigned int blk_num, u32 cnt_num)
 {
-	void *addr;
+	void __iomem *addr;
 
 	addr = pmc->block[blk_num].mmio_base +
 		MLXBF_PMC_CRSPACE_PERFMON_VAL0(pmc->block[blk_num].counters) +
@@ -1405,7 +1406,7 @@ static int mlxbf_pmc_read_l3_event(unsigned int blk_num, u32 cnt_num, u64 *resul
 static int mlxbf_pmc_read_crspace_event(unsigned int blk_num, u32 cnt_num, u64 *result)
 {
 	u32 word, evt;
-	void *addr;
+	void __iomem *addr;
 	int ret;
 
 	addr = pmc->block[blk_num].mmio_base +
@@ -1625,6 +1626,7 @@ static ssize_t mlxbf_pmc_event_store(struct device *dev,
 		attr, struct mlxbf_pmc_attribute, dev_attr);
 	unsigned int blk_num, cnt_num;
 	bool is_l3 = false;
+	char *evt_name;
 	int evt_num;
 	int err;
 
@@ -1632,14 +1634,23 @@ static ssize_t mlxbf_pmc_event_store(struct device *dev,
 	cnt_num = attr_event->index;
 
 	if (isalpha(buf[0])) {
+		/* Remove the trailing newline character if present */
+		evt_name = kstrdup_and_replace(buf, '\n', '\0', GFP_KERNEL);
+		if (!evt_name)
+			return -ENOMEM;
+
 		evt_num = mlxbf_pmc_get_event_num(pmc->block_name[blk_num],
-						  buf);
+						  evt_name);
+		kfree(evt_name);
 		if (evt_num < 0)
 			return -EINVAL;
 	} else {
 		err = kstrtouint(buf, 0, &evt_num);
 		if (err < 0)
 			return err;
+
+		if (!mlxbf_pmc_get_event_name(pmc->block_name[blk_num], evt_num))
+			return -EINVAL;
 	}
 
 	if (strstr(pmc->block_name[blk_num], "l3cache"))
@@ -1720,13 +1731,14 @@ static ssize_t mlxbf_pmc_enable_store(struct device *dev,
 {
 	struct mlxbf_pmc_attribute *attr_enable = container_of(
 		attr, struct mlxbf_pmc_attribute, dev_attr);
-	unsigned int en, blk_num;
+	unsigned int blk_num;
 	u32 word;
 	int err;
+	bool en;
 
 	blk_num = attr_enable->nr;
 
-	err = kstrtouint(buf, 0, &en);
+	err = kstrtobool(buf, &en);
 	if (err < 0)
 		return err;
 
@@ -1746,14 +1758,11 @@ static ssize_t mlxbf_pmc_enable_store(struct device *dev,
 			MLXBF_PMC_CRSPACE_PERFMON_CTL(pmc->block[blk_num].counters),
 			MLXBF_PMC_WRITE_REG_32, word);
 	} else {
-		if (en && en != 1)
-			return -EINVAL;
-
 		err = mlxbf_pmc_config_l3_counters(blk_num, false, !!en);
 		if (err)
 			return err;
 
-		if (en == 1) {
+		if (en) {
 			err = mlxbf_pmc_config_l3_counters(blk_num, true, false);
 			if (err)
 				return err;
@@ -2012,12 +2021,18 @@ static int mlxbf_pmc_map_counters(struct device *dev)
 
 static int mlxbf_pmc_probe(struct platform_device *pdev)
 {
-	struct acpi_device *acpi_dev = ACPI_COMPANION(&pdev->dev);
-	const char *hid = acpi_device_hid(acpi_dev);
 	struct device *dev = &pdev->dev;
+	struct acpi_device *acpi_dev;
 	struct arm_smccc_res res;
+	const char *hid;
 	guid_t guid;
 	int ret;
+
+	acpi_dev = ACPI_COMPANION(&pdev->dev);
+	if (!acpi_dev)
+		return -ENODEV;
+
+	hid = acpi_device_hid(acpi_dev);
 
 	/* Ensure we have the UUID we expect for this service. */
 	arm_smccc_smc(MLXBF_PMC_SIP_SVC_UID, 0, 0, 0, 0, 0, 0, 0, &res);

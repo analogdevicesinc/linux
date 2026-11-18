@@ -1,0 +1,83 @@
+mtd: spi-nor: use spi_nor_get_params() in the stable swp/octal-DTR hunks
+
+Stable commits 264e99d50e887 ("mtd: spi-nor: Fix spi_nor_try_unlock_all()"),
+a0563931c0282 and 246bbe3ee76f6 ("mtd: spi-nor: core: avoid odd length/address
+reads/writes on 8D-8D-8D mode") use nor->params->{size,page_size}, with
+nor->params being a single struct spi_nor_flash_parameter *.
+
+Downstream main supports parallel/stacked flashes and has nor->params as an
+array of per-flash parameters (SNOR_FLASH_CNT_MAX), accessed with
+spi_nor_get_params(nor, idx). The stable hunks were merged without conflict but
+no longer compile; use the parameters of the first flash like the surrounding
+downstream code does.
+
+diff --git a/drivers/mtd/spi-nor/swp.c b/drivers/mtd/spi-nor/swp.c
+--- a/drivers/mtd/spi-nor/swp.c
++++ b/drivers/mtd/spi-nor/swp.c
+@@ -90,13 +90,13 @@
+ 	min_prot_len = spi_nor_get_min_prot_length_sr(nor);
+ 	*len = min_prot_len << (bp - 1);
+ 
+-	if (*len > nor->params->size)
+-		*len = nor->params->size;
++	if (*len > spi_nor_get_params(nor, 0)->size)
++		*len = spi_nor_get_params(nor, 0)->size;
+ 
+ 	if (nor->flags & SNOR_F_HAS_SR_TB && sr & tb_mask)
+ 		*ofs = 0;
+ 	else
+-		*ofs = nor->params->size - *len;
++		*ofs = spi_nor_get_params(nor, 0)->size - *len;
+ }
+ 
+ /*
+@@ -195,7 +195,8 @@
+ 		can_be_bottom = false;
+ 
+ 	/* If anything above us is unlocked, we can't use 'top' protection */
+-	if (!spi_nor_is_locked_sr(nor, ofs + len, nor->params->size - (ofs + len),
++	if (!spi_nor_is_locked_sr(nor, ofs + len,
++				  spi_nor_get_params(nor, 0)->size - (ofs + len),
+ 				  status_old))
+ 		can_be_top = false;
+ 
+@@ -207,11 +208,11 @@
+ 
+ 	/* lock_len: length of region that should end up locked */
+ 	if (use_top)
+-		lock_len = nor->params->size - ofs;
++		lock_len = spi_nor_get_params(nor, 0)->size - ofs;
+ 	else
+ 		lock_len = ofs + len;
+ 
+-	if (lock_len == nor->params->size) {
++	if (lock_len == spi_nor_get_params(nor, 0)->size) {
+ 		val = mask;
+ 	} else {
+ 		min_prot_len = spi_nor_get_min_prot_length_sr(nor);
+@@ -328,7 +329,7 @@
+ 	if (can_be_top && can_be_bottom)
+ 		lock_len = 0;
+ 	else if (use_top)
+-		lock_len = nor->params->size - (ofs + len);
++		lock_len = spi_nor_get_params(nor, 0)->size - (ofs + len);
+ 	else
+ 		lock_len = ofs;
+ 
+diff --git a/drivers/mtd/spi-nor/core.c b/drivers/mtd/spi-nor/core.c
+--- a/drivers/mtd/spi-nor/core.c
++++ b/drivers/mtd/spi-nor/core.c
+@@ -2592,11 +2592,11 @@
+ 	if (IS_ALIGNED(to, 2) && IS_ALIGNED(len, 2))
+ 		return spi_nor_write_data(nor, to, len, buf);
+ 
+-	tmp_buf = kmalloc(nor->params->page_size, GFP_KERNEL);
++	tmp_buf = kmalloc(spi_nor_get_params(nor, 0)->page_size, GFP_KERNEL);
+ 	if (!tmp_buf)
+ 		return -ENOMEM;
+ 
+-	memset(tmp_buf, 0xff, nor->params->page_size);
++	memset(tmp_buf, 0xff, spi_nor_get_params(nor, 0)->page_size);
+ 
+ 	start = round_down(to, 2);
+ 	end = round_up(to + len, 2);

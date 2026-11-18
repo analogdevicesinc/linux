@@ -279,10 +279,10 @@ static struct nfc_target *nfc_find_target(struct nfc_dev *dev, u32 target_idx)
 
 int nfc_dep_link_up(struct nfc_dev *dev, int target_index, u8 comm_mode)
 {
-	int rc = 0;
-	u8 *gb;
-	size_t gb_len;
 	struct nfc_target *target;
+	u8 gb[NFC_MAX_GT_LEN];
+	size_t gb_len = 0;
+	int rc = 0;
 
 	pr_debug("dev_name=%s comm %d\n", dev_name(&dev->dev), comm_mode);
 
@@ -301,7 +301,7 @@ int nfc_dep_link_up(struct nfc_dev *dev, int target_index, u8 comm_mode)
 		goto error;
 	}
 
-	gb = nfc_llcp_general_bytes(dev, &gb_len);
+	nfc_get_local_general_bytes(dev, gb, sizeof(gb), &gb_len);
 	if (gb_len > NFC_MAX_GT_LEN) {
 		rc = -EINVAL;
 		goto error;
@@ -644,11 +644,10 @@ int nfc_set_remote_general_bytes(struct nfc_dev *dev, const u8 *gb, u8 gb_len)
 }
 EXPORT_SYMBOL(nfc_set_remote_general_bytes);
 
-u8 *nfc_get_local_general_bytes(struct nfc_dev *dev, size_t *gb_len)
+u8 *nfc_get_local_general_bytes(struct nfc_dev *dev, u8 *out_gb,
+				size_t gb_max_len, size_t *gb_len)
 {
-	pr_debug("dev_name=%s\n", dev_name(&dev->dev));
-
-	return nfc_llcp_general_bytes(dev, gb_len);
+	return nfc_llcp_general_bytes(dev, out_gb, gb_max_len, gb_len);
 }
 EXPORT_SYMBOL(nfc_get_local_general_bytes);
 
@@ -1147,12 +1146,13 @@ int nfc_register_device(struct nfc_dev *dev)
 EXPORT_SYMBOL(nfc_register_device);
 
 /**
- * nfc_unregister_device - unregister a nfc device in the nfc subsystem
+ * nfc_unregister_rfkill - unregister a nfc device in the rfkill subsystem
  *
  * @dev: The nfc device to unregister
  */
-void nfc_unregister_device(struct nfc_dev *dev)
+void nfc_unregister_rfkill(struct nfc_dev *dev)
 {
+	struct rfkill *rfk = NULL;
 	int rc;
 
 	pr_debug("dev_name=%s\n", dev_name(&dev->dev));
@@ -1164,13 +1164,26 @@ void nfc_unregister_device(struct nfc_dev *dev)
 
 	device_lock(&dev->dev);
 	if (dev->rfkill) {
-		rfkill_unregister(dev->rfkill);
-		rfkill_destroy(dev->rfkill);
+		rfk = dev->rfkill;
 		dev->rfkill = NULL;
 	}
 	dev->shutting_down = true;
 	device_unlock(&dev->dev);
 
+	if (rfk) {
+		rfkill_unregister(rfk);
+		rfkill_destroy(rfk);
+	}
+}
+EXPORT_SYMBOL(nfc_unregister_rfkill);
+
+/**
+ * nfc_remove_device - remove a nfc device in the nfc subsystem
+ *
+ * @dev: The nfc device to remove
+ */
+void nfc_remove_device(struct nfc_dev *dev)
+{
 	if (dev->ops->check_presence) {
 		del_timer_sync(&dev->check_pres_timer);
 		cancel_work_sync(&dev->check_pres_work);
@@ -1182,6 +1195,18 @@ void nfc_unregister_device(struct nfc_dev *dev)
 	nfc_devlist_generation++;
 	device_del(&dev->dev);
 	mutex_unlock(&nfc_devlist_mutex);
+}
+EXPORT_SYMBOL(nfc_remove_device);
+
+/**
+ * nfc_unregister_device - unregister a nfc device in the nfc subsystem
+ *
+ * @dev: The nfc device to unregister
+ */
+void nfc_unregister_device(struct nfc_dev *dev)
+{
+	nfc_unregister_rfkill(dev);
+	nfc_remove_device(dev);
 }
 EXPORT_SYMBOL(nfc_unregister_device);
 

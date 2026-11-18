@@ -34,8 +34,9 @@ void netfs_pgpriv2_mark_copy_to_cache(struct netfs_io_subrequest *subreq,
  * [DEPRECATED] Cancel PG_private_2 on all marked folios in the event of an
  * unrecoverable error.
  */
-static void netfs_pgpriv2_cancel(struct folio_queue *folioq)
+static void netfs_pgpriv2_cancel(struct rolling_buffer *buffer)
 {
+	struct folio_queue *folioq = buffer->tail;
 	struct folio *folio;
 	int slot;
 
@@ -94,7 +95,7 @@ static int netfs_pgpriv2_copy_folio(struct netfs_io_request *wreq, struct folio 
 	trace_netfs_folio(folio, netfs_folio_trace_store_copy);
 
 	/* Attach the folio to the rolling buffer. */
-	if (netfs_buffer_append_folio(wreq, folio, false) < 0)
+	if (rolling_buffer_append(&wreq->buffer, folio, 0, wreq->gfp) < 0)
 		return -ENOMEM;
 
 	cache->submit_extendable_to = fsize;
@@ -109,7 +110,7 @@ static int netfs_pgpriv2_copy_folio(struct netfs_io_request *wreq, struct folio 
 	do {
 		ssize_t part;
 
-		wreq->io_iter.iov_offset = cache->submit_off;
+		wreq->buffer.iter.iov_offset = cache->submit_off;
 
 		atomic64_set(&wreq->issued_to, fpos + cache->submit_off);
 		cache->submit_extendable_to = fsize - cache->submit_off;
@@ -122,8 +123,8 @@ static int netfs_pgpriv2_copy_folio(struct netfs_io_request *wreq, struct folio 
 			cache->submit_len -= part;
 	} while (cache->submit_len > 0);
 
-	wreq->io_iter.iov_offset = 0;
-	iov_iter_advance(&wreq->io_iter, fsize);
+	wreq->buffer.iter.iov_offset = 0;
+	rolling_buffer_advance(&wreq->buffer, fsize);
 	atomic64_set(&wreq->issued_to, fpos + fsize);
 
 	if (flen < fsize)
@@ -151,7 +152,7 @@ void netfs_pgpriv2_write_to_the_cache(struct netfs_io_request *rreq)
 		goto couldnt_start;
 
 	/* Need the first folio to be able to set up the op. */
-	for (folioq = rreq->buffer; folioq; folioq = folioq->next) {
+	for (folioq = rreq->buffer.tail; folioq; folioq = folioq->next) {
 		if (folioq->marks3) {
 			slot = __ffs(folioq->marks3);
 			break;
@@ -170,6 +171,10 @@ void netfs_pgpriv2_write_to_the_cache(struct netfs_io_request *rreq)
 
 	trace_netfs_write(wreq, netfs_write_trace_copy_to_cache);
 	netfs_stat(&netfs_n_wh_copy_to_cache);
+	if (!wreq->io_streams[1].avail) {
+		netfs_put_request(wreq, false, netfs_rreq_trace_put_return);
+		goto couldnt_start;
+	}
 
 	for (;;) {
 		error = netfs_pgpriv2_copy_folio(wreq, folio);
@@ -177,16 +182,17 @@ void netfs_pgpriv2_write_to_the_cache(struct netfs_io_request *rreq)
 			break;
 
 		folioq_unmark3(folioq, slot);
-		if (!folioq->marks3) {
+		while (!folioq->marks3) {
 			folioq = folioq->next;
 			if (!folioq)
-				break;
+				goto end_of_queue;
 		}
 
 		slot = __ffs(folioq->marks3);
 		folio = folioq_folio(folioq, slot);
 	}
 
+end_of_queue:
 	netfs_issue_write(wreq, &wreq->io_streams[1]);
 	smp_wmb(); /* Write lists before ALL_QUEUED. */
 	set_bit(NETFS_RREQ_ALL_QUEUED, &wreq->flags);
@@ -194,7 +200,7 @@ void netfs_pgpriv2_write_to_the_cache(struct netfs_io_request *rreq)
 	netfs_put_request(wreq, false, netfs_rreq_trace_put_return);
 	_leave(" = %d", error);
 couldnt_start:
-	netfs_pgpriv2_cancel(rreq->buffer);
+	netfs_pgpriv2_cancel(&rreq->buffer);
 }
 
 /*
@@ -203,13 +209,13 @@ couldnt_start:
  */
 bool netfs_pgpriv2_unlock_copied_folios(struct netfs_io_request *wreq)
 {
-	struct folio_queue *folioq = wreq->buffer;
+	struct folio_queue *folioq = wreq->buffer.tail;
 	unsigned long long collected_to = wreq->collected_to;
-	unsigned int slot = wreq->buffer_head_slot;
+	unsigned int slot = wreq->buffer.first_tail_slot;
 	bool made_progress = false;
 
 	if (slot >= folioq_nr_slots(folioq)) {
-		folioq = netfs_delete_buffer_head(wreq);
+		folioq = rolling_buffer_delete_spent(&wreq->buffer);
 		slot = 0;
 	}
 
@@ -248,9 +254,9 @@ bool netfs_pgpriv2_unlock_copied_folios(struct netfs_io_request *wreq)
 		folioq_clear(folioq, slot);
 		slot++;
 		if (slot >= folioq_nr_slots(folioq)) {
-			if (READ_ONCE(wreq->buffer_tail) == folioq)
-				break;
-			folioq = netfs_delete_buffer_head(wreq);
+			folioq = rolling_buffer_delete_spent(&wreq->buffer);
+			if (!folioq)
+				goto done;
 			slot = 0;
 		}
 
@@ -258,7 +264,8 @@ bool netfs_pgpriv2_unlock_copied_folios(struct netfs_io_request *wreq)
 			break;
 	}
 
-	wreq->buffer = folioq;
-	wreq->buffer_head_slot = slot;
+	wreq->buffer.tail = folioq;
+done:
+	wreq->buffer.first_tail_slot = slot;
 	return made_progress;
 }

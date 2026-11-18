@@ -3,7 +3,7 @@
  * init.c: PROM library initialisation code.
  *
  * Copyright (C) 1998 Harald Koerfgen
- * Copyright (C) 2002, 2004  Maciej W. Rozycki
+ * Copyright (C) 2002, 2004, 2026  Maciej W. Rozycki
  */
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -19,6 +19,10 @@
 
 #include <asm/dec/prom.h>
 
+
+#ifdef CONFIG_64BIT
+unsigned long o32_stk[O32_STK_SIZE] __initdata = { 0 };
+#endif
 
 int (*__rex_bootinit)(void);
 int (*__rex_bootread)(void);
@@ -42,7 +46,7 @@ int (*__pmax_close)(int);
  * Detect which PROM the DECSTATION has, and set the callback vectors
  * appropriately.
  */
-void __init which_prom(s32 magic, s32 *prom_vec)
+static void __init which_prom(s32 magic, s32 *prom_vec)
 {
 	/*
 	 * No sign of the REX PROM's magic number means we assume a non-REX

@@ -95,19 +95,6 @@
 #endif
 
 /*
- * Optional: only supported since gcc >= 15
- * Optional: only supported since clang >= 18
- *
- *   gcc: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=108896
- * clang: https://github.com/llvm/llvm-project/pull/76348
- */
-#if __has_attribute(__counted_by__)
-# define __counted_by(member)		__attribute__((__counted_by__(member)))
-#else
-# define __counted_by(member)
-#endif
-
-/*
  * Optional: not supported by gcc
  * Optional: only supported since clang >= 14.0
  *
@@ -407,6 +394,17 @@
 	 __attribute__((disable_sanitizer_instrumentation))
 #else
 # define __disable_sanitizer_instrumentation
+#endif
+
+/*
+ * Optional: not supported by clang
+ *
+ *   gcc: https://gcc.gnu.org/onlinedocs/gcc/Common-Attributes.html#index-noipa
+ */
+#if __has_attribute(noipa)
+# define __noipa __attribute__((noipa))
+#else
+# define __noipa
 #endif
 
 /*

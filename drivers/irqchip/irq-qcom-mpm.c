@@ -227,6 +227,9 @@ static int qcom_mpm_alloc(struct irq_domain *domain, unsigned int virq,
 	if (ret)
 		return ret;
 
+	if (pin == GPIO_NO_WAKE_IRQ)
+		return irq_domain_disconnect_hierarchy(domain, virq);
+
 	ret = irq_domain_set_hwirq_and_chip(domain, virq, pin,
 					    &qcom_mpm_chip, priv);
 	if (ret)
@@ -302,6 +305,8 @@ static int mpm_pd_power_off(struct generic_pm_domain *genpd)
 	ret = mbox_send_message(priv->mbox_chan, NULL);
 	if (ret < 0)
 		return ret;
+
+	mbox_client_txdone(priv->mbox_chan, 0);
 
 	return 0;
 }
@@ -431,6 +436,7 @@ static int qcom_mpm_init(struct device_node *np, struct device_node *parent)
 	}
 
 	priv->mbox_client.dev = dev;
+	priv->mbox_client.knows_txdone = true;
 	priv->mbox_chan = mbox_request_channel(&priv->mbox_client, 0);
 	if (IS_ERR(priv->mbox_chan)) {
 		ret = PTR_ERR(priv->mbox_chan);

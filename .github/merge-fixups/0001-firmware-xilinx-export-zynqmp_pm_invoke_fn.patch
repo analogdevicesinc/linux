@@ -1,0 +1,22 @@
+firmware: xilinx: export zynqmp_pm_invoke_fn() from zynqmp-core.c
+
+Stable commit 69baa01c94101 ("remoteproc: xlnx: Check remote core state")
+adds EXPORT_SYMBOL_GPL(zynqmp_pm_invoke_fn) to drivers/firmware/xilinx/zynqmp.c
+so that modular users (e.g. the remoteproc and crypto drivers) can link.
+
+Downstream main split zynqmp.c into zynqmp-core.c / zynqmp-pm.c / ... and
+drivers/firmware/xilinx/zynqmp-pm.c was resolved to the downstream side, so the
+export hunk was dropped together with the stable copy of the function.
+Re-add the export next to the downstream definition in zynqmp-core.c.
+
+diff --git a/drivers/firmware/xilinx/zynqmp-core.c b/drivers/firmware/xilinx/zynqmp-core.c
+--- a/drivers/firmware/xilinx/zynqmp-core.c
++++ b/drivers/firmware/xilinx/zynqmp-core.c
+@@ -677,6 +677,7 @@
+ 	va_end(arg_list);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(zynqmp_pm_invoke_fn);
+ 
+ /**
+  * zynqmp_pm_load_pdi_word_swap - Perform word swapping on a memory address.
