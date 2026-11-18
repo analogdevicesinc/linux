@@ -551,7 +551,7 @@ Blackfin might see an additional falling edge interrupt on the rising edge of
 a gpiochip. The examples below use the sysfs GPIO interface
 (<code class="docutils literal notranslate"><span class="pre">CONFIG_GPIO_SYSFS</span></code>); GPIO numbers depend on the system.</p>
 <p>For more information see also here:
-<a class="icon link reference external" href="https://docs.kernel.org/userspace-api/gpio/sysfs.html" target="_blank" title="(in The Linux Kernel v7.4.0-rc2)"><span>GPIO Sysfs Interface for Userspace</span></a></p>
+<a class="icon link reference external" href="https://docs.kernel.org/userspace-api/gpio/sysfs.html" target="_blank" title="(in The Linux Kernel v7.4.0-rc3)"><span>GPIO Sysfs Interface for Userspace</span></a></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="mi">67</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">export</span>
 
 <span class="n">root</span><span class="p">:</span><span class="o">/&gt;</span> <span class="n">echo</span> <span class="n">low</span> <span class="o">&gt;</span> <span class="o">/</span><span class="n">sys</span><span class="o">/</span><span class="n">class</span><span class="o">/</span><span class="n">gpio</span><span class="o">/</span><span class="n">gpio67</span><span class="o">/</span><span class="n">direction</span>
