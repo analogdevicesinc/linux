@@ -1,0 +1,221 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/admv1014
+
+
+.. _admv1014:
+
+ADMV1014
+========
+
+ADMV1014 24 GHz to 44 GHz, Wideband, Microwave Downconverter Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADMV1014`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADMV1014`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting serial interface Microwave converters. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`ADI tree <main:drivers/iio/frequency/admv1014.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/admv1014.c>`__
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `admv1014.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/admv1014.c>`_
+   * - Documentation
+     - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Hardware configuration
+----------------------
+
+Use the device and evaluation-board documentation for physical wiring, power
+supplies and the LO connection.
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADMV1014 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Frequency  --->
+                       <*> Analog Devices ADMV1014 Microwave Downconverter
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Properties
+^^^^^^^^^^
+
+Required properties:
+
+- ``compatible = "adi,admv1014"``.
+- ``reg``: SPI chip-select number.
+- ``clocks`` and ``clock-names = "lo_in"``: The LO input clock.
+- Supply references:
+
+  - ``vcm-supply``.
+  - ``vcc-if-bb-supply``.
+  - ``vcc-vga-supply``.
+  - ``vcc-vva-supply``.
+  - ``vcc-lna-3p3-supply``.
+  - ``vcc-lna-1p5-supply``.
+  - ``vcc-bg-supply``.
+  - ``vcc-quad-supply``.
+  - ``vcc-mixer-supply``.
+
+Mode-selection properties:
+
+- ``adi,input-mode``: String ``iq`` or ``if``.
+- ``adi,quad-se-mode``: String ``diff``, ``se-pos`` or ``se-neg``.
+- ``adi,detector-enable``: Boolean enabling the detector.
+- ``adi,p1db-compensation-enable``: Boolean enabling P1dB compensation.
+
+Example
+^^^^^^^
+
+This example selects IQ input mode and differential quadrature mode. The LO clock
+provider supplies the input frequency.
+
+.. code-block:: dts
+
+   &spi0 {
+     #address-cells = <1>;
+     #size-cells = <0>;
+     converter@0 {
+       compatible = "adi,admv1014";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
+       clocks = <&admv1014_lo>;
+       clock-names = "lo_in";
+       vcm-supply = <&vcm>;
+       vcc-if-bb-supply = <&vcc_if_bb>;
+       vcc-vga-supply = <&vcc_vga>;
+       vcc-vva-supply = <&vcc_vva>;
+       vcc-lna-3p3-supply = <&vcc_lna_3p3>;
+       vcc-lna-1p5-supply = <&vcc_lna_1p5>;
+       vcc-bg-supply = <&vcc_bg>;
+       vcc-quad-supply = <&vcc_quad>;
+       vcc-mixer-supply = <&vcc_mixer>;
+       adi,input-mode = "iq";
+       adi,quad-se-mode = "diff";
+       adi,detector-enable;
+       adi,p1db-compensation-enable;
+     };
+   };
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+Select the IIO device whose ``name`` attribute is ``admv1014``.
+
+.. code-block:: text
+
+   cd /sys/bus/iio/devices/iio:device0
+   cat name
+   ls -l
+
+::
+
+   root:/> cd /sys/bus/iio/devices/iio\:device0/
+   root:/> cat name
+   admv1014
+
+Calibrate IQ baseband gain
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In IQ mode, calibration scale is a shared integer register code, not a decimal
+I/Q hardware-gain pair. Run in the correct device directory. IF mode instead
+exposes per-path calibscale_coarse and calibscale_fine attributes.
+
+.. code-block:: bash
+
+   set -eu
+   cat in_altvoltage_calibscale
+   echo 1 > in_altvoltage_calibscale
+   cat in_altvoltage_calibscale
+
+Set ChannelY Offset value
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the current input-channel attribute; replace \_i\_ with \_q\_ for the Q
+path. Values are integer register codes.
+
+.. code-block:: bash
+
+   set -eu
+   cat in_altvoltage0_i_offset
+   echo 1 > in_altvoltage0_i_offset
+   cat in_altvoltage0_i_offset
+
+Set ChannelY Phase value
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Use the current input-channel attribute; replace \_i\_ with \_q\_ for the Q
+path. Values are integer register codes.
+
+.. code-block:: bash
+
+   set -eu
+   cat in_altvoltage0_i_phase
+   echo 1 > in_altvoltage0_i_phase
+   cat in_altvoltage0_i_phase
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

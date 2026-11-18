@@ -1,0 +1,99 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-resolver/ad2s1200
+
+
+.. _ad2s1200:
+
+AD2S1200
+========
+
+AD2S1200 IIO Resolver-to-Digital Converter.
+
+Supported Devices
+-----------------
+
+- :adi:`AD2S1200`
+- :adi:`AD2S1205`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD2S1200SDZ`
+- :adi:`EVAL-AD2S1205SDZ`
+
+Description
+-----------
+
+- :adi:`Product Page <ad2s1200>`
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting Resolver-to-Digital Converters. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/resolver/ad2s1200.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s1200.c>`__
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+Enable ``CONFIG_AD2S1200`` with ``CONFIG_SPI`` and ``CONFIG_GPIOLIB`` on
+a real target (``COMPILE_TEST`` also satisfies the Kconfig GPIO dependency).
+The module is ``ad2s1200``.
+
+.. code-block:: text
+
+   Device Drivers
+     Industrial I/O support
+       Resolver to digital converters
+         <*> Analog Devices ad2s1200/ad2s1205 driver
+
+Driver testing
+--------------
+
+Identify the device by reading ``name`` under
+``/sys/bus/iio/devices/iio:deviceX/``; the number X depends on probe order.
+
+The device exposes separate position and velocity attributes:
+``in_angl0_raw``/``in_angl_scale`` for position, and
+``in_anglvel0_raw``/``in_anglvel_scale`` for velocity. Position is an unsigned
+12-bit code; velocity is a signed 12-bit code.
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

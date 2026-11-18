@@ -1,0 +1,290 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-dac/ad5755
+
+
+.. _ad5755:
+
+AD5755
+======
+
+AD5755 IIO Multi-Channel DAC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD5735`
+- :adi:`AD5737`
+- :adi:`AD5755`
+- :adi:`AD5755-1`
+- :adi:`AD5757`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD5755SDZ`
+- :adi:`EVAL-AD5755-1SDZ`
+- :adi:`EVAL-AD5757SDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0198`
+- :adi:`CN0328`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting multi-channel serial interface DACs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5755.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5755.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/dac/ad5755.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/dac/ad5755.c>`__
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD5755 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           ...
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+               ...
+               Digital to analog converters  --->
+                   ...
+                   <*>  Analog Devices AD5755/AD5755-1/AD5757/AD5735/AD5737 DAC driver
+                   ...
+               ...
+           ...
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code-block:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if IS_ENABLED(CONFIG_AD5755)
+       {
+           /* the modalias must be the same as spi device driver name */
+           .modalias = "ad5755", /* Name of spi_driver for this device */
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0, /* Framework bus number */
+           .chip_select = 3, /* Framework chip select */
+           .mode = SPI_MODE_2,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Driver testing
+--------------
+
+The mixed current/voltage channel transcript below requires explicit firmware
+channel configuration. With no firmware configuration, the driver defaults all
+four channels to 4–20 mA current mode; ``out_voltage2_*`` and
+``out_voltage3_*`` then do not exist. Inspect the registered channel types and
+configured output ranges before using the examples.
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+
+   root:/sys/bus/iio/devices> cd iio:device0
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> ls -l
+   -r--r--r--    1 root     root          4096 Jan  2 21:54 dev
+   -r--r--r--    1 root     root          4096 Jan  2 21:54 name
+
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_calibscale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_offset
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_raw
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_scale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current0_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_calibscale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_offset
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_raw
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_scale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_current1_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_calibscale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_offset
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_raw
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_scale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage2_powerdown
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_calibbias
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_calibscale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_offset
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_raw
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_scale
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 out_voltage3_powerdown
+   drwxr-xr-x    2 root     root             0 Jan  2 21:54 power
+   lrwxrwxrwx    1 root     root             0 Jan  2 21:54 subsystem -> ../../../../../bus/iio
+   -rw-r--r--    1 root     root          4096 Jan  2 21:54 uevent
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat name
+   ad5755
+
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show scale
+^^^^^^^^^^
+
+**Description:** /sys/bus/iio/devices/iio:deviceX/out_voltageY_scale
+/sys/bus/iio/devices/iio:deviceX/out_currentY_scale
+
+Apply the relevant offset before scale. Voltage channels produce millivolts;
+current channels produce milliamps. The offset attributes are
+out_voltageY_offset or out_currentY_offset, not out_offsetY_raw.
+
+Read the scale for a channel that actually exists; replace ``X`` with the
+IIO device index and select the registered voltage or current channel:
+
+.. code-block:: sh
+
+   DEV=/sys/bus/iio/devices/iio:deviceX
+   cat "$DEV/out_current0_scale"
+   # Only if channel 2 is configured for voltage output:
+   cat "$DEV/out_voltage2_scale"
+
+
+Calibration controls
+""""""""""""""""""""
+
+The per-channel ``out_voltageY_calibscale`` or ``out_currentY_calibscale``
+attribute accesses the hardware gain register. For AD5755/AD5757, the driver
+accepts integer gain codes from 0 to 65535.
+
+The corresponding ``out_voltageY_calibbias`` or ``out_currentY_calibbias``
+attribute accesses the hardware offset-calibration register. For AD5755/AD5757,
+the driver adds 32768 before writing the register, accepting signed codes
+from -32768 to 32767. This calibration control is distinct from the nominal
+IIO ``*_offset`` conversion attribute.
+
+The AD5735/AD5737 use an additional four-bit shift for calibration-register
+access, so their calibration codes differ from the AD5755/AD5757 codes.
+
+Show offset
+~~~~~~~~~~~
+
+The attributes are ``out_voltageY_offset`` and ``out_currentY_offset``.
+They express the nominal conversion offset in raw-code units, applied before
+the corresponding voltage or current scale:
+
+.. code-block:: sh
+
+   cat "$DEV/out_current0_offset"
+   # Only if channel 2 is configured for voltage output:
+   cat "$DEV/out_voltage2_offset"
+
+Set channel Y output code
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Write an unscaled DAC code to the registered ``out_voltageY_raw`` or
+``out_currentY_raw`` attribute.
+
+Without calibration correction, the output is
+``voltage_mV = (raw + offset) × scale`` for a voltage channel, or
+``current_mA = (raw + offset) × scale`` for a current channel.
+
+Enable power down mode for the device
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+/sys/bus/iio/devices/iio:deviceX/out_voltageY_powerdown
+/sys/bus/iio/devices/iio:deviceX/out_currentY_powerdown
+
+**Description:** Writing 1 causes channel Y to enter power down mode. Clearing
+returns to normal operation.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 1 > out_voltage2_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage2_powerdown
+   1
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> echo 0 > out_voltage2_powerdown
+   root:/sys/devices/platform/bfin-spi.0/spi0.3/iio:device0> cat out_voltage2_powerdown
+   0
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

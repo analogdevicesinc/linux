@@ -1,0 +1,360 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7280a
+
+.. _ad7280a:
+
+AD7280A
+=======
+
+AD7280A IIO Lithium Ion Battery Monitoring System.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7280A`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7280AEDZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0197`
+- :adi:`CN0235`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting multi channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+system-level:ref:`iio` for more information.
+
+The AD7280A contains all the functions required for general-purpose monitoring
+of stacked lithium ion batteries as used in hybrid electric vehicles, battery
+backup applications, and power tools. The part has multiplexed cell voltage and
+auxiliary ADC measurement channels for up to six cells of battery management.
+This driver supports the daisy-chain interface allowing up to eight parts to be
+stacked without the need for individual device isolation.
+
+The driver automatically detects then number of devices present and creates the
+iio device files accordingly.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `drivers/iio/adc/ad7280a.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7280a.c>`__
+     - Yes
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/adc/ad7280a.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad7280a.c>`__
+
+Hardware configuration
+----------------------
+
+.. figure:: https://wiki.analog.com/_media/resources/tools-software/linux-drivers/iio-adc/ad7280_eval_lr.jpg
+   :width: 600px
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7280A Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           [*] Staging drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+                   -*-   Enable buffer support within IIO
+                   -*-   Enable triggered sampling support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD7280A Lithium Ion Battery Monitoring System
+
+                   [--snip--]
+
+Platform-data configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+The driver reads firmware properties instead of ``ad7280_platform_data``:
+``adi,acquisition-time-ns`` (400, 800, 1200 or 1600; default 400),
+``adi,thermistor-termination`` (boolean, defaults to off when absent), and
+``adi,voltage-alert-last-chan``. The ``ad7280_platform_data`` structure and
+defaults below describe the board-file API only. Oversampling starts disabled
+and is configurable through the ``oversampling_ratio`` attribute.
+
+.. code:: c
+
+   #define AD7280A_ACQ_TIME_400ns          0
+   #define AD7280A_ACQ_TIME_800ns          1
+   #define AD7280A_ACQ_TIME_1200ns         2
+   #define AD7280A_ACQ_TIME_1600ns         3
+
+   #define AD7280A_CONV_AVG_DIS            0
+   #define AD7280A_CONV_AVG_2          1
+   #define AD7280A_CONV_AVG_4          2
+   #define AD7280A_CONV_AVG_8          3
+
+   #define AD7280A_ALERT_REMOVE_VIN5       (1 << 2)
+   #define AD7280A_ALERT_REMOVE_VIN4_VIN5      (2 << 2)
+   #define AD7280A_ALERT_REMOVE_AUX5       (1 << 0)
+   #define AD7280A_ALERT_REMOVE_AUX4_AUX5      (2 << 0)
+
+   struct ad7280_platform_data {
+       unsigned acquisition_time;
+       unsigned conversion_averaging;
+       unsigned chain_last_alert_ignore;
+       bool thermistor_term_en;
+   }
+
+.. tip::
+
+   In case platform_data is not present or set to NULL, the driver will use
+   following defaults:
+
+   .. code:: c
+
+      static const struct ad7280_platform_data ad7280_default_pdata = {
+          .acquisition_time = AD7280A_ACQ_TIME_400ns,
+          .conversion_averaging = AD7280A_CONV_AVG_DIS,
+          .thermistor_term_en = true,
+      };
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Depending on the converter IC used, you may need to set the modalias
+accordingly, matching your part name. It may also required to adjust
+max_speed_hz. Please consult the datasheet, for maximum spi clock supported by
+the device in question.
+
+.. code:: c
+
+   static struct spi_board_info board_spi_board_info[] __initdata = {
+   #if defined(CONFIG_AD7280A) || \
+       defined(CONFIG_AD7280A_MODULE)
+       {
+           .modalias = "ad7280a",
+           .max_speed_hz = 1000000,     /* max spi clock (SCK) speed in HZ */
+           .bus_num = 0,
+           .chip_select = GPIO_PF10 + MAX_CTRL_CS, /* CS, change it for your board */
+           .mode = SPI_MODE_1,
+           .irq = IRQ_PF6
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       spi_register_board_info(board_spi_board_info, ARRAY_SIZE(board_spi_board_info));
+
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+Each cell is exposed as a differential channel ``in_voltageX-voltageY_raw``
+with ``balance_switch_en`` and ``balance_switch_timer`` attributes; the
+auxiliary inputs are ``in_tempN_raw``. The scales ``in_voltage-voltage_scale``
+and ``in_temp_scale`` are shared, and threshold events are under ``events/``.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat name
+   ad7280a
+
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show cell channel scale
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Cell attributes are ``in_voltageX-voltageY_raw`` with
+``in_voltage-voltage_scale``; auxiliary attributes are ``in_tempN_raw`` with
+``in_temp_scale``. The scales are 4000/4096 (0.9765625) and 5000/4096
+(1.220703125) mV/code respectively. The 1000 mV cell offset in the examples
+below is part of the cell transfer function; the driver has no offset
+attribute.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage-voltage_scale
+   0.976562500
+
+Enabling cell and auxiliary/temperature channel threshold events
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+The AD7280A includes a dynamic alert function that can detect whether the cell
+voltages or auxiliary ADC inputs exceed an upper or lower limit defined by the
+user.
+
+The thresholds are set in the ``events/`` directory with
+``in_voltage-voltage_thresh_rising_value`` and
+``in_voltage-voltage_thresh_falling_value`` (``in_temp_thresh_*_value`` for
+the auxiliary channels). Voltage thresholds are in millivolts, quantized to
+15.68 mV steps above 1000 mV.
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0/events> echo 2300 > in_voltage-voltage_thresh_falling_value
+   root:/sys/bus/iio/devices/iio:device0/events> cat in_voltage-voltage_thresh_falling_value
+   2285
+
+   root:/sys/bus/iio/devices/iio:device0/events> echo 4000 > in_voltage-voltage_thresh_rising_value
+   root:/sys/bus/iio/devices/iio:device0/events> cat in_voltage-voltage_thresh_rising_value
+   3994
+
+Show channel 0-1 measurement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** Raw unscaled voltage measurement on cell channel in_voltage0-voltage1_raw
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage0-voltage1_raw
+   2254
+
+**U** = *in_voltage0-voltage1_raw \* in_voltage-voltage_scale + offset* = 2254 \* 0.9765625 + 1000 =
+**3201.172 mV**
+
+Show voltage across all cells measurement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** Raw unscaled voltage measurement on all cell channel
+in_voltage0-voltageX_raw
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage0-voltage12_raw
+   27048
+
+**U** = *in_voltage0-voltage12_raw \* in_voltage-voltage_scale + (cell_num \* offset)* = 27048 \* 0.9765625
++ (12 \* 1000) = **38414.063 mV**
+
+Show auxiliary/temperature channel scale
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** scale to be applied to in_tempX_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_temp_scale
+   1.220703125
+
+Show auxiliary/temperature channel measurement
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** The auxiliary ADC channels are named ``in_tempN_raw`` but
+return voltages, scaled as 5000/4096 mV per code; converting an external
+thermistor reading into temperature is left to the user.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_temp0_raw
+   2096
+
+**U** = *in_temp0_raw \* in_temp_scale* = 2096 \* 1.220703125 = **2558.594 mV**
+
+Enable cell balance output switch on channel 4-5
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The AD7280A has cell balancing interface outputs designed to control external
+FET transistors to allow discharging of individual cells.
+
+**Description:** Writing 1 enables the cell balance output switch corresponding
+to input Y. Writing 0 disables it. If
+``in_voltageY-voltageZ_balance_switch_timer`` is set to a nonzero value, the
+corresponding switch will enable for the programmed amount of time before it
+automatically disables.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 1 > in_voltage4-voltage5_balance_switch_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage4-voltage5_balance_switch_en
+   1
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 0 > in_voltage4-voltage5_balance_switch_en
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage4-voltage5_balance_switch_en
+   0
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0>
+
+Enable cell balance timer on channel 4-5
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** The ``in_voltageY-voltageZ_balance_switch_timer`` file lets
+the user program individual times for each cell balance output. The AD7280A
+allows a value from 0 to 36.9 minutes, in steps of 71.5 seconds. The value is
+in seconds, with a fractional part accepted but rounded down to the nearest
+step. Zero disables the timer.
+
+::
+
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> echo 150 > in_voltage4-voltage5_balance_switch_timer
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0> cat in_voltage4-voltage5_balance_switch_timer
+   143.0
+   root:/sys/devices/platform/bfin-spi.0/spi0.18/device0>
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

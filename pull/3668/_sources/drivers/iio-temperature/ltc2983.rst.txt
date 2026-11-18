@@ -1,0 +1,191 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-temperature/ltc2983
+
+
+.. _ltc2983:
+
+LTC2983
+=======
+
+LTC2983/LTC2984/LTC2986/LTM2985 Multi-Sensor Digital Temperature Measurement System Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`LTC2983`
+- :adi:`LTC2984`
+- :adi:`LTC2986`
+- :adi:`LTM2985`
+
+Evaluation Boards
+-----------------
+
+- :adi:`DC2296A`
+- :adi:`DC2296A-KIT`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting temperature sensors. The industrial I/O subsystem provides a
+unified framework for drivers for many different types of converters and sensors
+using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `drivers/iio/temperature/ltc2983.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/temperature/ltc2983.c>`__
+     - `yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/temperature/ltc2983.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/iio/temperature/ltc2983.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/temperature/ltc2983.c>`__
+     -
+   * - Documentation
+     - `adi,ltc2983.yaml <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/devicetree/bindings/iio/temperature/adi,ltc2983.yaml>`__
+     -
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``).
+
+.. note::
+
+   The LTC2983 driver depends **CONFIG_SPI**.
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+       <*>     Industrial I/O support --->
+           --- Industrial I/O support
+               [--snip--]
+                 Temperature sensors --->
+           [--snip--]
+               -*- Analog Devices Multi-Sensor Digital Temperature Measurement
+               System
+           [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example SPI device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The devices can only be instantiated via device tree, along with all the sensors
+attached to it.
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+.. code-block:: text
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0
+   root:/sys/bus/iio/devices> cd iio:device0
+   root:/sys/bus/iio/devices/iio:device0> ls -l
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 dev
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp0_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp1_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp2_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp3_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_temp_scale
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_voltage0_raw
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 in_voltage_scale
+   -r--r--r-- 1 root root 4096 Nov 16 11:17 name
+   lrwxrwxrwx 1 root root    0 Nov 16 11:17 of_node -> ../../../../../../../../firmware/devicetree/base/soc/spi@7e204000/ltc2983@0
+   drwxr-xr-x 2 root root    0 Nov 16 11:17 power
+   lrwxrwxrwx 1 root root    0 Nov 16 11:17 subsystem -> ../../../../../../../../bus/iio
+   -rw-r--r-- 1 root root 4096 Nov 16 11:17 uevent
+   root:/sys/bus/iio/devices/iio:device0>
+
+The driver registers indexed ``in_tempN_raw`` and ``in_voltageN_raw``
+attributes; the channel numbering depends on the configured sensors.
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat name
+   ltc2983
+
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show temperature scale
+^^^^^^^^^^^^^^^^^^^^^^
+
+**Description:** Multiply ``in_tempN_raw`` by ``in_temp_scale`` to obtain
+millidegrees Celsius when the device is configured for Celsius; divide by 1000
+for °C. The driver reports a scale of ``1000/1024``.
+
+The driver does not change the temperature-unit setting and has no
+Celsius/Fahrenheit selector.
+
+.. code-block:: text
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_temp_scale
+   0.976562500
+
+Show temperature
+~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_temp0_raw
+
+Show voltage
+~~~~~~~~~~~~
+
+::
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage0_raw
+
+Show Voltage scale
+~~~~~~~~~~~~~~~~~~
+
+**Description:** Multiply ``in_voltageN_raw`` by ``in_voltage_scale`` to obtain
+millivolts; divide by 1000 for volts. The driver reports ``1000/2^21`` mV/code.
+
+.. code-block:: text
+
+   root:/sys/bus/iio/devices/iio:device0> cat in_voltage_scale
+   0.000476837
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

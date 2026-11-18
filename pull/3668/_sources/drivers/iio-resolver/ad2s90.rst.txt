@@ -1,0 +1,94 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-resolver/ad2s90
+
+
+.. _ad2s90:
+
+AD2S90
+======
+
+AD2S90 IIO Resolver-to-Digital Converter.
+
+Supported Devices
+-----------------
+
+- :adi:`AD2S90`
+
+Description
+-----------
+
+The AD2S90 is a complete 12-bit resolution resolver-to-digital converter
+that provides angular position measurement. It requires only a 3-wire serial
+interface and an external reference oscillator, offering a simple and cost-
+effective solution for shaft angle measurement in motor control systems.
+
+- :adi:`Product Page <ad2s90>`
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting Resolver-to-Digital Converters. The industrial I/O subsystem
+provides a unified framework for drivers for many different types of converters
+and sensors using a number of different physical interfaces (i2c, spi, etc). See
+:external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/resolver/ad2s90.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/resolver/ad2s90.c>`__
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+Enable ``CONFIG_AD2S90`` with ``CONFIG_SPI``. The module is ``ad2s90``.
+
+.. code-block:: text
+
+   Device Drivers
+     Industrial I/O support
+       Resolver to digital converters
+         <*> Analog Devices ad2s90 driver
+
+Driver testing
+--------------
+
+Identify the device by reading ``name`` under
+``/sys/bus/iio/devices/iio:deviceX/``; the number X depends on probe order.
+
+The device exposes ``in_angl0_raw`` and ``in_angl0_scale``. The raw position
+is a 12-bit unsigned code; the scale is 6283 / 4096 (2π / 2^12), giving the
+angle in radians.
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

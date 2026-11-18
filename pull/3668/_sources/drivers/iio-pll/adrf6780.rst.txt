@@ -1,0 +1,276 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/adrf6780
+
+
+.. _adrf6780:
+
+ADRF6780
+========
+
+ADRF6780 5.9 GHz to 23.6 GHz, Wideband, Microwave Upconverter Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADRF6780`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADRF6780`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting serial interface Microwave converters. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+   * - :git+linux:`ADI tree <main:drivers/iio/frequency/adrf6780.c>`
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adrf6780.c>`__
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `adrf6780.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/frequency/adrf6780.c>`_
+   * - Documentation
+     - `Documentation/ABI/testing/sysfs-bus-iio <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/Documentation/ABI/testing/sysfs-bus-iio>`__
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-spi-slave-devices
+   :end-before: .. end-declaring-spi-slave-devices
+
+Hardware configuration
+----------------------
+
+Use the device and evaluation-board documentation for physical wiring, power
+supplies and the LO connection.
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADRF6780 Driver depends on **CONFIG_SPI**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           <*>     Industrial I/O support --->
+               --- Industrial I/O support
+                   Frequency  --->
+                       <*> Analog Devices ADRF6780 Microwave Upconverter
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Properties
+^^^^^^^^^^
+
+**compatible:**
+
+- enum:
+- adi,adrf6780
+
+**reg:**
+
+- maxItems: 1
+
+**spi-max-frequency:**
+
+- minimum: 1000000
+
+**clocks:**
+
+- description: Definition of the external clock (see clock/clock-bindings.txt)
+- minItems: 1
+
+**clock-names:**
+
+- description: Must be ``lo_in``
+- maxItems: 1
+
+**clock-output-names:**
+
+- maxItems: 1
+
+**adi,vga-buff-en:**
+
+- description: VGA Buffer Enable.
+- type: boolean
+
+Detector enable is managed by the ADC conversion path. ``adi,det-en`` is not
+a Devicetree property consumed by this driver.
+
+**adi,lo-buff-en:**
+
+- description: LO Buffer Enable.
+- type: boolean
+
+**adi,if-mode-en:**
+
+- description: IF Mode Enable.
+- type: boolean
+
+**adi,iq-mode-en:**
+
+- description: IQ Mode Enable.
+- type: boolean
+
+**adi,lo-x2-en:**
+
+- description: LO x2 Enable.
+- type: boolean
+
+**adi,lo-ppf-en:**
+
+- description: LO x1 Enable.
+- type: boolean
+
+**adi,lo-en:**
+
+- description: LO Enable.
+- type: boolean
+
+**adi,uc-bias-en:**
+
+- description: UC Bias Enable.
+- type: boolean
+
+**adi,lo-sideband:**
+
+- description: Switch to the Other LO Sideband.
+- type: boolean
+
+**adi,vdet-out-en:**
+
+- description: VDET Output Select Enable.
+- type: boolean
+
+**required:**
+
+- compatible
+- reg
+- clocks
+- clock-names
+
+Example
+^^^^^^^
+
+This example enables IQ operation with the LO x1 polyphase path. The LO clock
+provider supplies the input frequency.
+
+.. code-block:: dts
+
+   &spi0 {
+     #address-cells = <1>;
+     #size-cells = <0>;
+     adrf6780@0 {
+       compatible = "adi,adrf6780";
+       reg = <0>;
+       spi-max-frequency = <1000000>;
+       clocks = <&adrf6780_lo>;
+       clock-names = "lo_in";
+       adi,iq-mode-en;
+       adi,lo-ppf-en;
+       adi,lo-en;
+       adi,lo-buff-en;
+       adi,vga-buff-en;
+       adi,uc-bias-en;
+     };
+   };
+
+Driver testing
+--------------
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+Select the IIO device whose ``name`` attribute is ``adrf6780``.
+
+.. code-block:: text
+
+   cd /sys/bus/iio/devices/iio:device0
+   cat name
+   ls -l
+
+::
+
+   root:/> cd /sys/bus/iio/devices/iio\:device0/
+   root:/> cat name
+   adrf6780
+
+Read detector ADC
+~~~~~~~~~~~~~~~~~
+
+``in_altvoltage0_raw`` is the read-only detector ADC code. A read enables
+the detector/ADC conversion path; it is not an output DAC raw value.
+
+.. code-block:: text
+
+   cat in_altvoltage0_raw
+
+Set ChannelY Scale value
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+``out_altvoltage0_scale`` controls the RDAC linearization register. Its value
+is an integer register code, not a multiplier for converting detector ADC raw
+samples to voltage.
+
+.. code-block:: bash
+
+   set -eu
+   cat out_altvoltage0_scale
+   echo 1 > out_altvoltage0_scale
+   cat out_altvoltage0_scale
+
+Set ChannelY Phase value
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The output phase-control attributes are ``out_altvoltage0_i_phase`` and
+``out_altvoltage0_q_phase``. They accept integer register codes.
+
+.. code-block:: text
+
+   root:/> cat out_altvoltage0_i_phase
+   0
+
+   root:/> echo 1 > out_altvoltage0_i_phase
+   root:/> cat out_altvoltage0_i_phase
+   1
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

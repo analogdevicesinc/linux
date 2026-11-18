@@ -1,0 +1,316 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad7998
+
+.. _ad7998:
+
+AD7998
+======
+
+AD7998 IIO ADC Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`AD7991`
+- :adi:`AD7992`
+- :adi:`AD7993`
+- :adi:`AD7994`
+- :adi:`AD7995`
+- :adi:`AD7997`
+- :adi:`AD7998`
+- :adi:`AD7999`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-AD7991EBZ`
+- :adi:`EVAL-AD7992EBZ`
+- :adi:`EVAL-AD7993EBZ`
+- :adi:`EVAL-AD7994EBZ`
+- :adi:`EVAL-AD7995EBZ`
+- :adi:`EVAL-AD7997EBZ`
+- :adi:`EVAL-AD7998EBZ`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0288`
+- :adi:`CN0301`
+
+Description
+-----------
+
+This is a Linux industrial I/O (:external+system-level:ref:`iio`) subsystem
+driver, targeting multi channel serial interface ADCs. The industrial I/O
+subsystem provides a unified framework for drivers for many different types of
+converters and sensors using a number of different physical interfaces (i2c,
+spi, etc). See :external+system-level:ref:`iio` for more information.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad799x.c>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad799x.c>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+   * - driver
+     - `drivers/iio/adc/ad799x.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/iio/adc/ad799x.c>`__
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The AD7998 Driver depends on **CONFIG_I2C**
+
+.. code-block:: text
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+               <*>     Industrial I/O support --->
+                   --- Industrial I/O support
+
+                         *** Analog to digital converters ***
+                   [--snip--]
+
+                   <*>   Analog Devices AD799x ADC driver
+
+                   [--snip--]
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Required devicetree properties:
+
+-  compatible: Needs to be ``adi,`` followed by the name of the device, e.g.
+   ``adi,ad7998``
+
+-  reg: The slave address used for the device
+
+-  vcc-supply: Phandle to the supply regulator
+
+::
+
+   adc_supply: fixedregulator {
+           compatible = "regulator-fixed";
+           regulator-name = "fixed-supply";
+           regulator-min-microvolt = <3300000>;
+           regulator-max-microvolt = <3300000>;
+   };
+
+   i2c: i2c@e0007000 {
+           #address-cells = <1>;
+           #size-cells = <0>;
+           compatible = "xlnx,xps-iic-2.00.a";
+           ...
+
+           adc@24 {
+                   compatible = "adi,ad7998";
+                   reg = <0x24>;
+                   vcc-supply = <&adc_supply>;
+           };
+    };
+
+AD7991, AD7995 and AD7999 can also use an external reference through
+``vref-supply``; other variants, including AD7998, only use ``vcc-supply``.
+
+Device enumeration
+~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-platform-data
+   :end-before: .. end-platform-data
+
+Specifying reference voltage via the regulator framework
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+Provide a ``vcc`` regulator for every part. Only AD7991/AD7995/AD7999 use
+the optional ``vref`` regulator as an external reference. Other supported
+variants, including AD7998, use ``vcc`` for their scale.
+
+For devicetree-based AD7998 configuration, the device node's supply property
+is:
+
+.. code-block:: devicetree
+
+   vcc-supply = <&board_vcc>;
+
+``board_vcc`` must identify the regulator actually powering the device, with
+voltage and constraints suitable for that part. Do not supply an AD7998
+reference using ``vref-supply``: this driver does not acquire that consumer
+for AD7998. For board-file registration, the corresponding regulator consumer
+name is ``vcc`` for the I2C device, not ``vref``.
+
+.. include:: /include/platform-and-bus-model.rst
+   :start-after: .. start-declaring-i2c-devices
+   :end-before: .. end-declaring-i2c-devices
+
+Depending on the converter IC used, you may need to set the I2C_BOARD_INFO name
+accordingly, matching your part name.
+
+.. code:: c
+
+   static struct i2c_board_info __initdata board_i2c_board_info[] = {
+   #if defined(CONFIG_AD799X) || defined(CONFIG_AD799X_MODULE)
+       {
+           I2C_BOARD_INFO("ad7998", 0x24),
+           .irq = IRQ_PG0,
+       },
+   #endif
+   };
+
+.. code:: c
+
+   static int __init board_init(void)
+   {
+       [--snip--]
+
+       i2c_register_board_info(0, board_i2c_board_info,
+                   ARRAY_SIZE(board_i2c_board_info));
+       [--snip--]
+
+       return 0;
+   }
+   arch_initcall(board_init);
+
+Driver testing
+--------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-device-files
+   :end-before: .. end-iio-device-files
+
+::
+
+   root:/> cd /sys/bus/iio/devices/
+   root:/sys/bus/iio/devices> ls
+   iio:device0                  trigger0
+
+   root:/sys/bus/iio/devices> cd device0
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> ls -l
+   drwxr-xr-x    5 root     root             0 Jan  1 00:00 buffer
+   drwxr-xr-x    2 root     root             0 Jan  1 00:00 events
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage0_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage1_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage2_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage3_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage4_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage5_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage6_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage7_raw
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 in_voltage_scale
+   -r--r--r--    1 root     root          4096 Jan  1 00:00 name
+   lrwxrwxrwx    1 root     root             0 Jan  1 00:00 subsystem -> ../../../../../../bus/iio
+   drwxr-xr-x    2 root     root             0 Jan  1 00:00 trigger
+   -rw-r--r--    1 root     root          4096 Jan  1 00:00 uevent
+
+Identify the device
+~~~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> cat name
+   ad7998
+
+Basic operation
+~~~~~~~~~~~~~~~
+
+Show scale
+^^^^^^^^^^
+
+**Description:** scale to be applied to in_voltage0_raw in order to obtain the
+measured voltage in millivolts.
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> cat in_voltage_scale
+   1.000
+
+Show channel 0 measurement
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**Description:** Raw unscaled voltage measurement on channel 0
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0> cat in_voltage0_raw
+   1491
+
+With a 3.3 V vcc, ``in_voltage_scale`` is 3300/4096 ≈ 0.805664062 mV/code,
+so a raw value of 1491 is approximately 1201.245 mV.
+
+Trigger management
+~~~~~~~~~~~~~~~~~~
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-devices-with-trigger-consumer-interface
+   :end-before: .. end-iio-devices-with-trigger-consumer-interface
+
+Available standalone trigger drivers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-standalone-trigger-drivers
+   :end-before: .. end-standalone-trigger-drivers
+
+Buffer management
+~~~~~~~~~~~~~~~~~
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0/buffer> ls
+   enable  length
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0/buffer>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-buffer-management
+   :end-before: .. end-buffer-management
+
+::
+
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0/scan_elements> ls
+   in_voltage0_en           in_voltage2_index        in_voltage5_en           in_voltage7_index
+   in_voltage0_index        in_voltage3_en           in_voltage5_index        in_voltage_type
+   in_voltage1_en           in_voltage3_index        in_voltage6_en           timestamp_en
+   in_voltage1_index        in_voltage4_en           in_voltage6_index        timestamp_index
+   in_voltage2_en           in_voltage4_index        in_voltage7_en           timestamp_type
+   root:/sys/devices/platform/i2c-bfin-twi.0/i2c-0/0-0024/iio:device0/scan_elements>
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-typical-adc-scan-elements
+   :end-before: .. end-typical-adc-scan-elements
+
+More Information
+----------------
+
+.. include:: /include/iio-snippets.rst
+   :start-after: .. start-iio-pointers
+   :end-before: .. end-iio-pointers

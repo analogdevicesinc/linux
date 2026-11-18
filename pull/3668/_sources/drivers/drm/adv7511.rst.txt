@@ -1,0 +1,315 @@
+.. imported from: https://wiki.analog.com/resources/tools-software/linux-drivers/drm/adv7511
+
+
+.. _adv7511:
+
+ADV7511
+=======
+
+ADV7511 HDMI transmitter Linux Driver.
+
+Supported Devices
+-----------------
+
+- :adi:`ADV7511`
+- :adi:`ADV7511W`
+- :adi:`ADV7513`
+- :adi:`ADV7533`
+- :adi:`ADV7535`
+
+Evaluation Boards
+-----------------
+
+- :adi:`EVAL-ADV7511W`
+- :adi:`EVAL-ADV7612`
+- :adi:`EVAL-ADV7612-7511`
+- :adi:`EVAL-ADV7842`
+- :adi:`EVAL-ADV7842-7511`
+
+Reference Circuits
+~~~~~~~~~~~~~~~~~~
+
+- :adi:`CN0224`
+
+Description
+-----------
+
+The ADV7511 driver is implemented as a DRM bridge driver. In a typical board
+design the ADV7511 is not used as a standalone component but rather as a HDMI
+encoder fronted for some other devices with a graphics core, like a SoC or a
+FPGA. Implementing the ADV7511 driver as a DRM bridge driver allows to reuse the
+driver between different platforms which use the ADV7511.
+
+For an example implementation of a DRM driver using the ADV7511 please refer to
+Linux driver for the Analog Devices example HDL design for the Xilinx Zync plus
+ADV7511 designs.
+
+The driver supports audio via HDMI as well by implementing a ASoC codec driver.
+This again allows to reuse the driver for a varieties of different platforms.
+
+Source Code
+-----------
+
+Status
+~~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Source
+     - Mainlined?
+     -
+     -
+   * - `git <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/>`__
+     - `Yes <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/>`__
+     -
+     -
+
+Files
+~~~~~
+
+.. list-table::
+   :header-rows: 1
+
+   * - Function
+     - File
+     -
+   * - driver
+     - `drivers/gpu/drm/bridge/adv7511/adv7511_drv.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/adv7511_drv.c>`__
+     -
+   * - driver
+     - `drivers/gpu/drm/bridge/adv7511/adv7511_audio.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/adv7511_audio.c>`__
+     -
+   * - driver
+     - `drivers/gpu/drm/bridge/adv7511/adv7533.c <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/adv7533.c>`__
+     -
+   * - include
+     - `drivers/gpu/drm/bridge/adv7511/adv7511.h <https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/drivers/gpu/drm/bridge/adv7511/adv7511.h>`__
+     -
+
+Adding Linux driver support
+---------------------------
+
+Kernel configuration
+~~~~~~~~~~~~~~~~~~~~
+
+Configure kernel with ``make menuconfig`` (alternatively use ``make xconfig`` or
+``make qconfig``)
+
+.. note::
+
+   The ADV7511 Driver depends on **CONFIG_DRM** and **CONFIG_I2C**
+
+::
+
+   Linux Kernel Configuration
+       Device Drivers  --->
+           Graphics support  --->
+               <*> Direct Rendering Manager (XFree86 4.1.0 and higher DRI support)  --->
+               ...
+               <*> AV7511 encoder
+
+Devicetree configuration
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Example platform device initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+DRM
+"""
+
+Instantiate ADV7511, ADV7511W or ADV7513 as an I2C device in Device Tree, and
+connect its input graph endpoint to the upstream display controller. Configure
+the physical bus with ``adi,input-depth``, ``adi,input-colorspace`` and
+``adi,input-clock``. For YUV422 input, or a clock mode other than 1x, also
+specify ``adi,input-style`` and ``adi,input-justification``. ``adi,clock-delay``
+is in picoseconds; ``adi,embedded-sync`` selects embedded synchronization when
+the hardware uses it.
+
+The ``adi,input-clock`` values are ``1x`` (one clock cycle per pixel), ``2x``
+(two clock cycles per pixel) and ``ddr`` (data driven on both clock edges).
+
+The DRM bridge configures output conversion and HDMI/DVI operation as part of
+mode setting. It does not use the old ``adv7511_video_input_config`` structure
+or encoder-slave ``set_config`` callback. ADV7533 and ADV7535 have a separate
+DSI configuration path.
+
+The following fragment declares the transmitter, its supplies and the video
+graph. Include it together with the input-bus configuration in the next section;
+both fragments are needed for the complete example.
+
+The board must already define ``i2c0`` (the actual I2C bus or mux channel),
+``display_out`` (the upstream video endpoint), and ``v1v8``/``v3v3`` (the
+supplies connected to the transmitter pins). The labels, I2C address, and connector type are board-specific. The input endpoint must link
+back to ``adv7511_in``, as shown. Configure the display controller and its
+clocks/pin multiplexing in its own board node.
+
+.. code-block:: dts
+
+   /* Board supplies and the display controller endpoint are defined elsewhere. */
+   &i2c0 {
+       #address-cells = <1>;
+       #size-cells = <0>;
+       status = "okay";
+
+       adv7511: hdmi@39 {
+           compatible = "adi,adv7511";
+           reg = <0x39>;
+
+           avdd-supply = <&v1v8>;
+           dvdd-supply = <&v1v8>;
+           pvdd-supply = <&v1v8>;
+           dvdd-3v-supply = <&v3v3>;
+           bgvdd-supply = <&v1v8>;
+
+           ports {
+               #address-cells = <1>;
+               #size-cells = <0>;
+
+               port@0 {
+                   reg = <0>;
+                   adv7511_in: endpoint {
+                       remote-endpoint = <&display_out>;
+                   };
+               };
+
+               port@1 {
+                   reg = <1>;
+                   adv7511_out: endpoint {
+                       remote-endpoint = <&hdmi_connector_in>;
+                   };
+               };
+           };
+       };
+   };
+
+   &display_out {
+       remote-endpoint = <&adv7511_in>;
+   };
+
+   / {
+       hdmi-connector {
+           compatible = "hdmi-connector";
+           type = "a";
+
+           port {
+               hdmi_connector_in: endpoint {
+                   remote-endpoint = <&adv7511_out>;
+               };
+           };
+       };
+   };
+
+Example Configuration
+'''''''''''''''''''''
+
+This fragment configures the ``adv7511`` node declared above for 8-bit-component
+YUV422, input style 1, right justification, a 1x input clock and separate sync
+signals. Include it after the declaration in the same board Device Tree. Use
+these physical bus settings only when they match the upstream display controller
+and board wiring.
+
+.. code-block:: dts
+
+   &adv7511 {
+       adi,input-depth = <8>;
+       adi,input-colorspace = "yuv422";
+       adi,input-clock = "1x";
+       adi,input-style = <1>;
+       adi,input-justification = "right";
+       adi,clock-delay = <0>;
+   };
+
+Only the main I2C address is set here; the other register pages use their
+default addresses. If the board changes those addresses, specify the extra
+``reg`` entries with the binding's ``reg-names``. Add board-specific interrupt
+and power-down GPIO properties when applicable. This fragment shows the video
+path; audio needs its own sound-card integration.
+
+ASoC
+""""
+
+DAI configuration
+"""""""""""""""""
+
+With CONFIG_DRM_I2C_ADV7511_AUDIO enabled, the driver creates an
+hdmi-audio-codec child. The generic HDMI codec registers i2s-hifi and spdif-hifi
+DAIs; ADV7511 configures a maximum of two I2S channels. Link the sound card to
+the appropriate child DAI, not adau-hifi or adv7511.
+
+Supported DAI formats
+'''''''''''''''''''''
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Supported by driver
+     - Description
+   * - SND_SOC_DAIFMT_I2S
+     - yes
+     - I2S mode
+   * - SND_SOC_DAIFMT_RIGHT_J
+     - yes
+     - Right Justified mode
+   * - SND_SOC_DAIFMT_LEFT_J
+     - yes
+     - Left Justified mode
+   * - SND_SOC_DAIFMT_DSP_A
+     - no
+     - data MSB after FRM LRC
+   * - SND_SOC_DAIFMT_DSP_B
+     - no
+     - data MSB during FRM LRC
+   * - SND_SOC_DAIFMT_AC97
+     - no
+     - AC97 mode
+   * - SND_SOC_DAIFMT_PDM
+     - no
+     - Pulse density modulation
+   * - SND_SOC_DAIFMT_SPDIF
+     - yes
+     - SPDIF
+
+The ADV7511 audio callback programs bit-clock inversion from
+``bit_clk_inv``. It does not configure frame-clock inversion or bit/frame-clock
+provider flags.
+
+Example DAI configuration
+'''''''''''''''''''''''''
+
+Select the actual registered ``hdmi-audio-codec`` child component and its
+``spdif-hifi`` DAI for SPDIF, or ``i2s-hifi`` for I2S. The component's automatic
+instance number is not fixed by the I2C address. In the partial SPDIF link below, N is the registered child instance number; supply
+the CPU and platform component arrays from the machine driver. It is not a
+complete board registration example.
+
+.. code-block:: c
+
+   static struct snd_soc_dai_link_component hdmi_codecs[] = {
+       {
+           .name = "hdmi-audio-codec.N.auto",
+           .dai_name = "spdif-hifi",
+       },
+   };
+
+   static struct snd_soc_dai_link hdmi_dai_link = {
+       .name = "HDMI",
+       .stream_name = "HDMI",
+       .codecs = hdmi_codecs,
+       .num_codecs = ARRAY_SIZE(hdmi_codecs),
+       .dai_fmt = SND_SOC_DAIFMT_SPDIF |
+                  SND_SOC_DAIFMT_NB_NF |
+                  SND_SOC_DAIFMT_CBC_CFC,
+   };
+
+More Information
+----------------
+
+- :ref:`hdl-axi-hdmi`
+- :ref:`hdl-axi-spidf`
+- :external+system-level:ref:`linux-kernel zynq`
+
+.. include:: /include/need-help.rst
+   :start-after: .. start-need-help
+   :end-before: .. end-need-help

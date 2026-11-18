@@ -1,0 +1,99 @@
+.. _kernel_modules:
+
+Kernel modules
+==============
+
+This section explains how to compile out-of-tree kernel modules with the
+kernel artifacts on our `adi/linux (S3) <https://broadcasts.cloudsmith.com/adi/linux>`__.
+
+For each defconfig, three artifacts are provided:
+
+- ``<no-suffix>``: kernel image and modules.
+- ``-headers``: ``make headers_install``, userspace headers in ``usr/include``.
+- ``-devel``: ``install-extmod-build``, copies ``include/``,
+  ``arch/<arch>/include``, the Makefiles and ``scripts/``.
+
+The download link uses the format
+``https://dl.cloudsmith.io/public/adi/linux/raw/versions/${sha}/${defconfig}``,
+for example, to get a devel artifact:
+
+.. shell::
+
+   $ defconfig=adi_versal_defconfig-gcc-arm64
+   $ sha=5ccfc9fe12ed9bc7158da7390ad2b917fe5c83a8
+   $ curl -LO \
+          https://dl.cloudsmith.io/public/adi/linux/raw/versions/${sha}/${defconfig}-devel
+   $ unzip -q ${defconfig}-devel -d devel
+
+The ``*-devel`` artifact is compiled native to the target architecture,
+including the host tools in ``scripts/``. To **cross-compile** from another
+host (like x86_64), rebuild them in the extracted ``-devel`` directory, for example:
+
+.. shell::
+
+   $ cd devel
+   $ gcc -O2 -Iscripts/include \
+         -o scripts/basic/fixdep scripts/basic/fixdep.c
+   # If CONFIG_MODVERSIONS=y
+   $ gcc -O2 -Iscripts/include -Iscripts/genksyms \
+         -o scripts/genksyms/genksyms \
+         scripts/genksyms/{genksyms.c,lex.lex.c,parse.tab.c}
+   $ gcc -O2 -Iscripts/mod -Iscripts/include \
+         -o scripts/mod/modpost \
+         scripts/mod/{modpost.c,file2alias.c,sumversion.c,symsearch.c}
+   $ cd ..
+
+.. note::
+
+   You may also need to re-build the host tools if your target distro
+   is behind, for example, compiling from Debian Bookworm raises ``version
+   'GLIBC_2.38' not found``; rebuilding the host tools fixes.
+
+With ``CONFIG_MODVERSIONS=y``, every symbol has its CRC computed. When
+loading a module, the kernel uses it instead of the kernel release string,
+allowing to load a module built for a different kernel, as long as all CRCs
+match. More info at :external+upstream:doc:`kbuild/modules`.
+
+Simple driver
+-------------
+
+The simple IIO ADC driver ``ad4062`` is compiled with:
+
+.. shell::
+
+   ~
+   $ mkdir ad4062 ; cd ad4062
+   # Get exact driver match
+   $ curl -LO https://raw.githubusercontent.com/analogdevicesinc/linux/${sha}/drivers/iio/adc/ad4062.c
+   # Compile
+   $ echo 'obj-m := ad4062.o' > Makefile
+   $ make -C ../devel \
+          ARCH=arm64 CROSS_COMPILE=aarch64-linux- M=$PWD modules
+   $ ls *.ko
+     ad4062.ko
+
+The ``-devel`` also stores the ``sha`` in the *context.txt* file.
+
+API-based driver
+----------------
+
+For a more complex driver that has its own private API, prefer a sparse
+clone:
+
+.. shell::
+
+   ~
+   $ git init ad9088 ; cd ad9088
+   $ git remote add origin https://github.com/analogdevicesinc/linux.git
+   # Needs cf_axi_adc.h and adi-axi-hsci.h
+   $ git sparse-checkout set \
+       drivers/iio/trx-rf/ad9088 \
+       drivers/iio/adc/cf_axi_adc.h \
+       drivers/misc/adi-axi-hsci.h
+   $ git fetch --depth=1 --filter=blob:none origin $sha
+   $ git checkout FETCH_HEAD
+   $ make -C ../devel \
+          ARCH=arm64 CROSS_COMPILE=aarch64-linux- CONFIG_AD9088=m \
+          M=$PWD/drivers/iio/trx-rf/ad9088 modules
+   $ ls drivers/iio/trx-rf/ad9088/*.ko
+     drivers/iio/trx-rf/ad9088/ad9088_drv.ko
