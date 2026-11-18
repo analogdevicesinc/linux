@@ -22,7 +22,11 @@ properties:
   interrupts:
     maxItems: 1
 
-  vled-supply: true
+  vcc-supply:
+    description: Sensor core power supply (VCC).
+
+  vled-supply:
+    description: Infrared LED anode power supply (LEDA).
 
 additionalProperties: false
 
