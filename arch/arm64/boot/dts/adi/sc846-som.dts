@@ -184,12 +184,12 @@
 			#size-cells = <1>;
 
 			partition@0 {
-				label = "u-boot spl";
+				label = "u-boot-spl";
 				reg = <0x00000000 0x40000>;
 			};
 
 			partition@40000 {
-				label = "u-boot proper";
+				label = "u-boot";
 				reg = <0x00040000 0xc0000>;
 			};
 
