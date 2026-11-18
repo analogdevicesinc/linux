@@ -665,10 +665,11 @@ applied in order after the merge as a separate commit, and replayed on the next 
 <p>To adjust <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>, commit to it and push; the next run reads the patches
 from its head. From the root of the <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> worktree, get the script from
 the <code class="docutils literal notranslate"><span class="pre">ci</span></code> branch:</p>
-<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># curl https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py &gt; \</span>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1">#   /tmp/merge_conflict.py</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>-o<span class="w"> </span>/tmp/merge_conflict.py
 </pre></div>
 </div>
 <div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
@@ -691,12 +692,11 @@ fixup 0002-drm-fbdev-dma-keep-smem_start-from-dma_addr.patch: drm/fbdev ... in p
 <div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
 </pre></div>
 </div>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>resolve<span class="w">  </span>drivers/usb/misc/onboard_usb_dev.c
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>resolve<span class="w"> </span>drivers/usb/misc/onboard_usb_dev.c
 </pre></div>
 </div>
-<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> resolve: edit the conflict blocks of the files below,
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> resolve: edit the conflict blocks (ours is the branch, theirs is stable) of the files below,
  then run 'resolve --continue', or 'resolve --abort' to give up
-
  drivers/usb/misc/onboard_usb_dev.c
 </pre></div>
 </div>

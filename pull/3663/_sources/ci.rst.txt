@@ -236,8 +236,8 @@ the ``ci`` branch:
 
 .. shell::
 
-   # curl https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py > \
-       /tmp/merge_conflict.py
+   $ curl -fsSL https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py \
+       -o /tmp/merge_conflict.py
    $ python3 /tmp/merge_conflict.py list
     resolution Documentation/devicetree/bindings/pwm/adi,axi-pwmgen.yaml: 1 chunk(s)
     resolution Documentation/hwmon/ina2xx.rst: 4 chunk(s)
@@ -253,10 +253,9 @@ To correct a conflict resolution, resolve it again in the working tree:
 
 .. shell::
 
-   $ python3 /tmp/merge_conflict.py resolve  drivers/usb/misc/onboard_usb_dev.c
-     resolve: edit the conflict blocks of the files below,
+   $ python3 /tmp/merge_conflict.py resolve drivers/usb/misc/onboard_usb_dev.c
+     resolve: edit the conflict blocks (ours is the branch, theirs is stable) of the files below,
      then run 'resolve --continue', or 'resolve --abort' to give up
-
      drivers/usb/misc/onboard_usb_dev.c
 
    # Resolve the conflict blocks, and
