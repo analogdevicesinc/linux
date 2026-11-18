@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'rpi-*.y'
+      - 'lts/rpi-*.y'
       - 'staging/rpi/*'
       - 'rpi/release/*'
   pull_request:
