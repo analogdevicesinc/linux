@@ -230,6 +230,8 @@ jobs:
           ref: ${{ inputs.ref }}
           model: ${{ inputs.model }}
           prompt-file: ${{ env.prompt_file }}
+          skills: |
+            if_base_ref="*adsp*" remote=analogdevicesinc/doctools@skills skill="adsp"
           api-key: ${{ secrets.PORTKEY_API_KEY }}
           py-venv: ${{ env.py_venv }}
           sh-source: ${{ env.sh_source }}
