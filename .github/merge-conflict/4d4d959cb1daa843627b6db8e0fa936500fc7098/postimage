@@ -893,6 +893,19 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 	if (!sigma_delta->slots)
 		return -ENOMEM;
 
+	/*
+	 * Worst-case size: all sequencer slots can be active, capped
+	 * at num_slots by ad_sd_validate_scan_mask().
+	 */
+	samples_buf_size =
+		ALIGN(sigma_delta->num_slots *
+		      BITS_TO_BYTES(scan_type->storagebits),
+		      sizeof(s64));
+	samples_buf_size += sizeof(s64);
+	sigma_delta->samples_buf = devm_kzalloc(dev, samples_buf_size, GFP_KERNEL);
+	if (!sigma_delta->samples_buf)
+		return -ENOMEM;
+
 	if (ad_sigma_delta_has_spi_offload(sigma_delta)) {
 		struct dma_chan *rx_dma;
 
@@ -909,20 +922,6 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 
 		indio_dev->setup_ops = &ad_sd_buffer_setup_ops;
 	} else {
-		/*
-		 * Worst-case size: all sequencer slots can be active, capped
-		 * at num_slots by ad_sd_validate_scan_mask().
-		 */
-		samples_buf_size =
-			ALIGN(sigma_delta->num_slots *
-			      BITS_TO_BYTES(scan_type->storagebits),
-			      sizeof(s64));
-		samples_buf_size += sizeof(s64);
-		sigma_delta->samples_buf = devm_kzalloc(dev, samples_buf_size,
-							GFP_KERNEL);
-		if (!sigma_delta->samples_buf)
-			return -ENOMEM;
-
 		ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 						      &iio_pollfunc_store_time,
 						      &ad_sd_trigger_handler,

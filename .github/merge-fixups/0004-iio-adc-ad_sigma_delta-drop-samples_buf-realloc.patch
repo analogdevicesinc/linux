@@ -1,0 +1,51 @@
+iio: adc: ad_sigma_delta: allocate the scan buffer once in setup, not in postenable
+
+Stable commit c0d5054684f00 ("iio: adc: ad_sigma_delta: don't overallocate scan
+buffer") removes the devm_krealloc() of sigma_delta->samples_buf from
+ad_sd_buffer_postenable() and allocates the worst-case size (num_slots) once in
+devm_ad_sd_setup_buffer_and_trigger(). Downstream main has the later upstream
+SPI offload rework of ad_sd_buffer_postenable(), so the conflict was resolved to
+the downstream function and the allocation was added to the setup function
+(inside the conflict). The stable hunk removing the realloc did not apply to
+the reworked function, so the realloc stayed behind with its locals.
+
+Drop it from postenable so the buffer is allocated only once, as in stable.
+
+diff --git a/drivers/iio/adc/ad_sigma_delta.c b/drivers/iio/adc/ad_sigma_delta.c
+--- a/drivers/iio/adc/ad_sigma_delta.c
++++ b/drivers/iio/adc/ad_sigma_delta.c
+@@ -544,7 +544,6 @@
+ 	const struct iio_scan_type *scan_type = &indio_dev->channels[0].scan_type;
+ 	struct spi_transfer *xfer = sigma_delta->sample_xfer;
+ 	unsigned int i, slot, channel;
+-	u8 *samples_buf;
+ 	int ret;
+ 
+ 	if (sigma_delta->num_slots == 1) {
+@@ -576,7 +575,7 @@
+ 		xfer[1].bits_per_word = scan_type->realbits;
+ 		xfer[1].len = roundup_pow_of_two(BITS_TO_BYTES(scan_type->realbits));
+ 	} else {
+-		unsigned int samples_buf_size, scan_size;
++		unsigned int scan_size;
+ 
+ 		if (sigma_delta->active_slots > 1) {
+ 			ret = ad_sigma_delta_append_status(sigma_delta, true);
+@@ -584,17 +583,6 @@
+ 				return ret;
+ 		}
+ 
+-		samples_buf_size =
+-			ALIGN(slot * BITS_TO_BYTES(scan_type->storagebits),
+-			      sizeof(s64));
+-		samples_buf_size += sizeof(s64);
+-		samples_buf = devm_krealloc(&sigma_delta->spi->dev,
+-					    sigma_delta->samples_buf,
+-					    samples_buf_size, GFP_KERNEL);
+-		if (!samples_buf)
+-			return -ENOMEM;
+-
+-		sigma_delta->samples_buf = samples_buf;
+ 		scan_size = BITS_TO_BYTES(scan_type->realbits + scan_type->shift);
+ 		/* For 24-bit data, there is an extra byte of padding. */
+ 		xfer[1].rx_buf = &sigma_delta->rx_buf[scan_size == 3 ? 1 : 0];
