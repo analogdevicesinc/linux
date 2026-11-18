@@ -205,7 +205,7 @@ jobs:
           popd
 
           mkdir -p $PI/skills/kernel
-          sed "s|{{KERNEL_REVIEW_PROMPTS_DIR}}|$PI/_prompts/kernel|g" "kernel/skills/kernel.md" > "$PI/skills/kernel/kernel.md"
+          sed "s|{{KERNEL_REVIEW_PROMPTS_DIR}}|$PI/_prompts/kernel|g" "kernel/skills/kernel.md" > "$PI/skills/kernel/SKILL.md"
           popd
 
       - name: Prepare tools
