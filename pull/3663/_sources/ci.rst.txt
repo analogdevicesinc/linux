@@ -230,6 +230,57 @@ when downstream changes code for features that are not upstream.
 Issues identified (e.g., by building) are fixed and stored at ``.github/merge-fixups``,
 applied in order after the merge as a separate commit, and replayed on the next runs.
 
+To adjust ``lts/<ref>``, commit to it and push; the next run reads the patches
+from its head. From the root of the ``lts/<ref>`` worktree, get the script from
+the ``ci`` branch:
+
+.. shell::
+
+   # curl https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py > \
+       /tmp/merge_conflict.py
+   $ python3 /tmp/merge_conflict.py list
+
+Adjust .github/merge-conflict
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To correct a conflict resolution, resolve it again in the working tree:
+
+.. shell::
+
+   $ python3 /tmp/merge_conflict.py resolve drivers/iio/adc/xilinx-ams.c
+   $ # edit the conflict blocks: ours is <ref>, theirs is stable
+   $ python3 /tmp/merge_conflict.py resolve --continue
+   $ git add -f .github/merge-conflict drivers/iio/adc/xilinx-ams.c
+   $ git commit -m ".github/merge-conflict: Resolve xilinx-ams again"
+   $ git push origin HEAD:lts/<ref>
+
+``resolve`` redoes the merge in a temporary worktree and restores the conflict
+markers of the file; ``resolve --continue`` records the resolution, applies the
+fixups on top of it and lists the ones that no longer apply; ``resolve --abort``
+restores the file. Only lines inside the conflict blocks can be edited, other
+changes belong to a fixup. Alternatively, ``forget <path>`` drops the recorded
+resolution, and the LLM agent resolves it again on the next run.
+
+Adjust .github/merge-fixups
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To fix code outside the conflict blocks, edit the sources and store the changes
+as the next fixup:
+
+.. shell::
+
+   $ # edit the sources and build
+   $ python3 /tmp/merge_conflict.py fixup spi-nor-use-get-params \
+         -m "mtd: spi-nor: use spi_nor_get_params()" \
+         -m "Stable commit <sha> (...) uses nor->params, downstream has an array..."
+   $ python3 /tmp/merge_conflict.py verify
+   $ git add -f .github/merge-fixups drivers/mtd/spi-nor
+   $ git commit -m "mtd: spi-nor: use spi_nor_get_params() (merge fixup)"
+   $ git push origin HEAD:lts/<ref>
+
+``verify`` replays every fixup on the stable merge and compares the result with
+the working tree.
+
 Setting up and running
 ----------------------
 

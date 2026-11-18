@@ -102,7 +102,11 @@
 <li><a class="reference internal" href="#checking-steps-description">Checking steps description</a></li>
 <li><a class="reference internal" href="#defconfigs">Defconfigs</a></li>
 <li><a class="reference internal" href="#source-code-manipulation">Source code manipulation</a></li>
-<li><a class="reference internal" href="#automatic-long-term-support-branches">Automatic long-term-support branches</a></li>
+<li><a class="reference internal" href="#automatic-long-term-support-branches">Automatic long-term-support branches</a><ul>
+<li><a class="reference internal" href="#adjust-github-merge-conflict">Adjust .github/merge-conflict</a></li>
+<li><a class="reference internal" href="#adjust-github-merge-fixups">Adjust .github/merge-fixups</a></li>
+</ul>
+</li>
 </ul>
 </li>
 <li><a class="reference internal" href="#setting-up-and-running">Setting up and running</a><ul>
@@ -658,6 +662,112 @@ and can be inspected until garbage collected.</p>
 when downstream changes code for features that are not upstream.
 Issues identified (e.g., by building) are fixed and stored at <code class="docutils literal notranslate"><span class="pre">.github/merge-fixups</span></code>,
 applied in order after the merge as a separate commit, and replayed on the next runs.</p>
+<p>To adjust <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code>, commit to it and push; the next run reads the patches
+from its head. From the root of the <code class="docutils literal notranslate"><span class="pre">lts/&lt;ref&gt;</span></code> worktree, get the script from
+the <code class="docutils literal notranslate"><span class="pre">ci</span></code> branch:</p>
+<div class="code-shell"><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># curl https://raw.githubusercontent.com/analogdevicesinc/linux/ci/ci/merge_conflict.py &gt; \</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1">#   /tmp/merge_conflict.py</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>list
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><section id="adjust-github-merge-conflict">
+<h4>Adjust .github/merge-conflict<a class="headerlink" href="#adjust-github-merge-conflict" title="Link to this heading"></a></h4>
+<p>To correct a conflict resolution, resolve it again in the working tree:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>resolve<span class="w"> </span>drivers/iio/adc/xilinx-ams.c
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># edit the conflict blocks: ours is &lt;ref&gt;, theirs is stable</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>resolve<span class="w"> </span>--continue
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>-f<span class="w"> </span>.github/merge-conflict<span class="w"> </span>drivers/iio/adc/xilinx-ams.c
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">".github/merge-conflict: Resolve xilinx-ams again"</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>HEAD:lts/&lt;ref&gt;
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p><code class="docutils literal notranslate"><span class="pre">resolve</span></code> redoes the merge in a temporary worktree and restores the conflict
+markers of the file; <code class="docutils literal notranslate"><span class="pre">resolve</span> <span class="pre">--continue</span></code> records the resolution, applies the
+fixups on top of it and lists the ones that no longer apply; <code class="docutils literal notranslate"><span class="pre">resolve</span> <span class="pre">--abort</span></code>
+restores the file. Only lines inside the conflict blocks can be edited, other
+changes belong to a fixup. Alternatively, <code class="docutils literal notranslate"><span class="pre">forget</span> <span class="pre">&lt;path&gt;</span></code> drops the recorded
+resolution, and the LLM agent resolves it again on the next run.</p>
+</section>
+<section id="adjust-github-merge-fixups">
+<h4>Adjust .github/merge-fixups<a class="headerlink" href="#adjust-github-merge-fixups" title="Link to this heading"></a></h4>
+<p>To fix code outside the conflict blocks, edit the sources and store the changes
+as the next fixup:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># edit the sources and build</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>fixup<span class="w"> </span>spi-nor-use-get-params<span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-m<span class="w"> </span><span class="s2">"mtd: spi-nor: use spi_nor_get_params()"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">     </span>-m<span class="w"> </span><span class="s2">"Stable commit &lt;sha&gt; (...) uses nor-&gt;params, downstream has an array..."</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3<span class="w"> </span>/tmp/merge_conflict.py<span class="w"> </span>verify
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>add<span class="w"> </span>-f<span class="w"> </span>.github/merge-fixups<span class="w"> </span>drivers/mtd/spi-nor
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>commit<span class="w"> </span>-m<span class="w"> </span><span class="s2">"mtd: spi-nor: use spi_nor_get_params() (merge fixup)"</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>push<span class="w"> </span>origin<span class="w"> </span>HEAD:lts/&lt;ref&gt;
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p><code class="docutils literal notranslate"><span class="pre">verify</span></code> replays every fixup on the stable merge and compares the result with
+the working tree.</p>
+</section>
 </section>
 </section>
 <section id="setting-up-and-running">
