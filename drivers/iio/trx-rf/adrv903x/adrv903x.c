@@ -2516,13 +2516,7 @@ static int adrv903x_jesd204_link_enable(struct jesd204_dev *jdev,
 		return JESD204_STATE_CHANGE_DONE;
 
 	if (!priv->link[lnk->link_id].is_framer) { /* DEFRAMER */
-		adi_adrv903x_InitCals_t serdesCal = {
-			.calMask = ADI_ADRV903X_IC_SERDES,
-			.orxChannelMask = 0x00U,
-			.rxChannelMask = 0xFFU,
-			.txChannelMask = 0x00U,
-			.warmBoot = 0,
-		};
+		unsigned long lane_rate_khz = 0;
 
 		ret = adrv903x_api_call(phy, adi_adrv903x_DeframerLinkStateSet,
 					priv->link[lnk->link_id].source_id,
@@ -2530,16 +2524,34 @@ static int adrv903x_jesd204_link_enable(struct jesd204_dev *jdev,
 		if (ret)
 			return ret;
 
-		/* Notify ARM to run SERDES Calbriation if necessary */
-		ret = adrv903x_api_call(phy, adi_adrv903x_InitCalsRun, &serdesCal);
-		if (ret)
-			return ret;
+		jesd204_link_get_rate_khz(lnk, &lane_rate_khz);
 
-		/* Wait up to 60 seconds for ARM */
-		ret = adrv903x_api_call(phy, adi_adrv903x_InitCalsWait, 60000);
-		if (ret) {
-			dev_err(&phy->spi->dev, "Error: InitCalsWait\n");
-			return ret;
+		/* SERDES cal only needed in quarter rate mode (lane rate >= 16 Gbps) */
+		if (lane_rate_khz >= 16000000UL) {
+			adi_adrv903x_InitCals_t serdesCal = {
+				.calMask = ADI_ADRV903X_IC_SERDES,
+				.orxChannelMask = 0x00U,
+				.rxChannelMask = 0xFFU,
+				.txChannelMask = 0x00U,
+				.warmBoot = 0,
+			};
+
+			ret = adrv903x_api_call(phy, adi_adrv903x_InitCalsRun,
+						&serdesCal);
+			if (ret)
+				return ret;
+
+			ret = adrv903x_api_call(phy, adi_adrv903x_InitCalsWait,
+						60000);
+			if (ret) {
+				dev_err(&phy->spi->dev,
+					"Error: InitCalsWait SERDES\n");
+				return ret;
+			}
+		} else {
+			dev_dbg(&phy->spi->dev,
+				"SERDES cal skipped (lane rate %lu kHz < 16 Gbps)\n",
+				lane_rate_khz);
 		}
 
 		/***********************************************************/
