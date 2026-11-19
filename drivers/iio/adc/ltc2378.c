@@ -396,9 +396,11 @@ static int ltc2378_read_raw(struct iio_dev *indio_dev,
 	}
 	case IIO_CHAN_INFO_SCALE: {
 		struct u32_fract fract = st->info->internal_div;
+
 		*val = st->ref_uV / MILLI;
 		if (fract.numerator && fract.denominator)
-			*val = mult_frac(*val, fract.numerator, fract.denominator);
+			*val = mult_fract(*val, &fract);
+
 		/*
 		 * For all LTC2378-like devices, the amount of bits that express
 		 * voltage magnitude depend on the polarity / output code format:
