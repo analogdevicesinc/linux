@@ -150,3 +150,66 @@ Install both *example.ko* and *ad9088_drv.ko*, otherwise loading fails with
 If the series changes the arguments of an existing exported function, the
 build does not fail: *ad9088* keeps the CRC from the ``-devel`` and loads
 against the old module with the wrong arguments. So, always build both.
+
+Installing & loading modules
+----------------------------
+
+Modules are installed per kernel release, at ``/lib/modules/$(uname -r)/``:
+
+- *kernel/*: modules shipped with the linux distro, may be managed by a package.
+- *updates/*: default user modules path.
+
+*updates/* is set by ``INSTALL_MOD_DIR`` in *scripts/Makefile.modinst*, and has
+precedence over *kernel/* during ``depmod``.
+
+Copy the module to the target and run ``depmod``:
+
+.. shell::
+   :no-path:
+
+   $ mkdir -p /lib/modules/$(uname -r)/updates
+   $ cp ad4062.ko /lib/modules/$(uname -r)/updates/
+   $ depmod -a
+   $ modinfo -n ad4062
+     /lib/modules/6.12.0+/updates/ad4062.ko
+   $ modprobe ad4062
+
+A new kernel release uses a new */lib/modules/<release>/* directory, so modules
+in *updates/* have to be moved/reinstalled (and rebuilt, if the CRC changes).
+To use a path that does not change with the release, create a
+``/etc/depmod.d/*.conf`` configuration, for example, for a static path
+*/usr/local/lib/modules/premium*::
+
+   external * /usr/local/lib/modules/premium
+   search external updates built-in
+
+.. shell::
+   :no-path:
+
+   $ depmod -a
+   $ modinfo -n ad4062
+     /usr/local/lib/modules/premium/ad4062.ko
+
+More info at `depmod.d(5) <https://man7.org/linux/man-pages/man5/depmod.d.5.html>`__.
+
+Debugging ``Exec format error``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you encounter::
+
+  modprobe: ERROR: could not insert 'my_driver': Exec format error
+
+Causes are:
+
+- ``CONFIG_MODVERSIONS`` differs between the kernel and the module
+  (``modversion`` in *vermagic*).
+- Matched ``CONFIG_MODVERSIONS`` state:
+
+  - ``yes``: CRC mismatch, the kernel module is not compatible.
+  - ``no``: Mismatch kernel release string.
+
+The error for a CRC mismatch is::
+
+  modprobe: ERROR: could not insert 'ad9088_drv': Invalid argument
+
+with ``disagrees about version of symbol <symbol>`` in ``dmesg``.
