@@ -14,6 +14,10 @@ properties:
     enum:
       - lltc,lt7170
       - lltc,lt7171
+      - lltc,lt7175
+      - lltc,lt7175-1
+      - lltc,lt7176p
+      - lltc,lt7176p-1
       - lltc,ltc2972
       - lltc,ltc2974
       - lltc,ltc2975
@@ -37,6 +41,8 @@ properties:
       - lltc,ltm4677
       - lltc,ltm4678
       - lltc,ltm4680
+      - lltc,ltm4681
+      - lltc,ltm4682
       - lltc,ltm4686
       - lltc,ltm4700
 
@@ -48,7 +54,7 @@ properties:
     description: |
       list of regulators provided by this controller.
       Valid names of regulators depend on number of supplies supported per device:
-      * lt7170, lt7171 : vout0
+      * lt7170, lt7171, lt7175, lt7175-1, lt7176p, lt7176p-1 : vout0
       * ltc2972 vout0 - vout1
       * ltc2974, ltc2975 : vout0 - vout3
       * ltc2977, ltc2979, ltc2980, ltm2987 : vout0 - vout7
@@ -60,6 +66,7 @@ properties:
       * ltm4664 : vout0 - vout1
       * ltm4675, ltm4676, ltm4677, ltm4678 : vout0 - vout1
       * ltm4680, ltm4686 : vout0 - vout1
+      * ltm4681, ltm4682 : vout0 - vout1
       * ltm4700 : vout0 - vout1
 
     patternProperties:
