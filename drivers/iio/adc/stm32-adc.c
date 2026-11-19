@@ -2744,15 +2744,19 @@ static int stm32_adc_generic_chan_init(struct iio_dev *indio_dev,
 	const struct stm32_adc_info *adc_info = adc->cfg->adc_info;
 	struct device *dev = &indio_dev->dev;
 	const char *name;
-	int val, scan_index = 0, ret;
+	int scan_index = 0, ret;
 	bool differential;
-	u32 vin[2];
+	u32 val, vin[2];
 
 	device_for_each_child_node_scoped(dev, child) {
 		ret = fwnode_property_read_u32(child, "reg", &val);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					     "Missing channel index\n");
+
+		if (val >= adc_info->max_channels)
+			return dev_err_probe(dev, -EINVAL,
+					     "Invalid channel %u\n", val);
 
 		ret = fwnode_property_read_string(child, "label", &name);
 		/* label is optional */
@@ -2771,10 +2775,6 @@ static int stm32_adc_generic_chan_init(struct iio_dev *indio_dev,
 		} else if (ret != -EINVAL) {
 			return dev_err_probe(dev, ret, "Invalid label\n");
 		}
-
-		if (val >= adc_info->max_channels)
-			return dev_err_probe(dev, -EINVAL,
-					     "Invalid channel %d\n", val);
 
 		differential = false;
 		ret = fwnode_property_read_u32_array(child, "diff-channels", vin, 2);
