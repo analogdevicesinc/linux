@@ -108,10 +108,6 @@
 	IIO_CHAN_SOFT_TIMESTAMP(1),						\
 }
 
-static const char * const ad4000_power_supplies[] = {
-	"vdd", "vio"
-};
-
 enum ad4000_sdi {
 	AD4000_SDI_MOSI,
 	AD4000_SDI_VIO,
@@ -800,11 +796,24 @@ err_out:
 	return IRQ_HANDLED;
 }
 
+static int ad4000_debugfs_reg_access(struct iio_dev *indio_dev,
+				     unsigned int reg, unsigned int writeval,
+				     unsigned int *readval)
+{
+	struct ad4000_state *st = iio_priv(indio_dev);
+
+	if (readval)
+		return ad4000_read_reg(st, readval);
+
+	return ad4000_write_reg(st, writeval);
+}
+
 static const struct iio_info ad4000_reg_access_info = {
 	.read_raw = &ad4000_read_raw,
 	.read_avail = &ad4000_read_avail,
 	.write_raw = &ad4000_write_raw,
 	.write_raw_get_fmt = &ad4000_write_raw_get_fmt,
+	.debugfs_reg_access = ad4000_debugfs_reg_access,
 };
 
 static const struct iio_info ad4000_offload_info = {
@@ -859,7 +868,7 @@ static int ad4000_spi_offload_setup(struct iio_dev *indio_dev,
 		return dev_err_probe(dev, PTR_ERR(st->offload_trigger),
 				     "Failed to get offload trigger\n");
 
-	ret = ad4000_set_sampling_freq(st, st->max_rate_hz);
+	ret = ad4000_set_sampling_freq(st, st->max_rate_hz >> 2);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to set sampling frequency\n");
@@ -1006,7 +1015,7 @@ static int ad4000_probe(struct spi_device *spi)
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
 	struct ad4000_state *st;
-	int gain_idx, ret;
+	int gain_idx, vio_voltage_uv, ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
 	if (!indio_dev)
@@ -1021,10 +1030,15 @@ static int ad4000_probe(struct spi_device *spi)
 	st->time_spec = chip->time_spec;
 	st->max_rate_hz = chip->max_rate_hz;
 
-	ret = devm_regulator_bulk_get_enable(dev, ARRAY_SIZE(ad4000_power_supplies),
-					     ad4000_power_supplies);
+	ret = devm_regulator_get_enable(dev, "vdd");
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to enable power supplies\n");
+
+	ret = devm_regulator_get_enable_read_voltage(dev, "vio");
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Failed to get vio regulator reference\n");
+	vio_voltage_uv = ret;
 
 	ret = devm_regulator_get_enable_read_voltage(dev, "ref");
 	if (ret < 0)
@@ -1111,6 +1125,13 @@ static int ad4000_probe(struct spi_device *spi)
 			indio_dev->info = &ad4000_offload_info;
 			indio_dev->channels = &chip->offload_chan_spec;
 			indio_dev->num_channels = 1;
+
+			/* Whithout turbo mode, the achievable sample rates are slower */
+			if (vio_voltage_uv >= 2700 * KILO &&
+			    spi->max_speed_hz >= 100 * HZ_PER_MHZ)
+				st->max_rate_hz = 1860 * KILO;
+			else
+				st->max_rate_hz = 1690 * KILO;
 
 			ret = ad4000_prepare_offload_message(st, indio_dev->channels);
 			if (ret)
