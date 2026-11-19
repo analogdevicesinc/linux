@@ -78,7 +78,6 @@ struct max9485_driver_data {
 	struct clk *xclk;
 	struct i2c_client *client;
 	u8 reg_value;
-	struct regulator *supply;
 	struct gpio_desc *reset_gpio;
 	struct max9485_clk_hw hw[MAX9485_NUM_CLKS];
 };
@@ -278,12 +277,8 @@ static int max9485_i2c_probe(struct i2c_client *client)
 
 	xclk_name = __clk_get_name(drvdata->xclk);
 
-	drvdata->supply = devm_regulator_get(dev, "vdd");
-	if (IS_ERR(drvdata->supply))
-		return PTR_ERR(drvdata->supply);
-
-	ret = regulator_enable(drvdata->supply);
-	if (ret < 0)
+	ret = devm_regulator_get_enable(dev, "vdd");
+	if (ret)
 		return ret;
 
 	drvdata->reset_gpio =
