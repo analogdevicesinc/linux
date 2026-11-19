@@ -125,6 +125,7 @@ obj-$(CONFIG_COMMON_CLK_XGENE)		+= clk-xgene.o
 
 # please keep this section sorted lexicographically by directory path name
 obj-y					+= actions/
+obj-y					+= ambarella/
 obj-y					+= analogbits/
 obj-y					+= anlogic/
 obj-y					+= aspeed/
