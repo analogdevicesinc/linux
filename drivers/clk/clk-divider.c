@@ -254,6 +254,11 @@ static int _div_round_closest(const struct clk_div_table *table,
 	int up, down;
 	unsigned long up_rate, down_rate;
 
+	/* No divider goes above the parent rate: the smallest one is the closest */
+	if (rate >= parent_rate)
+		return table && !(flags & CLK_DIVIDER_POWER_OF_TWO) ?
+		       _get_table_mindiv(table) : 1;
+
 	up = _get_div_round_up(parent_rate, rate);
 	down = parent_rate / rate;
 
