@@ -467,12 +467,12 @@ static void stm32_adc_irq_remove(struct platform_device *pdev,
 	int hwirq;
 	unsigned int i;
 
+	for (i = 0; i < priv->nb_irqs; i++)
+		irq_set_chained_handler_and_data(priv->irq[i], NULL, NULL);
+
 	for (hwirq = 0; hwirq < priv->nb_adc_max; hwirq++)
 		irq_dispose_mapping(irq_find_mapping(priv->domain, hwirq));
 	irq_domain_remove(priv->domain);
-
-	for (i = 0; i < priv->nb_irqs; i++)
-		irq_set_chained_handler(priv->irq[i], NULL);
 }
 
 static int stm32_adc_core_switches_supply_en(struct stm32_adc_priv *priv,
