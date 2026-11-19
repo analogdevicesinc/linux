@@ -193,16 +193,22 @@ static int xilinx_intc_of_init(struct device_node *intc,
 		if (IS_ERR(clkin)) {
 			platform_device_put(pdev);
 			return dev_err_probe(&pdev->dev, PTR_ERR(clkin),
-					     "Failed to get and enable clock from Device Tree\n");
+					    "Failed to get and enable clock from Device Tree\n");
 		}
 
 		irqc = devm_kzalloc(&pdev->dev, sizeof(*irqc), GFP_KERNEL);
-		if (!irqc)
+		if (!irqc) {
+			platform_device_put(pdev);
 			return -ENOMEM;
+		}
 
 		irqc->base = devm_of_iomap(&pdev->dev, intc, 0, NULL);
-		if (IS_ERR(irqc->base))
+		if (IS_ERR(irqc->base)) {
+			platform_device_put(pdev);
 			return PTR_ERR(irqc->base);
+		}
+
+		platform_device_put(pdev);
 	} else {
 		irqc = kzalloc(sizeof(*irqc), GFP_KERNEL);
 		if (!irqc)
@@ -259,7 +265,6 @@ static int xilinx_intc_of_init(struct device_node *intc,
 		irq = irq_of_parse_and_map(intc, 0);
 #ifdef CONFIG_IRQCHIP_XILINX_INTC_MODULE_SUPPORT_EXPERIMENTAL
 		irqc->irq = irq;
-		intc->data = irqc;
 #endif
 		if (irq) {
 			irq_set_chained_handler_and_data(irq,
@@ -297,11 +302,15 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 				 struct device_node *parent)
 {
 	int irq;
+	struct irq_domain *d = irq_find_host(intc);
 	struct xintc_irq_chip *irqc;
 
 	BUG_ON(!parent);
 
-	irqc = intc->data;
+	if (!d)
+		return -EINVAL;
+
+	irqc = d->host_data;
 	irq = irqc->irq;
 
 	irq_set_chained_handler_and_data(irq, NULL, NULL);
@@ -310,7 +319,7 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 		unsigned int tempirq;
 		unsigned int i;
 
-		for (i = 0; i < irqc->root_domain->mapcount; i++) {
+		for (i = 0; i < irqc->nr_irq; i++) {
 			struct irq_desc *desc;
 			tempirq = irq_find_mapping(irqc->root_domain, i);
 			if (tempirq) {
@@ -319,6 +328,7 @@ static int xilinx_intc_of_remove(struct device_node *intc,
 					pr_warn("%s\n", INTC_WARN);
 					return 0;
 				}
+				irq_dispose_mapping(tempirq);
 			}
 		}
 		irq_dispose_mapping(irq);

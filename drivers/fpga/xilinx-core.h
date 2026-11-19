@@ -20,6 +20,7 @@ struct xilinx_fpga_core {
 	struct gpio_desc *prog_b;
 	struct gpio_desc *init_b;
 	struct gpio_desc *done;
+	struct gpio_desc *c2c_reset;
 };
 
 int xilinx_core_probe(struct xilinx_fpga_core *core);
