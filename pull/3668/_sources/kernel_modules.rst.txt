@@ -25,6 +25,27 @@ for example, to get a devel artifact:
           https://dl.cloudsmith.io/public/adi/linux/raw/versions/${sha}/${defconfig}-devel
    $ unzip -q ${defconfig}-devel -d devel
 
+Use the ``sha`` of the running kernel, identify with (drop the ``-g``):
+
+.. shell::
+
+   $ uname -r
+     6.12.117-g5ccfc9fe12ed
+
+And expand it to the full ``sha`` with:
+
+.. shell::
+
+   $ sha=5ccfc9fe12ed
+   # GitHub REST API
+   $ curl -sL -H "Accept: application/vnd.github.sha" \
+          https://api.github.com/repos/analogdevicesinc/linux/commits/${sha}
+     5ccfc9fe12ed9bc7158da7390ad2b917fe5c83a8
+   # Cloudsmith REST API
+   $ curl -sL "https://api.cloudsmith.io/v1/packages/adi/linux/?query=version:${sha}&page_size=1" \
+          | jq -r '.[].version'
+     5ccfc9fe12ed9bc7158da7390ad2b917fe5c83a8
+
 The ``*-devel`` artifact is compiled native to the target architecture,
 including the host tools in ``scripts/``. To **cross-compile** from another
 host (like x86_64), rebuild them in the extracted ``-devel`` directory, for example:
@@ -72,6 +93,10 @@ The simple IIO ADC driver ``ad4062`` is compiled with:
    $ ls *.ko
      ad4062.ko
 
+.. caution::
+
+   ``KBUILD_OUTPUT`` overrides ``-C``.
+
 The ``-devel`` also stores the ``sha`` in the *context.txt* file.
 
 API-based driver
@@ -97,3 +122,94 @@ clone:
           M=$PWD/drivers/iio/trx-rf/ad9088 modules
    $ ls drivers/iio/trx-rf/ad9088/*.ko
      drivers/iio/trx-rf/ad9088/ad9088_drv.ko
+
+*Module.symvers* in the ``-devel`` lists the symbols exported by the kernel
+build. So if you add, for example, ``example_method()`` to *drivers/misc/example.c*
+with ``EXPORT_SYMBOL_GPL()``, and call it from *ad9088.c*, the build fails
+with::
+
+   ERROR: modpost: "example_method" [.../drivers/iio/trx-rf/ad9088/ad9088_drv.ko] undefined!
+
+In this case, build *example.ko* first and pass its *Module.symvers*:
+
+.. shell::
+
+   ~/ad9088
+   $ git sparse-checkout add drivers/misc
+   $ make -C ../devel \
+          ARCH=arm64 CROSS_COMPILE=aarch64-linux- CONFIG_EXAMPLE=m \
+          M=$PWD/drivers/misc example.ko
+   $ make -C ../devel \
+          ARCH=arm64 CROSS_COMPILE=aarch64-linux- CONFIG_AD9088=m \
+          KBUILD_EXTRA_SYMBOLS=$PWD/drivers/misc/Module.symvers \
+          M=$PWD/drivers/iio/trx-rf/ad9088 modules
+
+Install both *example.ko* and *ad9088_drv.ko*, otherwise loading fails with
+``Unknown symbol example_method``.
+
+If the series changes the arguments of an existing exported function, the
+build does not fail: *ad9088* keeps the CRC from the ``-devel`` and loads
+against the old module with the wrong arguments. So, always build both.
+
+Installing & loading modules
+----------------------------
+
+Modules are installed per kernel release, at ``/lib/modules/$(uname -r)/``:
+
+- *kernel/*: modules shipped with the linux distro, may be managed by a package.
+- *updates/*: default user modules path.
+
+*updates/* is set by ``INSTALL_MOD_DIR`` in *scripts/Makefile.modinst*, and has
+precedence over *kernel/* during ``depmod``.
+
+Copy the module to the target and run ``depmod``:
+
+.. shell::
+   :no-path:
+
+   $ mkdir -p /lib/modules/$(uname -r)/updates
+   $ cp ad4062.ko /lib/modules/$(uname -r)/updates/
+   $ depmod -a
+   $ modinfo -n ad4062
+     /lib/modules/6.12.0+/updates/ad4062.ko
+   $ modprobe ad4062
+
+A new kernel release uses a new */lib/modules/<release>/* directory, so modules
+in *updates/* have to be moved/reinstalled (and rebuilt, if the CRC changes).
+To use a path that does not change with the release, create a
+``/etc/depmod.d/*.conf`` configuration, for example, for a static path
+*/usr/local/lib/modules/premium*::
+
+   external * /usr/local/lib/modules/premium
+   search external updates built-in
+
+.. shell::
+   :no-path:
+
+   $ depmod -a
+   $ modinfo -n ad4062
+     /usr/local/lib/modules/premium/ad4062.ko
+
+More info at `depmod.d(5) <https://man7.org/linux/man-pages/man5/depmod.d.5.html>`__.
+
+Debugging ``Exec format error``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you encounter::
+
+  modprobe: ERROR: could not insert 'my_driver': Exec format error
+
+Causes are:
+
+- ``CONFIG_MODVERSIONS`` differs between the kernel and the module
+  (``modversion`` in *vermagic*).
+- Matched ``CONFIG_MODVERSIONS`` state:
+
+  - ``yes``: CRC mismatch, the kernel module is not compatible.
+  - ``no``: Mismatch kernel release string.
+
+The error for a CRC mismatch is::
+
+  modprobe: ERROR: could not insert 'ad9088_drv': Invalid argument
+
+with ``disagrees about version of symbol <symbol>`` in ``dmesg``.

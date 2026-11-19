@@ -99,6 +99,10 @@
 <li><a class="reference internal" href="#">Kernel modules</a><ul>
 <li><a class="reference internal" href="#simple-driver">Simple driver</a></li>
 <li><a class="reference internal" href="#api-based-driver">API-based driver</a></li>
+<li><a class="reference internal" href="#installing-loading-modules">Installing &amp; loading modules</a><ul>
+<li><a class="reference internal" href="#debugging-exec-format-error">Debugging <code class="docutils literal notranslate"><span class="pre">Exec</span> <span class="pre">format</span> <span class="pre">error</span></code></a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -391,6 +395,49 @@ for example, to get a devel artifact:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>unzip<span class="w"> </span>-q<span class="w"> </span><span class="si">${</span><span class="nv">defconfig</span><span class="si">}</span>-devel<span class="w"> </span>-d<span class="w"> </span>devel
 </pre></div>
 </div>
+<div class="clear-left"></div></div></div><p>Use the <code class="docutils literal notranslate"><span class="pre">sha</span></code> of the running kernel, identify with (drop the <code class="docutils literal notranslate"><span class="pre">-g</span></code>):</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>uname<span class="w"> </span>-r
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 6.12.117-g5ccfc9fe12ed
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>And expand it to the full <code class="docutils literal notranslate"><span class="pre">sha</span></code> with:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nv">sha</span><span class="o">=</span>5ccfc9fe12ed
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># GitHub REST API</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-sL<span class="w"> </span>-H<span class="w"> </span><span class="s2">"Accept: application/vnd.github.sha"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">      </span>https://api.github.com/repos/analogdevicesinc/linux/commits/<span class="si">${</span><span class="nv">sha</span><span class="si">}</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 5ccfc9fe12ed9bc7158da7390ad2b917fe5c83a8
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Cloudsmith REST API</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>curl<span class="w"> </span>-sL<span class="w"> </span><span class="s2">"https://api.cloudsmith.io/v1/packages/adi/linux/?query=version:</span><span class="si">${</span><span class="nv">sha</span><span class="si">}</span><span class="s2">&amp;page_size=1"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>-r<span class="w"> </span><span class="s1">'.[].version'</span>
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> 5ccfc9fe12ed9bc7158da7390ad2b917fe5c83a8
+</pre></div>
+</div>
 <div class="clear-left"></div></div></div><p>The <code class="docutils literal notranslate"><span class="pre">*-devel</span></code> artifact is compiled native to the target architecture,
 including the host tools in <code class="docutils literal notranslate"><span class="pre">scripts/</span></code>. To <strong>cross-compile</strong> from another
 host (like x86_64), rebuild them in the extracted <code class="docutils literal notranslate"><span class="pre">-devel</span></code> directory, for example:</p>
@@ -485,7 +532,11 @@ match. More info at <a class="icon link reference external" href="https://docs.k
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> ad4062.ko
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div><p>The <code class="docutils literal notranslate"><span class="pre">-devel</span></code> also stores the <code class="docutils literal notranslate"><span class="pre">sha</span></code> in the <em>context.txt</em> file.</p>
+<div class="clear-left"></div></div></div><div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">KBUILD_OUTPUT</span></code> overrides <code class="docutils literal notranslate"><span class="pre">-C</span></code>.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">-devel</span></code> also stores the <code class="docutils literal notranslate"><span class="pre">sha</span></code> in the <em>context.txt</em> file.</p>
 </section>
 <section id="api-based-driver">
 <h2>API-based driver<a class="headerlink" href="#api-based-driver" title="Link to this heading"></a></h2>
@@ -544,7 +595,135 @@ clone:</p>
 <div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> drivers/iio/trx-rf/ad9088/ad9088_drv.ko
 </pre></div>
 </div>
-<div class="clear-left"></div></div></div></section>
+<div class="clear-left"></div></div></div><p><em>Module.symvers</em> in the <code class="docutils literal notranslate"><span class="pre">-devel</span></code> lists the symbols exported by the kernel
+build. So if you add, for example, <code class="docutils literal notranslate"><span class="pre">example_method()</span></code> to <em>drivers/misc/example.c</em>
+with <code class="docutils literal notranslate"><span class="pre">EXPORT_SYMBOL_GPL()</span></code>, and call it from <em>ad9088.c</em>, the build fails
+with:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>ERROR: modpost: "example_method" [.../drivers/iio/trx-rf/ad9088/ad9088_drv.ko] undefined!
+</pre></div>
+</div>
+<p>In this case, build <em>example.ko</em> first and pass its <em>Module.symvers</em>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/ad9088$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>sparse-checkout<span class="w"> </span>add<span class="w"> </span>drivers/misc
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/ad9088$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-C<span class="w"> </span>../devel<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="nv">ARCH</span><span class="o">=</span>arm64<span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>aarch64-linux-<span class="w"> </span><span class="nv">CONFIG_EXAMPLE</span><span class="o">=</span>m<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="nv">M</span><span class="o">=</span><span class="nv">$PWD</span>/drivers/misc<span class="w"> </span>example.ko
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>~/ad9088$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>make<span class="w"> </span>-C<span class="w"> </span>../devel<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="nv">ARCH</span><span class="o">=</span>arm64<span class="w"> </span><span class="nv">CROSS_COMPILE</span><span class="o">=</span>aarch64-linux-<span class="w"> </span><span class="nv">CONFIG_AD9088</span><span class="o">=</span>m<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="nv">KBUILD_EXTRA_SYMBOLS</span><span class="o">=</span><span class="nv">$PWD</span>/drivers/misc/Module.symvers<span class="w"> </span><span class="se">\</span>
+<span class="w">      </span><span class="nv">M</span><span class="o">=</span><span class="nv">$PWD</span>/drivers/iio/trx-rf/ad9088<span class="w"> </span>modules
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>Install both <em>example.ko</em> and <em>ad9088_drv.ko</em>, otherwise loading fails with
+<code class="docutils literal notranslate"><span class="pre">Unknown</span> <span class="pre">symbol</span> <span class="pre">example_method</span></code>.</p>
+<p>If the series changes the arguments of an existing exported function, the
+build does not fail: <em>ad9088</em> keeps the CRC from the <code class="docutils literal notranslate"><span class="pre">-devel</span></code> and loads
+against the old module with the wrong arguments. So, always build both.</p>
+</section>
+<section id="installing-loading-modules">
+<h2>Installing &amp; loading modules<a class="headerlink" href="#installing-loading-modules" title="Link to this heading"></a></h2>
+<p>Modules are installed per kernel release, at <code class="docutils literal notranslate"><span class="pre">/lib/modules/$(uname</span> <span class="pre">-r)/</span></code>:</p>
+<ul class="simple">
+<li><p><em>kernel/</em>: modules shipped with the linux distro, may be managed by a package.</p></li>
+<li><p><em>updates/</em>: default user modules path.</p></li>
+</ul>
+<p><em>updates/</em> is set by <code class="docutils literal notranslate"><span class="pre">INSTALL_MOD_DIR</span></code> in <em>scripts/Makefile.modinst</em>, and has
+precedence over <em>kernel/</em> during <code class="docutils literal notranslate"><span class="pre">depmod</span></code>.</p>
+<p>Copy the module to the target and run <code class="docutils literal notranslate"><span class="pre">depmod</span></code>:</p>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>mkdir<span class="w"> </span>-p<span class="w"> </span>/lib/modules/<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span>/updates
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>cp<span class="w"> </span>ad4062.ko<span class="w"> </span>/lib/modules/<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span>/updates/
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>depmod<span class="w"> </span>-a
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>modinfo<span class="w"> </span>-n<span class="w"> </span>ad4062
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> /lib/modules/6.12.0+/updates/ad4062.ko
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>modprobe<span class="w"> </span>ad4062
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>A new kernel release uses a new <em>/lib/modules/&lt;release&gt;/</em> directory, so modules
+in <em>updates/</em> have to be moved/reinstalled (and rebuilt, if the CRC changes).
+To use a path that does not change with the release, create a
+<code class="docutils literal notranslate"><span class="pre">/etc/depmod.d/*.conf</span></code> configuration, for example, for a static path
+<em>/usr/local/lib/modules/premium</em>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">external</span> <span class="o">*</span> <span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">local</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">modules</span><span class="o">/</span><span class="n">premium</span>
+<span class="n">search</span> <span class="n">external</span> <span class="n">updates</span> <span class="n">built</span><span class="o">-</span><span class="ow">in</span>
+</pre></div>
+</div>
+<div class="code-shell"><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>depmod<span class="w"> </span>-a
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select float-left highlight-default notranslate"><div class="highlight"><pre><span></span>$
+</pre></div>
+</div>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>modinfo<span class="w"> </span>-n<span class="w"> </span>ad4062
+</pre></div>
+</div>
+<div class="clear-left"></div></div><div><div class="no-select highlight-text notranslate"><div class="highlight"><pre><span></span> /usr/local/lib/modules/premium/ad4062.ko
+</pre></div>
+</div>
+<div class="clear-left"></div></div></div><p>More info at <a class="icon link reference external" href="https://man7.org/linux/man-pages/man5/depmod.d.5.html" target="_blank">depmod.d(5)</a>.</p>
+<section id="debugging-exec-format-error">
+<h3>Debugging <code class="docutils literal notranslate"><span class="pre">Exec</span> <span class="pre">format</span> <span class="pre">error</span></code><a class="headerlink" href="#debugging-exec-format-error" title="Link to this heading"></a></h3>
+<p>If you encounter:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">modprobe</span><span class="p">:</span> <span class="n">ERROR</span><span class="p">:</span> <span class="n">could</span> <span class="ow">not</span> <span class="n">insert</span> <span class="s1">'my_driver'</span><span class="p">:</span> <span class="n">Exec</span> <span class="nb">format</span> <span class="n">error</span>
+</pre></div>
+</div>
+<p>Causes are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CONFIG_MODVERSIONS</span></code> differs between the kernel and the module
+(<code class="docutils literal notranslate"><span class="pre">modversion</span></code> in <em>vermagic</em>).</p></li>
+<li><p>Matched <code class="docutils literal notranslate"><span class="pre">CONFIG_MODVERSIONS</span></code> state:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">yes</span></code>: CRC mismatch, the kernel module is not compatible.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">no</span></code>: Mismatch kernel release string.</p></li>
+</ul>
+</li>
+</ul>
+<p>The error for a CRC mismatch is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">modprobe</span><span class="p">:</span> <span class="n">ERROR</span><span class="p">:</span> <span class="n">could</span> <span class="ow">not</span> <span class="n">insert</span> <span class="s1">'ad9088_drv'</span><span class="p">:</span> <span class="n">Invalid</span> <span class="n">argument</span>
+</pre></div>
+</div>
+<p>with <code class="docutils literal notranslate"><span class="pre">disagrees</span> <span class="pre">about</span> <span class="pre">version</span> <span class="pre">of</span> <span class="pre">symbol</span> <span class="pre">&lt;symbol&gt;</span></code> in <code class="docutils literal notranslate"><span class="pre">dmesg</span></code>.</p>
+</section>
+</section>
 </section>
 
 
