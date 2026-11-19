@@ -13,7 +13,7 @@
     <link rel="icon" href="../_static/icon.svg"/>
     <link rel="index" title="Index" href="../genindex/" />
     <link rel="search" title="Search" href="../search/" />
-    <link rel="next" title="Drivers" href="../drivers/" />
+    <link rel="next" title="Kernel modules" href="../kernel_modules/" />
     <link rel="prev" title="Analog Devices Linux" href="../" />
    
   
@@ -133,6 +133,7 @@ Content on this topic
 <div class="toc-tree">
   <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../kernel_modules/">Kernel modules</a></li>
 <li class="toctree-l1"><input class="toctree-collapse" type="checkbox" name="toctree-collapse-1" id="toctree-collapse-1"/><div class="collapse"><a class="reference internal" href="../drivers/">Drivers</a><label for="toctree-collapse-1"><div class="icon"></div></label></div><ul>
 <li class="toctree-l2"><a class="reference internal" href="../drivers/backlight/adp8860/">ADP8860</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../drivers/backlight/adp8870/">ADP8870</a></li>
@@ -392,6 +393,7 @@ for example, for <code class="docutils literal notranslate"><span class="pre">bc
 <p>Instead of building all ADI drivers, learn about how to use <code class="docutils literal notranslate"><span class="pre">menuconfig</span></code> at
 <a class="icon link reference external" href="https://docs.kernel.org/kbuild/kconfig.html" target="_blank" title="(in The Linux Kernel v7.4.0-rc3)"><span>Configuration targets and editors</span></a> to enable only the drivers of interest.</p>
 </div>
+<p>To build out-of-tree kernel modules, see <a class="reference internal" href="../kernel_modules/#kernel-modules"><span class="std std-ref">Kernel modules</span></a>.</p>
 <p>The CI/CD scripts at <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/ci/build.sh" target="_blank">ci/build.sh</a> and
 <a class="icon git reference external" href="https://github.com/analogdevicesinc/linux/tree/ci/.github/workflows/build.yml" target="_blank">.github/workflows/build.yml</a> provide detailed steps for all
 supported targets. Checkout <a class="reference internal" href="../ci/#ci"><span class="std std-ref">Continuous integration</span></a> for how to build with CI/CD pipelines.</p>
@@ -520,7 +522,7 @@ mainline kernel, so these branches should no longer be needed.</p>
               <div class="related">
                 &nbsp;
     <a href="../" title="Previous document (Alt+Shift+LeftArrow)" class="prev">Analog Devices Linux</a>
-    <a href="../drivers/" title="Next document (Alt+Shift+RightArrow)" class="next">Drivers</a>
+    <a href="../kernel_modules/" title="Next document (Alt+Shift+RightArrow)" class="next">Kernel modules</a>
               </div>
           
         </div>
