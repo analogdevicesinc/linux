@@ -123,7 +123,8 @@ static ssize_t program_memory_store(struct device *dev, struct device_attribute 
 	struct i2c_client *client = to_i2c_client(dev->parent);
 	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
 	struct max34440_data *data = to_max34440_data(info);
-	const struct firmware *fw;
+	const struct firmware *fw = NULL;
+	u8 *work_buf = NULL;
 	u16 data_word;
 	u8 address;
 	u8 byte_count = 0;
@@ -136,22 +137,31 @@ static ssize_t program_memory_store(struct device *dev, struct device_attribute 
 	int dest_count = 0;
 	int data_len;
 
-	mutex_lock(&data->lock);
-
-	fw_path = kstrdup(buf, GFP_ATOMIC);
-	if (!fw_path)
-		return -EINVAL;
-
-	fw_path = strim(fw_path);
-
 	if (len < 1)
 		return -EINVAL;
 
-	ret = request_firmware(&fw, fw_path, dev);
+	fw_path = kstrdup(buf, GFP_KERNEL);
+	if (!fw_path)
+		return -ENOMEM;
 
-	if (ret < 0 || !fw->data || fw->size <= 0) {
+	fw_path = strim(fw_path);
+
+	mutex_lock(&data->lock);
+
+	ret = request_firmware(&fw, fw_path, dev);
+	if (ret < 0) {
 		dev_err(dev, "Failed to get hex file: %d\n", ret);
-		return ret;
+		goto out;
+	}
+	if (!fw->data || fw->size <= 0) {
+		dev_err(dev, "Invalid firmware file\n");
+		ret = -EINVAL;
+		goto out;
+	}
+	work_buf = kmalloc(fw->size, GFP_KERNEL);
+	if (!work_buf) {
+		ret = -ENOMEM;
+		goto out;
 	}
 	ptr = fw->data;
 
@@ -161,11 +171,12 @@ static ssize_t program_memory_store(struct device *dev, struct device_attribute 
 			data_len = (ascii_to_hex(ptr[count + 1]) << 4)
 				   | ascii_to_hex(ptr[count + 2]);
 			if (data_len != 0) {
-				memmove((u8 *)(ptr + dest_count), ptr + count + 9, data_len * 2);
+				memcpy(work_buf + dest_count, ptr + count + 9, data_len * 2);
 				dest_count = dest_count + data_len * 2;
 			}
 		}
 	}
+	ptr = work_buf;
 
 	/* Send data to the device */
 	for (count = 0; count < dest_count; count += 2) {
@@ -226,15 +237,15 @@ static ssize_t program_memory_store(struct device *dev, struct device_attribute 
 
 		if (ret < 0)
 			dev_err(dev, "Configuration File Register Write Error, Addr: 0x%X", address);
-
-		if ((count + 9) > fw->size)
-			break;
 	}
 
+	ret = len;
+out:
+	kfree(work_buf);
 	release_firmware(fw);
+	mutex_unlock(&data->lock);
 	kfree(fw_path);
-
-	return len;
+	return ret;
 }
 
 static DEVICE_ATTR_WO(program_memory);
