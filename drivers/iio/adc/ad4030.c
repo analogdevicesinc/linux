@@ -161,11 +161,11 @@ static const int adaq4216_hw_gains_vpv[] = {
 	20 * MILLI / 3,		/* 0.6666 */
 };
 
-static const int adaq4216_hw_gains_frac[][2] = {
-	{ 1, 3 },  /* 1/3 V/V gain */
-	{ 5, 9 },  /* 5/9 V/V gain */
-	{ 20, 9 }, /* 20/9 V/V gain */
-	{ 20, 3 }, /* 20/3 V/V gain */
+static const struct s32_fract adaq4216_hw_gains_frac[] = {
+	{ .numerator = 3, .denominator = 1 },  /* 1/3 V/V gain */
+	{ .numerator = 9, .denominator = 5 },  /* 5/9 V/V gain */
+	{ .numerator = 9, .denominator = 20 }, /* 20/9 V/V gain */
+	{ .numerator = 3, .denominator = 20 }, /* 20/3 V/V gain */
 };
 
 struct ad4030_chip_info {
@@ -467,8 +467,7 @@ static void ad4030_fill_scale_avail(struct ad4030_state *st)
 	mag_bits = st->chip->precision_bits - 1;
 
 	for (unsigned int i = 0; i < ARRAY_SIZE(adaq4216_hw_gains_frac); i++) {
-		range = mult_frac(st->vref_uv, adaq4216_hw_gains_frac[i][1],
-				  adaq4216_hw_gains_frac[i][0]);
+		range = mult_fract(st->vref_uv, &adaq4216_hw_gains_frac[i]);
 		/*
 		 * If range were in mV, we would multiply it by NANO below.
 		 * Though, range is in µV so multiply it by MICRO only so the
