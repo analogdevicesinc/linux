@@ -25775,6 +25775,7 @@ SIEMENS IPC EC SENSORS DRIVER
 M:	Benedikt Niedermayr <benedikt.niedermayr@siemens.com>
 L:	linux-hwmon@vger.kernel.org
 S:	Maintained
+F:	Documentation/hwmon/simatic-ipc-ec-sensors.rst
 F:	drivers/hwmon/simatic-ipc-ec-sensors.c
 
 SIEMENS IPC LED DRIVERS

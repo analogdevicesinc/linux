@@ -256,6 +256,7 @@ Hardware Monitoring Kernel Drivers
    sht3x
    sht4x
    shtc1
+   simatic-ipc-ec-sensors
    sis5595
    sl28cpld
    stef48h28
