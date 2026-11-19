@@ -223,11 +223,21 @@ static int _round_down_table(const struct clk_div_table *table, int div)
 	return down;
 }
 
+/*
+ * DIV_ROUND_UP() without the addition, which overflows for rates close to
+ * ULONG_MAX, as with clk_round_rate(clk, ULONG_MAX)
+ */
+static unsigned long _get_div_round_up(unsigned long parent_rate,
+				       unsigned long rate)
+{
+	return parent_rate ? (parent_rate - 1) / rate + 1 : 0;
+}
+
 static int _div_round_up(const struct clk_div_table *table,
 			 unsigned long parent_rate, unsigned long rate,
 			 unsigned long flags)
 {
-	int div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	int div = _get_div_round_up(parent_rate, rate);
 
 	if (flags & CLK_DIVIDER_POWER_OF_TWO)
 		div = __roundup_pow_of_two(div);
@@ -244,7 +254,7 @@ static int _div_round_closest(const struct clk_div_table *table,
 	int up, down;
 	unsigned long up_rate, down_rate;
 
-	up = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	up = _get_div_round_up(parent_rate, rate);
 	down = parent_rate / rate;
 
 	if (flags & CLK_DIVIDER_POWER_OF_TWO) {
@@ -423,7 +433,7 @@ int divider_get_val(unsigned long rate, unsigned long parent_rate,
 {
 	unsigned int div, value;
 
-	div = DIV_ROUND_UP_ULL((u64)parent_rate, rate);
+	div = _get_div_round_up(parent_rate, rate);
 
 	if (!_is_valid_div(table, div, flags))
 		return -EINVAL;
