@@ -427,6 +427,19 @@ static const struct attribute_group ad4052_event_attribute_group = {
 	.attrs = ad4052_event_attributes,
 };
 
+static int ad4052_calc_sampling_frequency(unsigned int fosc, unsigned int oversamp_ratio)
+{
+	/* From datasheet p.31: (n_avg - 1)/fosc + tconv */
+	u32 n_avg = BIT(oversamp_ratio) - 1;
+	u32 period_ns = NSEC_PER_SEC / fosc;
+
+	/* Result is less than 1 Hz */
+	if (n_avg >= fosc)
+		return 1;
+
+	return NSEC_PER_SEC / (n_avg * period_ns + AD4052_TCONV_NS);
+}
+
 static int ad4052_set_oversampling_ratio(struct ad4052_state *st, int val, int val2)
 {
 	const u32 _max = st->chip->avg_max;
@@ -438,6 +451,12 @@ static int ad4052_set_oversampling_ratio(struct ad4052_state *st, int val, int v
 
 	/* 1 disables oversampling */
 	val = ilog2(val);
+
+	if (st->offload_trigger &&
+	    DIV_ROUND_UP_ULL(NSEC_PER_SEC, st->pwm_st.period) >
+	    ad4052_calc_sampling_frequency(AD4052_MAX_RATE(st->chip->grade), val))
+		return -EINVAL;
+
 	if (val == 0) {
 		st->mode = AD4052_SAMPLE_MODE;
 	} else {
@@ -466,19 +485,6 @@ static int ad4052_get_oversampling_ratio(struct ad4052_state *st, int *val)
 
 	*val = BIT(buf + 1);
 	return 0;
-}
-
-static int ad4052_calc_sampling_frequency(unsigned int fosc, unsigned int oversamp_ratio)
-{
-	/* From datasheet p.31: (n_avg - 1)/fosc + tconv */
-	u32 n_avg = BIT(oversamp_ratio) - 1;
-	u32 period_ns = NSEC_PER_SEC / fosc;
-
-	/* Result is less than 1 Hz */
-	if (n_avg >= fosc)
-		return 1;
-
-	return NSEC_PER_SEC / (n_avg * period_ns + AD4052_TCONV_NS);
 }
 
 static int ad4052_populate_sampling_frequency(struct ad4052_state *st)
