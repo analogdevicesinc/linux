@@ -1,0 +1,65 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADMV1355 on ZED + SDP-I-FMC
+ *
+ * hdl_project: <admv1355/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2026 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	clocks {
+		lo_input_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <1000000000>;
+		};
+	};
+
+	admv1355_3v0: regulator-admv1355-3v0 {
+		compatible = "regulator-fixed";
+		regulator-name = "admv1355-3v0";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	admv1355_1v8: regulator-admv1355-1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "admv1355-1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&gpio0 93 GPIO_ACTIVE_LOW>;
+		enable-active-low;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	admv1355: admv1355@0 {
+		compatible = "adi,admv1355";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		dvdd-supply = <&admv1355_1v8>;
+		vdd-bg-supply = <&admv1355_1v8>;
+		vdd-lo-supply = <&admv1355_1v8>;
+		vdd-mix-supply = <&admv1355_1v8>;
+		vdd-vga-supply = <&admv1355_1v8>;
+		vdd-drv-supply = <&admv1355_3v0>;
+
+		reset-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
+		enable-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>;
+
+		clocks = <&lo_input_clk>;
+		clock-names = "lo-input";
+	};
+};
