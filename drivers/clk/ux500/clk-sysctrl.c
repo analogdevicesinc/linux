@@ -8,6 +8,7 @@
 
 #include <linux/clk-provider.h>
 #include <linux/mfd/abx500/ab8500-sysctrl.h>
+#include <linux/regulator/consumer.h>
 #include <linux/device.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
@@ -22,6 +23,9 @@
 struct clk_sysctrl {
 	struct clk_hw hw;
 	struct device *dev;
+	struct regulator *supply;
+	/* A failed unprepare can leave our regulator enable reference held. */
+	bool supply_ref_held;
 	u8 parent_index;
 	u16 reg_sel[SYSCTRL_MAX_NUM_PARENTS];
 	u8 reg_mask[SYSCTRL_MAX_NUM_PARENTS];
@@ -32,27 +36,56 @@ struct clk_sysctrl {
 
 /* Sysctrl clock operations. */
 
+static void clk_sysctrl_disable_supply(struct clk_sysctrl *clk)
+{
+	if (!clk->supply_ref_held)
+		return;
+
+	if (regulator_disable(clk->supply))
+		dev_err(clk->dev, "failed to disable supply for %s\n",
+			clk_hw_get_name(&clk->hw));
+	else
+		clk->supply_ref_held = false;
+}
+
 static int clk_sysctrl_prepare(struct clk_hw *hw)
 {
-	int ret;
 	struct clk_sysctrl *clk = to_clk_sysctrl(hw);
+	bool take_supply_ref = clk->supply && !clk->supply_ref_held;
+	int ret;
+
+	if (take_supply_ref) {
+		ret = regulator_enable(clk->supply);
+		if (ret)
+			return ret;
+		clk->supply_ref_held = true;
+	}
 
 	ret = ab8500_sysctrl_write(clk->reg_sel[0], clk->reg_mask[0],
 				clk->reg_bits[0]);
+	if (ret) {
+		if (take_supply_ref)
+			clk_sysctrl_disable_supply(clk);
+		return ret;
+	}
 
-	if (!ret && clk->enable_delay_us)
+	if (clk->enable_delay_us)
 		usleep_range(clk->enable_delay_us, clk->enable_delay_us +
 			     (clk->enable_delay_us >> 2));
 
-	return ret;
+	return 0;
 }
 
 static void clk_sysctrl_unprepare(struct clk_hw *hw)
 {
 	struct clk_sysctrl *clk = to_clk_sysctrl(hw);
-	if (ab8500_sysctrl_clear(clk->reg_sel[0], clk->reg_mask[0]))
+
+	if (ab8500_sysctrl_clear(clk->reg_sel[0], clk->reg_mask[0])) {
 		dev_err(clk->dev, "clk_sysctrl: %s fail to clear %s.\n",
 			__func__, clk_hw_get_name(hw));
+		return;
+	}
+	clk_sysctrl_disable_supply(clk);
 }
 
 static unsigned long clk_sysctrl_recalc_rate(struct clk_hw *hw,
@@ -125,7 +158,8 @@ static struct clk *clk_reg_sysctrl(struct device *dev,
 				unsigned long rate,
 				unsigned long enable_delay_us,
 				unsigned long flags,
-				const struct clk_ops *clk_sysctrl_ops)
+				const struct clk_ops *clk_sysctrl_ops,
+				struct regulator *supply)
 {
 	struct clk_init_data clk_sysctrl_init = {};
 	struct clk_sysctrl *clk;
@@ -160,6 +194,7 @@ static struct clk *clk_reg_sysctrl(struct device *dev,
 	clk->rate = rate;
 	clk->enable_delay_us = enable_delay_us;
 	clk->dev = dev;
+	clk->supply = supply;
 
 	clk_sysctrl_init.name = name;
 	clk_sysctrl_init.ops = clk_sysctrl_ops;
@@ -189,7 +224,7 @@ struct clk *clk_reg_sysctrl_gate(struct device *dev,
 
 	return clk_reg_sysctrl(dev, name, parent_names, num_parents,
 			&reg_sel, &reg_mask, &reg_bits, 0, enable_delay_us,
-			flags, &clk_sysctrl_gate_ops);
+			flags, &clk_sysctrl_gate_ops, NULL);
 }
 
 struct clk *clk_reg_sysctrl_gate_fixed_rate(struct device *dev,
@@ -200,7 +235,8 @@ struct clk *clk_reg_sysctrl_gate_fixed_rate(struct device *dev,
 					u8 reg_bits,
 					unsigned long rate,
 					unsigned long enable_delay_us,
-					unsigned long flags)
+					unsigned long flags,
+					struct regulator *supply)
 {
 	const char **parent_names = (parent_name ? &parent_name : NULL);
 	u8 num_parents = (parent_name ? 1 : 0);
@@ -208,7 +244,7 @@ struct clk *clk_reg_sysctrl_gate_fixed_rate(struct device *dev,
 	return clk_reg_sysctrl(dev, name, parent_names, num_parents,
 			&reg_sel, &reg_mask, &reg_bits,
 			rate, enable_delay_us, flags,
-			&clk_sysctrl_gate_fixed_rate_ops);
+			&clk_sysctrl_gate_fixed_rate_ops, supply);
 }
 
 struct clk *clk_reg_sysctrl_set_parent(struct device *dev,
@@ -222,5 +258,5 @@ struct clk *clk_reg_sysctrl_set_parent(struct device *dev,
 {
 	return clk_reg_sysctrl(dev, name, parent_names, num_parents,
 			reg_sel, reg_mask, reg_bits, 0, 0, flags,
-			&clk_sysctrl_set_parent_ops);
+			&clk_sysctrl_set_parent_ops, NULL);
 }

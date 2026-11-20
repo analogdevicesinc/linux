@@ -11,6 +11,7 @@
 #include <linux/device.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
 #include <linux/mfd/abx500/ab8500.h>
 #include <linux/mfd/abx500/ab8500-sysctrl.h>
 #include <linux/clkdev.h>
@@ -24,7 +25,7 @@ static struct clk *ab8500_clks[AB8500_NUM_CLKS];
 static struct clk_onecell_data ab8500_clk_data;
 
 /* Clock definitions for ab8500 */
-static int ab8500_reg_clks(struct device *dev)
+static int ab8500_reg_clks(struct device *dev, struct regulator *vintcore)
 {
 	int ret;
 	struct clk *clk;
@@ -64,7 +65,7 @@ static int ab8500_reg_clks(struct device *dev)
 	clk = clk_reg_sysctrl_gate_fixed_rate(dev, "ulpclk", NULL,
 		AB8500_SYSULPCLKCTRL1, AB8500_SYSULPCLKCTRL1_ULPCLKREQ,
 		AB8500_SYSULPCLKCTRL1_ULPCLKREQ,
-		38400000, 9000, 0);
+		38400000, 9000, 0, vintcore);
 	ab8500_clks[AB8500_SYSCLK_ULP] = clk;
 
 	/* ab8500_intclk */
@@ -90,16 +91,19 @@ static int ab8500_reg_clks(struct device *dev)
 static int abx500_clk_probe(struct platform_device *pdev)
 {
 	struct ab8500 *parent = dev_get_drvdata(pdev->dev.parent);
-	int ret;
+	struct regulator *vintcore = NULL;
 
-	if (is_ab8500(parent) || is_ab8505(parent)) {
-		ret = ab8500_reg_clks(&pdev->dev);
-	} else {
+	if (is_ab8500(parent)) {
+		vintcore = devm_regulator_get(&pdev->dev, "vintcore");
+		if (IS_ERR(vintcore))
+			return dev_err_probe(&pdev->dev, PTR_ERR(vintcore),
+					     "failed to get ULP PLL supply\n");
+	} else if (!is_ab8505(parent)) {
 		dev_err(&pdev->dev, "non supported plf id\n");
 		return -ENODEV;
 	}
 
-	return ret;
+	return ab8500_reg_clks(&pdev->dev, vintcore);
 }
 
 static const struct of_device_id abx500_clk_match[] = {
