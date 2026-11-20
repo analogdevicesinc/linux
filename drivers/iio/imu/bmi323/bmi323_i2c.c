@@ -41,6 +41,8 @@ static int bmi323_regmap_i2c_read(void *context, const void *reg_buf,
 
 	ret = i2c_transfer(priv->i2c->adapter, msgs, ARRAY_SIZE(msgs));
 	if (ret < 0)
+		return ret;
+	if (ret != ARRAY_SIZE(msgs))
 		return -EIO;
 
 	memcpy(val_buf, priv->i2c_rx_buffer + BMI323_I2C_DUMMY, val_size);
