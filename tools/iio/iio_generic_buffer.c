@@ -404,7 +404,7 @@ int main(int argc, char **argv)
 	int ret, c;
 	struct stat st;
 	int fd = -1;
-	int buf_fd = -1;
+	int buf_fd = -1, requested_fd;
 
 	int num_channels = 0;
 	char *trigger_name = NULL, *device_name = NULL;
@@ -714,11 +714,11 @@ int main(int argc, char **argv)
 	}
 
 	/* specify for which buffer index we want an FD */
-	buf_fd = buffer_idx;
+	requested_fd = buffer_idx;
 
-	ret = ioctl(fd, IIO_BUFFER_GET_FD_IOCTL, &buf_fd);
-	if (ret == -1 || buf_fd == -1) {
-		ret = -errno;
+	ret = ioctl(fd, IIO_BUFFER_GET_FD_IOCTL, &requested_fd);
+	if (ret < 0 || requested_fd < 0) {
+		ret = ret < 0 ? -errno : -EIO;
 		if (ret == -ENODEV || ret == -EINVAL)
 			fprintf(stderr,
 				"Device does not have this many buffers\n");
@@ -727,6 +727,8 @@ int main(int argc, char **argv)
 
 		goto error;
 	}
+
+	buf_fd = requested_fd;
 
 	/* Setup ring buffer parameters */
 	ret = write_sysfs_int("length", buf_dir_name, buf_len);
