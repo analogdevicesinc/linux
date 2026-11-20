@@ -108,12 +108,16 @@ static int abp060mg_get_measurement(struct abp_state *state, int *val)
 	ret = i2c_master_send(client, (u8 *)&buf, state->mreq_len);
 	if (ret < 0)
 		return ret;
+	if (ret != state->mreq_len)
+		return -EIO;
 
 	msleep_interruptible(ABP060MG_RESP_TIME_MS);
 
 	ret = i2c_master_recv(client, (u8 *)&buf, sizeof(buf));
 	if (ret < 0)
 		return ret;
+	if (ret != sizeof(buf))
+		return -EIO;
 
 	pressure = be16_to_cpu(buf[0]);
 	if (pressure & ABP060MG_ERROR_MASK)
