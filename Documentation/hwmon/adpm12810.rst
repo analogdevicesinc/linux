@@ -1,0 +1,121 @@
+.. SPDX-License-Identifier: GPL-2.0
+
+Kernel driver adpm12810
+=======================
+
+Supported chips:
+
+  * Analog Devices ADPM12810
+
+    Prefix: 'adpm12810'
+
+    Addresses scanned: -
+
+    Datasheet: Not yet publicly available
+
+Author:
+
+  - Carlos Jones Jr <carlosjr.jones@analog.com>
+
+
+Description
+-----------
+
+This driver supports hardware monitoring for the Analog Devices ADPM12810, an
+800V to 50V, 200A full-brick DC/DC bus converter module with a PMBus interface.
+
+The ADPM12810 converts a 720V to 880V input to a 45V to 55V output at a fixed
+16:1 ratio. Through the PMBus interface the module reports its input and output
+voltage, current and power, its temperature, its protection thresholds and its
+fault and warning status.
+
+The driver is a client driver to the core PMBus driver. Please see
+Documentation/hwmon/pmbus.rst for details on PMBus client drivers.
+
+Usage Notes
+-----------
+
+This driver does not auto-detect devices. You will have to instantiate
+the devices explicitly. Please see Documentation/i2c/instantiating-devices.rst
+for details.
+
+The I2C address is set by resistors on the ADDR0 and ADDR1 pins. Without
+resistors the module responds at address 0x7f.
+
+The module stretches the clock for about 50us after every byte it receives.
+The I2C controller must support clock stretching, including during a repeated
+start condition. Controllers that do not, such as the hardware I2C controller
+of the Raspberry Pi (BCM2835), read all ones from the module. A bit-banged
+i2c-gpio bus works on such systems.
+
+The module does not implement the CAPABILITY command, so Packet Error Checking
+(PEC) is not used.
+
+All limits are read-only; the module does not accept writes to its threshold
+registers.
+
+With CONFIG_DEBUG_FS enabled, the PMBus core probes the MFR_* identification
+registers when the driver is loaded, including MFR_LOCATION, which the module
+does not implement. The module may then report an invalid command in
+STATUS_CML.
+
+Fault Handling
+--------------
+
+Output overvoltage and overcurrent faults shut the module down in latch mode,
+and clearing faults may restart a latched-off output. The driver therefore
+never sends CLEAR_FAULTS to the module and never writes its status registers.
+Alarm attributes report the module's latched status and remain set until the
+faults are cleared by other means, for example by toggling the enable input
+or power-cycling the module.
+
+Sysfs entries
+-------------
+
+======================= =======================================================
+in1_label               "vin"
+in1_input               Measured input voltage
+in1_min                 Input undervoltage warning limit
+in1_lcrit               Input undervoltage fault limit
+in1_max                 Input overvoltage warning limit
+in1_crit                Input overvoltage fault limit
+in1_min_alarm           Input undervoltage warning alarm
+in1_lcrit_alarm         Input undervoltage fault alarm
+in1_max_alarm           Input overvoltage warning alarm
+in1_crit_alarm          Input overvoltage fault alarm
+
+in2_label               "vout1"
+in2_input               Measured output voltage
+in2_min                 Output undervoltage warning limit
+in2_lcrit               Output undervoltage fault limit
+in2_max                 Output overvoltage warning limit
+in2_crit                Output overvoltage fault limit
+in2_min_alarm           Output undervoltage warning alarm
+in2_lcrit_alarm         Output undervoltage fault alarm
+in2_max_alarm           Output overvoltage warning alarm
+in2_crit_alarm          Output overvoltage fault alarm
+
+curr1_label             "iin"
+curr1_input             Measured input current
+curr1_alarm             Input fault or warning alarm
+
+curr2_label             "iout1"
+curr2_input             Measured output current
+curr2_max               Output overcurrent warning limit
+curr2_crit              Output overcurrent fault limit
+curr2_max_alarm         Output overcurrent warning alarm
+curr2_crit_alarm        Output overcurrent fault alarm
+
+power1_label            "pin"
+power1_input            Measured input power
+power1_alarm            Input fault or warning alarm
+
+power2_label            "pout1"
+power2_input            Measured output power
+
+temp1_input             Measured module temperature
+temp1_max               Overtemperature warning limit
+temp1_crit              Overtemperature fault limit
+temp1_max_alarm         Overtemperature warning alarm
+temp1_crit_alarm        Overtemperature fault alarm
+======================= =======================================================
