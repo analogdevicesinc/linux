@@ -748,6 +748,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct clk *sclk;
 	int ret, err_irq;
+	bool spi_mode;
 
 	sclk = devm_clk_get(dev, "spi");
 	if (IS_ERR(sclk)) {
@@ -755,11 +756,15 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(sclk);
 	}
 
-	controller = devm_spi_alloc_host(dev, sizeof(*drv_data));
-	if (!controller) {
-		dev_err(dev, "can not alloc spi_controller\n");
+	spi_mode = of_property_read_bool(dev->of_node, "spi-slave");
+	if (spi_mode)
+		controller = devm_spi_alloc_target(dev, sizeof(*drv_data));
+	else
+		controller = devm_spi_alloc_host(dev, sizeof(*drv_data));
+
+	if (!controller)
 		return -ENOMEM;
-	}
+
 	platform_set_drvdata(pdev, controller);
 
 	/* the mode bits supported by this driver */
@@ -804,9 +809,14 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	iowrite32(SPI_CTL_MSTR | SPI_CTL_CPHA, &drv_data->regs->control);
-	iowrite32(0x0000FE00, &drv_data->regs->ssel);
-	iowrite32(0x0, &drv_data->regs->delay);
+	if (spi_mode) {
+		iowrite32(SPI_CTL_CPHA, &drv_data->regs->control);
+	} else {
+		iowrite32(SPI_CTL_MSTR | SPI_CTL_CPHA, &drv_data->regs->control);
+		iowrite32(0x0000FE00, &drv_data->regs->ssel);
+		iowrite32(0x0, &drv_data->regs->delay);
+	}
+
 	iowrite32(SPI_IMSK_SET_ROM, &drv_data->regs->emaskst);
 
 	controller->dma_tx = dma_request_chan(dev, "tx");
