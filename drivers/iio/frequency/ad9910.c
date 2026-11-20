@@ -393,6 +393,24 @@ static u64 ad9910_rational_scale(u64 input, u64 scale, u64 reference)
 	return output;
 }
 
+/**
+ * ad9910_rational_scale_up() - Same as ad9910_rational_scale(), rounding up.
+ * @input: The input value to be scaled.
+ * @scale: The numerator of the scaling factor.
+ * @reference: The denominator of the scaling factor.
+ *
+ * Return: The scaled value.
+ */
+static u64 ad9910_rational_scale_up(u64 input, u64 scale, u64 reference)
+{
+	u64 output = mul_u64_u64_div_u64(input, scale, reference);
+
+	if (input * scale - output * reference > 0)
+		output++;
+
+	return output;
+}
+
 static inline u64 ad9910_ram_profile_val(struct ad9910_state *st)
 {
 	if (AD9910_RAM_ENABLED(st))
@@ -1765,8 +1783,9 @@ static int ad9910_write_raw(struct iio_dev *indio_dev,
 			if (val < 0 || val2 < 0)
 				return -EINVAL;
 
-			tmp64 = ad9910_rational_scale((u64)val * NANO + val2, BIT_ULL(32),
-						      (u64)st->data.sysclk_freq_hz * NANO);
+			tmp64 = ad9910_rational_scale_up((u64)val * NANO + val2,
+							 BIT_ULL(32),
+							 (u64)st->data.sysclk_freq_hz * NANO);
 			tmp64 = roundup_pow_of_two(clamp(tmp64, 1ULL, BIT_ULL(15)));
 			tmp32 = FIELD_PREP(AD9910_CFR2_FM_GAIN_MSK, ilog2(tmp64));
 			return ad9910_reg32_update(st, AD9910_REG_CFR2,
