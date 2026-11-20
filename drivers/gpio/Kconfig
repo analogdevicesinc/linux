@@ -1450,6 +1450,13 @@ config GPIO_MAX77650
 	  GPIO driver for MAX77650/77651 PMIC from Maxim Semiconductor.
 	  These chips have a single pin that can be configured as GPIO.
 
+config GPIO_MAX17340
+	tristate "Analog Devices MAX17340 GPIO support"
+	depends on MFD_MAX17340
+	help
+	  GPIO driver for MAX17340 battery management IC from Analog Devices.
+	  This chip has 4 pins that can be configured as GPIOs.
+
 config GPIO_PALMAS
 	bool "TI PALMAS series PMICs GPIO"
 	depends on MFD_PALMAS

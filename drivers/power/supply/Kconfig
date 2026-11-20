@@ -436,6 +436,14 @@ config BATTERY_MAX1721X
 	  Say Y here to enable support for the MAX17211/MAX17215 standalone
 	  battery gas-gauge.
 
+config BATTERY_MAX17340
+	tristate "Analog Devices MAX17340 Fuel Gauge"
+	depends on MFD_MAX17340
+	help
+	  Say Y here to enable support for the Analog Devices MAX17340
+	  fuel gauge. This driver provides battery status, capacity,
+	  voltage, current, and temperature information.
+
 config BATTERY_TWL4030_MADC
 	tristate "TWL4030 MADC battery driver"
 	depends on TWL4030_MADC
@@ -566,6 +574,13 @@ config CHARGER_MAX77650
 	help
 	  Say Y to enable support for the battery charger control of MAX77650
 	  PMICs.
+
+config CHARGER_MAX17340
+	tristate "Analog Devices MAX17340 battery charger driver"
+	depends on MFD_MAX17340
+	help
+	  Say Y to enable support for the Analog Devices MAX17340 battery
+	  charger. This driver provides charger status and control.
 
 config CHARGER_MAX77693
 	tristate "Maxim MAX77693 battery charger driver"
