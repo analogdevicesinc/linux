@@ -229,6 +229,22 @@ config COMMON_CLK_S4_PERIPHERALS
 	  Support for the peripherals clock controller on Amlogic S805X2 and S905Y4
 	  devices, AKA S4. Say Y if you want S4 peripherals clock controller to work.
 
+config COMMON_CLK_S7_PERIPHERALS
+	tristate "Amlogic S7 SoC peripherals clock controller support"
+	depends on ARM64 || COMPILE_TEST
+	default ARCH_MESON
+	select COMMON_CLK_MESON_REGMAP
+	select COMMON_CLK_MESON_CLKC_UTILS
+	select COMMON_CLK_MESON_DUALDIV
+	select COMMON_CLK_MESON_VID_PLL_DIV
+	imply COMMON_CLK_SCMI
+	help
+	  Support for the peripherals clock controller on Amlogic S805X3 based
+	  devices, AKA S7. This controller provides the clocks of most
+	  peripherals (eMMC/SD, PWM, SPI, I2C, UART, Ethernet, video and
+	  multimedia blocks). Say Y if you want S7 peripherals clock
+	  controller to work.
+
 config COMMON_CLK_S7_PLL
 	tristate "Amlogic S7 SoC PLL controller support"
 	depends on ARM64 || COMPILE_TEST
