@@ -60,7 +60,7 @@ static const struct abp_config abp_config[] = {
 	[ABP250KD] = { .min = -250000, .max =   250000 },
 	[ABP400KD] = { .min = -400000, .max =   400000 },
 	/* psi variants (1 psi ~ 6895 Pa) */
-	[ABP001PG] = { .min =       0, .max =     6985 },
+	[ABP001PG] = { .min =       0, .max =     6895 },
 	[ABP005PG] = { .min =       0, .max =    34474 },
 	[ABP015PG] = { .min =       0, .max =   103421 },
 	[ABP030PG] = { .min =       0, .max =   206843 },
