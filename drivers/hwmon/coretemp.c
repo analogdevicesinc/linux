@@ -51,13 +51,6 @@ enum coretemp_attr_index {
 	TOTAL_ATTRS = ATTR_TTARGET + 1		/* Maximum no of possible attrs */
 };
 
-#ifdef CONFIG_SMP
-#define for_each_sibling(i, cpu) \
-	for_each_cpu(i, topology_sibling_cpumask(cpu))
-#else
-#define for_each_sibling(i, cpu)	for (i = 0; false; )
-#endif
-
 /*
  * Per-Core Temperature Data
  * @temp_valid: Whether the CPU reported @temp as valid. @temp is not
@@ -98,7 +91,6 @@ struct platform_data {
 	struct cpumask		cpumask;
 	struct temp_data	*pkg_data;
 	struct temp_data	**core_data;
-	struct device_attribute name_attr;
 };
 
 struct tjmax_pci {
