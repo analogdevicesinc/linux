@@ -622,21 +622,27 @@ static int adxrs290_probe(struct spi_device *spi)
 
 	mutex_init(&st->lock);
 
-	val = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_ADI_ID));
-	if (val != ADXRS290_ADI_ID) {
-		dev_err(&spi->dev, "Wrong ADI ID 0x%02x\n", val);
+	ret = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_ADI_ID));
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "failed to read ADI ID\n");
+	if (ret != ADXRS290_ADI_ID) {
+		dev_info(&spi->dev, "Wrong ADI ID 0x%02x\n", ret);
 		return -ENODEV;
 	}
 
-	val = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_MEMS_ID));
-	if (val != ADXRS290_MEMS_ID) {
-		dev_err(&spi->dev, "Wrong MEMS ID 0x%02x\n", val);
+	ret = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_MEMS_ID));
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "failed to read MEMS ID\n");
+	if (ret != ADXRS290_MEMS_ID) {
+		dev_info(&spi->dev, "Wrong MEMS ID 0x%02x\n", ret);
 		return -ENODEV;
 	}
 
-	val = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_DEV_ID));
-	if (val != ADXRS290_DEV_ID) {
-		dev_err(&spi->dev, "Wrong DEV ID 0x%02x\n", val);
+	ret = spi_w8r8(spi, ADXRS290_READ_REG(ADXRS290_REG_DEV_ID));
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret, "failed to read DEV ID\n");
+	if (ret != ADXRS290_DEV_ID) {
+		dev_info(&spi->dev, "Wrong DEV ID 0x%02x\n", ret);
 		return -ENODEV;
 	}
 
