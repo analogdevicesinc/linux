@@ -153,9 +153,23 @@ static int max16601_write_byte(struct i2c_client *client, int page, u8 reg)
 	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
 	struct max16601_data *data = to_max16601_data(info);
 
-	if (page == 2) {
-		if (reg == PMBUS_CLEAR_FAULTS)
+	if (page > 0) {
+		if (page == 2 && reg == PMBUS_CLEAR_FAULTS)
 			return i2c_smbus_write_byte(data->vsa, reg);
+		return -EOPNOTSUPP;
+	}
+	return -ENODATA;
+}
+
+static int max16601_write_byte_data(struct i2c_client *client, int page,
+				    int reg, u8 value)
+{
+	const struct pmbus_driver_info *info = pmbus_get_driver_info(client);
+	struct max16601_data *data = to_max16601_data(info);
+
+	if (page > 0) {
+		if (page == 2)	/* VSA */
+			return i2c_smbus_write_byte_data(data->vsa, reg, value);
 		return -EOPNOTSUPP;
 	}
 	return -ENODATA;
@@ -252,6 +266,7 @@ static struct pmbus_driver_info max16601_info = {
 	.read_byte_data = max16601_read_byte,
 	.read_word_data = max16601_read_word,
 	.write_byte = max16601_write_byte,
+	.write_byte_data = max16601_write_byte_data,
 	.write_word_data = max16601_write_word,
 };
 
