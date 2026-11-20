@@ -59,12 +59,14 @@ jobs:
             [[ $(echo "$resp" | jq '.artifacts | length') -gt 0 ]] || break
             page=$((page + 1))
           done
-          jq -c -n --argjson a "$all" '{total_count: ($a | length), artifacts: $a}'
+          jq -c -n --argjson a "$all" \
+            '($a | group_by(.name) | map(max_by(.created_at))) as $u
+             | {total_count: ($u | length), artifacts: $u}'
         }
 
         gh-download-artifact() {
           echo "$2"
-          curl -sfL \
+          curl -sSfL \
             -H "Authorization: Bearer $1" \
             -H "Accept: application/vnd.github+json" \
             -o "$2" \
