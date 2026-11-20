@@ -48,6 +48,12 @@
 			reg = <0x20404000 0x400>;
 			no-map;
 		};
+
+		vdev0buffer: vdev0buffer@20410000 {
+			compatible = "shared-dma-pool";
+			reg = <0x20410000 0x20000>;     /* 256 x 512 B rpmsg buffers */
+			no-map;
+		};
 	};
 };
 
@@ -82,6 +88,7 @@
 			mbox-names = "kick";
 			adi,rsc-table = <&rsc_tbl0>;
 			vdev-vring = <&vdev0vrings>;
+			memory-region = <&vdev0buffer>;
 			adi,tru = <&tru>;
 			adi,tru-master-id = <ADI_TRU_MST_SOFT(4)>;
 		};
