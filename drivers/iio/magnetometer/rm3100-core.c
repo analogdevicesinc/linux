@@ -277,6 +277,7 @@ static const int rm3100_samp_rates[RM3100_SAMP_NUM][3] = {
 
 static int rm3100_get_samp_freq(struct rm3100_data *data, int *val, int *val2)
 {
+	int samp_rate_index;
 	unsigned int tmp;
 	int ret;
 
@@ -286,8 +287,13 @@ static int rm3100_get_samp_freq(struct rm3100_data *data, int *val, int *val2)
 	if (ret < 0)
 		return ret;
 
-	*val = rm3100_samp_rates[tmp - RM3100_TMRC_OFFSET][0];
-	*val2 = rm3100_samp_rates[tmp - RM3100_TMRC_OFFSET][1];
+	samp_rate_index = tmp - RM3100_TMRC_OFFSET;
+	if (samp_rate_index < 0 ||
+	    samp_rate_index >= ARRAY_SIZE(rm3100_samp_rates))
+		return -ERANGE;
+
+	*val = rm3100_samp_rates[samp_rate_index][0];
+	*val2 = rm3100_samp_rates[samp_rate_index][1];
 
 	return IIO_VAL_INT_PLUS_MICRO;
 }
