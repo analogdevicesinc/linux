@@ -147,7 +147,7 @@
 		#dma-cells = <1>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15>; // fclk0
+		clocks = <&clkc 16>; // fclk1
 	};
 
 	rx_dma: rx-dmac@44a40000 {
