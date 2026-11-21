@@ -265,7 +265,12 @@ int iioutils_get_param_float(float *output, const char *param_name,
 				ret = errno ? -errno : -ENODATA;
 
 			fclose(sysfsfp);
-			break;
+			/* Prefer the channel-specific value over the generic one. */
+			if (strcmp(builtname, ent->d_name) == 0)
+				break;
+
+			free(filename);
+			filename = NULL;
 		}
 error_free_filename:
 	if (filename)
