@@ -9,7 +9,11 @@ use kernel::{
     bindings,
     fs::file::{File, FileDescriptorReservation},
     prelude::*,
-    sync::{aref::ARef, Arc},
+    sync::{
+        aref::ARef,
+        atomic::{atomic_load, Relaxed},
+        Arc,
+    },
     transmute::{AsBytes, FromBytes},
     uaccess::UserSliceReader,
     uapi,
@@ -182,6 +186,13 @@ impl Allocation {
         buffer_offset: usize,
         close_on_free: bool,
     ) -> Result {
+        // SAFETY: `file` is valid and any concurrent `f_op` writes are atomic.
+        let f_op = unsafe { atomic_load(&raw mut (*file.as_ptr()).f_op, Relaxed) };
+        if core::ptr::eq(f_op, &crate::rust_binder_fops.0) {
+            // Binder FD transfers are not allowed.
+            return Err(EINVAL);
+        }
+
         self.get_or_init_info().file_list.files_to_translate.push(
             FileEntry {
                 file,
