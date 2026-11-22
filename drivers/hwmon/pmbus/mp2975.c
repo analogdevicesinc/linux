@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/pmbus.h>
 
 #include "pmbus.h"
 
@@ -105,6 +106,7 @@ struct mp2975_driver_info {
 
 struct mp2975_data {
 	struct pmbus_driver_info info;
+	struct pmbus_platform_data pdata;
 	enum chips chip_id;
 	int vout_scale;
 	int max_phases[MP2975_PAGE_NUM];
@@ -457,37 +459,20 @@ static int mp2973_write_word_data(struct i2c_client *client, int page,
 	return pmbus_write_word_data(client, 0, PMBUS_SMBALERT_MASK, ret);
 }
 
-/*
- * Let the PMBus core change the page, so that the page it caches matches the
- * device. The core does not issue PAGE commands for a single rail
- * configuration, thus change the page directly then.
- */
-static int
-mp2975_page_set(struct i2c_client *client, struct mp2975_data *data, int page)
-{
-	if (data->info.pages > 1)
-		return pmbus_set_page(client, page, 0xff);
-
-	return i2c_smbus_write_byte_data(client, PMBUS_PAGE, page);
-}
-
-/*
- * Voltage reference is available on page 3 only. The callers read a register
- * of the rail through the core first, thus the core caches the rail page.
- */
+/* Voltage reference is available on page 3 only. */
 static int
 mp2975_vref_get(struct i2c_client *client, struct mp2975_data *data, int page)
 {
 	int ret, vref;
 
-	ret = mp2975_page_set(client, data, 3);
+	ret = pmbus_set_page(client, 3, 0xff);
 	if (ret < 0)
 		return ret;
 
 	vref = i2c_smbus_read_word_data(client, page ? MP2975_MFR_READ_VREF_R2 :
 						       MP2975_MFR_READ_VREF_R1);
 
-	ret = mp2975_page_set(client, data, page);
+	ret = pmbus_set_page(client, page, 0xff);
 	if (ret < 0)
 		return ret;
 
@@ -1071,6 +1056,10 @@ static int mp2975_probe(struct i2c_client *client)
 	ret = mp2975_vout_per_rail_config_get(client, data, info);
 	if (ret)
 		return ret;
+
+	/* Page 3 is accessed in a single rail configuration as well. */
+	data->pdata.flags = PMBUS_FORCE_PAGE_CHANGE;
+	client->dev.platform_data = &data->pdata;
 
 	ret = pmbus_do_probe(client, info);
 	if (ret)
