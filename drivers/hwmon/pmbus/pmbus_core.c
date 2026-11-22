@@ -231,6 +231,9 @@ int pmbus_set_page(struct i2c_client *client, int page, int phase)
 
 	if (!(data->info->func[page] & PMBUS_PAGE_VIRTUAL) &&
 	    data->info->pages > 1 && page != data->currpage) {
+		/* A failed page change can leave the chip on any page */
+		data->currpage = -1;
+
 		pmbus_wait(client);
 		rv = i2c_smbus_write_byte_data(client, PMBUS_PAGE, page);
 		pmbus_update_ts(client, PMBUS_OP_WRITE | PMBUS_OP_PAGE_CHANGE);
@@ -245,19 +248,24 @@ int pmbus_set_page(struct i2c_client *client, int page, int phase)
 
 		if (rv != page)
 			return -EIO;
+
+		data->currpage = page;
 	}
-	data->currpage = page;
 
 	if (data->info->phases[page] && data->currphase != phase &&
 	    !(data->info->func[page] & PMBUS_PHASE_VIRTUAL)) {
+		/* A failed phase change can leave the chip on any phase */
+		data->currphase = -1;
+
 		pmbus_wait(client);
 		rv = i2c_smbus_write_byte_data(client, PMBUS_PHASE,
 					       phase);
 		pmbus_update_ts(client, PMBUS_OP_WRITE);
 		if (rv)
 			return rv;
+
+		data->currphase = phase;
 	}
-	data->currphase = phase;
 
 	return 0;
 }
