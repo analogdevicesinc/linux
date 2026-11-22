@@ -298,7 +298,7 @@ PMBus driver platform data
 ==========================
 
 PMBus platform data is defined in include/linux/pmbus.h. Platform data
-currently provides a flags field with four bits used::
+currently provides a flags field with the following bits::
 
 	#define PMBUS_SKIP_STATUS_CHECK			BIT(0)
 
@@ -315,6 +315,8 @@ currently provides a flags field with four bits used::
 	#define PMBUS_OP_PROTECTED			BIT(6)
 
 	#define PMBUS_VOUT_PROTECTED			BIT(7)
+
+	#define PMBUS_FORCE_PAGE_CHANGE			BIT(8)
 
 	struct pmbus_platform_data {
 		u32 flags;              /* Device specific flags */
@@ -387,6 +389,14 @@ PMBUS_VOUT_PROTECTED
 
 Set if the chip VOUT_COMMAND command is protected and protection is not
 determined by the standard WRITE_PROTECT command.
+
+PMBUS_FORCE_PAGE_CHANGE
+
+The PMBus core driver only changes the page of chips with more than one
+page. Some chips with a single page provide manufacturer specific registers
+on additional pages. Set this flag so that the PMBus core driver changes the
+page of such chips as well, which lets the chip driver access the additional
+pages with pmbus_set_page().
 
 Module parameter
 ----------------

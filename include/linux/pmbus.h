@@ -87,6 +87,17 @@
  */
 #define PMBUS_VOUT_PROTECTED			BIT(7)
 
+/*
+ * PMBUS_FORCE_PAGE_CHANGE
+ *
+ * The PMBus core driver only changes the page of chips with more than one
+ * page. Some chips with a single page provide manufacturer specific registers
+ * on additional pages. Set this flag so that the PMBus core driver changes the
+ * page of such chips as well, which lets the chip driver access the additional
+ * pages with pmbus_set_page().
+ */
+#define PMBUS_FORCE_PAGE_CHANGE			BIT(8)
+
 struct pmbus_platform_data {
 	u32 flags;		/* Device specific flags */
 

@@ -230,7 +230,8 @@ int pmbus_set_page(struct i2c_client *client, int page, int phase)
 		return 0;
 
 	if (!(data->info->func[page] & PMBUS_PAGE_VIRTUAL) &&
-	    data->info->pages > 1 && page != data->currpage) {
+	    (data->info->pages > 1 || (data->flags & PMBUS_FORCE_PAGE_CHANGE)) &&
+	    page != data->currpage) {
 		/* A failed page change can leave the chip on any page */
 		data->currpage = -1;
 
