@@ -588,9 +588,14 @@ static u8 bypass_mux_get_parent(struct clk_hw *hw)
 static int bypass_mux_set_parent(struct clk_hw *hw, u8 index)
 {
 	struct cv1800_clk_bypass_mux *mux = hw_to_cv1800_clk_bypass_mux(hw);
+	int ret;
 
 	if (index == 0)
 		return cv1800_clk_setbit(&mux->mux.common, &mux->bypass);
+
+	ret = mux_set_parent(hw, index - 1);
+	if (ret)
+		return ret;
 
 	return cv1800_clk_clearbit(&mux->mux.common, &mux->bypass);
 }
