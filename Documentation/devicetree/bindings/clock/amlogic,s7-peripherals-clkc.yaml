@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright (c) 2026 BayLibre, SAS.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/amlogic,s7-peripherals-clkc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Amlogic S7 Series Peripherals Clock Controller
+
+maintainers:
+  - Neil Armstrong <neil.armstrong@linaro.org>
+  - Jerome Brunet <jbrunet@baylibre.com>
+  - Carlo Caione <ccaione@baylibre.com>
+
+description:
+  The peripherals clock controller provides the system (bus) clock, the bus
+  clock gates and the clocks of the peripherals. Its inputs are the board
+  oscillator, the fixed PLL dividers and the GP0, HIFI0 and HIFI1 PLLs of the
+  PLL block, the GP1 PLL and the CPU AXI clock provided by the firmware, the
+  HDMI PLL and its pixel clock, and a few optional sources from outside the
+  clock controllers (pads, audio codec).
+
+properties:
+  compatible:
+    const: amlogic,s7-peripherals-clkc
+
+  reg:
+    maxItems: 1
+
+  '#clock-cells':
+    const: 1
+
+  clocks:
+    minItems: 14
+    items:
+      - description: input fixed pll div2
+      - description: input fixed pll div2p5
+      - description: input fixed pll div3
+      - description: input fixed pll div4
+      - description: input fixed pll div5
+      - description: input fixed pll div7
+      - description: input hifi0 pll
+      - description: input gp0 pll
+      - description: input hifi1 pll
+      - description: input gp1 pll
+      - description: input hdmi pll
+      - description: input hdmi pll pixel clk
+      - description: input oscillator (usually at 24MHz)
+      - description: input axi clk from the cpu
+      - description: input external 32kHz reference (optional)
+      - description: input external rmii reference (optional)
+      - description: input audio codec dac clk (optional)
+
+  clock-names:
+    minItems: 14
+    items:
+      - const: fclk_div2
+      - const: fclk_div2p5
+      - const: fclk_div3
+      - const: fclk_div4
+      - const: fclk_div5
+      - const: fclk_div7
+      - const: hifi0_pll
+      - const: gp0_pll
+      - const: hifi1_pll
+      - const: gp1_pll
+      - const: hdmi_pll
+      - const: vid_pix
+      - const: xtal
+      - const: axi_frcpu
+      - const: ext_32k
+      - const: ext_rmii
+      - const: acodec_dac
+
+required:
+  - compatible
+  - reg
+  - '#clock-cells'
+  - clocks
+  - clock-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/amlogic,s7-pll-clkc.h>
+
+    soc {
+        #address-cells = <2>;
+        #size-cells = <2>;
+
+        clock-controller@fe000000 {
+            compatible = "amlogic,s7-peripherals-clkc";
+            reg = <0x0 0xfe000000 0x0 0x49c>;
+            #clock-cells = <1>;
+            clocks = <&clkc_pll CLKID_FCLK_DIV2>,
+                     <&clkc_pll CLKID_FCLK_DIV2P5>,
+                     <&clkc_pll CLKID_FCLK_DIV3>,
+                     <&clkc_pll CLKID_FCLK_DIV4>,
+                     <&clkc_pll CLKID_FCLK_DIV5>,
+                     <&clkc_pll CLKID_FCLK_DIV7>,
+                     <&clkc_pll CLKID_HIFI0_PLL>,
+                     <&clkc_pll CLKID_GP0_PLL>,
+                     <&clkc_pll CLKID_HIFI1_PLL>,
+                     <&scmi_clk 11>,
+                     <&clkc_pll CLKID_HDMI_PLL>,
+                     <&clkc_pll CLKID_HDMI_PLL_PIX>,
+                     <&xtal>,
+                     <&scmi_clk 12>;
+            clock-names = "fclk_div2",
+                          "fclk_div2p5",
+                          "fclk_div3",
+                          "fclk_div4",
+                          "fclk_div5",
+                          "fclk_div7",
+                          "hifi0_pll",
+                          "gp0_pll",
+                          "hifi1_pll",
+                          "gp1_pll",
+                          "hdmi_pll",
+                          "vid_pix",
+                          "xtal",
+                          "axi_frcpu";
+        };
+    };
