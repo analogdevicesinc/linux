@@ -599,7 +599,10 @@ static int adi_spi_prepare_message(struct spi_controller *controller, struct spi
 
 	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
 	words = DIV_ROUND_UP(xfer->bits_per_word, 8);
-	iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz), &drv->regs->clock);
+
+	if (!spi_controller_is_target(controller))
+		iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz),
+			  &drv->regs->clock);
 
 	switch (words) {
 	case 1:
