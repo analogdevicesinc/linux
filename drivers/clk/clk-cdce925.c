@@ -795,8 +795,8 @@ static int cdce925_probe(struct i2c_client *client)
 	}
 
 	/* Register the output clocks */
-	err = of_clk_add_hw_provider(client->dev.of_node, of_clk_cdce925_get,
-				  data);
+	err = devm_of_clk_add_hw_provider(&client->dev, of_clk_cdce925_get,
+					  data);
 	if (err)
 		dev_err(&client->dev, "unable to add OF clock provider\n");
 
