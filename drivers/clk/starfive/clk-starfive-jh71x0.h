@@ -5,6 +5,7 @@
 #include <linux/bits.h>
 #include <linux/clk-provider.h>
 #include <linux/device.h>
+#include <linux/platform_device.h>
 #include <linux/spinlock.h>
 
 /* register fields */
@@ -27,6 +28,31 @@ struct jh71x0_clk_data {
 	unsigned long flags;
 	u32 max;
 	u8 parents[4];
+};
+
+/*
+ * Parent of a clock registered by jh71x0_crg_probe(): either an external clock
+ * of the CRG, looked up by its name in the "clock-names" property, or another
+ * clock provided by the CRG itself.
+ */
+struct jh71x0_parent_data {
+	const char *fw_name;	/* external clock if not NULL */
+	unsigned int idx;	/* index of a clock of this CRG */
+};
+
+#define JH71X0_EXT_PARENT(_fw_name)	{ .fw_name = _fw_name }
+#define JH71X0_INT_PARENT(_idx)		{ .idx = _idx }
+
+/*
+ * Clock data for jh71x0_crg_probe(). The JH71X0_GATE(), JH71X0__DIV(), ...
+ * macros below can be used to fill it, with the parents described by
+ * JH71X0_EXT_PARENT() or JH71X0_INT_PARENT().
+ */
+struct jh71x0_crg_clk_data {
+	const char *name;
+	unsigned long flags;
+	u32 max;
+	struct jh71x0_parent_data parents[4];
 };
 
 #define JH71X0_GATE(_idx, _name, _flags, _parent)				\
@@ -109,6 +135,12 @@ struct jh71x0_clk {
 	unsigned int max_div;
 };
 
+struct jh71x0_crg_domain_info {
+	const struct jh71x0_crg_clk_data *clk_data;
+	unsigned int num_clk;
+	const char *rst_name;
+};
+
 struct jh71x0_clk_priv {
 	/* protect clk enable and set rate/parent from happening at the same time */
 	spinlock_t rmw_lock;
@@ -116,6 +148,7 @@ struct jh71x0_clk_priv {
 	void __iomem *base;
 	struct clk *original_clk;
 	struct notifier_block pll_clk_nb;
+	const struct jh71x0_crg_domain_info *info;
 	struct clk_hw *pll[3];
 	unsigned int num_reg;
 	struct jh71x0_clk reg[] __counted_by(num_reg);
@@ -125,5 +158,6 @@ const struct clk_ops *starfive_jh71x0_clk_ops(u32 max);
 struct clk_hw *jh71x0_clk_get(struct of_phandle_args *clkspec, void *data);
 int jh71x0_reset_controller_register(struct jh71x0_clk_priv *priv,
 				     const char *adev_name);
+int jh71x0_crg_probe(struct platform_device *pdev);
 
 #endif
