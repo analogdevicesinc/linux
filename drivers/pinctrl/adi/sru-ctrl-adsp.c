@@ -1357,7 +1357,6 @@ static int adsp_sru_ctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	struct property *prop;
 	const char *dest_name;
 	const char *source_name;
-	unsigned long *configs;
 	unsigned int num_pins, pos;
 	unsigned int reserve = 0;
 	const __be32 *p1, *p2;
@@ -1480,7 +1479,6 @@ static int adsp_sru_ctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	}
 
 exit:
-	kfree(configs);
 	return ret;
 }
 
