@@ -86,7 +86,7 @@ static int max96717_update_bits(struct max96717_priv *priv, unsigned int reg,
 	int ret;
 
 	ret = regmap_update_bits(priv->regmap, reg, mask, val);
-	dev_dbg(priv->dev, "update %d 0x%x 0x%02x = 0x%02x\n", ret, reg, mask, val);
+
 	if (ret)
 		dev_err(priv->dev, "update 0x%04x failed\n", reg);
 
@@ -428,16 +428,14 @@ static int max96717_conf_pin_config_set_one(struct max96717_priv *priv,
 	case PIN_CONFIG_INPUT_ENABLE:
 	case PIN_CONFIG_OUTPUT:
 		val = max96717_field_prep(arg ? val : ~val, mask);
-
-		ret = max96717_update_bits(priv, reg, mask, val);
+//		ret = max96717_update_bits(priv, reg, mask, val);
 		break;
 	case MAX96717_PINCTRL_GMSL_TX_ID:
 	case MAX96717_PINCTRL_GMSL_RX_ID:
 	case PIN_CONFIG_SLEW_RATE:
 	case MAX96717_PINCTRL_RCLKOUT_CLK:
 		val = max96717_field_prep(arg, mask);
-
-		ret = max96717_update_bits(priv, reg, mask, val);
+//		ret = max96717_update_bits(priv, reg, mask, val);
 		break;
 	default:
 		return -ENOTSUPP;
@@ -1200,6 +1198,14 @@ static int max96717_probe(struct i2c_client *client)
 	ret = devm_gpiochip_add_data(dev, &priv->gc, priv);
 	if (ret)
 		return ret;
+
+	max96717_write(priv, 0x02be, 0x80);
+	max96717_write(priv, 0x02bf, 0x60);
+	max96717_write(priv, 0x02d3, 0x80);
+	max96717_write(priv, 0x02d4, 0x60);
+	max96717_write(priv, 0x02d7, 0x80);
+	max96717_write(priv, 0x02d6, 0x60);
+	max96717_write(priv, 0x02be, 0x90);
 
 	return max_ser_probe(&priv->ser_priv);
 }

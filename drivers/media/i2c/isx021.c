@@ -106,6 +106,8 @@ static int isx021_write(struct isx021 *sensor, u32 addr, u32 value)
 	if(ret)
 		dev_err(sensor->dev, "[%s] : Failed at 0x%x\n", __func__, addr);
 
+	//dev_info(sensor->dev, "[%s]: Successful write of val: 0x%x to reg: 0x%x\n", __func__, value, addr);
+
 	return ret;
 }
 #if 0
@@ -425,24 +427,24 @@ static int isx021_set_distortion_correction(struct isx021 *sensor, bool enable)
 	usleep_range(35000, PLUS_10(35000));
 
 	if (enable) {
-		ret = isx021_write(sensor, 0xac58, 0x01);
+		ret = isx021_write(sensor, 0xcc04, 0x01);
 		if (ret)
 			goto fail;
-		usleep_range(35000, PLUS_10(35000));
+		usleep_range(1000, 2000);
 
-		ret = isx021_write(sensor, 0xac59, 0x01);
+		ret = isx021_write(sensor, 0x8ab8, 0x01);
 		if (ret)
 			goto fail;
 	}
 	else {
 		dev_info(sensor->dev, "[%s] : Disable distortion correction.", __func__);
-		ret = isx021_write(sensor, 0xac58, 0x00);
+		ret = isx021_write(sensor, 0xcc04, 0x00);
 		if (ret)
 			goto fail;
 
-		usleep_range(35000, PLUS_10(35000));
+		usleep_range(1000, 2000);
 
-		ret = isx021_write(sensor, 0xac59, 0x00);
+		ret = isx021_write(sensor, 0x8ab8, 0x00);
 		if (ret)
 			goto fail;
 	}
@@ -558,6 +560,8 @@ static int isx021_set_response_mode(struct isx021 *sensor)
 		goto error_exit;
 	}
 
+	usleep_range(120000, PLUS_10(120000));
+
 	usleep_range(100000, PLUS_10(100000));  // For ES3 and MP
 
 	ret = isx021_read(sensor, 0x8a55, &r_val);
@@ -596,7 +600,13 @@ static int isx021_set_fsync_trigger_mode(struct isx021 *sensor)
   usleep_range(120000, PLUS_10(120000));
 
   // set SG_MODE_CTL to 0 for transition to FSYNC mode
+  ret = isx021_write(sensor, 0x8AFF, 0xFF); // (Default stting) FSYNC_DRVABTY[3:2] = 3
+  ret = isx021_write(sensor, 0x8AFE, 0x01); // (Default stting) FSYNC_FUNCSEL[3:2] = 0
 
+  // set SG_MODE_APL to 0 for transition to FSYNC mode
+
+  ret = isx021_write(sensor, 0xbf14, 0x02);
+	      
   ret = isx021_write(sensor, 0x8af0, 0x02);  // set FSYNC mode
 
   if (ret)
@@ -605,10 +615,6 @@ static int isx021_set_fsync_trigger_mode(struct isx021 *sensor)
   }
 
   usleep_range(120000, PLUS_10(120000));
-
-  // set SG_MODE_APL to 0 for transition to FSYNC mode
-
-  ret = isx021_write(sensor, 0xbf14, 0x02);
 
   if (ret)
   {
@@ -809,9 +815,115 @@ static int isx021_setup(struct isx021 *sensor, struct v4l2_subdev_state *state)
 	return ret;
 }
 
+static int isx021_set_operation_mode(struct isx021 *sensor)
+{
+	int ret;
+	
+	ret = isx021_write_mode_set_f_lock_register(sensor, 0x53);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F_LOCK register caused Time out.\n", __func__);
+		return ret;
+	}
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Error writing to 0x8a01.\n", __func__);
+		goto error_exit;
+	}
+
+	ret = isx021_write(sensor, 0xbf04, 0x00);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Error writing to 0xbf04.\n", __func__);
+		goto error_exit;
+	}
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);  // transit to Startup state
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Transition to Startup state failed.\n", __func__);
+		goto error_exit;
+	}
+
+	ret = isx021_write(sensor, 0x8aa8, 0x00);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Padding after embedded data disable failed.\n", __func__);
+		goto error_exit;
+	}
+
+	// disable front embedded data
+	
+	ret = isx021_write(sensor, 0x0171, 0x00);
+	if (ret) {
+                dev_err(sensor->dev, "[%s] : Front embedded data disable failed.\n", __func__);
+                goto error_exit;
+        }
+
+	ret = isx021_write(sensor, 0xbdf8, 0x00);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Front embedded data selection failed.\n", __func__);
+                goto error_exit;
+        }
+
+	ret = isx021_write(sensor, 0xbdfb, 0x12);
+	if (ret) {
+                dev_err(sensor->dev, "[%s] : Default front embedded data type selection failed.\n", __func__);
+                goto error_exit;
+        }
+
+	ret = isx021_write(sensor, 0x0172, 0x00);
+        if (ret) {
+                dev_err(sensor->dev, "[%s] Rear embedded data output selection failed.\n", __func__);
+                goto error_exit;
+        }
+
+	ret = isx021_write(sensor, 0xbdf9, 0x0c);
+        if (ret) {
+                dev_err(sensor->dev, "[%s] : Rear embedded data type selection failed.\n", __func__);
+                goto error_exit;
+        }
+
+	ret = isx021_write(sensor, 0xbdfc, 0x35);
+        if (ret) {
+                dev_err(sensor->dev, "[%s] : Rear embedded data type change failed.\n", __func__);
+                goto error_exit;
+        }
+	
+	ret = isx021_write(sensor, 0xbdfe, 0x1e);
+        if (ret) {
+                dev_err(sensor->dev, "[%s] : Rear embedded data type visibility setup failed.\n", __func__);
+                goto error_exit;
+        }
+
+error_exit:
+	ret = isx021_write_mode_set_f_lock_register(sensor, 0x53);
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F_LOCK register caused Time out.\n", __func__);
+		return ret;
+	}	
+	return ret;
+}
+
 static int isx021_stream_on(struct isx021 *sensor)
 {
 	int i, reg, ret = 0;
+
+	ret = isx021_set_operation_mode(sensor);
+	if (ret)
+		dev_err(sensor->dev, "[%s] : The operation mode setup failed.\n", __func__);
+
+	ret = isx021_write(sensor, 0xbef0, 0x53);
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Write to 0xbef0 failed.\n", __func__);
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Write to 0x8a01 failed.\n", __func__);
+
+	// trigger mode - internal sync setup
+	ret = isx021_write(sensor, 0x8aff, 0xff);
+	ret = isx021_write(sensor, 0x8afe, 0x01);
+
+	ret = isx021_write(sensor, 0xbf14, 0x00);
+	ret = isx021_write(sensor, 0x8af0, 0x00);
 
 	if (sensor->trigger_mode){
 		ret = isx021_set_fsync_trigger_mode(sensor);
@@ -827,9 +939,11 @@ static int isx021_stream_on(struct isx021 *sensor)
 		isx021_framerates[i].reg_24 : isx021_framerates[i].reg_25;
 	ret = isx021_write(sensor, 0x8a70, reg);
 	ret |= isx021_write(sensor, 0x8a71, reg >> 8);
+	ret |= isx021_write(sensor, 0x8a72, 0x00);
 	if (ret)
 		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
 
+	//ret = isx021_write(sensor, 0xbef0, 0x53);
 	ret = isx021_write(sensor, 0x8a01, 0x80);  // transit to Streaming state
 	if (ret)
 		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
@@ -1220,6 +1334,7 @@ static int isx021_probe(struct i2c_client *client)
 	ret = isx021_power_on(sensor);
 	if (ret < 0)
 		return ret;
+	//printk("The power_on function was executed successfully\n");
 
 	/* Initialize the V4L2 subdev. */
 	ret = isx021_subdev_init(sensor);
