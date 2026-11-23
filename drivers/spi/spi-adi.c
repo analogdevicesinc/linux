@@ -780,9 +780,13 @@ static int adi_spi_probe(struct platform_device *pdev)
 
 	controller->dev.of_node = dev->of_node;
 	controller->bus_num = -1;
-	controller->num_chipselect = 8;
-	controller->use_gpio_descriptors = true;
-	controller->set_cs = adi_spi_set_cs;
+
+	if (!spi_mode) {
+		controller->num_chipselect = 8;
+		controller->use_gpio_descriptors = true;
+		controller->set_cs = adi_spi_set_cs;
+	}
+
 	controller->cleanup = adi_spi_cleanup;
 	controller->setup = adi_spi_setup;
 	controller->prepare_message = adi_spi_prepare_message;
