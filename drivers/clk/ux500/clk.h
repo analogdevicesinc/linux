@@ -14,6 +14,7 @@
 
 struct clk;
 struct clk_hw;
+struct regulator;
 
 struct clk *clk_reg_prcc_pclk(const char *name,
 			      const char *parent_name,
@@ -82,7 +83,8 @@ struct clk *clk_reg_sysctrl_gate_fixed_rate(struct device *dev,
 					    u8 reg_bits,
 					    unsigned long rate,
 					    unsigned long enable_delay_us,
-					    unsigned long flags);
+					    unsigned long flags,
+					    struct regulator *supply);
 
 struct clk *clk_reg_sysctrl_set_parent(struct device *dev,
 				       const char *name,
