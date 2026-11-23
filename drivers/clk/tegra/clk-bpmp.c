@@ -376,6 +376,13 @@ static int tegra_bpmp_clk_get_info(struct tegra_bpmp *bpmp, unsigned int id,
 			return -E2BIG;
 	}
 
+	if (response.num_parents > MRQ_CLK_MAX_PARENTS) {
+		dev_err(bpmp->dev,
+			"clock %u has too many parents (%u, max: %u)\n",
+			id, response.num_parents, MRQ_CLK_MAX_PARENTS);
+		return -EINVAL;
+	}
+
 	info->num_parents = response.num_parents;
 
 	for (i = 0; i < info->num_parents; i++)
@@ -452,13 +459,6 @@ static int tegra_bpmp_probe_clocks(struct tegra_bpmp *bpmp,
 		err = tegra_bpmp_clk_get_info(bpmp, id, info);
 		if (err < 0)
 			continue;
-
-		if (info->num_parents >= U8_MAX) {
-			dev_err(bpmp->dev,
-				"clock %u has too many parents (%u, max: %u)\n",
-				id, info->num_parents, U8_MAX);
-			continue;
-		}
 
 		/* clock not exposed by BPMP */
 		if (info->name[0] == '\0') {
