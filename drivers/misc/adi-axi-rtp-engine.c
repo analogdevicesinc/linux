@@ -193,7 +193,6 @@ static int adi_axi_rtp_engine_write_regs(const struct adi_axi_rtp_engine_attribu
 			return regmap_bulk_write(st->regs, ADI_RTP_ENGINE_REG_DEST_MAC_ADDR_LB, &data64, 2);
 		case ADI_RTP_ENGINE_ATTR_SRC_MAC_ADDR:
 			ret = kstrtou64(buf, 0, &data64);
-			printk(KERN_INFO "data64 is %u\n", data64);
 			if (ret)
 				return ret;
 			return regmap_bulk_write(st->regs, ADI_RTP_ENGINE_REG_SRC_MAC_ADDR_LB, &data64, 2);
@@ -262,17 +261,15 @@ static ssize_t adi_axi_rtp_engine_store(struct device *dev,
 
 	ssize_t ret;
 	ret = adi_axi_rtp_engine_write_regs(attr, st, buf) ?: count;
-	if (ret)
-		printk("Error in write_regs\n");
 	return ret;
 }
 
-#define RTP_ENGINE_ATTR(_name, _id, _mode)							\
-	struct adi_axi_rtp_engine_attribute dev_attr_##_name = 			\
-		{															\
-			.attr = __ATTR(_name, _mode, adi_axi_rtp_engine_show,	\
-							adi_axi_rtp_engine_store),				\
-			.id = _id,												\
+#define RTP_ENGINE_ATTR(_name, _id, _mode)						\
+	struct adi_axi_rtp_engine_attribute dev_attr_##_name = 				\
+		{									\
+			.attr = __ATTR(_name, _mode, adi_axi_rtp_engine_show,		\
+							adi_axi_rtp_engine_store),	\
+			.id = _id,							\
 		}
 
 static const RTP_ENGINE_ATTR(version, ADI_RTP_ENGINE_ATTR_VERSION, 0444);
