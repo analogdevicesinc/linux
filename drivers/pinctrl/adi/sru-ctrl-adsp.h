@@ -123,7 +123,7 @@ struct group_combination {
 struct adsp_sru_ctrl {
 	struct device *dev;
 	struct pinctrl_dev *pin_dev;
-	void __iomem *regs;
+	struct regmap *regmap;
 	const char **group_names;
 	unsigned int *pins;
 
