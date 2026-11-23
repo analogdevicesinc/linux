@@ -168,6 +168,17 @@ config AD4695
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad4695.
 
+config AD5940
+	tristate "Analog Devices AD5940/AD5941 ADC Driver"
+	depends on SPI
+	select REGMAP
+	help
+	  Say yes here to build support for the ADC part of Analog Devices
+	  analog front ends AD5940 and AD5941.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad5940.
+
 config AD7091R
 	tristate
 
