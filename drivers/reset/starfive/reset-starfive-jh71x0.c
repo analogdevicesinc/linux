@@ -7,6 +7,7 @@
 
 #include <linux/bitmap.h>
 #include <linux/device.h>
+#include <linux/fwnode.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/reset-controller.h>
@@ -21,12 +22,31 @@ struct jh71x0_reset {
 	void __iomem *assert;
 	void __iomem *status;
 	const u32 *asserted;
+	/* optional hardware reset lines indexed by reset ID, rcdev.nr_resets entries */
+	const unsigned int *map;
 };
 
 static inline struct jh71x0_reset *
 jh71x0_reset_from(struct reset_controller_dev *rcdev)
 {
 	return container_of(rcdev, struct jh71x0_reset, rcdev);
+}
+
+/*
+ * Translate the reset ID of a reset specifier to the hardware reset line once,
+ * when the reset control is requested, so that the reset operations only ever
+ * see hardware reset lines.
+ */
+static int jh71x0_reset_fwnode_xlate(struct reset_controller_dev *rcdev,
+				     const struct fwnode_reference_args *reset_spec)
+{
+	struct jh71x0_reset *data = jh71x0_reset_from(rcdev);
+	unsigned int id = reset_spec->args[0];
+
+	if (id >= rcdev->nr_resets)
+		return -EINVAL;
+
+	return data->map[id];
 }
 
 static int jh71x0_reset_update(struct reset_controller_dev *rcdev,
@@ -132,3 +152,41 @@ int reset_starfive_jh71x0_register(struct device *dev, struct device_node *of_no
 	return devm_reset_controller_register(dev, &data->rcdev);
 }
 EXPORT_SYMBOL_GPL(reset_starfive_jh71x0_register);
+
+int reset_starfive_jh71x0_register_with_info(struct device *dev, struct device_node *of_node,
+					     void __iomem *assert, void __iomem *status,
+					     const u32 *asserted,
+					     const struct jh71x0_reset_info *info,
+					     struct module *owner)
+{
+	struct jh71x0_reset *data;
+	int ret;
+
+	data = devm_kzalloc_obj(dev, *data);
+	if (!data)
+		return -ENOMEM;
+
+	data->rcdev.ops = &jh71x0_reset_ops;
+	data->rcdev.owner = owner;
+	data->rcdev.nr_resets = info->nr_resets;
+	data->rcdev.dev = dev;
+	data->rcdev.of_node = of_node;
+
+	if (info->map) {
+		data->map = info->map;
+		data->rcdev.fwnode_xlate = jh71x0_reset_fwnode_xlate;
+		data->rcdev.fwnode_reset_n_cells = 1;
+	}
+
+	spin_lock_init(&data->lock);
+	data->assert = assert;
+	data->status = status;
+	data->asserted = asserted;
+
+	ret = devm_reset_controller_register(dev, &data->rcdev);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to register reset controller\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(reset_starfive_jh71x0_register_with_info);
