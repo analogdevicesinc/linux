@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/sound/adi,adsp-dai.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADSP DAI (Digital Audio Interface)
+
+maintainers:
+  - Alvin Šipraga <alvin.sipraga@analog.com>
+
+description:
+  Analog Devices ADSP SoCs feature a Digital Audio Interface (DAI) hardware
+  block consisting of several audio-related logical functions. These include a
+  Signal Routing Unit (SRU) for muxing of internal and external audio-related
+  signals; an asynchronous sample rate converter (ASRC); an S/PDIF transceiver;
+  and a Precision Clock Generator (PCG) for serial audio clocks.
+
+  Although logically discrete, the aforementioned functions are all part of the
+  same DAI hardware, with their register addresses partially interleaved. Since
+  they share the same resources, this binding describes them in totality under
+  the headline DAI hardware description.
+
+  The DAI instance (DAI0 or DAI1) is identified by its register address.
+
+properties:
+  compatible:
+    oneOf:
+      - enum:
+          - adi,adsp-sc573-dai
+          - adi,adsp-sc589-dai
+          - adi,adsp-sc598-dai
+          - adi,adsp-sc846-dai
+      - items:
+          - const: adi,adsp-sc594-dai
+          - const: adi,adsp-sc598-dai
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    items:
+      - const: sclk
+
+  adi,pads-syscon:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      phandle to the PADS syscon register block used to enable physical DAI pin
+      input buffers.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,adsp-sc589-dai
+              - adi,adsp-sc598-dai
+              - adi,adsp-sc846-dai
+    then:
+      required:
+        - adi,pads-syscon
+
+additionalProperties: false
+
+examples:
+  - |
+    audio-controller@310ca000 {
+        compatible = "adi,adsp-sc598-dai";
+        reg = <0x310ca000 0x400>;
+        clocks = <&clk 42>;
+        clock-names = "sclk";
+        adi,pads-syscon = <&pads_syscon>;
+    };

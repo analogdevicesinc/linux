@@ -2303,6 +2303,7 @@ F:	Documentation/devicetree/bindings/soc/adi/adi,system-event-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,trigger-routing-unit.yaml
 F:	Documentation/devicetree/bindings/clock/adi,sc5xx-clocks.yaml
 F:	Documentation/devicetree/bindings/pinctrl/adi,adsp-pinctrl.yaml
+F:	Documentation/devicetree/bindings/sound/adi,adsp-dai.yaml
 F:	Documentation/devicetree/bindings/usb/adi,musb.yaml
 F:	arch/arm/boot/dts/adi/*
 F:	arch/arm/configs/sc5*_defconfig
