@@ -689,17 +689,20 @@ static int adi_spi_setup(struct spi_device *spi)
 	if (of_property_read_bool(np, "adi,open-drain-mode"))
 		chip->control |= SPI_CTL_ODM;
 
-	if (of_property_read_bool(np, "adi,psse"))
-		chip->control |= SPI_CTL_PSSE;
-
 	if (spi->mode & SPI_CPOL)
 		chip->control |= SPI_CTL_CPOL;
 	if (spi->mode & SPI_CPHA)
 		chip->control |= SPI_CTL_CPHA;
 	if (spi->mode & SPI_LSB_FIRST)
 		chip->control |= SPI_CTL_LSBF;
-	chip->control |= SPI_CTL_MSTR;
-	chip->control &= ~SPI_CTL_ASSEL;
+
+	if (!spi_controller_is_target(spi->controller)) {
+		chip->control |= SPI_CTL_MSTR;
+		chip->control &= ~SPI_CTL_ASSEL;
+
+		if (of_property_read_bool(np, "adi,psse"))
+			chip->control |= SPI_CTL_PSSE;
+	}
 
 	return 0;
 }
