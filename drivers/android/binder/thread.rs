@@ -549,20 +549,17 @@ impl Thread {
     // mangled symbol names.
     #[export_name = "rust_binder_waitlcl"]
     fn get_work_local(self: &Arc<Self>, wait: bool) -> Result<Option<DLArc<dyn DeliverToRead>>> {
-        {
-            let mut inner = self.inner.lock();
-            if inner.looper_need_return {
-                return Ok(inner.pop_work());
-            }
+        let mut inner = self.inner.lock();
+        if inner.looper_need_return {
+            return Ok(inner.pop_work());
         }
 
         // Try once if the caller does not want to wait.
         if !wait {
-            return self.inner.lock().pop_work().ok_or(EAGAIN).map(Some);
+            return inner.pop_work().ok_or(EAGAIN).map(Some);
         }
 
         // Loop waiting only on the local queue (i.e., not registering with the process queue).
-        let mut inner = self.inner.lock();
         loop {
             if let Some(work) = inner.pop_work() {
                 return Ok(Some(work));
