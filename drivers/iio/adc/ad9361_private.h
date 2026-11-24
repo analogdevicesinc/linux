@@ -431,6 +431,8 @@ struct ad9361_fastlock_entry {
 	u8 flags;
 	u8 alc_orig;
 	u8 alc_written;
+	u8 synth[5];	/* profile words 0-4: integer and fractional words */
+	u8 vco_div;	/* profile word 12, VCO divider */
 };
 
 struct ad9361_fastlock {

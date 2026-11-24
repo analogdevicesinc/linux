@@ -4540,6 +4540,9 @@ static int ad9361_fastlock_load(struct ad9361_rf_phy *phy, bool tx,
 	st->fastlock.entry[tx][profile].flags = FASTLOOK_INIT;
 	st->fastlock.entry[tx][profile].alc_orig = values[15];
 	st->fastlock.entry[tx][profile].alc_written = values[15];
+	memcpy(st->fastlock.entry[tx][profile].synth, values,
+	       sizeof(st->fastlock.entry[tx][profile].synth));
+	st->fastlock.entry[tx][profile].vco_div = values[12] & 0xF;
 
 	return ret;
 }
@@ -4658,11 +4661,25 @@ static int ad9361_fastlock_prepare(struct ad9361_rf_phy *phy, bool tx,
 	return 0;
 }
 
+/*
+ * A fastlock recall retunes the RF synthesizer without clk_set_rate(), so the
+ * clock framework keeps the rate that was set last. RX_RFPLL_INT/TX_RFPLL_INT
+ * are registered with CLK_GET_RATE_NOCACHE: clk_get_rate() runs their
+ * recalc_rate(), which decodes the active fastlock profile, and propagates the
+ * new rate to their child, the RX_RFPLL/TX_RFPLL mux. Every reader of the LO
+ * frequency then sees the frequency the synthesizer is on.
+ */
+static void ad9361_rfpll_int_refresh(struct ad9361_rf_phy *phy, bool tx)
+{
+	clk_get_rate(phy->clks[tx ? TX_RFPLL_INT : RX_RFPLL_INT]);
+}
+
 static int ad9361_fastlock_recall(struct ad9361_rf_phy *phy, bool tx, u32 profile)
 {
 	struct ad9361_rf_phy_state *st = phy->state;
 	u32 offs = 0;
 	u8 curr, new, orig, current_profile;
+	int ret;
 
 	dev_dbg(&phy->spi->dev, "%s: %s Profile %d:",
 		__func__, tx ? "TX" : "RX", profile);
@@ -4699,11 +4716,17 @@ static int ad9361_fastlock_recall(struct ad9361_rf_phy *phy, bool tx, u32 profil
 	ad9361_fastlock_prepare(phy, tx, profile, true);
 	st->fastlock.current_profile[tx] = profile + 1;
 
-	return ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
-			 RX_FAST_LOCK_PROFILE(profile) |
-			 (phy->pdata->trx_fastlock_pinctrl_en[tx] ?
-			 RX_FAST_LOCK_PROFILE_PIN_SELECT : 0) |
-			 RX_FAST_LOCK_MODE_ENABLE);
+	ret = ad9361_spi_write(phy->spi, REG_RX_FAST_LOCK_SETUP + offs,
+			       RX_FAST_LOCK_PROFILE(profile) |
+			       (phy->pdata->trx_fastlock_pinctrl_en[tx] ?
+			       RX_FAST_LOCK_PROFILE_PIN_SELECT : 0) |
+			       RX_FAST_LOCK_MODE_ENABLE);
+	if (ret)
+		return ret;
+
+	ad9361_rfpll_int_refresh(phy, tx);
+
+	return 0;
 }
 
 static int ad9361_fastlock_save(struct ad9361_rf_phy *phy, bool tx,
@@ -6269,16 +6292,19 @@ static unsigned long ad9361_rfpll_recalc_rate(struct clk_hw *hw,
 	}
 
 	if (profile) {
-		bool tx = clk_priv->source == TX_RFPLL_INT;
-		profile = profile - 1;
+		/*
+		 * Decode the active profile from the copy kept when it was
+		 * loaded, rather than reading its words back over SPI.
+		 */
+		struct ad9361_fastlock_entry *e =
+			&st->fastlock.entry[clk_priv->source == TX_RFPLL_INT][profile - 1];
 
-		buf[0] = ad9361_fastlock_readval(phy->spi, tx, profile, 4);
-		buf[1] = ad9361_fastlock_readval(phy->spi, tx, profile, 3);
-		buf[2] = ad9361_fastlock_readval(phy->spi, tx, profile, 2);
-		buf[3] = ad9361_fastlock_readval(phy->spi, tx, profile, 1);
-		buf[4] = ad9361_fastlock_readval(phy->spi, tx, profile, 0);
-		vco_div = ad9361_fastlock_readval(phy->spi, tx, profile, 12) & 0xF;
-
+		buf[0] = e->synth[4];
+		buf[1] = e->synth[3];
+		buf[2] = e->synth[2];
+		buf[3] = e->synth[1];
+		buf[4] = e->synth[0];
+		vco_div = e->vco_div;
 	} else {
 		ad9361_spi_readm(clk_priv->spi, reg, &buf[0], ARRAY_SIZE(buf));
 		vco_div = ad9361_spi_readf(clk_priv->spi, REG_RFPLL_DIVIDERS, div_mask);
