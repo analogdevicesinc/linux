@@ -5,7 +5,7 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 // Parameters for AD9084 device profile
-#define DEVICE_PROFILE_NAME	"id01_uc47_ffsom_8G.bin"
+#define DEVICE_PROFILE_NAME	"ad9088/id01_uc47_ffsom_8G.bin"
 
 #define OUT_CLK_SELECT		XCVR_PROGDIV_CLK
 

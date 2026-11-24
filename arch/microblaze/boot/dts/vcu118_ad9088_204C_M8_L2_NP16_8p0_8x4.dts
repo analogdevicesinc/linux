@@ -10,7 +10,7 @@
  * Copyright (C) 2026 Analog Devices Inc.
  */
 
-#define DEVICE_PROFILE_NAME	"204C_8T8R_M8_L2_NP16_8p0_4x8.bin"
+#define DEVICE_PROFILE_NAME	"ad9088/204C_8T8R_M8_L2_NP16_8p0_4x8.bin"
 
 #define HMC7044_PLL2_FREQ	(2500000000) // 2.5 GHz (2150...3200 MHz range)
 #define AION_VCO_FREQ_HZ	(2500000000) // 2.5 GHz (2375...2625 MHz range)
