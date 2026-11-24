@@ -25,6 +25,7 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
+#include <linux/pm.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
@@ -83,6 +84,7 @@
 
 /* ADMV1355_REG_POWER_DOWN */
 #define ADMV1355_RF_HS_PD_MSK		BIT(1)
+#define ADMV1355_CHIP_PD_MSK		BIT(0)
 
 /* ADMV1355_REG_GAIN_LUT_BYPASS */
 #define ADMV1355_GAIN_LUT_BYPASS_EN_MSK	BIT(0)
@@ -1435,6 +1437,7 @@ static int admv1355_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
+	spi_set_drvdata(spi, indio_dev);
 	st->half_duplex = spi->mode & SPI_3WIRE ||
 			  spi->controller->flags & SPI_CONTROLLER_HALF_DUPLEX;
 
@@ -1513,6 +1516,42 @@ static int admv1355_probe(struct spi_device *spi)
 	return devm_iio_device_register(dev, indio_dev);
 }
 
+/*
+ * Disable the chip while keeping the supplies on, so the register contents
+ * are retained across suspend.
+ */
+static int admv1355_suspend(struct device *dev)
+{
+	struct admv1355_state *st = iio_priv(dev_get_drvdata(dev));
+
+	guard(mutex)(&st->lock);
+
+	gpiod_set_value_cansleep(st->enable_gpio, 0);
+
+	return regmap_set_bits(st->regmap, ADMV1355_REG_POWER_DOWN,
+			       ADMV1355_CHIP_PD_MSK);
+}
+
+static int admv1355_resume(struct device *dev)
+{
+	struct admv1355_state *st = iio_priv(dev_get_drvdata(dev));
+	int ret;
+
+	guard(mutex)(&st->lock);
+
+	ret = regmap_clear_bits(st->regmap, ADMV1355_REG_POWER_DOWN,
+				ADMV1355_CHIP_PD_MSK);
+	if (ret)
+		return ret;
+
+	gpiod_set_value_cansleep(st->enable_gpio, 1);
+
+	return 0;
+}
+
+static DEFINE_SIMPLE_DEV_PM_OPS(admv1355_pm_ops, admv1355_suspend,
+				admv1355_resume);
+
 static const struct spi_device_id admv1355_id[] = {
 	{ "admv1355" },
 	{ }
@@ -1529,6 +1568,7 @@ static struct spi_driver admv1355_driver = {
 	.driver = {
 		.name = "admv1355",
 		.of_match_table = admv1355_of_match,
+		.pm = pm_sleep_ptr(&admv1355_pm_ops),
 	},
 	.probe = admv1355_probe,
 	.id_table = admv1355_id,
