@@ -57,6 +57,9 @@
 #define ADMV1355_REG_LON_TAP		0x306
 #define ADMV1355_REG_ADC_OUT		0x30D
 #define ADMV1355_REG_IF_ENABLE		0x602
+#define ADMV1355_REG_MIXER_GATE		0x700
+#define ADMV1355_REG_BB_SW_NMOS		0x702
+#define ADMV1355_REG_BB_SW_PMOS		0x703
 #define ADMV1355_REG_LO_X4_FILTER	0x800
 #define ADMV1355_REG_LO_X3_FILTER	0x801
 #define ADMV1355_REG_LO_X1_FILTER	0x802
@@ -121,6 +124,14 @@
 					 ADMV1355_IF_LOW_FREQ_EN_MSK)
 #define ADMV1355_INPUT_EN_MSK		GENMASK(3, 0)
 
+/* ADMV1355_REG_MIXER_GATE */
+#define ADMV1355_MIXER_GATE_SELECT_MSK	BIT(5)
+#define ADMV1355_MIXER_GATE_MSK		GENMASK(4, 0)
+
+/* ADMV1355_REG_BB_SW_NMOS / ADMV1355_REG_BB_SW_PMOS */
+#define ADMV1355_BB_SW_SELECT_MSK	BIT(5)
+#define ADMV1355_BB_SW_MSK		GENMASK(4, 0)
+
 /* ADMV1355_REG_RF_BAND_PHASE_Q */
 #define ADMV1355_RF_BAND_SELECT_MSK	BIT(7)
 #define ADMV1355_LO_PHASE_Q_MSK		GENMASK(6, 2)
@@ -155,6 +166,11 @@
 #define ADMV1355_TEMP_OFFSET_MDEG	173000
 #define ADMV1355_TEMP_SCALE_NUM		5000
 #define ADMV1355_TEMP_SCALE_DEN		6
+
+/* Baseband input common-mode voltage */
+#define ADMV1355_BB_VICM_MAX_UV		1550000
+#define ADMV1355_BB_VICM_MANUAL_MAX_UV	500000
+#define ADMV1355_BB_VICM_STEP_UV	50000
 
 #define ADMV1355_LO_FREQ_MIN_HZ		(8850ULL * HZ_PER_MHZ)
 #define ADMV1355_LO_FREQ_MAX_HZ		(27500ULL * HZ_PER_MHZ)
@@ -235,6 +251,31 @@ static const struct admv1355_lo_filter_table admv1355_lo_filter_table_narrow = {
 	.band_high_mhz = 18000,
 };
 
+struct admv1355_mixer_gate {
+	u8 gate;
+	u8 nmos;
+	u8 pmos;
+};
+
+/*
+ * Manual mixer gate bias for the baseband input, needed for a common-mode
+ * voltage of 0.5 V or less, indexed by VICM in 50 mV steps. See datasheet
+ * Rev. A Table 19.
+ */
+static const struct admv1355_mixer_gate admv1355_bb_mixer_gates[] = {
+	{ 0x02, 0x0A, 0x00 },	/* 0 V */
+	{ 0x03, 0x0B, 0x00 },	/* 0.05 V */
+	{ 0x04, 0x0B, 0x00 },	/* 0.1 V */
+	{ 0x05, 0x0C, 0x00 },	/* 0.15 V */
+	{ 0x06, 0x0C, 0x00 },	/* 0.2 V */
+	{ 0x07, 0x0D, 0x00 },	/* 0.25 V */
+	{ 0x08, 0x0D, 0x00 },	/* 0.3 V */
+	{ 0x09, 0x0E, 0x00 },	/* 0.35 V */
+	{ 0x0A, 0x0E, 0x00 },	/* 0.4 V */
+	{ 0x0B, 0x0F, 0x00 },	/* 0.45 V */
+	{ 0x0C, 0x0F, 0x00 },	/* 0.5 V */
+};
+
 struct admv1355_state {
 	struct spi_device *spi;
 	struct regmap *regmap;
@@ -246,6 +287,8 @@ struct admv1355_state {
 	unsigned long lo_rate;
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *enable_gpio;
+	/* Manual mixer gate bias for the baseband input, NULL if automatic */
+	const struct admv1355_mixer_gate *bb_mixer_gate;
 	struct notifier_block nb;
 	/* Serializes multi-register sequences and read-modify-write cycles */
 	struct mutex lock;
@@ -878,15 +921,64 @@ static int admv1355_read_enable(struct admv1355_state *st,
  * The input enables are one-hot: enabling an input disables the other ones.
  * Disabling an input leaves all of them disabled.
  */
+static int admv1355_set_manual_mixer_gate(struct admv1355_state *st,
+					  const struct admv1355_mixer_gate *mg)
+{
+	const struct reg_sequence seq[] = {
+		{ ADMV1355_REG_MIXER_GATE, ADMV1355_MIXER_GATE_SELECT_MSK |
+		  FIELD_PREP(ADMV1355_MIXER_GATE_MSK, mg->gate) },
+		{ ADMV1355_REG_BB_SW_NMOS, ADMV1355_BB_SW_SELECT_MSK |
+		  FIELD_PREP(ADMV1355_BB_SW_MSK, mg->nmos) },
+		{ ADMV1355_REG_BB_SW_PMOS, FIELD_PREP(ADMV1355_BB_SW_MSK, mg->pmos) },
+	};
+
+	return regmap_multi_reg_write(st->regmap, seq, ARRAY_SIZE(seq));
+}
+
+/*
+ * The mixer gate bias is shared by all inputs, so the manual baseband bias
+ * only applies while the baseband input is enabled.
+ */
+static int admv1355_set_mixer_gate(struct admv1355_state *st, bool baseband)
+{
+	int ret;
+
+	if (!st->bb_mixer_gate)
+		return 0;
+
+	if (baseband)
+		return admv1355_set_manual_mixer_gate(st, st->bb_mixer_gate);
+
+	ret = regmap_clear_bits(st->regmap, ADMV1355_REG_MIXER_GATE,
+				ADMV1355_MIXER_GATE_SELECT_MSK);
+	if (ret)
+		return ret;
+
+	return regmap_clear_bits(st->regmap, ADMV1355_REG_BB_SW_NMOS,
+				 ADMV1355_BB_SW_SELECT_MSK);
+}
+
 static int admv1355_write_enable(struct admv1355_state *st,
 				 const struct iio_chan_spec *chan, int val)
 {
+	bool baseband = chan->address == ADMV1355_CHAN_BB;
 	unsigned int mask;
+	int ret;
 
 	if (val != 0 && val != 1)
 		return -EINVAL;
 
 	guard(mutex)(&st->lock);
+
+	/*
+	 * The manual baseband mixer gate bias only applies with baseband on,
+	 * which disabling another input does not change.
+	 */
+	if (val || baseband) {
+		ret = admv1355_set_mixer_gate(st, baseband && val);
+		if (ret)
+			return ret;
+	}
 
 	switch (chan->address) {
 	case ADMV1355_CHAN_BB:
@@ -1264,7 +1356,7 @@ static int admv1355_setup(struct admv1355_state *st)
 	st->if_complex_band = val & ADMV1355_IF_HIGH_FREQ_EN_MSK ?
 			      ADMV1355_BAND_HIGH : ADMV1355_BAND_LOW;
 
-	return 0;
+	return admv1355_set_mixer_gate(st, val & ADMV1355_BB_EN_MSK);
 }
 
 static int admv1355_get_chip_addr(struct admv1355_state *st)
@@ -1286,6 +1378,34 @@ static int admv1355_get_chip_addr(struct admv1355_state *st)
 				     addr, ADMV1355_SPI_CHIP_ADDR_MAX);
 
 	st->chip_addr = addr;
+
+	return 0;
+}
+
+static int admv1355_get_bb_vicm(struct admv1355_state *st)
+{
+	struct device *dev = &st->spi->dev;
+	u32 vicm;
+	int ret;
+
+	ret = device_property_read_u32(dev, "adi,baseband-vicm-microvolt", &vicm);
+	if (ret == -EINVAL)
+		return 0;
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "failed to read adi,baseband-vicm-microvolt\n");
+
+	if (vicm > ADMV1355_BB_VICM_MAX_UV)
+		return dev_err_probe(dev, -EINVAL,
+				     "baseband VICM %u uV out of range\n", vicm);
+
+	/* The mixer gate bias is set automatically above 0.5 V */
+	if (vicm > ADMV1355_BB_VICM_MANUAL_MAX_UV)
+		return 0;
+
+	st->bb_mixer_gate =
+		&admv1355_bb_mixer_gates[DIV_ROUND_CLOSEST(vicm,
+							   ADMV1355_BB_VICM_STEP_UV)];
 
 	return 0;
 }
@@ -1319,6 +1439,10 @@ static int admv1355_probe(struct spi_device *spi)
 			  spi->controller->flags & SPI_CONTROLLER_HALF_DUPLEX;
 
 	ret = admv1355_get_chip_addr(st);
+	if (ret)
+		return ret;
+
+	ret = admv1355_get_bb_vicm(st);
 	if (ret)
 		return ret;
 
