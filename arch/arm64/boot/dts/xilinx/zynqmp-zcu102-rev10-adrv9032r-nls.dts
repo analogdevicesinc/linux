@@ -165,10 +165,10 @@
 			<&axi_adrv903x_rx_os_jesd 0 FRAMER1_LINK_RX>,
 			<&axi_adrv903x_core_tx 0 DEFRAMER0_LINK_TX>;
 
-		adi,device-config-name = "ADRV9030_DeviceProfileTest_M4.bin";
-		adi,arm-firmware-name = "ADRV9030_FW.bin";
-		adi,stream-firmware-name = "ADRV9030_stream_image.bin";
-		adi,rx-gaintable-names = "ADRV9030_RxGainTable.csv";
+		adi,device-config-name = "adrv903x/ADRV9030_DeviceProfileTest_M4.bin";
+		adi,arm-firmware-name = "adrv903x/ADRV9030_FW.bin";
+		adi,stream-firmware-name = "adrv903x/ADRV9030_stream_image.bin";
+		adi,rx-gaintable-names = "adrv903x/ADRV9030_RxGainTable.csv";
 		adi,rx-gaintable-channel-masks = <0xFF>;
 	};
 };
