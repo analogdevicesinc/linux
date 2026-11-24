@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-only
+config COMMON_CLK_AD9508
+	tristate
+	select REGMAP
+
+config COMMON_CLK_AD9508_SPI
+	tristate "Analog Devices AD9508 clock fanout buffer (SPI)"
+	depends on SPI
+	select COMMON_CLK_AD9508
+	help
+	  Say yes here to build support for the Analog Devices AD9508 1.65 GHz
+	  clock fanout buffer with output dividers and phase offset adjust,
+	  controlled over SPI.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called clk-ad9508-spi.
