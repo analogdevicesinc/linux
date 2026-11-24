@@ -863,7 +863,7 @@ static void spinand_cont_read_init(struct spinand_device *spinand)
 	enum nand_ecc_engine_type engine_type = nand->ecc.ctx.conf.engine_type;
 
 	/* OOBs cannot be retrieved so external/on-host ECC engine won't work */
-	if (spinand->set_cont_read &&
+	if (spinand->set_cont_read && spinand->op_templates.cont_read_cache &&
 	    (engine_type == NAND_ECC_ENGINE_TYPE_ON_DIE ||
 	     engine_type == NAND_ECC_ENGINE_TYPE_NONE)) {
 		spinand->cont_read_possible = true;

@@ -136,9 +136,12 @@
 #define CDNS_XSPI_READ_SEQ_CFG0_REG		0x0430
 #define CDNS_XSPI_READ_SEQ_CFG0_CMD_VALUE	GENMASK(7, 0)
 #define CDNS_XSPI_READ_SEQ_CFG0_CMD_IOS		GENMASK(9, 8)
+#define CDNS_XSPI_READ_SEQ_CFG0_CMD_EDGE	BIT(11)
 #define CDNS_XSPI_READ_SEQ_CFG0_ADDR_CNT	GENMASK(14, 12)
 #define CDNS_XSPI_READ_SEQ_CFG0_ADDR_IOS	GENMASK(17, 16)
+#define CDNS_XSPI_READ_SEQ_CFG0_ADDR_EDGE	BIT(19)
 #define CDNS_XSPI_READ_SEQ_CFG0_DAT_IOS		GENMASK(21, 20)
+#define CDNS_XSPI_READ_SEQ_CFG0_DAT_EDGE	BIT(23)
 #define CDNS_XSPI_READ_SEQ_CFG0_DMY_CNT		GENMASK(29, 24)
 
 /*
@@ -896,9 +899,17 @@ static void cdns_xspi_acmd_setup_read_seq(struct cdns_xspi_dev *cdns_xspi,
 	       FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_DAT_IOS,
 			  ilog2(op->data.buswidth));
 
+	if (op->cmd.dtr)
+		cfg0 |= CDNS_XSPI_READ_SEQ_CFG0_CMD_EDGE;
+	if (op->addr.dtr)
+		cfg0 |= CDNS_XSPI_READ_SEQ_CFG0_ADDR_EDGE;
+	if (op->data.dtr)
+		cfg0 |= CDNS_XSPI_READ_SEQ_CFG0_DAT_EDGE;
+
 	if (op->dummy.nbytes && op->dummy.buswidth)
 		cfg0 |= FIELD_PREP(CDNS_XSPI_READ_SEQ_CFG0_DMY_CNT,
-				   (op->dummy.nbytes * 8) / op->dummy.buswidth);
+				   (op->dummy.nbytes * 8) / op->dummy.buswidth /
+				   (op->dummy.dtr ? 2 : 1));
 
 	writel(cfg0, cdns_xspi->iobase + CDNS_XSPI_READ_SEQ_CFG0_REG);
 }
@@ -974,8 +985,20 @@ static bool cdns_xspi_acmd_can_read(const struct spi_mem_op *op)
 	if (op->data.dir != SPI_MEM_DATA_IN || !op->addr.nbytes)
 		return false;
 
-	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr)
-		return false;
+	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr) {
+		/*
+		 * The W25N02JW continuous 1S-4D-4D read uses one ignored
+		 * address byte and ten DDR dummy bytes (ten clock cycles).
+		 * Keep ordinary two-address-byte DTR cache reads on STIG.
+		 */
+		if (op->cmd.opcode != 0xed || op->cmd.nbytes != 1 ||
+		    op->cmd.buswidth != 1 || op->cmd.dtr ||
+		    op->addr.nbytes != 1 || op->addr.buswidth != 4 ||
+		    !op->addr.dtr || op->dummy.nbytes != 10 ||
+		    op->dummy.buswidth != 4 || !op->dummy.dtr ||
+		    op->data.buswidth != 4 || !op->data.dtr)
+			return false;
+	}
 
 	return op->data.nbytes >= CDNS_XSPI_ACMD_MIN_BYTES;
 }
