@@ -1923,6 +1923,7 @@ M:	Rodrigo Alencar <rodrigo.alencar@analog.com>
 L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
+F:	Documentation/ABI/testing/sysfs-bus-iio-frequency-admv1355
 F:	Documentation/devicetree/bindings/iio/frequency/adi,admv1355.yaml
 F:	drivers/iio/frequency/admv1355.c
 

@@ -576,6 +576,8 @@ Description:
 		for gyroscope)/
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_accel_calibbias_available
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_i_calibbias_available
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_q_calibbias_available
 What:		/sys/bus/iio/devices/iio:deviceX/in_anglvel_calibbias_available
 What:		/sys/bus/iio/devices/iio:deviceX/in_temp_calibbias_available
 What:		/sys/bus/iio/devices/iio:deviceX/in_proximity_calibbias_available
@@ -718,6 +720,9 @@ Description:
 		yield value with any standardized unit.
 
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_i_hardwaregain
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_q_hardwaregain
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_hardwaregain
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_red_hardwaregain
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_green_hardwaregain
@@ -731,11 +736,15 @@ Description:
 		<type>_hardwaregain is used.
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_intensity_hardwaregain_available
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_hardwaregain_available
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_i_hardwaregain_available
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_q_hardwaregain_available
 KernelVersion:	5.10
 Contact:	linux-iio@vger.kernel.org
 Description:
-		Lists all available hardware applied gain factors. Shared across all
-		channels.
+		Lists all available hardware applied gain factors, shared across
+		all channels of the type, or of channel Y if the attribute name
+		includes its index.
 
 What:		/sys/.../in_accel_filter_low_pass_3db_frequency
 What:		/sys/.../in_magn_filter_low_pass_3db_frequency
@@ -838,6 +847,13 @@ Description:
 		disconnected from the amplifier. Clearing returns to normal
 		operation. Y may be suppressed if all outputs are controlled
 		together.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_frequency
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Frequency of the signal at input channel Y, in Hz, such as the
+		local oscillator (LO) input of a mixer.
 
 What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_frequency
 What:		/sys/bus/iio/devices/iio:deviceX/out_altcurrentY_frequency
@@ -2180,8 +2196,10 @@ Description:
 		Raw counter device counters direction for channel Y.
 
 What:		/sys/bus/iio/devices/iio:deviceX/in_altcurrentY_label
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_label
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY_label
 What:		/sys/bus/iio/devices/iio:deviceX/out_altcurrentY_label
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_label
 What:		/sys/bus/iio/devices/iio:deviceX/out_voltageY_label
 KernelVersion:	5.8
 Contact:	linux-iio@vger.kernel.org
@@ -2462,6 +2480,7 @@ Description:
 
 What:		/sys/bus/iio/devices/iio:deviceX/filter_type_available
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltage-voltage_filter_type_available
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_filter_type_available
 KernelVersion:	6.1
 Contact:	linux-iio@vger.kernel.org
 Description:
@@ -2499,10 +2518,17 @@ Description:
 		* "sinc6" - The digital sinc6 filter. balance between noise
 		  rejection and settling time.
 		* "wideband" - filter with wideband low ripple passband
-		  and sharp transition band.
+		  and sharp transition band. For tunable filters, a setting
+		  covering a wide frequency range, for signals whose frequency
+		  changes continuously, at the expense of rejection.
+		* "narrowband" - Tunable filter set for a narrow frequency
+		  range around the signal, for the best rejection of
+		  unwanted content. Needs retuning when the signal frequency
+		  changes.
 
 What:		/sys/bus/iio/devices/iio:deviceX/filter_type
 What:		/sys/bus/iio/devices/iio:deviceX/in_voltageY-voltageZ_filter_type
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_filter_type
 KernelVersion:	6.1
 Contact:	linux-iio@vger.kernel.org
 Description:
