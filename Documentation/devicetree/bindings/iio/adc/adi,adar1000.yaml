@@ -78,7 +78,7 @@ examples:
       dev@0 {
         reg = <0>;
         label = "BEAM0";
-        adi,phasetable-name = "adar1000_std_phasetable";
+        adi,phasetable-name = "adar1000/adar1000_std_phasetable";
       };
       dev@1 {
         reg = <1>;
