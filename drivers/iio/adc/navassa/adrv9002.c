@@ -3388,13 +3388,13 @@ static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 			       phy->stream_buf, phy->stream_size, spi_mode);
 	else
 		ret = api_call(phy, adi_adrv9001_Utilities_StreamImage_Load,
-			       "Navassa_Stream.bin", spi_mode);
+			       "adrv9002/Navassa_Stream.bin", spi_mode);
 	if (ret)
 		return ret;
 
 	/* program arm firmware */
 	ret = api_call(phy, adi_adrv9001_Utilities_ArmImage_Load,
-		       "Navassa_EvaluationFw.bin", spi_mode);
+		       "adrv9002/Navassa_EvaluationFw.bin", spi_mode);
 	if (ret)
 		return ret;
 
@@ -3415,16 +3415,16 @@ static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 		const char *rx_table;
 
 		if (p->gainTableType) {
-			rx_table = "RxGainTable_GainCompensated.csv";
+			rx_table = "adrv9002/RxGainTable_GainCompensated.csv";
 			t_type = ADI_ADRV9001_RX_GAIN_COMPENSATION_TABLE;
 		} else {
-			rx_table = "RxGainTable.csv";
+			rx_table = "adrv9002/RxGainTable.csv";
 			t_type = ADI_ADRV9001_RX_GAIN_CORRECTION_TABLE;
 		}
 
 		if (rx->orx_en || tx->channel.enabled) {
 			ret = api_call(phy, adi_adrv9001_Utilities_RxGainTable_Load, ADI_ORX,
-				       "ORxGainTable.csv", rx->channel.number, &p->lnaConfig,
+				       "adrv9002/ORxGainTable.csv", rx->channel.number, &p->lnaConfig,
 				       t_type);
 			if (ret)
 				return ret;
@@ -3444,7 +3444,7 @@ static int adrv9002_digital_init(const struct adrv9002_rf_phy *phy)
 
 	if (tx_mask) {
 		ret = api_call(phy, adi_adrv9001_Utilities_TxAttenTable_Load,
-			       "TxAttenTable.csv", tx_mask);
+			       "adrv9002/TxAttenTable.csv", tx_mask);
 		if (ret)
 			return ret;
 	}
@@ -5404,10 +5404,10 @@ static int adrv9002_probe(struct spi_device *spi)
 static const struct adrv9002_chip_info adrv9002_info = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile.json",
-	.lvd_profile = "Navassa_LVDS_profile.json",
-	.cmos_cals = "Navassa_CMOS_init_cals.bin",
-	.lvds_cals = "Navassa_LVDS_init_cals.bin",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile.json",
+	.cmos_cals = "adrv9002/Navassa_CMOS_init_cals.bin",
+	.lvds_cals = "adrv9002/Navassa_LVDS_init_cals.bin",
 	.name = "adrv9002-phy",
 	.id = ID_ADRV9002,
 	.n_rx = ADRV9002_CHANN_MAX,
@@ -5418,10 +5418,10 @@ static const struct adrv9002_chip_info adrv9002_info = {
 static const struct adrv9002_chip_info adrv9002_info_rx2tx2 = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile.json",
-	.lvd_profile = "Navassa_LVDS_profile.json",
-	.cmos_cals = "Navassa_CMOS_init_cals.bin",
-	.lvds_cals = "Navassa_LVDS_init_cals.bin",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile.json",
+	.cmos_cals = "adrv9002/Navassa_CMOS_init_cals.bin",
+	.lvds_cals = "adrv9002/Navassa_LVDS_init_cals.bin",
 	.name = "adrv9002-phy",
 	.id = ID_ADRV9002_RX2TX2,
 	.n_rx = ADRV9002_CHANN_MAX,
@@ -5433,10 +5433,10 @@ static const struct adrv9002_chip_info adrv9002_info_rx2tx2 = {
 static const struct adrv9002_chip_info adrv9003_info = {
 	.channels = adrv9003_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
-	.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
-	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9003.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9003.json",
+	.cmos_cals = "adrv9002/Navassa_CMOS_init_cals_adrv9003.bin",
+	.lvds_cals = "adrv9002/Navassa_LVDS_init_cals_adrv9003.bin",
 	.name = "adrv9003-phy",
 	.id = ID_ADRV9003,
 	.n_rx = ADRV9002_CHANN_MAX,
@@ -5446,10 +5446,10 @@ static const struct adrv9002_chip_info adrv9003_info = {
 static const struct adrv9002_chip_info adrv9003_info_rx2tx2 = {
 	.channels = adrv9003_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9003_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9003.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9003.json",
-	.cmos_cals = "Navassa_CMOS_init_cals_adrv9003.bin",
-	.lvds_cals = "Navassa_LVDS_init_cals_adrv9003.bin",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9003.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9003.json",
+	.cmos_cals = "adrv9002/Navassa_CMOS_init_cals_adrv9003.bin",
+	.lvds_cals = "adrv9002/Navassa_LVDS_init_cals_adrv9003.bin",
 	.name = "adrv9003-phy",
 	.id = ID_ADRV9003_RX2TX2,
 	.n_rx = ADRV9002_CHANN_MAX,
@@ -5460,8 +5460,8 @@ static const struct adrv9002_chip_info adrv9003_info_rx2tx2 = {
 static const struct adrv9002_chip_info adrv9004_info = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9004.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9004.json",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9004.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9004.json",
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9004.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9004.bin",
 	.name = "adrv9004-phy",
@@ -5473,8 +5473,8 @@ static const struct adrv9002_chip_info adrv9004_info = {
 static const struct adrv9002_chip_info adrv9004_info_rx2tx2 = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9004.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9004.json",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9004.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9004.json",
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9004.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9004.bin",
 	.name = "adrv9004-phy",
@@ -5487,8 +5487,8 @@ static const struct adrv9002_chip_info adrv9004_info_rx2tx2 = {
 static const struct adrv9002_chip_info adrv9005_info = {
 	.channels = adrv9005_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9005_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9005.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9005.json",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9005.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9005.json",
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9005.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9005.bin",
 	.name = "adrv9005-phy",
@@ -5502,8 +5502,8 @@ static const struct adrv9002_chip_info adrv9005_info = {
 static const struct adrv9002_chip_info adrv9006_info = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9006.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9006.json",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9006.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9006.json",
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9006.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9006.bin",
 	.name = "adrv9006-phy",
@@ -5517,8 +5517,8 @@ static const struct adrv9002_chip_info adrv9006_info = {
 static const struct adrv9002_chip_info adrv9006_info_rx2tx2 = {
 	.channels = adrv9002_phy_chan,
 	.num_channels = ARRAY_SIZE(adrv9002_phy_chan),
-	.cmos_profile = "Navassa_CMOS_profile_adrv9006.json",
-	.lvd_profile = "Navassa_LVDS_profile_adrv9006.json",
+	.cmos_profile = "adrv9002/Navassa_CMOS_profile_adrv9006.json",
+	.lvd_profile = "adrv9002/Navassa_LVDS_profile_adrv9006.json",
 	.cmos_cals = "Navassa_CMOS_init_cals_adrv9006.bin",
 	.lvds_cals = "Navassa_LVDS_init_cals_adrv9006.bin",
 	.name = "adrv9006-phy",
