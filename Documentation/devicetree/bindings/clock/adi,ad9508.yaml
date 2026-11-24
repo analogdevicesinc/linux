@@ -1,0 +1,221 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2026 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/clock/adi,ad9508.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD9508 Clock Fanout Buffer
+
+maintainers:
+  - Rodrigo Alencar <rodrigo.alencar@analog.com>
+
+description:
+  The AD9508 is a 1.65 GHz clock fanout buffer with four outputs. Each
+  output has a 10-bit integer divider (1 to 1024), a coarse phase offset in
+  steps of half an input clock period and an LVDS, HSTL or 1.8 V CMOS driver.
+
+  The device is controlled over SPI or I2C, as selected by the PROG_SEL pin.
+  In I2C mode the 7-bit address is 0x6c to 0x6f, set by the S4 and S5 pins.
+
+  Divider and phase offset changes take effect on the rising edge of the
+  active low SYNC signal, either the SYNC pin or a software SYNC bit. While
+  SYNC is asserted, every output that is not masked from synchronization is
+  held low.
+
+  https://www.analog.com/media/en/technical-documentation/data-sheets/AD9508.pdf
+
+properties:
+  compatible:
+    const: adi,ad9508
+
+  reg:
+    maxItems: 1
+    description: SPI chip select or I2C address.
+
+  clocks:
+    items:
+      - description: CLK input.
+
+  '#clock-cells':
+    const: 1
+
+  clock-output-names:
+    minItems: 1
+    maxItems: 4
+
+  vdd-supply:
+    description: 2.5 V or 3.3 V power supply (VDD pins).
+
+  reset-gpios:
+    description: GPIO connected to the active low RESET pin.
+    maxItems: 1
+
+  sync-gpios:
+    description:
+      GPIO connected to the active low SYNC pin. When absent, the software
+      SYNC bit is used to synchronize the outputs.
+    maxItems: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+patternProperties:
+  "^clock-output@[0-3]$":
+    type: object
+    description: Configuration of one output channel.
+    additionalProperties: false
+
+    properties:
+      reg:
+        description: Output channel index.
+        maximum: 3
+
+      adi,output-mode:
+        description:
+          Output driver mode. LVDS modes are expressed as multiples of the
+          nominal 3.5 mA output current. In CMOS mode the OUTx and
+          complementary OUTx pins are two single-ended 1.8 V CMOS outputs,
+          configured with adi,cmos-p-mode and adi,cmos-n-mode.
+        $ref: /schemas/types.yaml#/definitions/string
+        enum:
+          - lvds-0.5x
+          - lvds-0.75x
+          - lvds
+          - lvds-1.25x
+          - hstl
+          - hstl-boost
+          - cmos
+        default: lvds
+
+      adi,output-polarity:
+        description:
+          State of the LVDS or HSTL differential driver, either the output
+          clock, the inverted output clock or a static logic level.
+        $ref: /schemas/types.yaml#/definitions/string
+        enum: [normal, inverted, force-high, force-low]
+        default: normal
+
+      adi,cmos-p-mode:
+        description:
+          State of the OUTx pin CMOS driver, either off, the output clock,
+          the inverted output clock or a static logic level.
+        $ref: /schemas/types.yaml#/definitions/string
+        enum: [disabled, normal, inverted, force-high, force-low]
+        default: normal
+
+      adi,cmos-n-mode:
+        description:
+          State of the complementary OUTx pin CMOS driver, with the same
+          values as adi,cmos-p-mode. The default makes the two pins
+          complementary, like a differential output.
+        $ref: /schemas/types.yaml#/definitions/string
+        enum: [disabled, normal, inverted, force-high, force-low]
+        default: inverted
+
+      adi,sync-ignore:
+        description:
+          Exclude this output from the synchronization of the other outputs,
+          so that it keeps toggling when the others are synchronized. The
+          phase offset of an excluded output cannot be adjusted.
+        type: boolean
+
+      adi,output-delay-ps:
+        description:
+          Delay of this output relative to the other synchronized outputs,
+          for instance to compensate for board trace length mismatches. The
+          delay is applied by the phase offset, in steps of half an input
+          clock period, up to 2047 steps. It is kept when the output divider
+          is changed.
+
+    required:
+      - reg
+
+    allOf:
+      - if:
+          required:
+            - adi,output-mode
+          properties:
+            adi,output-mode:
+              const: cmos
+        then:
+          properties:
+            adi,output-polarity: false
+        else:
+          properties:
+            adi,cmos-p-mode: false
+            adi,cmos-n-mode: false
+      - if:
+          required:
+            - adi,sync-ignore
+        then:
+          properties:
+            adi,output-delay-ps: false
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - '#clock-cells'
+  - vdd-supply
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        clock-controller@0 {
+            compatible = "adi,ad9508";
+            reg = <0>;
+            spi-max-frequency = <10000000>;
+            clocks = <&ref_clk>;
+            #clock-cells = <1>;
+            clock-output-names = "ad9508-out0", "ad9508-out1",
+                                 "ad9508-out2", "ad9508-out3";
+            vdd-supply = <&vdd_3v3>;
+            reset-gpios = <&gpio 10 GPIO_ACTIVE_LOW>;
+            sync-gpios = <&gpio 11 GPIO_ACTIVE_LOW>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            clock-output@0 {
+                reg = <0>;
+                adi,output-mode = "hstl";
+                adi,output-polarity = "inverted";
+                adi,output-delay-ps = <500>;
+            };
+
+            clock-output@3 {
+                reg = <3>;
+                adi,output-mode = "cmos";
+                adi,cmos-n-mode = "disabled";
+                adi,sync-ignore;
+            };
+        };
+    };
+
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        clock-controller@6c {
+            compatible = "adi,ad9508";
+            reg = <0x6c>;
+            clocks = <&ref_clk>;
+            #clock-cells = <1>;
+            vdd-supply = <&vdd_3v3>;
+        };
+    };
+...
