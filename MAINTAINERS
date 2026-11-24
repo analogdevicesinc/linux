@@ -1924,6 +1924,7 @@ L:	linux-iio@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/iio/frequency/adi,admv1355.yaml
+F:	drivers/iio/frequency/admv1355.c
 
 ANALOG DEVICES INC ADMV8818 DRIVER
 M:	Antoniu Miclaus <antoniu.miclaus@analog.com>
