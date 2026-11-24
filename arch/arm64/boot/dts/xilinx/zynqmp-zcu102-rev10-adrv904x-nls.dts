@@ -17,7 +17,7 @@
 
 	jesd204-ignore-errors;
 
-	adi,device-config-name = "DeviceProfileTest_NLS.bin";
+	adi,device-config-name = "adrv904x/DeviceProfileTest_NLS.bin";
 
 	jesd204-device;
 	#jesd204-cells = <2>;
