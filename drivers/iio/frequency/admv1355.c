@@ -54,6 +54,7 @@
 #define ADMV1355_REG_ADC_MUX		0x2A7
 #define ADMV1355_REG_ADC_CTRL		0x300
 #define ADMV1355_REG_ADC_LON_CTRL	0x302
+#define ADMV1355_REG_LON_CURRENT	0x304
 #define ADMV1355_REG_LON_SELECT		0x305
 #define ADMV1355_REG_LON_TAP		0x306
 #define ADMV1355_REG_ADC_OUT		0x30D
@@ -99,6 +100,7 @@
 #define ADMV1355_HPF_BYPASS_VALUE_MSK	GENMASK(5, 0)
 
 /* ADMV1355_REG_ADC_MUX */
+#define ADMV1355_ADC_MUX_LON		0x00
 #define ADMV1355_ADC_MUX_TEMP		0x01
 
 /* ADMV1355_REG_ADC_CTRL */
@@ -106,8 +108,12 @@
 #define ADMV1355_ADC_CLK_EN_MSK		BIT(0)
 
 /* ADMV1355_REG_ADC_LON_CTRL */
+#define ADMV1355_LON_CURRENT_SEL_MSK	BIT(5)
 #define ADMV1355_LON_AUTO_EN_MSK	BIT(2)
 #define ADMV1355_ADC_RESET_MSK		BIT(1)
+
+/* ADMV1355_REG_LON_CURRENT */
+#define ADMV1355_LON_CURRENT_OPT	0x1F
 
 /* ADMV1355_REG_LON_SELECT */
 #define ADMV1355_LON_EN_MSK		BIT(5)
@@ -115,6 +121,8 @@
 #define ADMV1355_LON_I_SELECT_MSK	BIT(0)
 
 /* ADMV1355_REG_LON_TAP */
+#define ADMV1355_RF_LB_ENV_TAP_MSK	BIT(5)
+#define ADMV1355_RF_HB_ENV_TAP_MSK	BIT(4)
 #define ADMV1355_LON_RESET_MSK		BIT(1)
 
 /* ADMV1355_REG_IF_ENABLE */
@@ -176,6 +184,9 @@
 
 #define ADMV1355_LO_FREQ_MIN_HZ		(8850ULL * HZ_PER_MHZ)
 #define ADMV1355_LO_FREQ_MAX_HZ		(27500ULL * HZ_PER_MHZ)
+/* Automatic LO nulling is supported from this LO input frequency */
+#define ADMV1355_LON_FREQ_MIN_HZ	(12500ULL * HZ_PER_MHZ)
+#define ADMV1355_LON_SETTLE_US		1000
 
 enum admv1355_band {
 	ADMV1355_BAND_LOW,
@@ -666,6 +677,125 @@ static ssize_t admv1355_write_calibphase(struct iio_dev *indio_dev,
 	return len;
 }
 
+static const unsigned int admv1355_lon_saved_regs[] = {
+	ADMV1355_REG_POWER_DOWN,
+	ADMV1355_REG_ADC_MUX,
+};
+
+/* Automatic LO nulling, see datasheet Rev. A p. 72 */
+static const struct reg_sequence admv1355_lon_setup_seq[] = {
+	{ ADMV1355_REG_ADC_LON_CTRL, ADMV1355_ADC_RESET_MSK },
+	{ ADMV1355_REG_ADC_CTRL, ADMV1355_ADC_EN_MSK | ADMV1355_ADC_CLK_EN_MSK },
+	{ ADMV1355_REG_LON_TAP, ADMV1355_LON_RESET_MSK },
+	/* Also selects the automatic I/Q offsets */
+	{ ADMV1355_REG_LON_SELECT, ADMV1355_LON_EN_MSK },
+	{ ADMV1355_REG_POWER_DOWN, 0x00 },
+	{ ADMV1355_REG_ADC_MUX, ADMV1355_ADC_MUX_LON },
+};
+
+/* Run after tapping the envelope detector of the selected RF band */
+static const struct reg_sequence admv1355_lon_run_seq[] = {
+	{ ADMV1355_REG_ADC_LON_CTRL,
+	  ADMV1355_LON_CURRENT_SEL_MSK | ADMV1355_ADC_RESET_MSK },
+	{ ADMV1355_REG_LON_CURRENT, ADMV1355_LON_CURRENT_OPT },
+	{ ADMV1355_REG_ADC_LON_CTRL,
+	  ADMV1355_LON_CURRENT_SEL_MSK | ADMV1355_LON_AUTO_EN_MSK |
+	  ADMV1355_ADC_RESET_MSK, ADMV1355_LON_SETTLE_US },
+};
+
+static const struct reg_sequence admv1355_lon_stop_seq[] = {
+	{ ADMV1355_REG_ADC_LON_CTRL,
+	  ADMV1355_LON_CURRENT_SEL_MSK | ADMV1355_ADC_RESET_MSK },
+	{ ADMV1355_REG_LON_TAP, ADMV1355_LON_RESET_MSK },
+	{ ADMV1355_REG_ADC_CTRL, 0x00 },
+};
+
+static int admv1355_lon_start(struct admv1355_state *st, unsigned int tap)
+{
+	int ret;
+
+	ret = regmap_multi_reg_write(st->regmap, admv1355_lon_setup_seq,
+				     ARRAY_SIZE(admv1355_lon_setup_seq));
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADMV1355_REG_LON_TAP,
+			   tap | ADMV1355_LON_RESET_MSK);
+	if (ret)
+		return ret;
+
+	return regmap_multi_reg_write(st->regmap, admv1355_lon_run_seq,
+				      ARRAY_SIZE(admv1355_lon_run_seq));
+}
+
+static int admv1355_run_lo_nulling(struct admv1355_state *st)
+{
+	unsigned int saved[ARRAY_SIZE(admv1355_lon_saved_regs)];
+	unsigned int val, tap, i;
+	int ret, ret2;
+
+	/* Only supported with the IF inputs, and for LO >= 12.5 GHz */
+	ret = regmap_read(st->regmap, ADMV1355_REG_IF_ENABLE, &val);
+	if (ret)
+		return ret;
+
+	if (!(val & (ADMV1355_IF_COMPLEX_EN_MSK | ADMV1355_IF_HYBRID_EN_MSK)))
+		return -EBUSY;
+
+	if ((u64)st->lo_rate < ADMV1355_LON_FREQ_MIN_HZ)
+		return -EINVAL;
+
+	ret = regmap_read(st->regmap, ADMV1355_REG_RF_BAND_PHASE_Q, &val);
+	if (ret)
+		return ret;
+
+	tap = val & ADMV1355_RF_BAND_SELECT_MSK ? ADMV1355_RF_HB_ENV_TAP_MSK :
+						  ADMV1355_RF_LB_ENV_TAP_MSK;
+
+	for (i = 0; i < ARRAY_SIZE(admv1355_lon_saved_regs); i++) {
+		ret = regmap_read(st->regmap, admv1355_lon_saved_regs[i],
+				  &saved[i]);
+		if (ret)
+			return ret;
+	}
+
+	ret = admv1355_lon_start(st, tap);
+
+	/* Stop the loop and restore the previous state, even on failure */
+	ret2 = regmap_multi_reg_write(st->regmap, admv1355_lon_stop_seq,
+				      ARRAY_SIZE(admv1355_lon_stop_seq));
+	for (i = 0; i < ARRAY_SIZE(admv1355_lon_saved_regs) && !ret2; i++)
+		ret2 = regmap_write(st->regmap, admv1355_lon_saved_regs[i],
+				    saved[i]);
+
+	return ret ?: ret2;
+}
+
+static ssize_t admv1355_write_lon_calibration(struct iio_dev *indio_dev,
+					      uintptr_t private,
+					      const struct iio_chan_spec *chan,
+					      const char *buf, size_t len)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+	bool run;
+	int ret;
+
+	ret = kstrtobool(buf, &run);
+	if (ret)
+		return ret;
+
+	if (!run)
+		return -EINVAL;
+
+	guard(mutex)(&st->lock);
+
+	ret = admv1355_run_lo_nulling(st);
+	if (ret)
+		return ret;
+
+	return len;
+}
+
 static const struct iio_chan_spec_ext_info admv1355_rf_ext_info[] = {
 	IIO_ENUM("band", IIO_SEPARATE, &admv1355_rf_band_enum),
 	IIO_ENUM_AVAILABLE("band", IIO_SEPARATE, &admv1355_rf_band_enum),
@@ -679,6 +809,11 @@ static const struct iio_chan_spec_ext_info admv1355_if_complex_ext_info[] = {
 };
 
 static const struct iio_chan_spec_ext_info admv1355_lo_ext_info[] = {
+	{
+		.name = "calibbias_calibration",
+		.shared = IIO_SEPARATE,
+		.write = admv1355_write_lon_calibration,
+	},
 	IIO_ENUM("sideband", IIO_SEPARATE, &admv1355_sideband_enum),
 	IIO_ENUM_AVAILABLE("sideband", IIO_SEPARATE, &admv1355_sideband_enum),
 	{ }
