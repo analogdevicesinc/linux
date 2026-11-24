@@ -21,8 +21,8 @@
 #define PLL_REFDIV_MASK		GENMASK(17, 12)
 #define PLL_FBDIV_MASK		GENMASK(31, 20)
 #define PLL_FRAC_MASK		GENMASK(27, 4)
-#define PLL_POSTDIV1_MASK	GENMASK(10, 8)
-#define PLL_POSTDIV2_MASK	GENMASK(18, 16)
+#define PLL_POSTDIV1_A_MASK	GENMASK(10, 8)
+#define PLL_POSTDIV1_B_MASK	GENMASK(14, 12)
 
 struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev,
 					size_t nr_clks)
@@ -111,10 +111,9 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= FIELD_PREP(PLL_FRAC_MASK, frac_val);
 	writel_relaxed(val, clk->ctrl_reg1);
 
+	/* eswin_calc_pll() assumes FOUT1 is not post-divided */
 	val = readl_relaxed(clk->ctrl_reg2);
-	val &= ~(PLL_POSTDIV1_MASK | PLL_POSTDIV2_MASK);
-	val |= FIELD_PREP(PLL_POSTDIV1_MASK, 1);
-	val |= FIELD_PREP(PLL_POSTDIV2_MASK, 1);
+	val &= ~(PLL_POSTDIV1_A_MASK | PLL_POSTDIV1_B_MASK);
 	writel_relaxed(val, clk->ctrl_reg2);
 
 	/* Last, enable pll */
