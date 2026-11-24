@@ -122,6 +122,22 @@
 			};
 		};
 	};
+	
+	mwipcore@43c00000 {
+                  compatible = "mathworks,mwipcore-v3.00";
+                  reg = <0x43c00000 0xfffff>;
+                  #address-cells = <1>;
+                  #size-cells = <0>;
+
+                  mmwr-channel@0 {
+                          reg = <0>;
+                          compatible = "mathworks,mm-write-channel-v1.00";
+                  };
+                  mmrd-channel@1 {
+                          reg = <1>;
+                          compatible = "mathworks,mm-read-channel-v1.00";
+                  };
+          };
 
 	ltc2387@0{
 		compatible = "ltc2387-16-x4";
