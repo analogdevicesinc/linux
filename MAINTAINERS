@@ -1756,6 +1756,7 @@ L:	linux-clk@vger.kernel.org
 S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/devicetree/bindings/clock/adi,ad9508.yaml
+F:	drivers/clk/adi/clk-ad9508-i2c.c
 F:	drivers/clk/adi/clk-ad9508-spi.c
 F:	drivers/clk/adi/clk-ad9508.c
 F:	drivers/clk/adi/clk-ad9508.h
