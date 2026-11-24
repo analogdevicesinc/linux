@@ -58,10 +58,10 @@
 
 #include <dt-bindings/iio/adc/adi,adrv9009.h>
 
-#define FIRMWARE	"TaliseTDDArmFirmware.bin"
-#define FIRMWARE_TX	"TaliseTxArmFirmware.bin"
-#define FIRMWARE_RX	"TaliseRxArmFirmware.bin"
-#define STREAM		"TaliseStream.bin"
+#define FIRMWARE	"adrv9009/TaliseTDDArmFirmware.bin"
+#define FIRMWARE_TX	"adrv9009/TaliseTxArmFirmware.bin"
+#define FIRMWARE_RX	"adrv9009/TaliseRxArmFirmware.bin"
+#define STREAM		"adrv9009/TaliseStream.bin"
 
 // 10 -bit:
 //
