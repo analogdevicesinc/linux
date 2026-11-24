@@ -315,13 +315,13 @@
 			<&axi_adrv9025_rx_jesd 0 FRAMER0_LINK_RX>,
 			<&axi_adrv9025_core_tx 0 DEFRAMER0_LINK_TX>;
 
-		adi,device-profile-name = "ActiveUseCase.profile";
-		adi,init-profile-name = "ActiveUtilInit.profile";
-		adi,arm-firmware-name = "ADRV9025_FW.bin;ADRV9025_DPDCORE_FW.bin";
-		adi,stream-firmware-name = "stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin";
-		adi,rx-gaintable-names = "ADRV9025_RxGainTable.csv";
+		adi,device-profile-name = "adrv902x/ActiveUseCase.profile";
+		adi,init-profile-name = "adrv902x/ActiveUtilInit.profile";
+		adi,arm-firmware-name = "adrv902x/ADRV9025_FW.bin;adrv902x/ADRV9025_DPDCORE_FW.bin";
+		adi,stream-firmware-name = "adrv902x/stream_image_6E3E00EFB74FE7D465FA88A171B81B8F.bin";
+		adi,rx-gaintable-names = "adrv902x/ADRV9025_RxGainTable.csv";
 		adi,rx-gaintable-channel-masks = <0xFF>;
-		adi,tx-attntable-names = "ADRV9025_TxAttenTable.csv";
+		adi,tx-attntable-names = "adrv902x/ADRV9025_TxAttenTable.csv";
 		adi,tx-attntable-channel-masks = <0x0F>;
 	};
 };
