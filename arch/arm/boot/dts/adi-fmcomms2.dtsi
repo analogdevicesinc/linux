@@ -100,7 +100,7 @@
 
 		/* Gain Control */
 
-		//adi,gaintable-name = "ad9361_std_gaintable";
+		//adi,gaintable-name = "ad9361/ad9361_std_gaintable";
 
 		/* adi,gc-rx[1|2]-mode:
 		 * 0 = RF_GAIN_MGC
