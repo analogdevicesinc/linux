@@ -1453,7 +1453,7 @@ static int lmk04832_probe(struct spi_device *spi)
 				 &lmk->sysref_pulse_cnt);
 
 	for_each_child_of_node_scoped(lmk->dev->of_node, child) {
-		int reg;
+		u32 reg;
 
 		ret = of_property_read_u32(child, "reg", &reg);
 		if (ret) {
@@ -1462,12 +1462,18 @@ static int lmk04832_probe(struct spi_device *spi)
 			return ret;
 		}
 
+		if (reg >= info->num_channels) {
+			dev_err(lmk->dev, "invalid reg %u in child: %s\n",
+				reg, child->full_name);
+			return -EINVAL;
+		}
+
 		of_property_read_u32(child, "ti,clkout-fmt",
 				     &lmk->clkout[reg].format);
 
 		if (lmk->clkout[reg].format >= 0x0a && reg % 2 == 0
 		    && reg != 8 && reg != 10)
-			dev_err(lmk->dev, "invalid format for clkout%02d\n",
+			dev_err(lmk->dev, "invalid format for clkout%02u\n",
 				reg);
 
 		lmk->clkout[reg].sysref =

@@ -208,6 +208,9 @@ static int gpio_clk_driver_probe(struct platform_device *pdev)
 	if (is_mux && num_parents != 2) {
 		dev_err(dev, "mux-clock must have 2 parents\n");
 		return -EINVAL;
+	} else if (!is_mux && num_parents > 1) {
+		return dev_err_probe(dev, -EINVAL,
+				     "gate-clock must have at most 1 parent\n");
 	}
 
 	gpio_name = is_mux ? "select" : "enable";

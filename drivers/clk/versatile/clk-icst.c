@@ -407,14 +407,18 @@ struct clk *icst_clk_register(struct device *dev,
 		.reg_stride = 4,
 	};
 	struct regmap *map;
+	struct clk *clk;
 
 	map = regmap_init_mmio(dev, base, &icst_regmap_conf);
 	if (IS_ERR(map)) {
 		pr_err("could not initialize ICST regmap\n");
 		return ERR_CAST(map);
 	}
-	return icst_clk_setup(dev, desc, name, parent_name, map,
-			      ICST_VERSATILE);
+	clk = icst_clk_setup(dev, desc, name, parent_name, map, ICST_VERSATILE);
+	if (IS_ERR(clk))
+		regmap_exit(map);
+
+	return clk;
 }
 EXPORT_SYMBOL_GPL(icst_clk_register);
 
