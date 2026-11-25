@@ -715,7 +715,7 @@ err_unmap_tx_dma:
 	dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE,
 			DMA_TO_DEVICE);
 err_stop_rx_dma:
-	timer_delete_sync(&uart->rx_dma_timer);
+	timer_shutdown_sync(&uart->rx_dma_timer);
 	dmaengine_terminate_sync(uart->rx_dma_channel);
 err_free_rx_dma_buf:
 	dmam_free_coherent(uart->dev, UART_XMIT_SIZE,
@@ -730,13 +730,14 @@ static void adi_uart4_serial_shutdown(struct uart_port *port)
 	dev_dbg(uart->dev, "in serial_shutdown\n");
 
 	if (!IS_ERR(uart->tx_dma_channel)) {
+		/* The RX DMA callback re-arms the timer, so shut it down first */
+		timer_shutdown_sync(&uart->rx_dma_timer);
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		dmaengine_terminate_sync(uart->rx_dma_channel);
 		dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE,
 				DMA_TO_DEVICE);
 		dmam_free_coherent(uart->dev, UART_XMIT_SIZE,
 				uart->rx_dma_buf.buf, uart->rx_dma_phy);
-		timer_delete_sync(&uart->rx_dma_timer);
 	}
 }
 
