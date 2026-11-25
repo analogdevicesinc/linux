@@ -21,8 +21,8 @@
 #define PLL_REFDIV_MASK		GENMASK(17, 12)
 #define PLL_FBDIV_MASK		GENMASK(31, 20)
 #define PLL_FRAC_MASK		GENMASK(27, 4)
-#define PLL_POSTDIV1_MASK	GENMASK(10, 8)
-#define PLL_POSTDIV2_MASK	GENMASK(18, 16)
+#define PLL_POSTDIV1_A_MASK	GENMASK(10, 8)
+#define PLL_POSTDIV1_B_MASK	GENMASK(14, 12)
 
 struct eswin_clock_data *eswin_clk_init(struct platform_device *pdev,
 					size_t nr_clks)
@@ -110,10 +110,9 @@ static int clk_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 	val |= FIELD_PREP(PLL_FRAC_MASK, frac_val);
 	writel_relaxed(val, clk->ctrl_reg1);
 
+	/* eswin_calc_pll() assumes FOUT1 is not post-divided */
 	val = readl_relaxed(clk->ctrl_reg2);
-	val &= ~(PLL_POSTDIV1_MASK | PLL_POSTDIV2_MASK);
-	val |= FIELD_PREP(PLL_POSTDIV1_MASK, 1);
-	val |= FIELD_PREP(PLL_POSTDIV2_MASK, 1);
+	val &= ~(PLL_POSTDIV1_A_MASK | PLL_POSTDIV1_B_MASK);
 	writel_relaxed(val, clk->ctrl_reg2);
 
 	/* Last, enable pll */
@@ -136,9 +135,10 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 {
 	struct eswin_clk_pll *clk = to_pll_clk(hw);
 	u64 fbdiv_val, frac_val, tmp;
-	u32 rem, val;
+	u32 refdiv, postdiv_a, postdiv_b, rem, val;
 
 	val = readl_relaxed(clk->ctrl_reg0);
+	refdiv = FIELD_GET(PLL_REFDIV_MASK, val);
 	val &= PLL_FBDIV_MASK;
 	fbdiv_val = (val >> clk->fbdiv_shift);
 
@@ -146,7 +146,17 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	val &= PLL_FRAC_MASK;
 	frac_val = (val >> clk->frac_shift);
 
-	/* rate = 24000000 * (fbdiv + frac / (2 ^ 24)) / 4 */
+	val = readl_relaxed(clk->ctrl_reg2);
+	postdiv_a = FIELD_GET(PLL_POSTDIV1_A_MASK, val);
+	postdiv_b = FIELD_GET(PLL_POSTDIV1_B_MASK, val);
+
+	if (!refdiv)
+		return 0;
+
+	/*
+	 * rate = parent_rate * (fbdiv + frac / 2^24) /
+	 *	  (4 * refdiv * (postdiv_a + 1) * (postdiv_b + 1))
+	 */
 	tmp = parent_rate * frac_val;
 	rem = do_div(tmp, BIT(24));
 	if (rem)
@@ -154,7 +164,7 @@ static unsigned long clk_pll_recalc_rate(struct clk_hw *hw,
 	else
 		tmp = parent_rate * fbdiv_val + tmp;
 
-	do_div(tmp, 4);
+	do_div(tmp, 4 * refdiv * (postdiv_a + 1) * (postdiv_b + 1));
 
 	return tmp;
 }
