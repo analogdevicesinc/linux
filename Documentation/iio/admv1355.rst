@@ -1,0 +1,529 @@
+.. SPDX-License-Identifier: GPL-2.0-only
+
+===============
+ADMV1355 driver
+===============
+
+Microwave upconverter driver for the Analog Devices Inc. ADMV1355.
+The module name is ``admv1355``.
+
+* `ADMV1355 <https://www.analog.com/en/products/admv1355.html>`_
+
+The ADMV1355 is a 17.7 GHz to 55 GHz wideband microwave upconverter,
+controlled over SPI. An LO input from 8.85 GHz to 27.5 GHz is doubled and
+filtered to drive an I/Q mixer, which is fed by one of three inputs: baseband
+I/Q, complex IF or IF hybrid. The mixer output drives one of two RF output
+chains, the low band (17.7 GHz to 34 GHz) or the high band (30 GHz to 55 GHz),
+each with two attenuators and tunable filters.
+
+The driver exposes the signal chain as IIO channels, and supports filter and
+gain lookup tables (LUTs) for fast switching of the device settings.
+
+
+Channels
+========
+
+Each channel is identified by a label, and child channels report their parent
+channel through the ``parent`` attribute.
+
+.. flat-table::
+   :header-rows: 1
+
+   * - Channel
+     - Label
+     - Parent
+     - Description
+
+   * - ``out_altvoltage0``
+     - ``rf``
+     -
+     - RF output: band, RF attenuators and RF filters. See `RF output`_.
+
+   * - ``in_altvoltage0``
+     - ``baseband``
+     -
+     - Baseband I/Q input (BB_IP, BB_IN, BB_QP and BB_QN balls).
+       See `Inputs`_.
+
+   * - ``in_altvoltage1``
+     - ``if_complex``
+     -
+     - Complex IF input (IF_I and IF_Q balls).
+
+   * - ``in_altvoltage1_i``, ``in_altvoltage1_q``
+     - ``if_i``, ``if_q``
+     - ``if_complex``
+     - IF fine-adjust attenuators DSAI and DSAQ.
+
+   * - ``in_altvoltage2``
+     - ``if_hybrid``
+     -
+     - IF hybrid input (IF_HYB ball).
+
+   * - ``in_altvoltage3``
+     - ``lo``
+     -
+     - LO input. See `LO and mixer`_.
+
+   * - ``in_altvoltage3_i``, ``in_altvoltage3_q``
+     - ``lo_i``, ``lo_q``
+     - ``lo``
+     - I and Q paths of the doubled LO driving the mixer.
+
+   * - ``in_temp0``
+     - ``temp``
+     -
+     - On-chip temperature sensor, ``input`` in milli degrees Celsius.
+
+
+Inputs
+======
+
+Only one input feeds the mixer at a time: writing 1 to the ``en`` attribute of
+an input disables the other ones. Writing 0 disables the input, leaving all
+inputs disabled.
+
+The complex IF input has a low path (1 GHz to 4 GHz) and a high path (3 GHz to
+12 GHz), selected by its ``band`` attribute (``low`` or ``high``). The band can
+be selected while the input is disabled, and is applied when it gets enabled.
+
+The ``hardwaregain`` of ``if_i`` and ``if_q`` sets the IF fine-adjust
+attenuators, from 0 dB to -1.5 dB in 0.1 dB steps, to correct the I/Q
+amplitude imbalance. They also act on the IF hybrid input, whose quadrature
+outputs feed the same attenuators, while the baseband input bypasses them.
+
+When the baseband inputs are driven with a common-mode voltage of 0.5 V or
+less, the mixer gate bias must be set manually. The voltage is given by the
+``adi,baseband-vicm-microvolt`` devicetree property, and the manual settings
+only apply while the baseband input is enabled.
+
+
+LO and mixer
+============
+
+The LO input frequency is the rate of the LO input clock, reported by the
+read-only ``frequency`` attribute of the ``lo`` channel. The LO tunable
+filters are set from it, and updated on clock rate changes.
+
+.. flat-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+
+   * - ``in_altvoltage3_frequency``
+     - LO input frequency in Hz (read-only).
+
+   * - ``in_altvoltage3_sideband``
+     - Mixer sideband: ``lower`` when the RF output is below twice the LO
+       frequency, ``upper`` when above.
+
+   * - ``in_altvoltage3_filter_type``
+     - LO tunable filter settings: ``narrowband`` (default), tuned for each LO
+       frequency range to minimize spurious mixer products, or ``wideband``,
+       for an LO frequency that changes continuously, at the expense of
+       spurious products.
+
+   * - ``in_altvoltage3_calibbias_calibration``
+     - Write 1 to run the automatic LO nulling, which minimizes the LO leakage
+       at the RF output. Only with the complex IF or IF hybrid input enabled
+       (``-EBUSY`` otherwise), and for an LO from 12.5 GHz (``-EINVAL``
+       otherwise).
+
+   * - ``in_altvoltage3_i_calibphase``, ``in_altvoltage3_q_calibphase``
+     - LO I/Q phase adjustment, from 0 to 31 with a typical step of 0.6
+       degrees, to correct the quadrature phase imbalance.
+
+   * - ``in_altvoltage3_i_calibbias``, ``in_altvoltage3_q_calibbias``
+     - Manual LO nulling offsets, from -128 to 127. Writing either offset
+       switches both paths from the automatic LO nulling to the manual offsets.
+
+The sideband rejection is optimized with the LO phase adjustments and the IF
+fine-adjust attenuators, while measuring the image at the RF output.
+
+
+RF output
+=========
+
+.. flat-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+
+   * - ``out_altvoltage0_band``
+     - RF output chain: ``low`` (17.7 GHz to 34 GHz) or ``high`` (30 GHz to
+       55 GHz). The mixer band follows the selection.
+
+   * - ``out_altvoltage0_hardwaregain``
+     - Gain of the RF attenuators DSA1 and DSA2 combined, from 0 dB to -30 dB
+       in 1 dB steps. Following the datasheet RF gain policy, the attenuation
+       is applied with DSA1 first, from 0 dB to 15 dB, then DSA2, to optimize
+       the output P1dB and IP3. For the best mixer performance, keep the gain
+       at 0 dB.
+
+   * - ``out_altvoltage0_hardwaregain_lut_en``
+     - Enable (1) or disable (0) the gain LUT. See `Lookup tables`_.
+
+   * - ``out_altvoltage0_filter_low_pass_raw``
+     - RF low-pass filter setting, from 0 to 15, in both RF bands. The higher
+       the setting, the lower the cutoff frequency. Defaults to 0, the
+       highest cutoff.
+
+   * - ``out_altvoltage0_filter_high_pass_raw``
+     - RF high-pass filter setting, from 0 to 63, in the high band only. The
+       higher the setting, the lower the cutoff frequency. Defaults to 63,
+       the lowest cutoff.
+
+The datasheet does not characterize the cutoff frequency of each filter
+setting, so the settings are unscaled.
+
+
+Lookup tables
+=============
+
+The device has two LUTs to switch its settings without SPI accesses:
+
+- the filter LUT, with two pages (A and B) of 32 entries. Each entry sets the
+  LO filters, RF band, mixer band and sideband, LO phase and nulling offsets,
+  IF fine-adjust attenuators, RF filters and GPO_F0 to GPO_F5 outputs.
+- the gain LUT, with 67 entries, each setting the DSA1 and DSA2 states and the
+  GPO_G0 to GPO_G4 outputs.
+
+The LUT entry is selected by a pointer, from one of these sources:
+
+- the ADD_F0 to ADD_F4 (filter) or ADD_G0 to ADD_G5 (gain) balls.
+- an SPI pointer, only accessible through the debugfs register access, which
+  is meant for bring-up.
+- a state machine, stepped by the ADD_F4 (filter) or ADD_G5 (gain) ball rising
+  edges, and reset by the ADD_F3 (filter) or ADD_G4 (gain) ball.
+
+Optionally, the LUT outputs are applied on the LOAD ball rising edges only.
+
+.. flat-table::
+   :header-rows: 1
+
+   * - Attribute
+     - Description
+
+   * - ``filter_lut``
+     - Filter LUT: ``off``, or the active page, ``a`` or ``b``. Enabling a
+       page applies its configuration and restarts the state machine. While
+       the LUT is enabled, the page switch is immediate, and applies the
+       configuration of the new page. Returns ``-ENODATA`` if the page has
+       not been loaded.
+
+   * - ``out_altvoltage0_hardwaregain_lut_en``
+     - Enable (1) or disable (0) the gain LUT. Enabling applies the LUT
+       configuration and restarts its state machine. Returns ``-ENODATA`` if
+       the LUT has not been loaded.
+
+The filter LUT is a device attribute, as it controls settings of all the
+channels, while the gain LUT only controls the RF attenuators.
+
+While a LUT is enabled, the channel attributes of the settings it controls
+return ``-EBUSY``: the RF gain for the gain LUT, and the RF band,
+RF filters, sideband, LO filter type, LO phase and nulling offsets, automatic
+LO nulling and IF fine-adjust attenuators for the filter LUT.
+
+Loading the LUTs
+----------------
+
+The LUTs are loaded through the firmware upload framework, with one upload per
+filter LUT page and one for the gain LUT, named ``iio:deviceX:filter_lut_a``,
+``iio:deviceX:filter_lut_b`` and ``iio:deviceX:hardwaregain_lut``. Each blob
+has a 20-byte header, followed by the LUT entries. The multi-byte header fields
+are big-endian, and the blob size must match the number of entries.
+
+The ``crc`` field is the CRC-32 (IEEE 802.3, bit-reflected) of the data
+following it, with a zero seed and no final inversion. In Python, it is
+``zlib.crc32(data, 0xffffffff) ^ 0xffffffff``.
+
+.. flat-table:: Filter LUT header (20 bytes)
+   :header-rows: 1
+
+   * - Offset
+     - Size
+     - Field
+     - Description
+
+   * - 0
+     - 4
+     - ``magic``
+     - ``0xAD1355F0``
+
+   * - 4
+     - 2
+     - ``version``
+     - ``0x0001``
+
+   * - 6
+     - 2
+     - ``count``
+     - Number of entries, 1 to 32, loaded from entry 0
+
+   * - 8
+     - 4
+     - ``crc``
+     - CRC-32 of the data from offset 12
+
+   * - 12
+     - 1
+     - ``mode``
+     - Pointer source: 0 for the balls, 1 for the SPI pointer, 2 for the
+       state machine
+
+   * - 13
+     - 1
+     - ``load_en``
+     - 1 to apply the LUT outputs on the LOAD ball rising edges
+
+   * - 14
+     - 1
+     - ``sm_step``
+     - State machine step, two's complement, non-zero
+
+   * - 15
+     - 1
+     - ``sm_start``
+     - State machine start, 0 to 31
+
+   * - 16
+     - 1
+     - ``sm_stop``
+     - State machine stop, 0 to 31
+
+   * - 17
+     - 1
+     - ``sm_wrap``
+     - State machine wrap setting, 0 or 1
+
+   * - 18
+     - 1
+     - ``gpo_oe``
+     - Output enables of GPO_F0 to GPO_F5, bits 0 to 5
+
+   * - 19
+     - 1
+     - ``reserved``
+     - Must be zero
+
+   * - 20
+     - 13 x count
+     - ``entries``
+     - Filter LUT entries
+
+Each filter LUT entry is an image of Register 0x800 to Register 0x80C, with
+the same fields:
+
+.. flat-table:: Filter LUT entry (13 bytes)
+   :header-rows: 1
+
+   * - Byte
+     - Fields
+
+   * - 0
+     - LO x4 filter, bits [3:0]
+   * - 1
+     - LO x3 filter, bits [4:0]
+   * - 2
+     - LO x1 filter, bits [4:0]
+   * - 3
+     - GPO_F0 to GPO_F5 states, bits [5:0]
+   * - 4
+     - LO trap filter, bits [7:0]
+   * - 5
+     - RF band (bit 7), LO phase Q (bits [6:2]), LO trap filter bits [9:8]
+       (bits [1:0])
+   * - 6
+     - LO band (bit 7), mixer band (bit 6), LO sideband (bit 5), LO phase I
+       (bits [4:0])
+   * - 7
+     - Unused, not written
+   * - 8
+     - LO nulling offset I, two's complement
+   * - 9
+     - LO nulling offset Q, two's complement
+   * - 10
+     - DSAQ (bits [7:4]), DSAI (bits [3:0])
+   * - 11
+     - RF HPF (bits [7:4]), RF LPF (bits [3:0]). The HPF value is multiplied
+       by 4, and the low band LPF value, limited to 0 to 7, by 2.
+   * - 12
+     - LO doubler band
+
+The RF band and mixer band must match, and the LO filter fields should follow
+the datasheet recommended settings for the LO frequency of each entry.
+
+.. flat-table:: Gain LUT header (20 bytes)
+   :header-rows: 1
+
+   * - Offset
+     - Size
+     - Field
+     - Description
+
+   * - 0
+     - 4
+     - ``magic``
+     - ``0xAD135560``
+
+   * - 4
+     - 2
+     - ``version``
+     - ``0x0001``
+
+   * - 6
+     - 2
+     - ``count``
+     - Number of entries, 1 to 67, loaded from entry 0
+
+   * - 8
+     - 4
+     - ``crc``
+     - CRC-32 of the data from offset 12
+
+   * - 12
+     - 1
+     - ``mode``
+     - Pointer source: 0 for the balls, 1 for the SPI pointer, 2 for the
+       state machine
+
+   * - 13
+     - 1
+     - ``load_en``
+     - 1 to apply the LUT outputs on the LOAD ball rising edges
+
+   * - 14
+     - 1
+     - ``sm_step``
+     - State machine step, two's complement, non-zero
+
+   * - 15
+     - 1
+     - ``sm_offset``
+     - State machine offset, two's complement
+
+   * - 16
+     - 1
+     - ``sm_stop``
+     - State machine stop, 0 to 127
+
+   * - 17
+     - 1
+     - ``gpo_oe``
+     - Output enables of GPO_G0 to GPO_G4, bits 0 to 4
+
+   * - 18
+     - 2
+     - ``reserved``
+     - Must be zero
+
+   * - 20
+     - 2 x count
+     - ``entries``
+     - Gain LUT entries: DSA2 (bits [7:4]) and DSA1 (bits [3:0]) states,
+       where each step is 1 dB of attenuation, then the GPO_G0 to GPO_G4
+       states (bits [4:0])
+
+The filter LUT page is selected by the upload, so the same blob can be loaded
+to either page. While the filter LUT is enabled, only its inactive page can be
+loaded. While
+the gain LUT is enabled, it cannot be loaded. The uploads are refused with a
+busy error otherwise.
+
+Usage examples
+--------------
+
+Build a gain LUT blob stepping the RF attenuation from 0 dB to -30 dB with the
+state machine, attenuating with DSA1 first, then DSA2:
+
+.. code-block:: python
+
+  import struct, zlib
+
+  def entry(att_db, gpo=0):
+      dsa1 = min(att_db, 15)
+      dsa2 = att_db - dsa1
+      return bytes([dsa2 << 4 | dsa1, gpo])
+
+  entries = b"".join(entry(att) for att in range(31))
+  # mode, load_en, sm_step, sm_offset, sm_stop, gpo_oe, reserved
+  cfg = struct.pack(">6B2x", 2, 0, 1, 0, len(entries) // 2 - 1, 0)
+  crc = zlib.crc32(cfg + entries, 0xffffffff) ^ 0xffffffff
+  hdr = struct.pack(">IHHI", 0xAD135560, 1, len(entries) // 2, crc)
+
+  with open("admv1355-gain.bin", "wb") as f:
+      f.write(hdr + cfg + entries)
+
+Load it, and enable the gain LUT:
+
+.. code-block:: bash
+
+  echo 1 > /sys/class/firmware/iio\:device0\:hardwaregain_lut/loading
+  cat admv1355-gain.bin > /sys/class/firmware/iio\:device0\:hardwaregain_lut/data
+  echo 0 > /sys/class/firmware/iio\:device0\:hardwaregain_lut/loading
+  echo 1 > /sys/bus/iio/devices/iio\:device0/out_altvoltage0_hardwaregain_lut_en
+
+Build a filter LUT blob, hopping across four LO frequencies of the
+high RF band with the state machine, at the narrow-band LO filter settings of
+the datasheet Table 17:
+
+.. code-block:: python
+
+  import struct, zlib
+
+  # LO MHz: LO x4, x3, x1, trap and doubler band filters (Table 17)
+  lo_filters = {
+      18500: (0x07, 0x04, 0x01, 0x1A7, 0x80),
+      20000: (0x07, 0x03, 0x01, 0x1A7, 0x80),
+      22500: (0x07, 0x02, 0x00, 0x1E7, 0x80),
+      25000: (0x07, 0x00, 0x00, 0x1E7, 0xC0),
+  }
+
+  def entry(lo_mhz, rf_high, upper, phase_i=0x10, phase_q=0x10,
+            lon_i=0, lon_q=0, dsai=0, dsaq=0, lpf=0, hpf=15, gpo=0):
+      x4, x3, x1, trap, dbl = lo_filters[lo_mhz]
+      lo_band = lo_mhz >= 18000
+      return bytes([
+          x4, x3, x1, gpo,
+          trap & 0xFF,
+          rf_high << 7 | phase_q << 2 | trap >> 8,
+          lo_band << 7 | rf_high << 6 | upper << 5 | phase_i,
+          0x00,
+          lon_i & 0xFF, lon_q & 0xFF,
+          dsaq << 4 | dsai,
+          hpf << 4 | lpf,
+          dbl,
+      ])
+
+  entries = b"".join(entry(lo, rf_high=1, upper=1) for lo in lo_filters)
+  # mode, load_en, sm_step, sm_start, sm_stop, sm_wrap, gpo_oe, reserved
+  cfg = struct.pack(">7Bx", 2, 0, 1, 0, len(lo_filters) - 1, 0, 0)
+  crc = zlib.crc32(cfg + entries, 0xffffffff) ^ 0xffffffff
+  hdr = struct.pack(">IHHI", 0xAD1355F0, 1, len(entries) // 13, crc)
+
+  with open("admv1355-filter.bin", "wb") as f:
+      f.write(hdr + cfg + entries)
+
+Each ADD_F4 rising edge steps to the next entry, from 0 to 3 and back to 0.
+The RF filters are left at their widest settings.
+
+Load it to page A, and enable the filter LUT:
+
+.. code-block:: bash
+
+  echo 1 > /sys/class/firmware/iio\:device0\:filter_lut_a/loading
+  cat admv1355-filter.bin > /sys/class/firmware/iio\:device0\:filter_lut_a/data
+  echo 0 > /sys/class/firmware/iio\:device0\:filter_lut_a/loading
+  echo a > /sys/bus/iio/devices/iio\:device0/filter_lut
+
+Update the filter LUT while in use, loading page B while page A is active, and
+switching to it:
+
+.. code-block:: bash
+
+  echo 1 > /sys/class/firmware/iio\:device0\:filter_lut_b/loading
+  cat admv1355-filter-new.bin > /sys/class/firmware/iio\:device0\:filter_lut_b/data
+  echo 0 > /sys/class/firmware/iio\:device0\:filter_lut_b/loading
+  echo b > /sys/bus/iio/devices/iio\:device0/filter_lut

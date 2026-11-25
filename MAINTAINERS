@@ -1925,6 +1925,7 @@ S:	Supported
 W:	https://ez.analog.com/linux-software-drivers
 F:	Documentation/ABI/testing/sysfs-bus-iio-frequency-admv1355
 F:	Documentation/devicetree/bindings/iio/frequency/adi,admv1355.yaml
+F:	Documentation/iio/admv1355.rst
 F:	drivers/iio/frequency/admv1355.c
 
 ANALOG DEVICES INC ADMV8818 DRIVER
