@@ -130,6 +130,7 @@
 
 /* ADMV1355_REG_RF_LPF_BYPASS / ADMV1355_REG_RF_HPF_BYPASS */
 #define ADMV1355_LPF_SELECT_MSK		BIT(4)
+#define ADMV1355_LPF_BYPASS_VALUE_MSK	GENMASK(3, 0)
 #define ADMV1355_HPF_SELECT_MSK		BIT(7)
 #define ADMV1355_HPF_BYPASS_VALUE_MSK	GENMASK(5, 0)
 
@@ -993,6 +994,94 @@ static ssize_t admv1355_write_lon_calibration(struct iio_dev *indio_dev,
 	return len;
 }
 
+enum admv1355_rf_filter {
+	ADMV1355_RF_LPF,
+	ADMV1355_RF_HPF,
+};
+
+struct admv1355_rf_filter_field {
+	unsigned int reg;
+	unsigned int mask;
+};
+
+/*
+ * The RF chain filters are set by an unscaled value: the higher the value,
+ * the lower the cutoff frequency. The LPF is in both RF bands, the HPF only
+ * in the high band.
+ */
+static const struct admv1355_rf_filter_field admv1355_rf_filters[] = {
+	[ADMV1355_RF_LPF] = {
+		.reg = ADMV1355_REG_RF_LPF_BYPASS,
+		.mask = ADMV1355_LPF_BYPASS_VALUE_MSK,
+	},
+	[ADMV1355_RF_HPF] = {
+		.reg = ADMV1355_REG_RF_HPF_BYPASS,
+		.mask = ADMV1355_HPF_BYPASS_VALUE_MSK,
+	},
+};
+
+static ssize_t admv1355_read_rf_filter(struct iio_dev *indio_dev,
+				       uintptr_t private,
+				       const struct iio_chan_spec *chan,
+				       char *buf)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+	unsigned int mask = admv1355_rf_filters[private].mask;
+	unsigned int val;
+	int ret;
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
+	ret = regmap_read(st->regmap, admv1355_rf_filters[private].reg, &val);
+	if (ret)
+		return ret;
+
+	return sysfs_emit(buf, "%u\n", field_get(mask, val));
+}
+
+static ssize_t admv1355_write_rf_filter(struct iio_dev *indio_dev,
+					uintptr_t private,
+					const struct iio_chan_spec *chan,
+					const char *buf, size_t len)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+	unsigned int mask = admv1355_rf_filters[private].mask;
+	unsigned int val;
+	int ret;
+
+	ret = kstrtouint(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	if (val > field_get(mask, mask))
+		return -EINVAL;
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
+	ret = regmap_update_bits(st->regmap, admv1355_rf_filters[private].reg,
+				 mask, field_prep(mask, val));
+	if (ret)
+		return ret;
+
+	return len;
+}
+
+static ssize_t admv1355_read_rf_filter_avail(struct iio_dev *indio_dev,
+					     uintptr_t private,
+					     const struct iio_chan_spec *chan,
+					     char *buf)
+{
+	unsigned int mask = admv1355_rf_filters[private].mask;
+
+	return sysfs_emit(buf, "[0 1 %u]\n", field_get(mask, mask));
+}
+
 static const struct reg_sequence admv1355_gain_lut_off_seq[] = {
 	{ ADMV1355_REG_GAIN_LUT_BYPASS, ADMV1355_GAIN_LUT_BYPASS_EN_MSK },
 	{ ADMV1355_REG_GAIN_LOAD_EN, 0x00 },
@@ -1100,6 +1189,32 @@ static const struct iio_chan_spec_ext_info admv1355_rf_ext_info[] = {
 		.shared = IIO_SEPARATE,
 		.read = admv1355_read_gain_lut_en,
 		.write = admv1355_write_gain_lut_en,
+	},
+	{
+		.name = "filter_low_pass_raw",
+		.shared = IIO_SEPARATE,
+		.read = admv1355_read_rf_filter,
+		.write = admv1355_write_rf_filter,
+		.private = ADMV1355_RF_LPF,
+	},
+	{
+		.name = "filter_low_pass_raw_available",
+		.shared = IIO_SEPARATE,
+		.read = admv1355_read_rf_filter_avail,
+		.private = ADMV1355_RF_LPF,
+	},
+	{
+		.name = "filter_high_pass_raw",
+		.shared = IIO_SEPARATE,
+		.read = admv1355_read_rf_filter,
+		.write = admv1355_write_rf_filter,
+		.private = ADMV1355_RF_HPF,
+	},
+	{
+		.name = "filter_high_pass_raw_available",
+		.shared = IIO_SEPARATE,
+		.read = admv1355_read_rf_filter_avail,
+		.private = ADMV1355_RF_HPF,
 	},
 	{ }
 };
