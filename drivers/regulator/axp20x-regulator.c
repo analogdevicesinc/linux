@@ -744,18 +744,18 @@ static const struct linear_range axp313a_dcdc3_ranges[] = {
 };
 
 static const struct regulator_desc axp313a_regulators[] = {
-	AXP_DESC_RANGES(AXP313A, DCDC1, "dcdc1", "vin1",
+	AXP_DESC_RANGES_DELAY(AXP313A, DCDC1, "dcdc1", "vin1",
 			axp313a_dcdc1_ranges, AXP313A_DCDC1_NUM_VOLTAGES,
 			AXP313A_DCDC1_CONTROL, AXP313A_DCDC_V_OUT_MASK,
-			AXP313A_OUTPUT_CONTROL, BIT(0)),
-	AXP_DESC_RANGES(AXP313A, DCDC2, "dcdc2", "vin2",
+			AXP313A_OUTPUT_CONTROL, BIT(0), 400),
+	AXP_DESC_RANGES_DELAY(AXP313A, DCDC2, "dcdc2", "vin2",
 			axp313a_dcdc2_ranges, AXP313A_DCDC23_NUM_VOLTAGES,
 			AXP313A_DCDC2_CONTROL, AXP313A_DCDC_V_OUT_MASK,
-			AXP313A_OUTPUT_CONTROL, BIT(1)),
-	AXP_DESC_RANGES(AXP313A, DCDC3, "dcdc3", "vin3",
+			AXP313A_OUTPUT_CONTROL, BIT(1), 400),
+	AXP_DESC_RANGES_DELAY(AXP313A, DCDC3, "dcdc3", "vin3",
 			axp313a_dcdc3_ranges, AXP313A_DCDC23_NUM_VOLTAGES,
 			AXP313A_DCDC3_CONTROL, AXP313A_DCDC_V_OUT_MASK,
-			AXP313A_OUTPUT_CONTROL, BIT(2)),
+			AXP313A_OUTPUT_CONTROL, BIT(2), 400),
 	AXP_DESC(AXP313A, ALDO1, "aldo1", "vin1", 500, 3500, 100,
 		 AXP313A_ALDO1_CONTROL, AXP313A_LDO_V_OUT_MASK,
 		 AXP313A_OUTPUT_CONTROL, BIT(3)),
@@ -1652,8 +1652,7 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
 		    (regulators == axp803_regulators && i == AXP803_DC1SW) ||
 		    (regulators == axp809_regulators && i == AXP809_DC1SW) ||
 		    (regulators == axp15060_regulators && i == AXP15060_SW)) {
-			new_desc = devm_kzalloc(&pdev->dev, sizeof(*new_desc),
-						GFP_KERNEL);
+			new_desc = devm_kzalloc_obj(&pdev->dev, *new_desc);
 			if (!new_desc)
 				return -ENOMEM;
 
@@ -1665,8 +1664,7 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
 		if ((regulators == axp22x_regulators && i == AXP22X_DC5LDO) ||
 		    (regulators == axp809_regulators && i == AXP809_DC5LDO) ||
 		    (regulators == axp15060_regulators && i == AXP15060_CPUSLDO)) {
-			new_desc = devm_kzalloc(&pdev->dev, sizeof(*new_desc),
-						GFP_KERNEL);
+			new_desc = devm_kzalloc_obj(&pdev->dev, *new_desc);
 			if (!new_desc)
 				return -ENOMEM;
 
@@ -1677,8 +1675,7 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
 
 
 		if (regulators == axp15060_regulators && i == AXP15060_RTC_LDO) {
-			new_desc = devm_kzalloc(&pdev->dev, sizeof(*new_desc),
-						GFP_KERNEL);
+			new_desc = devm_kzalloc_obj(&pdev->dev, *new_desc);
 			if (!new_desc)
 				return -ENOMEM;
 

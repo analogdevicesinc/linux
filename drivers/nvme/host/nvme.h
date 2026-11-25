@@ -22,11 +22,20 @@
 
 extern const struct pr_ops nvme_pr_ops;
 
+/* Seconds to jiffies, capped for the u32 timeouts and timer delays */
+static inline unsigned int nvme_timeout_to_jiffies(unsigned int timeout)
+{
+	unsigned long max_secs;
+
+	max_secs = min_t(unsigned long, UINT_MAX, MAX_JIFFY_OFFSET) / HZ;
+	return min_t(unsigned long, timeout, max_secs) * HZ;
+}
+
 extern unsigned int nvme_io_timeout;
-#define NVME_IO_TIMEOUT	(nvme_io_timeout * HZ)
+#define NVME_IO_TIMEOUT	nvme_timeout_to_jiffies(nvme_io_timeout)
 
 extern unsigned int admin_timeout;
-#define NVME_ADMIN_TIMEOUT	(admin_timeout * HZ)
+#define NVME_ADMIN_TIMEOUT	nvme_timeout_to_jiffies(admin_timeout)
 
 #define NVME_DEFAULT_KATO	5
 
@@ -183,6 +192,12 @@ enum nvme_quirks {
 	 * Admin queue DMA buffers must be page aligned
 	 */
 	NVME_QUIRK_ADMIN_PAGE_ALIGN		= (1 << 23),
+
+	/*
+	 * The device is extremely slow on FUA writes but fast on Flush;
+	 * do not advertise FUA so the block layer emulates it.
+	 */
+	NVME_QUIRK_NO_FUA			= (1 << 24),
 };
 
 static inline char *nvme_quirk_name(enum nvme_quirks q)
@@ -236,6 +251,8 @@ static inline char *nvme_quirk_name(enum nvme_quirks q)
 		return "dmapool_align_512";
 	case NVME_QUIRK_ADMIN_PAGE_ALIGN:
 		return "admin_page_align";
+	case NVME_QUIRK_NO_FUA:
+		return "no_fua";
 	}
 
 	return "unknown";

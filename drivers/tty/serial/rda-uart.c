@@ -471,6 +471,8 @@ static void rda_uart_shutdown(struct uart_port *port)
 	rda_uart_write(port, val, RDA_UART_CTRL);
 
 	uart_port_unlock_irqrestore(port, flags);
+
+	free_irq(port->irq, port);
 }
 
 static const char *rda_uart_type(struct uart_port *port)
@@ -729,7 +731,7 @@ static int rda_uart_probe(struct platform_device *pdev)
 		return -EBUSY;
 	}
 
-	rda_port = devm_kzalloc(&pdev->dev, sizeof(*rda_port), GFP_KERNEL);
+	rda_port = devm_kzalloc_obj(&pdev->dev, *rda_port);
 	if (!rda_port)
 		return -ENOMEM;
 

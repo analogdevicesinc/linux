@@ -5140,7 +5140,7 @@ static int bnxt_alloc_vnic_attributes(struct bnxt *bp)
 		else
 			max_rings = 1;
 
-		vnic->fw_grp_ids = kcalloc(max_rings, sizeof(u16), GFP_KERNEL);
+		vnic->fw_grp_ids = kzalloc_objs(u16, max_rings);
 		if (!vnic->fw_grp_ids) {
 			rc = -ENOMEM;
 			goto out;
@@ -5690,8 +5690,7 @@ static int bnxt_alloc_mem(struct bnxt *bp, bool irq_re_init)
 		if (!bp->tx_ring)
 			return -ENOMEM;
 
-		bp->tx_ring_map = kcalloc(bp->tx_nr_rings, sizeof(u16),
-					  GFP_KERNEL);
+		bp->tx_ring_map = kzalloc_objs(u16, bp->tx_nr_rings);
 
 		if (!bp->tx_ring_map)
 			return -ENOMEM;
@@ -6692,7 +6691,7 @@ static int bnxt_alloc_rss_indir_tbl(struct bnxt *bp)
 
 	bp->rss_indir_tbl_entries = entries;
 	bp->rss_indir_tbl =
-		kmalloc_array(entries, sizeof(*bp->rss_indir_tbl), GFP_KERNEL);
+		kmalloc_objs(*bp->rss_indir_tbl, entries);
 	if (!bp->rss_indir_tbl)
 		return -ENOMEM;
 
@@ -11319,7 +11318,7 @@ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
 	/* Filter for default vnic 0 */
 	rc = bnxt_hwrm_set_vnic_filter(bp, 0, 0, bp->dev->dev_addr);
 	if (rc) {
-		if (BNXT_VF(bp) && rc == -ENODEV)
+		if (rc == -ECOMM)
 			netdev_err(bp->dev, "Cannot configure L2 filter while PF is unavailable\n");
 		else
 			netdev_err(bp->dev, "HWRM vnic filter failure rc: %x\n", rc);
@@ -11544,6 +11543,7 @@ static int bnxt_change_msix(struct bnxt *bp, int total)
 		map.index = i - 1;
 		map.virq = bp->irq_tbl[i - 1].vector;
 		pci_msix_free_irq(bp->pdev, map);
+		bp->irq_tbl[i - 1].vector = 0;
 		bp->total_irqs--;
 	}
 	return bp->total_irqs;
@@ -11721,8 +11721,23 @@ int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 	int irqs_required;
 	int rc;
 
-	if (!bnxt_need_reserve_rings(bp))
+	if (!bnxt_need_reserve_rings(bp)) {
+		/* FW may already hold the reservation from an earlier
+		 * reservation that was not followed by growing the dynamic
+		 * MSI-X vectors, e.g. because the allocation failed.
+		 */
+		if (irq_re_init && BNXT_NEW_RM(bp) && bp->irq_tbl &&
+		    pci_msix_can_alloc_dyn(bp->pdev)) {
+			irqs_required = bnxt_get_num_msix(bp);
+			if (irqs_required > bp->total_irqs &&
+			    bnxt_change_msix(bp, irqs_required) != irqs_required) {
+				netdev_err(bp->dev, "Unable to allocate %d MSIX vectors, maximum available %d\n",
+					   irqs_required, bp->total_irqs);
+				return -ENOSPC;
+			}
+		}
 		return 0;
+	}
 
 	if (BNXT_NEW_RM(bp) && !bnxt_ulp_registered(edev)) {
 		int ulp_msix = bnxt_get_avail_msix(bp, bp->ulp_num_msix_want);
@@ -11748,6 +11763,10 @@ int bnxt_reserve_rings(struct bnxt *bp, bool irq_re_init)
 			rc = bnxt_init_int_mode(bp);
 		bnxt_ulp_irq_restart(bp, rc);
 	} else if (irq_change && !rc) {
+		/* Size the vectors from what FW actually reserved, which
+		 * can be less than what was requested.
+		 */
+		irqs_required = bnxt_get_num_msix(bp);
 		if (bnxt_change_msix(bp, irqs_required) != irqs_required)
 			rc = -ENOSPC;
 	}
@@ -12457,7 +12476,7 @@ int bnxt_update_link(struct bnxt *bp, bool chng_link_state)
 	rc = hwrm_req_send(bp, req);
 	if (rc) {
 		hwrm_req_drop(bp, req);
-		if (BNXT_VF(bp) && rc == -ENODEV) {
+		if (rc == -ECOMM) {
 			netdev_warn(bp->dev, "Cannot obtain link state while PF unavailable.\n");
 			rc = 0;
 		}
@@ -13934,7 +13953,7 @@ static int bnxt_cfg_rx_mode(struct bnxt *bp, struct netdev_hw_addr_list *uc,
 	for (i = 1, off = 0; i < vnic->uc_filter_count; i++, off += ETH_ALEN) {
 		rc = bnxt_hwrm_set_vnic_filter(bp, 0, i, vnic->uc_list + off);
 		if (rc) {
-			if (BNXT_VF(bp) && rc == -ENODEV) {
+			if (rc == -ECOMM) {
 				netdev_warn(bp->dev, "Cannot configure L2 filters while PF is unavailable, will retry\n");
 				rc = -EAGAIN;
 			} else if (rc == -EAGAIN) {
@@ -14818,7 +14837,10 @@ static int bnxt_get_registered_vfs(struct bnxt *bp)
 void bnxt_fw_reset(struct bnxt *bp)
 {
 	bnxt_ulp_stop(bp);
-	bnxt_lock_sp(bp);
+	if (BNXT_PF(bp))
+		bnxt_rtnl_lock_sp(bp);
+	else
+		bnxt_lock_sp(bp);
 	if (test_bit(BNXT_STATE_OPEN, &bp->state) &&
 	    !test_bit(BNXT_STATE_IN_FW_RESET, &bp->state)) {
 		struct bnxt_ptp_cfg *ptp = bp->ptp_cfg;
@@ -14864,7 +14886,10 @@ void bnxt_fw_reset(struct bnxt *bp)
 		bnxt_queue_fw_reset_work(bp, tmo);
 	}
 fw_reset_exit:
-	bnxt_unlock_sp(bp);
+	if (BNXT_PF(bp))
+		bnxt_rtnl_unlock_sp(bp);
+	else
+		bnxt_unlock_sp(bp);
 }
 
 static void bnxt_chk_missed_irq(struct bnxt *bp)
@@ -15113,6 +15138,7 @@ int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
 			hwr.cp = min_t(int, hwr.cp, bnxt_get_max_func_irqs(bp));
 		}
 		if (hwr.cp > bp->total_irqs) {
+			int old_total = bp->total_irqs;
 			int total_msix = bnxt_change_msix(bp, hwr.cp);
 
 			if (total_msix < hwr.cp) {
@@ -15120,6 +15146,17 @@ int bnxt_check_rings(struct bnxt *bp, int tx, int rx, bool sh, int tcs,
 					    hwr.cp, total_msix);
 				rc = -ENOSPC;
 			}
+			/* FW has not reserved the new vectors yet, and writes to
+			 * MSI-X table entries beyond the reserved IRQs don't
+			 * stick (seen on BCM57508).  Free them again;
+			 * bnxt_reserve_rings() allocates them after
+			 * __bnxt_reserve_rings().  Without the new resource
+			 * manager there is no IRQ reservation and
+			 * bnxt_reserve_rings() does not grow the vectors, so
+			 * keep them.
+			 */
+			if (BNXT_NEW_RM(bp))
+				bnxt_change_msix(bp, old_total);
 		}
 	}
 	return rc;
@@ -15515,9 +15552,8 @@ static void bnxt_fw_reset_task(struct work_struct *work)
 		bp->fw_reset_timestamp = jiffies;
 		netdev_lock(bp->dev);
 		if (test_bit(BNXT_STATE_ABORT_ERR, &bp->state)) {
-			bnxt_fw_reset_abort(bp, rc);
 			netdev_unlock(bp->dev);
-			goto ulp_start;
+			goto fw_reset_abort;
 		}
 		bnxt_fw_reset_close(bp);
 		if (bp->fw_cap & BNXT_FW_CAP_ERR_RECOVER_RELOAD) {
@@ -15650,9 +15686,11 @@ fw_reset_abort_status:
 		netdev_err(bp->dev, "fw_health_status 0x%x\n", sts);
 	}
 fw_reset_abort:
+	rtnl_lock();
 	netdev_lock(bp->dev);
 	bnxt_fw_reset_abort(bp, rc);
 	netdev_unlock(bp->dev);
+	rtnl_unlock();
 ulp_start:
 	if (!rc)
 		bnxt_ulp_start(bp);
@@ -16965,7 +17003,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp, bool sh)
 	}
 
 	rc = __bnxt_reserve_rings(bp);
-	if (rc && rc != -ENODEV)
+	if (rc && rc != -ECOMM)
 		netdev_warn(bp->dev, "Unable to reserve tx rings\n");
 
 	bnxt_adj_tx_rings(bp);
@@ -16975,7 +17013,7 @@ static int bnxt_set_dflt_rings(struct bnxt *bp, bool sh)
 	/* Rings may have been trimmed, re-reserve the trimmed rings. */
 	if (bnxt_need_reserve_rings(bp)) {
 		rc = __bnxt_reserve_rings(bp);
-		if (rc && rc != -ENODEV)
+		if (rc && rc != -ECOMM)
 			netdev_warn(bp->dev, "2nd rings reservation failed.\n");
 		bnxt_adj_tx_rings(bp);
 	}
@@ -17001,7 +17039,7 @@ static int bnxt_init_dflt_ring_mode(struct bnxt *bp)
 	bnxt_clear_int_mode(bp);
 	rc = bnxt_set_dflt_rings(bp, true);
 	if (rc) {
-		if (BNXT_VF(bp) && rc == -ENODEV)
+		if (rc == -ECOMM)
 			netdev_err(bp->dev, "Cannot configure VF rings while PF is unavailable.\n");
 		else
 			netdev_err(bp->dev, "Not enough rings available.\n");
@@ -17379,7 +17417,7 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		bnxt_aux_devices_init(bp);
 	rc = bnxt_set_dflt_rings(bp, true);
 	if (rc) {
-		if (BNXT_VF(bp) && rc == -ENODEV) {
+		if (rc == -ECOMM) {
 			netdev_err(bp->dev, "Cannot configure VF rings while PF is unavailable.\n");
 		} else {
 			netdev_err(bp->dev, "Not enough rings available.\n");
@@ -17535,21 +17573,50 @@ static int bnxt_suspend(struct device *device)
 	return rc;
 }
 
+#define BNXT_RESUME_MAX_RETRY	10
+
 static int bnxt_resume(struct device *device)
 {
 	struct net_device *dev = dev_get_drvdata(device);
 	struct bnxt *bp = netdev_priv(dev);
-	int rc = 0;
+	int i, rc;
 
-	rtnl_lock();
-	netdev_lock(dev);
 	rc = pci_enable_device(bp->pdev);
 	if (rc) {
 		netdev_err(dev, "Cannot re-enable PCI device during resume, err = %d\n",
 			   rc);
-		goto resume_exit;
+		return rc;
 	}
 	pci_set_master(bp->pdev);
+	if (BNXT_VF(bp)) {
+		for (i = 0; i < BNXT_RESUME_MAX_RETRY; i++) {
+			rc = bnxt_hwrm_poll(bp);
+			if (rc != -EAGAIN && rc != -EBUSY && rc != -ECOMM)
+				break;
+
+			/* Wait briefly for -EAGAIN (FW busy), a bit longer for
+			 * -ECOMM (PF down) to allow the PF to fully initialize.
+			 * For -EBUSY, the message typically has timed out, so
+			 * try again immediately.
+			 */
+			if (i < BNXT_RESUME_MAX_RETRY - 1) {
+				if (rc == -EAGAIN)
+					msleep(250);
+				else if (rc == -ECOMM)
+					msleep(750);
+			}
+		}
+		if (rc) {
+			netdev_err(dev,
+				   "Firmware not responding during resume, rc = %d\n",
+				   rc);
+			return -ENODEV;
+		}
+	}
+
+	rtnl_lock();
+	netdev_lock(dev);
+
 	if (bnxt_hwrm_ver_get(bp)) {
 		rc = -ENODEV;
 		goto resume_exit;

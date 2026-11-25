@@ -738,7 +738,7 @@ static int sn624x_parse_sdca_functions(struct sn624x_sdca_priv *sn624x)
 		if (!is_jack && !is_mic && !is_amp)
 			continue;
 
-		fn = devm_kzalloc(dev, sizeof(*fn), GFP_KERNEL);
+		fn = devm_kzalloc_obj(dev, *fn);
 		if (!fn)
 			return -ENOMEM;
 
@@ -1259,8 +1259,8 @@ static int sn624x_sdca_read_prop(struct sdw_slave *slave)
 			   BIT(SN624X_PORT_SPEAKER_PLAYBACK);
 
 	nval = hweight32(prop->source_ports);
-	prop->src_dpn_prop = devm_kcalloc(&slave->dev, nval,
-					   sizeof(*prop->src_dpn_prop), GFP_KERNEL);
+	prop->src_dpn_prop = devm_kzalloc_objs(&slave->dev, *prop->src_dpn_prop,
+					       nval);
 	if (!prop->src_dpn_prop)
 		return -ENOMEM;
 	i = 0;
@@ -1274,8 +1274,8 @@ static int sn624x_sdca_read_prop(struct sdw_slave *slave)
 		i++;
 	}
 	nval = hweight32(prop->sink_ports);
-	prop->sink_dpn_prop = devm_kcalloc(&slave->dev, nval,
-					   sizeof(*prop->sink_dpn_prop), GFP_KERNEL);
+	prop->sink_dpn_prop = devm_kzalloc_objs(&slave->dev,
+						*prop->sink_dpn_prop, nval);
 	if (!prop->sink_dpn_prop)
 		return -ENOMEM;
 	j = 0;
@@ -1669,7 +1669,7 @@ static struct snd_soc_dai_driver sn624x_sdca_dai[] = {
 		.capture = {
 			.stream_name = "DMic Capture",
 			.channels_min = 1,
-			.channels_max = 4,
+			.channels_max = 2,
 			.rates = SN624X_STEREO_RATES,
 			.formats = SN624X_FORMATS,
 		},
@@ -1693,7 +1693,7 @@ int sn624x_sdca_init(struct device *dev, struct regmap *regmap,
 	struct sn624x_sdca_priv *sn624x;
 	int ret;
 
-	sn624x = devm_kzalloc(dev, sizeof(*sn624x), GFP_KERNEL);
+	sn624x = devm_kzalloc_obj(dev, *sn624x);
 	if (!sn624x)
 		return -ENOMEM;
 
@@ -1771,6 +1771,8 @@ static void sn624x_sdca_sdw_remove(struct sdw_slave *slave)
 static const struct sdw_device_id sn624x_sdca_id[] = {
 	SDW_SLAVE_ENTRY_EXT(0x0496, 0x6242, 0x3, 0x1, 0),
 	SDW_SLAVE_ENTRY_EXT(0x0496, 0x6244, 0x3, 0x1, 0),
+	/* SN6245 is register-compatible with SN6244 (jack/amp/dmic). */
+	SDW_SLAVE_ENTRY_EXT(0x0496, 0x6245, 0x3, 0x1, 0),
 	SDW_SLAVE_ENTRY_EXT(0x0496, 0x6247, 0x3, 0x1, 0),
 	{ }
 };

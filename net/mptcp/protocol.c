@@ -619,12 +619,6 @@ static void mptcp_set_timeout(struct sock *sk)
 	__mptcp_set_timeout(sk, tout);
 }
 
-static inline bool tcp_can_send_ack(const struct sock *ssk)
-{
-	return !((1 << inet_sk_state_load(ssk)) &
-	       (TCPF_SYN_SENT | TCPF_SYN_RECV | TCPF_TIME_WAIT | TCPF_CLOSE | TCPF_LISTEN));
-}
-
 void __mptcp_subflow_send_ack(struct sock *ssk)
 {
 	if (tcp_can_send_ack(ssk))
@@ -1920,10 +1914,12 @@ static int mptcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
 	msg->msg_flags = saved_flags;
 	release_sock(ssk);
 
+	inet_clear_bit(DEFER_CONNECT, sk);
+
 	/* do the blocking bits of inet_stream_connect outside the ssk socket lock */
 	if (ret == -EINPROGRESS && !(msg->msg_flags & MSG_DONTWAIT)) {
 		ret = __inet_stream_connect(sk->sk_socket, msg->msg_name,
-					    msg->msg_namelen, msg->msg_flags, 1);
+					    msg->msg_namelen, msg->msg_flags, true);
 
 		/* Keep the same behaviour of plain TCP: zero the copied bytes in
 		 * case of any error, except timeout or signal
@@ -1941,7 +1937,6 @@ static int mptcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
 			sk->sk_socket->state = SS_UNCONNECTED;
 		}
 	}
-	inet_clear_bit(DEFER_CONNECT, sk);
 
 	return ret;
 }
@@ -3040,7 +3035,8 @@ void mptcp_reset_tout_timer(struct mptcp_sock *msk, unsigned long fail_tout)
 		return;
 
 	close_timeout = (unsigned long)inet_csk(sk)->icsk_mtup.probe_timestamp -
-			tcp_jiffies32 + jiffies + mptcp_close_timeout(sk);
+			tcp_jiffies32;
+	close_timeout += jiffies + mptcp_close_timeout(sk);
 
 	/* the close timeout takes precedence on the fail one, and here at least one of
 	 * them is active

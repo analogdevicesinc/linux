@@ -1022,6 +1022,8 @@ static bool dc_construct_ctx(struct dc *dc,
 
 	dc_ctx->perf_trace = dc_perf_trace_create();
 	if (!dc_ctx->perf_trace) {
+		kfree(dc_ctx->logger);
+		dc->dml.logger = NULL;
 		kfree(dc_ctx);
 		ASSERT_CRITICAL(false);
 		return false;
@@ -1663,12 +1665,25 @@ static void detect_edp_presence(struct dc *dc)
 	}
 }
 
+static void sync_current_state_clocks_from_clk_mgr(struct dc *dc)
+{
+	if (!dc->current_state || !dc->clk_mgr)
+		return;
+
+	if (!(dc->ctx->dce_version == DCN_VERSION_4_2 || dc->ctx->dce_version == DCN_VERSION_4_2B))
+		return;
+
+	dc->current_state->bw_ctx.bw.dcn.clk = dc->clk_mgr->clks;
+}
+
 void legacy_hardware_init(struct dc *dc)
 {
 
 	detect_edp_presence(dc);
-	if (dc->ctx->dce_environment != DCE_ENV_VIRTUAL_HW)
+	if (dc->ctx->dce_environment != DCE_ENV_VIRTUAL_HW) {
 		dc->hwss.init_hw(dc);
+		sync_current_state_clocks_from_clk_mgr(dc);
+	}
 	dc_dmub_srv_notify_fw_dc_power_state(dc->ctx->dmub_srv, DC_ACPI_CM_POWER_STATE_D0);
 }
 
@@ -2484,6 +2499,8 @@ static enum dc_status dc_commit_state_no_check(struct dc *dc, struct dc_state *c
 		 * update pending complete before optimizing bandwidth.
 		 */
 		hwss_wait_for_odm_update_pending_complete(dc, context);
+		/* No DET may stay allocated to a HUBP without a plane (e.g. left over from VBIOS) */
+		hwss_reset_unused_det(dc, context);
 		/* pplib is notified if disp_num changed */
 		dc->hwss.optimize_bandwidth(dc, context);
 		/* Need to do otg sync again as otg could be out of sync due to otg
@@ -4870,8 +4887,10 @@ static void commit_planes_for_stream(struct dc *dc,
 	dc_exit_ips_for_hw_access(dc);
 
 	dc_z10_restore(dc);
-	if (update_type == UPDATE_TYPE_FULL && dc->optimized_required)
+	if (update_type == UPDATE_TYPE_FULL && dc->optimized_required) {
+		hwss_reset_unused_det(dc, dc->current_state);
 		hwss_process_outstanding_hw_updates(dc, dc->current_state);
+	}
 
 	if (update_type != UPDATE_TYPE_FAST && dc->res_pool->funcs->prepare_mcache_programming)
 		dc->res_pool->funcs->prepare_mcache_programming(dc, context);
@@ -6308,6 +6327,7 @@ void dc_set_power_state(struct dc *dc, enum dc_acpi_cm_power_state power_state)
 		dc_dmub_srv_notify_fw_dc_power_state(dc->ctx->dmub_srv, power_state);
 
 		dc->hwss.init_hw(dc);
+		sync_current_state_clocks_from_clk_mgr(dc);
 
 		if (dc->hwss.init_sys_ctx != NULL &&
 			dc->vm_pa_config.valid) {

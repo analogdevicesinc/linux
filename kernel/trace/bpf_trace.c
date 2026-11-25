@@ -1397,8 +1397,16 @@ static bool kprobe_prog_is_valid_access(int off, int size, enum bpf_access_type 
 	if (off + size > sizeof(struct pt_regs))
 		return false;
 
-	if (type == BPF_WRITE)
+	if (type == BPF_WRITE) {
+		/*
+		 * pt_regs also holds what the kernel restores on the way to
+		 * user space: cs and flags on x86, pstate on arm64, status on
+		 * riscv. A prog can write the registers of the task only.
+		 */
+		if (!arch_uprobe_regs_writable(off, size))
+			return false;
 		prog->aux->kprobe_write_ctx = true;
+	}
 
 	return true;
 }
@@ -2064,7 +2072,7 @@ int perf_event_query_prog_array(struct perf_event *event, void __user *info)
 	ids_len = query.ids_len;
 	if (ids_len > BPF_TRACE_MAX_PROGS)
 		return -E2BIG;
-	ids = kcalloc(ids_len, sizeof(u32), GFP_USER | __GFP_NOWARN);
+	ids = kzalloc_objs(u32, ids_len, GFP_USER | __GFP_NOWARN);
 	if (!ids)
 		return -ENOMEM;
 	/*
@@ -2403,7 +2411,7 @@ static int copy_user_syms(struct user_syms *us, unsigned long __user *usyms, u32
 	if (!access_ok(usyms, cnt * sizeof(*usyms)))
 		return -EFAULT;
 
-	syms = kvmalloc_array(cnt, sizeof(*syms), GFP_KERNEL);
+	syms = kvmalloc_objs(*syms, cnt);
 	if (!syms)
 		return -ENOMEM;
 
@@ -2847,7 +2855,7 @@ int bpf_kprobe_multi_link_attach(const union bpf_attr *attr, struct bpf_prog *pr
 		return -E2BIG;
 
 	size = cnt * sizeof(*addrs);
-	addrs = kvmalloc_array(cnt, sizeof(*addrs), GFP_KERNEL);
+	addrs = kvmalloc_objs(*addrs, cnt);
 	if (!addrs)
 		return -ENOMEM;
 

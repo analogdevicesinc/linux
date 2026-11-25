@@ -188,7 +188,6 @@ char *amdgpu_disable_cu;
 char *amdgpu_virtual_display;
 int amdgpu_enforce_isolation = -1;
 int amdgpu_modeset = -1;
-int amdgpu_iommu_perfopt = -1;
 
 /* Specifies the default granularity for SVM, used in buffer
  * migration and restoration of backing memory when handling
@@ -398,17 +397,6 @@ module_param_named(fw_load_type, amdgpu_fw_load_type, int, 0444);
  */
 MODULE_PARM_DESC(aspm, "ASPM support (1 = enable, 0 = disable, -1 = auto)");
 module_param_named(aspm, amdgpu_aspm, int, 0444);
-
-/**
- * DOC: iommu_perfopt (int)
- * Control the AMD IOMMU PerfOpt DMA-latency optimization
- * (0 = disable; -1 = enable on supported devices).
- * This arms the IOMMU PerfOpt control (IOMMU spec, MMIO Offset 016Ch, EFR PerfOptSup / PerfOptEn)
- * Arming it disables ATS, PRI, PASID and SVA for the GPU and removes IOMMU DMA containment for it,
- * trading isolation for lower DMA latency.
- */
-MODULE_PARM_DESC(iommu_perfopt, "Control IOMMU PerfOpt DMA-latency optimization (-1 = enable on supported devices, 0 = disable)");
-module_param_named(iommu_perfopt, amdgpu_iommu_perfopt, int, 0444);
 
 /**
  * DOC: runpm (int)
@@ -3233,7 +3221,7 @@ static int __init amdgpu_init(void)
 	/* Ignore KFD init failures when CONFIG_HSA_AMD is not set. */
 	r = amdgpu_amdkfd_init();
 	if (r && r != -ENOENT)
-		goto error_fini_sync;
+		goto error_release_acpi;
 
 	if (amdgpu_pp_feature_mask & PP_OVERDRIVE_MASK) {
 		add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
@@ -3242,9 +3230,17 @@ static int __init amdgpu_init(void)
 	}
 
 	/* let modprobe override vga console setting */
-	return pci_register_driver(&amdgpu_kms_pci_driver);
+	r = pci_register_driver(&amdgpu_kms_pci_driver);
+	if (r)
+		goto error_fini_kfd;
 
-error_fini_sync:
+	return 0;
+
+error_fini_kfd:
+	amdgpu_amdkfd_fini();
+error_release_acpi:
+	amdgpu_acpi_release();
+	amdgpu_unregister_atpx_handler();
 	amdgpu_sync_fini();
 	return r;
 }

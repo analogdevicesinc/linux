@@ -602,7 +602,7 @@ static int gpio_mpsse_probe(struct usb_interface *interface,
 	struct mpsse_quirk *quirk = (void *)id->driver_info;
 
 	dev = &interface->dev;
-	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc_obj(dev, *priv);
 	if (!priv)
 		return -ENOMEM;
 
@@ -675,6 +675,10 @@ static int gpio_mpsse_probe(struct usb_interface *interface,
 					NULL, NULL);
 	if (err)
 		return err;
+
+	/* Every read carries two status bytes ahead of the data */
+	if (usb_endpoint_maxp(priv->bulk_in) < 3)
+		return -EINVAL;
 
 	priv->bulk_in_buf = devm_kmalloc(dev, usb_endpoint_maxp(priv->bulk_in),
 					 GFP_KERNEL);

@@ -152,11 +152,11 @@ static void sock_map_del_link(struct sock *sk,
 			struct bpf_map *map = link->map;
 			struct sk_psock_progs *progs = sock_map_progs(map);
 
-			if (psock->saved_data_ready && progs->stream_parser)
+			if (progs->stream_parser)
 				strp_stop = true;
-			if (psock->saved_data_ready && progs->stream_verdict)
+			if (progs->stream_verdict)
 				verdict_stop = true;
-			if (psock->saved_data_ready && progs->skb_verdict)
+			if (progs->skb_verdict)
 				verdict_stop = true;
 			list_del(&link->list);
 			sk_psock_free_link(link);
@@ -164,8 +164,11 @@ static void sock_map_del_link(struct sock *sk,
 		}
 	}
 	spin_unlock_bh(&psock->link_lock);
-	if (strp_stop || verdict_stop) {
-		write_lock_bh(&sk->sk_callback_lock);
+	if (!strp_stop && !verdict_stop)
+		return;
+
+	write_lock_bh(&sk->sk_callback_lock);
+	if (psock->saved_data_ready) {
 		if (strp_stop)
 			sk_psock_stop_strp(sk, psock);
 		if (verdict_stop)
@@ -173,8 +176,8 @@ static void sock_map_del_link(struct sock *sk,
 
 		if (psock->psock_update_sk_prot)
 			psock->psock_update_sk_prot(sk, psock, false);
-		write_unlock_bh(&sk->sk_callback_lock);
 	}
+	write_unlock_bh(&sk->sk_callback_lock);
 }
 
 static void sock_map_unref(struct sock *sk, void *link_raw)
@@ -202,7 +205,7 @@ static struct sk_psock *sock_map_psock_get_checked(struct sock *sk)
 	rcu_read_lock();
 	psock = sk_psock(sk);
 	if (psock) {
-		if (sk->sk_prot->close != sock_map_close) {
+		if (READ_ONCE(sk->sk_prot)->close != sock_map_close) {
 			psock = ERR_PTR(-EBUSY);
 			goto out;
 		}
@@ -224,6 +227,14 @@ static int sock_map_link(struct bpf_map *map, struct sock *sk)
 	struct bpf_prog *msg_parser = NULL;
 	struct sk_psock *psock;
 	int ret;
+
+	/*
+	 * A listener receives no data. With the callbacks of a verdict program
+	 * or a parser it would no longer wake accept(), and its children would
+	 * copy them.
+	 */
+	if (sk_is_tcp(sk) && sk->sk_state == TCP_LISTEN)
+		goto no_progs;
 
 	stream_verdict = READ_ONCE(progs->stream_verdict);
 	if (stream_verdict) {
@@ -259,6 +270,7 @@ static int sock_map_link(struct bpf_map *map, struct sock *sk)
 		}
 	}
 
+no_progs:
 	psock = sock_map_psock_get_checked(sk);
 	if (IS_ERR(psock)) {
 		ret = PTR_ERR(psock);
@@ -284,6 +296,7 @@ static int sock_map_link(struct bpf_map *map, struct sock *sk)
 		}
 	}
 
+	write_lock_bh(&sk->sk_callback_lock);
 	if (msg_parser)
 		psock_set_prog(&psock->progs.msg_parser, msg_parser);
 	if (stream_parser)
@@ -298,11 +311,11 @@ static int sock_map_link(struct bpf_map *map, struct sock *sk)
 	 */
 	ret = sock_map_init_proto(sk, psock);
 	if (ret < 0) {
+		write_unlock_bh(&sk->sk_callback_lock);
 		sk_psock_put(sk, psock);
 		goto out;
 	}
 
-	write_lock_bh(&sk->sk_callback_lock);
 	if (stream_parser && stream_verdict && !psock->saved_data_ready) {
 		if (sk_is_tcp(sk))
 			ret = sk_psock_init_strp(sk, psock);
@@ -536,7 +549,7 @@ static bool sock_map_redirect_allowed(const struct sock *sk)
 
 static bool sock_map_sk_is_suitable(const struct sock *sk)
 {
-	return !!sk->sk_prot->psock_update_sk_prot;
+	return !!READ_ONCE(sk->sk_prot)->psock_update_sk_prot;
 }
 
 static bool sock_map_sk_state_allowed(const struct sock *sk)
@@ -1989,7 +2002,7 @@ static struct bpf_iter_reg sock_map_iter_reg = {
 		{ offsetof(struct bpf_iter__sockmap, key),
 		  PTR_TO_BUF | PTR_MAYBE_NULL | MEM_RDONLY },
 		{ offsetof(struct bpf_iter__sockmap, sk),
-		  PTR_TO_BTF_ID_OR_NULL },
+		  PTR_TO_BTF_ID_OR_NULL | PTR_TRUSTED },
 	},
 };
 

@@ -294,17 +294,21 @@ static void *do_alloc_pages(struct device *dev, size_t size, dma_addr_t *addr,
 	if (!p)
 		return NULL;
 	*addr = page_to_phys(virt_to_page(p));
-	if (!dev)
+	if (!dev || !dev->coherent_dma_mask)
 		return p;
 	if ((*addr + size - 1) & ~dev->coherent_dma_mask) {
-		if (IS_ENABLED(CONFIG_ZONE_DMA32) && !(gfp & GFP_DMA32)) {
+		if (IS_ENABLED(CONFIG_ZONE_DMA32) && !(gfp & (GFP_DMA32 | GFP_DMA))) {
+			free_pages_exact(p, size);
 			gfp |= GFP_DMA32;
 			goto again;
 		}
 		if (IS_ENABLED(CONFIG_ZONE_DMA) && !(gfp & GFP_DMA)) {
+			free_pages_exact(p, size);
 			gfp = (gfp & ~GFP_DMA32) | GFP_DMA;
 			goto again;
 		}
+		free_pages_exact(p, size);
+		return NULL;
 	}
 #ifdef CONFIG_X86
 	if (wc)
@@ -506,7 +510,7 @@ static void *snd_dma_wc_alloc(struct snd_dma_buffer *dmab, size_t size)
 		return NULL;
 	dmab->addr = dma_map_single(dmab->dev.dev, p, size, DMA_BIDIRECTIONAL);
 	if (dma_mapping_error(dmab->dev.dev, dmab->addr)) {
-		do_free_pages(dmab->area, size, true);
+		do_free_pages(p, size, true);
 		return NULL;
 	}
 	return p;
@@ -725,7 +729,7 @@ static void *snd_dma_sg_fallback_alloc(struct snd_dma_buffer *dmab, size_t size)
 	size = PAGE_ALIGN(size);
 	sgbuf->count = size >> PAGE_SHIFT;
 	sgbuf->pages = kvzalloc_objs(*sgbuf->pages, sgbuf->count);
-	sgbuf->npages = kvcalloc(sgbuf->count, sizeof(*sgbuf->npages), GFP_KERNEL);
+	sgbuf->npages = kvzalloc_objs(*sgbuf->npages, sgbuf->count);
 	if (!sgbuf->pages || !sgbuf->npages)
 		goto error;
 

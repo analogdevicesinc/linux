@@ -32,6 +32,13 @@
 
 static bool memfd_folio_has_extra_refs(struct folio *folio)
 {
+	/*
+	 * Use the precise pincount where available to avoid racy refcount
+	 * comparisons.
+	 */
+	if (folio_has_pincount(folio) && folio_maybe_dma_pinned(folio))
+		return true;
+
 	return folio_ref_count(folio) != folio_expected_ref_count(folio);
 }
 
@@ -482,6 +489,8 @@ struct file *memfd_alloc_file(const char *name, unsigned int flags)
 	}
 
 	file->f_mode |= FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE;
+	/* a regular file like any other: POSIX.1-2008/SUSv4 Section XSI 2.9.7 */
+	file->f_mode |= FMODE_ATOMIC_POS;
 	file->f_flags |= O_LARGEFILE;
 
 	if (flags & MFD_NOEXEC_SEAL) {

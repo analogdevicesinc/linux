@@ -3127,7 +3127,7 @@ static void wm8962_mic_work(struct work_struct *work)
 		/* Don't report a microphone if it's shorted right after
 		 * plugging in, as this may be a TRS plug in a TRRS socket.
 		 */
-		if (!(wm8962->mic_status & WM8962_MICDET_STS))
+		if (!(wm8962->mic_status & SND_JACK_MICROPHONE))
 			status = 0;
 	}
 
@@ -3665,7 +3665,7 @@ static int wm8962_i2c_probe(struct i2c_client *i2c)
 	unsigned int reg;
 	int ret, i, irq_pol, trigger;
 
-	wm8962 = devm_kzalloc(&i2c->dev, sizeof(*wm8962), GFP_KERNEL);
+	wm8962 = devm_kzalloc_obj(&i2c->dev, *wm8962);
 	if (wm8962 == NULL)
 		return -ENOMEM;
 

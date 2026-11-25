@@ -278,6 +278,7 @@ static int max77693_haptic_open(struct input_dev *dev)
 	if (error) {
 		dev_err(haptic->dev,
 			"failed to enable regulator: %d\n", error);
+		max77843_haptic_bias(haptic, false);
 		return error;
 	}
 
@@ -306,7 +307,7 @@ static int max77693_haptic_probe(struct platform_device *pdev)
 	struct max77693_haptic *haptic;
 	int error;
 
-	haptic = devm_kzalloc(&pdev->dev, sizeof(*haptic), GFP_KERNEL);
+	haptic = devm_kzalloc_obj(&pdev->dev, *haptic);
 	if (!haptic)
 		return -ENOMEM;
 

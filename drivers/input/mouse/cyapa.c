@@ -900,8 +900,10 @@ static ssize_t cyapa_update_rt_suspend_scanrate(struct device *dev,
 	pm_runtime_get_sync(dev);
 
 	error = mutex_lock_interruptible(&cyapa->state_sync_lock);
-	if (error)
+	if (error) {
+		pm_runtime_put_autosuspend(dev);
 		return error;
+	}
 
 	cyapa->runtime_suspend_sleep_time = min_t(u16, time, 1000);
 	cyapa->runtime_suspend_power_mode =
@@ -1256,7 +1258,7 @@ static int cyapa_probe(struct i2c_client *client)
 			I2C_SMBUS_READ, 0, I2C_SMBUS_BYTE, &dummy) < 0)
 		return -ENODEV;
 
-	cyapa = devm_kzalloc(dev, sizeof(struct cyapa), GFP_KERNEL);
+	cyapa = devm_kzalloc_obj(dev, struct cyapa);
 	if (!cyapa)
 		return -ENOMEM;
 

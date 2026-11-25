@@ -134,7 +134,7 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
 	const struct q6dsp_clk_desc *desc;
 	int i, ret;
 
-	cc = devm_kzalloc(dev, sizeof(*cc), GFP_KERNEL);
+	cc = devm_kzalloc_obj(dev, *cc);
 	if (!cc)
 		return -ENOMEM;
 
@@ -146,6 +146,12 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
 	cc->dev = dev;
 	q6dsp_clks = desc->clks;
 
+	/*
+	 * The clk ops look up cc through the driver data, so set it before
+	 * any of the clocks can be prepared.
+	 */
+	dev_set_drvdata(dev, cc);
+
 	for (i = 0; i < desc->num_clks; i++) {
 		unsigned int id = q6dsp_clks[i].clk_id;
 		struct clk_init_data init = {
@@ -153,7 +159,7 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
 		};
 		struct q6dsp_clk *clk;
 
-		clk = devm_kzalloc(dev, sizeof(*clk), GFP_KERNEL);
+		clk = devm_kzalloc_obj(dev, *clk);
 		if (!clk)
 			return -ENOMEM;
 
@@ -174,12 +180,6 @@ int q6dsp_clock_dev_probe(struct platform_device *pdev)
 			return ret;
 	}
 
-	ret = devm_of_clk_add_hw_provider(dev, q6dsp_of_clk_hw_get, cc);
-	if (ret)
-		return ret;
-
-	dev_set_drvdata(dev, cc);
-
-	return 0;
+	return devm_of_clk_add_hw_provider(dev, q6dsp_of_clk_hw_get, cc);
 }
 EXPORT_SYMBOL_GPL(q6dsp_clock_dev_probe);

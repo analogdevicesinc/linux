@@ -1153,7 +1153,7 @@ static int da7280_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	haptics = devm_kzalloc(dev, sizeof(*haptics), GFP_KERNEL);
+	haptics = devm_kzalloc_obj(dev, *haptics);
 	if (!haptics)
 		return -ENOMEM;
 
@@ -1226,7 +1226,6 @@ static int da7280_probe(struct i2c_client *client)
 	input_set_capability(haptics->input_dev, EV_FF, FF_PERIODIC);
 	input_set_capability(haptics->input_dev, EV_FF, FF_CUSTOM);
 	input_set_capability(haptics->input_dev, EV_FF, FF_CONSTANT);
-	input_set_capability(haptics->input_dev, EV_FF, FF_GAIN);
 
 	error = input_ff_create(haptics->input_dev,
 				DA7280_FF_EFFECT_COUNT_MAX);

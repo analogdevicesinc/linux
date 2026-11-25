@@ -164,6 +164,13 @@ static_assert((1 << ATO_BITS) > TCP_DELACK_MAX);
 
 #define TCP_TIMEOUT_MIN_US (2*USEC_PER_MSEC) /* Min TCP timeout in microsecs */
 
+/* Max RTT sample for tcp_rtt_estimator(). srtt_us holds 8 times the RTT, and
+ * mdev_us and rttvar_us up to 4 times its deviation, all in u32, like the sum
+ * in __tcp_set_rto(). A larger sample could not raise the RTO, which
+ * TCP_RTO_MAX bounds.
+ */
+#define TCP_RTT_MAX_US	(TCP_RTO_MAX_SEC * USEC_PER_SEC)
+
 #define TCP_TIMEOUT_INIT ((unsigned)(1*HZ))	/* RFC6298 2.1 initial RTO value	*/
 #define TCP_TIMEOUT_FALLBACK ((unsigned)(3*HZ))	/* RFC 1122 initial RTO value, now
 						 * used as a fallback RTO for the
@@ -910,7 +917,9 @@ static inline void tcp_bound_rto(struct sock *sk)
 
 static inline u32 __tcp_set_rto(const struct tcp_sock *tp)
 {
-	return usecs_to_jiffies((tp->srtt_us >> 3) + tp->rttvar_us);
+	u32 rto = usecs_to_jiffies((tp->srtt_us >> 3) + tp->rttvar_us);
+
+	return max(rto, 1U);
 }
 
 static inline unsigned long tcp_reqsk_timeout(struct request_sock *req)
@@ -930,7 +939,8 @@ static inline u32 tcp_rto_min(const struct sock *sk)
 	u32 rto_min = READ_ONCE(inet_csk(sk)->icsk_rto_min);
 
 	if (dst && dst_metric_locked(dst, RTAX_RTO_MIN))
-		rto_min = dst_metric_rtt(dst, RTAX_RTO_MIN);
+		rto_min = clamp(dst_metric_rtt(dst, RTAX_RTO_MIN),
+				1, TCP_RTO_MAX);
 	return rto_min;
 }
 
@@ -1554,6 +1564,15 @@ static inline unsigned int tcp_packets_in_flight(const struct tcp_sock *tp)
 
 #define TCP_INFINITE_SSTHRESH	0x7fffffff
 
+/* Default and maximum snd_cwnd_clamp, in packets.
+ * A peer can not advertise more than 65535 << 14 bytes, so a larger
+ * cwnd is useless with any MSS of 1024 bytes or more.
+ * Congestion control modules multiply cwnd by u32 factors up to 2047
+ * (cwnd * (BICTCP_BETA_SCALE + beta) in CUBIC), and CUBIC's
+ * bictcp_update() expects cwnd to stay below about one million packets.
+ */
+#define TCP_MAX_SND_CWND	(1U << 20)
+
 static inline u32 tcp_snd_cwnd(const struct tcp_sock *tp)
 {
 	return tp->snd_cwnd;
@@ -1845,6 +1864,12 @@ static inline void tcp_adjust_rcv_ssthresh(struct sock *sk)
 void tcp_cleanup_rbuf(struct sock *sk, int copied);
 void __tcp_cleanup_rbuf(struct sock *sk, int copied);
 
+/* Is the socket in a state in which TCP may send an ACK? */
+static inline bool tcp_can_send_ack(const struct sock *sk)
+{
+	return !((1 << inet_sk_state_load(sk)) &
+	       (TCPF_SYN_SENT | TCPF_SYN_RECV | TCPF_TIME_WAIT | TCPF_CLOSE | TCPF_LISTEN));
+}
 
 /* We provision sk_rcvbuf around 200% of sk_rcvlowat.
  * If 87.5 % (7/8) of the space has been consumed, we want to override

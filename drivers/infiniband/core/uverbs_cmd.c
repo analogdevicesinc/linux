@@ -1668,8 +1668,8 @@ static int ib_uverbs_query_qp(struct uverbs_attr_bundle *attrs)
 	if (ret)
 		return ret;
 
-	attr = kmalloc_obj(*attr);
-	init_attr = kmalloc_obj(*init_attr);
+	attr = kzalloc_obj(*attr);
+	init_attr = kzalloc_obj(*init_attr);
 	if (!attr || !init_attr) {
 		ret = -ENOMEM;
 		goto out;
@@ -3022,8 +3022,7 @@ static int ib_uverbs_ex_create_rwq_ind_table(struct uverbs_attr_bundle *attrs)
 		return -EINVAL;
 
 	num_wq_handles = 1 << cmd.log_ind_tbl_size;
-	wqs_handles = kcalloc(num_wq_handles, sizeof(*wqs_handles),
-			      GFP_KERNEL);
+	wqs_handles = kzalloc_objs(*wqs_handles, num_wq_handles);
 	if (!wqs_handles)
 		return -ENOMEM;
 

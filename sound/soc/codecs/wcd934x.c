@@ -1706,7 +1706,7 @@ static int wcd934x_slim_set_hw_params(struct wcd934x_codec *wcd,
 		cfg->port_mask |= BIT(ch->port);
 	}
 
-	cfg->chs = kcalloc(cfg->ch_count, sizeof(unsigned int), GFP_KERNEL);
+	cfg->chs = kzalloc_objs(unsigned int, cfg->ch_count);
 	if (!cfg->chs)
 		return -ENOMEM;
 
@@ -2995,6 +2995,12 @@ static int wcd934x_comp_probe(struct snd_soc_component *component)
 	/* Default HPH Mode to Class-H Low HiFi */
 	wcd->hph_mode = CLS_H_LOHIFI;
 
+	/*
+	 * The digital core drops register writes while MCLK is off, but the
+	 * regmap cache still records them. Keep MCLK running so the init
+	 * sequence below and later mixer/DAPM writes actually reach the codec.
+	 */
+	__wcd934x_cdc_mclk_enable(wcd, true);
 	wcd934x_comp_init(component);
 
 	for (i = 0; i < NUM_CODEC_DAIS; i++)
@@ -5839,7 +5845,7 @@ static int wcd934x_codec_probe(struct platform_device *pdev)
 	struct wcd934x_codec *wcd;
 	int ret, irq;
 
-	wcd = devm_kzalloc(dev, sizeof(*wcd), GFP_KERNEL);
+	wcd = devm_kzalloc_obj(dev, *wcd);
 	if (!wcd)
 		return -ENOMEM;
 

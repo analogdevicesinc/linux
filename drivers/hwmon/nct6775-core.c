@@ -1130,12 +1130,11 @@ static int nct6775_add_template_attr_group(struct device *dev, struct nct6775_da
 	if (count == 0)
 		return -EINVAL;
 
-	group = devm_kzalloc(dev, sizeof(*group), GFP_KERNEL);
+	group = devm_kzalloc_obj(dev, *group);
 	if (group == NULL)
 		return -ENOMEM;
 
-	attrs = devm_kcalloc(dev, repeat * count + 1, sizeof(*attrs),
-			     GFP_KERNEL);
+	attrs = devm_kzalloc_objs(dev, *attrs, repeat * count + 1);
 	if (attrs == NULL)
 		return -ENOMEM;
 
@@ -1189,15 +1188,13 @@ bool nct6775_reg_is_word_sized(struct nct6775_data *data, u16 reg)
 	case nct6106:
 		return reg == 0x20 || reg == 0x22 || reg == 0x24 ||
 		  (reg >= 0x59 && reg < 0x69 && (reg & 1)) ||
-		  reg == 0xe0 || reg == 0xe2 || reg == 0xe4 ||
-		  reg == 0x111 || reg == 0x121 || reg == 0x131;
+		  reg == 0xe0 || reg == 0xe2 || reg == 0xe4;
 	case nct6116:
 	case nct6126:
 		return reg == 0x20 || reg == 0x22 || reg == 0x24 ||
 		  reg == 0x26 || reg == 0x28 || reg == 0x59 || reg == 0x5b ||
 		  reg == 0xe0 || reg == 0xe2 || reg == 0xe4 || reg == 0xe6 ||
-		  reg == 0xe8 || reg == 0x111 || reg == 0x121 || reg == 0x131 ||
-		  reg == 0x191 || reg == 0x1a1;
+		  reg == 0xe8;
 	case nct6775:
 		return (((reg & 0xff00) == 0x100 ||
 		    (reg & 0xff00) == 0x200) &&
@@ -1458,10 +1455,10 @@ static int nct6775_update_pwm(struct device *dev)
 
 		if (!data->temp_tolerance[0][i] ||
 		    data->pwm_enable[i] != speed_cruise)
-			data->temp_tolerance[0][i] = fanmodecfg & 0x0f;
+			data->temp_tolerance[0][i] = fanmodecfg & data->tolerance_mask;
 		if (!data->target_speed_tolerance[i] ||
 		    data->pwm_enable[i] == speed_cruise) {
-			u8 t = fanmodecfg & 0x0f;
+			u8 t = fanmodecfg & data->tolerance_mask;
 
 			if (data->REG_TOLERANCE_H) {
 				err = nct6775_read_value(data, data->REG_TOLERANCE_H[i], &reg);
@@ -1860,7 +1857,7 @@ EXPORT_SYMBOL_GPL(nct6775_show_beep);
 ssize_t
 nct6775_store_beep(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct sensor_device_attribute_2 *sattr = to_sensor_dev_attr_2(attr);
+	struct sensor_device_attribute *sattr = to_sensor_dev_attr(attr);
 	struct nct6775_data *data = dev_get_drvdata(dev);
 	int nr = data->BEEP_BITS[sattr->index];
 	int regindex = nr >> 3;
@@ -1914,7 +1911,7 @@ static ssize_t
 store_temp_beep(struct device *dev, struct device_attribute *attr,
 		const char *buf, size_t count)
 {
-	struct sensor_device_attribute_2 *sattr = to_sensor_dev_attr_2(attr);
+	struct sensor_device_attribute *sattr = to_sensor_dev_attr(attr);
 	struct nct6775_data *data = dev_get_drvdata(dev);
 	int nr, bit, regindex;
 	unsigned long val;
@@ -3000,7 +2997,7 @@ store_temp_tolerance(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&data->update_lock);
 	data->temp_tolerance[index][nr] = val;
-	if (index)
+	if (!index)
 		err = pwm_update_registers(data, nr);
 	else
 		err = nct6775_write_value(data, data->REG_CRITICAL_TEMP_TOLERANCE[nr], val);
@@ -3575,6 +3572,9 @@ int nct6775_probe(struct device *dev, struct nct6775_data *data,
 
 		data->fan_from_reg = fan_from_reg13;
 		data->fan_from_reg_min = fan_from_reg13;
+		data->target_temp_mask = 0xff;
+		data->tolerance_mask = 0x07;
+		data->speed_tolerance_limit = 63;
 
 		data->temp_label = nct6776_temp_label;
 		data->temp_mask = NCT6776_TEMP_MASK;
@@ -3651,6 +3651,9 @@ int nct6775_probe(struct device *dev, struct nct6775_data *data,
 
 		data->fan_from_reg = fan_from_reg13;
 		data->fan_from_reg_min = fan_from_reg13;
+		data->target_temp_mask = 0xff;
+		data->tolerance_mask = 0x07;
+		data->speed_tolerance_limit = 63;
 
 		data->temp_label = nct6776_temp_label;
 		data->temp_mask = NCT6776_TEMP_MASK;
@@ -3728,6 +3731,9 @@ int nct6775_probe(struct device *dev, struct nct6775_data *data,
 
 		data->fan_from_reg = fan_from_reg13;
 		data->fan_from_reg_min = fan_from_reg13;
+		data->target_temp_mask = 0xff;
+		data->tolerance_mask = 0x07;
+		data->speed_tolerance_limit = 63;
 
 		data->temp_label = nct6776_temp_label;
 		data->temp_mask = NCT6776_TEMP_MASK;

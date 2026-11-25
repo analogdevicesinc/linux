@@ -3421,6 +3421,23 @@ static int mlx5e_switch_priv_params(struct mlx5e_priv *priv,
 	return 0;
 }
 
+/* The old and the new channel of the same index are bound to the same
+ * XSK pool, which is lockless and expects a single user at a time.
+ * Close the old XSK queues before the new ones are activated, even
+ * when the closure of the rest of the old channels is deferred.
+ */
+static void mlx5e_close_channels_xsk(struct mlx5e_channels *chs)
+{
+	int i;
+
+	for (i = 0; i < chs->num; i++) {
+		struct mlx5e_channel *c = chs->c[i];
+
+		if (test_bit(MLX5E_CHANNEL_STATE_XSK, c->state))
+			mlx5e_close_xsk(c);
+	}
+}
+
 static int mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
 				      struct mlx5e_channels *old_chs,
 				      struct mlx5e_channels *new_chs,
@@ -3452,6 +3469,8 @@ static int mlx5e_switch_priv_channels(struct mlx5e_priv *priv,
 	mlx5e_set_xdp_feature(priv);
 	if (!MLX5_CAP_GEN(priv->mdev, tis_tir_td_order))
 		mlx5e_close_channels(old_chs);
+	else
+		mlx5e_close_channels_xsk(old_chs);
 	priv->profile->update_rx(priv);
 
 	mlx5e_selq_apply(&priv->selq);
@@ -5489,7 +5508,7 @@ static void mlx5e_get_queue_stats_rx(struct net_device *dev, int i,
 	struct mlx5e_rq_stats *xskrq_stats;
 	struct mlx5e_rq_stats *rq_stats;
 
-	if (mlx5e_is_uplink_rep(priv) || !mlx5e_stats_nch_read(priv))
+	if (mlx5e_is_uplink_rep(priv) || i >= mlx5e_stats_nch_read(priv))
 		return;
 
 	channel_stats = priv->channel_stats[i];
@@ -5521,6 +5540,9 @@ static void mlx5e_get_queue_stats_tx(struct net_device *dev, int i,
 	 * inactive sqs.
 	 */
 	sq_stats = priv->txq2sq_stats[i];
+	if (!sq_stats)
+		return;
+
 	stats->packets = sq_stats->packets;
 	stats->bytes = sq_stats->bytes;
 
@@ -6038,9 +6060,7 @@ static int mlx5e_nic_init(struct mlx5_core_dev *mdev,
 	priv->dfs_root = debugfs_create_dir("nic",
 					    mlx5_debugfs_get_dev_root(mdev));
 
-	fs = mlx5e_fs_init(priv->profile, mdev,
-			   !test_bit(MLX5E_STATE_DESTROYING, &priv->state),
-			   priv->dfs_root);
+	fs = mlx5e_fs_init(priv->profile, mdev, false, priv->dfs_root);
 	if (!fs) {
 		err = -ENOMEM;
 		mlx5_core_err(mdev, "FS initialization failed, %d\n", err);
@@ -6382,7 +6402,7 @@ int mlx5e_priv_init(struct mlx5e_priv *priv,
 	node = dev_to_node(mlx5_core_dma_dev(mdev));
 
 	/* priv init */
-	priv->mdev        = mdev;
+	WRITE_ONCE(priv->mdev, mdev);
 	priv->netdev      = netdev;
 	priv->max_nch     = nch;
 	priv->max_opened_tc = 1;
@@ -6467,6 +6487,8 @@ void mlx5e_priv_cleanup(struct mlx5e_priv *priv)
 		mlx5e_mqprio_rl_free(priv->mqprio_rl);
 	}
 
+	/* Clear atomically before memset() for lockless XFRM readers. */
+	WRITE_ONCE(priv->mdev, NULL);
 	memset(priv, 0, sizeof(*priv));
 	if (destroying) /* restore destroying bit, to allow unload */
 		set_bit(MLX5E_STATE_DESTROYING, &priv->state);
@@ -6555,10 +6577,6 @@ int mlx5e_attach_netdev(struct mlx5e_priv *priv)
 	int err;
 
 	clear_bit(MLX5E_STATE_DESTROYING, &priv->state);
-	if (priv->fs)
-		mlx5e_fs_set_rx_mode_active(priv->fs,
-					    !test_bit(MLX5E_STATE_DESTROYING,
-						      &priv->state));
 
 	/* Validate the max_wqe_size_sq capability. */
 	if (WARN_ON_ONCE(mlx5e_get_max_sq_wqebbs(priv->mdev) < MLX5E_MAX_TX_WQEBBS)) {
@@ -6619,6 +6637,9 @@ int mlx5e_attach_netdev(struct mlx5e_priv *priv)
 	if (err)
 		goto err_cleanup_tx;
 
+	if (priv->fs)
+		mlx5e_fs_set_rx_mode_active(priv->fs, true);
+
 	if (profile->enable) {
 		err = profile->enable(priv);
 		if (err)
@@ -6630,6 +6651,10 @@ int mlx5e_attach_netdev(struct mlx5e_priv *priv)
 	return 0;
 
 err_cleanup_rx:
+	if (priv->fs) {
+		mlx5e_fs_set_rx_mode_active(priv->fs, false);
+		cancel_work_sync(&priv->set_rx_mode_work);
+	}
 	profile->cleanup_rx(priv);
 err_cleanup_tx:
 	profile->cleanup_tx(priv);
@@ -6637,10 +6662,6 @@ err_cleanup_tx:
 out:
 	mlx5e_reset_channels(priv->netdev);
 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
-	if (priv->fs)
-		mlx5e_fs_set_rx_mode_active(priv->fs,
-					    !test_bit(MLX5E_STATE_DESTROYING,
-						      &priv->state));
 	cancel_work_sync(&priv->update_stats_work);
 	return err;
 }
@@ -6651,9 +6672,7 @@ void mlx5e_detach_netdev(struct mlx5e_priv *priv)
 
 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
 	if (priv->fs)
-		mlx5e_fs_set_rx_mode_active(priv->fs,
-					    !test_bit(MLX5E_STATE_DESTROYING,
-						      &priv->state));
+		mlx5e_fs_set_rx_mode_active(priv->fs, false);
 
 	if (profile->disable)
 		profile->disable(priv);

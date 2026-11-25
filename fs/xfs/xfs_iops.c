@@ -1256,10 +1256,10 @@ xfs_vn_fiemap(
 	if (fieinfo->fi_flags & FIEMAP_FLAG_XATTR) {
 		fieinfo->fi_flags &= ~FIEMAP_FLAG_XATTR;
 		error = iomap_fiemap(inode, fieinfo, start, length,
-				&xfs_xattr_iomap_ops);
+				xfs_xattr_iomap_next);
 	} else {
 		error = iomap_fiemap(inode, fieinfo, start, length,
-				&xfs_read_iomap_ops);
+				xfs_read_iomap_next);
 	}
 	xfs_iunlock(XFS_I(inode), XFS_IOLOCK_SHARED);
 
@@ -1371,6 +1371,10 @@ xfs_inode_supports_dax(
 
 	/* Block size must match page size */
 	if (mp->m_sb.sb_blocksize != PAGE_SIZE)
+		return false;
+
+	/* The zoned code does not support DAX. */
+	if (xfs_is_zoned_inode(ip))
 		return false;
 
 	/* Device has to support DAX too. */

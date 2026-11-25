@@ -1466,7 +1466,7 @@ static int pac1934_prep_custom_attributes(struct pac1934_chip_info *info,
 		if (info->active_channels[i])
 			active_channels_count++;
 
-	pac1934_group = devm_kzalloc(dev, sizeof(*pac1934_group), GFP_KERNEL);
+	pac1934_group = devm_kzalloc_obj(dev, *pac1934_group);
 	if (!pac1934_group)
 		return -ENOMEM;
 

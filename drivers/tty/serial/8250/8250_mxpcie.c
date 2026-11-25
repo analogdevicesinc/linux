@@ -412,7 +412,7 @@ static int mxpcie8250_handle_irq(struct uart_port *port)
 static void mxpcie8250_software_break_ctl(struct uart_port *port, int break_state)
 {
 	struct uart_8250_port *up = up_to_u8250p(port);
-	struct tty_struct *tty = port->state->port.tty;
+	struct tty_struct *tty;
 	unsigned int baud, quot;
 	u8 sfr, tx_byte = 0x01;
 
@@ -439,9 +439,14 @@ static void mxpcie8250_software_break_ctl(struct uart_port *port, int break_stat
 
 		serial_out(up, UART_FCR, UART_FCR_CLEAR_XMIT);
 
-		baud = tty_get_baud_rate(tty);
-		quot = uart_get_divisor(port, baud);
-		serial8250_do_set_divisor(port, baud, quot);
+		/* A hangup during the break detaches the tty */
+		tty = tty_port_tty_get(&port->state->port);
+		if (tty) {
+			baud = tty_get_baud_rate(tty);
+			quot = uart_get_divisor(port, baud);
+			serial8250_do_set_divisor(port, baud, quot);
+			tty_kref_put(tty);
+		}
 		serial_out(up, UART_LCR, up->lcr);
 	}
 }
@@ -528,7 +533,7 @@ static int mxpcie8250_probe(struct pci_dev *pdev, const struct pci_device_id *id
 
 	num_ports = mxpcie8250_get_nports(device);
 
-	priv = devm_kzalloc(dev, struct_size(priv, port, num_ports), GFP_KERNEL);
+	priv = devm_kzalloc_flex(dev, *priv, port, num_ports);
 	if (!priv)
 		return -ENOMEM;
 

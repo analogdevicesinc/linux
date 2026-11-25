@@ -245,6 +245,9 @@ struct fuse_chan {
 	/** Is interrupt not implemented by fs? */
 	bool no_interrupt;
 
+	/** @conn_refused: INIT failed while the channel was still connected. */
+	bool conn_refused;
+
 	/* Use io_uring for communication */
 	unsigned int io_uring;
 
@@ -326,7 +329,6 @@ struct fuse_copy_state {
 	unsigned int len;
 	unsigned int offset;
 	bool write:1;
-	bool move_folios:1;
 	bool is_uring:1;
 	/* set when the payload is zero-copied. folios are filled in place */
 	bool skip_folio_copy:1;

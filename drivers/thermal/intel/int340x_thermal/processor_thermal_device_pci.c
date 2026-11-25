@@ -334,11 +334,11 @@ static int proc_thermal_pci_probe(struct pci_dev *pdev, const struct pci_device_
 	};
 	int irq_flag = 0, irq, ret;
 
-	proc_priv = devm_kzalloc(&pdev->dev, sizeof(*proc_priv), GFP_KERNEL);
+	proc_priv = devm_kzalloc_obj(&pdev->dev, *proc_priv);
 	if (!proc_priv)
 		return -ENOMEM;
 
-	pci_info = devm_kzalloc(&pdev->dev, sizeof(*pci_info), GFP_KERNEL);
+	pci_info = devm_kzalloc_obj(&pdev->dev, *pci_info);
 	if (!pci_info)
 		return -ENOMEM;
 
@@ -501,12 +501,7 @@ static const struct pci_device_id proc_thermal_pci_ids[] = {
 	  PROC_THERMAL_FEATURE_DVFS | PROC_THERMAL_FEATURE_WT_HINT |
 	  PROC_THERMAL_FEATURE_POWER_FLOOR | PROC_THERMAL_FEATURE_PTC |
 	  PROC_THERMAL_FEATURE_SOC_POWER_SLIDER) },
-	{ PCI_DEVICE_DATA(INTEL, NVL_H_THERMAL, PROC_THERMAL_FEATURE_RAPL |
-	  PROC_THERMAL_FEATURE_DLVR | PROC_THERMAL_FEATURE_DVFS |
-	  PROC_THERMAL_FEATURE_MSI_SUPPORT | PROC_THERMAL_FEATURE_WT_HINT |
-	  PROC_THERMAL_FEATURE_POWER_FLOOR | PROC_THERMAL_FEATURE_PTC |
-	  PROC_THERMAL_FEATURE_SOC_POWER_SLIDER) },
-	{ PCI_DEVICE_DATA(INTEL, NVL_S_THERMAL, PROC_THERMAL_FEATURE_RAPL |
+	{ PCI_DEVICE_DATA(INTEL, NVL_THERMAL, PROC_THERMAL_FEATURE_RAPL |
 	  PROC_THERMAL_FEATURE_DLVR | PROC_THERMAL_FEATURE_DVFS |
 	  PROC_THERMAL_FEATURE_MSI_SUPPORT | PROC_THERMAL_FEATURE_WT_HINT |
 	  PROC_THERMAL_FEATURE_POWER_FLOOR | PROC_THERMAL_FEATURE_PTC |

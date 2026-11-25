@@ -292,9 +292,14 @@ static void ljca_gpio_event_cb(void *context, u8 cmd, const void *evt_data,
 		return;
 
 	for (i = 0; i < packet->num; i++) {
-		generic_handle_domain_irq(ljca_gpio->gc.irq.domain,
-					packet->item[i].index);
-		set_bit(packet->item[i].index, ljca_gpio->reenable_irqs);
+		u8 index = packet->item[i].index;
+
+		/* The pin index comes from the device, do not trust it */
+		if (index >= ljca_gpio->gc.ngpio)
+			continue;
+
+		generic_handle_domain_irq(ljca_gpio->gc.irq.domain, index);
+		set_bit(index, ljca_gpio->reenable_irqs);
 	}
 
 	schedule_work(&ljca_gpio->work);
@@ -404,7 +409,7 @@ static int ljca_gpio_probe(struct auxiliary_device *auxdev,
 	struct gpio_irq_chip *girq;
 	int ret;
 
-	ljca_gpio = devm_kzalloc(&auxdev->dev, sizeof(*ljca_gpio), GFP_KERNEL);
+	ljca_gpio = devm_kzalloc_obj(&auxdev->dev, *ljca_gpio);
 	if (!ljca_gpio)
 		return -ENOMEM;
 

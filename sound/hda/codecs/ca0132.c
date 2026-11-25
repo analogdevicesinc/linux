@@ -8416,9 +8416,11 @@ static int ae5_strip_send_frame(struct hda_codec *codec, const u32 *grb_colors, 
 	struct hdac_stream *hstr = NULL;
 	unsigned int format, stream_tag;
 	u32 enc_words[4];
+	struct {
+		u32 r100, r104, r400, r408, r40c, r410, rc04;
+		u32 ser_base[4], ser_clk[4], ser_out[4];
+	} saved;
 	__le32 *dst;
-	int word_idx = 0;
-	int frame_words;
 	int led, w, i;
 	int retries = 20; /* ~100ms max */
 
@@ -8466,40 +8468,45 @@ static int ae5_strip_send_frame(struct hda_codec *codec, const u32 *grb_colors, 
 		usleep_range(5000, 10000);
 	}
 
-	/* 1. Populate the 32KB DMA buffer with repeating WS2812 frames + reset gaps */
+	/* 1. Populate the 32KB DMA buffer: 1 WS2812 frame + reset gap, rest zero */
 	memset(dmab.area, 0, AE5_STRIP_DMA_SIZE);
 	dst = (__le32 *)dmab.area;
 
-	/* Words per frame: preamble + (num_leds * words_per_led) + reset gap */
-	frame_words = AE5_STRIP_PREAMBLE_WORDS + (num_leds * AE5_STRIP_WORDS_PER_LED) +
-		      AE5_STRIP_RESET_GAP_WORDS;
-
-	while (word_idx + frame_words <= AE5_STRIP_TOTAL_WORDS) {
-		/* Preamble per Windows CtxHda FUN_00042944 */
-		for (w = 0; w < AE5_STRIP_PREAMBLE_WORDS; w++) {
-			*dst++ = 0;
-			word_idx++;
-		}
-		/* LEDs */
-		for (led = 0; led < num_leds; led++) {
-			ae5_strip_encode_24(grb_colors[led], enc_words);
-			for (w = 0; w < AE5_STRIP_WORDS_PER_LED; w++) {
-				*dst++ = cpu_to_le32(enc_words[w]);
-				word_idx++;
-			}
-		}
-		/* Zero reset gap (> 1.8 ms; WS2812 requires > 50 us low) */
-		for (w = 0; w < AE5_STRIP_RESET_GAP_WORDS; w++) {
-			*dst++ = 0;
-			word_idx++;
-		}
-	}
-	while (word_idx < AE5_STRIP_TOTAL_WORDS) {
+	/* Preamble per Windows CtxHda FUN_00042944 */
+	for (w = 0; w < AE5_STRIP_PREAMBLE_WORDS; w++)
 		*dst++ = 0;
-		word_idx++;
+
+	/* LEDs */
+	for (led = 0; led < num_leds; led++) {
+		ae5_strip_encode_24(grb_colors[led], enc_words);
+		for (w = 0; w < AE5_STRIP_WORDS_PER_LED; w++)
+			*dst++ = cpu_to_le32(enc_words[w]);
 	}
+
+	/* Zero reset gap (> 1.8 ms; WS2812 requires > 50 us low) */
+	for (w = 0; w < AE5_STRIP_RESET_GAP_WORDS; w++)
+		*dst++ = 0;
+
 	/* Ensure DMA buffer writes are committed before triggering the HDA stream */
 	wmb();
+
+	/*
+	 * Save every BAR2 register the strip transport reprograms, so that the
+	 * audio serializer/clock/routing setup done at codec init can be put
+	 * back afterwards. Leaving them modified silences the analog outputs.
+	 */
+	saved.r100 = readl(spec->mem_base + 0x100);
+	saved.r104 = readl(spec->mem_base + 0x104);
+	saved.r400 = readl(spec->mem_base + 0x400);
+	saved.r408 = readl(spec->mem_base + 0x408);
+	saved.r40c = readl(spec->mem_base + 0x40c);
+	saved.r410 = readl(spec->mem_base + 0x410);
+	saved.rc04 = readl(spec->mem_base + 0xc04);
+	for (i = 0; i < 4; i++) {
+		saved.ser_base[i] = readl(CA0113_SERIALIZER_BASE(spec, i));
+		saved.ser_clk[i] = readl(CA0113_SERIALIZER_CLK(spec, i));
+		saved.ser_out[i] = readl(CA0113_SERIALIZER_OUT(spec, i));
+	}
 
 	/* 2. Configure CA0113 BAR2 hardware registers */
 	/* Power up clocks (CtxHdb 0x141b7 / 0x14210) */
@@ -8550,17 +8557,29 @@ static int ae5_strip_send_frame(struct hda_codec *codec, const u32 *grb_colors, 
 	/* 3. Trigger stream transmission on HDA link */
 	snd_hdac_dsp_trigger(hstr, true);
 	/*
-	 * WS2812 latches on the >50us reset gap after one frame. The 32KB buffer holds ~64
-	 * repeating frame+reset cycles; at ~1.4ms/frame a 15ms run transmits ~10 complete
-	 * cycles - more than enough to latch reliably. Keep it short so rapid sysfs writes
-	 * (OpenRGB effects/theme changes) are not serialized behind a 1s blocking sleep.
+	 * WS2812 latches on the >50us reset gap after the frame. At 44.1kHz stereo
+	 * (88.2k words/s), a 100-LED frame + reset gap is 488 words (~5.5ms); a 10-LED
+	 * strip is 128 words (~1.5ms). Sleeping 8-10ms guarantees the entire frame and
+	 * latch reset have completed. The remainder of the 32KB buffer is zero-filled,
+	 * so stopping the stream during the trailing zeros never truncates an active LED.
 	 */
-	usleep_range(15000, 20000);
+	usleep_range(8000, 10000);
 	snd_hdac_dsp_trigger(hstr, false);
 	codec_dbg(codec, "AE5 strip: trigger complete\n");
 
-	/* Teardown: clear 0x104 pin mux back to 0 */
-	writel(0x00000000, spec->mem_base + 0x104);
+	/* Teardown: put back the registers exactly as the audio path left them */
+	writel(saved.r104, spec->mem_base + 0x104);
+	for (i = 0; i < 4; i++) {
+		writel(saved.ser_out[i], CA0113_SERIALIZER_OUT(spec, i));
+		writel(saved.ser_clk[i], CA0113_SERIALIZER_CLK(spec, i));
+		writel(saved.ser_base[i], CA0113_SERIALIZER_BASE(spec, i));
+	}
+	writel(saved.r100, spec->mem_base + 0x100);
+	writel(saved.r410, spec->mem_base + 0x410);
+	writel(saved.r40c, spec->mem_base + 0x40c);
+	writel(saved.r408, spec->mem_base + 0x408);
+	writel(saved.r400, spec->mem_base + 0x400);
+	writel(saved.rc04, spec->mem_base + 0xc04);
 
 	snd_hdac_dsp_cleanup(hstr, &dmab);
 	scoped_guard(spinlock_irq, &bus->reg_lock)
@@ -8613,6 +8632,12 @@ static int ae5_strip_ctl_put(struct snd_kcontrol *kcontrol,
 	}
 	change = memcmp(spec->ae5_strip_cur_colors, colors,
 			sizeof(spec->ae5_strip_cur_colors)) != 0;
+	/*
+	 * alsactl restores this control at every card probe with the saved
+	 * values; do not run the whole transmit routine when nothing changed.
+	 */
+	if (!change)
+		return 0;
 	num_leds = spec->ae5_strip_cur_num_leds;
 	ret = ae5_strip_send_frame(codec, colors, num_leds);
 	if (ret < 0)

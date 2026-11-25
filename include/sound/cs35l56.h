@@ -386,9 +386,9 @@ static inline bool cs35l56_is_otp_register(unsigned int reg)
 static inline int cs35l56_init_config_for_spi(struct cs35l56_base *cs35l56,
 					      struct spi_device *spi)
 {
-	cs35l56->spi_payload_buf = devm_kzalloc(&spi->dev,
-						sizeof(*cs35l56->spi_payload_buf),
-						GFP_KERNEL | GFP_DMA);
+	cs35l56->spi_payload_buf = devm_kzalloc_obj(&spi->dev,
+						    *cs35l56->spi_payload_buf,
+						    GFP_KERNEL | GFP_DMA);
 	if (!cs35l56->spi_payload_buf)
 		return -ENOMEM;
 
@@ -412,7 +412,7 @@ extern const char * const cs35l56_cal_set_status_text[3];
 extern const char * const cs35l56_tx_input_texts[CS35L56_NUM_INPUT_SRC];
 extern const unsigned int cs35l56_tx_input_values[CS35L56_NUM_INPUT_SRC];
 
-int cs35l56_set_asp_patch(struct cs35l56_base *cs35l56_base);
+int cs35l56_set_asp_defaults(struct cs35l56_base *cs35l56_base);
 int cs35l56_set_patch(struct cs35l56_base *cs35l56_base);
 int cs35l56_mbox_send(struct cs35l56_base *cs35l56_base, unsigned int command);
 int cs35l56_firmware_shutdown(struct cs35l56_base *cs35l56_base);

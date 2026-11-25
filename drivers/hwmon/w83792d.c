@@ -487,7 +487,7 @@ store_fan_div(struct device *dev, struct device_attribute *attr,
 static ssize_t show_temp1(struct device *dev, struct device_attribute *attr,
 				char *buf)
 {
-	struct sensor_device_attribute *sensor_attr = to_sensor_dev_attr(attr);
+	struct sensor_device_attribute_2 *sensor_attr = to_sensor_dev_attr_2(attr);
 	int nr = sensor_attr->index;
 	struct w83792d_data *data = w83792d_update_device(dev);
 	return sprintf(buf, "%d\n", TEMP1_FROM_REG(data->temp1[nr]));
@@ -496,7 +496,7 @@ static ssize_t show_temp1(struct device *dev, struct device_attribute *attr,
 static ssize_t store_temp1(struct device *dev, struct device_attribute *attr,
 				const char *buf, size_t count)
 {
-	struct sensor_device_attribute *sensor_attr = to_sensor_dev_attr(attr);
+	struct sensor_device_attribute_2 *sensor_attr = to_sensor_dev_attr_2(attr);
 	int nr = sensor_attr->index;
 	struct i2c_client *client = to_i2c_client(dev);
 	struct w83792d_data *data = i2c_get_clientdata(client);
@@ -1358,7 +1358,7 @@ w83792d_probe(struct i2c_client *client)
 	struct device *dev = &client->dev;
 	int i, val1, err;
 
-	data = devm_kzalloc(dev, sizeof(struct w83792d_data), GFP_KERNEL);
+	data = devm_kzalloc_obj(dev, struct w83792d_data);
 	if (!data)
 		return -ENOMEM;
 

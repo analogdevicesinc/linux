@@ -37,8 +37,8 @@
 #define TPS65132_VOUT_VMAX		6000000
 #define TPS65132_VOUT_STEP		100000
 
-#define TPS65132_REG_APPS_DIS_VPOS		BIT(0)
-#define TPS65132_REG_APPS_DIS_VNEG		BIT(1)
+#define TPS65132_REG_APPS_DIS_VNEG		BIT(0)
+#define TPS65132_REG_APPS_DIS_VPOS		BIT(1)
 
 #define TPS65132_REGULATOR_ID_VPOS	0
 #define TPS65132_REGULATOR_ID_VNEG	1
@@ -230,7 +230,7 @@ static int tps65132_probe(struct i2c_client *client)
 	int id;
 	int ret;
 
-	tps = devm_kzalloc(dev, sizeof(*tps), GFP_KERNEL);
+	tps = devm_kzalloc_obj(dev, *tps);
 	if (!tps)
 		return -ENOMEM;
 

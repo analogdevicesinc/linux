@@ -603,6 +603,7 @@ static const struct regmap_config mvebu_gpio_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
+	.use_raw_spinlock = true,
 };
 
 static const struct regmap_config mvebu_gpio_percpu_regmap_config = {
@@ -610,6 +611,7 @@ static const struct regmap_config mvebu_gpio_percpu_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
+	.use_raw_spinlock = true,
 };
 
 static const struct regmap_config mvebu_pwm_regmap_config = {
@@ -1200,8 +1202,7 @@ static int mvebu_gpio_probe(struct platform_device *pdev)
 
 	have_irqs = err != 0;
 
-	mvchip = devm_kzalloc(&pdev->dev, sizeof(struct mvebu_gpio_chip),
-			      GFP_KERNEL);
+	mvchip = devm_kzalloc_obj(&pdev->dev, struct mvebu_gpio_chip);
 	if (!mvchip)
 		return -ENOMEM;
 
