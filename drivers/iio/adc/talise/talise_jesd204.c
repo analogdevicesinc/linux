@@ -646,7 +646,7 @@ uint32_t TALISE_setupJesd204bFramer(taliseDevice_t *device, taliseInit_t *init, 
     uint8_t i = 0;
     uint8_t L = 0;
     uint8_t CF = 0;
-    uint8_t CS = 0;
+    uint8_t cs = 0;
     uint8_t S = 1;
     uint8_t JESDVER = 1;
     uint8_t JESDSUBCLASS = 1;
@@ -930,7 +930,7 @@ uint32_t TALISE_setupJesd204bFramer(taliseDevice_t *device, taliseInit_t *init, 
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
-    halError = talSpiWriteByte(device->devHalInfo, (TALISE_ADDR_JESD_FRAMER_L0_CFG7_0 + framerAddrOffset), (((CS & 3) << 6) | ((framer->Np & 0x1F) - 1)));
+    halError = talSpiWriteByte(device->devHalInfo, (TALISE_ADDR_JESD_FRAMER_L0_CFG7_0 + framerAddrOffset), (((cs & 3) << 6) | ((framer->Np & 0x1F) - 1)));
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
@@ -1033,7 +1033,7 @@ uint32_t TALISE_setupJesd204bDeframer(taliseDevice_t *device, taliseInit_t *init
     uint8_t lane = 0;
     uint8_t deframerlaneXbar = 0;
 
-    static const uint8_t CS = 0;
+    static const uint8_t cs = 0;
     static const uint8_t CF = 0;
     static const uint8_t SUBCLASSV = 1;
     static const uint8_t JESDV = 1;
@@ -1284,7 +1284,7 @@ uint32_t TALISE_setupJesd204bDeframer(taliseDevice_t *device, taliseInit_t *init
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
-    halError = talSpiWriteByte(device->devHalInfo, (TALISE_ADDR_JESD_DEFRAMER_L0_CFG7_0 + deframerAddrOffset), (((CS & 0x03) << 6) | ((deframer->Np - 1) & 0x1F)));
+    halError = talSpiWriteByte(device->devHalInfo, (TALISE_ADDR_JESD_DEFRAMER_L0_CFG7_0 + deframerAddrOffset), (((cs & 0x03) << 6) | ((deframer->Np - 1) & 0x1F)));
     retVal = talApiErrHandler(device,TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
@@ -2153,7 +2153,7 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
     dfrmIlas->K = (ilasdata[5] & 0x1F);          /* jesd_deframer_IP_obs5  */
     dfrmIlas->M = ilasdata[6];                   /* jesd_deframer_IP_obs6  */
     dfrmIlas->N = (ilasdata[7] & 0x1F);          /* jesd_deframer_IP_obs7  */
-    dfrmIlas->CS = ((ilasdata[7] & 0xC0) >> 6);  /* jesd_deframer_IP_obs7  */
+    dfrmIlas->cs = ((ilasdata[7] & 0xC0) >> 6);  /* jesd_deframer_IP_obs7  */
     dfrmIlas->NP = (ilasdata[8] & 0x1F);         /* jesd_deframer_IP_obs8  */
     dfrmIlas->S = (ilasdata[9] & 0x1F);          /* jesd_deframer_IP_obs9  */
     dfrmIlas->CF = (ilasdata[10] & 0x1F);        /* jesd_deframer_IP_obs10 */
@@ -2173,7 +2173,7 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
     dfrmCfg->K = (cfgdata[5] & 0x1F);           /* jesd_deframer_LO_cfg5       */
     dfrmCfg->M = cfgdata[6];                    /* jesd_deframer_LO_cfg6       */
     dfrmCfg->N = (cfgdata[7] & 0x1F);           /* jesd_deframer_LO_cfg7       */
-    dfrmCfg->CS = ((cfgdata[7] & 0xC0) >> 6);   /* jesd_deframer_LO_cfg7       */
+    dfrmCfg->cs = ((cfgdata[7] & 0xC0) >> 6);   /* jesd_deframer_LO_cfg7       */
     dfrmCfg->NP = (cfgdata[8] & 0x1F);          /* jesd_deframer_LO_cfg8       */
     dfrmCfg->S = (cfgdata[9] & 0x1F);           /* jesd_deframer_LO_cfg9       */
     dfrmCfg->CF = (cfgdata[10] & 0x1F);         /* jesd_deframer_LO_cfg10      */
@@ -2231,7 +2231,7 @@ uint32_t TALISE_getDfrmIlasMismatch(taliseDevice_t *device, taliseDeframerSel_t 
         *mismatch |= 0x00000100;
     }
 
-    if (dfrmIlas->CS != dfrmCfg->CS)
+    if (dfrmIlas->cs != dfrmCfg->cs)
     {
         *mismatch |= 0x00000200;
     }
