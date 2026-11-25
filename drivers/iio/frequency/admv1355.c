@@ -324,6 +324,21 @@ static const struct admv1355_lo_filter_table admv1355_lo_filter_table_narrow = {
 	.band_high_mhz = 18000,
 };
 
+/*
+ * Wideband LO tunable filter settings, for a continuously changing LO, at
+ * the expense of spurious products. See datasheet Rev. A Table 18.
+ */
+static const struct admv1355_lo_filter admv1355_lo_filters_wide[] = {
+	{ 13000, 0x318, 0x05, 0x00, 0x1F, 0x08 },
+	{ U32_MAX, 0x1A7, 0x05, 0x00, 0x1F, 0x80 },
+};
+
+static const struct admv1355_lo_filter_table admv1355_lo_filter_table_wide = {
+	.filters = admv1355_lo_filters_wide,
+	.num_filters = ARRAY_SIZE(admv1355_lo_filters_wide),
+	.band_high_mhz = 13000,
+};
+
 /**
  * struct admv1355_filter_lut_fw - Filter LUT firmware format
  * @magic:	ADMV1355_FILTER_LUT_FW_MAGIC
@@ -455,6 +470,8 @@ struct admv1355_state {
 	u8 chip_addr;
 	u8 filter_lut; /* enum admv1355_filter_lut */
 	bool half_duplex;
+	/* LO tunable filter settings for a wideband LO */
+	bool lo_filter_wideband;
 	/* LUT state, when enabled the LUT outputs override direct settings */
 	bool gain_lut_en;
 	bool filter_lut_loaded[ADMV1355_FILTER_LUT_PAGES];
@@ -601,7 +618,8 @@ admv1355_find_lo_filter(const struct admv1355_lo_filter_table *table,
 static int admv1355_set_lo_filters(struct admv1355_state *st,
 				   unsigned long rate)
 {
-	const struct admv1355_lo_filter_table *table = &admv1355_lo_filter_table_narrow;
+	const struct admv1355_lo_filter_table *table = st->lo_filter_wideband ?
+		&admv1355_lo_filter_table_wide : &admv1355_lo_filter_table_narrow;
 	u32 rate_mhz = div_u64(rate, HZ_PER_MHZ);
 	const struct admv1355_lo_filter *f = admv1355_find_lo_filter(table, rate_mhz);
 	const struct reg_sequence seq[] = {
@@ -1092,6 +1110,59 @@ static const struct iio_chan_spec_ext_info admv1355_if_complex_ext_info[] = {
 	{ }
 };
 
+enum admv1355_lo_filter_type {
+	ADMV1355_LO_FILTER_NARROWBAND,
+	ADMV1355_LO_FILTER_WIDEBAND,
+};
+
+static const char * const admv1355_lo_filter_types[] = {
+	[ADMV1355_LO_FILTER_NARROWBAND] = "narrowband",
+	[ADMV1355_LO_FILTER_WIDEBAND] = "wideband",
+};
+
+static int admv1355_get_lo_filter_type(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
+	return st->lo_filter_wideband;
+}
+
+static int admv1355_set_lo_filter_type(struct iio_dev *indio_dev,
+				       const struct iio_chan_spec *chan,
+				       unsigned int type)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+	bool prev;
+	int ret;
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
+	prev = st->lo_filter_wideband;
+	st->lo_filter_wideband = type == ADMV1355_LO_FILTER_WIDEBAND;
+
+	ret = admv1355_set_lo_filters(st, st->lo_rate);
+	if (ret)
+		st->lo_filter_wideband = prev;
+
+	return ret;
+}
+
+static const struct iio_enum admv1355_lo_filter_type_enum = {
+	.items = admv1355_lo_filter_types,
+	.num_items = ARRAY_SIZE(admv1355_lo_filter_types),
+	.get = admv1355_get_lo_filter_type,
+	.set = admv1355_set_lo_filter_type,
+};
+
 static const struct iio_chan_spec_ext_info admv1355_lo_ext_info[] = {
 	{
 		.name = "calibbias_calibration",
@@ -1100,6 +1171,9 @@ static const struct iio_chan_spec_ext_info admv1355_lo_ext_info[] = {
 	},
 	IIO_ENUM("sideband", IIO_SEPARATE, &admv1355_sideband_enum),
 	IIO_ENUM_AVAILABLE("sideband", IIO_SEPARATE, &admv1355_sideband_enum),
+	IIO_ENUM("filter_type", IIO_SEPARATE, &admv1355_lo_filter_type_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SEPARATE,
+			   &admv1355_lo_filter_type_enum),
 	{ }
 };
 
