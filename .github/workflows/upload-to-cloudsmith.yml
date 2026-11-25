@@ -156,8 +156,12 @@ jobs:
         # tag || release: refs/tags/<tag>
         # pull_request: refs/pull/<id>/merge
         tags_="${{ github.ref }}, on/${{ github.event_name }}"
-        [[ "${{ github.ref }}" == refs/pull/* ]] && \
+        if [[ "${{ github.ref }}" == refs/pull/* ]]; then
           tags_+=", refs/heads/${{ github.head_ref }}, refs/base/${{ github.base_ref }}"
+          tags_+=", head_sha/${{ github.event.pull_request.head.sha }}"
+        elif [[ "${{ github.event_name }}" == push ]]; then
+          tags_+=", head_sha/${{ github.sha }}"
+        fi
 
         [ -z "$( ls -A 'dist' )" ] && exit
 
