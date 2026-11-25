@@ -26,6 +26,22 @@ properties:
   reg:
     maxItems: 1
 
+  spi-max-frequency:
+    maximum: 25000000
+    description:
+      Maximum SPI clock frequency. Read operations are limited to 25 MHz
+      maximum.
+
+  spi-device-addr:
+    minItems: 1
+    maxItems: 4
+    items:
+      enum: [0, 1, 2, 3]
+    default: 0
+    description:
+      Hardware address of the device, selected by the A0 and A1 pins.
+      Up to four AD5706R devices can share a single SPI chip select.
+
   avdd-supply:
     description: Analog power supply (2.9V to 3.6V).
 
@@ -89,6 +105,7 @@ examples:
         dac@0 {
             compatible = "adi,ad5706r";
             reg = <0>;
+            spi-device-addr = <0>;
             avdd-supply = <&avdd>;
             iovdd-supply = <&iovdd>;
             pvdd0-supply = <&pvdd>;
@@ -96,7 +113,7 @@ examples:
             pvdd2-supply = <&pvdd>;
             pvdd3-supply = <&pvdd>;
             vref-supply = <&vref>;
-            spi-max-frequency = <50000000>;
+            spi-max-frequency = <25000000>;
             pwms = <&pwm0 0 1000000 0>;
             reset-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
             enable-gpios = <&gpio0 12 GPIO_ACTIVE_LOW>;
