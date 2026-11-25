@@ -72,8 +72,15 @@ download_artifacts() {
 	[[ -z "$cloudsmith_token" ]] && cloudsmith_token="$CLOUDSMITH_API_KEY"
 	[[ $ref == refs/heads/* ]] && event="push"
 	[[ $ref == refs/pull/* ]] && event="pull_request"
-	[[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]] && \
-		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}") || git_sha="$ref"
+	if [[ $ref =~ ^(refs/pull/[0-9]+/merge)@([0-9a-f]{40})$ ]]; then
+		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" \
+			"tag:on/${event}+tag:${BASH_REMATCH[1]}+tag:head_sha/${BASH_REMATCH[2]}")
+		[[ -n "$git_sha" ]] || { log_error "No artifacts for $ref." ; return 1 ;}
+	elif [[ $ref == refs/heads/* ]] || [[ $ref == refs/tags/* ]] || [[ $ref == refs/pull/* ]]; then
+		git_sha=$(_get_first_result_version "$cloudsmith_token" "$org_repository" "tag:on/${event}+tag:${ref}")
+	else
+		git_sha="$ref"
+	fi
 
 	[[ -z "$cloudsmith_token" ]] && { log_warn "CLOUDSMITH_API_KEY is not set, only public artifacts will be accessible." ; } || :
 	[[ -n "$git_sha" ]] || { log_error "No git sha provided." ; return 1 ;}
