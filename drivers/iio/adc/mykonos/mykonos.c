@@ -9012,7 +9012,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     uint8_t LID1 = 1;
     uint8_t LID2 = 2;
     uint8_t LID3 = 3;
-    uint8_t CS = 0;
+    uint8_t cs = 0;
     uint8_t N = 0x0F;
     uint8_t Np = 0x0F;
     uint8_t S = 0;
@@ -9251,7 +9251,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     LID2 = device->rx->framer->lane0Id + 2;
     LID3 = device->rx->framer->lane0Id + 3;
 
-    CS = 0;
+    cs = 0;
     N = 0x0F;
     Np = 0x0F;
     S = 0;
@@ -9337,7 +9337,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     subaddr[6] = 0x06;
     subdata[6] = (FramerM & 0xFF); /* M[7:0]-1 */
     subaddr[7] = 0x07;
-    subdata[7] = ((CS & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0]-1 */
+    subdata[7] = ((cs & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0]-1 */
     subaddr[8] = 0x08;
     subdata[8] = ((SUBCLASSV & 7) << 5) | (Np & 0x1F); /* NP[4:0] -1 */
     subaddr[9] = 0x09;
@@ -9350,7 +9350,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
     subdata[12] = 0x00; /* reserved */
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID0 & 0x1F) + (device->rx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
     /* Checksum Lane 0 */
     subaddr[13] = 0x0D;
@@ -9364,7 +9364,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
         subdata[14] = LID1;
 
         CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID1 & 0x1F) + (device->rx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-                + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+                + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
         /* Checksum Lane 1 */
         subaddr[15] = 0x1D;
@@ -9377,7 +9377,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
         subdata[14] = LID1;
 
         CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID1 & 0x1F) + (device->rx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-                + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+                + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
         /* Checksum Lane 1 */
         subaddr[15] = 0x15;
@@ -9388,7 +9388,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
         subdata[16] = LID2;
 
         CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID2 & 0x1F) + (device->rx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-                + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+                + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
         /* Checksum Lane 2 */
         subaddr[17] = 0x1D;
@@ -9399,7 +9399,7 @@ mykonosErr_t MYKONOS_setupJesd204bFramer(mykonosDevice_t *device)
         subdata[18] = LID3;
 
         CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID3 & 0x1F) + (device->rx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-                + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+                + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
         subaddr[19] = 0x25;
         subdata[19] = CheckSum & 0xFF;
@@ -9498,7 +9498,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     uint8_t LID1 = 1;
     uint8_t LID2 = 2;
     uint8_t LID3 = 3;
-    uint8_t CS = 0;
+    uint8_t cs = 0;
     uint8_t N = 0x0F;
     uint8_t Np = 0x0F;
     uint8_t S = 0;
@@ -9716,7 +9716,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     LID2 = device->obsRx->framer->lane0Id + 2;
     LID3 = device->obsRx->framer->lane0Id + 3;
 
-    CS = 0;
+    cs = 0;
     N = 0x0F;
     Np = 0x0F;
     S = 0;
@@ -9782,7 +9782,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     subaddr[6] = 0x06;
     subdata[6] = (FramerM & 0xFF); /* M[7:0]-1 */
     subaddr[7] = 0x07;
-    subdata[7] = ((CS & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0]-1 */
+    subdata[7] = ((cs & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0]-1 */
     subaddr[8] = 0x08;
     subdata[8] = ((SUBCLASSV & 7) << 5) | (Np & 0x1F); /* NP[4:0] -1 */
     subaddr[9] = 0x09;
@@ -9795,7 +9795,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     subdata[12] = 0x00; /* reserved */
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID0 & 0x1F) + (device->obsRx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
     /* Checksum Lane 0 */
     subaddr[13] = 0x0d;
@@ -9806,7 +9806,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     subdata[14] = LID1;
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID1 & 0x1F) + (device->obsRx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
     /* Checksum Lane 1 */
     subaddr[15] = 0x15;
@@ -9817,7 +9817,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     subdata[16] = LID2;
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID2 & 0x1F) + (device->obsRx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
     /* Checksum Lane 2 */
     subaddr[17] = 0x1d;
@@ -9828,7 +9828,7 @@ mykonosErr_t MYKONOS_setupJesd204bObsRxFramer(mykonosDevice_t *device)
     subdata[18] = LID3;
 
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID3 & 0x1F) + (device->obsRx->framer->scramble) + (FramerL & 0x1F) + (FramerF & 0xFF) + (K & 0x1F) + (FramerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
 
     subaddr[19] = 0x25;
     subdata[19] = CheckSum & 0xFF;
@@ -10056,7 +10056,7 @@ mykonosErr_t MYKONOS_setupJesd204bDeframer(mykonosDevice_t *device)
     uint8_t DID = 0;
     uint8_t BID = 0;
     uint8_t LID0 = 0;
-    uint8_t CS = 2; /* 2 control bits */
+    uint8_t cs = 2; /* 2 control bits */
     uint8_t N = 0x0D; /* 14 bits */
     uint8_t Np = 0x0F; /* 16 bits */
     uint8_t S = 0;
@@ -10228,7 +10228,7 @@ mykonosErr_t MYKONOS_setupJesd204bDeframer(mykonosDevice_t *device)
     DID = device->tx->deframer->deviceId;
     BID = device->tx->deframer->bankId;
     LID0 = device->tx->deframer->lane0Id;
-    CS = 2; /* 2 control bits */
+    cs = 2; /* 2 control bits */
     N = 0x0D; /* 14 bits */
     Np = 0x0F;
     S = 0;
@@ -10311,7 +10311,7 @@ mykonosErr_t MYKONOS_setupJesd204bDeframer(mykonosDevice_t *device)
     subaddr[6] = 0x56;
     subdata[6] = DeframerM & 0xFFU; /* M[7:0] */
     subaddr[7] = 0x57;
-    subdata[7] = ((CS & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0] */
+    subdata[7] = ((cs & 0x3) << 6) | (N & 0x1F); /* [7:6] = CS[1:0], N[4:0] */
     subaddr[8] = 0x58;
     subdata[8] = ((SUBCLASSV & 7) << 5) | (Np & 0x1F); /* Np[4:0] */
     subaddr[9] = 0x59;
@@ -10323,7 +10323,7 @@ mykonosErr_t MYKONOS_setupJesd204bDeframer(mykonosDevice_t *device)
     subaddr[12] = 0x5C;
     subdata[12] = 0x00; /* reserved */
     CheckSum = (DID & 0xFF) + (BID & 0xF) + (LID0 & 0x1F) + (device->tx->deframer->scramble) + (DeframerL & 0x1F) + (DeframerF & 0xFF) + (K & 0x1F) + (DeframerM & 0xFF)
-            + (CS & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
+            + (cs & 0x3) + (N & 0x1F) + (Np & 0x1F) + (S & 0x1F) + (HD & 1) + (CF & 0x1F) + (SUBCLASSV & 7) + (JESDV & 7);
     subaddr[13] = 0x5D;
     subdata[13] = CheckSum & 0xFFU; /* Checksum Lane 0 */
     subaddr[14] = 0x6D;
@@ -11074,7 +11074,7 @@ mykonosErr_t MYKONOS_jesd204bIlasCheck(mykonosDevice_t *device, uint16_t *mismat
     lane0ILAS.K = ilasdata[5] & 0x1F;
     lane0ILAS.M = ilasdata[6];
     lane0ILAS.N = ilasdata[7] & 0x1F;
-    lane0ILAS.CS = ilasdata[7] >> 6;
+    lane0ILAS.cs = ilasdata[7] >> 6;
     lane0ILAS.NP = ilasdata[8] & 0x1F;
     lane0ILAS.S = ilasdata[9] & 0x1F;
     lane0ILAS.CF = ilasdata[10] & 0x1F;
@@ -11090,7 +11090,7 @@ mykonosErr_t MYKONOS_jesd204bIlasCheck(mykonosDevice_t *device, uint16_t *mismat
     lane0Cfg.K = cfgdata[5] & 0x1F;
     lane0Cfg.M = cfgdata[6];
     lane0Cfg.N = cfgdata[7] & 0x1F;
-    lane0Cfg.CS = cfgdata[7] >> 6;
+    lane0Cfg.cs = cfgdata[7] >> 6;
     lane0Cfg.NP = cfgdata[8] & 0x1F;
     lane0Cfg.S = cfgdata[9] & 0x1F;
     lane0Cfg.CF = cfgdata[10] & 0x1F;
@@ -11143,7 +11143,7 @@ mykonosErr_t MYKONOS_jesd204bIlasCheck(mykonosDevice_t *device, uint16_t *mismat
         *mismatch |= 0x0100;
     }
 
-    if (lane0ILAS.CS != lane0Cfg.CS)
+    if (lane0ILAS.cs != lane0Cfg.cs)
     {
         *mismatch |= 0x0200;
     }
