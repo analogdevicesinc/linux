@@ -8,3 +8,17 @@ config ADI_MACH_SC5XX
 	  This enables machine-level support for Analog Devices SC5XX SoCs,
 	  including the Reset Control Unit, System Event Controller, and
 	  Inter-Core Communications drivers.
+
+config ADI_ADSP_DAI
+	tristate "Analog Devices ADSP DAI driver"
+	default ADI_MACH_SC5XX
+	depends on ADI_MACH_SC5XX
+	depends on OF
+	select AUXILIARY_BUS
+	select REGMAP_MMIO
+	help
+	  This enables the driver for the Digital Audio Interface (DAI) found on
+	  Analog Devices ADSP SoCs.
+
+	  The driver can also be built as a module. If so, the module will be
+	  called adsp-dai.
