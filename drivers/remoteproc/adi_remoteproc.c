@@ -528,26 +528,21 @@ static phys_addr_t adi_rproc_da_to_pa(struct adi_rproc_data *rproc_data,
 }
 
 /*
- * adi_elf_load: load the ELF PT_LOAD segments over MDMA
+ * adi_rproc_memcpy_tova: copy an ELF segment to the remote proc's memory using
+ * MDMA
  *
- * The SHARC-FX memories reject the byte and halfword stores that
- * rproc_elf_load_segments() would issue through memcpy_toio(), so the
- * segments are written the same way ldr_load() writes LDR blocks: from the
- * staged firmware, queued in order on the memcpy channel, with only the last
- * transfer signalling completion.
+ * The default implementation in the remoteproc core isn't suitable here,
+ * because SHARC-FX memories reject the byte and halfword stores that
+ * rproc_elf_load_segments() would issue using memcpy_toio().
  */
-static int adi_elf_load(struct adi_rproc_data *rproc_data,
-			const struct firmware *fw)
+static int adi_rproc_memcpy_tova(struct rproc *rproc, u64 da,
+				 const void *src, size_t filesz, size_t memsz)
 {
+	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
 	struct device *dev = rproc_data->dev;
-	u8 class = fw_elf_get_class(fw);
-	u32 phdr_size = elf_size_of_phdr(class);
-	const void *ehdr = fw->data;
-	const void *phdrs = fw->data + elf_hdr_get_e_phoff(class, ehdr);
-	u16 phnum = elf_hdr_get_e_phnum(class, ehdr);
 	struct dma_chan *chan;
-	const void *phdr;
-	int i, ret = 0;
+	phys_addr_t pa;
+	int ret = 0;
 
 	chan = dma_find_channel(DMA_MEMCPY);
 	if (!chan) {
@@ -555,59 +550,37 @@ static int adi_elf_load(struct adi_rproc_data *rproc_data,
 		return -ENODEV;
 	}
 
-	ret = adi_fw_stage(rproc_data, fw);
-	if (ret)
-		return ret;
-
-	for (i = 0, phdr = phdrs; i < phnum; i++, phdr += phdr_size) {
-		u64 da = elf_phdr_get_p_paddr(class, phdr);
-		u64 memsz = elf_phdr_get_p_memsz(class, phdr);
-		u64 filesz = elf_phdr_get_p_filesz(class, phdr);
-		u64 offset = elf_phdr_get_p_offset(class, phdr);
-		phys_addr_t pa;
-
-		if (elf_phdr_get_p_type(class, phdr) != PT_LOAD || !memsz)
-			continue;
-
-		if (filesz > memsz || offset + filesz > fw->size) {
-			dev_err(dev, "bad phdr filesz 0x%llx memsz 0x%llx offset 0x%llx\n",
-				filesz, memsz, offset);
-			ret = -EINVAL;
-			break;
-		}
-
-		pa = adi_rproc_da_to_pa(rproc_data, da, memsz);
-		if (!pa) {
-			dev_err(dev, "bad phdr da 0x%llx mem 0x%llx\n", da, memsz);
-			ret = -EINVAL;
-			break;
-		}
-
-		if (filesz) {
-			ret = adi_mdma_memcpy(rproc_data, chan, pa,
-					      rproc_data->mem_handle + offset,
-					      filesz);
-			if (ret)
-				break;
-		}
-
-		if (memsz > filesz) {
-			ret = adi_mdma_memset(rproc_data, chan, pa + filesz,
-					      memsz - filesz);
-			if (ret)
-				break;
-		}
+	pa = adi_rproc_da_to_pa(rproc_data, da, memsz);
+	if (!pa) {
+		dev_err(dev, "bad phdr da 0x%llx mem 0x%zx\n", da, memsz);
+		return -EINVAL;
 	}
 
-	/*
-	 * The segments are in place or the load failed, and no stop follows a
-	 * failed load: either way the staged copy is no longer needed.
-	 */
-	dma_free_coherent(dev, rproc_data->fw_size * MEMORY_COUNT,
-			  rproc_data->mem_virt, rproc_data->mem_handle);
+	if (filesz) {
+		dma_addr_t mem_handle;
 
-	rproc_data->mem_virt = NULL;
-	rproc_data->fw_size = 0;
+		/*
+		 * src isn't a dmaable source, so allocate a memory area that's
+		 * big enough and copy the data into it.
+		 */
+		void *bouncebuf = dma_alloc_coherent(dev, filesz,
+						     &mem_handle, GFP_KERNEL);
+		if (bouncebuf == NULL) {
+			dev_err(dev, "Unable to allocate memory\n");
+			return -ENOMEM;
+		}
+		memcpy(bouncebuf, src, filesz);
+
+		ret = adi_mdma_memcpy(rproc_data, chan, pa, mem_handle, filesz);
+
+		dma_free_coherent(dev, filesz, bouncebuf, mem_handle);
+		if (ret)
+			return ret;
+	}
+
+	if (memsz > filesz)
+		ret = adi_mdma_memset(rproc_data, chan, pa + filesz,
+				      memsz - filesz);
 
 	return ret;
 }
@@ -628,7 +601,7 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
 		ret = adi_ldr_load(rproc_data, fw);
 		break;
 	case ADI_FW_ELF:
-		ret = adi_elf_load(rproc_data, fw);
+		ret = rproc_elf_load_segments(rproc, fw);
 		break;
 	default:
 		WARN(1, "Invalid rproc_data->firmware_format\n");
@@ -1013,6 +986,7 @@ static const struct rproc_ops adi_rproc_ops = {
 	.kick = adi_rproc_kick,
 	.load = adi_rproc_load,
 	.da_to_va = adi_rproc_da_to_va,
+	.memcpy_tova = adi_rproc_memcpy_tova,
 	.parse_fw = adi_rproc_parse_fw,
 	.find_loaded_rsc_table = adi_rproc_find_loaded_rsc_table,
 	.sanity_check = adi_rproc_sanity_check,
