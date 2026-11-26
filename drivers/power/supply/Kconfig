@@ -575,6 +575,13 @@ config CHARGER_MAX77650
 	  Say Y to enable support for the battery charger control of MAX77650
 	  PMICs.
 
+config CHARGER_MAX17340
+	tristate "Analog Devices MAX17340 battery charger driver"
+	depends on MFD_MAX17340
+	help
+	  Say Y to enable support for the Analog Devices MAX17340 battery
+	  charger. This driver provides charger status and control.
+
 config CHARGER_MAX77693
 	tristate "Maxim MAX77693 battery charger driver"
 	depends on MFD_MAX77693
