@@ -851,6 +851,9 @@ end_cont_read:
 	 */
 	spinand_cont_read_enable(spinand, false);
 
+	if (ret) {
+		pr_info("spi-nand error ret=%i page=%u, eraseblock=%u\n", ret, iter.req.pos.page, iter.req.pos.eraseblock);
+	}
 	return ret;
 }
 
@@ -1447,6 +1450,15 @@ int spinand_match_and_init(struct spinand_device *spinand,
 					       info->op_variants.read_cache);
 		if (!op)
 			return -ENOTSUPP;
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected read_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.read_cache = op;
 
@@ -1454,11 +1466,29 @@ int spinand_match_and_init(struct spinand_device *spinand,
 					       info->op_variants.write_cache);
 		if (!op)
 			return -ENOTSUPP;
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected write_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.write_cache = op;
 
 		op = spinand_select_op_variant(spinand,
 					       info->op_variants.update_cache);
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected update_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.update_cache = op;
 		if (!op)
@@ -1466,7 +1496,16 @@ int spinand_match_and_init(struct spinand_device *spinand,
 
 		if (info->op_variants.cont_read_cache) {
 			op = spinand_select_op_variant(spinand,
-						       info->op_variants.cont_read_cache);
+					info->op_variants.cont_read_cache);
+			dev_info(&spinand->spimem->spi->dev,
+					"Selected cont_read_cache: opcode=0x%02x, cmd_bw=%u, "
+					"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+					op->cmd.opcode,
+					op->cmd.buswidth,
+					op->addr.buswidth,
+					op->data.buswidth,
+					op->data.dtr,
+					op->max_freq);
 			if (op) {
 				const struct spi_mem_op *read_op;
 
