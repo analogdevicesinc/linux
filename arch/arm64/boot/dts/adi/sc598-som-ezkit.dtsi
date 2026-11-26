@@ -384,7 +384,7 @@
 	status = "okay";
 };
 
-&sru_ctrl_dai1 {
+&dai1 {
 	status = "okay";
 
 	sru_dai1: sru_dai1_mux {
