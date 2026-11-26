@@ -42,7 +42,6 @@
 		i2s0 = &i2s0;
 		mmc0 = &mmc0;
 		sru0 = &sru_ctrl_dai0;
-		sru1 = &sru_ctrl_dai1;
 	};
 
 	cpus {
@@ -595,14 +594,6 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 			reg = <0x310C9000 0x224>;
-			status = "disabled";
-		};
-
-		sru_ctrl_dai1: sru-ctrl-dai1@310CB000 {
-			compatible = "adi,adsp-sru-ctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x310CB000 0x224>;
 			status = "disabled";
 		};
 

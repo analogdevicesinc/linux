@@ -655,7 +655,3 @@
 		};
 	};
 };
-
-&sru_ctrl_dai1 {
-	status = "okay";
-};
