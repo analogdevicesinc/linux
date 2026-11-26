@@ -170,6 +170,7 @@
 #define CDNS_XSPI_CMD_P1_R3_CMD			GENMASK(23, 16)
 #define CDNS_XSPI_CMD_P1_R3_NUM_ADDR_BYTES	GENMASK(30, 28)
 #define CDNS_XSPI_CMD_P1_R4_ADDR_IOS		GENMASK(1, 0)
+#define CDNS_XSPI_CMD_P1_R4_ADDR_EDGE		BIT(3)
 #define CDNS_XSPI_CMD_P1_R4_CMD_IOS		GENMASK(9, 8)
 #define CDNS_XSPI_CMD_P1_R4_BANK		GENMASK(14, 12)
 
@@ -179,6 +180,7 @@
 #define CDNS_XSPI_CMD_DSEQ_R3_NUM_OF_DUMMY	GENMASK(25, 20)
 #define CDNS_XSPI_CMD_DSEQ_R4_BANK		GENMASK(14, 12)
 #define CDNS_XSPI_CMD_DSEQ_R4_DATA_IOS		GENMASK(9, 8)
+#define CDNS_XSPI_CMD_DSEQ_R4_DATA_EDGE		BIT(11)
 #define CDNS_XSPI_CMD_DSEQ_R4_DIR		BIT(4)
 
 /* STIG command status fields */
@@ -217,6 +219,7 @@
 
 #define CDNS_XSPI_CMD_FLD_P1_INSTR_CMD_4(op, chipsel) ( \
 	FIELD_PREP(CDNS_XSPI_CMD_P1_R4_ADDR_IOS, ilog2((op)->addr.buswidth)) | \
+	((op)->addr.dtr ? CDNS_XSPI_CMD_P1_R4_ADDR_EDGE : 0) | \
 	FIELD_PREP(CDNS_XSPI_CMD_P1_R4_CMD_IOS, ilog2((op)->cmd.buswidth)) | \
 	FIELD_PREP(CDNS_XSPI_CMD_P1_R4_BANK, chipsel))
 
@@ -231,13 +234,15 @@
 		((op)->data.nbytes >> 16) & 0xffff) | \
 	FIELD_PREP(CDNS_XSPI_CMD_DSEQ_R3_NUM_OF_DUMMY, \
 		  (op)->dummy.buswidth != 0 ? \
-		  (((dummybytes) * 8) / (op)->dummy.buswidth) : \
+		  (((dummybytes) * 8) / (op)->dummy.buswidth / \
+		   ((op)->dummy.dtr ? 2 : 1)) : \
 		  0))
 
 #define CDNS_XSPI_CMD_FLD_DSEQ_CMD_4(op, chipsel) ( \
 	FIELD_PREP(CDNS_XSPI_CMD_DSEQ_R4_BANK, chipsel) | \
 	FIELD_PREP(CDNS_XSPI_CMD_DSEQ_R4_DATA_IOS, \
 		ilog2((op)->data.buswidth)) | \
+	((op)->data.dtr ? CDNS_XSPI_CMD_DSEQ_R4_DATA_EDGE : 0) | \
 	FIELD_PREP(CDNS_XSPI_CMD_DSEQ_R4_DIR, \
 		((op)->data.dir == SPI_MEM_DATA_IN) ? \
 		CDNS_XSPI_STIG_CMD_DIR_READ : CDNS_XSPI_STIG_CMD_DIR_WRITE))
@@ -412,6 +417,7 @@ struct cdns_xspi_dev {
 
 struct cdns_xspi_driver_data {
 	const struct spi_controller_mem_ops *mem_ops;
+	const struct spi_controller_mem_caps *mem_caps;
 	void (*sdma_handler)(struct cdns_xspi_dev *cdns_xspi);
 	void (*set_interrupts_handler)(struct cdns_xspi_dev *cdns_xspi, bool enabled);
 	int (*transfer_one_message)(struct spi_controller *ctlr, struct spi_message *mesg);
@@ -968,6 +974,9 @@ static bool cdns_xspi_acmd_can_read(const struct spi_mem_op *op)
 	if (op->data.dir != SPI_MEM_DATA_IN || !op->addr.nbytes)
 		return false;
 
+	if (op->cmd.dtr || op->addr.dtr || op->dummy.dtr || op->data.dtr)
+		return false;
+
 	return op->data.nbytes >= CDNS_XSPI_ACMD_MIN_BYTES;
 }
 
@@ -1074,6 +1083,25 @@ static bool cdns_xspi_supports_op(struct spi_mem *mem,
 }
 #endif
 
+static bool cdns_sc846_xspi_supports_op(struct spi_mem *mem,
+					const struct spi_mem_op *op)
+{
+	bool dtr = op->cmd.dtr || op->addr.dtr || op->dummy.dtr ||
+		   op->data.dtr;
+	struct spi_device *spi = mem->spi;
+
+	if (!spi_mem_default_supports_op(mem, op))
+		return false;
+
+	if (!dtr)
+		return true;
+
+	/*
+	 * W25N02JW DTR cache reads: first only in 1S-4D-4D mode
+	 */
+	return op->cmd.opcode == 0xed;
+}
+
 static int cdns_xspi_adjust_mem_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 {
 	struct cdns_xspi_dev *cdns_xspi =
@@ -1093,6 +1121,16 @@ static const struct spi_controller_mem_ops cadence_xspi_mem_ops = {
 #endif
 	.exec_op = cdns_xspi_mem_op_execute,
 	.adjust_op_size = cdns_xspi_adjust_mem_op_size,
+};
+
+static const struct spi_controller_mem_ops sc846_xspi_mem_ops = {
+	.supports_op = cdns_sc846_xspi_supports_op,
+	.exec_op = cdns_xspi_mem_op_execute,
+	.adjust_op_size = cdns_xspi_adjust_mem_op_size,
+};
+
+static const struct spi_controller_mem_caps sc846_xspi_mem_caps = {
+	.dtr = true,
 };
 
 static const struct spi_controller_mem_ops marvell_xspi_mem_ops = {
@@ -1468,6 +1506,7 @@ static int cdns_xspi_probe(struct platform_device *pdev)
 	}
 
 	host->mem_ops = cdns_xspi->driver_data->mem_ops;
+	host->mem_caps = cdns_xspi->driver_data->mem_caps;
 	host->transfer_one_message = cdns_xspi->driver_data->transfer_one_message;
 	host->dev.of_node = pdev->dev.of_node;
 	host->bus_num = -1;
@@ -1573,7 +1612,8 @@ static int cdns_xspi_probe(struct platform_device *pdev)
 
 static const struct cdns_xspi_driver_data sc846_driver_data = {
 	.sdma_handler = &cdns_xspi_sdma_handle,
-	.mem_ops = &cadence_xspi_mem_ops,
+	.mem_ops = &sc846_xspi_mem_ops,
+	.mem_caps = &sc846_xspi_mem_caps,
 	.set_interrupts_handler = &cdns_xspi_set_interrupts,
 	.init = &cdns_sc846_xspi_custom_init,
 };
