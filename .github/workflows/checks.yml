@@ -104,12 +104,18 @@ jobs:
         source ./ci/build.sh
         check_license
 
+    - name: Create copyright ignore file
+      if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
+      run: |
+        cat > .copyrightignore <<'EOF'
+        .github/
+        docs/conf.py
+        EOF
+
     - name: Check copyright and license
       if: ${{ !cancelled() && env.fatal != 'true' && env.skip != 'true' }}
       uses: analogdevicesinc/shared-actions/copyright-license-check@main
       with:
-        # base_sha/head_sha are exported by the checkout step; only the series
-        # range is fetched, so skip the checks that need the full file history.
         base-sha: ${{ env.base_sha }}
         head-sha: ${{ env.head_sha }}
         check-start-year: false
