@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright (C) 2026 Analog Devices, Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/adi,max17340.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX17340 Fuel Gauge and Battery Charger
+
+maintainers:
+  - Joan Na <joan.na@analog.com>
+
+description: |
+  The MAX17340 is an integrated single-cell battery management IC that combines
+  a ModelGauge m5 fuel gauge with a charger and protection circuits. Features:
+
+  - ModelGauge m5 EZ algorithm for accurate SOC estimation
+  - Integrated linear charger with JEITA compliance
+  - 9 JEITA temperature regions for charging
+  - 5-step charging support
+  - Battery protection (OVP, UVP, OCP, temperature)
+  - 4 configurable GPIO pins
+
+  The device uses three I2C addresses:
+  - 0x36: FG_RAM (runtime fuel gauge data and control)
+  - 0x0B: FG_NVM (non-volatile configuration, accessed internally by driver)
+  - 0x37: FUNC (GPIO and mailbox functions, accessed internally by driver)
+
+  The device has no AVDD, DVDD or VREF1 supply pins. It is powered from the
+  battery (BATT, 2.1V to 4.9V), with SYS as a secondary supply pin. The AVL,
+  REG1P2 and REG1P8 pins are internal regulator outputs that only need bypass
+  capacitors and must not be loaded, so no supply properties are defined.
+
+allOf:
+  - $ref: power-supply.yaml#
+
+properties:
+  compatible:
+    const: adi,max17340
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+    description: Alert/interrupt pin (active-low)
+
+  adi,rsense-microohm:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 1000
+    maximum: 100000
+    default: 10000
+    description:
+      Current sense resistor value in microohms.
+
+  gpio-controller: true
+
+  "#gpio-cells":
+    const: 2
+    description:
+      The first cell is the GPIO number (0-3) and the second cell specifies
+      GPIO flags as defined in dt-bindings/gpio/gpio.h.
+
+  gpio-line-names:
+    minItems: 1
+    maxItems: 4
+    description:
+      Names for the four GPIO lines. Default pin functions are TH1 (thermistor),
+      TH2 (secondary thermistor), PB (pushbutton wakeup), ALRTB (alert output).
+
+  power-supplies: true
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+    #include <dt-bindings/gpio/gpio.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@36 {
+            compatible = "adi,max17340";
+            reg = <0x36>;
+            interrupt-parent = <&gpio>;
+            interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
+            adi,rsense-microohm = <10000>;
+
+            gpio-controller;
+            #gpio-cells = <2>;
+            gpio-line-names = "TH1", "TH2", "PB", "ALRTB";
+        };
+    };
+
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        pmic@36 {
+            compatible = "adi,max17340";
+            reg = <0x36>;
+            adi,rsense-microohm = <5000>;
+            monitored-battery = <&battery>;
+
+            gpio-controller;
+            #gpio-cells = <2>;
+        };
+    };
+
+    battery: battery {
+        compatible = "simple-battery";
+        device-chemistry = "lithium-ion";
+        voltage-max-design-microvolt = <4200000>;
+        voltage-min-design-microvolt = <3000000>;
+        charge-full-design-microamp-hours = <3000000>;
+    };

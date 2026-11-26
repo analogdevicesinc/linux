@@ -875,6 +875,29 @@ config MFD_MAX77650
 	  the following functionalities of the device: GPIO, regulator,
 	  charger, LED, onkey.
 
+config MFD_MAX17340
+	tristate "Analog Devices MAX17340 Battery Management IC Support"
+	depends on I2C
+	depends on OF
+	select MFD_CORE
+	select REGMAP_I2C
+	help
+	  Say Y here to add support for Analog Devices MAX17340 integrated
+	  single-cell battery management IC with ModelGauge m5 fuel gauge
+	  and charger. This driver provides common support for accessing
+	  the device; additional drivers must be enabled for battery and
+	  charger functionality.
+
+config MFD_MAX17340_MAILBOX
+	bool "MAX17340 Mailbox support"
+	depends on MFD_MAX17340
+	help
+	  Say Y here to enable Mailbox support for MAX17340. The Mailbox
+	  provides communication interface between the host and internal
+	  RISCV firmware for advanced commands and configuration.
+
+	  If unsure, say N.
+
 config MFD_MAX77686
 	tristate "Maxim Semiconductor MAX77686/802 PMIC Support"
 	depends on I2C
