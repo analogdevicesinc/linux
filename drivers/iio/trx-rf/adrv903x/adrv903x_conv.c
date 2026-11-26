@@ -153,7 +153,7 @@ int adrv903x_register_axi_converter(struct adrv903x_rf_phy *phy)
 	struct spi_device *spi = phy->spi;
 	const struct axiadc_chip_info *src;
 	struct axiadc_chip_info *ci;
-	u8 np;
+	u8 np, m;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (!conv)
@@ -165,6 +165,14 @@ int adrv903x_register_axi_converter(struct adrv903x_rf_phy *phy)
 	ci = devm_kmemdup(&spi->dev, src, sizeof(*ci), GFP_KERNEL);
 	if (!ci)
 		return -ENOMEM;
+
+	/*
+	 * Only expose the Rx channels enabled by the profile: limit the
+	 * converters to the M of the active Rx framer.
+	 */
+	m = phy->palauDevice->initExtract.jesdSetting.framerSetting[0].jesdM;
+	if (m && m < ci->num_channels)
+		ci->num_channels = m;
 
 	np = phy->palauDevice->initExtract.jesdSetting.framerSetting[0].jesdNp;
 	for (unsigned int i = 0; i < ci->num_channels; i++) {
