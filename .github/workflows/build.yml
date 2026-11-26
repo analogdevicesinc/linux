@@ -273,6 +273,47 @@ jobs:
         source ./ci/build.sh
         compile_clang_analyzer
 
+    - name: Merge SARIF results
+      if: ${{ !cancelled() && env.fatal != 'true' && inputs.checks == true }}
+      id: sarif
+      run: |
+        mkdir -p "${{ runner.temp }}/sarif-upload"
+        for analyzer in gcc clang; do
+          mapfile -t files < <(find "${{ runner.temp }}/sarif/$analyzer" -name '*.sarif' 2>/dev/null | sort)
+          [[ ${#files[@]} -gt 0 ]] || continue
+          jq -s --arg ws "${{ github.workspace }}/" '
+            def strip: walk(if type == "object" then del(.index, .ruleIndex) else . end);
+            def flows: walk(if type == "object" and has("threadFlows") then
+                .threadFlows[].locations |= map(select(.location.physicalLocation))
+              else . end);
+            def norm: until(test("[^/.][^/]*/\\.\\./") | not; sub("[^/.][^/]*/\\.\\./"; ""));
+            def rel: (.originalUriBaseIds // {}) as $b
+              | del(.originalUriBaseIds)
+              | walk(if type == "object" and (.uri | type) == "string" then
+                  .uri = ((if .uriBaseId and (.uri | test("^(/|file:)") | not)
+                    then $b[.uriBaseId].uri // "" else "" end) + .uri
+                    | sub("^file://"; "") | gsub("/\\./"; "/") | norm | ltrimstr($ws))
+                  | del(.uriBaseId)
+                else . end);
+            . as $d | [$d[].runs[] | rel] as $r | $d[0] + {runs: [$r[0] + {
+              results: [$r[].results[]] | strip | flows,
+              invocations: [$r[].invocations[]?] | strip
+            } | .tool.driver.rules = ([$r[].tool.driver.rules[]?] | unique_by(.id) | strip)
+              | del(.artifacts, .logicalLocations)]}' "${files[@]}" \
+            > "${{ runner.temp }}/sarif-upload/$analyzer.sarif"
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        done
+
+    - name: Upload SARIF results
+      if: ${{ !cancelled() && steps.sarif.outputs.found == 'true' }}
+      uses: github/codeql-action/upload-sarif@v4
+      env:
+        GIT_DIR: /nonexistent
+      with:
+        sarif_file: ${{ runner.temp }}/sarif-upload
+        category: ${{ inputs.compiler }}-${{ inputs.arch }}-${{ inputs.defconfig }}
+        checkout_path: ${{ github.workspace }}
+
     - name: Smatch
       if: ${{ !cancelled() && env.fatal != 'true' && env.CHECKS_SMATCH == 'true' }}
       run: |
