@@ -289,18 +289,3 @@ jobs:
         adi_mb_defconfig-*-devel
         adi_nios2_defconfig-*-devel
 
-  trigger_harness_job:
-    needs: [deploy_kuiper_binaries]
-    runs-on: ubuntu-slim
-    if: needs.deploy_kuiper_binaries.result == 'success'
-    steps:
-      - name: Trigger Jenkins test harness
-        run: |
-          TIMESTAMP=$(date +%Y_%m_%d-%H_%M)
-          BRANCH="${{ github.head_ref || github.ref_name }}"
-          PR_ID="${{ github.event.pull_request.number }}"
-          curl ${{ secrets.JENKINS_URL }}/job/Linux_TH/buildWithParameters \
-            --user ${{ secrets.JENKINS_USER }}:${{ secrets.JENKINS_API_KEY }} \
-            --data TIMESTAMP=${TIMESTAMP} \
-            --data BRANCH=${BRANCH} \
-            --data PR_ID=${PR_ID}
