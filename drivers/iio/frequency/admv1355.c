@@ -12,11 +12,13 @@
 #include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/container_of.h>
+#include <linux/crc32.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/device-id/of.h>
 #include <linux/device-id/spi.h>
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kstrtox.h>
 #include <linux/limits.h>
@@ -25,16 +27,20 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
+#include <linux/overflow.h>
 #include <linux/pm.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/stddef.h>
+#include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/types.h>
 #include <linux/unaligned.h>
 #include <linux/units.h>
 
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 
 #define ADMV1355_REG_SPI_CONFIG		0x000
 #define ADMV1355_REG_PRODUCT_ID_L	0x004
@@ -45,8 +51,21 @@
 #define ADMV1355_REG_NVM_READ_DATA	0x07C
 #define ADMV1355_REG_NVM_REFRESH	0x07E
 #define ADMV1355_REG_POWER_DOWN		0x13E
+#define ADMV1355_REG_FILTER_SM_STEP	0x200
 #define ADMV1355_REG_FILTER_LUT_EN	0x202
+#define ADMV1355_REG_FILTER_LUT_MODE	0x203
+#define ADMV1355_REG_FILTER_SM_RESET	0x204
+#define ADMV1355_REG_FILTER_SM_STOP	0x206
+#define ADMV1355_REG_FILTER_LUT_SELECT	0x207
 #define ADMV1355_REG_FILTER_LOAD_EN	0x208
+#define ADMV1355_REG_FILTER_SM_START	0x20A
+#define ADMV1355_REG_GAIN_LOAD_EN	0x281
+#define ADMV1355_REG_GAIN_SM_STEP	0x283
+#define ADMV1355_REG_GAIN_SM_OFFSET	0x284
+#define ADMV1355_REG_GAIN_LUT_EN	0x285
+#define ADMV1355_REG_GAIN_LUT_MODE	0x286
+#define ADMV1355_REG_GAIN_SM_RESET	0x287
+#define ADMV1355_REG_GAIN_SM_STOP	0x289
 #define ADMV1355_REG_GAIN_LUT_BYPASS	0x28A
 #define ADMV1355_REG_DSA_BYPASS		0x28B
 #define ADMV1355_REG_RF_LPF_BYPASS	0x2A0
@@ -62,6 +81,8 @@
 #define ADMV1355_REG_MIXER_GATE		0x700
 #define ADMV1355_REG_BB_SW_NMOS		0x702
 #define ADMV1355_REG_BB_SW_PMOS		0x703
+#define ADMV1355_REG_GPO_OE_L		0x780
+#define ADMV1355_REG_GPO_OE_H		0x781
 #define ADMV1355_REG_LO_X4_FILTER	0x800
 #define ADMV1355_REG_LO_X3_FILTER	0x801
 #define ADMV1355_REG_LO_X1_FILTER	0x802
@@ -72,6 +93,8 @@
 #define ADMV1355_REG_LON_OFFSET_Q	0x809
 #define ADMV1355_REG_IF_DSA		0x80A
 #define ADMV1355_REG_LO_DOUBLER_BAND	0x80C
+#define ADMV1355_REG_FILTER_LUT_A	0x900
+#define ADMV1355_REG_GAIN_LUT		0xE00
 
 /* ADMV1355_REG_SPI_CONFIG: each field is mirrored in the upper nibble */
 #define ADMV1355_SOFT_RESET_MSK		(BIT(7) | BIT(0))
@@ -86,6 +109,17 @@
 /* ADMV1355_REG_POWER_DOWN */
 #define ADMV1355_RF_HS_PD_MSK		BIT(1)
 #define ADMV1355_CHIP_PD_MSK		BIT(0)
+
+/* ADMV1355_REG_FILTER_SM_START */
+#define ADMV1355_FILTER_SM_WRAP_MSK	BIT(5)
+#define ADMV1355_FILTER_SM_START_MSK	GENMASK(4, 0)
+
+/* ADMV1355_REG_GPO_OE_L / ADMV1355_REG_GPO_OE_H */
+#define ADMV1355_GPO_G_OE_L_MSK		GENMASK(7, 6)
+#define ADMV1355_GPO_F_OE_MSK		GENMASK(5, 0)
+#define ADMV1355_GPO_G_OE_H_MSK		GENMASK(2, 0)
+#define ADMV1355_GPO_G_OE_MSK		GENMASK(4, 0)
+#define ADMV1355_GPO_G_OE_L_BITS	2
 
 /* ADMV1355_REG_GAIN_LUT_BYPASS */
 #define ADMV1355_GAIN_LUT_BYPASS_EN_MSK	BIT(0)
@@ -177,6 +211,26 @@
 #define ADMV1355_TEMP_SCALE_NUM		5000
 #define ADMV1355_TEMP_SCALE_DEN		6
 
+/* Filter LUT: two pages of 32 entries, each mirroring 0x800 to 0x80C */
+#define ADMV1355_FILTER_LUT_PAGES	2
+#define ADMV1355_FILTER_LUT_ENTRIES	32
+#define ADMV1355_FILTER_LUT_ENTRY_SIZE	13
+#define ADMV1355_FILTER_LUT_UNUSED	7
+#define ADMV1355_FILTER_LUT_PAGE_SIZE	(ADMV1355_FILTER_LUT_ENTRIES * \
+					 ADMV1355_FILTER_LUT_ENTRY_SIZE)
+#define ADMV1355_FILTER_SM_MAX		31
+
+/* Gain LUT: 67 entries with the DSA states and the GPO_G outputs */
+#define ADMV1355_GAIN_LUT_ENTRIES	67
+#define ADMV1355_GAIN_LUT_ENTRY_SIZE	2
+#define ADMV1355_GAIN_SM_STOP_MAX	0x7F
+
+#define ADMV1355_LUT_MODE_MAX		2
+
+#define ADMV1355_FILTER_LUT_FW_MAGIC	0xAD1355F0
+#define ADMV1355_GAIN_LUT_FW_MAGIC	0xAD135560
+#define ADMV1355_LUT_FW_V1		0x0001
+
 /* Baseband input common-mode voltage */
 #define ADMV1355_BB_VICM_MAX_UV		1550000
 #define ADMV1355_BB_VICM_MANUAL_MAX_UV	500000
@@ -191,6 +245,12 @@
 enum admv1355_band {
 	ADMV1355_BAND_LOW,
 	ADMV1355_BAND_HIGH,
+};
+
+enum admv1355_filter_lut {
+	ADMV1355_FILTER_LUT_OFF,
+	ADMV1355_FILTER_LUT_A,
+	ADMV1355_FILTER_LUT_B,
 };
 
 enum admv1355_chan_idx {
@@ -264,6 +324,87 @@ static const struct admv1355_lo_filter_table admv1355_lo_filter_table_narrow = {
 	.band_high_mhz = 18000,
 };
 
+/**
+ * struct admv1355_filter_lut_fw - Filter LUT firmware format
+ * @magic:	ADMV1355_FILTER_LUT_FW_MAGIC
+ * @version:	Firmware format version
+ * @count:	Number of entries, from 1 to 32
+ * @crc:	CRC32 of the data following this field
+ * @mode:	LUT pointer source: 0 for the ADD_F balls, 1 for the SPI pointer,
+ *		2 for the filter state machine
+ * @load_en:	Apply the LUT outputs on the LOAD pin rising edges
+ * @sm_step:	State machine step, in two's complement, must not be zero
+ * @sm_start:	State machine start value, from 0 to 31
+ * @sm_stop:	State machine stop value, from 0 to 31
+ * @sm_wrap:	State machine wrap setting
+ * @gpo_oe:	Output enables of GPO_F0 to GPO_F5, bits 0 to 5
+ * @reserved:	Must be zero
+ * @entries:	LUT entries, each one an image of Register 0x800 to Register
+ *		0x80C, where byte 7 is unused
+ */
+struct admv1355_filter_lut_fw {
+	__be32 magic;
+	__be16 version;
+	__be16 count;
+	__be32 crc;
+	u8 mode;
+	u8 load_en;
+	u8 sm_step;
+	u8 sm_start;
+	u8 sm_stop;
+	u8 sm_wrap;
+	u8 gpo_oe;
+	u8 reserved;
+	u8 entries[][ADMV1355_FILTER_LUT_ENTRY_SIZE];
+} __packed;
+
+/**
+ * struct admv1355_gain_lut_fw - Gain LUT firmware format
+ * @magic:	ADMV1355_GAIN_LUT_FW_MAGIC
+ * @version:	Firmware format version
+ * @count:	Number of entries, from 1 to 67
+ * @crc:	CRC32 of the data following this field
+ * @mode:	LUT pointer source: 0 for the ADD_G balls, 1 for the SPI pointer,
+ *		2 for the gain state machine
+ * @load_en:	Apply the LUT outputs on the LOAD pin rising edges
+ * @sm_step:	State machine step, in two's complement, must not be zero
+ * @sm_offset:	State machine offset, in two's complement
+ * @sm_stop:	State machine stop value, from 0 to 127
+ * @gpo_oe:	Output enables of GPO_G0 to GPO_G4, bits 0 to 4
+ * @reserved:	Must be zero
+ * @entries:	LUT entries: DSA2 (bits 7:4) and DSA1 (bits 3:0) states,
+ *		followed by the GPO_G0 to GPO_G4 output states
+ */
+struct admv1355_gain_lut_fw {
+	__be32 magic;
+	__be16 version;
+	__be16 count;
+	__be32 crc;
+	u8 mode;
+	u8 load_en;
+	u8 sm_step;
+	u8 sm_offset;
+	u8 sm_stop;
+	u8 gpo_oe;
+	u8 reserved[2];
+	u8 entries[][ADMV1355_GAIN_LUT_ENTRY_SIZE];
+} __packed;
+
+/* LUT configuration, applied when the LUT (or filter page) gets active */
+struct admv1355_lut_cfg {
+	u8 mode;
+	u8 load_en;
+	u8 sm_step;
+	union {
+		/* Filter state machine start and wrap, as in Register 0x20A */
+		u8 sm_start_wrap;
+		/* Gain state machine offset */
+		u8 sm_offset;
+	};
+	u8 sm_stop;
+	u8 gpo_oe;
+};
+
 struct admv1355_mixer_gate {
 	u8 gate;
 	u8 nmos;
@@ -307,9 +448,19 @@ struct admv1355_state {
 	struct mutex lock;
 	/* Complex IF path (enum admv1355_band) for when the input gets enabled */
 	u8 if_complex_band;
+	/* LUT configurations, applied when the LUT (or filter page) gets active */
+	struct admv1355_lut_cfg filter_lut_cfg[ADMV1355_FILTER_LUT_PAGES];
+	struct admv1355_lut_cfg gain_lut_cfg;
 	/* Chip address set by the CHIP_ADD0 and CHIP_ADD1 balls */
 	u8 chip_addr;
+	u8 filter_lut; /* enum admv1355_filter_lut */
 	bool half_duplex;
+	/* LUT state, when enabled the LUT outputs override direct settings */
+	bool gain_lut_en;
+	bool filter_lut_loaded[ADMV1355_FILTER_LUT_PAGES];
+	bool gain_lut_loaded;
+	bool filter_fwu_cancel[ADMV1355_FILTER_LUT_PAGES];
+	bool gain_fwu_cancel;
 	u8 buf[3] __aligned(IIO_DMA_MINALIGN);
 };
 
@@ -489,6 +640,11 @@ static int admv1355_get_rf_band(struct iio_dev *indio_dev,
 	unsigned int val;
 	int ret;
 
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
 	ret = regmap_read(st->regmap, ADMV1355_REG_RF_BAND_PHASE_Q, &val);
 	if (ret)
 		return ret;
@@ -504,6 +660,9 @@ static int admv1355_set_rf_band(struct iio_dev *indio_dev,
 	int ret;
 
 	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	/* The mixer band must follow the selected RF signal chain */
 	ret = regmap_assign_bits(st->regmap, ADMV1355_REG_RF_BAND_PHASE_Q,
@@ -585,6 +744,11 @@ static int admv1355_get_sideband(struct iio_dev *indio_dev,
 	unsigned int val;
 	int ret;
 
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
 	ret = regmap_read(st->regmap, ADMV1355_REG_LO_BAND_PHASE_I, &val);
 	if (ret)
 		return ret;
@@ -599,6 +763,9 @@ static int admv1355_set_sideband(struct iio_dev *indio_dev,
 	struct admv1355_state *st = iio_priv(indio_dev);
 
 	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	return regmap_assign_bits(st->regmap, ADMV1355_REG_LO_BAND_PHASE_I,
 				  ADMV1355_LO_SIDEBAND_MSK, sideband);
@@ -641,6 +808,11 @@ static ssize_t admv1355_read_calibphase(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
 	ret = regmap_read(st->regmap, reg, &val);
 	if (ret)
 		return ret;
@@ -669,6 +841,9 @@ static ssize_t admv1355_write_calibphase(struct iio_dev *indio_dev,
 		return -EINVAL;
 
 	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	ret = regmap_update_bits(st->regmap, reg, mask, field_prep(mask, val));
 	if (ret)
@@ -734,6 +909,10 @@ static int admv1355_run_lo_nulling(struct admv1355_state *st)
 	unsigned int val, tap, i;
 	int ret, ret2;
 
+	/* The LUT may change the RF band and the LO nulling offsets */
+	if (st->filter_lut)
+		return -EBUSY;
+
 	/* Only supported with the IF inputs, and for LO >= 12.5 GHz */
 	ret = regmap_read(st->regmap, ADMV1355_REG_IF_ENABLE, &val);
 	if (ret)
@@ -796,9 +975,114 @@ static ssize_t admv1355_write_lon_calibration(struct iio_dev *indio_dev,
 	return len;
 }
 
+static const struct reg_sequence admv1355_gain_lut_off_seq[] = {
+	{ ADMV1355_REG_GAIN_LUT_BYPASS, ADMV1355_GAIN_LUT_BYPASS_EN_MSK },
+	{ ADMV1355_REG_GAIN_LOAD_EN, 0x00 },
+};
+
+static int admv1355_gain_lut_gpo_oe(struct admv1355_state *st, u8 oe)
+{
+	int ret;
+
+	ret = regmap_update_bits(st->regmap, ADMV1355_REG_GPO_OE_L,
+				 ADMV1355_GPO_G_OE_L_MSK,
+				 FIELD_PREP(ADMV1355_GPO_G_OE_L_MSK, oe));
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(st->regmap, ADMV1355_REG_GPO_OE_H,
+				  ADMV1355_GPO_G_OE_H_MSK,
+				  oe >> ADMV1355_GPO_G_OE_L_BITS);
+}
+
+static int admv1355_gain_lut_on(struct admv1355_state *st)
+{
+	const struct admv1355_lut_cfg *cfg = &st->gain_lut_cfg;
+	const struct reg_sequence seq[] = {
+		{ ADMV1355_REG_GAIN_SM_STEP, cfg->sm_step },
+		{ ADMV1355_REG_GAIN_SM_OFFSET, cfg->sm_offset },
+		{ ADMV1355_REG_GAIN_SM_STOP, cfg->sm_stop },
+		{ ADMV1355_REG_GAIN_LUT_MODE, cfg->mode },
+		/* Restart the state machine from zero */
+		{ ADMV1355_REG_GAIN_SM_RESET, 0x00 },
+		{ ADMV1355_REG_GAIN_SM_RESET, 0x01 },
+		{ ADMV1355_REG_GAIN_LOAD_EN, cfg->load_en },
+		{ ADMV1355_REG_GAIN_LUT_EN, 0x01 },
+		{ ADMV1355_REG_GAIN_LUT_BYPASS, 0x00 },
+	};
+	int ret;
+
+	ret = admv1355_gain_lut_gpo_oe(st, cfg->gpo_oe);
+	if (ret)
+		return ret;
+
+	return regmap_multi_reg_write(st->regmap, seq, ARRAY_SIZE(seq));
+}
+
+static int admv1355_gain_lut_enable(struct admv1355_state *st, bool en)
+{
+	int ret;
+
+	if (en) {
+		if (!st->gain_lut_loaded)
+			return -ENODATA;
+
+		return admv1355_gain_lut_on(st);
+	}
+
+	ret = regmap_multi_reg_write(st->regmap, admv1355_gain_lut_off_seq,
+				     ARRAY_SIZE(admv1355_gain_lut_off_seq));
+	if (ret)
+		return ret;
+
+	return admv1355_gain_lut_gpo_oe(st, 0);
+}
+
+static ssize_t admv1355_read_gain_lut_en(struct iio_dev *indio_dev,
+					 uintptr_t private,
+					 const struct iio_chan_spec *chan,
+					 char *buf)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+
+	guard(mutex)(&st->lock);
+
+	return sysfs_emit(buf, "%u\n", st->gain_lut_en);
+}
+
+static ssize_t admv1355_write_gain_lut_en(struct iio_dev *indio_dev,
+					  uintptr_t private,
+					  const struct iio_chan_spec *chan,
+					  const char *buf, size_t len)
+{
+	struct admv1355_state *st = iio_priv(indio_dev);
+	bool en;
+	int ret;
+
+	ret = kstrtobool(buf, &en);
+	if (ret)
+		return ret;
+
+	guard(mutex)(&st->lock);
+
+	ret = admv1355_gain_lut_enable(st, en);
+	if (ret)
+		return ret;
+
+	st->gain_lut_en = en;
+
+	return len;
+}
+
 static const struct iio_chan_spec_ext_info admv1355_rf_ext_info[] = {
 	IIO_ENUM("band", IIO_SEPARATE, &admv1355_rf_band_enum),
 	IIO_ENUM_AVAILABLE("band", IIO_SEPARATE, &admv1355_rf_band_enum),
+	{
+		.name = "hardwaregain_lut_en",
+		.shared = IIO_SEPARATE,
+		.read = admv1355_read_gain_lut_en,
+		.write = admv1355_write_gain_lut_en,
+	},
 	{ }
 };
 
@@ -946,6 +1230,11 @@ static int admv1355_read_rf_gain(struct admv1355_state *st, int *val,
 	unsigned int data;
 	int ret;
 
+	guard(mutex)(&st->lock);
+
+	if (st->gain_lut_en)
+		return -EBUSY;
+
 	ret = regmap_read(st->regmap, ADMV1355_REG_DSA_BYPASS, &data);
 	if (ret)
 		return ret;
@@ -976,6 +1265,9 @@ static int admv1355_write_rf_gain(struct admv1355_state *st, int val,
 
 	guard(mutex)(&st->lock);
 
+	if (st->gain_lut_en)
+		return -EBUSY;
+
 	return regmap_update_bits(st->regmap, ADMV1355_REG_DSA_BYPASS,
 				  ADMV1355_DSA1_MSK | ADMV1355_DSA2_MSK,
 				  FIELD_PREP(ADMV1355_DSA1_MSK, dsa1) |
@@ -992,6 +1284,11 @@ static int admv1355_read_if_gain(struct admv1355_state *st,
 	ret = admv1355_if_gain_field(chan, &reg, &mask);
 	if (ret)
 		return ret;
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	ret = regmap_read(st->regmap, reg, &data);
 	if (ret)
@@ -1025,6 +1322,9 @@ static int admv1355_write_if_gain(struct admv1355_state *st,
 		return -EINVAL;
 
 	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	return regmap_update_bits(st->regmap, reg, mask, field_prep(mask, code));
 }
@@ -1148,6 +1448,11 @@ static int admv1355_read_calibbias(struct admv1355_state *st,
 	unsigned int reg = chan->address == ADMV1355_CHAN_LO_I ?
 			   ADMV1355_REG_LON_OFFSET_I : ADMV1355_REG_LON_OFFSET_Q;
 
+	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
+
 	return regmap_read(st->regmap, reg, val);
 }
 
@@ -1200,6 +1505,9 @@ static int admv1355_write_calibbias(struct admv1355_state *st,
 		return -EINVAL;
 
 	guard(mutex)(&st->lock);
+
+	if (st->filter_lut)
+		return -EBUSY;
 
 	ret = regmap_write(st->regmap, reg, (u8)val);
 	if (ret)
@@ -1302,7 +1610,161 @@ static int admv1355_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	return regmap_write(st->regmap, reg, writeval);
 }
 
+static int admv1355_filter_lut_select(struct admv1355_state *st, u8 page)
+{
+	const struct admv1355_lut_cfg *cfg = &st->filter_lut_cfg[page];
+	const struct reg_sequence seq[] = {
+		{ ADMV1355_REG_FILTER_SM_STEP, cfg->sm_step },
+		{ ADMV1355_REG_FILTER_SM_START, cfg->sm_start_wrap },
+		{ ADMV1355_REG_FILTER_SM_STOP, cfg->sm_stop },
+		{ ADMV1355_REG_FILTER_LUT_MODE, cfg->mode },
+		{ ADMV1355_REG_FILTER_LOAD_EN, cfg->load_en },
+		{ ADMV1355_REG_FILTER_LUT_SELECT, page },
+	};
+	int ret;
+
+	ret = regmap_multi_reg_write(st->regmap, seq, ARRAY_SIZE(seq));
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(st->regmap, ADMV1355_REG_GPO_OE_L,
+				  ADMV1355_GPO_F_OE_MSK, cfg->gpo_oe);
+}
+
+static const struct reg_sequence admv1355_filter_lut_on_seq[] = {
+	/* Restart the state machine from zero */
+	{ ADMV1355_REG_FILTER_SM_RESET, 0x00 },
+	{ ADMV1355_REG_FILTER_SM_RESET, 0x01 },
+	{ ADMV1355_REG_FILTER_LUT_EN, 0x01 },
+};
+
+static const struct reg_sequence admv1355_filter_lut_off_seq[] = {
+	{ ADMV1355_REG_FILTER_LUT_EN, 0x00 },
+	{ ADMV1355_REG_FILTER_LOAD_EN, 0x00 },
+};
+
+/*
+ * Take the RF LPF and HPF settings from the bypass registers (direct), or
+ * from the filter LUT, keeping the direct settings in place.
+ */
+static int admv1355_rf_filters_direct(struct admv1355_state *st, bool direct)
+{
+	int ret;
+
+	ret = regmap_assign_bits(st->regmap, ADMV1355_REG_RF_LPF_BYPASS,
+				 ADMV1355_LPF_SELECT_MSK, direct);
+	if (ret)
+		return ret;
+
+	return regmap_assign_bits(st->regmap, ADMV1355_REG_RF_HPF_BYPASS,
+				  ADMV1355_HPF_SELECT_MSK, direct);
+}
+
+static int admv1355_set_filter_lut(struct admv1355_state *st, u8 lut)
+{
+	unsigned int page;
+	int ret;
+
+	if (lut == ADMV1355_FILTER_LUT_OFF) {
+		ret = regmap_multi_reg_write(st->regmap,
+					     admv1355_filter_lut_off_seq,
+					     ARRAY_SIZE(admv1355_filter_lut_off_seq));
+		if (ret)
+			return ret;
+
+		ret = admv1355_rf_filters_direct(st, true);
+		if (ret)
+			return ret;
+
+		return regmap_clear_bits(st->regmap, ADMV1355_REG_GPO_OE_L,
+					 ADMV1355_GPO_F_OE_MSK);
+	}
+
+	page = lut - ADMV1355_FILTER_LUT_A;
+	if (!st->filter_lut_loaded[page])
+		return -ENODATA;
+
+	ret = admv1355_filter_lut_select(st, page);
+	if (ret)
+		return ret;
+
+	/* While the LUT is enabled, the page switch is immediate */
+	if (st->filter_lut != ADMV1355_FILTER_LUT_OFF)
+		return 0;
+
+	ret = admv1355_rf_filters_direct(st, false);
+	if (ret)
+		return ret;
+
+	return regmap_multi_reg_write(st->regmap, admv1355_filter_lut_on_seq,
+				      ARRAY_SIZE(admv1355_filter_lut_on_seq));
+}
+
+static const char * const admv1355_filter_luts[] = {
+	[ADMV1355_FILTER_LUT_OFF] = "off",
+	[ADMV1355_FILTER_LUT_A] = "a",
+	[ADMV1355_FILTER_LUT_B] = "b",
+};
+
+static ssize_t admv1355_filter_lut_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
+{
+	struct admv1355_state *st = iio_priv(dev_to_iio_dev(dev));
+
+	guard(mutex)(&st->lock);
+
+	return sysfs_emit(buf, "%s\n", admv1355_filter_luts[st->filter_lut]);
+}
+
+static ssize_t admv1355_filter_lut_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t len)
+{
+	struct admv1355_state *st = iio_priv(dev_to_iio_dev(dev));
+	int lut, ret;
+
+	lut = sysfs_match_string(admv1355_filter_luts, buf);
+	if (lut < 0)
+		return lut;
+
+	guard(mutex)(&st->lock);
+
+	ret = admv1355_set_filter_lut(st, lut);
+	if (ret)
+		return ret;
+
+	st->filter_lut = lut;
+
+	return len;
+}
+
+static ssize_t admv1355_filter_lut_available_show(struct device *dev,
+						  struct device_attribute *attr,
+						  char *buf)
+{
+	return sysfs_emit(buf, "%s %s %s\n",
+			  admv1355_filter_luts[ADMV1355_FILTER_LUT_OFF],
+			  admv1355_filter_luts[ADMV1355_FILTER_LUT_A],
+			  admv1355_filter_luts[ADMV1355_FILTER_LUT_B]);
+}
+
+static IIO_DEVICE_ATTR(filter_lut, 0644, admv1355_filter_lut_show,
+		       admv1355_filter_lut_store, 0);
+static IIO_DEVICE_ATTR(filter_lut_available, 0444,
+		       admv1355_filter_lut_available_show, NULL, 0);
+
+static struct attribute *admv1355_attrs[] = {
+	&iio_dev_attr_filter_lut.dev_attr.attr,
+	&iio_dev_attr_filter_lut_available.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group admv1355_attr_group = {
+	.attrs = admv1355_attrs,
+};
+
 static const struct iio_info admv1355_info = {
+	.attrs = &admv1355_attr_group,
 	.read_raw = admv1355_read_raw,
 	.write_raw = admv1355_write_raw,
 	.write_raw_get_fmt = admv1355_write_raw_get_fmt,
@@ -1331,6 +1793,317 @@ static int admv1355_lo_clk_notifier(struct notifier_block *nb,
 	default:
 		return NOTIFY_DONE;
 	}
+}
+
+/* CRC32 covers the firmware data following the crc field */
+static bool admv1355_lut_fw_crc_ok(const u8 *data, u32 size, size_t crc_end,
+				   const __be32 *crc)
+{
+	return crc32(0, data + crc_end, size - crc_end) ==
+	       get_unaligned_be32(crc);
+}
+
+static enum fw_upload_err admv1355_filter_fwu_prepare(struct fw_upload *fwl,
+						      const u8 *data, u32 size,
+						      unsigned int page)
+{
+	const struct admv1355_filter_lut_fw *fw = (const void *)data;
+	struct admv1355_state *st = fwl->dd_handle;
+	unsigned int count;
+
+	scoped_guard(mutex, &st->lock)
+		st->filter_fwu_cancel[page] = false;
+
+	if (size < sizeof(*fw))
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	if (get_unaligned_be32(&fw->magic) != ADMV1355_FILTER_LUT_FW_MAGIC ||
+	    get_unaligned_be16(&fw->version) != ADMV1355_LUT_FW_V1)
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	count = get_unaligned_be16(&fw->count);
+	if (!count || count > ADMV1355_FILTER_LUT_ENTRIES ||
+	    size != struct_size(fw, entries, count))
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	if (!admv1355_lut_fw_crc_ok(data, size,
+				    offsetofend(typeof(*fw), crc), &fw->crc))
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	if (fw->mode > ADMV1355_LUT_MODE_MAX || fw->load_en > 1 ||
+	    !fw->sm_step || fw->sm_start > ADMV1355_FILTER_SM_MAX ||
+	    fw->sm_stop > ADMV1355_FILTER_SM_MAX || fw->sm_wrap > 1 ||
+	    fw->gpo_oe & ~ADMV1355_GPO_F_OE_MSK || fw->reserved)
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	return FW_UPLOAD_ERR_NONE;
+}
+
+static enum fw_upload_err admv1355_filter_fwu_write(struct fw_upload *fwl,
+						    const u8 *data, u32 offset,
+						    u32 size, u32 *written,
+						    unsigned int page)
+{
+	const struct admv1355_filter_lut_fw *fw = (const void *)data;
+	struct admv1355_state *st = fwl->dd_handle;
+	unsigned int base, count, i, j;
+	int ret;
+
+	if (offset)
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	guard(mutex)(&st->lock);
+
+	if (st->filter_fwu_cancel[page])
+		return FW_UPLOAD_ERR_CANCELED;
+
+	/* Only the inactive page can be loaded while the LUT is in use */
+	if (st->filter_lut == ADMV1355_FILTER_LUT_A + page)
+		return FW_UPLOAD_ERR_BUSY;
+
+	st->filter_lut_loaded[page] = false;
+
+	count = get_unaligned_be16(&fw->count);
+	base = ADMV1355_REG_FILTER_LUT_A +
+	       page * ADMV1355_FILTER_LUT_PAGE_SIZE;
+	for (i = 0; i < count; i++) {
+		for (j = 0; j < ADMV1355_FILTER_LUT_ENTRY_SIZE; j++) {
+			if (j == ADMV1355_FILTER_LUT_UNUSED)
+				continue;
+
+			ret = regmap_write(st->regmap,
+					   base + i * ADMV1355_FILTER_LUT_ENTRY_SIZE + j,
+					   fw->entries[i][j]);
+			if (ret)
+				return FW_UPLOAD_ERR_RW_ERROR;
+		}
+	}
+
+	st->filter_lut_cfg[page] = (struct admv1355_lut_cfg) {
+		.mode = fw->mode,
+		.load_en = fw->load_en,
+		.sm_step = fw->sm_step,
+		.sm_start_wrap = FIELD_PREP(ADMV1355_FILTER_SM_WRAP_MSK, fw->sm_wrap) |
+				 FIELD_PREP(ADMV1355_FILTER_SM_START_MSK, fw->sm_start),
+		.sm_stop = fw->sm_stop,
+		.gpo_oe = fw->gpo_oe,
+	};
+	st->filter_lut_loaded[page] = true;
+
+	*written = size;
+
+	return FW_UPLOAD_ERR_NONE;
+}
+
+static void admv1355_filter_fwu_cancel(struct fw_upload *fwl,
+				       unsigned int page)
+{
+	struct admv1355_state *st = fwl->dd_handle;
+
+	guard(mutex)(&st->lock);
+	st->filter_fwu_cancel[page] = true;
+}
+
+/* One firmware upload per filter LUT page, sharing dd_handle */
+static enum fw_upload_err admv1355_filter_a_fwu_prepare(struct fw_upload *fwl,
+							const u8 *data, u32 size)
+{
+	return admv1355_filter_fwu_prepare(fwl, data, size, 0);
+}
+
+static enum fw_upload_err admv1355_filter_a_fwu_write(struct fw_upload *fwl,
+						      const u8 *data,
+						      u32 offset, u32 size,
+						      u32 *written)
+{
+	return admv1355_filter_fwu_write(fwl, data, offset, size, written, 0);
+}
+
+static void admv1355_filter_a_fwu_cancel(struct fw_upload *fwl)
+{
+	admv1355_filter_fwu_cancel(fwl, 0);
+}
+
+static enum fw_upload_err admv1355_filter_b_fwu_prepare(struct fw_upload *fwl,
+							const u8 *data, u32 size)
+{
+	return admv1355_filter_fwu_prepare(fwl, data, size, 1);
+}
+
+static enum fw_upload_err admv1355_filter_b_fwu_write(struct fw_upload *fwl,
+						      const u8 *data,
+						      u32 offset, u32 size,
+						      u32 *written)
+{
+	return admv1355_filter_fwu_write(fwl, data, offset, size, written, 1);
+}
+
+static void admv1355_filter_b_fwu_cancel(struct fw_upload *fwl)
+{
+	admv1355_filter_fwu_cancel(fwl, 1);
+}
+
+static enum fw_upload_err admv1355_gain_fwu_prepare(struct fw_upload *fwl,
+						    const u8 *data, u32 size)
+{
+	const struct admv1355_gain_lut_fw *fw = (const void *)data;
+	struct admv1355_state *st = fwl->dd_handle;
+	unsigned int count;
+
+	scoped_guard(mutex, &st->lock)
+		st->gain_fwu_cancel = false;
+
+	if (size < sizeof(*fw))
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	if (get_unaligned_be32(&fw->magic) != ADMV1355_GAIN_LUT_FW_MAGIC ||
+	    get_unaligned_be16(&fw->version) != ADMV1355_LUT_FW_V1)
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	count = get_unaligned_be16(&fw->count);
+	if (!count || count > ADMV1355_GAIN_LUT_ENTRIES ||
+	    size != struct_size(fw, entries, count))
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	if (!admv1355_lut_fw_crc_ok(data, size,
+				    offsetofend(typeof(*fw), crc), &fw->crc))
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	if (fw->mode > ADMV1355_LUT_MODE_MAX || fw->load_en > 1 ||
+	    !fw->sm_step || fw->sm_stop > ADMV1355_GAIN_SM_STOP_MAX ||
+	    fw->gpo_oe & ~ADMV1355_GPO_G_OE_MSK ||
+	    fw->reserved[0] || fw->reserved[1])
+		return FW_UPLOAD_ERR_FW_INVALID;
+
+	return FW_UPLOAD_ERR_NONE;
+}
+
+static enum fw_upload_err admv1355_gain_fwu_write(struct fw_upload *fwl,
+						  const u8 *data, u32 offset,
+						  u32 size, u32 *written)
+{
+	const struct admv1355_gain_lut_fw *fw = (const void *)data;
+	struct admv1355_state *st = fwl->dd_handle;
+	unsigned int count, i, j;
+	int ret;
+
+	if (offset)
+		return FW_UPLOAD_ERR_INVALID_SIZE;
+
+	guard(mutex)(&st->lock);
+
+	if (st->gain_fwu_cancel)
+		return FW_UPLOAD_ERR_CANCELED;
+
+	if (st->gain_lut_en)
+		return FW_UPLOAD_ERR_BUSY;
+
+	st->gain_lut_loaded = false;
+
+	count = get_unaligned_be16(&fw->count);
+	for (i = 0; i < count; i++) {
+		for (j = 0; j < ADMV1355_GAIN_LUT_ENTRY_SIZE; j++) {
+			ret = regmap_write(st->regmap,
+					   ADMV1355_REG_GAIN_LUT +
+					   i * ADMV1355_GAIN_LUT_ENTRY_SIZE + j,
+					   fw->entries[i][j]);
+			if (ret)
+				return FW_UPLOAD_ERR_RW_ERROR;
+		}
+	}
+
+	st->gain_lut_cfg = (struct admv1355_lut_cfg) {
+		.mode = fw->mode,
+		.load_en = fw->load_en,
+		.sm_step = fw->sm_step,
+		.sm_offset = fw->sm_offset,
+		.sm_stop = fw->sm_stop,
+		.gpo_oe = fw->gpo_oe,
+	};
+	st->gain_lut_loaded = true;
+
+	*written = size;
+
+	return FW_UPLOAD_ERR_NONE;
+}
+
+static void admv1355_gain_fwu_cancel(struct fw_upload *fwl)
+{
+	struct admv1355_state *st = fwl->dd_handle;
+
+	guard(mutex)(&st->lock);
+	st->gain_fwu_cancel = true;
+}
+
+static enum fw_upload_err admv1355_fwu_poll_complete(struct fw_upload *fwl)
+{
+	return FW_UPLOAD_ERR_NONE;
+}
+
+static const struct fw_upload_ops admv1355_filter_fwu_ops[] = {
+	{
+		.prepare = admv1355_filter_a_fwu_prepare,
+		.write = admv1355_filter_a_fwu_write,
+		.poll_complete = admv1355_fwu_poll_complete,
+		.cancel = admv1355_filter_a_fwu_cancel,
+	},
+	{
+		.prepare = admv1355_filter_b_fwu_prepare,
+		.write = admv1355_filter_b_fwu_write,
+		.poll_complete = admv1355_fwu_poll_complete,
+		.cancel = admv1355_filter_b_fwu_cancel,
+	},
+};
+
+static const struct fw_upload_ops admv1355_gain_fwu_ops = {
+	.prepare = admv1355_gain_fwu_prepare,
+	.write = admv1355_gain_fwu_write,
+	.poll_complete = admv1355_fwu_poll_complete,
+	.cancel = admv1355_gain_fwu_cancel,
+};
+
+static void admv1355_fwu_unregister(void *data)
+{
+	firmware_upload_unregister(data);
+}
+
+static int admv1355_fwu_add(struct admv1355_state *st, struct iio_dev *indio_dev,
+			    const char *lut, const struct fw_upload_ops *ops)
+{
+	struct device *dev = &st->spi->dev;
+	struct fw_upload *fwl;
+	const char *name;
+
+	name = devm_kasprintf(dev, GFP_KERNEL, "%s:%s",
+			      dev_name(&indio_dev->dev), lut);
+	if (!name)
+		return -ENOMEM;
+
+	fwl = firmware_upload_register(THIS_MODULE, dev, name, ops, st);
+	if (IS_ERR(fwl))
+		return dev_err_probe(dev, PTR_ERR(fwl),
+				     "failed to register %s upload\n", lut);
+
+	return devm_add_action_or_reset(dev, admv1355_fwu_unregister, fwl);
+}
+
+static int admv1355_fwu_register(struct admv1355_state *st,
+				 struct iio_dev *indio_dev)
+{
+	int ret;
+
+	ret = admv1355_fwu_add(st, indio_dev, "filter_lut_a",
+			       &admv1355_filter_fwu_ops[0]);
+	if (ret)
+		return ret;
+
+	ret = admv1355_fwu_add(st, indio_dev, "filter_lut_b",
+			       &admv1355_filter_fwu_ops[1]);
+	if (ret)
+		return ret;
+
+	return admv1355_fwu_add(st, indio_dev, "hardwaregain_lut",
+				&admv1355_gain_fwu_ops);
 }
 
 static int admv1355_check_spi(struct admv1355_state *st)
@@ -1642,6 +2415,10 @@ static int admv1355_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "failed to register clock notifier\n");
+
+	ret = admv1355_fwu_register(st, indio_dev);
+	if (ret)
+		return ret;
 
 	indio_dev->name = "admv1355";
 	indio_dev->info = &admv1355_info;

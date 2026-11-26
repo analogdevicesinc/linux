@@ -145,6 +145,9 @@ config ADMV1355
 	tristate "Analog Devices ADMV1355 Microwave Upconverter"
 	depends on SPI && COMMON_CLK
 	depends on 64BIT || COMPILE_TEST
+	select CRC32
+	select FW_LOADER
+	select FW_UPLOAD
 	select REGMAP
 	help
 	  Say yes here to build support for Analog Devices ADMV1355
