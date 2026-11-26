@@ -439,18 +439,22 @@ static int adi_spi_pio_xfer(struct spi_controller *controller, struct spi_device
 	struct spi_transfer *xfer)
 {
 	struct adi_spi_controller *drv = spi_controller_get_devdata(controller);
+	bool spi_mode = spi_controller_is_target(controller);
 
 	if (!xfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | (spi_mode ? 0 :
+			  SPI_TXCTL_TTI), &drv->regs->tx_control);
 		drv->ops->write(drv, xfer);
 	} else if (!xfer->tx_buf) {
 		iowrite32(0, &drv->regs->tx_control);
-		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI, &drv->regs->rx_control);
+		iowrite32(SPI_RXCTL_REN | (spi_mode ? 0 :
+			  SPI_RXCTL_RTI), &drv->regs->rx_control);
 		drv->ops->read(drv, xfer);
 	} else {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | (spi_mode ? 0 :
+			  SPI_TXCTL_TTI), &drv->regs->tx_control);
 		drv->ops->duplex(drv, xfer);
 	}
 
