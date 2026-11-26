@@ -50,7 +50,12 @@
 #define ADMV1355_REG_DSA_BYPASS		0x28B
 #define ADMV1355_REG_RF_LPF_BYPASS	0x2A0
 #define ADMV1355_REG_RF_HPF_BYPASS	0x2A1
+#define ADMV1355_REG_ADC_MUX		0x2A7
+#define ADMV1355_REG_ADC_CTRL		0x300
+#define ADMV1355_REG_ADC_LON_CTRL	0x302
 #define ADMV1355_REG_LON_SELECT		0x305
+#define ADMV1355_REG_LON_TAP		0x306
+#define ADMV1355_REG_ADC_OUT		0x30D
 #define ADMV1355_REG_IF_ENABLE		0x602
 #define ADMV1355_REG_LO_X4_FILTER	0x800
 #define ADMV1355_REG_LO_X3_FILTER	0x801
@@ -88,10 +93,24 @@
 #define ADMV1355_HPF_SELECT_MSK		BIT(7)
 #define ADMV1355_HPF_BYPASS_VALUE_MSK	GENMASK(5, 0)
 
+/* ADMV1355_REG_ADC_MUX */
+#define ADMV1355_ADC_MUX_TEMP		0x01
+
+/* ADMV1355_REG_ADC_CTRL */
+#define ADMV1355_ADC_EN_MSK		BIT(3)
+#define ADMV1355_ADC_CLK_EN_MSK		BIT(0)
+
+/* ADMV1355_REG_ADC_LON_CTRL */
+#define ADMV1355_LON_AUTO_EN_MSK	BIT(2)
+#define ADMV1355_ADC_RESET_MSK		BIT(1)
+
 /* ADMV1355_REG_LON_SELECT */
 #define ADMV1355_LON_EN_MSK		BIT(5)
 #define ADMV1355_LON_Q_SELECT_MSK	BIT(1)
 #define ADMV1355_LON_I_SELECT_MSK	BIT(0)
+
+/* ADMV1355_REG_LON_TAP */
+#define ADMV1355_LON_RESET_MSK		BIT(1)
 
 /* ADMV1355_REG_IF_ENABLE */
 #define ADMV1355_IF_HYBRID_EN_MSK	BIT(3)
@@ -132,6 +151,11 @@
 /* IF DSAI/DSAQ: 0 dB to -1.5 dB in 0.1 dB steps */
 #define ADMV1355_IF_DSA_STEP_UDB	(MICRO / 10)
 
+/* Temperature in milli degrees Celsius: 173000 - 5000 / 6 * ADC_CODE */
+#define ADMV1355_TEMP_OFFSET_MDEG	173000
+#define ADMV1355_TEMP_SCALE_NUM		5000
+#define ADMV1355_TEMP_SCALE_DEN		6
+
 #define ADMV1355_LO_FREQ_MIN_HZ		(8850ULL * HZ_PER_MHZ)
 #define ADMV1355_LO_FREQ_MAX_HZ		(27500ULL * HZ_PER_MHZ)
 
@@ -150,6 +174,7 @@ enum admv1355_chan_idx {
 	ADMV1355_CHAN_LO_Q,
 	ADMV1355_CHAN_IF_I,
 	ADMV1355_CHAN_IF_Q,
+	ADMV1355_CHAN_TEMP,
 };
 
 static const char * const admv1355_chan_labels[] = {
@@ -162,6 +187,7 @@ static const char * const admv1355_chan_labels[] = {
 	[ADMV1355_CHAN_LO_Q] = "lo_q",
 	[ADMV1355_CHAN_IF_I] = "if_i",
 	[ADMV1355_CHAN_IF_Q] = "if_q",
+	[ADMV1355_CHAN_TEMP] = "temp",
 };
 
 static const char * const admv1355_supply_names[] = {
@@ -290,6 +316,62 @@ static const struct regmap_config admv1355_regmap_config = {
 	.reg_read = admv1355_reg_read,
 	.reg_write = admv1355_reg_write,
 };
+
+/* ADC configuration for the temperature sensor, see datasheet Rev. A p. 76 */
+static const struct reg_sequence admv1355_temp_start_seq[] = {
+	{ ADMV1355_REG_ADC_LON_CTRL, ADMV1355_ADC_RESET_MSK },
+	{ ADMV1355_REG_ADC_CTRL, ADMV1355_ADC_EN_MSK | ADMV1355_ADC_CLK_EN_MSK },
+	{ ADMV1355_REG_LON_TAP, ADMV1355_LON_RESET_MSK },
+	{ ADMV1355_REG_POWER_DOWN, 0x00 },
+	{ ADMV1355_REG_ADC_MUX, ADMV1355_ADC_MUX_TEMP },
+	{ ADMV1355_REG_ADC_LON_CTRL,
+	  ADMV1355_LON_AUTO_EN_MSK | ADMV1355_ADC_RESET_MSK, 1000 },
+};
+
+static const unsigned int admv1355_temp_saved_regs[] = {
+	ADMV1355_REG_ADC_LON_CTRL,
+	ADMV1355_REG_ADC_CTRL,
+	ADMV1355_REG_LON_TAP,
+	ADMV1355_REG_POWER_DOWN,
+	ADMV1355_REG_ADC_MUX,
+};
+
+static int admv1355_read_temp(struct admv1355_state *st, int *val)
+{
+	unsigned int saved[ARRAY_SIZE(admv1355_temp_saved_regs)];
+	unsigned int code, i;
+	int ret, ret2 = 0;
+
+	guard(mutex)(&st->lock);
+
+	for (i = 0; i < ARRAY_SIZE(admv1355_temp_saved_regs); i++) {
+		ret = regmap_read(st->regmap, admv1355_temp_saved_regs[i],
+				  &saved[i]);
+		if (ret)
+			return ret;
+	}
+
+	ret = regmap_multi_reg_write(st->regmap, admv1355_temp_start_seq,
+				     ARRAY_SIZE(admv1355_temp_start_seq));
+	if (!ret)
+		ret = regmap_read(st->regmap, ADMV1355_REG_ADC_OUT, &code);
+
+	/* Restore the previous state even if the conversion failed */
+	for (i = 0; i < ARRAY_SIZE(admv1355_temp_saved_regs) && !ret2; i++)
+		ret2 = regmap_write(st->regmap, admv1355_temp_saved_regs[i],
+				    saved[i]);
+	if (ret)
+		return ret;
+	if (ret2)
+		return ret2;
+
+	/* T = 173 - 5/6 * ADC_CODE, in degrees Celsius */
+	*val = ADMV1355_TEMP_OFFSET_MDEG -
+	       (int)DIV_ROUND_CLOSEST(code * ADMV1355_TEMP_SCALE_NUM,
+				      ADMV1355_TEMP_SCALE_DEN);
+
+	return IIO_VAL_INT;
+}
 
 static bool admv1355_lo_rate_valid(u64 rate)
 {
@@ -628,6 +710,13 @@ static const struct iio_chan_spec admv1355_channels[] = {
 	[ADMV1355_CHAN_LO_Q] = ADMV1355_LO_IQ_CHAN(ADMV1355_CHAN_LO_Q, IIO_MOD_Q),
 	[ADMV1355_CHAN_IF_I] = ADMV1355_IF_IQ_CHAN(ADMV1355_CHAN_IF_I, IIO_MOD_I),
 	[ADMV1355_CHAN_IF_Q] = ADMV1355_IF_IQ_CHAN(ADMV1355_CHAN_IF_Q, IIO_MOD_Q),
+	[ADMV1355_CHAN_TEMP] = {
+		.type = IIO_TEMP,
+		.indexed = 1,
+		.channel = 0,
+		.address = ADMV1355_CHAN_TEMP,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_PROCESSED),
+	},
 };
 
 static int admv1355_if_gain_field(const struct iio_chan_spec *chan,
@@ -843,6 +932,8 @@ static int admv1355_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 	switch (mask) {
+	case IIO_CHAN_INFO_PROCESSED:
+		return admv1355_read_temp(st, val);
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->address == ADMV1355_CHAN_RF)
 			return admv1355_read_rf_gain(st, val, val2);
