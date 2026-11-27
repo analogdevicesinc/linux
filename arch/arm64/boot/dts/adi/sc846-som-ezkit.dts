@@ -168,7 +168,7 @@
 		};
 	};
 };
-
+/*
 &xspi1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&xspi1_default>;
@@ -182,6 +182,34 @@
 		spi-rx-bus-width = <8>;
 		m25p,fast-read;
 		label = "xspi1-nor";
+	};
+};
+*/
+&pinctrl {
+	xspi1_quad: xspi1-quad-pins {
+		pinmux = <ADSP_SC846_PF02__XSPI1_SEL1
+			  ADSP_SC846_PE11__XSPI1_CLK
+			  ADSP_SC846_PE08__XSPI1_COTI
+			  ADSP_SC846_PE07__XSPI1_CITO
+			  ADSP_SC846_PE09__XSPI1_D2
+			  ADSP_SC846_PE10__XSPI1_D3
+			  ADSP_SC846_PE12__XSPI1_CLK>; /* PHY read loopback */
+	};
+};
+
+&xspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&xspi1_quad>;
+	status = "okay";
+
+	flash@0 {
+	   status = "okay";
+		compatible = "spi-nand";
+		reg = <0>;
+		spi-max-frequency = <75000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		label = "xspi1-nand";
 	};
 };
 

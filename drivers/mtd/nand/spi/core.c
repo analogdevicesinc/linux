@@ -851,6 +851,9 @@ end_cont_read:
 	 */
 	spinand_cont_read_enable(spinand, false);
 
+	if (ret) {
+		pr_info("spi-nand error ret=%i page=%u, eraseblock=%u\n", ret, iter.req.pos.page, iter.req.pos.eraseblock);
+	}
 	return ret;
 }
 
@@ -860,7 +863,7 @@ static void spinand_cont_read_init(struct spinand_device *spinand)
 	enum nand_ecc_engine_type engine_type = nand->ecc.ctx.conf.engine_type;
 
 	/* OOBs cannot be retrieved so external/on-host ECC engine won't work */
-	if (spinand->set_cont_read &&
+	if (spinand->set_cont_read && spinand->op_templates.cont_read_cache &&
 	    (engine_type == NAND_ECC_ENGINE_TYPE_ON_DIE ||
 	     engine_type == NAND_ECC_ENGINE_TYPE_NONE)) {
 		spinand->cont_read_possible = true;
@@ -902,8 +905,11 @@ static bool spinand_use_cont_read(struct mtd_info *mtd, loff_t from,
 	 */
 	if (start_pos.target != end_pos.target ||
 	    start_pos.plane != end_pos.plane ||
-	    start_pos.eraseblock != end_pos.eraseblock)
+	    start_pos.eraseblock != end_pos.eraseblock) {
+		pr_info("start_pos.target=%u end_pos.target=%u start_pos.plane=%u end_pos.plane=%u start_pos.eraseblock=%u end_pos.eraseblock=%u\n", 
+				start_pos.target, end_pos.target, start_pos.plane, end_pos.plane, start_pos.eraseblock, end_pos.eraseblock);
 		return false;
+	}
 
 	return start_pos.page < end_pos.page;
 }
@@ -931,6 +937,7 @@ static int spinand_mtd_read(struct mtd_info *mtd, loff_t from,
 			ret = spinand_mtd_regular_page_read(mtd, from, ops, &max_bitflips);
 		}
 	} else {
+		pr_info("spinand_mtd_regular_page_read\n");
 		ret = spinand_mtd_regular_page_read(mtd, from, ops, &max_bitflips);
 	}
 
@@ -1447,6 +1454,15 @@ int spinand_match_and_init(struct spinand_device *spinand,
 					       info->op_variants.read_cache);
 		if (!op)
 			return -ENOTSUPP;
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected read_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.read_cache = op;
 
@@ -1454,11 +1470,29 @@ int spinand_match_and_init(struct spinand_device *spinand,
 					       info->op_variants.write_cache);
 		if (!op)
 			return -ENOTSUPP;
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected write_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.write_cache = op;
 
 		op = spinand_select_op_variant(spinand,
 					       info->op_variants.update_cache);
+		dev_info(&spinand->spimem->spi->dev,
+				"Selected update_cache: opcode=0x%02x, cmd_bw=%u, "
+				"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+				op->cmd.opcode,
+				op->cmd.buswidth,
+				op->addr.buswidth,
+				op->data.buswidth,
+				op->data.dtr,
+				op->max_freq);
 
 		spinand->op_templates.update_cache = op;
 		if (!op)
@@ -1466,7 +1500,16 @@ int spinand_match_and_init(struct spinand_device *spinand,
 
 		if (info->op_variants.cont_read_cache) {
 			op = spinand_select_op_variant(spinand,
-						       info->op_variants.cont_read_cache);
+					info->op_variants.cont_read_cache);
+			dev_info(&spinand->spimem->spi->dev,
+					"Selected cont_read_cache: opcode=0x%02x, cmd_bw=%u, "
+					"addr_bw=%u, data_bw=%u, dtr=%u, max_freq=%u\n",
+					op->cmd.opcode,
+					op->cmd.buswidth,
+					op->addr.buswidth,
+					op->data.buswidth,
+					op->data.dtr,
+					op->max_freq);
 			if (op) {
 				const struct spi_mem_op *read_op;
 
