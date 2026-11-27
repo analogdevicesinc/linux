@@ -905,8 +905,11 @@ static bool spinand_use_cont_read(struct mtd_info *mtd, loff_t from,
 	 */
 	if (start_pos.target != end_pos.target ||
 	    start_pos.plane != end_pos.plane ||
-	    start_pos.eraseblock != end_pos.eraseblock)
+	    start_pos.eraseblock != end_pos.eraseblock) {
+		pr_info("start_pos.target=%u end_pos.target=%u start_pos.plane=%u end_pos.plane=%u start_pos.eraseblock=%u end_pos.eraseblock=%u\n", 
+				start_pos.target, end_pos.target, start_pos.plane, end_pos.plane, start_pos.eraseblock, end_pos.eraseblock);
 		return false;
+	}
 
 	return start_pos.page < end_pos.page;
 }
@@ -934,6 +937,7 @@ static int spinand_mtd_read(struct mtd_info *mtd, loff_t from,
 			ret = spinand_mtd_regular_page_read(mtd, from, ops, &max_bitflips);
 		}
 	} else {
+		pr_info("spinand_mtd_regular_page_read\n");
 		ret = spinand_mtd_regular_page_read(mtd, from, ops, &max_bitflips);
 	}
 
