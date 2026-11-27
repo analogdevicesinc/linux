@@ -403,7 +403,10 @@ unsafe extern "C" fn rust_binder_open(
     match unsafe { BinderfsProcFile::new(inode, process.task.pid()) } {
         Ok(Some(file)) => process.inner.lock().binderfs_file = Some(file),
         Ok(None) => { /* pid already exists */ }
-        Err(err) => return err.to_errno(),
+        Err(err) => {
+            process.ctx.deregister_process(&process);
+            return err.to_errno();
+        }
     }
 
     // SAFETY: This file is associated with Rust binder, so we own the `private_data` field.
