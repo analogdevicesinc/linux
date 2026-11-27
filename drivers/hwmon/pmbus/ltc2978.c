@@ -23,11 +23,11 @@ enum chips {
 	/* Managers */
 	ltc2972, ltc2974, ltc2975, ltc2977, ltc2978, ltc2979, ltc2980,
 	/* Controllers */
-	lt7170, lt7171, ltc3880, ltc3882, ltc3883, ltc3884, ltc3886, ltc3887,
-	ltc3889, ltc7132, ltc7841, ltc7880,
+	lt7170, lt7171, lt7175, lt7176p, ltc3880, ltc3882, ltc3883, ltc3884,
+	ltc3886, ltc3887, ltc3889, ltc7132, ltc7841, ltc7880,
 	/* Modules */
-	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4686,
-	ltm4700,
+	ltm2987, ltm4664, ltm4675, ltm4676, ltm4677, ltm4678, ltm4680, ltm4681,
+	ltm4682, ltm4686, ltm4700,
 };
 
 /* Common for all chips */
@@ -46,12 +46,18 @@ enum chips {
 #define LTC2974_MFR_IOUT_PEAK		0xd7
 #define LTC2974_MFR_IOUT_MIN		0xd8
 
-/* LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132 */
+/*
+ * LTC3880, LTC3882, LTC3883, LTC3887, LTM4675, LTM4676, LTC7132, LTM4681
+ * and LTM4682
+ */
 #define LTC3880_MFR_IOUT_PEAK		0xd7
 #define LTC3880_MFR_CLEAR_PEAKS		0xe3
 #define LTC3880_MFR_TEMPERATURE2_PEAK	0xf4
 
-/* LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841 and LTC7880 */
+/*
+ * LTC3883, LTC3884, LTC3886, LTC3889, LTC7132, LTC7841, LTC7880, LTM4681,
+ * and LTM4682
+ */
 #define LTC3883_MFR_IIN_PEAK		0xe1
 
 /* LTC2975 only */
@@ -96,6 +102,8 @@ enum chips {
 #define LTM4678_ID_REV1			0x4100
 #define LTM4678_ID_REV2			0x4110
 #define LTM4680_ID			0x4140
+#define LTM4681_ID			0x4150
+#define LTM4682_ID			0x4180
 #define LTM4686_ID			0x4770
 #define LTM4700_ID			0x4130
 
@@ -134,9 +142,11 @@ struct ltc2978_data {
 
 #define FEAT_CLEAR_PEAKS	BIT(0)
 #define FEAT_NEEDS_POLLING	BIT(1)
+#define FEAT_IEEE754		BIT(2)
 
 #define has_clear_peaks(d)	((d)->features & FEAT_CLEAR_PEAKS)
 #define needs_polling(d)	((d)->features & FEAT_NEEDS_POLLING)
+#define has_ieee754(d)		((d)->features & FEAT_IEEE754)
 
 static int ltc_wait_ready(struct i2c_client *client)
 {
@@ -234,6 +244,30 @@ static inline int lin11_to_val(int data)
 	return (e < 0 ? m >> -e : m << e);
 }
 
+static inline int ieee754_sort_key(u16 h)
+{
+	int mag = h & 0x7fff;
+
+	return (h & 0x8000) ? -mag : mag;
+}
+
+static bool ltc_peak_gt(struct ltc2978_data *data, u16 a, u16 b)
+{
+	if (has_ieee754(data))
+		return ieee754_sort_key(a) > ieee754_sort_key(b);
+	return lin11_to_val(a) > lin11_to_val(b);
+}
+
+static u16 ltc_peak_max_init(struct ltc2978_data *data)
+{
+	return has_ieee754(data) ? 0xfc00 : 0x7c00;
+}
+
+static u16 ltc_peak_min_init(struct ltc2978_data *data)
+{
+	return has_ieee754(data) ? 0x7c00 : 0x7bff;
+}
+
 static int ltc_get_max(struct ltc2978_data *data, struct i2c_client *client,
 		       int page, int reg, u16 *pmax)
 {
@@ -241,7 +275,7 @@ static int ltc_get_max(struct ltc2978_data *data, struct i2c_client *client,
 
 	ret = ltc_read_word_data(client, page, 0xff, reg);
 	if (ret >= 0) {
-		if (lin11_to_val(ret) > lin11_to_val(*pmax))
+		if (ltc_peak_gt(data, ret, *pmax))
 			*pmax = ret;
 		ret = *pmax;
 	}
@@ -255,7 +289,7 @@ static int ltc_get_min(struct ltc2978_data *data, struct i2c_client *client,
 
 	ret = ltc_read_word_data(client, page, 0xff, reg);
 	if (ret >= 0) {
-		if (lin11_to_val(ret) < lin11_to_val(*pmin))
+		if (ltc_peak_gt(data, *pmin, ret))
 			*pmin = ret;
 		ret = *pmin;
 	}
@@ -492,22 +526,22 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 
 	switch (reg) {
 	case PMBUS_VIRT_RESET_IIN_HISTORY:
-		data->iin_max = 0x7c00;
-		data->iin_min = 0x7bff;
+		data->iin_max = ltc_peak_max_init(data);
+		data->iin_min = ltc_peak_min_init(data);
 		ret = ltc2978_clear_peaks(data, client, 0);
 		break;
 	case PMBUS_VIRT_RESET_PIN_HISTORY:
-		data->pin_max = 0x7c00;
-		data->pin_min = 0x7bff;
+		data->pin_max = ltc_peak_max_init(data);
+		data->pin_min = ltc_peak_min_init(data);
 		ret = ltc2978_clear_peaks(data, client, 0);
 		break;
 	case PMBUS_VIRT_RESET_IOUT_HISTORY:
-		data->iout_max[page] = 0x7c00;
-		data->iout_min[page] = 0xfbff;
+		data->iout_max[page] = ltc_peak_max_init(data);
+		data->iout_min[page] = has_ieee754(data) ? 0x7c00 : 0xfbff;
 		ret = ltc2978_clear_peaks(data, client, page);
 		break;
 	case PMBUS_VIRT_RESET_TEMP2_HISTORY:
-		data->temp2_max = 0x7c00;
+		data->temp2_max = ltc_peak_max_init(data);
 		ret = ltc2978_clear_peaks(data, client, page);
 		break;
 	case PMBUS_VIRT_RESET_VOUT_HISTORY:
@@ -516,13 +550,13 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 		ret = ltc2978_clear_peaks(data, client, page);
 		break;
 	case PMBUS_VIRT_RESET_VIN_HISTORY:
-		data->vin_min = 0x7bff;
-		data->vin_max = 0x7c00;
+		data->vin_min = ltc_peak_min_init(data);
+		data->vin_max = ltc_peak_max_init(data);
 		ret = ltc2978_clear_peaks(data, client, page);
 		break;
 	case PMBUS_VIRT_RESET_TEMP_HISTORY:
-		data->temp_min[page] = 0x7bff;
-		data->temp_max[page] = 0x7c00;
+		data->temp_min[page] = ltc_peak_min_init(data);
+		data->temp_max[page] = ltc_peak_max_init(data);
 		ret = ltc2978_clear_peaks(data, client, page);
 		break;
 	default:
@@ -537,7 +571,11 @@ static int ltc2978_write_word_data(struct i2c_client *client, int page,
 
 static const struct i2c_device_id ltc2978_id[] = {
 	{"lt7170", lt7170},
+	{"lt7170l", lt7170},
 	{"lt7171", lt7171},
+	{"lt7171l", lt7171},
+	{"lt7175", lt7175},
+	{"lt7176p", lt7176p},
 	{"ltc2972", ltc2972},
 	{"ltc2974", ltc2974},
 	{"ltc2975", ltc2975},
@@ -562,6 +600,8 @@ static const struct i2c_device_id ltc2978_id[] = {
 	{"ltm4677", ltm4677},
 	{"ltm4678", ltm4678},
 	{"ltm4680", ltm4680},
+	{"ltm4681", ltm4681},
+	{"ltm4682", ltm4682},
 	{"ltm4686", ltm4686},
 	{"ltm4700", ltm4700},
 	{}
@@ -631,20 +671,22 @@ static int ltc2978_get_id(struct i2c_client *client)
 	chip_id &= LTC2978_ID_MASK;
 
 	if (chip_id == LT7170_ID) {
+		const struct i2c_device_id *id;
 		u8 buf[I2C_SMBUS_BLOCK_MAX];
-		int ret;
+		int ret, len;
 
 		ret = i2c_smbus_read_i2c_block_data(client, PMBUS_IC_DEVICE_ID,
 						    sizeof(buf), buf);
 		if (ret < 0)
 			return ret;
 
-		if (!strncmp(buf + 1, "LT7170", 6) ||
-		    !strncmp(buf + 1, "LT7170-1", 8))
-			return lt7170;
-		if (!strncmp(buf + 1, "LT7171", 6) ||
-		    !strncmp(buf + 1, "LT7171-1", 8))
-			return lt7171;
+		/* buf[0] is the block length, the string starts at buf[1] */
+		len = min_t(int, ret - 1, buf[0]);
+		for (id = &ltc2978_id[0]; strlen(id->name); id++) {
+			if (len >= strlen(id->name) &&
+			    !strncasecmp(id->name, buf + 1, strlen(id->name)))
+				return (int)id->driver_data;
+		}
 
 		return -ENODEV;
 	}
@@ -698,6 +740,10 @@ static int ltc2978_get_id(struct i2c_client *client)
 		return ltm4678;
 	else if (chip_id == LTM4680_ID)
 		return ltm4680;
+	else if (chip_id == LTM4681_ID)
+		return ltm4681;
+	else if (chip_id == LTM4682_ID)
+		return ltm4682;
 	else if (chip_id == LTM4686_ID)
 		return ltm4686;
 	else if (chip_id == LTM4700_ID)
@@ -760,7 +806,21 @@ static int ltc2978_probe(struct i2c_client *client)
 	switch (data->id) {
 	case lt7170:
 	case lt7171:
-		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
+	case lt7175:
+	case lt7176p:
+		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING |
+				  FEAT_IEEE754;
+		data->vin_max = ltc_peak_max_init(data);
+		for (i = 0; i < ARRAY_SIZE(data->iout_max); i++)
+			data->iout_max[i] = ltc_peak_max_init(data);
+		for (i = 0; i < ARRAY_SIZE(data->temp_max); i++)
+			data->temp_max[i] = ltc_peak_max_init(data);
+		data->temp2_max = ltc_peak_max_init(data);
+		data->vin_min = ltc_peak_min_init(data);
+		for (i = 0; i < ARRAY_SIZE(data->iout_min); i++)
+			data->iout_min[i] = 0x7c00;
+		for (i = 0; i < ARRAY_SIZE(data->temp_min); i++)
+			data->temp_min[i] = ltc_peak_min_init(data);
 		info->read_word_data = ltc3883_read_word_data;
 		info->pages = LTC3883_NUM_PAGES;
 		info->format[PSC_VOLTAGE_IN] = ieee754;
@@ -880,6 +940,8 @@ static int ltc2978_probe(struct i2c_client *client)
 	case ltm4664:
 	case ltm4678:
 	case ltm4680:
+	case ltm4681:
+	case ltm4682:
 	case ltm4700:
 		data->features |= FEAT_CLEAR_PEAKS | FEAT_NEEDS_POLLING;
 		info->read_word_data = ltc3883_read_word_data;
@@ -944,7 +1006,11 @@ static int ltc2978_probe(struct i2c_client *client)
 #ifdef CONFIG_OF
 static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,lt7170" },
+	{ .compatible = "lltc,lt7170l" },
 	{ .compatible = "lltc,lt7171" },
+	{ .compatible = "lltc,lt7171l" },
+	{ .compatible = "lltc,lt7175" },
+	{ .compatible = "lltc,lt7176p" },
 	{ .compatible = "lltc,ltc2972" },
 	{ .compatible = "lltc,ltc2974" },
 	{ .compatible = "lltc,ltc2975" },
@@ -969,6 +1035,8 @@ static const struct of_device_id ltc2978_of_match[] = {
 	{ .compatible = "lltc,ltm4677" },
 	{ .compatible = "lltc,ltm4678" },
 	{ .compatible = "lltc,ltm4680" },
+	{ .compatible = "lltc,ltm4681" },
+	{ .compatible = "lltc,ltm4682" },
 	{ .compatible = "lltc,ltm4686" },
 	{ .compatible = "lltc,ltm4700" },
 	{ }
