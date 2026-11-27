@@ -1,11 +1,5 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)-only
 
-config SRUCTRL_ADSP
-	bool
-	depends on OF
-	select PINMUX
-	select GENERIC_PINCONF
-
 config PINCTRL_ADI_ADSP
 	tristate "Analog Devices ADSP pinctrl and GPIO driver"
 	depends on OF
@@ -27,10 +21,12 @@ config PINCTRL_ADI_ADSP
 	  The driver can also be built as a module. If so, the module will be
 	  called pinctrl-adsp.
 
-config SRUCTRL_ADSP_SC5XX
+config PINCTRL_ADI_ADSP_SRU
 	bool "ADSP-SC5XX SRU control driver"
-	depends on (ARCH_SC84X || ARCH_SC59X_64 || ARCH_SC59X || ARCH_SC58X || ARCH_SC57X || COMPILE_TEST)
-	select SRUCTRL_ADSP
+	depends on ADI_ADSP_DAI
+	default ADI_ADSP_DAI
+	select GENERIC_PINCONF
+	select PINMUX
 	help
-	  Say Y here to enable the ADSP-SC5XX SRU control driver. This is required for
-	  SRU muxing functionaility on the SoC.
+	  Say Y here to enable the ADSP-SC5XX SRU control driver. This is
+	  required for SRU muxing functionality on the SoC.

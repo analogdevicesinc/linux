@@ -634,7 +634,7 @@
 	};
 };
 
-&sru_ctrl_dai0 {
+&dai0 {
 	status = "okay";
 
 	sru_dai0: sru_dai0_mux {
@@ -654,8 +654,4 @@
 				<DAI0_PB06_O_ABCDE   SPT0_BD0_I>;     /* route DAI0_PIN06 to SPT0_BD0 */
 		};
 	};
-};
-
-&sru_ctrl_dai1 {
-	status = "okay";
 };

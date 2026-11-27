@@ -210,7 +210,7 @@
 	status = "disabled";
 };
 
-&sru_ctrl_dai0 {
+&dai0 {
 	status = "okay";
 
 	sru_dai0: sru_dai0_mux {

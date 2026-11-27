@@ -41,8 +41,6 @@
 		rtc0 = &rtc0;
 */
 		mmc0 = &mmc0;
-		sru0 = &sru_ctrl_dai0;
-		sru1 = &sru_ctrl_dai1;
 	};
 
 	cpus {
@@ -917,16 +915,20 @@
 			adi,pint-assign = <0x00010000>;
 		};
 
-		sru_ctrl_dai0: sru-ctrl-dai0@310c9000 {
-			compatible = "adi,adsp-sru-ctrl";
-			reg = <0x310c9000 0x224>;
+		dai0: audio-controller@310c9000 {
+			compatible = "adi,adsp-sc598-dai";
+			reg = <0x310c9000 0x400>;
+			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};
 
-		sru_ctrl_dai1: sru-ctrl-dai1@310ca000 {
-			compatible = "adi,adsp-sru-ctrl";
-			reg = <0x310ca000 0x224>;
+		dai1: audio-controller@310ca000 {
+			compatible = "adi,adsp-sc598-dai";
+			reg = <0x310ca000 0x400>;
+			clocks = <&clk ADSP_SC598_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
 			adi,pads-syscon = <&pads_syscon>;
 			status = "disabled";
 		};

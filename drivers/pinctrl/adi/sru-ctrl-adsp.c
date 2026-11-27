@@ -11,6 +11,7 @@
  *
  */
 
+#include <linux/auxiliary_bus.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -18,7 +19,6 @@
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinctrl.h>
 #include <linux/pinctrl/pinmux.h>
-#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
@@ -31,15 +31,30 @@
 /*
  * PADS syscon registers for DAI pin input enable.
  * FIXME: syscon usage should be dropped in favor of normal pinctrl usage.
- * Failing that, at least remove ifdefs in favor of per-compatible driver data.
  */
-#if defined(CONFIG_ARCH_SC58X)
-#define REG_PADS_DAI0_IE 0x60
-#define REG_PADS_DAI1_IE 0x64
-#elif defined(CONFIG_ARCH_SC59X) || defined(CONFIG_ARCH_SC59X_64)
-#define REG_PADS_DAI0_IE 0x90
-#define REG_PADS_DAI1_IE 0x94
-#endif
+struct adsp_sru_info {
+	unsigned int pads_dai0_ie_reg;
+	unsigned int pads_dai1_ie_reg;
+};
+
+static const struct adsp_sru_info sc589_sru_info = {
+	.pads_dai0_ie_reg = 0x60,
+	.pads_dai1_ie_reg = 0x64,
+};
+
+static const struct adsp_sru_info sc598_sru_info = {
+	.pads_dai0_ie_reg = 0x90,
+	.pads_dai1_ie_reg = 0x94,
+};
+
+/* Matched against the DAI node, which the auxiliary device shares */
+static const struct of_device_id adsp_sru_ctrl_of_match[] = {
+	{ .compatible = "adi,adsp-sc573-dai" },
+	{ .compatible = "adi,adsp-sc589-dai", .data = &sc589_sru_info },
+	{ .compatible = "adi,adsp-sc598-dai", .data = &sc598_sru_info },
+	{ .compatible = "adi,adsp-sc846-dai", .data = &sc598_sru_info },
+	{ }
+};
 
 static const struct dai_destination dai0_destinations[] = {
 	{ "SPT0_ACLK_I", 0x5, 0x00, REG_DAI_CLK0, REG_DAI_EXTD_CLK0,
@@ -1232,9 +1247,10 @@ static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	struct adsp_sru_ctrl *adsp_sru_ctrl =
 	    pinctrl_dev_get_drvdata(pctldev);
 
-	u32 selection_code, register_val;
+	u32 selection_code;
 	u32 offset, offset_ext, width, input;
 	u8 ext_bits;
+	int ret;
 
 	selection_code =
 	    adsp_find_source(adsp_sru_ctrl, func)->selection_code;
@@ -1244,10 +1260,11 @@ static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev,
 	width = adsp_sru_ctrl->dest[group].width;
 	input = adsp_sru_ctrl->dest[group].input;
 
-	register_val = readl(adsp_sru_ctrl->regs + offset);
-	register_val &= ~GENMASK((width * input) + width - 1, (width * input));	//Clear bits
-	register_val |= selection_code << width * input;	//Set bits
-	writel(register_val, adsp_sru_ctrl->regs + offset);
+	ret = regmap_update_bits(adsp_sru_ctrl->regmap, offset,
+				 GENMASK((width * input) + width - 1, (width * input)),
+				 selection_code << width * input);
+	if (ret)
+		return ret;
 
 	/*
 	 * If we're using the DAI1 source table, we also need to set the corresponding
@@ -1267,11 +1284,10 @@ static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev,
 				break;
 			}
 
-			register_val =
-			    readl(adsp_sru_ctrl->regs + offset_ext);
-			register_val |= ext_bits << 4 * input;
-			writel(register_val,
-			       adsp_sru_ctrl->regs + offset_ext);
+			ret = regmap_set_bits(adsp_sru_ctrl->regmap, offset_ext,
+					      ext_bits << 4 * input);
+			if (ret)
+				return ret;
 		}
 	}
 
@@ -1531,15 +1547,23 @@ static const struct pinctrl_ops adsp_pctlops = {
 	.dt_node_to_map = adsp_sru_ctrl_dt_node_to_map,
 };
 
-static int adsp_sru_ctrl_probe(struct platform_device *pdev)
+static int adsp_sru_ctrl_probe(struct auxiliary_device *adev,
+			       const struct auxiliary_device_id *id)
 {
-	struct device *dev = &pdev->dev;
+	struct device *dev = &adev->dev;
 	struct device_node *np = dev->of_node;
+	const struct adsp_sru_info *info;
+	const struct of_device_id *match;
 	struct adsp_sru_ctrl *adsp_sru_ctrl;
 	struct pinctrl_desc *pnctrl_desc;
-	struct resource *res;
 	struct regmap *regmap;
 	int ret;
+
+	match = of_match_node(adsp_sru_ctrl_of_match, np);
+	if (!match)
+		return -ENODEV;
+
+	info = match->data;
 
 	adsp_sru_ctrl =
 	    devm_kzalloc(dev, sizeof(*adsp_sru_ctrl), GFP_KERNEL);
@@ -1552,17 +1576,16 @@ static int adsp_sru_ctrl_probe(struct platform_device *pdev)
 	if (!pnctrl_desc)
 		return -ENOMEM;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	adsp_sru_ctrl->regs = devm_ioremap_resource(dev, res);
-	if (IS_ERR(adsp_sru_ctrl->regs))
-		return PTR_ERR(adsp_sru_ctrl->regs);
+	adsp_sru_ctrl->regmap = dev_get_regmap(dev->parent, NULL);
+	if (!adsp_sru_ctrl->regmap)
+		return -ENODEV;
 
 	pnctrl_desc->name = dev_name(dev);
 	pnctrl_desc->pmxops = &adsp_pmxops;
 	pnctrl_desc->pctlops = &adsp_pctlops;
 	pnctrl_desc->owner = THIS_MODULE;
 
-	adsp_sru_ctrl->dai = of_alias_get_id(np, "sru");
+	adsp_sru_ctrl->dai = adev->id;
 	if (adsp_sru_ctrl->dai == 0) {
 		adsp_sru_ctrl->dest = dai0_destinations;
 		adsp_sru_ctrl->dest_count = DAI0_DESTINATION_COUNT;
@@ -1575,22 +1598,19 @@ static int adsp_sru_ctrl_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-#if defined(CONFIG_ARCH_SC58X) || defined(CONFIG_ARCH_SC59X) || \
-	defined(CONFIG_ARCH_SC59X_64)
-	regmap = syscon_regmap_lookup_by_phandle(np, "adi,pads-syscon");
-	if (IS_ERR(regmap))
-		return dev_err_probe(&pdev->dev, PTR_ERR(regmap),
-				     "adi,pads-syscon not specified\n");
+	if (info) {
+		regmap = syscon_regmap_lookup_by_phandle(np, "adi,pads-syscon");
+		if (IS_ERR(regmap))
+			return dev_err_probe(dev, PTR_ERR(regmap),
+					     "adi,pads-syscon not specified\n");
 
-	ret = regmap_write(regmap,
-			   adsp_sru_ctrl->dai == 0 ? REG_PADS_DAI0_IE :
-						     REG_PADS_DAI1_IE,
-			   0xffffffff);
-	if (ret)
-		return ret;
-#else
-	(void)regmap;
-#endif
+		ret = regmap_write(regmap,
+				   adsp_sru_ctrl->dai == 0 ? info->pads_dai0_ie_reg :
+							     info->pads_dai1_ie_reg,
+				   0xffffffff);
+		if (ret)
+			return ret;
+	}
 
 	if (of_property_read_bool(np, "has-extended")) {
 		adsp_sru_ctrl->has_extended = 1;
@@ -1616,30 +1636,20 @@ static int adsp_sru_ctrl_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	platform_set_drvdata(pdev, adsp_sru_ctrl);
-
 	return pinctrl_enable(adsp_sru_ctrl->pin_dev);
 }
 
-static const struct of_device_id adsp_sru_ctrl_of_match[] = {
-	{.compatible = "adi,adsp-sru-ctrl", },
-	{ },
+static const struct auxiliary_device_id adsp_sru_ctrl_ids[] = {
+	{ .name = "adsp_dai.sru" },
+	{ }
 };
+MODULE_DEVICE_TABLE(auxiliary, adsp_sru_ctrl_ids);
 
-MODULE_DEVICE_TABLE(of, adsp_sru_ctrl_of_match);
-
-static struct platform_driver adsp_sru_ctrl_driver = {
+static struct auxiliary_driver adsp_sru_ctrl_driver = {
 	.driver = {
-		   .name = "adsp-sru-ctrl",
-		   .of_match_table = adsp_sru_ctrl_of_match,
 		   .suppress_bind_attrs = true,
 		    },
 	.probe = adsp_sru_ctrl_probe,
+	.id_table = adsp_sru_ctrl_ids,
 };
-
-static int __init adsp_sru_ctrl_init(void)
-{
-	return platform_driver_register(&adsp_sru_ctrl_driver);
-}
-
-arch_initcall(adsp_sru_ctrl_init);
+module_auxiliary_driver(adsp_sru_ctrl_driver);

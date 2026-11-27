@@ -41,8 +41,6 @@
 		i2c2 = &i2c2;
 		i2s0 = &i2s0;
 		mmc0 = &mmc0;
-		sru0 = &sru_ctrl_dai0;
-		sru1 = &sru_ctrl_dai1;
 	};
 
 	cpus {
@@ -590,19 +588,11 @@
 			adi,pint-assign = <0x01010000>;
 		};
 
-		sru_ctrl_dai0: sru-ctrl-dai0@310C9000 {
-			compatible = "adi,adsp-sru-ctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x310C9000 0x224>;
-			status = "disabled";
-		};
-
-		sru_ctrl_dai1: sru-ctrl-dai1@310CB000 {
-			compatible = "adi,adsp-sru-ctrl";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <0x310CB000 0x224>;
+		dai0: audio-controller@310c9000 {
+			compatible = "adi,adsp-sc573-dai";
+			reg = <0x310c9000 0x400>;
+			clocks = <&clk ADSP_SC57X_CLK_CGU0_SCLK0>;
+			clock-names = "sclk";
 			status = "disabled";
 		};
 
