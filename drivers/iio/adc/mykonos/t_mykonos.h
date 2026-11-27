@@ -1222,7 +1222,7 @@ typedef struct
   uint8_t K;                            /*!< JESD204B Configuration K = frames per multiframe for ILAS check */
   uint8_t M;                            /*!< JESD204B Configuration M = number of data converters for ILAS check */
   uint8_t N;                            /*!< JESD204B Configuration N = data converter sample resolution for ILAS check */
-  uint8_t CS;                           /*!< JESD204B Configuration CS = number of control bits transferred per sample per frame for ILAS check */
+  uint8_t cs;                           /*!< JESD204B Configuration CS = number of control bits transferred per sample per frame for ILAS check */
   uint8_t NP;                           /*!< JESD204B Configuration NP = JESD204B word size based on the highest resolution of the data converter for ILAS check */
   uint8_t S;                            /*!< JESD204B Configuration S = number of samples/data converter/frame for ILAS check */
   uint8_t CF;                           /*!< JESD204B Configuration CF = '0' = control bits appended to each sample, '1' = appended to end of frame for ILAS check */

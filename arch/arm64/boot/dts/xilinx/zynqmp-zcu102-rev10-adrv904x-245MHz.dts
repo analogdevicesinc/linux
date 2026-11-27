@@ -24,7 +24,7 @@
 };
 
 &trx0_adrv904x {
-	adi,device-config-name = "DeviceProfileTest_245MHz.bin";
+	adi,device-config-name = "adrv904x/DeviceProfileTest_245MHz.bin";
 };
 
 &axi_adrv904x_adxcvr_rx {

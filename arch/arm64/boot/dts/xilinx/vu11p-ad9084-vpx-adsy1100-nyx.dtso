@@ -11,7 +11,7 @@
 /dts-v1/;
 /plugin/;
 
-#define DEVICE_PROFILE_NAME	"204C_M4_L4_NP16_8p0_4x4.bin"
+#define DEVICE_PROFILE_NAME	"ad9088/204C_M4_L4_NP16_8p0_4x4.bin"
 
 #include "vu11p-ad9084-vpx-reva.dtso"
 #include <dt-bindings/iio/logic/adi,adsy1100-nyx.h>

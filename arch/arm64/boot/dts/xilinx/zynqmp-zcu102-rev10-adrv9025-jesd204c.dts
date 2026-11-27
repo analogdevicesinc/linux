@@ -14,7 +14,7 @@
 #include <dt-bindings/jesd204/adxcvr.h>
 
 &trx0_adrv9025 {
-	adi,device-profile-name = "ActiveUseCase_204C.profile";
+	adi,device-profile-name = "adrv902x/ActiveUseCase_204C.profile";
 };
 
 &axi_adrv9025_rx_jesd {

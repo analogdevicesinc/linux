@@ -10,9 +10,9 @@
  * Copyright (C) 2025 Analog Devices Inc.
  */
 
-#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP12_16p2_6x1.bin"
+#define DEVICE_PROFILE_NAME	"ad9088/204C_M4_L8_NP12_16p2_6x1.bin"
 
-//#define DEVICE_PROFILE_NAME	"204C_M4_L8_NP12_10p8_4x1.bin"
+//#define DEVICE_PROFILE_NAME	"ad9088/204C_M4_L8_NP12_10p8_4x1.bin"
 
 #include <dt-bindings/jesd204/device-states.h>
 

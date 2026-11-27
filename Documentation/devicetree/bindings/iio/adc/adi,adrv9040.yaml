@@ -172,11 +172,11 @@ examples:
 
             reset-gpios = <&gpio 134 GPIO_ACTIVE_LOW>;
 
-            adi,device-config-name = "DeviceProfileTest.bin";
-            adi,arm-firmware-name = "ADRV9040_FW.bin";
-            adi,arm-dfe-firmware-name = "ADRV9040_DFE_CALS_FW.bin";
-            adi,stream-firmware-name = "stream_image.bin";
-            adi,rx-gaintable-names = "ADRV9040_RxGainTable.csv";
+            adi,device-config-name = "adrv904x/DeviceProfileTest.bin";
+            adi,arm-firmware-name = "adrv904x/ADRV9040_FW.bin";
+            adi,arm-dfe-firmware-name = "adrv904x/ADRV9040_DFE_CALS_FW.bin";
+            adi,stream-firmware-name = "adrv904x/stream_image.bin";
+            adi,rx-gaintable-names = "adrv904x/ADRV9040_RxGainTable.csv";
             adi,rx-gaintable-channel-masks = <0xFF>;
 
             jesd204-device;

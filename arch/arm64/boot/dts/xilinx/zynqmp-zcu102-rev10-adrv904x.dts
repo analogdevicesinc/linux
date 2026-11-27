@@ -163,11 +163,11 @@
 			<&axi_adrv904x_rx_jesd 0 FRAMER0_LINK_RX>,
 			<&axi_adrv904x_core_tx 0 DEFRAMER0_LINK_TX>;
 
-		adi,device-config-name = "DeviceProfileTest.bin";
-		adi,arm-firmware-name = "ADRV9040_FW.bin";
-		adi,arm-dfe-firmware-name = "ADRV9040_DFE_CALS_FW.bin";
-		adi,stream-firmware-name = "stream_image.bin";
-		adi,rx-gaintable-names = "ADRV9040_RxGainTable.csv";
+		adi,device-config-name = "adrv904x/DeviceProfileTest.bin";
+		adi,arm-firmware-name = "adrv904x/ADRV9040_FW.bin";
+		adi,arm-dfe-firmware-name = "adrv904x/ADRV9040_DFE_CALS_FW.bin";
+		adi,stream-firmware-name = "adrv904x/stream_image.bin";
+		adi,rx-gaintable-names = "adrv904x/ADRV9040_RxGainTable.csv";
 		adi,rx-gaintable-channel-masks = <0xFF>;
 		//adi,tx-attntable-names = "ADRV904X_TxAttenTable.csv";
 		//adi,tx-attntable-channel-masks = <0x0F>;

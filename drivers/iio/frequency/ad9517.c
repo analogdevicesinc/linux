@@ -23,7 +23,7 @@
 
 #include <linux/iio/iio.h>
 
-#define FIRMWARE	"ad9517.stp"
+#define FIRMWARE	"ad9517/ad9517.stp"
 
 #define AD9517_READ			(1 << 15)
 #define AD9517_WRITE			(0 << 15)

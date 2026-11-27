@@ -5565,20 +5565,20 @@ static int ad9088_fw_provider_get(adi_apollo_fw_provider_t *obj,
 	int ret;
 
 	static const char *fw_file[ADI_APOLLO_FW_ID_MAX] = {
-		"APOLLO_FW_CPU0_B.bin",
-		"APOLLO_FW_CPU1_B.bin",
+		"ad9088/APOLLO_FW_CPU0_B.bin",
+		"ad9088/APOLLO_FW_CPU1_B.bin",
 
-		"app_signed_encrypted_B/flash_image_0x01030000.bin",
-		"app_signed_encrypted_B/flash_image_0x20000000.bin",
-		"app_signed_encrypted_B/flash_image_0x02000000.bin",
-		"app_signed_encrypted_B/flash_image_0x21000000.bin",
+		"ad9088/app_signed_encrypted_B/flash_image_0x01030000.bin",
+		"ad9088/app_signed_encrypted_B/flash_image_0x20000000.bin",
+		"ad9088/app_signed_encrypted_B/flash_image_0x02000000.bin",
+		"ad9088/app_signed_encrypted_B/flash_image_0x21000000.bin",
 
-		"app_signed_encrypted_prod_B/flash_image_0x01030000.bin",
-		"app_signed_encrypted_prod_B/flash_image_0x20000000.bin",
-		"app_signed_encrypted_prod_B/flash_image_0x02000000.bin",
-		"app_signed_encrypted_prod_B/flash_image_0x21000000.bin",
+		"ad9088/app_signed_encrypted_prod_B/flash_image_0x01030000.bin",
+		"ad9088/app_signed_encrypted_prod_B/flash_image_0x20000000.bin",
+		"ad9088/app_signed_encrypted_prod_B/flash_image_0x02000000.bin",
+		"ad9088/app_signed_encrypted_prod_B/flash_image_0x21000000.bin",
 
-		"AD9088_stream_image.bin",
+		"ad9088/AD9088_stream_image.bin",
 	};
 
 	if (fw_id >= ADI_APOLLO_FW_ID_MAX || !fw_file[fw_id]) {

@@ -15,7 +15,7 @@
 
 	clock-output-names = "rx_sampl_clk", "tx_sampl_clk", "rx_os_sampl_clk";
 
-	adi,device-profile-name = "ActiveUseCase_NLS.profile";
+	adi,device-profile-name = "adrv902x/ActiveUseCase_NLS.profile";
 
 	jesd204-device;
 	#jesd204-cells = <2>;

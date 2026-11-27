@@ -45,7 +45,7 @@
 
 #include "ad9371.h"
 
-#define FIRMWARE       "Mykonos_M3.bin"
+#define FIRMWARE       "ad9371/Mykonos_M3.bin"
 
 static const int ad9371_auxdac_scale_val2_lut[2][4] = {
 	{560671, 590157, 613612, 637490}, /* Factor 0 */
