@@ -2296,6 +2296,7 @@ M:	Vasileios Bimpikas <vasileios.bimpikas@analog.com>
 L:	linux@analog.com
 S:	Maintained
 F:	Documentation/devicetree/bindings/interrupt-controller/adi,adsp-pint.yaml
+F:	Documentation/devicetree/bindings/clock/adi,adsp-cdu.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,reset-controller.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,rpmsg-SC598.yaml
 F:	Documentation/devicetree/bindings/soc/adi/adi,sc846-miscreg.yaml
