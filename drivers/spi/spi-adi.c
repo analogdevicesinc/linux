@@ -439,18 +439,22 @@ static int adi_spi_pio_xfer(struct spi_controller *controller, struct spi_device
 	struct spi_transfer *xfer)
 {
 	struct adi_spi_controller *drv = spi_controller_get_devdata(controller);
+	bool spi_mode = spi_controller_is_target(controller);
 
 	if (!xfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | (spi_mode ? 0 :
+			  SPI_TXCTL_TTI), &drv->regs->tx_control);
 		drv->ops->write(drv, xfer);
 	} else if (!xfer->tx_buf) {
 		iowrite32(0, &drv->regs->tx_control);
-		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI, &drv->regs->rx_control);
+		iowrite32(SPI_RXCTL_REN | (spi_mode ? 0 :
+			  SPI_RXCTL_RTI), &drv->regs->rx_control);
 		drv->ops->read(drv, xfer);
 	} else {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | (spi_mode ? 0 :
+			  SPI_TXCTL_TTI), &drv->regs->tx_control);
 		drv->ops->duplex(drv, xfer);
 	}
 
@@ -599,7 +603,10 @@ static int adi_spi_prepare_message(struct spi_controller *controller, struct spi
 
 	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
 	words = DIV_ROUND_UP(xfer->bits_per_word, 8);
-	iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz), &drv->regs->clock);
+
+	if (!spi_controller_is_target(controller))
+		iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz),
+			  &drv->regs->clock);
 
 	switch (words) {
 	case 1:
@@ -689,17 +696,20 @@ static int adi_spi_setup(struct spi_device *spi)
 	if (of_property_read_bool(np, "adi,open-drain-mode"))
 		chip->control |= SPI_CTL_ODM;
 
-	if (of_property_read_bool(np, "adi,psse"))
-		chip->control |= SPI_CTL_PSSE;
-
 	if (spi->mode & SPI_CPOL)
 		chip->control |= SPI_CTL_CPOL;
 	if (spi->mode & SPI_CPHA)
 		chip->control |= SPI_CTL_CPHA;
 	if (spi->mode & SPI_LSB_FIRST)
 		chip->control |= SPI_CTL_LSBF;
-	chip->control |= SPI_CTL_MSTR;
-	chip->control &= ~SPI_CTL_ASSEL;
+
+	if (!spi_controller_is_target(spi->controller)) {
+		chip->control |= SPI_CTL_MSTR;
+		chip->control &= ~SPI_CTL_ASSEL;
+
+		if (of_property_read_bool(np, "adi,psse"))
+			chip->control |= SPI_CTL_PSSE;
+	}
 
 	return 0;
 }
@@ -748,6 +758,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct clk *sclk;
 	int ret, err_irq;
+	bool spi_mode;
 
 	sclk = devm_clk_get(dev, "spi");
 	if (IS_ERR(sclk)) {
@@ -755,11 +766,15 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(sclk);
 	}
 
-	controller = devm_spi_alloc_host(dev, sizeof(*drv_data));
-	if (!controller) {
-		dev_err(dev, "can not alloc spi_controller\n");
+	spi_mode = of_property_read_bool(dev->of_node, "spi-slave");
+	if (spi_mode)
+		controller = devm_spi_alloc_target(dev, sizeof(*drv_data));
+	else
+		controller = devm_spi_alloc_host(dev, sizeof(*drv_data));
+
+	if (!controller)
 		return -ENOMEM;
-	}
+
 	platform_set_drvdata(pdev, controller);
 
 	/* the mode bits supported by this driver */
@@ -769,9 +784,13 @@ static int adi_spi_probe(struct platform_device *pdev)
 
 	controller->dev.of_node = dev->of_node;
 	controller->bus_num = -1;
-	controller->num_chipselect = 8;
-	controller->use_gpio_descriptors = true;
-	controller->set_cs = adi_spi_set_cs;
+
+	if (!spi_mode) {
+		controller->num_chipselect = 8;
+		controller->use_gpio_descriptors = true;
+		controller->set_cs = adi_spi_set_cs;
+	}
+
 	controller->cleanup = adi_spi_cleanup;
 	controller->setup = adi_spi_setup;
 	controller->prepare_message = adi_spi_prepare_message;
@@ -804,9 +823,14 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	iowrite32(SPI_CTL_MSTR | SPI_CTL_CPHA, &drv_data->regs->control);
-	iowrite32(0x0000FE00, &drv_data->regs->ssel);
-	iowrite32(0x0, &drv_data->regs->delay);
+	if (spi_mode) {
+		iowrite32(SPI_CTL_CPHA, &drv_data->regs->control);
+	} else {
+		iowrite32(SPI_CTL_MSTR | SPI_CTL_CPHA, &drv_data->regs->control);
+		iowrite32(0x0000FE00, &drv_data->regs->ssel);
+		iowrite32(0x0, &drv_data->regs->delay);
+	}
+
 	iowrite32(SPI_IMSK_SET_ROM, &drv_data->regs->emaskst);
 
 	controller->dma_tx = dma_request_chan(dev, "tx");
