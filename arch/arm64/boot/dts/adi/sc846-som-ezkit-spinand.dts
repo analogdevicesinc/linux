@@ -32,5 +32,16 @@
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 		label = "xspi1-nand";
+
+		partitions {
+			compatible = "fixed-partitions";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			partition@0 {
+				label = "xspi1-data";
+				reg = <0x0 0x40000000>;
+			};
+		};
 	};
 };
