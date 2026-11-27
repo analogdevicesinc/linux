@@ -519,8 +519,9 @@ static phys_addr_t adi_rproc_da_to_pa(struct adi_rproc_data *rproc_data,
 
 	for (i = 0; i < num_ranges; i++) {
 		if (da >= ranges[i].sharc_base &&
-			da <= ranges[i].sharc_base + ranges[i].mem_size) {
-			return ranges[i].arm_base + (da-ranges[i].sharc_base);
+		    da - ranges[i].sharc_base <= ranges[i].mem_size &&
+		    len <= ranges[i].mem_size - (da - ranges[i].sharc_base)) {
+			return ranges[i].arm_base + (da - ranges[i].sharc_base);
 		}
 	}
 
@@ -972,8 +973,9 @@ static void *adi_rproc_da_to_va(struct rproc *rproc, u64 da, size_t len, bool *u
 
 	for (i = 0; i < num_ranges; i++) {
 		if (da >= ranges[i].sharc_base &&
-			da <= ranges[i].sharc_base + ranges[i].mem_size) {
-			return ranges[i].devmem + (da-ranges[i].sharc_base);
+		    da - ranges[i].sharc_base <= ranges[i].mem_size &&
+		    len <= ranges[i].mem_size - (da - ranges[i].sharc_base)) {
+			return ranges[i].devmem + (da - ranges[i].sharc_base);
 		}
 	}
 
