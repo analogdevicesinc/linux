@@ -567,6 +567,14 @@ W:	http://wiki.analog.com/ADP8860
 W:	https://ez.analog.com/linux-software-drivers
 F:	drivers/video/backlight/adp8860_bl.c
 
+ADPM12810 HARDWARE MONITOR DRIVER
+M:	Carlos Jones Jr <carlosjr.jones@analog.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Supported
+W:	https://ez.analog.com/linux-software-drivers
+F:	Documentation/hwmon/adpm12810.rst
+F:	drivers/hwmon/pmbus/adpm12810.c
+
 ADT746X FAN DRIVER
 M:	Colin Leroy <colin@colino.net>
 S:	Maintained
