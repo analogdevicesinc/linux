@@ -280,6 +280,8 @@ int adrv903x_ramc_probe(struct adrv903x_rf_phy *phy)
 	struct adrv903x_ramc_state *st;
 	struct device *dev = &phy->spi->dev;
 	struct iio_chan_spec *channels;
+	unsigned int n = 0;
+	u32 init_mask;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -303,45 +305,60 @@ int adrv903x_ramc_probe(struct adrv903x_rf_phy *phy)
 	if (!channels)
 		return -ENOMEM;
 
-	/* Create I/Q channel pairs for RX0-7 and ORX0-1 */
+	/*
+	 * Only expose the Rx/ORx channels the profile initializes
+	 * (Rx0-7: bits 0-7, ORx0-1: bits 8-9). The channel and scan indices
+	 * are kept, so they still match the scan masks and channel map.
+	 */
+	init_mask = phy->palauDevice->initExtract.rx.rxInitChannelMask &
+		    (ADI_ADRV903X_RX_MASK_ALL | ADI_ADRV903X_ORX_MASK_ALL);
+	if (!init_mask)
+		init_mask = ADI_ADRV903X_RX_MASK_ALL | ADI_ADRV903X_ORX_MASK_ALL;
+
+	/* Create I/Q channel pairs for the initialized RX0-7 and ORX0-1 */
 	for (unsigned int i = 0; i < ADRV903X_RAMC_NUM_CHANNELS; i++) {
+		if (!(init_mask & adrv903x_ramc_channel_map[i]))
+			continue;
+
 		/* I channel */
-		channels[i * 2].type = IIO_VOLTAGE;
-		channels[i * 2].indexed = 1;
-		channels[i * 2].modified = 1;
-		channels[i * 2].channel = i;
-		channels[i * 2].channel2 = IIO_MOD_I;
-		channels[i * 2].scan_index = i * 2;
-		channels[i * 2].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
-		channels[i * 2].ext_info = adrv903x_ramc_ext_info;
-		channels[i * 2].scan_type.sign = 's';
-		channels[i * 2].scan_type.realbits = 28;
-		channels[i * 2].scan_type.storagebits = 32;
-		channels[i * 2].scan_type.endianness = IIO_LE;
+		channels[n].type = IIO_VOLTAGE;
+		channels[n].indexed = 1;
+		channels[n].modified = 1;
+		channels[n].channel = i;
+		channels[n].channel2 = IIO_MOD_I;
+		channels[n].scan_index = i * 2;
+		channels[n].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
+		channels[n].ext_info = adrv903x_ramc_ext_info;
+		channels[n].scan_type.sign = 's';
+		channels[n].scan_type.realbits = 28;
+		channels[n].scan_type.storagebits = 32;
+		channels[n].scan_type.endianness = IIO_LE;
 
 		/* Q channel */
-		channels[i * 2 + 1].type = IIO_VOLTAGE;
-		channels[i * 2 + 1].indexed = 1;
-		channels[i * 2 + 1].modified = 1;
-		channels[i * 2 + 1].channel = i;
-		channels[i * 2 + 1].channel2 = IIO_MOD_Q;
-		channels[i * 2 + 1].scan_index = i * 2 + 1;
-		channels[i * 2 + 1].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
-		channels[i * 2 + 1].ext_info = adrv903x_ramc_ext_info;
-		channels[i * 2 + 1].scan_type.sign = 's';
-		channels[i * 2 + 1].scan_type.realbits = 28;
-		channels[i * 2 + 1].scan_type.storagebits = 32;
-		channels[i * 2 + 1].scan_type.endianness = IIO_LE;
+		channels[n + 1].type = IIO_VOLTAGE;
+		channels[n + 1].indexed = 1;
+		channels[n + 1].modified = 1;
+		channels[n + 1].channel = i;
+		channels[n + 1].channel2 = IIO_MOD_Q;
+		channels[n + 1].scan_index = i * 2 + 1;
+		channels[n + 1].info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ);
+		channels[n + 1].ext_info = adrv903x_ramc_ext_info;
+		channels[n + 1].scan_type.sign = 's';
+		channels[n + 1].scan_type.realbits = 28;
+		channels[n + 1].scan_type.storagebits = 32;
+		channels[n + 1].scan_type.endianness = IIO_LE;
+
+		n += 2;
 	}
 
 	/* Timestamp channel */
-	channels[ADRV903X_RAMC_NUM_CHANNELS * 2] = (struct iio_chan_spec)
+	channels[n] = (struct iio_chan_spec)
 		IIO_CHAN_SOFT_TIMESTAMP(ADRV903X_RAMC_NUM_CHANNELS * 2);
 
 	indio_dev->info = &adrv903x_ramc_info;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_SOFTWARE;
 	indio_dev->channels = channels;
-	indio_dev->num_channels = ADRV903X_RAMC_NUM_IIO_CHANNELS;
+	indio_dev->num_channels = n + 1;
 	indio_dev->available_scan_masks = adrv903x_ramc_scan_masks;
 	indio_dev->name = "adrv903x-ramc";
 
