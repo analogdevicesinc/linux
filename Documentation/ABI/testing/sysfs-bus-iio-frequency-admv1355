@@ -1,0 +1,110 @@
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_band
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_band
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Select the frequency band of the channel, when the channel is
+		served by separate signal chains, each covering a frequency
+		band. Valid values are listed in the corresponding
+		_band_available attribute. If the channel is disabled, the
+		selection may only take effect once it is enabled.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_band_available
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_band_available
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of frequency bands supported by the channel, for example
+		"low" and "high".
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_sideband
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Select which mixing product of the local oscillator (LO)
+		channel is kept at the mixer output: "lower" for the product
+		below the LO frequency, "upper" for the product above it. The
+		other product is rejected as the image.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_sideband_available
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of supported sidebands: "lower" and "upper".
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_i_calibphase
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_q_calibphase
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Unscaled phase calibration of the in-phase (I) or quadrature
+		(Q) component of the channel, used to correct quadrature phase
+		imbalance, for example to improve image rejection.
+
+What:		/sys/bus/iio/devices/iio:deviceX/in_altvoltageY_calibbias_calibration
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Write 1 to run the automatic offset calibration of the channel,
+		for example LO leakage nulling of a local oscillator (LO)
+		channel. The offsets found by the calibration are applied by
+		the device, and may not be reflected in the calibbias
+		attributes of the channel components. Writing one of those
+		attributes afterwards replaces all the calibrated offsets of
+		the channel with the values of those attributes. Returns -EBUSY
+		if the device is not in a state where the calibration can run.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_hardwaregain_lut_en
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Enable (1) or disable (0) the device lookup table (LUT) for the
+		gain settings of the channel. The LUT contents and their
+		configuration, such as the LUT pointer source, are loaded through
+		the firmware upload interface of the device. While the LUT is
+		enabled, the gains follow the selected LUT entry, and the
+		hardwaregain attribute of the channel returns -EBUSY. Enabling a
+		LUT that has not been loaded returns -ENODATA.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_lut
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Select the active page of the device lookup table (LUT) for the
+		filter (frequency) settings, or "off" to disable it. The contents
+		and configuration of each page are loaded through the firmware
+		upload interface of the device. While the LUT is enabled, the
+		settings it controls follow the selected LUT entry, and the
+		channel attributes that access those settings return -EBUSY.
+		Switching pages while the LUT is enabled is immediate, and only
+		the inactive page can be loaded, allowing one page to be updated
+		while the other is in use. Selecting a page that has not been
+		loaded returns -ENODATA.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_lut_available
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		List of filter LUT settings: "off", and the LUT pages, for
+		example "a" and "b".
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_low_pass_raw
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_high_pass_raw
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Unscaled setting of a controllable low pass or high pass
+		filter applied to the channel, for filters whose cutoff
+		frequency is not characterized for each setting, so that
+		filter_low_pass_3db_frequency or filter_high_pass_3db_frequency
+		cannot be provided. How the setting relates to the cutoff
+		frequency is device specific. The valid settings are given by
+		the corresponding _available attribute.
+
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_low_pass_raw_available
+What:		/sys/bus/iio/devices/iio:deviceX/out_altvoltageY_filter_high_pass_raw_available
+KernelVersion:	7.5
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Range of valid unscaled filter settings, given as
+		[min step max].
